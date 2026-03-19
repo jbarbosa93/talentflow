@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (statut) {
-      query = query.eq('statut_pipeline', statut)
+      query = query.eq('statut_pipeline', statut as any)
     }
 
     const { data, error } = await query

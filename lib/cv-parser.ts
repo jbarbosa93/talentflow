@@ -7,7 +7,8 @@
  */
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const pdfParse = (await import('pdf-parse')).default
+    const pdfModule = await import('pdf-parse')
+    const pdfParse = (pdfModule as any).default ?? pdfModule
     const data = await pdfParse(buffer)
     return data.text.replace(/\n{3,}/g, '\n\n').trim()
   } catch {
