@@ -30,16 +30,28 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/verify-email')
   const isApiRoute = pathname.startsWith('/api')
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon')
+  const isLandingPage = pathname === '/'
 
-  // Si pas authentifié et pas sur une page auth → redirection login
-  if (!user && !isAuthPage && !isApiRoute && !isPublicAsset) {
+  const isProtectedRoute =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/candidats') ||
+    pathname.startsWith('/offres') ||
+    pathname.startsWith('/pipeline') ||
+    pathname.startsWith('/entretiens') ||
+    pathname.startsWith('/messages') ||
+    pathname.startsWith('/matching') ||
+    pathname.startsWith('/integrations') ||
+    pathname.startsWith('/parametres')
+
+  // Si pas authentifié et sur une route protégée → redirection login
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Si authentifié mais email non confirmé → redirection verify-email
-  if (user && !user.email_confirmed_at && !isAuthPage && !isApiRoute && !isPublicAsset) {
+  // Si authentifié mais email non confirmé et sur une route protégée → redirection verify-email
+  if (user && !user.email_confirmed_at && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/verify-email'
     return NextResponse.redirect(url)
@@ -48,7 +60,7 @@ export async function middleware(request: NextRequest) {
   // Si authentifié avec email confirmé et sur une page auth → redirection dashboard
   if (user && user.email_confirmed_at && isAuthPage) {
     const url = request.nextUrl.clone()
-    url.pathname = '/'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 

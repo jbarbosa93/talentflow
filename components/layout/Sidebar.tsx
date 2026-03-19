@@ -9,7 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
-  { href: '/',           label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/candidats',  label: 'Candidats',        icon: Users },
   { href: '/offres',     label: 'Offres',            icon: Briefcase },
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
@@ -57,7 +57,7 @@ export function Sidebar() {
   return (
     <aside className="d-sidebar">
       {/* Logo */}
-      <Link href="/" className="d-sidebar-logo">
+      <Link href="/dashboard" className="d-sidebar-logo">
         <span className="d-sidebar-dot" />
         TalentFlow
       </Link>
