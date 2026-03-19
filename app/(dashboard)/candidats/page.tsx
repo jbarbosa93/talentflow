@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
+  MessageSquare, Phone, AlertTriangle,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -48,6 +49,8 @@ export default function CandidatsPage() {
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [showUpload, setShowUpload]       = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showMessage, setShowMessage]     = useState(false)
+  const [messageText, setMessageText]     = useState('')
 
   const [aiSearching, setAiSearching] = useState(false)
   const [aiResults, setAiResults] = useState<any[] | null>(null)
@@ -134,6 +137,26 @@ export default function CandidatsPage() {
       else ids.forEach(id => next.add(id))
       return next
     })
+  }
+
+  // Formater un numéro suisse en format international
+  const formatPhone = (tel: string) => {
+    const cleaned = tel.replace(/[\s\-().]/g, '')
+    if (cleaned.startsWith('00')) return '+' + cleaned.slice(2)
+    if (cleaned.startsWith('0') && !cleaned.startsWith('00')) return '+41' + cleaned.slice(1)
+    if (cleaned.startsWith('+')) return cleaned
+    return cleaned
+  }
+
+  const openMessages = () => {
+    const selected = sorted.filter((c: any) => selectedIds.has(c.id))
+    const avecTel = selected.filter((c: any) => c.telephone)
+    const numeros = avecTel.map((c: any) => formatPhone(c.telephone)).join(',')
+    const body = encodeURIComponent(messageText || '')
+    const url = `sms:${numeros}${body ? `?body=${body}` : ''}`
+    window.open(url, '_self')
+    setShowMessage(false)
+    setMessageText('')
   }
 
   const handleBulkDelete = () => {
@@ -316,6 +339,13 @@ export default function CandidatsPage() {
           </button>
           <button onClick={deselectAll} className="neo-btn-ghost neo-btn-sm">
             <X size={13} /> Désélectionner
+          </button>
+          <button
+            onClick={() => setShowMessage(true)}
+            className="neo-btn neo-btn-sm"
+            style={{ background: '#007AFF', color: 'white', boxShadow: 'none' }}
+          >
+            <MessageSquare size={13} /> Message ({selCount})
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -540,6 +570,118 @@ export default function CandidatsPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Message */}
+      {showMessage && (() => {
+        const selected = sorted.filter((c: any) => selectedIds.has(c.id))
+        const avecTel  = selected.filter((c: any) => c.telephone)
+        const sansTel  = selected.filter((c: any) => !c.telephone)
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+          }}>
+            <div className="neo-card" style={{ maxWidth: 500, width: '92%', padding: 0, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageSquare size={15} color="white" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Envoyer un message</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ouvre l&apos;app Messages sur votre Mac</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowMessage(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Destinataires */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Destinataires — {avecTel.length} avec numéro
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                    {avecTel.map((c: any) => (
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+                          {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
+                            <Phone size={10} /> {c.telephone}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {sansTel.length > 0 && sansTel.map((c: any) => (
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
+                          {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{c.prenom} {c.nom}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}>
+                            <AlertTriangle size={10} /> Pas de numéro — sera ignoré
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Zone message */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Message
+                  </div>
+                  <textarea
+                    value={messageText}
+                    onChange={e => setMessageText(e.target.value)}
+                    placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
+                    rows={4}
+                    style={{
+                      width: '100%', padding: '10px 14px', fontSize: 14,
+                      border: '1.5px solid var(--border)', borderRadius: 10,
+                      resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)',
+                      background: 'var(--background)', outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                    {messageText.length} caractères · Le message sera pré-rempli dans l&apos;app Messages
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => setShowMessage(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
+                    Annuler
+                  </button>
+                  <button
+                    onClick={openMessages}
+                    disabled={avecTel.length === 0}
+                    className="neo-btn"
+                    style={{ flex: 2, justifyContent: 'center', background: '#007AFF', color: 'white', boxShadow: 'none', opacity: avecTel.length === 0 ? 0.4 : 1 }}
+                  >
+                    <MessageSquare size={14} />
+                    Ouvrir dans Messages ({avecTel.length})
+                  </button>
+                </div>
+
+                {avecTel.length === 0 && (
+                  <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>
+                    Aucun candidat sélectionné n&apos;a de numéro de téléphone.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Upload dialog */}
       <Dialog open={showUpload} onOpenChange={setShowUpload}>
