@@ -74,7 +74,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="auth-left-footer">© 2025 TalentFlow. Tous droits réservés.</div>
+        <div className="auth-left-footer">© 2026 TalentFlow. Tous droits réservés.</div>
       </div>
 
       {/* Panel droit */}
