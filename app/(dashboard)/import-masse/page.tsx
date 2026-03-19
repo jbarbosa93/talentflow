@@ -8,9 +8,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const FORMATS_OK  = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const CONCURRENCY = 3   // 3 CVs en parallèle — évite le rate limit Claude (8k tokens/min)
-const MAX_RETRIES = 3   // tentatives max sur erreur 429 / réseau
+const FORMATS_OK    = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
+const CONCURRENCY   = 3    // 3 CVs en parallèle — évite le rate limit Claude (8k tokens/min)
+const MAX_RETRIES   = 4    // tentatives max sur erreur 429 / réseau / timeout
+const FETCH_TIMEOUT = 110_000 // 110s — légèrement sous maxDuration=120s de la route
 
 type FileStatus = 'pending' | 'processing' | 'success' | 'error'
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
@@ -230,15 +231,24 @@ export default function ImportMassePage() {
 
     let lastError = ''
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // AbortController pour timeout explicite côté client
+      const controller = new AbortController()
+      const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+
       try {
-        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+        const res = await fetch('/api/cv/parse', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
         const data = await res.json()
 
         // Rate limit (429) → attendre et réessayer
         if (res.status === 429) {
           const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10)
-          const wait = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 5000
-          lastError = `Rate limit — attente ${Math.round(wait / 1000)}s (tentative ${attempt}/${MAX_RETRIES})`
+          const wait = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 8000
+          lastError = `Rate limit — attente ${Math.round(wait / 1000)}s (${attempt}/${MAX_RETRIES})`
           updateJob(job.id, { error: lastError })
           await new Promise(r => setTimeout(r, wait))
           continue
@@ -261,11 +271,22 @@ export default function ImportMassePage() {
         return // succès → sortir de la boucle
 
       } catch (err: any) {
-        lastError = err.message || 'Erreur réseau'
+        clearTimeout(timeoutId)
 
-        // Erreur réseau (Failed to fetch) → petit délai avant retry
+        // Timeout → message clair + attente avant retry
+        const isTimeout = err.name === 'AbortError'
+        const isNetwork = err.message === 'Failed to fetch' || err.message?.includes('network')
+
+        if (isTimeout) {
+          lastError = `Timeout (fichier trop lourd ou serveur lent)`
+        } else if (isNetwork) {
+          lastError = `Connexion interrompue`
+        } else {
+          lastError = err.message || 'Erreur inconnue'
+        }
+
         if (attempt < MAX_RETRIES) {
-          const wait = Math.pow(2, attempt) * 2000
+          const wait = Math.pow(2, attempt) * 3000 // 6s, 12s, 24s
           updateJob(job.id, { error: `${lastError} — retry dans ${Math.round(wait / 1000)}s (${attempt}/${MAX_RETRIES})` })
           await new Promise(r => setTimeout(r, wait))
         }

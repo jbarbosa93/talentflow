@@ -9,7 +9,7 @@ import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
 import type { CandidatInsert } from '@/types/database'
 
 export const runtime = 'nodejs'   // pdf-parse nécessite Node.js runtime (pas Edge)
-export const maxDuration = 60     // 60 secondes max (analyse IA peut être lente)
+export const maxDuration = 120    // 120s max (Vercel Pro) — analyse IA + OCR scans lents
 
 export async function POST(request: NextRequest) {
   try {
