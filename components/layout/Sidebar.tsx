@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
-  Sparkles, Settings, Calendar, Mail, Plug, LogOut, UserCheck
+  Sparkles, Settings, Calendar, Mail, Plug, LogOut, UserCheck, FolderInput
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -15,7 +15,8 @@ const NAV_ITEMS = [
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
   { href: '/entretiens', label: 'Entretiens',        icon: Calendar },
   { href: '/messages',   label: 'Messages',          icon: Mail },
-  { href: '/matching',   label: 'Matching IA',       icon: Sparkles },
+  { href: '/matching',      label: 'Matching IA',       icon: Sparkles },
+  { href: '/import-masse', label: 'Import en masse',   icon: FolderInput },
 ]
 
 const FOOTER_ITEMS = [
