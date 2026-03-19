@@ -224,13 +224,15 @@ export default function ImportMassePage() {
     const t0 = Date.now()
     updateJob(job.id, { status: 'processing' })
 
-    const formData = new FormData()
-    formData.append('cv', job.file)
-    formData.append('statut', statut)
-    if (job.categorie) formData.append('categorie', job.categorie)
-
     let lastError = ''
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // ⚠️ Recréer le FormData à chaque tentative :
+      // le body fetch est "consommé" après le premier envoi → les retries échouent sinon
+      const formData = new FormData()
+      formData.append('cv', job.file)
+      formData.append('statut', statut)
+      if (job.categorie) formData.append('categorie', job.categorie)
+
       // AbortController pour timeout explicite côté client
       const controller = new AbortController()
       const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
