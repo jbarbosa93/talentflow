@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
-  LayoutGrid, Check, X, SortAsc,
+  LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -49,16 +49,42 @@ export default function CandidatsPage() {
   const [showUpload, setShowUpload]       = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
-  const { data: candidats, isLoading } = useCandidats({
-    search,
+  const [aiSearching, setAiSearching] = useState(false)
+  const [aiResults, setAiResults] = useState<any[] | null>(null)
+  const [aiInterpreted, setAiInterpreted] = useState('')
+
+  const { data: allCandidats, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
   })
   const deleteBulk = useDeleteCandidatsBulk()
 
+  // Filtrage client-side instantané
+  const candidatsFiltres = useMemo(() => {
+    const base = aiResults !== null ? aiResults : (allCandidats || [])
+    if (!search || aiResults !== null) return base as any[]
+    const q = search.toLowerCase()
+    return (base as any[]).filter((c: any) =>
+      (c.nom || '').toLowerCase().includes(q) ||
+      (c.prenom || '').toLowerCase().includes(q) ||
+      (c.titre_poste || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.formation || '').toLowerCase().includes(q) ||
+      (c.localisation || '').toLowerCase().includes(q) ||
+      (c.resume_ia || '').toLowerCase().includes(q) ||
+      (c.cv_texte_brut || '').toLowerCase().includes(q) ||
+      (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
+      (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
+      (c.experiences || []).some((e: any) =>
+        (e.poste || '').toLowerCase().includes(q) ||
+        (e.entreprise || '').toLowerCase().includes(q) ||
+        (e.description || '').toLowerCase().includes(q)
+      )
+    )
+  }, [allCandidats, search, aiResults])
+
   // Client-side sort
   const sorted = useMemo(() => {
-    if (!candidats) return []
-    const arr = [...candidats] as any[]
+    const arr = [...candidatsFiltres]
     switch (sortBy) {
       case 'date_asc':
         return arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
@@ -66,10 +92,10 @@ export default function CandidatsPage() {
         return arr.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'))
       case 'titre_az':
         return arr.sort((a, b) => (a.titre_poste || 'ZZZZ').localeCompare(b.titre_poste || 'ZZZZ', 'fr'))
-      default: // date_desc
+      default:
         return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }
-  }, [candidats, sortBy])
+  }, [candidatsFiltres, sortBy])
 
   // Group by métier
   const grouped = useMemo(() => {
@@ -137,6 +163,33 @@ export default function CandidatsPage() {
     const p = (c.prenom || '').trim()
     const n = (c.nom || '').trim()
     return `${p[0] || ''}${n[0] || ''}`.toUpperCase() || '?'
+  }
+
+  const handleAiSearch = async () => {
+    if (!search.trim()) return
+    setAiSearching(true)
+    setAiResults(null)
+    setAiInterpreted('')
+    try {
+      const res = await fetch('/api/candidats/search-ia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: search }),
+      })
+      if (!res.ok) throw new Error('Erreur recherche IA')
+      const { candidats: results, query_interpreted } = await res.json()
+      setAiResults(results || [])
+      setAiInterpreted(query_interpreted || search)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setAiSearching(false)
+    }
+  }
+
+  const clearAiSearch = () => {
+    setAiResults(null)
+    setAiInterpreted('')
   }
 
   const renderCard = (c: any) => {
@@ -231,6 +284,11 @@ export default function CandidatsPage() {
           <h1 className="d-page-title">Candidats</h1>
           <p className="d-page-sub">
             {isLoading ? '...' : `${sorted.length} candidat${sorted.length > 1 ? 's' : ''}`}
+            {aiResults !== null && (
+              <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
+                {' '}· Résultats IA
+              </span>
+            )}
             {selCount > 0 && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}· {selCount} sélectionné{selCount > 1 ? 's' : ''}
@@ -272,15 +330,42 @@ export default function CandidatsPage() {
       {/* Filters + Sort + Group */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 420 }}>
-          <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
-          <input
-            className="neo-input-soft"
-            style={{ paddingLeft: 38 }}
-            placeholder="Nom, métier, compétence, contenu du CV..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 500, display: 'flex', gap: 6 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
+            <input
+              className="neo-input-soft"
+              style={{ paddingLeft: 38, paddingRight: aiResults !== null ? 32 : 12, width: '100%' }}
+              placeholder="Nom, métier, compétence, contenu du CV..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); if (aiResults !== null) clearAiSearch() }}
+              onKeyDown={e => { if (e.key === 'Enter' && search.trim()) handleAiSearch() }}
+            />
+            {aiResults !== null && (
+              <button
+                onClick={() => { clearAiSearch(); setSearch('') }}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleAiSearch}
+            disabled={!search.trim() || aiSearching}
+            className={aiResults !== null ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
+            style={{
+              gap: 5, whiteSpace: 'nowrap', flexShrink: 0,
+              ...(aiResults !== null ? { background: 'var(--primary)', color: '#0F172A' } : {}),
+              opacity: !search.trim() ? 0.4 : 1,
+            }}
+            title="Recherche IA — cherche dans tout le contenu des CVs"
+          >
+            {aiSearching
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Analyse...</>
+              : <><Sparkles size={13} /> Recherche IA</>
+            }
+          </button>
         </div>
 
         {/* Sort */}
@@ -325,6 +410,34 @@ export default function CandidatsPage() {
           ))}
         </div>
       </div>
+
+      {/* Bannière résultat IA */}
+      {aiResults !== null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.4)',
+          borderRadius: 10, padding: '10px 16px', marginBottom: 16,
+        }}>
+          <Sparkles size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+              Recherche IA — {aiResults.length} résultat{aiResults.length !== 1 ? 's' : ''}
+            </span>
+            {aiInterpreted && (
+              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 8 }}>
+                « {aiInterpreted} »
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => { clearAiSearch(); setSearch('') }}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ fontSize: 11 }}
+          >
+            <X size={12} /> Effacer
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       {isLoading ? (

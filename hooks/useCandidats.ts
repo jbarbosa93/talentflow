@@ -6,19 +6,18 @@ import { toast } from 'sonner'
 
 const supabase = createClient()
 
-export function useCandidats(filters?: { search?: string; statut?: PipelineEtape; competence?: string }) {
+export function useCandidats(filters?: { statut?: PipelineEtape }) {
   return useQuery({
-    queryKey: ['candidats', filters],
+    queryKey: ['candidats', { statut: filters?.statut }],
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (filters?.search) params.set('search', filters.search)
       if (filters?.statut) params.set('statut', filters.statut)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
       const { candidats } = await res.json()
       return (candidats || []) as Candidat[]
     },
-    staleTime: 30_000,
+    staleTime: 60_000,
   })
 }
 
