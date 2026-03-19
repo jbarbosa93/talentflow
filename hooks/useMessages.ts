@@ -1,0 +1,71 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+
+export function useEmailTemplates() {
+  return useQuery({
+    queryKey: ['email-templates'],
+    queryFn: async () => {
+      const res = await fetch('/api/email-templates')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      return data.templates as any[]
+    },
+    staleTime: 60_000,
+  })
+}
+
+export function useCreateTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: any) => {
+      const res = await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      return data.template
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email-templates'] })
+      toast.success('Template créé')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
+
+export function useSendEmail() {
+  return useMutation({
+    mutationFn: async (body: { candidat_id?: string; destinataire: string; sujet: string; corps: string }) => {
+      const res = await fetch('/api/microsoft/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      return data
+    },
+    onSuccess: () => toast.success('Email envoyé'),
+    onError: (e: Error) => toast.error(`Erreur : ${e.message}`),
+  })
+}
+
+export function useSyncMicrosoft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/microsoft/sync', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      toast.success(`Sync terminé : ${data.processed} nouveau${data.processed > 1 ? 'x' : ''} candidat${data.processed > 1 ? 's' : ''} importé${data.processed > 1 ? 's' : ''}`)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+}
