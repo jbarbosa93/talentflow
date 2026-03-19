@@ -1,8 +1,8 @@
 'use client'
-import { Search, Bell, RefreshCw, Sparkles, Loader2, X, User, Briefcase, MapPin } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronRight } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import type { Candidat, PipelineEtape } from '@/types/database'
@@ -35,21 +35,21 @@ export function TopBar() {
   const router   = useRouter()
   const sync     = useSyncMicrosoft()
 
-  const [query, setQuery]         = useState('')
-  const [open, setOpen]           = useState(false)
+  const [query, setQuery]             = useState('')
+  const [open, setOpen]               = useState(false)
   const [aiSearching, setAiSearching] = useState(false)
-  const [aiResults, setAiResults] = useState<Candidat[] | null>(null)
-  const [aiLabel, setAiLabel]     = useState('')
-  const [focused, setFocused]     = useState(false)
-  const inputRef  = useRef<HTMLInputElement>(null)
-  const wrapRef   = useRef<HTMLDivElement>(null)
+  const [aiResults, setAiResults]     = useState<Candidat[] | null>(null)
+  const [aiLabel, setAiLabel]         = useState('')
+  const [focused, setFocused]         = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef  = useRef<HTMLDivElement>(null)
 
   const title = Object.entries(PAGE_TITLES)
     .sort((a, b) => b[0].length - a[0].length)
     .find(([key]) => pathname === key || pathname.startsWith(key + '/'))
     ?.[1] ?? 'TalentFlow'
 
-  // ── Données ──────────────────────────────────────────────────────────────
+  // ── Données ───────────────────────────────────────────────────────────────
 
   const { data: intData } = useQuery({
     queryKey: ['integrations'],
@@ -68,7 +68,6 @@ export function TopBar() {
     staleTime: 60_000,
   })
 
-  // Fetch tous les candidats (même queryKey que la page candidats → cache partagé)
   const { data: allCandidats } = useQuery({
     queryKey: ['candidats', { statut: undefined }],
     queryFn: async () => {
@@ -80,7 +79,7 @@ export function TopBar() {
     staleTime: 60_000,
   })
 
-  // ── Filtrage client-side ─────────────────────────────────────────────────
+  // ── Filtrage client-side ──────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     if (aiResults !== null) return aiResults
@@ -104,7 +103,7 @@ export function TopBar() {
     ).slice(0, 8)
   }, [allCandidats, query, aiResults])
 
-  // ── Recherche IA ─────────────────────────────────────────────────────────
+  // ── Recherche IA ──────────────────────────────────────────────────────────
 
   const handleAiSearch = useCallback(async () => {
     if (!query.trim()) return
@@ -129,75 +128,53 @@ export function TopBar() {
   }, [query])
 
   const clearSearch = () => {
-    setQuery('')
-    setAiResults(null)
-    setAiLabel('')
-    setOpen(false)
+    setQuery(''); setAiResults(null); setAiLabel(''); setOpen(false)
   }
 
-  // ── Navigation ───────────────────────────────────────────────────────────
-
-  const goTo = (id: string) => {
-    clearSearch()
-    router.push(`/candidats/${id}`)
-  }
-
-  const goToCandidats = () => {
-    clearSearch()
-    router.push('/candidats')
-  }
-
-  // ── Fermer au clic extérieur ─────────────────────────────────────────────
+  const goTo = (id: string) => { clearSearch(); router.push(`/candidats/${id}`) }
+  const goToCandidats = () => { clearSearch(); router.push('/candidats') }
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Ouvrir le dropdown quand on tape
   useEffect(() => {
     if (query.trim()) setOpen(true)
     else if (!aiResults) setOpen(false)
   }, [query, aiResults])
 
-  // ── Profil utilisateur ───────────────────────────────────────────────────
+  // ── Profil utilisateur ────────────────────────────────────────────────────
 
-  const prenom    = user?.user_metadata?.prenom || ''
-  const nom       = user?.user_metadata?.nom    || ''
-  const initiales = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
-  const displayName = prenom
-    ? `${prenom} ${nom[0] ? nom[0] + '.' : ''}`.trim()
-    : user?.email?.split('@')[0] || 'Utilisateur'
+  const prenom      = user?.user_metadata?.prenom || ''
+  const nom         = user?.user_metadata?.nom    || ''
+  const role        = user?.user_metadata?.role   || 'Recruteur'
+  const avatarUrl   = user?.user_metadata?.avatar_url || null
+  const initiales   = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
+  const fullName    = [prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Mon profil'
 
-  const showDropdown = open && (filtered.length > 0 || aiSearching || (aiResults !== null))
+  const showDropdown = open && (filtered.length > 0 || aiSearching || aiResults !== null)
 
   return (
     <header className="d-topbar">
       <h2 className="d-topbar-title">{title}</h2>
 
-      {/* ── Barre de recherche globale ── */}
-      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, margin: '0 24px' }}>
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 0,
-            background: focused ? 'white' : 'var(--background)',
-            border: `1.5px solid ${focused ? 'var(--primary)' : 'var(--border)'}`,
-            borderRadius: 10, overflow: 'hidden',
-            boxShadow: focused ? '0 0 0 3px rgba(245,167,35,0.12)' : 'none',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          {/* Icône search */}
+      {/* ── Barre de recherche ── */}
+      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, margin: '0 20px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          background: focused ? 'white' : 'var(--background)',
+          border: `1.5px solid ${focused ? 'var(--primary)' : 'var(--border)'}`,
+          borderRadius: 10, overflow: 'hidden',
+          boxShadow: focused ? '0 0 0 3px rgba(245,167,35,0.12)' : 'none',
+          transition: 'all 0.15s ease',
+        }}>
           <div style={{ padding: '0 10px 0 12px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <Search size={14} style={{ color: focused ? 'var(--primary)' : 'var(--muted)' }} />
           </div>
-
-          {/* Input */}
           <input
             ref={inputRef}
             type="text"
@@ -210,164 +187,80 @@ export function TopBar() {
               if (e.key === 'Escape') clearSearch()
             }}
             placeholder="Rechercher un candidat, compétence, métier..."
-            style={{
-              flex: 1, border: 'none', outline: 'none', background: 'transparent',
-              fontSize: 13, color: 'var(--foreground)', padding: '9px 0',
-              fontFamily: 'var(--font-body)',
-            }}
+            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--foreground)', padding: '9px 0', fontFamily: 'var(--font-body)' }}
           />
-
-          {/* Clear */}
           {query && (
-            <button
-              onMouseDown={e => { e.preventDefault(); clearSearch() }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}
-            >
+            <button onMouseDown={e => { e.preventDefault(); clearSearch() }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}>
               <X size={13} />
             </button>
           )}
-
-          {/* Bouton IA */}
           <button
             onMouseDown={e => { e.preventDefault(); if (query.trim()) handleAiSearch() }}
             disabled={!query.trim() || aiSearching}
             style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '0 12px', height: '100%', minHeight: 38,
+              display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: '100%', minHeight: 38,
               background: aiResults !== null ? 'var(--primary)' : 'var(--background)',
               border: 'none', borderLeft: '1.5px solid var(--border)',
-              cursor: query.trim() ? 'pointer' : 'default',
-              fontSize: 12, fontWeight: 700,
+              cursor: query.trim() ? 'pointer' : 'default', fontSize: 12, fontWeight: 700,
               color: aiResults !== null ? '#0F172A' : 'var(--muted)',
-              opacity: !query.trim() ? 0.4 : 1,
-              transition: 'all 0.15s',
-              fontFamily: 'var(--font-body)',
-              flexShrink: 0,
+              opacity: !query.trim() ? 0.4 : 1, transition: 'all 0.15s',
+              fontFamily: 'var(--font-body)', flexShrink: 0,
             }}
             title="Recherche IA — Entrée ou clic"
           >
-            {aiSearching
-              ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> IA</>
-              : <><Sparkles size={12} /> IA</>
-            }
+            {aiSearching ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> IA</> : <><Sparkles size={12} /> IA</>}
           </button>
         </div>
 
-        {/* ── Dropdown résultats ── */}
+        {/* Dropdown */}
         {showDropdown && (
-          <div style={{
-            position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
-            background: 'white', border: '1.5px solid var(--border)',
-            borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
-            zIndex: 999, overflow: 'hidden',
-          }}>
-            {/* Header IA */}
+          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'white', border: '1.5px solid var(--border)', borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)', zIndex: 999, overflow: 'hidden' }}>
             {aiResults !== null && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 14px', background: 'var(--primary-soft)',
-                borderBottom: '1px solid rgba(245,167,35,0.2)',
-              }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--primary-soft)', borderBottom: '1px solid rgba(245,167,35,0.2)' }}>
                 <Sparkles size={12} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
-                  {aiResults.length} résultat{aiResults.length !== 1 ? 's' : ''} IA
-                </span>
-                {aiLabel && (
-                  <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    « {aiLabel} »
-                  </span>
-                )}
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>{aiResults.length} résultat{aiResults.length !== 1 ? 's' : ''} IA</span>
+                {aiLabel && <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>« {aiLabel} »</span>}
               </div>
             )}
-
-            {/* Searching state */}
             {aiSearching && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px' }}>
                 <Loader2 size={14} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>Analyse des CVs en cours...</span>
               </div>
             )}
-
-            {/* Résultats */}
             {!aiSearching && filtered.map((c: any) => (
-              <div
-                key={c.id}
-                onMouseDown={e => { e.preventDefault(); goTo(c.id) }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 14px', cursor: 'pointer',
-                  borderBottom: '1px solid var(--border)',
-                  transition: 'background 0.1s',
-                }}
+              <div key={c.id} onMouseDown={e => { e.preventDefault(); goTo(c.id) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'white')}
               >
-                {/* Avatar */}
-                <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: 'var(--primary)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: 12, fontWeight: 800,
-                  color: '#0F172A', flexShrink: 0,
-                }}>
+                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
                   {`${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'}
                 </div>
-
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', lineHeight: 1.2 }}>
-                    {c.prenom} {c.nom}
-                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', lineHeight: 1.2 }}>{c.prenom} {c.nom}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
-                    {c.titre_poste && (
-                      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <Briefcase size={10} /> {c.titre_poste}
-                      </span>
-                    )}
-                    {c.localisation && (
-                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <MapPin size={10} /> {c.localisation}
-                      </span>
-                    )}
+                    {c.titre_poste && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Briefcase size={10} /> {c.titre_poste}</span>}
+                    {c.localisation && <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={10} /> {c.localisation}</span>}
                     {c.competences?.slice(0, 2).map((comp: string) => (
-                      <span key={comp} style={{
-                        fontSize: 10, padding: '1px 6px', borderRadius: 100,
-                        background: 'var(--primary-soft)', color: 'var(--primary)',
-                        fontWeight: 700,
-                      }}>{comp}</span>
+                      <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 100, background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 700 }}>{comp}</span>
                     ))}
                   </div>
                 </div>
-
-                {/* Statut */}
                 {c.statut_pipeline && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0,
-                    background: `${ETAPE_COLORS[c.statut_pipeline as PipelineEtape]}18`,
-                    color: ETAPE_COLORS[c.statut_pipeline as PipelineEtape],
-                  }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0, background: `${ETAPE_COLORS[c.statut_pipeline as PipelineEtape]}18`, color: ETAPE_COLORS[c.statut_pipeline as PipelineEtape] }}>
                     {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
                   </span>
                 )}
               </div>
             ))}
-
-            {/* Aucun résultat */}
             {!aiSearching && filtered.length === 0 && aiResults !== null && (
-              <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
-                Aucun candidat correspondant à cette recherche IA
-              </div>
+              <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun candidat correspondant</div>
             )}
-
-            {/* Footer — voir tous */}
             {!aiSearching && filtered.length > 0 && (
-              <div
-                onMouseDown={e => { e.preventDefault(); goToCandidats() }}
-                style={{
-                  padding: '10px 14px', textAlign: 'center',
-                  fontSize: 12, fontWeight: 700, color: 'var(--primary)',
-                  cursor: 'pointer', background: 'var(--background)',
-                  borderTop: '1px solid var(--border)',
-                }}
+              <div onMouseDown={e => { e.preventDefault(); goToCandidats() }}
+                style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', background: 'var(--background)', borderTop: '1px solid var(--border)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-soft)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--background)')}
               >
@@ -381,27 +274,57 @@ export function TopBar() {
       {/* ── Actions droite ── */}
       <div className="d-topbar-actions">
         {isMsConnected && (
-          <button
-            onClick={() => sync.mutate()}
-            disabled={sync.isPending}
-            className="d-icon-btn"
-            title="Synchroniser Microsoft"
-          >
+          <button onClick={() => sync.mutate()} disabled={sync.isPending} className="d-icon-btn" title="Synchroniser Microsoft">
             <RefreshCw style={{ width: 14, height: 14 }} className={sync.isPending ? 'animate-spin' : ''} />
           </button>
         )}
-        <button className="d-icon-btn">
-          <Bell style={{ width: 14, height: 14 }} />
-        </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
-          <div className="d-topbar-avatar">{initiales}</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1 }}>
-              {displayName}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>Recruteur</span>
+
+        {/* Profil recruteur — cliquable */}
+        <button
+          onClick={() => router.push('/parametres/profil')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: pathname.startsWith('/parametres/profil') ? 'var(--primary-soft)' : 'transparent',
+            border: `1.5px solid ${pathname.startsWith('/parametres/profil') ? 'var(--primary)' : 'var(--border)'}`,
+            borderRadius: 10, padding: '5px 10px 5px 6px',
+            cursor: 'pointer', transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            if (!pathname.startsWith('/parametres/profil')) {
+              e.currentTarget.style.background = 'var(--background)'
+              e.currentTarget.style.borderColor = 'var(--primary)'
+            }
+          }}
+          onMouseLeave={e => {
+            if (!pathname.startsWith('/parametres/profil')) {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.borderColor = 'var(--border)'
+            }
+          }}
+        >
+          {/* Avatar */}
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+            background: avatarUrl ? 'transparent' : 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 12, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+          }}>
+            {avatarUrl
+              ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initiales
+            }
           </div>
-        </div>
+
+          {/* Nom complet + rôle */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
+              {fullName}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap' }}>{role}</span>
+          </div>
+
+          <ChevronRight size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        </button>
       </div>
 
       <style>{`
