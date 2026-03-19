@@ -37,10 +37,11 @@ export function Sidebar() {
     staleTime: 60_000,
   })
 
-  const prenom  = user?.user_metadata?.prenom || ''
-  const nom     = user?.user_metadata?.nom    || ''
-  const fullName = [prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Utilisateur'
-  const initiales = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || fullName[0]?.toUpperCase() || 'U'
+  const prenom     = user?.user_metadata?.prenom     || ''
+  const nom        = user?.user_metadata?.nom        || ''
+  const entreprise = user?.user_metadata?.entreprise || ''
+  const fullName   = [prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Utilisateur'
+  const initiales  = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || fullName[0]?.toUpperCase() || 'U'
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
@@ -57,9 +58,16 @@ export function Sidebar() {
   return (
     <aside className="d-sidebar">
       {/* Logo */}
-      <Link href="/dashboard" className="d-sidebar-logo">
-        <span className="d-sidebar-dot" />
-        TalentFlow
+      <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="d-sidebar-dot" />
+          TalentFlow
+        </div>
+        {entreprise && (
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 20, marginTop: 1 }}>
+            {entreprise}
+          </span>
+        )}
       </Link>
 
       {/* Main nav */}
@@ -106,7 +114,12 @@ export function Sidebar() {
             <div className="d-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {fullName}
             </div>
-            <div className="d-user-role">Recruteur</div>
+            <div className="d-user-role">Consultant</div>
+            {entreprise && (
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                {entreprise}
+              </div>
+            )}
           </div>
           <button
             onClick={handleLogout}

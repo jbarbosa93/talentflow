@@ -149,9 +149,10 @@ export function TopBar() {
 
   // ── Profil utilisateur ────────────────────────────────────────────────────
 
-  const prenom      = user?.user_metadata?.prenom || ''
-  const nom         = user?.user_metadata?.nom    || ''
-  const role        = user?.user_metadata?.role   || 'Recruteur'
+  const prenom      = user?.user_metadata?.prenom     || ''
+  const nom         = user?.user_metadata?.nom        || ''
+  const role        = user?.user_metadata?.role       || 'Consultant'
+  const entreprise  = user?.user_metadata?.entreprise || ''
   const avatarUrl   = user?.user_metadata?.avatar_url || null
   const initiales   = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
   const fullName    = [prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Mon profil'
@@ -315,12 +316,15 @@ export function TopBar() {
             }
           </div>
 
-          {/* Nom complet + rôle */}
+          {/* Nom complet + rôle + entreprise */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
               {fullName}
             </span>
             <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap' }}>{role}</span>
+            {entreprise && (
+              <span style={{ fontSize: 10, color: 'var(--primary)', marginTop: 1, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>
+            )}
           </div>
 
           <ChevronRight size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />

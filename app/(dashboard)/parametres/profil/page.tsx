@@ -33,7 +33,7 @@ export default function ProfilPage() {
 
   // ── État du formulaire ────────────────────────────────────────────────────
   const [form, setForm] = useState({
-    prenom: '', nom: '', telephone: '', date_naissance: '',
+    prenom: '', nom: '', entreprise: '', telephone: '', date_naissance: '',
     localisation: '', role: '', bio: '',
   })
   const [emailForm, setEmailForm]   = useState({ email: '', confirm: '' })
@@ -62,10 +62,11 @@ export default function ProfilPage() {
     setForm({
       prenom:         m.prenom         || '',
       nom:            m.nom            || '',
+      entreprise:     m.entreprise     || '',
       telephone:      m.telephone      || '',
       date_naissance: m.date_naissance || '',
       localisation:   m.localisation   || '',
-      role:           m.role           || 'Recruteur',
+      role:           m.role           || 'Consultant',
       bio:            m.bio            || '',
     })
     setEmailForm(prev => ({ ...prev, email: user.email || '' }))
@@ -214,7 +215,10 @@ export default function ProfilPage() {
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
             {[form.prenom, form.nom].filter(Boolean).join(' ') || 'Mon Profil'}
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>{form.role || 'Recruteur'}</p>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>{form.role || 'Consultant'}</p>
+          {form.entreprise && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1, fontWeight: 600 }}>{form.entreprise}</p>
+          )}
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{user?.email}</p>
           {avatarFile && (
             <p style={{ fontSize: 11, color: 'var(--primary)', marginTop: 6, fontWeight: 600 }}>
@@ -256,6 +260,13 @@ export default function ProfilPage() {
               onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
           </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}><Briefcase size={10} style={{ display: 'inline', marginRight: 4 }} />Entreprise</label>
+            <input style={inputStyle} value={form.entreprise} onChange={e => setForm(f => ({ ...f, entreprise: e.target.value }))}
+              placeholder="Nom de votre agence ou entreprise"
+              onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
+              onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
+          </div>
           <div>
             <label style={labelStyle}><Phone size={10} style={{ display: 'inline', marginRight: 4 }} />Téléphone</label>
             <input style={inputStyle} value={form.telephone} onChange={e => setForm(f => ({ ...f, telephone: e.target.value }))}
@@ -280,7 +291,7 @@ export default function ProfilPage() {
           <div>
             <label style={labelStyle}><Briefcase size={10} style={{ display: 'inline', marginRight: 4 }} />Rôle / Titre</label>
             <input style={inputStyle} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-              placeholder="ex: Recruteur Senior, DRH..."
+              placeholder="ex: Consultant Senior, DRH..."
               onFocus={e => (e.target.style.borderColor = 'var(--primary)')}
               onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
           </div>

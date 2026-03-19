@@ -13,7 +13,7 @@ const PWD_RULES = [
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ prenom: '', nom: '', email: '', password: '', confirmPwd: '' })
+  const [form, setForm] = useState({ prenom: '', nom: '', entreprise: '', email: '', password: '', confirmPwd: '' })
   const [showPwd, setShowPwd]     = useState(false)
   const [showConf, setShowConf]   = useState(false)
   const [loading, setLoading]     = useState(false)
@@ -45,7 +45,8 @@ export default function RegisterPage() {
         data: {
           prenom: form.prenom.trim(),
           nom: form.nom.trim(),
-          role: 'recruteur',
+          entreprise: form.entreprise.trim(),
+          role: 'Consultant',
         },
         emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
@@ -136,6 +137,19 @@ export default function RegisterPage() {
                   autoComplete="family-name"
                 />
               </div>
+            </div>
+
+            <div className="auth-field">
+              <label className="auth-label">Entreprise</label>
+              <input
+                type="text"
+                className="auth-input"
+                placeholder="Nom de votre agence ou entreprise"
+                value={form.entreprise}
+                onChange={set('entreprise')}
+                required
+                autoComplete="organization"
+              />
             </div>
 
             <div className="auth-field">
