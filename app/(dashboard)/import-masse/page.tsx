@@ -1,22 +1,23 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Upload, FolderOpen, Play, Pause, RotateCcw, Download,
   CheckCircle, XCircle, Loader2, FileText, AlertTriangle,
-  Zap, Clock, TrendingUp, X, Tag,
+  Zap, Clock, TrendingUp, X, Tag, Copy, AlertCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const FORMATS_OK    = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const CONCURRENCY   = 3          // 3 CVs en parallèle — évite le rate limit Claude
-const MAX_RETRIES   = 4          // tentatives max sur erreur 429 / réseau / timeout
-const FETCH_TIMEOUT = 110_000    // 110s — légèrement sous maxDuration=120s de la route
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024  // 4.5 Mo — limite Vercel
 
-type FileStatus = 'pending' | 'processing' | 'success' | 'error'
+type FileStatus = 'pending' | 'processing' | 'success' | 'error' | 'doublon'
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
 
+interface CandidatExistant {
+  id: string; prenom: string; nom: string; email?: string
+  titre_poste?: string; created_at: string
+}
 interface FileJob {
   id: string
   file: File
@@ -24,8 +25,10 @@ interface FileJob {
   error?: string
   candidatNom?: string
   duration?: number
-  categorie?: string   // nom du sous-dossier (ex: ARCHITECTURE)
-  relativePath?: string // chemin relatif complet
+  categorie?: string
+  relativePath?: string
+  candidatExistant?: CandidatExistant  // si doublon détecté
+  analyseNouv?: { prenom?: string; nom?: string; email?: string; titre_poste?: string } // données du nouveau
 }
 
 const ETAPES: { value: PipelineEtape; label: string }[] = [
@@ -127,23 +130,21 @@ export default function ImportMassePage() {
   const [speed, setSpeed] = useState(0)
   const [eta, setEta] = useState(0)
 
-  const pausedRef = useRef(false)
-  const runningRef = useRef(false)
-  const startTimeRef = useRef<number>(0)
-  const completedCountRef = useRef(0)
+  // Ces refs sont maintenant gérés dans la section Web Worker ci-dessous
 
   const inputRef  = useRef<HTMLInputElement>(null)
   const folderRef = useRef<HTMLInputElement>(null)
   const [folderKey, setFolderKey] = useState(0) // reset input après chaque sélection
 
   // Stats
-  const total = jobs.length
-  const succeeded = jobs.filter(j => j.status === 'success').length
-  const failed = jobs.filter(j => j.status === 'error').length
+  const total      = jobs.length
+  const succeeded  = jobs.filter(j => j.status === 'success').length
+  const failed     = jobs.filter(j => j.status === 'error').length
+  const doublons   = jobs.filter(j => j.status === 'doublon').length
   const processing = jobs.filter(j => j.status === 'processing').length
-  const pending = jobs.filter(j => j.status === 'pending').length
-  const completed = succeeded + failed
-  const progress = total > 0 ? Math.round((completed / total) * 100) : 0
+  const pending    = jobs.filter(j => j.status === 'pending').length
+  const completed  = succeeded + failed + doublons
+  const progress   = total > 0 ? Math.round((completed / total) * 100) : 0
 
   // Catégories uniques
   const categories = Array.from(new Set(jobs.map(j => j.categorie).filter(Boolean))) as string[]
@@ -221,142 +222,93 @@ export default function ImportMassePage() {
     if (allItems.length > 0) addFilesWithMeta(allItems)
   }, [addFiles, addFilesWithMeta])
 
-  const updateJob = (id: string, patch: Partial<FileJob>) => {
-    setJobs(prev => prev.map(j => j.id === id ? { ...j, ...patch } : j))
-  }
+  const workerRef      = useRef<Worker | null>(null)
+  const startTimeRef   = useRef<number>(0)
+  const completedRef   = useRef(0)
 
-  const processJob = async (job: FileJob) => {
-    const t0 = Date.now()
-    updateJob(job.id, { status: 'processing' })
+  // Écoute les messages du Web Worker
+  useEffect(() => {
+    return () => { workerRef.current?.terminate() }
+  }, [])
 
-    let lastError = ''
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      // ⚠️ Recréer le FormData à chaque tentative :
-      // le body fetch est "consommé" après le premier envoi → les retries échouent sinon
-      const formData = new FormData()
-      formData.append('cv', job.file)
-      formData.append('statut', statut)
-      if (job.categorie) formData.append('categorie', job.categorie)
-
-      // AbortController pour timeout explicite côté client
-      const controller = new AbortController()
-      const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
-
-      try {
-        const res = await fetch('/api/cv/parse', {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        })
-        clearTimeout(timeoutId)
-
-        // Lire la réponse selon le Content-Type (évite le crash si ce n'est pas du JSON)
-        const ct = res.headers.get('content-type') || ''
-        let data: any = {}
-        if (ct.includes('application/json')) {
-          data = await res.json()
-        } else {
-          const text = await res.text()
-          if (res.status === 413) {
-            updateJob(job.id, { status: 'error', error: 'Fichier trop lourd (> 4.5 Mo)', duration: Date.now() - t0 })
-            completedCountRef.current++
-            return // pas de retry
-          }
-          throw new Error(text.slice(0, 120) || `Erreur HTTP ${res.status}`)
-        }
-
-        // Rate limit (429) → attendre et réessayer
-        if (res.status === 429) {
-          const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10)
-          const wait = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 8000
-          lastError = `Rate limit — attente ${Math.round(wait / 1000)}s (${attempt}/${MAX_RETRIES})`
-          updateJob(job.id, { error: lastError })
-          await new Promise(r => setTimeout(r, wait))
-          continue
-        }
-
-        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
-
-        const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
-        updateJob(job.id, { status: 'success', candidatNom: nom || 'Candidat créé', duration: Date.now() - t0, error: undefined })
-        completedCountRef.current++
-
-        // Mise à jour vitesse/ETA
-        const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60
-        if (elapsed > 0) {
-          const spd = completedCountRef.current / elapsed
-          setSpeed(spd)
-          const rem = jobs.filter(j => j.status === 'pending').length
-          setEta(rem / spd * 60)
-        }
-        return // succès → sortir de la boucle
-
-      } catch (err: any) {
-        clearTimeout(timeoutId)
-
-        // Timeout → message clair + attente avant retry
-        const isTimeout = err.name === 'AbortError'
-        const isNetwork = err.message === 'Failed to fetch' || err.message?.includes('network')
-
-        if (isTimeout) {
-          lastError = `Timeout (fichier trop lourd ou serveur lent)`
-        } else if (isNetwork) {
-          lastError = `Connexion interrompue`
-        } else {
-          lastError = err.message || 'Erreur inconnue'
-        }
-
-        if (attempt < MAX_RETRIES) {
-          const wait = Math.pow(2, attempt) * 3000 // 6s, 12s, 24s
-          updateJob(job.id, { error: `${lastError} — retry dans ${Math.round(wait / 1000)}s (${attempt}/${MAX_RETRIES})` })
-          await new Promise(r => setTimeout(r, wait))
-        }
+  const bindWorker = (w: Worker) => {
+    w.onmessage = (e) => {
+      const { type, id, candidatNom, candidatExistant, analyse, error, duration } = e.data
+      switch (type) {
+        case 'JOB_START':
+          setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'processing', error: undefined } : j))
+          break
+        case 'JOB_SUCCESS':
+          setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'success', candidatNom, duration, error: undefined } : j))
+          completedRef.current++
+          updateSpeedEta()
+          break
+        case 'JOB_DUPLICATE':
+          setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'doublon', candidatExistant, analyseNouv: analyse, duration } : j))
+          completedRef.current++
+          updateSpeedEta()
+          break
+        case 'JOB_ERROR':
+          setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'error', error, duration } : j))
+          completedRef.current++
+          updateSpeedEta()
+          break
+        case 'JOB_WAITING':
+          setJobs(prev => prev.map(j => j.id === id ? { ...j, error } : j))
+          break
+        case 'DONE':
+          setRunning(false)
+          setDone(true)
+          toast.success(`Import terminé — ${completedRef.current} CVs traités`)
+          break
       }
     }
-
-    // Toutes les tentatives épuisées
-    updateJob(job.id, { status: 'error', error: lastError, duration: Date.now() - t0 })
-    completedCountRef.current++
   }
 
-  const startProcessing = async () => {
+  const updateSpeedEta = () => {
+    setJobs(prev => {
+      const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60
+      if (elapsed > 0) {
+        const spd = completedRef.current / elapsed
+        setSpeed(spd)
+        const rem = prev.filter(j => j.status === 'pending' || j.status === 'processing').length
+        setEta(rem / spd * 60)
+      }
+      return prev
+    })
+  }
+
+  const startProcessing = () => {
     const pendingJobs = jobs.filter(j => j.status === 'pending')
     if (pendingJobs.length === 0) return
 
+    // Créer / recréer le worker
+    workerRef.current?.terminate()
+    const w = new Worker('/import-worker.js')
+    workerRef.current = w
+    bindWorker(w)
+
     setRunning(true)
     setDone(false)
-    pausedRef.current = false
-    runningRef.current = true
     startTimeRef.current = Date.now()
-    completedCountRef.current = completed
+    completedRef.current = jobs.filter(j => j.status === 'success' || j.status === 'error' || j.status === 'doublon').length
 
-    const queue = [...pendingJobs]
-
-    const worker = async () => {
-      while (queue.length > 0 && runningRef.current) {
-        if (pausedRef.current) {
-          await new Promise(resolve => setTimeout(resolve, 500))
-          continue
-        }
-        const job = queue.shift()
-        if (job) await processJob(job)
-      }
-    }
-
-    const workers = Array.from({ length: Math.min(CONCURRENCY, pendingJobs.length) }, worker)
-    await Promise.all(workers)
-
-    if (runningRef.current) {
-      setRunning(false)
-      setDone(true)
-      runningRef.current = false
-      toast.success(`Import terminé — ${completedCountRef.current} CVs traités`)
-    }
+    w.postMessage({
+      type: 'START',
+      payload: {
+        jobs: pendingJobs.map(j => ({
+          id: j.id,
+          file: j.file,
+          statut,
+          categorie: j.categorie,
+        })),
+      },
+    })
   }
 
-  const pause  = () => { pausedRef.current = true; setRunning(false) }
-  const resume = () => { pausedRef.current = false; setRunning(true) }
-  const stop   = () => { runningRef.current = false; pausedRef.current = false; setRunning(false) }
+  const pause  = () => { workerRef.current?.postMessage({ type: 'PAUSE' });  setRunning(false) }
+  const resume = () => { workerRef.current?.postMessage({ type: 'RESUME' }); setRunning(true) }
+  const stop   = () => { workerRef.current?.postMessage({ type: 'STOP' }); workerRef.current?.terminate(); workerRef.current = null; setRunning(false) }
 
   const reset = () => {
     stop()
@@ -365,7 +317,7 @@ export default function ImportMassePage() {
     setSpeed(0)
     setEta(0)
     setCatFilter(null)
-    completedCountRef.current = 0
+    completedRef.current = 0
     catColorMap.clear()
   }
 
@@ -374,13 +326,52 @@ export default function ImportMassePage() {
     setDone(false)
   }
 
+  // Résolution doublon : garder existant (ignorer), remplacer, ou garder les deux
+  const resolveDoublon = async (job: FileJob, action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
+    if (action === 'ignorer') {
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'error', error: 'Ignoré — doublon conservé' } : j))
+    } else if (action === 'garder_les_deux') {
+      // Forcer l'insertion en appelant l'API avec un flag
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'processing' } : j))
+      const formData = new FormData()
+      formData.append('cv', job.file)
+      formData.append('statut', statut)
+      formData.append('force_insert', 'true')
+      if (job.categorie) formData.append('categorie', job.categorie)
+      try {
+        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+        const data = await res.json()
+        const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'success', candidatNom: nom || 'Candidat créé' } : j))
+      } catch {
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'error', error: 'Erreur insertion forcée' } : j))
+      }
+    } else if (action === 'remplacer') {
+      if (!job.candidatExistant) return
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'processing' } : j))
+      const formData = new FormData()
+      formData.append('cv', job.file)
+      formData.append('statut', statut)
+      formData.append('replace_id', job.candidatExistant.id)
+      if (job.categorie) formData.append('categorie', job.categorie)
+      try {
+        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+        const data = await res.json()
+        const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'success', candidatNom: nom + ' (remplacé)' } : j))
+      } catch {
+        setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'error', error: 'Erreur remplacement' } : j))
+      }
+    }
+  }
+
   const exportCSV = () => {
     const rows = [['Fichier', 'Catégorie', 'Statut', 'Candidat', 'Durée', 'Erreur']]
     jobs.forEach(j => rows.push([
       j.file.name,
       j.categorie || '',
       j.status,
-      j.candidatNom || '',
+      j.candidatNom || (j.status === 'doublon' ? `DOUBLON: ${j.candidatExistant?.prenom} ${j.candidatExistant?.nom}` : ''),
       j.duration ? formatDuration(j.duration) : '',
       j.error || '',
     ]))
@@ -392,9 +383,12 @@ export default function ImportMassePage() {
     URL.revokeObjectURL(url)
   }
 
+  const [doubFilter, setDoubFilter] = useState(false)
+
   const filteredJobs = (() => {
     let list = jobs
     if (errorFilter) list = list.filter(j => j.status === 'error')
+    if (doubFilter)  list = list.filter(j => j.status === 'doublon')
     if (catFilter)   list = list.filter(j => j.categorie === catFilter)
     return list.slice(-100).reverse()
   })()
@@ -439,12 +433,13 @@ export default function ImportMassePage() {
 
       {/* Stats cards */}
       {total > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 24 }}>
           {[
             { label: 'Total',      value: total,      color: 'var(--foreground)', icon: <FileText size={14} /> },
             { label: 'En attente', value: pending,     color: '#6B7280',          icon: <Clock size={14} /> },
             { label: 'En cours',   value: processing,  color: '#3B82F6',          icon: <Loader2 size={14} style={{ animation: processing > 0 ? 'spin 1s linear infinite' : undefined }} /> },
             { label: 'Importés',   value: succeeded,   color: '#16A34A',          icon: <CheckCircle size={14} /> },
+            { label: 'Doublons',   value: doublons,    color: '#F59E0B',          icon: <Copy size={14} /> },
             { label: 'Erreurs',    value: failed,      color: '#DC2626',          icon: <XCircle size={14} /> },
           ].map(s => (
             <div key={s.label} style={{
@@ -641,7 +636,7 @@ export default function ImportMassePage() {
           <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
-              Import de {total.toLocaleString('fr-FR')} fichiers — estimation : {formatETA(total / CONCURRENCY * 12)}
+              Import de {total.toLocaleString('fr-FR')} fichiers — estimation : {formatETA(total / 3 * 12)}
             </div>
             <div style={{ fontSize: 12, color: '#78350F' }}>
               Chaque CV est analysé par IA (5-15s). Gardez cet onglet ouvert ou mettez sur pause et reprenez plus tard.
@@ -677,6 +672,20 @@ export default function ImportMassePage() {
                   {errorFilter ? 'Voir tout' : `Voir erreurs (${failed})`}
                 </button>
               )}
+              {doublons > 0 && (
+                <button
+                  onClick={() => { setDoubFilter(v => !v); setErrorFilter(false) }}
+                  style={{
+                    fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                    border: '1.5px solid', borderColor: doubFilter ? '#F59E0B' : 'var(--border)',
+                    background: doubFilter ? '#FEF9EC' : 'white', color: doubFilter ? '#D97706' : 'var(--muted)',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Copy size={11} style={{ display: 'inline', marginRight: 4 }} />
+                  {doubFilter ? 'Voir tout' : `Doublons à traiter (${doublons})`}
+                </button>
+              )}
             </div>
           </div>
 
@@ -685,50 +694,84 @@ export default function ImportMassePage() {
               const catColor = job.categorie ? getCatColor(job.categorie) : undefined
               return (
                 <div key={job.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
                   borderBottom: '1px solid var(--border)',
-                  background: job.status === 'success' ? '#F0FDF4'
-                    : job.status === 'error' ? '#FEF2F2'
+                  background: job.status === 'success'    ? '#F0FDF4'
+                    : job.status === 'error'      ? '#FEF2F2'
+                    : job.status === 'doublon'    ? '#FFFBEB'
                     : job.status === 'processing' ? 'var(--primary-soft)'
                     : 'transparent',
                 }}>
-                  {/* Icône statut */}
-                  <div style={{ flexShrink: 0 }}>
-                    {job.status === 'pending'    && <FileText size={14} color="var(--muted)" />}
-                    {job.status === 'processing' && <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
-                    {job.status === 'success'    && <CheckCircle size={14} color="#16A34A" />}
-                    {job.status === 'error'      && <XCircle size={14} color="#DC2626" />}
+                  {/* Ligne principale */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+                    {/* Icône statut */}
+                    <div style={{ flexShrink: 0 }}>
+                      {job.status === 'pending'    && <FileText size={14} color="var(--muted)" />}
+                      {job.status === 'processing' && <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
+                      {job.status === 'success'    && <CheckCircle size={14} color="#16A34A" />}
+                      {job.status === 'error'      && <XCircle size={14} color="#DC2626" />}
+                      {job.status === 'doublon'    && <Copy size={14} color="#F59E0B" />}
+                    </div>
+
+                    {/* Nom fichier + info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {job.file.name}
+                      </div>
+                      <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : job.status === 'doublon' ? '#D97706' : 'var(--muted)' }}>
+                        {job.status === 'success'    && job.candidatNom}
+                        {job.status === 'error'      && job.error}
+                        {job.status === 'pending'    && formatSize(job.file.size)}
+                        {job.status === 'processing' && (job.error || 'Analyse IA en cours...')}
+                        {job.status === 'doublon'    && `Doublon — existe déjà : ${job.candidatExistant?.prenom} ${job.candidatExistant?.nom}`}
+                      </div>
+                    </div>
+
+                    {/* Badge catégorie */}
+                    {job.categorie && (
+                      <span style={{ flexShrink: 0, padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700, background: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}>
+                        {job.categorie}
+                      </span>
+                    )}
+
+                    {/* Durée */}
+                    {job.duration && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+                        {formatDuration(job.duration)}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Nom fichier + candidat */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {job.file.name}
+                  {/* Panneau résolution doublon */}
+                  {job.status === 'doublon' && job.candidatExistant && (
+                    <div style={{ margin: '0 20px 12px', background: 'white', border: '1.5px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                        <div style={{ flex: 1, fontSize: 11 }}>
+                          <div style={{ fontWeight: 700, color: '#92400E', marginBottom: 3 }}>Existant dans la base</div>
+                          <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.candidatExistant.prenom} {job.candidatExistant.nom}</div>
+                          {job.candidatExistant.email && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.email}</div>}
+                          {job.candidatExistant.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.titre_poste}</div>}
+                          <div style={{ color: 'var(--muted)', marginTop: 2 }}>Ajouté le {new Date(job.candidatExistant.created_at).toLocaleDateString('fr-FR')}</div>
+                        </div>
+                        <div style={{ flex: 1, fontSize: 11 }}>
+                          <div style={{ fontWeight: 700, color: '#1D4ED8', marginBottom: 3 }}>Nouveau fichier</div>
+                          <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.analyseNouv?.prenom} {job.analyseNouv?.nom}</div>
+                          {job.analyseNouv?.email && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.email}</div>}
+                          {job.analyseNouv?.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.titre_poste}</div>}
+                          <div style={{ color: 'var(--muted)', marginTop: 2 }}>{job.file.name}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Garder l'existant
+                        </button>
+                        <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Remplacer par le nouveau
+                        </button>
+                        <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Garder les deux
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : 'var(--muted)' }}>
-                      {job.status === 'success'    && job.candidatNom}
-                      {job.status === 'error'      && job.error}
-                      {job.status === 'pending'    && formatSize(job.file.size)}
-                      {job.status === 'processing' && 'Analyse IA en cours...'}
-                    </div>
-                  </div>
-
-                  {/* Badge catégorie */}
-                  {job.categorie && (
-                    <span style={{
-                      flexShrink: 0,
-                      padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700,
-                      background: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40`,
-                    }}>
-                      {job.categorie}
-                    </span>
-                  )}
-
-                  {/* Durée */}
-                  {job.duration && (
-                    <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
-                      {formatDuration(job.duration)}
-                    </span>
                   )}
                 </div>
               )

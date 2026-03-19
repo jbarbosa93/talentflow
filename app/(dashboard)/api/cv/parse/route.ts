@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('cv') as File | null
     const statutPipeline = (formData.get('statut') as string) || 'nouveau'
-    const offreId = formData.get('offre_id') as string | null
+    const offreId        = formData.get('offre_id') as string | null
+    const forceInsert    = formData.get('force_insert') === 'true'
+    const replaceId      = formData.get('replace_id') as string | null
 
     if (!file) {
       return NextResponse.json(
@@ -105,7 +107,36 @@ export async function POST(request: NextRequest) {
       cvUrl = urlData?.signedUrl || null
     }
 
-    // 8. Créer le candidat en base
+    // 8. Supprimer l'existant si "remplacer"
+    if (replaceId) {
+      await adminClient.from('candidats').delete().eq('id', replaceId)
+    }
+
+    // 8b. Vérifier les doublons (sauf si force_insert ou replace)
+    let candidatExistant: any = null
+    if (!forceInsert && !replaceId && analyse.email) {
+      const { data: byEmail } = await adminClient
+        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .eq('email', analyse.email).maybeSingle()
+      candidatExistant = byEmail
+    }
+    if (!forceInsert && !replaceId && !candidatExistant && analyse.nom && analyse.prenom) {
+      const { data: byName } = await adminClient
+        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
+      candidatExistant = byName
+    }
+    if (candidatExistant) {
+      console.log(`[CV Parse] Doublon détecté : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      return NextResponse.json({
+        isDuplicate: true,
+        candidatExistant,
+        analyse,
+        message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
+      })
+    }
+
+    // 9. Créer le candidat en base
     console.log('[CV Parse] Création du candidat en base...')
     const nouveauCandidat: CandidatInsert = {
       nom: analyse.nom || 'Candidat',
@@ -149,7 +180,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 9. Si une offre est spécifiée, créer l'entrée pipeline
+    // 10. Si une offre est spécifiée, créer l'entrée pipeline
     if (offreId && candidat) {
       await adminClient
         .from('pipeline')
