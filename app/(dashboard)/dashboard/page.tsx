@@ -7,6 +7,8 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
 import { useQueryClient } from '@tanstack/react-query'
+import NumberTicker from '@/components/magicui/number-ticker'
+import BlurFade from '@/components/magicui/blur-fade'
 
 const ETAPE_BADGE: Record<string, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
@@ -90,29 +92,38 @@ export default function DashboardPage() {
     <div className="d-page">
 
       {/* ── Header ── */}
-      <div className="d-page-header">
-        <div>
-          <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
-          <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
+      <BlurFade delay={0} inView>
+        <div className="d-page-header">
+          <div>
+            <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
+            <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
+          </div>
+          <button onClick={() => setShowUpload(true)} className="neo-btn">
+            <Upload style={{ width: 15, height: 15 }} />
+            Importer un CV
+          </button>
         </div>
-        <button onClick={() => setShowUpload(true)} className="neo-btn">
-          <Upload style={{ width: 15, height: 15 }} />
-          Importer un CV
-        </button>
-      </div>
+      </BlurFade>
 
       {/* ── KPI row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {kpis.map((kpi, i) => (
-          <div key={i} className={`neo-kpi${kpi.active ? ' active' : ''}`}>
-            <span style={{ fontSize: 28 }}>{kpi.emoji}</span>
-            <div className="neo-kpi-value">{kpi.value}</div>
-            <div className="neo-kpi-label">{kpi.label}</div>
-          </div>
+          <BlurFade key={i} delay={0.1 + i * 0.05} inView>
+            <div className={`neo-kpi${kpi.active ? ' active' : ''}`}>
+              <span style={{ fontSize: 28 }}>{kpi.emoji}</span>
+              <div className="neo-kpi-value">
+                {typeof kpi.value === 'number'
+                  ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.05} />
+                  : kpi.value}
+              </div>
+              <div className="neo-kpi-label">{kpi.label}</div>
+            </div>
+          </BlurFade>
         ))}
       </div>
 
       {/* ── Two column: pipeline + feature ── */}
+      <BlurFade delay={0.35} inView>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
 
         {/* Pipeline funnel */}
@@ -164,8 +175,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      </BlurFade>
 
       {/* ── Two column: quick actions + recent candidates ── */}
+      <BlurFade delay={0.45} inView>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
 
         {/* Quick actions */}
@@ -230,6 +243,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      </BlurFade>
 
       {/* Upload dialog */}
       <Dialog open={showUpload} onOpenChange={setShowUpload}>

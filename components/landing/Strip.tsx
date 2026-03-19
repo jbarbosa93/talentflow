@@ -1,3 +1,5 @@
+import Marquee from "@/components/magicui/marquee"
+
 const items = [
   { bold: "70%",    text: "de temps gagné" },
   { bold: "3×",     text: "plus rapide" },
@@ -9,15 +11,15 @@ const items = [
 
 export default function Strip() {
   return (
-    <div className="l-strip">
-      <div className="l-strip-inner">
-        {[...items, ...items].map((item, i) => (
+    <div className="l-strip" style={{ overflow: "hidden" }}>
+      <Marquee pauseOnHover repeat={4} className="[--duration:30s] [--gap:0rem] py-0">
+        {items.map((item, i) => (
           <span key={i} className="l-strip-item">
             <b>{item.bold}</b> {item.text}
             <span className="l-strip-sep">✦</span>
           </span>
         ))}
-      </div>
+      </Marquee>
     </div>
   )
 }
