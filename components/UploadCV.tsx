@@ -21,8 +21,9 @@ interface FileItem {
   candidatNom?: string
 }
 
-const FORMATS_OK = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const CONCURRENCY = 3
+const FORMATS_OK   = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
+const CONCURRENCY  = 2
+const FETCH_TIMEOUT = 54_000  // 54s — sous le timeout global route (55s) et Vercel (60s)
 
 const ETAPES: { value: PipelineEtape; label: string }[] = [
   { value: 'nouveau',   label: 'Nouveau' },
@@ -112,15 +113,22 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
       formData.append('statut', statut)
       if (offreId) formData.append('offre_id', offreId)
 
+      const controller = new AbortController()
+      const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+
       try {
-        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur serveur')
+        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData, signal: controller.signal })
+        clearTimeout(timeoutId)
+        const ct   = res.headers.get('content-type') || ''
+        const data = ct.includes('application/json') ? await res.json() : {}
+        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
         const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
         updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé' })
         lastSuccessCandidat = data.candidat
       } catch (err: any) {
-        updateFile(idx, { status: 'error', error: err.message || 'Erreur inconnue' })
+        clearTimeout(timeoutId)
+        const msg = err.name === 'AbortError' ? 'Timeout (54s) — réessayez' : (err.message || 'Erreur inconnue')
+        updateFile(idx, { status: 'error', error: msg })
       }
     }
 
