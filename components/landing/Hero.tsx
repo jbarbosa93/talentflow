@@ -26,12 +26,12 @@ export default function Hero() {
         </p>
 
         <div className="l-actions">
-          <Link href="/candidats" className="l-btn-main">
+          <Link href="/register" className="l-btn-main">
             Commencer gratuitement
           </Link>
-          <a href="#fonctionnalites" className="l-btn-ghost">
-            Voir comment ça marche ↗
-          </a>
+          <Link href="/login" className="l-btn-ghost">
+            Espace Recruteurs →
+          </Link>
         </div>
 
         <div className="l-social-proof">

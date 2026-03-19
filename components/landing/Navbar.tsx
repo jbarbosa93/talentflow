@@ -14,9 +14,21 @@ export default function Navbar() {
         <li><a href="#">Blog</a></li>
       </ul>
 
-      <Link href="/candidats" className="l-nav-btn">
-        Essai gratuit →
-      </Link>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <Link href="/login" style={{
+          color: 'var(--ink)', fontWeight: 700, fontSize: 14,
+          textDecoration: 'none', padding: '10px 18px',
+          border: '2px solid var(--ink)', borderRadius: 100,
+          background: 'transparent', whiteSpace: 'nowrap',
+          boxShadow: '3px 3px 0 var(--ink)',
+          transition: 'all 0.15s',
+        }}>
+          Espace Recruteurs
+        </Link>
+        <Link href="/register" className="l-nav-btn">
+          Essai gratuit →
+        </Link>
+      </div>
     </nav>
   )
 }
