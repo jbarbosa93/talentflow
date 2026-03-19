@@ -64,6 +64,8 @@ function CandidatsPageInner() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
+  const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
+  const [filtreMetier, setFiltreMetier]   = useState('')
   const [search, setSearch]               = useState('')
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
     const s = searchParams.get('statut')
@@ -96,6 +98,13 @@ function CandidatsPageInner() {
 
   // Pipeline dropdown inline
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('agence_metiers')
+      if (stored) setAgenceMetiers(JSON.parse(stored))
+    } catch {}
+  }, [])
 
   const { data: allCandidats, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
@@ -177,8 +186,12 @@ function CandidatsPageInner() {
       )
     }
 
+    if (filtreMetier) {
+      filtered = filtered.filter((c: any) => (c.tags || []).includes(filtreMetier))
+    }
+
     return filtered
-  }, [allCandidats, search, aiResults, filtreLocalisation])
+  }, [allCandidats, search, aiResults, filtreLocalisation, filtreMetier])
 
   // Client-side sort
   const sorted = useMemo(() => {
@@ -617,6 +630,19 @@ function CandidatsPageInner() {
             </button>
           )}
         </div>
+
+        {/* Filtre métier */}
+        {agenceMetiers.length > 0 && (
+          <select
+            className="neo-input-soft"
+            style={{ height: 38, fontSize: 13, paddingLeft: 10, minWidth: 140 }}
+            value={filtreMetier}
+            onChange={e => setFiltreMetier(e.target.value)}
+          >
+            <option value="">Tous les métiers</option>
+            {agenceMetiers.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
 
         {/* Sort */}
         <div style={{ position: 'relative' }}>

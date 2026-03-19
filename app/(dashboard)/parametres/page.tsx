@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, Layout, ChevronUp, ChevronDown } from 'lucide-react'
+import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,8 +16,10 @@ const SECTIONS = [
   { id: 'api',           label: 'Intégrations',  icon: Key },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
-  { id: 'affichage',     label: 'Affichage',     icon: Layout },
+  { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
 ]
+
+export const AGENCE_METIERS_LS_KEY = 'agence_metiers'
 
 export const CANDIDAT_SECTIONS_DEFAULT = [
   { key: 'resume',       label: 'Résumé IA',       emoji: '✨' },
@@ -97,7 +99,7 @@ export default function ParametresPage() {
           {section === 'api'           && <ApiSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
-          {section === 'affichage'     && <AffichageSection />}
+          {section === 'metiers'        && <MetiersSection />}
         </div>
       </div>
     </div>
@@ -542,6 +544,79 @@ function AffichageSection() {
       <button onClick={reset} style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
         Réinitialiser l&apos;ordre par défaut
       </button>
+    </SectionCard>
+  )
+}
+
+// ─── Métiers de l'agence ─────────────────────────────────────────────────────
+
+function MetiersSection() {
+  const [metiers, setMetiers] = useState<string[]>([])
+  const [newMetier, setNewMetier] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AGENCE_METIERS_LS_KEY)
+      if (stored) setMetiers(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  const add = () => {
+    const trimmed = newMetier.trim()
+    if (!trimmed || metiers.includes(trimmed)) return
+    const next = [...metiers, trimmed]
+    setMetiers(next)
+    setNewMetier('')
+    setSaved(false)
+  }
+
+  const remove = (m: string) => {
+    setMetiers(prev => prev.filter(x => x !== m))
+    setSaved(false)
+  }
+
+  const handleSave = () => {
+    localStorage.setItem(AGENCE_METIERS_LS_KEY, JSON.stringify(metiers))
+    setSaved(true)
+    toast.success('Métiers enregistrés')
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  return (
+    <SectionCard title="Métiers de l'agence" description="Définissez vos catégories de métiers pour classer les candidats" onSave={handleSave} saving={false} saved={saved}>
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+        Ces métiers seront proposés lors de l&apos;édition d&apos;une fiche candidat et utilisés pour filtrer les candidats.
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <input
+          className="neo-input"
+          style={{ flex: 1, height: 36, fontSize: 13 }}
+          placeholder="Ajouter un métier (ex: Électricien, Ventilateur...)"
+          value={newMetier}
+          onChange={e => setNewMetier(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') add() }}
+        />
+        <button onClick={add} disabled={!newMetier.trim()} className="neo-btn" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+          Ajouter
+        </button>
+      </div>
+      {metiers.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+          Aucun métier défini. Ajoutez vos catégories ci-dessus.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {metiers.map(m => (
+            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+              {m}
+              <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </SectionCard>
   )
 }

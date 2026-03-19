@@ -5,12 +5,16 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
+  ChevronUp, ChevronDown,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
 } from '@/hooks/useCandidats'
 import type { PipelineEtape } from '@/types/database'
+
+const AGENCE_METIERS_LS_KEY = 'agence_metiers'
+const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
@@ -74,6 +78,7 @@ export default function CandidatDetailPage() {
   const [showCV, setShowCV]               = useState(true)
   const [cvZoom, setCvZoom]               = useState(1.0)
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
+  const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const cvScrollRef     = useRef<HTMLDivElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
   const cvDragRef  = useRef({ active: false, startX: 0, startY: 0, sl: 0, st: 0 })
@@ -109,6 +114,10 @@ export default function CandidatDetailPage() {
         const parsed = JSON.parse(stored) as string[]
         if (Array.isArray(parsed) && parsed.length > 0) setSectionsOrder(parsed)
       }
+    } catch {}
+    try {
+      const stored = localStorage.getItem(AGENCE_METIERS_LS_KEY)
+      if (stored) setAgenceMetiers(JSON.parse(stored))
     } catch {}
   }, [])
 
@@ -152,6 +161,7 @@ export default function CandidatDetailPage() {
       resume_ia:       candidat.resume_ia || '',
       experiences:     JSON.parse(JSON.stringify(candidat.experiences || [])),
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),
+      metiers: candidat.tags || [],
     })
     setIsEditing(true)
   }
@@ -174,8 +184,21 @@ export default function CandidatDetailPage() {
       annees_exp:  parseInt(editData.annees_exp) || 0,
       competences: editData.competences ? editData.competences.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
       langues:     editData.langues     ? editData.langues.split(',').map((s: string) => s.trim()).filter(Boolean)     : [],
+      tags:        editData.metiers || [],
     }
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
+  }
+
+  const moveSection = (key: string, dir: -1 | 1) => {
+    setSectionsOrder(prev => {
+      const next = [...prev]
+      const idx = next.indexOf(key)
+      const target = idx + dir
+      if (target < 0 || target >= next.length) return prev
+      ;[next[idx], next[target]] = [next[target], next[idx]]
+      localStorage.setItem(CANDIDAT_SECTIONS_LS_KEY, JSON.stringify(next))
+      return next
+    })
   }
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -332,6 +355,25 @@ export default function CandidatDetailPage() {
                   <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
                   <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>
                 </label>
+                {agenceMetiers.length > 0 && (
+                  <div>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 5 }}>Métiers</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {agenceMetiers.map(m => {
+                        const active = (editData.metiers || []).includes(m)
+                        return (
+                          <button key={m} type="button" onClick={() => {
+                            const current = editData.metiers || []
+                            set('metiers', active ? current.filter((x: string) => x !== m) : [...current, m])
+                          }}
+                            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: 'pointer', border: active ? '2px solid var(--primary)' : '1px solid var(--border)', background: active ? 'var(--primary-soft)' : 'white', color: active ? 'var(--foreground)' : 'var(--muted)', transition: 'all 0.15s' }}>
+                            {m}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Localisation" value={editData.localisation} onChange={e => set('localisation', e.target.value)} />
               </div>
             ) : (
@@ -362,6 +404,13 @@ export default function CandidatDetailPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
                     <Car size={12} style={{ flexShrink: 0 }} />
                     <span>Permis : {candidat.permis_conduire ? '✅ Oui' : '❌ Non'}</span>
+                  </div>
+                )}
+                {candidat.tags?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                    {candidat.tags.map((m: string) => (
+                      <span key={m} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{m}</span>
+                    ))}
                   </div>
                 )}
                 {candidat.localisation && (
@@ -483,6 +532,12 @@ export default function CandidatDetailPage() {
                 <Star size={13} style={{ color: 'var(--primary)' }} />
               </div>
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Résumé IA</h2>
+              {isEditing && (
+                <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+                  <button type="button" onClick={() => moveSection('resume', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                  <button type="button" onClick={() => moveSection('resume', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                </div>
+              )}
             </div>
             {isEditing ? (
               <textarea className="neo-input" style={{ height: 'auto', minHeight: 90, padding: '8px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13 }} placeholder="Résumé professionnel..." value={editData.resume_ia} onChange={e => set('resume_ia', e.target.value)} />
@@ -509,7 +564,15 @@ export default function CandidatDetailPage() {
                     )}
                   </h2>
                 </div>
-                {isEditing && <button onClick={addExp} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {isEditing && (
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button type="button" onClick={() => moveSection('experiences', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                      <button type="button" onClick={() => moveSection('experiences', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                    </div>
+                  )}
+                  {isEditing && <button onClick={addExp} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
+                </div>
               </div>
 
               {isEditing ? (
@@ -568,7 +631,15 @@ export default function CandidatDetailPage() {
                     )}
                   </h2>
                 </div>
-                {isEditing && <button onClick={addForm} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {isEditing && (
+                    <div style={{ display: 'flex', gap: 2 }}>
+                      <button type="button" onClick={() => moveSection('formations', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                      <button type="button" onClick={() => moveSection('formations', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                    </div>
+                  )}
+                  {isEditing && <button onClick={addForm} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
+                </div>
               </div>
 
               {isEditing ? (
@@ -614,7 +685,15 @@ export default function CandidatDetailPage() {
           <div style={{ order: sectionsOrder.indexOf('candidatures') }}>
           {candidat.pipeline?.length > 0 && (
             <div className="neo-card-soft">
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>Candidatures ({candidat.pipeline.length})</h2>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Candidatures ({candidat.pipeline.length})</h2>
+                {isEditing && (
+                  <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+                    <button type="button" onClick={() => moveSection('candidatures', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                    <button type="button" onClick={() => moveSection('candidatures', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {candidat.pipeline.map((p: any, i: number) => (
                   <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < candidat.pipeline.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -640,6 +719,12 @@ export default function CandidatDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <MessageSquare size={14} style={{ color: 'var(--muted)' }} />
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Notes ({candidat.notes_candidat?.length || 0})</h2>
+              {isEditing && (
+                <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+                  <button type="button" onClick={() => moveSection('notes', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                  <button type="button" onClick={() => moveSection('notes', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
               <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée pour envoyer)" value={note} onChange={e => setNote(e.target.value)}
@@ -733,18 +818,18 @@ export default function CandidatDetailPage() {
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
                 <div style={{ width: `${cvZoom * 100}%`, minWidth: '100%', height: `${cvZoom * 100}%`, minHeight: '100%', position: 'relative' }}>
+                  {/* Drag overlay — couvre le iframe pour capturer les events souris */}
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
+                    onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
                   {cvIsWord && <>
                     {/* Masque bouton [↗] Google Docs (haut droite) */}
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
                     {/* Masque zoom +/- Google Docs (bas) */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
-                    {/* Overlay drag */}
-                    <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
-                      onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
                   </>}
                   <iframe
                     src={cvIsPDF ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width` : docViewerUrl}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: cvIsWord ? 'none' : 'auto' }}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                     title="CV"
                   />
                 </div>
