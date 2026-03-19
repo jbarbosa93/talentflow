@@ -109,3 +109,24 @@ export function useDeleteCandidat() {
     onError: (error: Error) => { toast.error('Erreur suppression : ' + error.message) },
   })
 }
+
+export function useDeleteCandidatsBulk() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await fetch('/api/candidats', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      if (!res.ok) throw new Error('Erreur suppression')
+      const { deleted } = await res.json()
+      return deleted as number
+    },
+    onSuccess: (deleted: number) => {
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      toast.success(`${deleted} candidat${deleted > 1 ? 's' : ''} supprimé${deleted > 1 ? 's' : ''}`)
+    },
+    onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
+  })
+}

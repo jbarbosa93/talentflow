@@ -122,6 +122,8 @@ export async function POST(request: NextRequest) {
       linkedin: analyse.linkedin || null,
       permis_conduire: analyse.permis_conduire ?? null,
       date_naissance: analyse.date_naissance || null,
+      experiences: analyse.experiences?.length ? analyse.experiences : null,
+      formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     }
 
     const { data: candidatRaw, error: dbError } = await adminClient

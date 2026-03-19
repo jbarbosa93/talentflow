@@ -34,6 +34,8 @@ export type Candidat = {
   linkedin: string | null
   permis_conduire: boolean | null
   date_naissance: string | null
+  experiences: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
+  formations_details: Array<{ diplome: string; etablissement: string; annee: string }> | null
   created_at: string
   updated_at: string
 }
@@ -196,6 +198,8 @@ export type Database = {
           linkedin?: string | null
           permis_conduire?: boolean | null
           date_naissance?: string | null
+          experiences?: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
+          formations_details?: Array<{ diplome: string; etablissement: string; annee: string }> | null
         }
         Update: {
           nom?: string
@@ -219,6 +223,8 @@ export type Database = {
           linkedin?: string | null
           permis_conduire?: boolean | null
           date_naissance?: string | null
+          experiences?: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
+          formations_details?: Array<{ diplome: string; etablissement: string; annee: string }> | null
         }
         Relationships: []
       }

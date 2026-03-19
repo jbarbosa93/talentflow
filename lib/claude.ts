@@ -18,6 +18,19 @@ function getClient(): Anthropic {
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
+export interface CVExperience {
+  poste: string
+  entreprise: string
+  periode: string      // ex: "2020 - 2023" ou "Jan 2020 - présent"
+  description: string
+}
+
+export interface CVFormationDetail {
+  diplome: string
+  etablissement: string
+  annee: string        // ex: "2019" ou "2015 - 2019"
+}
+
 export interface CVAnalyse {
   nom: string
   prenom: string
@@ -33,6 +46,8 @@ export interface CVAnalyse {
   linkedin: string
   permis_conduire: boolean
   date_naissance: string  // format "DD/MM/YYYY" ou "" si absent
+  experiences: CVExperience[]
+  formations_details: CVFormationDetail[]
 }
 
 export interface MatchingResult {
@@ -64,7 +79,22 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
   "langues": ["Français", "Anglais"],
   "linkedin": "https://linkedin.com/in/... ou chaîne vide",
   "permis_conduire": false,
-  "date_naissance": "15/03/1990"
+  "date_naissance": "15/03/1990",
+  "experiences": [
+    {
+      "poste": "Développeur Senior",
+      "entreprise": "Nom de l'entreprise",
+      "periode": "Jan 2020 - Mars 2023",
+      "description": "Brève description des missions (1-2 phrases max)"
+    }
+  ],
+  "formations_details": [
+    {
+      "diplome": "Master Informatique",
+      "etablissement": "Nom de l'école / université",
+      "annee": "2019"
+    }
+  ]
 }
 
 Règles :
@@ -73,7 +103,9 @@ Règles :
 - langues : toutes les langues mentionnées dans le CV
 - permis_conduire : true si le CV mentionne le permis B ou permis de conduire, sinon false
 - date_naissance : format DD/MM/YYYY si trouvée dans le CV, sinon chaîne vide ""
-- Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens)
+- experiences : toutes les expériences professionnelles dans l'ordre chronologique inverse (plus récente en premier)
+- formations_details : toutes les formations/diplômes dans l'ordre chronologique inverse
+- Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens, [] pour les tableaux)
 - Ne rien inventer, extraire uniquement ce qui est dans le CV`
 
 function parseCV(text: string): CVAnalyse {
@@ -85,6 +117,8 @@ function parseCV(text: string): CVAnalyse {
   if (typeof result.permis_conduire !== 'boolean') result.permis_conduire = false
   if (!result.linkedin) result.linkedin = ''
   if (!result.date_naissance) result.date_naissance = ''
+  if (!Array.isArray(result.experiences)) result.experiences = []
+  if (!Array.isArray(result.formations_details)) result.formations_details = []
   return result
 }
 
@@ -95,7 +129,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [{
       role: 'user',
       content: [
@@ -140,7 +174,7 @@ ${CV_JSON_PROMPT}`
 
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -166,7 +200,7 @@ export async function analyserCVDepuisImage(
 
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
+    max_tokens: 2048,
     messages: [{
       role: 'user',
       content: [
