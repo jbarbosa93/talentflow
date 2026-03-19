@@ -123,11 +123,9 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="auth-divider" style={{ marginTop: 24 }}>ou</div>
-
-          <div className="auth-footer-link">
-            Pas encore de compte ?{' '}
-            <Link href="/register">Créer un compte</Link>
+          <div className="auth-footer-link" style={{ marginTop: 20 }}>
+            Pas d&apos;accès ?{' '}
+            <Link href="/demande-acces">Faire une demande →</Link>
           </div>
         </div>
       </div>
