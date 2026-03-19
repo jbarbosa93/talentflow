@@ -129,8 +129,9 @@ export default function ImportMassePage() {
   const startTimeRef = useRef<number>(0)
   const completedCountRef = useRef(0)
 
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef  = useRef<HTMLInputElement>(null)
   const folderRef = useRef<HTMLInputElement>(null)
+  const [folderKey, setFolderKey] = useState(0) // reset input après chaque sélection
 
   // Stats
   const total = jobs.length
@@ -508,21 +509,25 @@ export default function ImportMassePage() {
           >
             <input ref={inputRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png"
               style={{ display: 'none' }} onChange={e => e.target.files && addFiles(e.target.files)} />
-            <input ref={folderRef} type="file"
+            {/* key= force le remontage après chaque sélection → permet de re-sélectionner */}
+            <input key={folderKey} ref={folderRef} type="file"
               // @ts-ignore
               webkitdirectory="" multiple
               style={{ display: 'none' }}
-              onChange={e => e.target.files && addFiles(e.target.files)} />
+              onChange={e => {
+                if (e.target.files) addFiles(e.target.files)
+                setFolderKey(k => k + 1) // reset pour pouvoir re-ouvrir le picker
+              }} />
 
             <Upload size={32} style={{ color: dragOver ? 'var(--primary)' : 'var(--muted)', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', marginBottom: 6 }}>
-              Glissez vos dossiers ou fichiers ici
+              Glissez plusieurs dossiers en même temps
             </p>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4 }}>
               PDF, Word, JPG, PNG · Pas de limite de nombre
             </p>
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20, opacity: 0.8 }}>
-              💡 Glissez directement le dossier <strong>«&nbsp;2. CV&nbsp;»</strong> — tous les sous-dossiers (ARCHITECTURE, ÉLECTRICITÉ…) seront importés et catégorisés automatiquement
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, opacity: 0.85 }}>
+              💡 Depuis Finder, sélectionnez <strong>ARCHITECTURE + ÉLECTRICITÉ + CHAUFFAGISTE…</strong> en même temps (⌘+clic) et glissez-les tous ici — ou glissez directement le dossier parent <strong>«&nbsp;2. CV&nbsp;»</strong>
             </p>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -530,9 +535,14 @@ export default function ImportMassePage() {
                 <FileText size={15} /> Sélectionner des fichiers
               </button>
               <button onClick={() => folderRef.current?.click()} className="neo-btn-ghost" style={{ gap: 6 }}>
-                <FolderOpen size={15} /> Sélectionner un dossier entier
+                <FolderOpen size={15} /> Ajouter un dossier
               </button>
             </div>
+            {categories.length > 0 && (
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 12 }}>
+                Cliquez <strong>«&nbsp;Ajouter un dossier&nbsp;»</strong> autant de fois que nécessaire pour ajouter chaque dossier l'un après l'autre
+              </p>
+            )}
           </div>
 
           {total > 0 && (
@@ -664,11 +674,12 @@ export default function ImportMassePage() {
           <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6 }}>
             Prêt pour l&apos;import en masse
           </p>
-          <p style={{ fontSize: 13, marginBottom: 12 }}>
-            Glissez votre dossier <strong>«&nbsp;2. CV&nbsp;»</strong> directement ici, ou cliquez pour choisir
+          <p style={{ fontSize: 13, marginBottom: 8 }}>
+            Glissez <strong>plusieurs dossiers à la fois</strong> depuis Finder (⌘+clic pour multi-sélection),<br />
+            ou glissez le dossier parent <strong>«&nbsp;2. CV&nbsp;»</strong>, ou cliquez <strong>«&nbsp;Ajouter un dossier&nbsp;»</strong> plusieurs fois
           </p>
           <p style={{ fontSize: 12, opacity: 0.7 }}>
-            Les sous-dossiers (ARCHITECTURE, ÉLECTRICITÉ, CHAUFFAGISTE…) seront détectés automatiquement comme catégories
+            Les sous-dossiers (ARCHITECTURE, ÉLECTRICITÉ, CHAUFFAGISTE…) sont détectés automatiquement comme catégories
           </p>
         </div>
       )}
