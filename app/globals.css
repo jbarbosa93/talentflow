@@ -9,8 +9,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-fraunces: var(--font-fraunces);
-  --font-nunito: var(--font-nunito);
+  --font-jakarta: var(--font-jakarta);
   --animate-bob: bob 5s ease-in-out infinite;
   --animate-slide: slide 18s linear infinite;
   --animate-marquee: marquee var(--duration) infinite linear;

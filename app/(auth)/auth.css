@@ -8,8 +8,8 @@ html, :root {
   --ink2: #5C5645;
   --cream: #FFFDF5;
   --cream2: #F5F0E0;
-  --font-body:    var(--font-nunito), 'Nunito', system-ui, sans-serif;
-  --font-heading: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  --font-body:    var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-heading: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

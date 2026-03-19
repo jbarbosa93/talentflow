@@ -31,7 +31,7 @@
   backdrop-filter: blur(10px);
 }
 .l-logo {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-weight: 700;
   font-size: 24px;
   color: var(--ink);
@@ -108,7 +108,7 @@
   letter-spacing: 0.3px;
 }
 .l-h1 {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: clamp(36px, 4.5vw, 58px);
   font-weight: 700;
   line-height: 1.12;
@@ -233,7 +233,7 @@
 }
 .l-mock-body { padding: 20px; }
 .l-mock-greeting {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 16px;
@@ -258,7 +258,7 @@
   border-color: var(--y3);
 }
 .l-ms-n {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 26px;
   font-weight: 700;
   line-height: 1;
@@ -378,7 +378,7 @@
   margin-bottom: 18px;
 }
 .l-h2 {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: clamp(28px, 3.5vw, 44px);
   font-weight: 700;
   line-height: 1.15;
@@ -418,7 +418,7 @@
   display: block;
 }
 .l-feat-title {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 8px;
@@ -451,7 +451,7 @@
   box-shadow: 6px 6px 0 var(--ink);
 }
 .l-price-name {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 20px;
@@ -461,7 +461,7 @@
   color: var(--ink);
 }
 .l-price-num {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-size: 64px;
   font-weight: 700;
   line-height: 1;
@@ -545,7 +545,7 @@
   align-items: center;
 }
 .l-footer-logo {
-  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   font-weight: 700;
   font-size: 24px;
   color: white;

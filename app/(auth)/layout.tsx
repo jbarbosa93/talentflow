@@ -1,19 +1,13 @@
-import { Nunito, Fraunces } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import type { Metadata } from 'next'
 import '../globals.css'
 import './auth.css'
 
-const nunito = Nunito({
-  variable: '--font-nunito',
+const jakarta = Plus_Jakarta_Sans({
+  variable: '--font-jakarta',
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800', '900'],
-})
-
-const fraunces = Fraunces({
-  variable: '--font-fraunces',
-  subsets: ['latin'],
-  weight: ['400', '600', '700'],
-  style: ['normal', 'italic'],
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -23,7 +17,7 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={`${nunito.variable} ${fraunces.variable}`}>
+      <body className={jakarta.variable}>
         {children}
       </body>
     </html>

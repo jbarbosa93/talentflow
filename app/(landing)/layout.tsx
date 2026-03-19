@@ -1,17 +1,12 @@
 import type { Metadata } from 'next'
-import { Nunito, Fraunces } from 'next/font/google'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import '../globals.css'
 import './landing.css'
 
-const nunito = Nunito({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-body',
-  display: 'swap',
-})
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  variable: '--font-heading',
+  variable: '--font-jakarta',
+  weight: ['400', '500', '600', '700', '800'],
   display: 'swap',
 })
 
@@ -23,7 +18,7 @@ export const metadata: Metadata = {
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={`${nunito.variable} ${fraunces.variable}`}>
+      <body className={jakarta.variable}>
         {children}
       </body>
     </html>

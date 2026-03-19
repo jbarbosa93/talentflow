@@ -42,8 +42,8 @@ html, :root {
   --ring:                 #F5A623;
   --radius-base:          0.5rem;
 
-  --font-body:    var(--font-nunito), 'Nunito', system-ui, sans-serif;
-  --font-heading: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  --font-body:    var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-heading: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 /* ── Base ── */

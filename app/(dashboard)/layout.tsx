@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Nunito, Fraunces } from "next/font/google"
+import { Plus_Jakarta_Sans } from "next/font/google"
 import "../globals.css"
 import "./dashboard.css"
 import { Toaster } from "sonner"
@@ -7,17 +7,11 @@ import ReactQueryProvider from "@/components/providers/ReactQueryProvider"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 
-const nunito = Nunito({
-  variable: "--font-nunito",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-})
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 })
 
 export const metadata: Metadata = {
@@ -30,7 +24,7 @@ export default function DashboardRootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr">
-      <body className={`${nunito.variable} ${fraunces.variable}`}>
+      <body className={jakarta.variable}>
         <ReactQueryProvider>
           <div className="d-layout">
             <Sidebar />
