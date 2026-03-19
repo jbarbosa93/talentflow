@@ -1,26 +1,27 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle, Plug, Clock, User } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import {
+  Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle,
+  Plug, Clock, User, ExternalLink, Loader2,
+} from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense } from 'react'
 
 function IntegrationsContent() {
-  const searchParams = useSearchParams()
-  const queryClient = useQueryClient()
-  const sync = useSyncMicrosoft()
+  const searchParams  = useSearchParams()
+  const queryClient   = useQueryClient()
+  const sync          = useSyncMicrosoft()
 
-  // Show success/error from OAuth redirect
   useEffect(() => {
     const success = searchParams.get('success')
-    const error = searchParams.get('error')
+    const error   = searchParams.get('error')
     if (success === 'microsoft') toast.success('Compte Microsoft connecté avec succès !')
     if (error) toast.error(`Erreur connexion : ${decodeURIComponent(error)}`)
   }, [searchParams])
 
-  const { data: integrationsData } = useQuery({
+  const { data: integrationsData, isLoading } = useQuery({
     queryKey: ['integrations'],
     queryFn: async () => {
       const res = await fetch('/api/integrations')
@@ -36,6 +37,7 @@ function IntegrationsContent() {
       return res.json()
     },
     staleTime: 30_000,
+    enabled: !!integrationsData?.integrations?.find((i: any) => i.type === 'microsoft'),
   })
 
   const disconnectMutation = useMutation({
@@ -50,204 +52,294 @@ function IntegrationsContent() {
   })
 
   const msIntegration = integrationsData?.integrations?.find((i: any) => i.type === 'microsoft')
-  const isConnected = !!msIntegration
-  const emails = emailsData?.emails || []
+  const isConnected   = !!msIntegration
+  const emails        = emailsData?.emails || []
   const importedEmails = emails.filter((e: any) => e.candidat_id)
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-7">
-        <h1 className="text-xl font-bold text-white">Intégrations</h1>
-        <p className="text-sm text-white/40 mt-0.5">Connectez vos outils pour automatiser le recrutement</p>
+    <div className="d-page" style={{ maxWidth: 860, paddingBottom: 60 }}>
+
+      {/* Header */}
+      <div className="d-page-header" style={{ marginBottom: 28 }}>
+        <div>
+          <h1 className="d-page-title">Intégrations</h1>
+          <p className="d-page-sub">Connectez vos outils pour automatiser le recrutement</p>
+        </div>
       </div>
 
-      {/* Microsoft 365 Card */}
-      <div className={`rounded-xl border p-6 mb-4 transition-colors ${isConnected ? 'border-primary/20 bg-primary/[0.04]' : 'border-white/6 bg-card'}`}>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            {/* Microsoft logo */}
-            <div className="w-12 h-12 rounded-xl bg-white/8 border border-white/8 flex items-center justify-center flex-shrink-0">
-              <svg viewBox="0 0 24 24" className="w-7 h-7">
-                <path fill="#F25022" d="M1 1h10v10H1z"/>
-                <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-                <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-                <path fill="#FFB900" d="M13 13h10v10H13z"/>
-              </svg>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-white">Microsoft 365</h2>
-                {isConnected ? (
-                  <span className="text-[11px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Connecté
-                  </span>
-                ) : (
-                  <span className="text-[11px] bg-white/8 text-white/35 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
-                    <XCircle className="w-3 h-3" /> Non connecté
-                  </span>
-                )}
-              </div>
-              {isConnected ? (
-                <div className="mt-1.5 space-y-0.5">
-                  <p className="text-xs text-white/50 flex items-center gap-1.5">
-                    <User className="w-3 h-3" />{msIntegration.nom_compte}
-                  </p>
-                  <p className="text-xs text-white/35 flex items-center gap-1.5">
-                    <Mail className="w-3 h-3" />{msIntegration.email}
-                  </p>
+      {isLoading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+          <Loader2 size={28} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+        </div>
+      ) : (
+        <>
+          {/* ── Microsoft 365 Card ── */}
+          <div className="neo-card" style={{
+            padding: 24, marginBottom: 16,
+            borderColor: isConnected ? 'var(--primary)' : undefined,
+            boxShadow: isConnected ? '4px 4px 0 var(--primary)' : undefined,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              {/* Left */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {/* Microsoft logo */}
+                <div style={{
+                  width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                  border: '2px solid var(--border)', background: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '2px 2px 0 var(--border)',
+                }}>
+                  <svg viewBox="0 0 24 24" style={{ width: 28, height: 28 }}>
+                    <path fill="#F25022" d="M1 1h10v10H1z"/>
+                    <path fill="#7FBA00" d="M13 1h10v10H13z"/>
+                    <path fill="#00A4EF" d="M1 13h10v10H1z"/>
+                    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                  </svg>
                 </div>
-              ) : (
-                <p className="text-xs text-white/35 mt-1">
-                  Outlook, Exchange — synchronisation automatique des CVs reçus par email
-                </p>
-              )}
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isConnected ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => sync.mutate()}
-                  disabled={sync.isPending}
-                  className="border-white/10 text-white/50 hover:text-white hover:bg-white/5"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 mr-2 ${sync.isPending ? 'animate-spin' : ''}`} />
-                  {sync.isPending ? 'Sync...' : 'Synchroniser'}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => disconnectMutation.mutate(msIntegration.id)}
-                  className="border-rose-500/20 text-rose-400/60 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/30"
-                >
-                  Déconnecter
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" asChild>
-                <a href="/api/microsoft/auth">
-                  <Plug className="w-4 h-4 mr-2" />
-                  Connecter Microsoft
-                </a>
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {isConnected && (
-          <div className="mt-5 pt-4 border-t border-white/5 grid grid-cols-3 gap-4">
-            <div className="bg-white/[0.03] rounded-lg p-3">
-              <p className="text-2xl font-black text-primary">{emails.length}</p>
-              <p className="text-xs text-white/35 mt-0.5">Emails analysés</p>
-            </div>
-            <div className="bg-white/[0.03] rounded-lg p-3">
-              <p className="text-2xl font-black text-emerald-400">{importedEmails.length}</p>
-              <p className="text-xs text-white/35 mt-0.5">CVs importés</p>
-            </div>
-            <div className="bg-white/[0.03] rounded-lg p-3">
-              <p className="text-2xl font-black text-white/50">{emails.length - importedEmails.length}</p>
-              <p className="text-xs text-white/35 mt-0.5">Sans CV</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Google (coming soon) */}
-      <div className="rounded-xl border border-white/4 bg-card/50 p-6 mb-6 opacity-50">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center flex-shrink-0">
-            <svg viewBox="0 0 24 24" className="w-6 h-6">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-white/50">Google Workspace</h2>
-              <span className="text-[10px] bg-white/5 text-white/25 px-2 py-0.5 rounded-full font-medium">Bientôt</span>
-            </div>
-            <p className="text-xs text-white/25 mt-0.5">Gmail, Google Drive — synchronisation des CVs reçus</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Setup instructions */}
-      {!isConnected && (
-        <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-5 mb-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="text-sm font-semibold text-white/80 mb-2">Configuration requise</h3>
-              <p className="text-xs text-white/45 mb-3">Pour connecter Microsoft 365, ajoutez ces variables dans votre <code className="text-primary bg-primary/10 px-1 rounded">.env.local</code> :</p>
-              <pre className="text-xs bg-black/40 border border-white/8 rounded-lg p-3 text-emerald-400 font-mono overflow-x-auto">
-{`MICROSOFT_CLIENT_ID=votre-client-id
-MICROSOFT_CLIENT_SECRET=votre-secret
-MICROSOFT_TENANT_ID=common`}
-              </pre>
-              <p className="text-xs text-white/35 mt-3">
-                Créez une application sur <strong className="text-white/50">portal.azure.com</strong> → App registrations → New registration. Redirect URI : <code className="text-primary/80 text-[11px]">http://localhost:3000/api/microsoft/callback</code>. Permissions requises : <code className="text-[11px] text-white/40">Mail.Read, Mail.Send, offline_access, User.Read</code>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Email history */}
-      {isConnected && emails.length > 0 && (
-        <div className="rounded-xl border border-white/6 bg-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white/80">Historique des emails analysés</h3>
-            <span className="text-xs text-white/30">{emails.length} emails</span>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                <th className="text-left px-5 py-3 text-[11px] font-semibold text-white/25 uppercase tracking-widest">Expéditeur</th>
-                <th className="text-left px-5 py-3 text-[11px] font-semibold text-white/25 uppercase tracking-widest">Sujet</th>
-                <th className="text-left px-5 py-3 text-[11px] font-semibold text-white/25 uppercase tracking-widest">Reçu le</th>
-                <th className="text-left px-5 py-3 text-[11px] font-semibold text-white/25 uppercase tracking-widest">Résultat</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.03]">
-              {emails.slice(0, 20).map((email: any) => (
-                <tr key={email.id} className="hover:bg-white/[0.02]">
-                  <td className="px-5 py-3 text-xs text-white/50">{email.expediteur || '—'}</td>
-                  <td className="px-5 py-3 text-xs text-white/40 max-w-xs truncate">{email.sujet || '—'}</td>
-                  <td className="px-5 py-3 text-xs text-white/30">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {email.recu_le ? new Date(email.recu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    {email.candidat_id ? (
-                      <span className="text-[11px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">
-                        {email.candidats?.prenom} {email.candidats?.nom} importé
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Microsoft 365</h2>
+                    {isConnected ? (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: '#D1FAE5', color: '#065F46',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                      }}>
+                        <CheckCircle2 size={10} /> Connecté
                       </span>
                     ) : (
-                      <span className="text-[11px] bg-white/5 text-white/25 px-2 py-0.5 rounded-full">
-                        Pas de CV
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: 'var(--background)', color: 'var(--muted)',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        border: '1.5px solid var(--border)',
+                      }}>
+                        <XCircle size={10} /> Non connecté
                       </span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+
+                  {isConnected ? (
+                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <User size={11} /> {msIntegration.nom_compte}
+                      </p>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Mail size={11} /> {msIntegration.email}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                      Outlook, Exchange — synchronisation automatique des CVs reçus par email
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                {isConnected ? (
+                  <>
+                    <button
+                      onClick={() => sync.mutate()}
+                      disabled={sync.isPending}
+                      className="neo-btn"
+                      style={{ fontSize: 12, padding: '7px 14px' }}
+                    >
+                      <RefreshCw size={13} className={sync.isPending ? 'animate-spin' : ''} />
+                      {sync.isPending ? 'Sync...' : 'Synchroniser'}
+                    </button>
+                    <button
+                      onClick={() => disconnectMutation.mutate(msIntegration.id)}
+                      style={{
+                        fontSize: 12, fontWeight: 700, padding: '7px 14px',
+                        borderRadius: 8, border: '2px solid #FECACA',
+                        background: 'white', color: '#DC2626', cursor: 'pointer',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Déconnecter
+                    </button>
+                  </>
+                ) : (
+                  <a href="/api/microsoft/auth" className="neo-btn" style={{ textDecoration: 'none', fontSize: 13 }}>
+                    <Plug size={14} />
+                    Connecter Microsoft
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Stats si connecté */}
+            {isConnected && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '2px solid var(--border)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                  <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emails.length}</p>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
+                </div>
+                <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
+                  <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{importedEmails.length}</p>
+                  <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                </div>
+                <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                  <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emails.length - importedEmails.length}</p>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Guide de configuration ── */}
+          {!isConnected && (
+            <div className="neo-card" style={{ padding: 24, marginBottom: 16, borderColor: 'var(--primary)', background: '#FFFBEB' }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <AlertCircle size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 12 }}>
+                    Configuration requise — Azure App Registration
+                  </h3>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      { n: 1, text: 'Allez sur', link: 'https://portal.azure.com', linkText: 'portal.azure.com' },
+                      { n: 2, text: 'Menu → Azure Active Directory → App registrations → New registration' },
+                      { n: 3, text: 'Nom : "TalentFlow ATS" · Supported account types : "Personal Microsoft accounts"' },
+                      { n: 4, text: 'Redirect URI (Web) :', code: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'}/api/microsoft/callback` },
+                      { n: 5, text: 'Copiez le Client ID (Overview) et créez un Secret (Certificates & secrets)' },
+                      { n: 6, text: 'API permissions → Add → Microsoft Graph → Mail.Read, Mail.Send, User.Read, offline_access, Calendars.ReadWrite' },
+                    ].map((step) => (
+                      <div key={step.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                          background: 'var(--primary)', color: '#0F172A',
+                          fontSize: 11, fontWeight: 800,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>{step.n}</div>
+                        <p style={{ fontSize: 12, color: 'var(--foreground)', lineHeight: 1.6, marginTop: 1 }}>
+                          {step.text}{' '}
+                          {(step as any).link && (
+                            <a href={(step as any).link} target="_blank" rel="noreferrer"
+                              style={{ color: '#2563EB', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                              {(step as any).linkText} <ExternalLink size={10} />
+                            </a>
+                          )}
+                          {(step as any).code && (
+                            <code style={{ display: 'block', marginTop: 4, padding: '4px 8px', background: 'white', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 11, color: '#7C3AED', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                              {(step as any).code}
+                            </code>
+                          )}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ marginTop: 16, padding: '12px 14px', background: 'white', borderRadius: 8, border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                      Ajoutez dans Vercel → Settings → Environment Variables :
+                    </p>
+                    <pre style={{ fontSize: 12, color: '#059669', fontFamily: 'monospace', lineHeight: 2, margin: 0 }}>
+{`MICROSOFT_CLIENT_ID     = <votre-client-id>
+MICROSOFT_CLIENT_SECRET  = <votre-secret>
+MICROSOFT_TENANT_ID      = common`}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Google (bientôt) ── */}
+          <div className="neo-card" style={{ padding: 24, marginBottom: 16, opacity: 0.5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                border: '2px solid var(--border)', background: 'white',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg viewBox="0 0 24 24" style={{ width: 26, height: 26 }}>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Google Workspace</h2>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                    background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)',
+                  }}>Bientôt</span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>
+                  Gmail, Google Drive — synchronisation des CVs reçus
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Historique emails ── */}
+          {isConnected && emails.length > 0 && (
+            <div className="neo-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)' }}>Historique des emails analysés</h3>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{emails.length} emails</span>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--background)' }}>
+                    {['Expéditeur', 'Sujet', 'Reçu le', 'Résultat'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {emails.slice(0, 20).map((email: any) => (
+                    <tr key={email.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--foreground)', fontWeight: 600 }}>{email.expediteur || '—'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--muted)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.sujet || '—'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--muted)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Clock size={11} />
+                          {email.recu_le ? new Date(email.recu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        {email.candidat_id ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
+                            ✓ {email.candidats?.prenom} {email.candidats?.nom}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)' }}>
+                            Pas de CV
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )
 }
 
 export default function IntegrationsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-white/40">Chargement...</div>}>
+    <Suspense fallback={
+      <div className="d-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+        <Loader2 size={28} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+      </div>
+    }>
       <IntegrationsContent />
     </Suspense>
   )
