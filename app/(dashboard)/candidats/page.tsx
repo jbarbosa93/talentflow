@@ -51,7 +51,6 @@ export default function CandidatsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [messageText, setMessageText]     = useState('')
-  const [countryCode, setCountryCode]     = useState<'+41' | '+33'>( '+41')
 
   const [aiSearching, setAiSearching] = useState(false)
   const [aiResults, setAiResults] = useState<any[] | null>(null)
@@ -140,21 +139,45 @@ export default function CandidatsPage() {
     })
   }
 
-  // Formater un numéro en format international selon le pays sélectionné
-  const formatPhone = (tel: string) => {
-    const cleaned = tel.replace(/[\s\-().]/g, '')
-    if (cleaned.startsWith('00')) return '+' + cleaned.slice(2)
-    if (cleaned.startsWith('+')) return cleaned
-    if (cleaned.startsWith('0')) return countryCode + cleaned.slice(1)
-    return countryCode + cleaned
+  // Détecte et formate automatiquement un numéro en international
+  const detectAndFormat = (tel: string): { number: string; flag: string; country: string } => {
+    const c = tel.replace(/[\s\-().]/g, '')
+
+    // Déjà en format international
+    if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '🇨🇭', country: 'Suisse' }
+    if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '🇫🇷', country: 'France' }
+    if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '🇪🇸', country: 'Espagne' }
+    if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '🇵🇹', country: 'Portugal' }
+    if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '🇮🇹', country: 'Italie' }
+
+    // Numéros locaux commençant par 0
+    if (c.startsWith('0')) {
+      const local = c.slice(1)
+      if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }    // 076-079
+      if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }    // 06/07
+      if (/^[0-5]/.test(local))  return { number: '+33' + local, flag: '🇫🇷', country: 'France' }    // 01-05 fixe FR
+      return { number: c, flag: '❓', country: '' }
+    }
+
+    // Sans préfixe 0
+    if (/^[67]/.test(c) && c.length === 9)      return { number: '+34'  + c, flag: '🇪🇸', country: 'Espagne' }   // Espagne mobile
+    if (/^9/.test(c)    && c.length === 9)       return { number: '+351' + c, flag: '🇵🇹', country: 'Portugal' }  // Portugal mobile
+    if (/^3/.test(c)    && c.length >= 9)        return { number: '+39'  + c, flag: '🇮🇹', country: 'Italie' }    // Italie mobile
+
+    return { number: c, flag: '📱', country: '' }
   }
 
   const openMessages = () => {
     const selected = sorted.filter((c: any) => selectedIds.has(c.id))
-    const avecTel = selected.filter((c: any) => c.telephone)
-    const numeros = avecTel.map((c: any) => formatPhone(c.telephone)).join(',')
+    const avecTel  = selected.filter((c: any) => c.telephone)
+    const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
+
+    // Copier tous les numéros dans le presse-papiers (fallback multi-destinataires macOS)
+    navigator.clipboard?.writeText(formatted.join(', ')).catch(() => {})
+
+    // Ouvrir Messages avec tous les numéros (fonctionne sur iOS ; sur macOS ouvre avec le premier)
     const body = encodeURIComponent(messageText || '')
-    const url = `sms:${numeros}${body ? `?body=${body}` : ''}`
+    const url  = `sms:${formatted.join(',')}${body ? `?body=${body}` : ''}`
     window.open(url, '_self')
     setShowMessage(false)
     setMessageText('')
@@ -600,25 +623,44 @@ export default function CandidatsPage() {
               </div>
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Info multi-destinataires macOS */}
+                {avecTel.length > 1 && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '10px 14px' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+                    <p style={{ fontSize: 12, color: '#1D4ED8', margin: 0, lineHeight: 1.5 }}>
+                      <strong>Plusieurs destinataires :</strong> En cliquant, <strong>tous les numéros sont copiés dans votre presse-papiers</strong>.
+                      Messages s&apos;ouvre — collez (<strong>⌘V</strong>) dans le champ <strong>À&nbsp;:</strong> pour les ajouter tous.
+                    </p>
+                  </div>
+                )}
+
                 {/* Destinataires */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Destinataires — {avecTel.length} avec numéro
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-                    {avecTel.map((c: any) => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
-                          {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
-                            <Phone size={10} /> {c.telephone}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                    {avecTel.map((c: any) => {
+                      const { number, flag, country } = detectAndFormat(c.telephone)
+                      return (
+                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
+                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+                            {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
                           </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
+                              <Phone size={10} /> {number}
+                            </div>
+                          </div>
+                          {flag && (
+                            <span style={{ fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontWeight: 600 }}>
+                              {flag} {country}
+                            </span>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {sansTel.length > 0 && sansTel.map((c: any) => (
                       <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
@@ -633,37 +675,6 @@ export default function CandidatsPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Pays / indicatif */}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Indicatif des numéros
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {([
-                      { code: '+41', flag: '🇨🇭', label: 'Suisse (+41)' },
-                      { code: '+33', flag: '🇫🇷', label: 'France (+33)' },
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.code}
-                        onClick={() => setCountryCode(opt.code)}
-                        style={{
-                          flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-                          border: `2px solid ${countryCode === opt.code ? 'var(--foreground)' : 'var(--border)'}`,
-                          background: countryCode === opt.code ? 'var(--foreground)' : 'white',
-                          color: countryCode === opt.code ? 'white' : 'var(--muted)',
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          fontFamily: 'inherit', transition: 'all 0.15s',
-                        }}
-                      >
-                        {opt.flag} {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-                    Appliqué aux numéros qui ne commencent pas déjà par + ou 00
-                  </p>
                 </div>
 
                 {/* Zone message */}
