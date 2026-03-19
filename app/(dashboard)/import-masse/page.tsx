@@ -8,8 +8,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const FORMATS_OK = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const CONCURRENCY = 10
+const FORMATS_OK  = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
+const CONCURRENCY = 3   // 3 CVs en parallèle — évite le rate limit Claude (8k tokens/min)
+const MAX_RETRIES = 3   // tentatives max sur erreur 429 / réseau
 
 type FileStatus = 'pending' | 'processing' | 'success' | 'error'
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
@@ -227,26 +228,53 @@ export default function ImportMassePage() {
     formData.append('statut', statut)
     if (job.categorie) formData.append('categorie', job.categorie)
 
-    try {
-      const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur serveur')
-      const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
-      updateJob(job.id, { status: 'success', candidatNom: nom || 'Candidat créé', duration: Date.now() - t0 })
-      completedCountRef.current++
+    let lastError = ''
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+        const data = await res.json()
 
-      // Mise à jour vitesse/ETA
-      const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60
-      if (elapsed > 0) {
-        const spd = completedCountRef.current / elapsed
-        setSpeed(spd)
-        const rem = jobs.filter(j => j.status === 'pending').length
-        setEta(rem / spd * 60)
+        // Rate limit (429) → attendre et réessayer
+        if (res.status === 429) {
+          const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10)
+          const wait = retryAfter > 0 ? retryAfter * 1000 : Math.pow(2, attempt) * 5000
+          lastError = `Rate limit — attente ${Math.round(wait / 1000)}s (tentative ${attempt}/${MAX_RETRIES})`
+          updateJob(job.id, { error: lastError })
+          await new Promise(r => setTimeout(r, wait))
+          continue
+        }
+
+        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+
+        const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+        updateJob(job.id, { status: 'success', candidatNom: nom || 'Candidat créé', duration: Date.now() - t0, error: undefined })
+        completedCountRef.current++
+
+        // Mise à jour vitesse/ETA
+        const elapsed = (Date.now() - startTimeRef.current) / 1000 / 60
+        if (elapsed > 0) {
+          const spd = completedCountRef.current / elapsed
+          setSpeed(spd)
+          const rem = jobs.filter(j => j.status === 'pending').length
+          setEta(rem / spd * 60)
+        }
+        return // succès → sortir de la boucle
+
+      } catch (err: any) {
+        lastError = err.message || 'Erreur réseau'
+
+        // Erreur réseau (Failed to fetch) → petit délai avant retry
+        if (attempt < MAX_RETRIES) {
+          const wait = Math.pow(2, attempt) * 2000
+          updateJob(job.id, { error: `${lastError} — retry dans ${Math.round(wait / 1000)}s (${attempt}/${MAX_RETRIES})` })
+          await new Promise(r => setTimeout(r, wait))
+        }
       }
-    } catch (err: any) {
-      updateJob(job.id, { status: 'error', error: err.message || 'Erreur', duration: Date.now() - t0 })
-      completedCountRef.current++
     }
+
+    // Toutes les tentatives épuisées
+    updateJob(job.id, { status: 'error', error: lastError, duration: Date.now() - t0 })
+    completedCountRef.current++
   }
 
   const startProcessing = async () => {
@@ -571,7 +599,7 @@ export default function ImportMassePage() {
           <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
-              Import de {total.toLocaleString('fr-FR')} fichiers — estimation : {formatETA(total / CONCURRENCY * 10)}
+              Import de {total.toLocaleString('fr-FR')} fichiers — estimation : {formatETA(total / CONCURRENCY * 12)}
             </div>
             <div style={{ fontSize: 12, color: '#78350F' }}>
               Chaque CV est analysé par IA (5-15s). Gardez cet onglet ouvert ou mettez sur pause et reprenez plus tard.
