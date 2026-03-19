@@ -51,6 +51,7 @@ export default function CandidatsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [messageText, setMessageText]     = useState('')
+  const [countryCode, setCountryCode]     = useState<'+41' | '+33'>( '+41')
 
   const [aiSearching, setAiSearching] = useState(false)
   const [aiResults, setAiResults] = useState<any[] | null>(null)
@@ -139,13 +140,13 @@ export default function CandidatsPage() {
     })
   }
 
-  // Formater un numéro suisse en format international
+  // Formater un numéro en format international selon le pays sélectionné
   const formatPhone = (tel: string) => {
     const cleaned = tel.replace(/[\s\-().]/g, '')
     if (cleaned.startsWith('00')) return '+' + cleaned.slice(2)
-    if (cleaned.startsWith('0') && !cleaned.startsWith('00')) return '+41' + cleaned.slice(1)
     if (cleaned.startsWith('+')) return cleaned
-    return cleaned
+    if (cleaned.startsWith('0')) return countryCode + cleaned.slice(1)
+    return countryCode + cleaned
   }
 
   const openMessages = () => {
@@ -632,6 +633,37 @@ export default function CandidatsPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Pays / indicatif */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Indicatif des numéros
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {([
+                      { code: '+41', flag: '🇨🇭', label: 'Suisse (+41)' },
+                      { code: '+33', flag: '🇫🇷', label: 'France (+33)' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.code}
+                        onClick={() => setCountryCode(opt.code)}
+                        style={{
+                          flex: 1, padding: '8px 12px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                          border: `2px solid ${countryCode === opt.code ? 'var(--foreground)' : 'var(--border)'}`,
+                          background: countryCode === opt.code ? 'var(--foreground)' : 'white',
+                          color: countryCode === opt.code ? 'white' : 'var(--muted)',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          fontFamily: 'inherit', transition: 'all 0.15s',
+                        }}
+                      >
+                        {opt.flag} {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                    Appliqué aux numéros qui ne commencent pas déjà par + ou 00
+                  </p>
                 </div>
 
                 {/* Zone message */}
