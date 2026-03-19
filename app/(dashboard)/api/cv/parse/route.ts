@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractTextFromCV, validateCVFile } from '@/lib/cv-parser'
-import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
+import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import type { CandidatInsert } from '@/types/database'
 
 export const runtime = 'nodejs'   // pdf-parse nécessite Node.js runtime (pas Edge)
@@ -48,14 +48,21 @@ export async function POST(request: NextRequest) {
     console.log('[CV Parse] Extraction du texte...')
     const texteCV = await extractTextFromCV(buffer, file.name, file.type)
 
-    const isPDF = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf'
+    const ext  = file.name.toLowerCase().split('.').pop() || ''
+    const isPDF   = ext === 'pdf' || file.type === 'application/pdf'
+    const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
     const isScanned = !texteCV || texteCV.trim().length < 50
 
     // 6. Analyser le CV avec Claude
     console.log('[CV Parse] Analyse Claude IA...')
     let analyse
 
-    if (isScanned && isPDF) {
+    if (isImage) {
+      // Image JPG/PNG → Claude Vision directement
+      console.log(`[CV Parse] Image détectée (${ext}) → analyse vision Claude...`)
+      const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+      analyse = await analyserCVDepuisImage(buffer, mimeType)
+    } else if (isScanned && isPDF) {
       // PDF scanné : envoyer le PDF directement à Claude (OCR natif)
       console.log('[CV Parse] PDF scanné détecté → analyse vision Claude...')
       analyse = await analyserCVDepuisPDF(buffer)

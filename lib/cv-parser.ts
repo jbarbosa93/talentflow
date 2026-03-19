@@ -71,7 +71,13 @@ export async function extractTextFromCV(
     return buffer.toString('utf-8')
   }
 
-  throw new Error(`Format de fichier non supporté : .${ext}. Utilisez PDF, DOCX ou DOC.`)
+  // Images : pas d'extraction texte ici → la route basculera sur Claude Vision
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext || '') ||
+      type?.startsWith('image/')) {
+    return '' // vide → route détectera isScanned=true et appellera analyserCVDepuisImage
+  }
+
+  throw new Error(`Format de fichier non supporté : .${ext}. Utilisez PDF, DOCX, DOC, TXT, JPG ou PNG.`)
 }
 
 /**
@@ -84,11 +90,11 @@ export function validateCVFile(file: File): { valid: boolean; error?: string } {
     return { valid: false, error: 'Le fichier dépasse la taille maximale de 10 MB' }
   }
 
-  const allowedExtensions = ['pdf', 'docx', 'doc', 'txt']
+  const allowedExtensions = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'webp']
   const ext = file.name.toLowerCase().split('.').pop()
 
   if (!ext || !allowedExtensions.includes(ext)) {
-    return { valid: false, error: 'Format non supporté. Utilisez PDF, DOCX, DOC ou TXT.' }
+    return { valid: false, error: 'Format non supporté. Utilisez PDF, DOCX, DOC, TXT, JPG ou PNG.' }
   }
 
   return { valid: true }
