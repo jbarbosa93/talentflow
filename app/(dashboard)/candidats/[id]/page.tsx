@@ -673,9 +673,7 @@ export default function CandidatDetailPage() {
             {/* Header du viewer */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)' }}>
               <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {candidat.cv_nom_fichier || 'CV'}
-              </span>
+              <span style={{ flex: 1 }} />
               <button
                 onClick={() => setShowCV(false)}
                 title="Masquer le CV"
