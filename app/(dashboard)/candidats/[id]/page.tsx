@@ -72,9 +72,25 @@ export default function CandidatDetailPage() {
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
+  const [cvZoom, setCvZoom]               = useState(1.0)
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
-  const imgDragRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+  const cvScrollRef     = useRef<HTMLDivElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
+  const cvDragRef  = useRef({ active: false, startX: 0, startY: 0, sl: 0, st: 0 })
+  const imgDragRef = useRef({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+
+  const cvDragStart = (e: React.MouseEvent) => {
+    const el = cvScrollRef.current; if (!el) return
+    cvDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, sl: el.scrollLeft, st: el.scrollTop }
+    el.style.cursor = 'grabbing'
+  }
+  const cvDragMove = (e: React.MouseEvent) => {
+    const d = cvDragRef.current; const el = cvScrollRef.current
+    if (!d.active || !el) return
+    el.scrollLeft = d.sl - (e.clientX - d.startX)
+    el.scrollTop  = d.st - (e.clientY - d.startY)
+  }
+  const cvDragEnd = () => { cvDragRef.current.active = false; if (cvScrollRef.current) cvScrollRef.current.style.cursor = 'grab' }
 
   const { data, isLoading, error } = useCandidat(id)
   const updateCandidat  = useUpdateCandidat()
@@ -671,59 +687,70 @@ export default function CandidatDetailPage() {
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
             {/* Header du viewer */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)' }}>
               <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
               <span style={{ flex: 1 }} />
-              <button
-                onClick={() => setShowCV(false)}
-                title="Masquer le CV"
-                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', flexShrink: 0 }}
-              >
+              {candidat.cv_url && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
+                    { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
+                    { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
+                  ].map(btn => (
+                    <button key={btn.label} onClick={btn.action} style={{ minWidth: btn.label.includes('%') ? 38 : 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button onClick={() => setShowCV(false)} title="Masquer le CV"
+                style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <ChevronRight size={12} />
               </button>
             </div>
 
             {/* Corps du viewer */}
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
-              {!candidat.cv_url ? (
+            {!candidat.cv_url ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
                 <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
-                  <FileText size={40} style={{ opacity: 0.25, marginBottom: 12, margin: '0 auto 12px' }} />
+                  <FileText size={40} style={{ opacity: 0.25, margin: '0 auto 12px' }} />
                   <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>Aucun CV disponible</p>
                   <p style={{ fontSize: 12 }}>Le fichier CV n&apos;a pas été importé</p>
                 </div>
-              ) : cvIsPDF ? (
-                <div style={{ width: '100%', height: '100%', position: 'relative', cursor: 'grab' }}>
-                  <iframe src={`${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+              </div>
+            ) : cvIsImage ? (
+              <div ref={imgContainerRef}
+                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none', display: 'flex', justifyContent: 'center', padding: 16 }}
+                onMouseDown={e => { const el = imgContainerRef.current; if (!el) return; imgDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }; el.style.cursor = 'grabbing' }}
+                onMouseMove={e => { const d = imgDragRef.current; const el = imgContainerRef.current; if (!d.active || !el) return; el.scrollLeft = d.scrollLeft - (e.clientX - d.startX); el.scrollTop = d.scrollTop - (e.clientY - d.startY) }}
+                onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
+                onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
+              >
+                <img src={candidat.cv_url} alt="CV" style={{ width: `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', alignSelf: 'flex-start' }} />
+              </div>
+            ) : (cvIsPDF || cvIsWord) ? (
+              <div ref={cvScrollRef}
+                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none', position: 'relative' }}
+                onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
+              >
+                <div style={{ width: `${cvZoom * 100}%`, minWidth: '100%', height: `${cvZoom * 100}%`, minHeight: '100%', position: 'relative' }}>
+                  {cvIsWord && <>
+                    {/* Masque bouton [↗] Google Docs (haut droite) */}
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
+                    {/* Masque zoom +/- Google Docs (bas) */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
+                    {/* Overlay drag */}
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
+                      onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
+                  </>}
+                  <iframe
+                    src={cvIsPDF ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width` : docViewerUrl}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: cvIsWord ? 'none' : 'auto' }}
+                    title="CV"
+                  />
                 </div>
-              ) : cvIsImage ? (
-                <div
-                  ref={imgContainerRef}
-                  style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, cursor: 'grab', userSelect: 'none' }}
-                  onMouseDown={e => {
-                    const el = imgContainerRef.current; if (!el) return
-                    imgDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }
-                    el.style.cursor = 'grabbing'
-                  }}
-                  onMouseMove={e => {
-                    const d = imgDragRef.current; const el = imgContainerRef.current
-                    if (!d.active || !el) return
-                    el.scrollLeft = d.scrollLeft - (e.clientX - d.startX)
-                    el.scrollTop  = d.scrollTop  - (e.clientY - d.startY)
-                  }}
-                  onMouseUp={e => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
-                  onMouseLeave={e => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
-                >
-                  <img src={candidat.cv_url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none' }} />
-                </div>
-              ) : cvIsWord ? (
-                <div style={{ width: '100%', height: '100%', position: 'relative', cursor: 'grab' }}>
-                  {/* Masque le bouton [↗] de Google Docs Viewer (haut droite) */}
-                  <div style={{ position: 'absolute', top: 0, right: 0, width: 52, height: 52, background: 'white', zIndex: 10, pointerEvents: 'all' }} />
-                  {/* Masque les contrôles zoom +/- de Google Docs Viewer (bas) */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 52, background: 'white', zIndex: 10, pointerEvents: 'all' }} />
-                  <iframe src={docViewerUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
-                </div>
-              ) : (
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
                 <div style={{ textAlign: 'center', padding: 32 }}>
                   <FileText size={36} style={{ color: 'var(--muted)', opacity: 0.4, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
                   <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Aperçu non disponible (.{ext})</p>
@@ -731,8 +758,8 @@ export default function CandidatDetailPage() {
                     <ExternalLink size={13} /> Ouvrir le fichier
                   </a>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
         )}

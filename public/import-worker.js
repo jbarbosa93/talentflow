@@ -2,13 +2,14 @@
 // Tourne dans un thread séparé, actif même onglet inactif
 
 const CONCURRENCY        = 2
-const MAX_RETRIES        = 4
-const FETCH_TIMEOUT      = 55_000   // 55s — laisse 5s de marge avant timeout Vercel Hobby (60s)
-const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà (Vercel Hobby limite à 4.5 Mo)
+const MAX_RETRIES        = 5
+const FETCH_TIMEOUT      = 52_000   // 52s — sous le timeout global route (55s) et Vercel (60s)
+const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
 
-let queue   = []
-let running = false
-let paused  = false
+let queue          = []
+let running        = false
+let paused         = false
+let activeWorkers  = 0   // compteur pour envoyer DONE seulement quand le DERNIER worker finit
 
 self.onmessage = function (e) {
   const { type, payload } = e.data
@@ -48,16 +49,16 @@ async function processJob(job) {
   }
 }
 
-// Fichiers ≤ 5 Mo : envoi direct en FormData (ancien comportement)
+// Fichiers ≤ 3 Mo : envoi direct en FormData
 async function processJobDirect(job, t0) {
   let lastError = ''
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const formData = new FormData()
     formData.append('cv', job.file)
     formData.append('statut', job.statut || 'nouveau')
-    if (job.categorie)     formData.append('categorie', job.categorie)
-    if (job.forceInsert)   formData.append('force_insert', 'true')
-    if (job.replaceId)     formData.append('replace_id', job.replaceId)
+    if (job.categorie)   formData.append('categorie', job.categorie)
+    if (job.forceInsert) formData.append('force_insert', 'true')
+    if (job.replaceId)   formData.append('replace_id', job.replaceId)
 
     const controller = new AbortController()
     const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
@@ -75,9 +76,15 @@ async function processJobDirect(job, t0) {
       return
     } catch (err) {
       clearTimeout(timeoutId)
-      lastError = err.name === 'AbortError' ? 'Timeout' : (err.message || 'Erreur réseau')
+      if (err.name === 'AbortError') {
+        lastError = 'Timeout (52s)'
+      } else if (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
+        lastError = `Erreur réseau (tentative ${attempt}/${MAX_RETRIES})`
+      } else {
+        lastError = err.message || 'Erreur inconnue'
+      }
       if (attempt < MAX_RETRIES) {
-        const wait = Math.pow(2, attempt) * 3000
+        const wait = Math.pow(2, attempt) * 3000  // 6s, 12s, 24s, 48s
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
@@ -86,13 +93,14 @@ async function processJobDirect(job, t0) {
   self.postMessage({ type: 'JOB_ERROR', id: job.id, error: lastError, duration: Date.now() - t0 })
 }
 
-// Fichiers > 5 Mo : upload direct vers Supabase Storage, puis parse via chemin
+// Fichiers > 3 Mo : upload direct Supabase, puis parse via chemin storage
 async function processJobLarge(job, t0) {
   let lastError = ''
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      // 1. Obtenir URL pré-signée
       self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `Fichier ${(job.file.size/1024/1024).toFixed(1)} Mo — upload direct Supabase...` })
+
+      // 1. URL pré-signée
       const presignRes = await fetch(`/api/cv/presign?filename=${encodeURIComponent(job.file.name)}`)
       if (!presignRes.ok) throw new Error('Impossible d\'obtenir l\'URL d\'upload')
       const { signedUrl, path: storagePath } = await presignRes.json()
@@ -105,7 +113,7 @@ async function processJobLarge(job, t0) {
       })
       if (!uploadRes.ok) throw new Error(`Erreur upload Supabase : ${uploadRes.status}`)
 
-      // 3. Demander le parsing via chemin storage
+      // 3. Parse via storage_path (corps JSON léger, pas de fichier)
       const controller = new AbortController()
       const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
       const res = await fetch('/api/cv/parse', {
@@ -132,7 +140,13 @@ async function processJobLarge(job, t0) {
       return
 
     } catch (err) {
-      lastError = err.name === 'AbortError' ? 'Timeout' : (err.message || 'Erreur')
+      if (err.name === 'AbortError') {
+        lastError = 'Timeout (52s)'
+      } else if (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
+        lastError = `Erreur réseau (tentative ${attempt}/${MAX_RETRIES})`
+      } else {
+        lastError = err.message || 'Erreur inconnue'
+      }
       if (attempt < MAX_RETRIES) {
         const wait = Math.pow(2, attempt) * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
@@ -143,7 +157,7 @@ async function processJobLarge(job, t0) {
   self.postMessage({ type: 'JOB_ERROR', id: job.id, error: lastError, duration: Date.now() - t0 })
 }
 
-// Parse la réponse HTTP commune aux deux flux
+// Parse la réponse HTTP
 async function parseResponse(res, job, t0) {
   const ct = res.headers.get('content-type') || ''
   let data = {}
@@ -172,24 +186,28 @@ async function parseResponse(res, job, t0) {
 }
 
 async function workerLoop() {
-  while (running) {
-    if (paused) {
-      await new Promise(r => setTimeout(r, 500))
-      continue
+  try {
+    while (running) {
+      if (paused) {
+        await new Promise(r => setTimeout(r, 500))
+        continue
+      }
+      const job = queue.shift()
+      if (!job) break
+      await processJob(job)
     }
-    const job = queue.shift()
-    if (!job) break
-    await processJob(job)
-  }
-
-  // Dernier worker à terminer → signale la fin
-  if (queue.length === 0 && running) {
-    running = false
-    self.postMessage({ type: 'DONE' })
+  } finally {
+    // Décrémente et envoie DONE seulement quand le DERNIER worker actif termine
+    activeWorkers--
+    if (activeWorkers === 0 && running) {
+      running = false
+      self.postMessage({ type: 'DONE' })
+    }
   }
 }
 
 function startWorkers() {
   const count = Math.min(CONCURRENCY, queue.length)
+  activeWorkers = count
   for (let i = 0; i < count; i++) workerLoop()
 }

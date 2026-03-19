@@ -10,244 +10,254 @@ import type { CandidatInsert } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
-export const maxDuration = 60          // 60s max (Vercel Hobby) — analyse IA + OCR scans
+export const maxDuration = 60          // 60s max (Vercel Hobby)
 export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
+// ─── Timeout utilitaire ───────────────────────────────────────────────────────
+// Garantit qu'on répond TOUJOURS avant que Vercel coupe la connexion TCP à 60s.
+// Sans ça, certains PDFs lourds font raccrocher Vercel silencieusement → "Failed to fetch"
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout ${label} (${ms / 1000}s)`)), ms)
+    ),
+  ])
+}
+
 export async function POST(request: NextRequest) {
+  // Enveloppe globale : répond toujours en < 55s même si pdf-parse ou Claude bloque
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout global 55s — réessayez')), 55_000)
+  )
+
   try {
-    // 1. Initialiser Supabase (mode admin, pas besoin d'utilisateur connecté)
-    const supabase = createAdminClient()
-
-    // 2. Récupérer le fichier — soit FormData (petit fichier) soit JSON storage_path (gros fichier)
-    const ct = request.headers.get('content-type') || ''
-    let file: File | null = null
-    let statutPipeline = 'nouveau'
-    let offreId: string | null = null
-    let forceInsert = false
-    let replaceId: string | null = null
-    let storagePathInput: string | null = null
-
-    if (ct.includes('application/json')) {
-      // Gros fichier — déjà uploadé sur Supabase Storage
-      const body = await request.json()
-      storagePathInput = body.storage_path
-      statutPipeline   = body.statut || 'nouveau'
-      forceInsert      = body.force_insert === true
-      replaceId        = body.replace_id || null
-      offreId          = body.offre_id || null
-    } else {
-      // Petit fichier — envoyé directement dans le FormData
-      const formData = await request.formData()
-      file            = formData.get('cv') as File | null
-      statutPipeline  = (formData.get('statut') as string) || 'nouveau'
-      offreId         = formData.get('offre_id') as string | null
-      forceInsert     = formData.get('force_insert') === 'true'
-      replaceId       = formData.get('replace_id') as string | null
-      storagePathInput = formData.get('storage_path') as string | null
-    }
-
-    // Si storage_path fourni (gros fichier pré-uploadé) → télécharger depuis Supabase
-    if (!file && storagePathInput) {
-      const adminDl = createAdminClient()
-      const { data: blob, error: dlErr } = await adminDl.storage.from('cvs').download(storagePathInput)
-      if (dlErr || !blob) {
-        return NextResponse.json({ error: `Fichier introuvable en storage : ${dlErr?.message}` }, { status: 404 })
-      }
-      const arrBuf = await blob.arrayBuffer()
-      const fileName = storagePathInput.split('/').pop() || 'cv'
-      file = new File([arrBuf], fileName, { type: blob.type })
-    }
-
-    if (!file) {
-      return NextResponse.json(
-        { error: 'Aucun fichier fourni. Utilisez le champ "cv" ou "storage_path".' },
-        { status: 400 }
-      )
-    }
-
-    // 3. Valider le fichier
-    const validation = validateCVFile(file)
-    if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      )
-    }
-
-    console.log(`[CV Parse] Début traitement : ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
-
-    // 4. Convertir en Buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    // 5. Extraire le texte brut du CV
-    console.log('[CV Parse] Extraction du texte...')
-    const texteCV = await extractTextFromCV(buffer, file.name, file.type)
-
-    const ext  = file.name.toLowerCase().split('.').pop() || ''
-    const isPDF   = ext === 'pdf' || file.type === 'application/pdf'
-    const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
-    const isScanned = !texteCV || texteCV.trim().length < 50
-
-    // 6. Analyser le CV avec Claude
-    console.log('[CV Parse] Analyse Claude IA...')
-    let analyse
-
-    if (isImage) {
-      // Image JPG/PNG → Claude Vision directement
-      console.log(`[CV Parse] Image détectée (${ext}) → analyse vision Claude...`)
-      const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
-      analyse = await analyserCVDepuisImage(buffer, mimeType)
-    } else if (isScanned && isPDF) {
-      // PDF scanné : envoyer le PDF directement à Claude (OCR natif)
-      console.log('[CV Parse] PDF scanné détecté → analyse vision Claude...')
-      analyse = await analyserCVDepuisPDF(buffer)
-    } else if (isScanned) {
-      return NextResponse.json(
-        { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
-        { status: 422 }
-      )
-    } else {
-      console.log(`[CV Parse] Texte extrait : ${texteCV.length} caractères`)
-      analyse = await analyserCV(texteCV)
-    }
-
-    console.log(`[CV Parse] Analyse terminée : ${analyse.nom} ${analyse.prenom}`)
-
-    // 7. Upload du fichier vers Supabase Storage
-    const adminClient = createAdminClient()
-    const timestamp = Date.now()
-    const nomFichierStorage = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-
-    console.log('[CV Parse] Upload Supabase Storage...')
-    const { data: storageData, error: storageError } = await adminClient.storage
-      .from('cvs')
-      .upload(nomFichierStorage, buffer, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: false,
-      })
-
-    if (storageError) {
-      console.error('[CV Parse] Erreur storage:', storageError)
-      // On continue même si le storage échoue (pas bloquant)
-    }
-
-    // Obtenir l'URL signée (valide 10 ans)
-    let cvUrl: string | null = null
-    if (storageData?.path) {
-      const { data: urlData } = await adminClient.storage
-        .from('cvs')
-        .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
-      cvUrl = urlData?.signedUrl || null
-    }
-
-    // 8. Supprimer l'existant si "remplacer"
-    if (replaceId) {
-      await adminClient.from('candidats').delete().eq('id', replaceId)
-    }
-
-    // 8b. Vérifier les doublons (sauf si force_insert ou replace)
-    let candidatExistant: any = null
-    if (!forceInsert && !replaceId && analyse.email) {
-      const { data: byEmail } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-        .eq('email', analyse.email).maybeSingle()
-      candidatExistant = byEmail
-    }
-    if (!forceInsert && !replaceId && !candidatExistant && analyse.nom && analyse.prenom) {
-      const { data: byName } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-        .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
-      candidatExistant = byName
-    }
-    if (candidatExistant) {
-      console.log(`[CV Parse] Doublon détecté : ${candidatExistant.prenom} ${candidatExistant.nom}`)
-      return NextResponse.json({
-        isDuplicate: true,
-        candidatExistant,
-        analyse,
-        message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
-      })
-    }
-
-    // 9. Créer le candidat en base
-    console.log('[CV Parse] Création du candidat en base...')
-    const nouveauCandidat: CandidatInsert = {
-      nom: analyse.nom || 'Candidat',
-      prenom: analyse.prenom || null,
-      email: analyse.email || null,
-      telephone: analyse.telephone || null,
-      localisation: analyse.localisation || null,
-      titre_poste: analyse.titre_poste || null,
-      annees_exp: analyse.annees_exp || 0,
-      competences: analyse.competences || [],
-      formation: analyse.formation || null,
-      cv_url: cvUrl,
-      cv_nom_fichier: file.name,
-      resume_ia: analyse.resume || null,
-      cv_texte_brut: texteCV.slice(0, 10000),
-      statut_pipeline: statutPipeline as any,
-      tags: [],
-      notes: null,
-      source: 'upload',
-      langues: analyse.langues?.length ? analyse.langues : null,
-      linkedin: analyse.linkedin || null,
-      permis_conduire: analyse.permis_conduire ?? null,
-      date_naissance: analyse.date_naissance || null,
-      experiences: analyse.experiences?.length ? analyse.experiences : null,
-      formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
-    }
-
-    const { data: candidatRaw, error: dbError } = await adminClient
-      .from('candidats')
-      .insert(nouveauCandidat)
-      .select()
-      .single()
-
-    const candidat = candidatRaw as import('@/types/database').Candidat | null
-
-    if (dbError) {
-      console.error('[CV Parse] Erreur base de données:', dbError)
-      return NextResponse.json(
-        { error: `Erreur création candidat : ${dbError.message}` },
-        { status: 500 }
-      )
-    }
-
-    // 10. Si une offre est spécifiée, créer l'entrée pipeline
-    if (offreId && candidat) {
-      await adminClient
-        .from('pipeline')
-        .insert({
-          candidat_id: candidat.id,
-          offre_id: offreId,
-          etape: statutPipeline as any,
-          score_ia: null,
-        })
-        .select()
-    }
-
-    console.log(`[CV Parse] Succès ! Candidat créé : ${candidat?.id}`)
-    await logActivity({ action: 'cv_importe', details: { nom: analyse.nom, prenom: analyse.prenom } })
-
-    return NextResponse.json({
-      success: true,
-      candidat,
-      analyse,
-      cv_url: cvUrl,
-      message: `Candidat ${analyse.prenom || ''} ${analyse.nom} créé avec succès`,
-    })
-
+    return await Promise.race([handlePOST(request), timeout])
   } catch (error) {
-    console.error('[CV Parse] Erreur inattendue:', error)
-
+    console.error('[CV Parse] Erreur ou timeout:', error)
     const message = error instanceof Error ? error.message : 'Erreur serveur inattendue'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
 
+async function handlePOST(request: NextRequest): Promise<NextResponse> {
+  // 1. Initialiser Supabase
+  const supabase = createAdminClient()
+
+  // 2. Récupérer le fichier — FormData (petit) ou JSON storage_path (gros)
+  const ct = request.headers.get('content-type') || ''
+  let file: File | null = null
+  let statutPipeline = 'nouveau'
+  let offreId: string | null = null
+  let forceInsert = false
+  let replaceId: string | null = null
+  let storagePathInput: string | null = null
+
+  if (ct.includes('application/json')) {
+    const body = await request.json()
+    storagePathInput = body.storage_path
+    statutPipeline   = body.statut || 'nouveau'
+    forceInsert      = body.force_insert === true
+    replaceId        = body.replace_id || null
+    offreId          = body.offre_id || null
+  } else {
+    const formData = await request.formData()
+    file            = formData.get('cv') as File | null
+    statutPipeline  = (formData.get('statut') as string) || 'nouveau'
+    offreId         = formData.get('offre_id') as string | null
+    forceInsert     = formData.get('force_insert') === 'true'
+    replaceId       = formData.get('replace_id') as string | null
+    storagePathInput = formData.get('storage_path') as string | null
+  }
+
+  // Si storage_path fourni → télécharger depuis Supabase
+  if (!file && storagePathInput) {
+    const adminDl = createAdminClient()
+    const { data: blob, error: dlErr } = await withTimeout(
+      adminDl.storage.from('cvs').download(storagePathInput),
+      10_000, 'téléchargement storage'
+    )
+    if (dlErr || !blob) {
+      return NextResponse.json({ error: `Fichier introuvable en storage : ${dlErr?.message}` }, { status: 404 })
+    }
+    const arrBuf = await blob.arrayBuffer()
+    const fileName = storagePathInput.split('/').pop() || 'cv'
+    file = new File([arrBuf], fileName, { type: blob.type })
+  }
+
+  if (!file) {
     return NextResponse.json(
-      { error: message },
-      { status: 500 }
+      { error: 'Aucun fichier fourni. Utilisez le champ "cv" ou "storage_path".' },
+      { status: 400 }
     )
   }
+
+  // 3. Valider
+  const validation = validateCVFile(file)
+  if (!validation.valid) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
+  }
+
+  console.log(`[CV Parse] Début : ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
+
+  // 4. Convertir en Buffer
+  const arrayBuffer = await file.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+
+  // 5. Extraire le texte — timeout 10s (pdf-parse peut bloquer sur des PDFs corrompus)
+  console.log('[CV Parse] Extraction texte...')
+  const texteCV = await withTimeout(
+    extractTextFromCV(buffer, file.name, file.type),
+    10_000, 'extraction texte'
+  ).catch(() => '')  // si extraction timeout → traiter comme PDF scanné
+
+  const ext      = file.name.toLowerCase().split('.').pop() || ''
+  const isPDF    = ext === 'pdf' || file.type === 'application/pdf'
+  const isImage  = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
+  const isScanned = !texteCV || texteCV.trim().length < 50
+
+  // 6. Analyse Claude — timeout 45s
+  console.log('[CV Parse] Analyse Claude IA...')
+  let analyse
+
+  if (isImage) {
+    console.log(`[CV Parse] Image (${ext}) → vision Claude...`)
+    const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+    analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 45_000, 'analyse image')
+  } else if (isScanned && isPDF) {
+    console.log('[CV Parse] PDF scanné → vision Claude...')
+    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 45_000, 'analyse PDF scanné')
+  } else if (isScanned) {
+    return NextResponse.json(
+      { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
+      { status: 422 }
+    )
+  } else {
+    console.log(`[CV Parse] Texte : ${texteCV.length} chars`)
+    analyse = await withTimeout(analyserCV(texteCV), 45_000, 'analyse texte')
+  }
+
+  console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
+
+  // 7. Upload Supabase Storage — timeout 15s
+  const adminClient = createAdminClient()
+  const timestamp = Date.now()
+  const nomFichierStorage = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+
+  console.log('[CV Parse] Upload storage...')
+  const { data: storageData, error: storageError } = await withTimeout(
+    adminClient.storage.from('cvs').upload(nomFichierStorage, buffer, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    }),
+    15_000, 'upload storage'
+  ).catch(err => {
+    console.error('[CV Parse] Storage timeout/erreur (non bloquant):', err.message)
+    return { data: null, error: err }
+  })
+
+  if (storageError && !storageData) {
+    console.error('[CV Parse] Erreur storage:', storageError)
+  }
+
+  let cvUrl: string | null = null
+  if (storageData?.path) {
+    const { data: urlData } = await adminClient.storage
+      .from('cvs')
+      .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+    cvUrl = urlData?.signedUrl || null
+  }
+
+  // 8. Supprimer l'existant si "remplacer"
+  if (replaceId) {
+    await adminClient.from('candidats').delete().eq('id', replaceId)
+  }
+
+  // 8b. Vérifier les doublons
+  let candidatExistant: any = null
+  if (!forceInsert && !replaceId && analyse.email) {
+    const { data: byEmail } = await adminClient
+      .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+      .eq('email', analyse.email).maybeSingle()
+    candidatExistant = byEmail
+  }
+  if (!forceInsert && !replaceId && !candidatExistant && analyse.nom && analyse.prenom) {
+    const { data: byName } = await adminClient
+      .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+      .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
+    candidatExistant = byName
+  }
+  if (candidatExistant) {
+    console.log(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+    return NextResponse.json({
+      isDuplicate: true,
+      candidatExistant,
+      analyse,
+      message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
+    })
+  }
+
+  // 9. Créer le candidat en base
+  console.log('[CV Parse] Insertion en base...')
+  const nouveauCandidat: CandidatInsert = {
+    nom: analyse.nom || 'Candidat',
+    prenom: analyse.prenom || null,
+    email: analyse.email || null,
+    telephone: analyse.telephone || null,
+    localisation: analyse.localisation || null,
+    titre_poste: analyse.titre_poste || null,
+    annees_exp: analyse.annees_exp || 0,
+    competences: analyse.competences || [],
+    formation: analyse.formation || null,
+    cv_url: cvUrl,
+    cv_nom_fichier: file.name,
+    resume_ia: analyse.resume || null,
+    cv_texte_brut: texteCV.slice(0, 10000),
+    statut_pipeline: statutPipeline as any,
+    tags: [],
+    notes: null,
+    source: 'upload',
+    langues: analyse.langues?.length ? analyse.langues : null,
+    linkedin: analyse.linkedin || null,
+    permis_conduire: analyse.permis_conduire ?? null,
+    date_naissance: analyse.date_naissance || null,
+    experiences: analyse.experiences?.length ? analyse.experiences : null,
+    formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
+  }
+
+  const { data: candidatRaw, error: dbError } = await adminClient
+    .from('candidats')
+    .insert(nouveauCandidat)
+    .select()
+    .single()
+
+  const candidat = candidatRaw as import('@/types/database').Candidat | null
+
+  if (dbError) {
+    console.error('[CV Parse] Erreur BDD:', dbError)
+    return NextResponse.json({ error: `Erreur création candidat : ${dbError.message}` }, { status: 500 })
+  }
+
+  // 10. Pipeline si offre spécifiée
+  if (offreId && candidat) {
+    await adminClient.from('pipeline').insert({
+      candidat_id: candidat.id,
+      offre_id: offreId,
+      etape: statutPipeline as any,
+      score_ia: null,
+    }).select()
+  }
+
+  console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
+  await logActivity({ action: 'cv_importe', details: { nom: analyse.nom, prenom: analyse.prenom } })
+
+  return NextResponse.json({
+    success: true,
+    candidat,
+    analyse,
+    cv_url: cvUrl,
+    message: `Candidat ${analyse.prenom || ''} ${analyse.nom} créé avec succès`,
+  })
 }
 
 // GET : tester que la route fonctionne
