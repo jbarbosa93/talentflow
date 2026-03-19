@@ -416,7 +416,13 @@ export default function CandidatDetailPage() {
                 {candidat.localisation && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
                     <MapPin size={12} style={{ flexShrink: 0 }} />
-                    <span>{candidat.localisation}</span>
+                    <a
+                      href={`https://www.google.com/maps/search/${encodeURIComponent(candidat.localisation)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: 12 }}
+                      onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
+                      onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
+                    >{candidat.localisation}</a>
                     {distanceKm !== null && (
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '1px 7px', borderRadius: 100, whiteSpace: 'nowrap' }}>
                         ~{distanceKm} km
@@ -428,31 +434,6 @@ export default function CandidatDetailPage() {
             )}
           </div>
 
-          {/* Carte localisation */}
-          {candidat.localisation && (
-            <div className="neo-card-soft" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <MapPin size={12} style={{ color: 'var(--primary)' }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>{candidat.localisation}</span>
-                </div>
-                <a
-                  href={`https://www.google.com/maps/dir/Monthey,+Suisse/${encodeURIComponent(candidat.localisation)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  <ExternalLink size={10} /> Itinéraire
-                </a>
-              </div>
-              <iframe
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(candidat.localisation)}&output=embed&hl=fr&z=12`}
-                style={{ width: '100%', height: 200, border: 'none', display: 'block' }}
-                title="Localisation"
-                loading="lazy"
-              />
-            </div>
-          )}
 
           {/* Formation */}
           <div className="neo-card-soft" style={{ padding: 14 }}>
