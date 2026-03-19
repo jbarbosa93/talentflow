@@ -681,7 +681,7 @@ export default function CandidatDetailPage() {
                 title="Masquer le CV"
                 style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', flexShrink: 0 }}
               >
-                <ChevronRight size={12} /> Masquer
+                <ChevronRight size={12} />
               </button>
             </div>
 
@@ -718,7 +718,13 @@ export default function CandidatDetailPage() {
                   <img src={candidat.cv_url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none' }} />
                 </div>
               ) : cvIsWord ? (
-                <iframe src={docViewerUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+                <div style={{ width: '100%', height: '100%', position: 'relative', cursor: 'grab' }}>
+                  {/* Masque le bouton [↗] de Google Docs Viewer (haut droite) */}
+                  <div style={{ position: 'absolute', top: 0, right: 0, width: 52, height: 52, background: 'white', zIndex: 10, pointerEvents: 'all' }} />
+                  {/* Masque les contrôles zoom +/- de Google Docs Viewer (bas) */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 52, background: 'white', zIndex: 10, pointerEvents: 'all' }} />
+                  <iframe src={docViewerUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+                </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: 32 }}>
                   <FileText size={36} style={{ color: 'var(--muted)', opacity: 0.4, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
