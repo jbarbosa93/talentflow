@@ -172,8 +172,8 @@ export default function CandidatsPage() {
     const avecTel  = selected.filter((c: any) => c.telephone)
     const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
 
-    // Copier tous les numéros dans le presse-papiers (fallback multi-destinataires macOS)
-    navigator.clipboard?.writeText(formatted.join(', ')).catch(() => {})
+    // Copier tous les numéros séparés par des sauts de ligne (compatible Messages, Excel, etc.)
+    navigator.clipboard?.writeText(formatted.join('\n')).catch(() => {})
 
     // Ouvrir Messages avec tous les numéros (fonctionne sur iOS ; sur macOS ouvre avec le premier)
     const body = encodeURIComponent(messageText || '')
