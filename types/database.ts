@@ -417,6 +417,29 @@ export type Database = {
         }
         Relationships: []
       }
+      demandes_acces: {
+        Row: {
+          id: string
+          prenom: string
+          nom: string
+          entreprise: string
+          email: string
+          statut: 'en_attente' | 'approuve' | 'refuse'
+          created_at: string
+        }
+        Insert: {
+          prenom: string
+          nom: string
+          entreprise: string
+          email: string
+          statut?: 'en_attente' | 'approuve' | 'refuse'
+          created_at?: string
+        }
+        Update: {
+          statut?: 'en_attente' | 'approuve' | 'refuse'
+        }
+        Relationships: []
+      }
     }
     Views: {
       vue_pipeline_complet: {
