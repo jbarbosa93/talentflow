@@ -76,13 +76,8 @@ async function processJobDirect(job, t0) {
       return
     } catch (err) {
       clearTimeout(timeoutId)
-      if (err.name === 'AbortError') {
-        lastError = 'Timeout (52s)'
-      } else if (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
-        lastError = `Erreur réseau (tentative ${attempt}/${MAX_RETRIES})`
-      } else {
-        lastError = err.message || 'Erreur inconnue'
-      }
+      // Affiche le message exact pour diagnostiquer l'erreur réelle
+      lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
         const wait = Math.pow(2, attempt) * 3000  // 6s, 12s, 24s, 48s
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
