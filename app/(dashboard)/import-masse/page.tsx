@@ -9,7 +9,7 @@ import {
 import { toast } from 'sonner'
 
 const FORMATS_OK    = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const MAX_FILE_SIZE = 4.5 * 1024 * 1024  // 4.5 Mo — limite Vercel
+const MAX_FILE_SIZE = 100 * 1024 * 1024  // 100 Mo — upload direct Supabase pour > 5 Mo
 
 type FileStatus = 'pending' | 'processing' | 'success' | 'error' | 'doublon'
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
@@ -154,7 +154,7 @@ export default function ImportMassePage() {
     const invalid = items.filter(({ file }) => !FORMATS_OK.includes(getExt(file.name)))
     const tooLarge = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size > MAX_FILE_SIZE)
     if (tooLarge.length > 0) {
-      toast.warning(`${tooLarge.length} fichier(s) ignoré(s) — dépasse 4.5 Mo (${tooLarge.map(f => f.file.name).slice(0, 3).join(', ')}${tooLarge.length > 3 ? '…' : ''})`)
+      toast.warning(`${tooLarge.length} fichier(s) ignoré(s) — dépasse 100 Mo (${tooLarge.map(f => f.file.name).slice(0, 3).join(', ')}${tooLarge.length > 3 ? '…' : ''})`)
     }
 
     if (invalid.length > 0) {

@@ -84,10 +84,10 @@ export async function extractTextFromCV(
  * Valide un fichier CV avant upload
  */
 export function validateCVFile(file: File): { valid: boolean; error?: string } {
-  const MAX_SIZE = 10 * 1024 * 1024 // 10 MB
+  const MAX_SIZE = 100 * 1024 * 1024 // 100 MB
 
   if (file.size > MAX_SIZE) {
-    return { valid: false, error: 'Le fichier dépasse la taille maximale de 10 MB' }
+    return { valid: false, error: 'Le fichier dépasse la taille maximale de 100 MB' }
   }
 
   const allowedExtensions = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png', 'webp']

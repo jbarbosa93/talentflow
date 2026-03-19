@@ -16,17 +16,49 @@ export async function POST(request: NextRequest) {
     // 1. Initialiser Supabase (mode admin, pas besoin d'utilisateur connecté)
     const supabase = createAdminClient()
 
-    // 2. Récupérer le fichier depuis le FormData
-    const formData = await request.formData()
-    const file = formData.get('cv') as File | null
-    const statutPipeline = (formData.get('statut') as string) || 'nouveau'
-    const offreId        = formData.get('offre_id') as string | null
-    const forceInsert    = formData.get('force_insert') === 'true'
-    const replaceId      = formData.get('replace_id') as string | null
+    // 2. Récupérer le fichier — soit FormData (petit fichier) soit JSON storage_path (gros fichier)
+    const ct = request.headers.get('content-type') || ''
+    let file: File | null = null
+    let statutPipeline = 'nouveau'
+    let offreId: string | null = null
+    let forceInsert = false
+    let replaceId: string | null = null
+    let storagePathInput: string | null = null
+
+    if (ct.includes('application/json')) {
+      // Gros fichier — déjà uploadé sur Supabase Storage
+      const body = await request.json()
+      storagePathInput = body.storage_path
+      statutPipeline   = body.statut || 'nouveau'
+      forceInsert      = body.force_insert === true
+      replaceId        = body.replace_id || null
+      offreId          = body.offre_id || null
+    } else {
+      // Petit fichier — envoyé directement dans le FormData
+      const formData = await request.formData()
+      file            = formData.get('cv') as File | null
+      statutPipeline  = (formData.get('statut') as string) || 'nouveau'
+      offreId         = formData.get('offre_id') as string | null
+      forceInsert     = formData.get('force_insert') === 'true'
+      replaceId       = formData.get('replace_id') as string | null
+      storagePathInput = formData.get('storage_path') as string | null
+    }
+
+    // Si storage_path fourni (gros fichier pré-uploadé) → télécharger depuis Supabase
+    if (!file && storagePathInput) {
+      const adminDl = createAdminClient()
+      const { data: blob, error: dlErr } = await adminDl.storage.from('cvs').download(storagePathInput)
+      if (dlErr || !blob) {
+        return NextResponse.json({ error: `Fichier introuvable en storage : ${dlErr?.message}` }, { status: 404 })
+      }
+      const arrBuf = await blob.arrayBuffer()
+      const fileName = storagePathInput.split('/').pop() || 'cv'
+      file = new File([arrBuf], fileName, { type: blob.type })
+    }
 
     if (!file) {
       return NextResponse.json(
-        { error: 'Aucun fichier fourni. Utilisez le champ "cv".' },
+        { error: 'Aucun fichier fourni. Utilisez le champ "cv" ou "storage_path".' },
         { status: 400 }
       )
     }
