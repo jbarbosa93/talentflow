@@ -51,6 +51,7 @@ export default function CandidatsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [messageText, setMessageText]     = useState('')
+  const [numCopied, setNumCopied]         = useState(false)
 
   const [aiSearching, setAiSearching] = useState(false)
   const [aiResults, setAiResults] = useState<any[] | null>(null)
@@ -167,20 +168,15 @@ export default function CandidatsPage() {
     return { number: c, flag: '📱', country: '' }
   }
 
-  const openMessages = () => {
-    const selected = sorted.filter((c: any) => selectedIds.has(c.id))
-    const avecTel  = selected.filter((c: any) => c.telephone)
-    const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
+  const copyNumbers = async (formatted: string[]) => {
+    await navigator.clipboard.writeText(formatted.join('\n'))
+    setNumCopied(true)
+    setTimeout(() => setNumCopied(false), 2500)
+  }
 
-    // Copier tous les numéros séparés par des sauts de ligne (compatible Messages, Excel, etc.)
-    navigator.clipboard?.writeText(formatted.join('\n')).catch(() => {})
-
-    // Ouvrir Messages avec tous les numéros (fonctionne sur iOS ; sur macOS ouvre avec le premier)
-    const body = encodeURIComponent(messageText || '')
-    const url  = `sms:${formatted.join(',')}${body ? `?body=${body}` : ''}`
-    window.open(url, '_self')
-    setShowMessage(false)
-    setMessageText('')
+  const openMessages = (formatted: string[]) => {
+    // Ouvrir Messages sans numéros dans l'URL — l'utilisateur colle depuis le presse-papiers
+    window.open('sms:', '_self')
   }
 
   const handleBulkDelete = () => {
@@ -598,8 +594,9 @@ export default function CandidatsPage() {
       {/* Modal Message */}
       {showMessage && (() => {
         const selected = sorted.filter((c: any) => selectedIds.has(c.id))
-        const avecTel  = selected.filter((c: any) => c.telephone)
-        const sansTel  = selected.filter((c: any) => !c.telephone)
+        const avecTel   = selected.filter((c: any) => c.telephone)
+        const sansTel   = selected.filter((c: any) => !c.telephone)
+        const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
         return (
           <div style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -623,16 +620,44 @@ export default function CandidatsPage() {
               </div>
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {/* Info multi-destinataires macOS */}
-                {avecTel.length > 1 && (
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '10px 14px' }}>
-                    <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
-                    <p style={{ fontSize: 12, color: '#1D4ED8', margin: 0, lineHeight: 1.5 }}>
-                      <strong>Plusieurs destinataires :</strong> En cliquant, <strong>tous les numéros sont copiés dans votre presse-papiers</strong>.
-                      Messages s&apos;ouvre — collez (<strong>⌘V</strong>) dans le champ <strong>À&nbsp;:</strong> pour les ajouter tous.
-                    </p>
+                {/* Numéros à copier — affichage direct un par ligne */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Numéros à coller dans Messages
                   </div>
-                )}
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      readOnly
+                      value={formatted.join('\n')}
+                      rows={Math.min(formatted.length, 5)}
+                      style={{
+                        width: '100%', padding: '10px 14px', paddingRight: 90,
+                        fontSize: 13, fontFamily: 'monospace', fontWeight: 600,
+                        border: '1.5px solid var(--border)', borderRadius: 10,
+                        resize: 'none', background: '#F8F9FA', color: 'var(--foreground)',
+                        outline: 'none', boxSizing: 'border-box', lineHeight: 1.8,
+                      }}
+                      onFocus={e => e.target.select()}
+                    />
+                    <button
+                      onClick={() => copyNumbers(formatted)}
+                      style={{
+                        position: 'absolute', right: 8, top: 8,
+                        padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700,
+                        border: '1.5px solid',
+                        borderColor: numCopied ? '#16A34A' : 'var(--border)',
+                        background: numCopied ? '#F0FDF4' : 'white',
+                        color: numCopied ? '#16A34A' : 'var(--foreground)',
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                      }}
+                    >
+                      {numCopied ? '✓ Copié' : 'Copier'}
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>
+                    Un numéro par ligne · Ouvrez Messages → champ <strong>À :</strong> → <strong>⌘V</strong>
+                  </p>
+                </div>
 
                 {/* Destinataires */}
                 <div>
@@ -705,13 +730,13 @@ export default function CandidatsPage() {
                     Annuler
                   </button>
                   <button
-                    onClick={openMessages}
+                    onClick={() => openMessages(formatted)}
                     disabled={avecTel.length === 0}
                     className="neo-btn"
                     style={{ flex: 2, justifyContent: 'center', background: '#007AFF', color: 'white', boxShadow: 'none', opacity: avecTel.length === 0 ? 0.4 : 1 }}
                   >
                     <MessageSquare size={14} />
-                    Ouvrir dans Messages ({avecTel.length})
+                    Ouvrir Messages
                   </button>
                 </div>
 
