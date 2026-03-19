@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff } from 'lucide-react'
+import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, Layout, ChevronUp, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -16,7 +16,18 @@ const SECTIONS = [
   { id: 'api',           label: 'Intégrations',  icon: Key },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
+  { id: 'affichage',     label: 'Affichage',     icon: Layout },
 ]
+
+export const CANDIDAT_SECTIONS_DEFAULT = [
+  { key: 'resume',       label: 'Résumé IA',       emoji: '✨' },
+  { key: 'experiences',  label: 'Expériences',      emoji: '💼' },
+  { key: 'formations',   label: 'Formations',       emoji: '🎓' },
+  { key: 'candidatures', label: 'Candidatures',     emoji: '📋' },
+  { key: 'notes',        label: 'Notes',            emoji: '💬' },
+]
+
+export const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
 const LINK_SECTIONS = [
   { href: '/parametres/logs',         label: "Logs d'activité", icon: Activity },
@@ -86,6 +97,7 @@ export default function ParametresPage() {
           {section === 'api'           && <ApiSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
+          {section === 'affichage'     && <AffichageSection />}
         </div>
       </div>
     </div>
@@ -458,6 +470,78 @@ function ApparenceSection() {
           <option value="yyyy-mm-dd">AAAA-MM-JJ (ISO)</option>
         </select>
       </div>
+    </SectionCard>
+  )
+}
+
+// ─── Affichage fiches candidats ────────────────────────────────────────────────
+
+function AffichageSection() {
+  const [order, setOrder] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(CANDIDAT_SECTIONS_LS_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[]
+        const defaults = CANDIDAT_SECTIONS_DEFAULT.map(s => s.key)
+        return [...parsed.filter(k => defaults.includes(k)), ...defaults.filter(k => !parsed.includes(k))]
+      }
+    } catch {}
+    return CANDIDAT_SECTIONS_DEFAULT.map(s => s.key)
+  })
+  const [saved, setSaved] = useState(false)
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...order]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    setOrder(next)
+    setSaved(false)
+  }
+
+  const handleSave = () => {
+    localStorage.setItem(CANDIDAT_SECTIONS_LS_KEY, JSON.stringify(order))
+    setSaved(true)
+    toast.success('Affichage enregistré')
+    setTimeout(() => setSaved(false), 3000)
+  }
+
+  const reset = () => {
+    const defaults = CANDIDAT_SECTIONS_DEFAULT.map(s => s.key)
+    setOrder(defaults)
+    localStorage.setItem(CANDIDAT_SECTIONS_LS_KEY, JSON.stringify(defaults))
+    toast.success('Ordre réinitialisé')
+  }
+
+  return (
+    <SectionCard title="Affichage des fiches candidats" description="Choisissez l'ordre des sections sur les fiches" onSave={handleSave} saving={false} saved={saved}>
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+        Réorganisez les blocs d&apos;information. Les modifications s&apos;appliquent à toutes les fiches.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {order.map((key, idx) => {
+          const sec = CANDIDAT_SECTIONS_DEFAULT.find(s => s.key === key)!
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'var(--background)', border: '1.5px solid var(--border)', borderRadius: 10 }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>{sec.emoji}</span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>{sec.label}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => move(idx, -1)} disabled={idx === 0}
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ChevronUp size={14} />
+                </button>
+                <button onClick={() => move(idx, 1)} disabled={idx === order.length - 1}
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: idx === order.length - 1 ? 'default' : 'pointer', opacity: idx === order.length - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <button onClick={reset} style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+        Réinitialiser l&apos;ordre par défaut
+      </button>
     </SectionCard>
   )
 }

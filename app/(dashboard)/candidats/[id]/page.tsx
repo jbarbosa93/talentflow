@@ -1,12 +1,11 @@
 'use client'
 import { useParams, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
-  Pencil, X, Check, Car, Languages, Maximize2, ChevronLeft, ChevronRight,
+  Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
 } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
@@ -73,6 +72,9 @@ export default function CandidatDetailPage() {
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
+  const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
+  const imgDragRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+  const imgContainerRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading, error } = useCandidat(id)
   const updateCandidat  = useUpdateCandidat()
@@ -84,6 +86,16 @@ export default function CandidatDetailPage() {
 
   // Distance depuis Monthey, Suisse (46.2548, 6.9567)
   const [distanceKm, setDistanceKm] = useState<number | null>(null)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('candidat_sections_order')
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[]
+        if (Array.isArray(parsed) && parsed.length > 0) setSectionsOrder(parsed)
+      }
+    } catch {}
+  }, [])
+
   useEffect(() => {
     if (!candidat?.localisation) return
     setDistanceKm(null)
@@ -268,17 +280,29 @@ export default function CandidatDetailPage() {
 
             {/* Statut pipeline */}
             <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Statut pipeline</label>
-              <Select value={candidat.statut_pipeline} onValueChange={v => updateStatut.mutate({ id, statut: v as PipelineEtape })} disabled={updateStatut.isPending}>
-                <SelectTrigger style={{ height: 32, fontSize: 12, background: 'var(--background)', border: '1px solid var(--border)', color: 'var(--foreground)' }}>
-                  <span className={ETAPE_BADGE[candidat.statut_pipeline as PipelineEtape]}>{ETAPE_LABELS[candidat.statut_pipeline as PipelineEtape]}</span>
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(ETAPE_LABELS) as PipelineEtape[]).map(e => (
-                    <SelectItem key={e} value={e}>{ETAPE_LABELS[e]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label style={labelStyle}>Pipeline</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                {(Object.keys(ETAPE_LABELS) as PipelineEtape[]).map(e => {
+                  const isActive = candidat.statut_pipeline === e
+                  const colors: Record<PipelineEtape, string> = {
+                    nouveau: '#3B82F6', contacte: '#F59E0B', entretien: '#8B5CF6',
+                    place: '#10B981', refuse: '#EF4444',
+                  }
+                  return (
+                    <button key={e} onClick={() => updateStatut.mutate({ id, statut: e })}
+                      disabled={updateStatut.isPending || isActive}
+                      style={{
+                        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: isActive ? 700 : 500,
+                        cursor: isActive ? 'default' : 'pointer', transition: 'all 0.15s',
+                        border: isActive ? `2px solid ${colors[e]}` : '1px solid var(--border)',
+                        background: isActive ? colors[e] : 'white',
+                        color: isActive ? 'white' : 'var(--muted)',
+                        boxShadow: isActive ? `0 2px 8px ${colors[e]}44` : 'none',
+                      }}
+                    >{ETAPE_LABELS[e]}</button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Coordonnées */}
@@ -437,7 +461,7 @@ export default function CandidatDetailPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Résumé IA */}
-          <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0' }}>
+          <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Star size={13} style={{ color: 'var(--primary)' }} />
@@ -454,6 +478,7 @@ export default function CandidatDetailPage() {
           </div>
 
           {/* Expériences professionnelles */}
+          <div style={{ order: sectionsOrder.indexOf('experiences') }}>
           {(isEditing || candidat.experiences?.length > 0) && (
             <div className="neo-card-soft">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -509,8 +534,10 @@ export default function CandidatDetailPage() {
               )}
             </div>
           )}
+          </div>
 
           {/* Formations détaillées */}
+          <div style={{ order: sectionsOrder.indexOf('formations') }}>
           {(isEditing || candidat.formations_details?.length > 0) && (
             <div className="neo-card-soft">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -565,8 +592,10 @@ export default function CandidatDetailPage() {
               )}
             </div>
           )}
+          </div>
 
           {/* Candidatures */}
+          <div style={{ order: sectionsOrder.indexOf('candidatures') }}>
           {candidat.pipeline?.length > 0 && (
             <div className="neo-card-soft">
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>Candidatures ({candidat.pipeline.length})</h2>
@@ -588,9 +617,10 @@ export default function CandidatDetailPage() {
               </div>
             </div>
           )}
+          </div>
 
           {/* Notes */}
-          <div className="neo-card-soft">
+          <div className="neo-card-soft" style={{ order: sectionsOrder.indexOf('notes') }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <MessageSquare size={14} style={{ color: 'var(--muted)' }} />
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Notes ({candidat.notes_candidat?.length || 0})</h2>
@@ -646,13 +676,6 @@ export default function CandidatDetailPage() {
               <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {candidat.cv_nom_fichier || 'CV'}
               </span>
-              {candidat.cv_url && (
-                <a href={candidat.cv_url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', flexShrink: 0 }}
-                >
-                  <Maximize2 size={11} /> Plein écran
-                </a>
-              )}
               <button
                 onClick={() => setShowCV(false)}
                 title="Masquer le CV"
@@ -671,10 +694,28 @@ export default function CandidatDetailPage() {
                   <p style={{ fontSize: 12 }}>Le fichier CV n&apos;a pas été importé</p>
                 </div>
               ) : cvIsPDF ? (
-                <iframe src={`${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+                <div style={{ width: '100%', height: '100%', position: 'relative', cursor: 'grab' }}>
+                  <iframe src={`${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+                </div>
               ) : cvIsImage ? (
-                <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16 }}>
-                  <img src={candidat.cv_url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />
+                <div
+                  ref={imgContainerRef}
+                  style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, cursor: 'grab', userSelect: 'none' }}
+                  onMouseDown={e => {
+                    const el = imgContainerRef.current; if (!el) return
+                    imgDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }
+                    el.style.cursor = 'grabbing'
+                  }}
+                  onMouseMove={e => {
+                    const d = imgDragRef.current; const el = imgContainerRef.current
+                    if (!d.active || !el) return
+                    el.scrollLeft = d.scrollLeft - (e.clientX - d.startX)
+                    el.scrollTop  = d.scrollTop  - (e.clientY - d.startY)
+                  }}
+                  onMouseUp={e => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
+                  onMouseLeave={e => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
+                >
+                  <img src={candidat.cv_url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none' }} />
                 </div>
               ) : cvIsWord ? (
                 <iframe src={docViewerUrl} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
