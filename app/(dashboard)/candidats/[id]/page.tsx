@@ -27,15 +27,29 @@ const ETAPE_LABELS: Record<PipelineEtape, string> = {
 const calculerAge = (dateNaissance: string | null): number | null => {
   if (!dateNaissance) return null
   let birthDate: Date | null = null
+
+  // Format ISO : YYYY-MM-DD ou YYYY/MM/DD
   const isoMatch = dateNaissance.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
   if (isoMatch) {
     birthDate = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
-  } else {
+  }
+
+  // Format européen : DD/MM/YYYY ou DD.MM.YYYY
+  if (!birthDate) {
     const euMatch = dateNaissance.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
     if (euMatch) {
       birthDate = new Date(parseInt(euMatch[3]), parseInt(euMatch[2]) - 1, parseInt(euMatch[1]))
     }
   }
+
+  // Année seule : "01/01/1985" (généré quand seulement âge connu) ou "1985"
+  if (!birthDate) {
+    const yearOnly = dateNaissance.match(/^(\d{4})$/)
+    if (yearOnly) {
+      birthDate = new Date(parseInt(yearOnly[1]), 0, 1)
+    }
+  }
+
   if (!birthDate || isNaN(birthDate.getTime())) return null
   const today = new Date()
   let age = today.getFullYear() - birthDate.getFullYear()
@@ -245,11 +259,6 @@ export default function CandidatDetailPage() {
                   <>
                     <h1 style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.3 }}>
                       {candidat.prenom} {candidat.nom}
-                      {calculerAge(candidat.date_naissance) !== null && (
-                        <span style={{ fontWeight: 500, fontSize: 12, color: 'var(--muted)', marginLeft: 6 }}>
-                          · {calculerAge(candidat.date_naissance)} ans
-                        </span>
-                      )}
                     </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
                   </>
@@ -298,10 +307,15 @@ export default function CandidatDetailPage() {
                     <Phone size={12} style={{ flexShrink: 0 }} /><span>{candidat.telephone}</span>
                   </a>
                 )}
-                {candidat.date_naissance && (
+                {(candidat.date_naissance || calculerAge(candidat.date_naissance) !== null) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
                     <span style={{ fontSize: 12 }}>🎂</span>
-                    <span>{candidat.date_naissance}</span>
+                    <span>
+                      {calculerAge(candidat.date_naissance) !== null
+                        ? <><strong style={{ color: 'var(--foreground)', fontWeight: 700 }}>{calculerAge(candidat.date_naissance)} ans</strong>{candidat.date_naissance && !candidat.date_naissance.startsWith('01/01/') && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.6 }}>({candidat.date_naissance})</span>}</>
+                        : candidat.date_naissance
+                      }
+                    </span>
                   </div>
                 )}
                 {candidat.permis_conduire != null && (

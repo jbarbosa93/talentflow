@@ -102,7 +102,7 @@ Règles :
 - competences : maximum 15, technologies/outils/méthodes clés uniquement
 - langues : toutes les langues mentionnées dans le CV
 - permis_conduire : true si le CV mentionne le permis B ou permis de conduire, sinon false
-- date_naissance : format DD/MM/YYYY si trouvée dans le CV, sinon chaîne vide ""
+- date_naissance : format DD/MM/YYYY si la date exacte est dans le CV. Si seulement l'âge est mentionné (ex : "41 ans", "38 ans", "né en 1983", "age: 35"), calculer l'année approximative et retourner "01/01/AAAA" (ex : "41 ans" en 2026 → "01/01/1985"). Si ni date ni âge mentionné nulle part, retourner ""
 - experiences : toutes les expériences professionnelles dans l'ordre chronologique inverse (plus récente en premier)
 - formations_details : toutes les formations/diplômes dans l'ordre chronologique inverse
 - Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens, [] pour les tableaux)
