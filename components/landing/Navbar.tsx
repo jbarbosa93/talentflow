@@ -11,7 +11,6 @@ export default function Navbar() {
       <ul className="l-nav-links">
         <li><a href="#fonctionnalites">Fonctionnalités</a></li>
         <li><a href="#tarifs">Tarifs</a></li>
-        <li><a href="#">Blog</a></li>
       </ul>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -25,7 +24,7 @@ export default function Navbar() {
         }}>
           Espace Recruteurs
         </Link>
-        <Link href="/register" className="l-nav-btn">
+        <Link href="/demande-acces" className="l-nav-btn">
           Essai gratuit →
         </Link>
       </div>

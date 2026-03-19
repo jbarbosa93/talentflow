@@ -36,8 +36,8 @@ export default function Hero() {
 
         <BlurFade delay={0.3} inView>
           <div className="l-actions">
-            <Link href="/register" className="l-btn-main">
-              Commencer gratuitement
+            <Link href="/demande-acces" className="l-btn-main">
+              Demander l&apos;accès →
             </Link>
             <Link href="/login" className="l-btn-ghost">
               Espace Recruteurs →
