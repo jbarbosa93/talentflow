@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle, Loader2, ArrowLeft, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { CheckCircle, Loader2, ArrowLeft, Sparkles, X } from 'lucide-react'
 
 export default function DemandeAccesPage() {
+  const router = useRouter()
   const [form, setForm] = useState({ prenom: '', nom: '', entreprise: '', email: '' })
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -49,6 +51,25 @@ export default function DemandeAccesPage() {
       padding: '40px 20px',
       fontFamily: 'var(--font-body, sans-serif)',
     }}>
+
+      {/* Bouton fermer */}
+      <button
+        onClick={() => router.back()}
+        style={{
+          position: 'fixed', top: 20, right: 24,
+          width: 36, height: 36, borderRadius: '50%',
+          background: 'white', border: '2px solid #1C1A14',
+          boxShadow: '3px 3px 0 #1C1A14',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: '#1C1A14',
+          transition: 'all 0.15s',
+        }}
+        onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F7C948' }}
+        onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white' }}
+        title="Retour"
+      >
+        <X size={16} strokeWidth={2.5} />
+      </button>
 
       {/* Logo */}
       <Link href="/" style={{

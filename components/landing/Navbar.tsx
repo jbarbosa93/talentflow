@@ -9,7 +9,6 @@ export default function Navbar() {
       </div>
 
       <ul className="l-nav-links">
-        <li><a href="#fonctionnalites">Fonctionnalités</a></li>
         <li><a href="#tarifs">Tarifs</a></li>
       </ul>
 
@@ -25,7 +24,7 @@ export default function Navbar() {
           Espace Recruteurs
         </Link>
         <Link href="/demande-acces" className="l-nav-btn">
-          Essai gratuit →
+          Demander une démo →
         </Link>
       </div>
     </nav>
