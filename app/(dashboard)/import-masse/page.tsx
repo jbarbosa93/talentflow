@@ -9,9 +9,10 @@ import {
 import { toast } from 'sonner'
 
 const FORMATS_OK    = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
-const CONCURRENCY   = 3    // 3 CVs en parallèle — évite le rate limit Claude (8k tokens/min)
-const MAX_RETRIES   = 4    // tentatives max sur erreur 429 / réseau / timeout
-const FETCH_TIMEOUT = 110_000 // 110s — légèrement sous maxDuration=120s de la route
+const CONCURRENCY   = 3          // 3 CVs en parallèle — évite le rate limit Claude
+const MAX_RETRIES   = 4          // tentatives max sur erreur 429 / réseau / timeout
+const FETCH_TIMEOUT = 110_000    // 110s — légèrement sous maxDuration=120s de la route
+const MAX_FILE_SIZE = 4.5 * 1024 * 1024  // 4.5 Mo — limite Vercel
 
 type FileStatus = 'pending' | 'processing' | 'success' | 'error'
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
@@ -148,8 +149,12 @@ export default function ImportMassePage() {
   const categories = Array.from(new Set(jobs.map(j => j.categorie).filter(Boolean))) as string[]
 
   const addFilesWithMeta = useCallback((items: Array<{ file: File; relativePath?: string }>) => {
-    const valid = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)))
+    const valid   = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size <= MAX_FILE_SIZE)
     const invalid = items.filter(({ file }) => !FORMATS_OK.includes(getExt(file.name)))
+    const tooLarge = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size > MAX_FILE_SIZE)
+    if (tooLarge.length > 0) {
+      toast.warning(`${tooLarge.length} fichier(s) ignoré(s) — dépasse 4.5 Mo (${tooLarge.map(f => f.file.name).slice(0, 3).join(', ')}${tooLarge.length > 3 ? '…' : ''})`)
+    }
 
     if (invalid.length > 0) {
       toast.warning(`${invalid.length} fichier(s) ignoré(s) — formats non supportés`)
@@ -244,7 +249,21 @@ export default function ImportMassePage() {
           signal: controller.signal,
         })
         clearTimeout(timeoutId)
-        const data = await res.json()
+
+        // Lire la réponse selon le Content-Type (évite le crash si ce n'est pas du JSON)
+        const ct = res.headers.get('content-type') || ''
+        let data: any = {}
+        if (ct.includes('application/json')) {
+          data = await res.json()
+        } else {
+          const text = await res.text()
+          if (res.status === 413) {
+            updateJob(job.id, { status: 'error', error: 'Fichier trop lourd (> 4.5 Mo)', duration: Date.now() - t0 })
+            completedCountRef.current++
+            return // pas de retry
+          }
+          throw new Error(text.slice(0, 120) || `Erreur HTTP ${res.status}`)
+        }
 
         // Rate limit (429) → attendre et réessayer
         if (res.status === 429) {
