@@ -1,7 +1,7 @@
 // Web Worker — traitement import en masse en arrière-plan
 // Tourne dans un thread séparé, actif même onglet inactif
 
-const CONCURRENCY        = 3
+const CONCURRENCY        = 2
 const MAX_RETRIES        = 4
 const FETCH_TIMEOUT      = 55_000   // 55s — laisse 5s de marge avant timeout Vercel Hobby (60s)
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà (Vercel Hobby limite à 4.5 Mo)

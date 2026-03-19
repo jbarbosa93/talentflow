@@ -11,7 +11,7 @@ function getClient(): Anthropic {
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new Error('ANTHROPIC_API_KEY manquant dans .env.local')
     }
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 50_000 })
   }
   return client
 }
