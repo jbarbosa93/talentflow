@@ -38,8 +38,8 @@ export default function DashboardPage() {
   const prenom = user?.user_metadata?.prenom || ''
   const nom    = user?.user_metadata?.nom    || ''
   const greeting = prenom
-    ? `${prenom} ${nom[0] ? nom[0] + '.' : ''}`.trim()
-    : 'Recruteur'
+    ? [prenom, nom].filter(Boolean).join(' ')
+    : 'Consultant'
 
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
