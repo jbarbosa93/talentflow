@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Mail, Plus, Trash2, Send, FileText } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +11,7 @@ import { useEmailTemplates, useCreateTemplate, useSendEmail } from '@/hooks/useM
 import { useCandidats } from '@/hooks/useCandidats'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 const CAT_LABELS: Record<string, string> = {
   invitation_entretien: 'Entretien',
@@ -19,48 +20,70 @@ const CAT_LABELS: Record<string, string> = {
   offre: 'Offre',
   general: 'Général',
 }
-const CAT_COLORS: Record<string, string> = {
-  invitation_entretien: 'bg-primary/15 text-primary',
-  relance: 'bg-sky-500/15 text-sky-400',
-  refus: 'bg-rose-500/15 text-rose-400',
-  offre: 'bg-emerald-500/15 text-emerald-400',
-  general: 'bg-white/8 text-white/40',
+const CAT_COLORS: Record<string, { bg: string; color: string }> = {
+  invitation_entretien: { bg: '#FFF7ED', color: '#F5A623' },
+  relance:              { bg: '#EFF6FF', color: '#3B82F6' },
+  refus:                { bg: '#FEF2F2', color: '#EF4444' },
+  offre:                { bg: '#F0FDF4', color: '#22C55E' },
+  general:              { bg: 'var(--secondary)', color: 'var(--muted)' },
 }
 
+type TabId = 'email' | 'whatsapp' | 'sms' | 'templates'
+
+const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+  { id: 'email',     label: 'Email',          icon: Mail },
+  { id: 'whatsapp',  label: 'WhatsApp',        icon: MessageCircle },
+  { id: 'sms',       label: 'SMS / iMessage',  icon: Smartphone },
+  { id: 'templates', label: 'Templates',       icon: FileText },
+]
+
 export default function MessagesPage() {
-  const [tab, setTab] = useState<'envoyer' | 'templates'>('envoyer')
+  const [tab, setTab] = useState<TabId>('email')
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-white">Messages</h1>
-        <p className="text-sm text-white/40 mt-0.5">Envoyez des emails via votre compte Microsoft 365</p>
+    <div className="d-page" style={{ maxWidth: 800 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Messages</h1>
+        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>Contactez vos candidats par email, WhatsApp ou SMS</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white/[0.03] border border-white/6 rounded-lg p-1 w-fit mb-6">
-        {([
-          { id: 'envoyer', label: 'Envoyer un email', icon: Send },
-          { id: 'templates', label: 'Templates', icon: FileText },
-        ] as const).map(t => (
+      <div style={{
+        display: 'flex', gap: 4,
+        background: 'var(--secondary)', border: '1.5px solid var(--border)',
+        borderRadius: 10, padding: 4, width: 'fit-content', marginBottom: 24,
+      }}>
+        {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${tab === t.id ? 'bg-white/8 text-white shadow-sm' : 'text-white/35 hover:text-white/60'}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)',
+              transition: 'all 0.15s',
+              background: tab === t.id ? 'var(--card)' : 'transparent',
+              color: tab === t.id ? 'var(--foreground)' : 'var(--muted)',
+              boxShadow: tab === t.id ? 'var(--card-shadow)' : 'none',
+            }}
           >
-            <t.icon className="w-3.5 h-3.5" />
+            <t.icon size={14} />
             {t.label}
           </button>
         ))}
       </div>
 
-      {tab === 'envoyer' && <SendEmailTab />}
+      {tab === 'email'     && <EmailTab />}
+      {tab === 'whatsapp'  && <WhatsAppTab />}
+      {tab === 'sms'       && <SmsTab />}
       {tab === 'templates' && <TemplatesTab />}
     </div>
   )
 }
 
-function SendEmailTab() {
+// ─── Email Tab ────────────────────────────────────────────────────────────────
+
+function EmailTab() {
   const [candidatId, setCandidatId] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [destinataire, setDestinataire] = useState('')
@@ -72,6 +95,8 @@ function SendEmailTab() {
   const { data: templates } = useEmailTemplates()
   const sendEmail = useSendEmail()
 
+  const selectedCandidat = candidats?.find(c => c.id === candidatId)
+
   const handleCandidatChange = (id: string) => {
     setCandidatId(id)
     const c = candidats?.find(c => c.id === id)
@@ -82,8 +107,10 @@ function SendEmailTab() {
     setTemplateId(id)
     const t = templates?.find((t: any) => t.id === id)
     if (t) {
-      setSujet(t.sujet)
-      setCorps(t.corps)
+      const prenom = selectedCandidat?.prenom || '{{prenom}}'
+      const nom = selectedCandidat?.nom || '{{nom}}'
+      setSujet(t.sujet.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+      setCorps(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
     }
   }
 
@@ -100,25 +127,161 @@ function SendEmailTab() {
   }
 
   return (
-    <div className="rounded-xl border border-white/6 bg-card p-6 space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-white/40">Candidat (optionnel)</Label>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Warning */}
+      <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: '#FFFBEB', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <AlertCircle size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Compte Microsoft 365 requis</p>
+          <p style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>
+            Connectez votre compte Microsoft pour envoyer des emails directement depuis TalentFlow.
+          </p>
+        </div>
+        <Link href="/integrations">
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1.5px solid #FDE68A', background: 'transparent', color: '#D97706', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+            <ExternalLink size={12} />Connecter
+          </button>
+        </Link>
+      </div>
+
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat (optionnel)</label>
+            <Select value={candidatId} onValueChange={handleCandidatChange}>
+              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+                <SelectValue placeholder="Sélectionner..." />
+              </SelectTrigger>
+              <SelectContent>
+                {candidats?.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.prenom} {c.nom} {c.email ? `(${c.email})` : '(sans email)'}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
+            <Select value={templateId} onValueChange={handleTemplateChange}>
+              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+                <SelectValue placeholder="Charger un template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates?.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Destinataire *</label>
+          <Input value={destinataire} onChange={e => setDestinataire(e.target.value)} placeholder="email@exemple.com" type="email" required />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet *</label>
+          <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." required />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message *</label>
+          <Textarea
+            value={corps}
+            onChange={e => setCorps(e.target.value)}
+            placeholder="Rédigez votre message..."
+            rows={8}
+            style={{ resize: 'none', fontFamily: 'monospace', fontSize: 13 }}
+          />
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Variables : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
+          <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Mail size={12} />Envoi via Microsoft 365
+          </p>
+          <Button onClick={handleSend} disabled={!destinataire || !sujet || !corps || sendEmail.isPending || sent}>
+            {sent ? (
+              <><Check className="w-3.5 h-3.5 mr-2" />Envoyé</>
+            ) : (
+              <><Send className="w-3.5 h-3.5 mr-2" />{sendEmail.isPending ? 'Envoi...' : 'Envoyer'}</>
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── WhatsApp Tab ─────────────────────────────────────────────────────────────
+
+function WhatsAppTab() {
+  const [candidatId, setCandidatId] = useState('')
+  const [templateId, setTemplateId] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [message, setMessage] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const { data: candidats } = useCandidats()
+  const { data: templates } = useEmailTemplates()
+
+  const handleCandidatChange = (id: string) => {
+    setCandidatId(id)
+    const c = candidats?.find(c => c.id === id)
+    if (c?.telephone) setTelephone(c.telephone.replace(/\s/g, ''))
+  }
+
+  const handleTemplateChange = (id: string) => {
+    setTemplateId(id)
+    const t = templates?.find((t: any) => t.id === id)
+    if (t) {
+      const c = candidats?.find(c => c.id === candidatId)
+      const prenom = c?.prenom || '{{prenom}}'
+      const nom = c?.nom || '{{nom}}'
+      setMessage(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+    }
+  }
+
+  const waPhone = telephone.replace(/\D/g, '').replace(/^0/, '41')
+  const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    toast.success('Message copié')
+  }
+
+  return (
+    <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
+      {/* Info */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: 10 }}>
+        <MessageCircle size={16} color="#16A34A" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 12, color: '#166534', margin: 0 }}>
+          Composez votre message ici, puis cliquez sur <strong>Ouvrir WhatsApp</strong> — votre app s&apos;ouvrira directement avec le message pré-rempli.
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
           <Select value={candidatId} onValueChange={handleCandidatChange}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/60 h-9">
-              <SelectValue placeholder="Sélectionner un candidat..." />
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+              <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
             <SelectContent>
               {candidats?.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.prenom} {c.nom} {c.email ? `(${c.email})` : ''}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>
+                  {c.prenom} {c.nom} {c.telephone ? `(${c.telephone})` : '(sans tél.)'}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-white/40">Template (optionnel)</Label>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
           <Select value={templateId} onValueChange={handleTemplateChange}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/60 h-9">
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
               <SelectValue placeholder="Charger un template..." />
             </SelectTrigger>
             <SelectContent>
@@ -130,44 +293,180 @@ function SendEmailTab() {
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs text-white/40">Destinataire *</Label>
-        <Input value={destinataire} onChange={e => setDestinataire(e.target.value)} placeholder="email@exemple.com" type="email" required className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Numéro de téléphone</label>
+        <Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+41 79 000 00 00" />
+        {telephone && (
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Format international détecté : +{waPhone}</p>
+        )}
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-xs text-white/40">Sujet *</Label>
-        <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." required className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-xs text-white/40">Message *</Label>
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message</label>
         <Textarea
-          value={corps}
-          onChange={e => setCorps(e.target.value)}
-          placeholder="Rédigez votre message..."
-          rows={8}
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/20 resize-none font-mono text-sm"
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
+          rows={7}
+          style={{ resize: 'none', fontSize: 13 }}
         />
-        <p className="text-[10px] text-white/20">Variables disponibles : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
       </div>
 
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-xs text-white/25">Envoi via votre compte Microsoft 365</p>
-        <Button onClick={handleSend} disabled={!destinataire || !sujet || !corps || sendEmail.isPending || sent}>
-          {sent ? (
-            <><Mail className="w-3.5 h-3.5 mr-2" />Envoyé</>
-          ) : (
-            <>
-              <Send className="w-3.5 h-3.5 mr-2" />
-              {sendEmail.isPending ? 'Envoi...' : 'Envoyer'}
-            </>
-          )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 4 }}>
+        <Button variant="outline" size="sm" onClick={handleCopy} disabled={!message}>
+          {copied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Copié</> : <><Copy className="w-3.5 h-3.5 mr-1.5" />Copier</>}
         </Button>
+        <a
+          href={waPhone && message ? waUrl : '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => { if (!waPhone || !message) e.preventDefault() }}
+          style={{ marginLeft: 'auto' }}
+        >
+          <button
+            disabled={!waPhone || !message}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 18px', borderRadius: 8, border: 'none',
+              background: !waPhone || !message ? 'var(--secondary)' : '#25D366',
+              color: !waPhone || !message ? 'var(--muted)' : 'white',
+              fontSize: 13, fontWeight: 700, cursor: !waPhone || !message ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            <MessageCircle size={14} />Ouvrir WhatsApp
+          </button>
+        </a>
       </div>
     </div>
   )
 }
+
+// ─── SMS / iMessage Tab ────────────────────────────────────────────────────────
+
+function SmsTab() {
+  const [candidatId, setCandidatId] = useState('')
+  const [templateId, setTemplateId] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [message, setMessage] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const { data: candidats } = useCandidats()
+  const { data: templates } = useEmailTemplates()
+
+  const handleCandidatChange = (id: string) => {
+    setCandidatId(id)
+    const c = candidats?.find(c => c.id === id)
+    if (c?.telephone) setTelephone(c.telephone)
+  }
+
+  const handleTemplateChange = (id: string) => {
+    setTemplateId(id)
+    const t = templates?.find((t: any) => t.id === id)
+    if (t) {
+      const c = candidats?.find(c => c.id === candidatId)
+      const prenom = c?.prenom || '{{prenom}}'
+      const nom = c?.nom || '{{nom}}'
+      setMessage(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+    }
+  }
+
+  const smsUrl = `sms:${telephone}${message ? `?body=${encodeURIComponent(message)}` : ''}`
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    toast.success('Message copié')
+  }
+
+  return (
+    <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
+      {/* Info */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 10 }}>
+        <Smartphone size={16} color="#3B82F6" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 12, color: '#1E40AF', margin: 0 }}>
+          Composez votre message et cliquez <strong>Ouvrir Messages</strong> — votre app SMS / iMessage s&apos;ouvrira avec le message pré-rempli. Fonctionne sur Mac et iPhone.
+        </p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
+          <Select value={candidatId} onValueChange={handleCandidatChange}>
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+              <SelectValue placeholder="Sélectionner..." />
+            </SelectTrigger>
+            <SelectContent>
+              {candidats?.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.prenom} {c.nom} {c.telephone ? `(${c.telephone})` : '(sans tél.)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
+          <Select value={templateId} onValueChange={handleTemplateChange}>
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+              <SelectValue placeholder="Charger un template..." />
+            </SelectTrigger>
+            <SelectContent>
+              {templates?.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Numéro de téléphone</label>
+        <Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+41 79 000 00 00" />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message</label>
+        <Textarea
+          value={message}
+          onChange={e => setMessage(e.target.value)}
+          placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
+          rows={7}
+          style={{ resize: 'none', fontSize: 13 }}
+        />
+        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{message.length} caractères</p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 4 }}>
+        <Button variant="outline" size="sm" onClick={handleCopy} disabled={!message}>
+          {copied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Copié</> : <><Copy className="w-3.5 h-3.5 mr-1.5" />Copier</>}
+        </Button>
+        <a
+          href={telephone ? smsUrl : '#'}
+          onClick={e => { if (!telephone) e.preventDefault() }}
+          style={{ marginLeft: 'auto' }}
+        >
+          <button
+            disabled={!telephone || !message}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '9px 18px', borderRadius: 8, border: 'none',
+              background: !telephone || !message ? 'var(--secondary)' : '#34C759',
+              color: !telephone || !message ? 'var(--muted)' : 'white',
+              fontSize: 13, fontWeight: 700, cursor: !telephone || !message ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            <Smartphone size={14} />Ouvrir Messages
+          </button>
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// ─── Templates Tab ────────────────────────────────────────────────────────────
 
 function TemplatesTab() {
   const [showCreate, setShowCreate] = useState(false)
@@ -193,7 +492,7 @@ function TemplatesTab() {
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Nouveau template
@@ -201,39 +500,50 @@ function TemplatesTab() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 bg-white/5 animate-pulse rounded-xl" />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} style={{ height: 96, background: 'var(--secondary)', borderRadius: 12, animation: 'pulse 2s infinite' }} />
+          ))}
+        </div>
+      ) : Object.keys(grouped).length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '64px 0' }}>
+          <FileText size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>Aucun template</p>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Créez des templates pour accélérer vos communications</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {Object.entries(grouped).map(([cat, items]) => (
             <div key={cat}>
-              <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest mb-2">{CAT_LABELS[cat] || cat}</p>
-              <div className="space-y-2">
-                {(items as any[]).map((t: any) => (
-                  <div key={t.id} className="rounded-xl border border-white/6 bg-card p-4 hover:border-white/10 transition-colors group">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold text-white/70">{t.nom}</h3>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CAT_COLORS[t.categorie] || CAT_COLORS.general}`}>
-                            {CAT_LABELS[t.categorie] || t.categorie}
-                          </span>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{CAT_LABELS[cat] || cat}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(items as any[]).map((t: any) => {
+                  const catColor = CAT_COLORS[t.categorie] || CAT_COLORS.general
+                  return (
+                    <div key={t.id} style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: 'var(--card-shadow)' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{t.nom}</h3>
+                            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, background: catColor.bg, color: catColor.color }}>
+                              {CAT_LABELS[t.categorie] || t.categorie}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{t.sujet}</p>
                         </div>
-                        <p className="text-xs text-white/35 mt-0.5">{t.sujet}</p>
+                        <button
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--muted)' }}
+                          onClick={() => deleteTemplate.mutate(t.id)}
+                          onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0 text-white/20 hover:text-rose-400 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-all"
-                        onClick={() => deleteTemplate.mutate(t.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, fontFamily: 'monospace', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{t.corps}</p>
                     </div>
-                    <p className="text-xs text-white/25 leading-relaxed line-clamp-2 font-mono">{t.corps}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ))}
@@ -241,7 +551,7 @@ function TemplatesTab() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-lg bg-card border-white/10">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Nouveau template</DialogTitle>
           </DialogHeader>
@@ -265,16 +575,16 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-white/40">Nom du template *</Label>
-          <Input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nom du template *</label>
+          <Input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-white/40">Catégorie</Label>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Catégorie</label>
           <Select value={categorie} onValueChange={setCategorie}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/60 h-9">
+            <SelectTrigger style={{ height: 38 }}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -283,16 +593,17 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
           </Select>
         </div>
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs text-white/40">Sujet *</Label>
-        <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." required className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet (email)</label>
+        <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." />
       </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs text-white/40">Corps du message *</Label>
-        <Textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {{prenom}},..." rows={6} required className="bg-white/5 border-white/10 text-white placeholder:text-white/20 resize-none font-mono text-sm" />
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Corps du message *</label>
+        <Textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {{prenom}},..." rows={6} required style={{ resize: 'none', fontFamily: 'monospace', fontSize: 13 }} />
+        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Variables : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
       </div>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={!nom || !sujet || !corps || createTemplate.isPending}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="submit" disabled={!nom || !corps || createTemplate.isPending}>
           {createTemplate.isPending ? 'Création...' : 'Créer le template'}
         </Button>
       </div>

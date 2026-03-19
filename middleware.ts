@@ -57,6 +57,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Restriction par domaine email
+  const allowedDomainsEnv = process.env.ALLOWED_EMAIL_DOMAINS
+  if (allowedDomainsEnv && user && user.email && isProtectedRoute) {
+    const allowedDomains = allowedDomainsEnv.split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
+    const userEmailDomain = user.email.split('@')[1]?.toLowerCase() || ''
+    const isDomainAllowed = allowedDomains.some(domain => userEmailDomain === domain)
+
+    if (!isDomainAllowed) {
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'domain')
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Si authentifié avec email confirmé et sur une page auth → redirection dashboard
   if (user && user.email_confirmed_at && isAuthPage) {
     const url = request.nextUrl.clone()

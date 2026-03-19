@@ -7,6 +7,7 @@ import { getValidAccessToken, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
 import type { Integration } from '@/types/database'
+import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -184,6 +185,7 @@ export async function POST() {
     }
 
     console.log(`[MS Sync] Done: ${processed} créés, ${skipped} ignorés, ${errors} erreurs`)
+    await logActivity({ action: 'microsoft_sync', details: { processed, created } })
     return NextResponse.json({ success: true, processed, skipped, errors, created })
 
   } catch (error) {

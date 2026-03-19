@@ -1,22 +1,48 @@
 'use client'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd]   = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
+  // État 2FA
+  const [mfaRequired, setMfaRequired] = useState(false)
+  const [mfaCode, setMfaCode]         = useState('')
+  const [mfaFactorId, setMfaFactorId] = useState('')
+  const [loadingMfa, setLoadingMfa]   = useState(false)
+
+  // Erreur domaine depuis le middleware
+  const urlError = searchParams.get('error')
+  const domainError = urlError === 'domain'
+    ? 'Votre domaine email n\'est pas autorisé à accéder à cette application.'
+    : ''
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
+
+    // Vérification domaine côté client (si var publique définie)
+    const allowedDomainsPublic = process.env.NEXT_PUBLIC_ALLOWED_DOMAINS
+    if (allowedDomainsPublic) {
+      const allowedDomains = allowedDomainsPublic.split(',').map(d => d.trim().toLowerCase()).filter(Boolean)
+      const emailDomain = email.split('@')[1]?.toLowerCase() || ''
+      const isDomainOk = allowedDomains.some(d => emailDomain === d)
+      if (!isDomainOk) {
+        setError(`Domaine email non autorisé. Domaines acceptés : ${allowedDomains.join(', ')}`)
+        setLoading(false)
+        return
+      }
+    }
 
     const supabase = createClient()
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
@@ -33,6 +59,19 @@ export default function LoginPage() {
       return
     }
 
+    // Vérifier si MFA requis
+    if (data.session === null) {
+      // MFA requis — récupérer le factorId
+      const { data: mfaData } = await supabase.auth.mfa.listFactors()
+      const totpFactor = mfaData?.totp?.[0]
+      if (totpFactor) {
+        setMfaFactorId(totpFactor.id)
+        setMfaRequired(true)
+        setLoading(false)
+        return
+      }
+    }
+
     if (data.user && !data.user.email_confirmed_at) {
       router.push('/verify-email')
       return
@@ -40,6 +79,36 @@ export default function LoginPage() {
 
     router.push('/dashboard')
     router.refresh()
+  }
+
+  async function handleMfaVerify(e: React.FormEvent) {
+    e.preventDefault()
+    if (!mfaCode || mfaCode.length !== 6) {
+      setError('Entrez un code à 6 chiffres.')
+      return
+    }
+    setError('')
+    setLoadingMfa(true)
+
+    const supabase = createClient()
+    try {
+      const { error: mfaError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: mfaFactorId,
+        code: mfaCode,
+      })
+
+      if (mfaError) {
+        setError('Code incorrect. Vérifiez votre application d\'authentification.')
+        setLoadingMfa(false)
+        return
+      }
+
+      router.push('/dashboard')
+      router.refresh()
+    } catch {
+      setError('Erreur lors de la vérification 2FA.')
+      setLoadingMfa(false)
+    }
   }
 
   return (
@@ -80,55 +149,108 @@ export default function LoginPage() {
       {/* Panel droit */}
       <div className="auth-right">
         <div className="auth-card">
-          <h2 className="auth-card-title">Bon retour 👋</h2>
-          <p className="auth-card-sub">Connectez-vous à votre espace recruteur.</p>
+          {!mfaRequired ? (
+            <>
+              <h2 className="auth-card-title">Bon retour 👋</h2>
+              <p className="auth-card-sub">Connectez-vous à votre espace recruteur.</p>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            {error && <div className="auth-error">{error}</div>}
+              <form className="auth-form" onSubmit={handleSubmit}>
+                {(domainError || error) && <div className="auth-error">{domainError || error}</div>}
 
-            <div className="auth-field">
-              <label className="auth-label">Email professionnel</label>
-              <input
-                type="email"
-                className="auth-input"
-                placeholder="vous@entreprise.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
+                <div className="auth-field">
+                  <label className="auth-label">Email professionnel</label>
+                  <input
+                    type="email"
+                    className="auth-input"
+                    placeholder="vous@entreprise.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </div>
 
-            <div className="auth-field">
-              <label className="auth-label">Mot de passe</label>
-              <div className="auth-input-wrap">
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  className="auth-input"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                />
-                <button type="button" className="auth-eye-btn" onClick={() => setShowPwd(!showPwd)}>
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                <div className="auth-field">
+                  <label className="auth-label">Mot de passe</label>
+                  <div className="auth-input-wrap">
+                    <input
+                      type={showPwd ? 'text' : 'password'}
+                      className="auth-input"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button type="button" className="auth-eye-btn" onClick={() => setShowPwd(!showPwd)}>
+                      {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="auth-btn" disabled={loading}>
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {loading ? 'Connexion...' : 'Se connecter'}
                 </button>
+              </form>
+
+              <div className="auth-footer-link" style={{ marginTop: 20 }}>
+                Pas d&apos;accès ?{' '}
+                <Link href="/demande-acces">Faire une demande →</Link>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <ShieldCheck size={22} style={{ color: '#7C3AED' }} />
+                <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification 2FA</h2>
+              </div>
+              <p className="auth-card-sub">Entrez le code à 6 chiffres depuis votre application d&apos;authentification.</p>
 
-            <button type="submit" className="auth-btn" disabled={loading}>
-              {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
+              <form className="auth-form" onSubmit={handleMfaVerify}>
+                {error && <div className="auth-error">{error}</div>}
 
-          <div className="auth-footer-link" style={{ marginTop: 20 }}>
-            Pas d&apos;accès ?{' '}
-            <Link href="/demande-acces">Faire une demande →</Link>
-          </div>
+                <div className="auth-field">
+                  <label className="auth-label">Code d&apos;authentification</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    className="auth-input"
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                    style={{ letterSpacing: '0.3em', textAlign: 'center', fontSize: 20 }}
+                  />
+                </div>
+
+                <button type="submit" className="auth-btn" disabled={loadingMfa}>
+                  {loadingMfa ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {loadingMfa ? 'Vérification...' : 'Vérifier'}
+                </button>
+              </form>
+
+              <button
+                onClick={() => { setMfaRequired(false); setMfaCode(''); setError('') }}
+                style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                ← Retour à la connexion
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }

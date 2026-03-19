@@ -1,36 +1,81 @@
 'use client'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Clock, Star, GripVertical } from 'lucide-react'
+import { Star, GripVertical, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
-import type { PipelineEtape, VuePipelineComplet } from '@/types/database'
+import type { PipelineEtape } from '@/types/database'
 
 const supabase = createClient()
 
 const ETAPES: {
   id: PipelineEtape
   label: string
-  accent: string
+  color: string
   headerBg: string
+  headerBorder: string
   dotColor: string
+  emoji: string
 }[] = [
-  { id: 'nouveau',   label: 'Nouveau',   accent: 'text-sky-400',     headerBg: 'bg-sky-500/10 border-sky-500/15',     dotColor: 'bg-sky-400' },
-  { id: 'contacte',  label: 'Contacté',  accent: 'text-primary',     headerBg: 'bg-primary/10 border-primary/15',     dotColor: 'bg-primary' },
-  { id: 'entretien', label: 'Entretien', accent: 'text-violet-400',   headerBg: 'bg-violet-500/10 border-violet-500/15', dotColor: 'bg-violet-400' },
-  { id: 'place',     label: 'Placé',     accent: 'text-emerald-400',  headerBg: 'bg-emerald-500/10 border-emerald-500/15', dotColor: 'bg-emerald-400' },
-  { id: 'refuse',    label: 'Refusé',    accent: 'text-rose-400',     headerBg: 'bg-rose-500/10 border-rose-500/15',   dotColor: 'bg-rose-400' },
+  { id: 'nouveau',   label: 'Nouveau',   color: '#0EA5E9', headerBg: '#F0F9FF', headerBorder: '#BAE6FD', dotColor: '#0EA5E9', emoji: '🆕' },
+  { id: 'contacte',  label: 'Contacté',  color: '#F5A623', headerBg: '#FFF7ED', headerBorder: '#FDE68A', dotColor: '#F5A623', emoji: '📞' },
+  { id: 'entretien', label: 'Entretien', color: '#8B5CF6', headerBg: '#F5F3FF', headerBorder: '#DDD6FE', dotColor: '#8B5CF6', emoji: '🤝' },
+  { id: 'place',     label: 'Placé',     color: '#16A34A', headerBg: '#F0FDF4', headerBorder: '#86EFAC', dotColor: '#16A34A', emoji: '✅' },
+  { id: 'refuse',    label: 'Refusé',    color: '#DC2626', headerBg: '#FEF2F2', headerBorder: '#FECACA', dotColor: '#DC2626', emoji: '❌' },
 ]
 
 function scoreColor(score: number | null) {
-  if (score === null) return 'text-white/30'
-  if (score >= 75) return 'text-emerald-400'
-  if (score >= 50) return 'text-primary'
-  return 'text-rose-400'
+  if (score === null) return '#CBD5E1'
+  if (score >= 75) return '#16A34A'
+  if (score >= 50) return '#F5A623'
+  return '#DC2626'
 }
+
+const CandidatCard = memo(function CandidatCard({ provided, snapshot, item }: { provided: any; snapshot: any; item: any }) {
+  return (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      {...provided.dragHandleProps}
+      style={{
+        ...provided.draggableProps.style,
+        background: 'white',
+        borderRadius: 10,
+        padding: 12,
+        border: `1.5px solid ${snapshot.isDragging ? 'var(--primary)' : 'var(--border)'}`,
+        cursor: snapshot.isDragging ? 'grabbing' : 'grab',
+        boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : '0 1px 3px rgba(0,0,0,0.06)',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <GripVertical size={14} style={{ color: '#CBD5E1', flexShrink: 0, marginTop: 2 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.prenom} {item.nom}
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.titre_poste || 'Sans titre'}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+            {item.localisation && (
+              <span style={{ fontSize: 10, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <MapPin size={10} />{item.localisation}
+              </span>
+            )}
+            {item.score_ia != null && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: scoreColor(item.score_ia), display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto' }}>
+                <Star size={11} />{item.score_ia}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
 
 export default function PipelinePage() {
   const [offreFilter, setOffreFilter] = useState<string>('tous')
@@ -44,82 +89,124 @@ export default function PipelinePage() {
     },
   })
 
-  const { data: pipelineData, isLoading } = useQuery({
-    queryKey: ['pipeline', offreFilter],
+  const { data: candidats, isLoading } = useQuery({
+    queryKey: ['pipeline-candidats', offreFilter],
     queryFn: async () => {
-      let query = supabase
-        .from('vue_pipeline_complet')
-        .select('*')
-        .order('score_ia', { ascending: false, nullsFirst: false })
-      if (offreFilter !== 'tous') query = query.eq('offre_id', offreFilter)
-      const { data, error } = await query
-      if (error) throw error
-      return data as VuePipelineComplet[]
+      if (offreFilter === 'tous') {
+        const { data, error } = await supabase
+          .from('candidats')
+          .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return data || []
+      } else {
+        const { data: pipelineData, error } = await supabase
+          .from('pipeline')
+          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation)')
+          .eq('offre_id', offreFilter)
+        if (error) throw error
+        return (pipelineData || []).map((p: any) => ({
+          ...p.candidats,
+          statut_pipeline: p.etape,
+          score_ia: p.score_ia,
+          pipeline_id: p.candidat_id,
+        }))
+      }
     },
   })
 
   const candidatsByEtape = ETAPES.reduce((acc, e) => {
-    acc[e.id] = pipelineData?.filter(p => p.etape === e.id) || []
+    acc[e.id] = (candidats || []).filter((c: any) => c.statut_pipeline === e.id)
     return acc
-  }, {} as Record<PipelineEtape, VuePipelineComplet[]>)
+  }, {} as Record<PipelineEtape, any[]>)
+
+  const total = candidats?.length || 0
 
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return
     const { draggableId, destination } = result
     const newEtape = destination.droppableId as PipelineEtape
-    const item = pipelineData?.find(p => p.id === draggableId)
-    if (!item || item.etape === newEtape) return
+    const candidat = candidats?.find((c: any) => c.id === draggableId)
+    if (!candidat || candidat.statut_pipeline === newEtape) return
 
-    queryClient.setQueryData(['pipeline', offreFilter], (old: VuePipelineComplet[] | undefined) =>
-      old?.map(p => p.id === draggableId ? { ...p, etape: newEtape } : p)
+    queryClient.setQueryData(['pipeline-candidats', offreFilter], (old: any[] | undefined) =>
+      old?.map(c => c.id === draggableId ? { ...c, statut_pipeline: newEtape } : c)
     )
 
-    const { error } = await supabase.from('pipeline').update({ etape: newEtape }).eq('id', draggableId)
+    const { error } = await supabase
+      .from('candidats')
+      .update({ statut_pipeline: newEtape })
+      .eq('id', draggableId)
+
     if (error) {
-      toast.error('Erreur mise à jour pipeline')
-      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
+      toast.error('Erreur mise à jour')
+      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
     } else {
-      toast.success(`Déplacé vers ${ETAPES.find(e => e.id === newEtape)?.label}`)
+      if (offreFilter !== 'tous') {
+        await supabase
+          .from('pipeline')
+          .update({ etape: newEtape })
+          .eq('candidat_id', draggableId)
+          .eq('offre_id', offreFilter)
+      }
+      toast.success(`→ ${ETAPES.find(e => e.id === newEtape)?.label}`)
       queryClient.invalidateQueries({ queryKey: ['candidats'] })
     }
   }
 
   return (
-    <div className="p-6 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
+    <div style={{ padding: 24, height: '100vh', maxHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 className="text-xl font-bold text-white">Pipeline</h1>
-          <p className="text-sm text-white/40 mt-0.5">Glissez les candidats d&apos;une étape à l&apos;autre</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Pipeline</h1>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
+            {total} candidat{total > 1 ? 's' : ''} · Glissez-déposez pour changer d&apos;étape
+          </p>
         </div>
         <Select value={offreFilter} onValueChange={setOffreFilter}>
-          <SelectTrigger className="w-52 bg-white/5 border-white/8 text-white/60">
+          <SelectTrigger style={{ width: 220, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)' }}>
             <SelectValue placeholder="Toutes les offres" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="tous">Toutes les offres</SelectItem>
+            <SelectItem value="tous">Tous les candidats</SelectItem>
             {offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.titre}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
 
       {isLoading ? (
-        <div className="flex gap-3 flex-1">
+        <div style={{ display: 'flex', gap: 12, flex: 1 }}>
           {ETAPES.map(e => (
-            <div key={e.id} className="flex-1 bg-white/[0.03] rounded-xl animate-pulse border border-white/5" />
+            <div key={e.id} style={{ flex: 1, background: 'var(--secondary)', borderRadius: 12, animation: 'pulse 2s infinite', border: '1.5px solid var(--border)' }} />
           ))}
+        </div>
+      ) : total === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>Aucun candidat dans le pipeline</p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Importez des CVs depuis la page Candidats pour commencer</p>
+          </div>
         </div>
       ) : (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex gap-3 flex-1 overflow-x-auto pb-2">
+          <div style={{ display: 'flex', gap: 12, flex: 1, overflowX: 'auto', paddingBottom: 8, minHeight: 0 }}>
             {ETAPES.map(etape => (
-              <div key={etape.id} className="flex-1 min-w-[190px] flex flex-col">
+              <div key={etape.id} style={{ flex: 1, minWidth: 190, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {/* Column header */}
-                <div className={cn('rounded-t-xl px-3 py-2.5 flex items-center justify-between border border-b-0', etape.headerBg)}>
-                  <div className="flex items-center gap-2">
-                    <span className={cn('w-1.5 h-1.5 rounded-full', etape.dotColor)} />
-                    <span className={cn('text-xs font-semibold', etape.accent)}>{etape.label}</span>
+                <div style={{
+                  borderRadius: '12px 12px 0 0',
+                  padding: '10px 12px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: etape.headerBg,
+                  border: `1.5px solid ${etape.headerBorder}`,
+                  borderBottom: 'none',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 16, lineHeight: 1 }}>{etape.emoji}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: etape.color }}>{etape.label}</span>
                   </div>
-                  <span className="text-xs font-bold text-white/30 bg-white/5 px-1.5 py-0.5 rounded-md">
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', background: 'var(--secondary)', padding: '2px 7px', borderRadius: 6 }}>
                     {candidatsByEtape[etape.id].length}
                   </span>
                 </div>
@@ -129,56 +216,26 @@ export default function PipelinePage() {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={cn(
-                        'flex-1 p-2 space-y-2 rounded-b-xl border border-t-0 min-h-[200px] transition-colors',
-                        snapshot.isDraggingOver
-                          ? 'bg-primary/5 border-primary/20'
-                          : 'bg-white/[0.02] border-white/5'
-                      )}
+                      style={{
+                        flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8,
+                        borderRadius: '0 0 12px 12px',
+                        border: `1.5px solid ${snapshot.isDraggingOver ? 'var(--primary)' : etape.headerBorder}`,
+                        borderTop: 'none',
+                        background: snapshot.isDraggingOver ? '#FFFBEB' : 'var(--secondary)',
+                        minHeight: 80, overflowY: 'auto',
+                        transition: 'background 0.2s, border-color 0.2s',
+                      }}
                     >
-                      {candidatsByEtape[etape.id].map((item, index) => (
+                      {candidatsByEtape[etape.id].map((item: any, index: number) => (
                         <Draggable key={item.id} draggableId={item.id} index={index}>
                           {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={cn(
-                                'bg-card rounded-lg p-3 border cursor-grab active:cursor-grabbing transition-all',
-                                snapshot.isDragging
-                                  ? 'shadow-2xl shadow-black/50 border-primary/30 rotate-1 scale-[1.02]'
-                                  : 'border-white/6 hover:border-white/12'
-                              )}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div {...provided.dragHandleProps} className="mt-0.5 flex-shrink-0">
-                                  <GripVertical className="w-3.5 h-3.5 text-white/20" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold text-white/80 truncate">
-                                    {item.candidat_prenom} {item.candidat_nom}
-                                  </p>
-                                  <p className="text-[11px] text-white/30 truncate mt-0.5">
-                                    {item.titre_poste || item.offre_titre}
-                                  </p>
-                                  <div className="flex items-center justify-between mt-2.5">
-                                    <span className="text-[11px] text-white/25 flex items-center gap-1">
-                                      <Clock className="w-3 h-3" />{item.annees_exp}a
-                                    </span>
-                                    {item.score_ia !== null && (
-                                      <span className={cn('text-[11px] font-bold flex items-center gap-0.5', scoreColor(item.score_ia))}>
-                                        <Star className="w-3 h-3" />{item.score_ia}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                            <CandidatCard provided={provided} snapshot={snapshot} item={item} />
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
                       {candidatsByEtape[etape.id].length === 0 && !snapshot.isDraggingOver && (
-                        <p className="text-[11px] text-white/20 text-center py-6">Aucun candidat</p>
+                        <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '24px 0' }}>Aucun candidat</p>
                       )}
                     </div>
                   )}

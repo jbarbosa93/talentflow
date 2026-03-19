@@ -4,25 +4,23 @@ import { Calendar, Clock, Video, MapPin, Phone, Plus, Users, Briefcase, CheckCir
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useEntretiens, useCreateEntretien, useUpdateEntretien, useDeleteEntretien } from '@/hooks/useEntretiens'
 import { useCandidats } from '@/hooks/useCandidats'
 import { useOffres } from '@/hooks/useOffres'
-import { cn } from '@/lib/utils'
 
-const STATUT_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  planifie: { label: 'Planifié', color: 'bg-primary/15 text-primary', icon: Clock },
-  confirme: { label: 'Confirmé', color: 'bg-emerald-500/15 text-emerald-400', icon: CheckCircle },
-  annule: { label: 'Annulé', color: 'bg-rose-500/15 text-rose-400', icon: XCircle },
-  complete: { label: 'Terminé', color: 'bg-white/8 text-white/35', icon: CheckCircle },
+const STATUT_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  planifie: { label: 'Planifié',  bg: '#FFF7ED', color: '#F5A623' },
+  confirme: { label: 'Confirmé',  bg: '#F0FDF4', color: '#16A34A' },
+  annule:   { label: 'Annulé',    bg: '#FEF2F2', color: '#DC2626' },
+  complete: { label: 'Terminé',   bg: 'var(--secondary)', color: 'var(--muted)' },
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType }> = {
-  visio: { label: 'Visio', icon: Video },
-  presentiel: { label: 'Présentiel', icon: MapPin },
-  telephone: { label: 'Téléphone', icon: Phone },
+  visio:       { label: 'Visio',       icon: Video },
+  presentiel:  { label: 'Présentiel',  icon: MapPin },
+  telephone:   { label: 'Téléphone',   icon: Phone },
 }
 
 export default function EntretiensPage() {
@@ -43,50 +41,53 @@ export default function EntretiensPage() {
     const isPast = date < now
 
     return (
-      <div className={cn('rounded-xl border p-5 transition-all', isPast ? 'border-white/4 bg-white/[0.02] opacity-60' : 'border-white/6 bg-card hover:border-white/10')}>
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-white/80 leading-tight">{entretien.titre}</h3>
-            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+      <div style={{
+        background: 'var(--card)', border: '1.5px solid var(--border)',
+        borderRadius: 12, padding: 20,
+        opacity: isPast ? 0.65 : 1,
+        boxShadow: 'var(--card-shadow)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{entretien.titre}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
               {entretien.candidats && (
-                <span className="text-xs text-white/40 flex items-center gap-1">
-                  <Users className="w-3 h-3" />
+                <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Users size={12} />
                   {entretien.candidats.prenom} {entretien.candidats.nom}
                 </span>
               )}
               {entretien.offres && (
-                <span className="text-xs text-white/30 flex items-center gap-1">
-                  <Briefcase className="w-3 h-3" />{entretien.offres.titre}
+                <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Briefcase size={12} />{entretien.offres.titre}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${statutConfig.color}`}>
-              {statutConfig.label}
-            </span>
-          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: statutConfig.bg, color: statutConfig.color, flexShrink: 0, marginLeft: 12 }}>
+            {statutConfig.label}
+          </span>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-white/35 mb-3">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: 12, color: 'var(--muted)', marginBottom: 12, flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={13} />
             {date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </span>
-          <span className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Clock size={13} />
             {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} ({entretien.duree_minutes}min)
           </span>
-          <span className="flex items-center gap-1.5">
-            <TypeIcon className="w-3.5 h-3.5" />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TypeIcon size={13} />
             {typeConf.label}
           </span>
         </div>
 
         {(entretien.lien_visio || entretien.lieu) && (
-          <p className="text-xs text-white/30 mb-3 truncate">
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {entretien.type === 'visio' ? (
-              <a href={entretien.lien_visio} target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary transition-colors">
+              <a href={entretien.lien_visio} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
                 {entretien.lien_visio}
               </a>
             ) : entretien.lieu}
@@ -94,35 +95,29 @@ export default function EntretiensPage() {
         )}
 
         {!isPast && (
-          <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
             {entretien.statut === 'planifie' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs border-emerald-500/20 text-emerald-400/70 hover:bg-emerald-500/10 hover:text-emerald-400"
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, border: '1.5px solid #86EFAC', background: '#F0FDF4', color: '#16A34A', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
                 onClick={() => updateEntretien.mutate({ id: entretien.id, statut: 'confirme' })}
               >
-                <CheckCircle className="w-3 h-3 mr-1" /> Confirmer
-              </Button>
+                <CheckCircle size={12} /> Confirmer
+              </button>
             )}
             {entretien.statut !== 'annule' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs border-white/8 text-white/30 hover:bg-white/5 hover:text-white/50"
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}
                 onClick={() => updateEntretien.mutate({ id: entretien.id, statut: 'complete' })}
               >
                 Terminer
-              </Button>
+              </button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs border-rose-500/15 text-rose-400/50 hover:bg-rose-500/10 hover:text-rose-400 ml-auto"
+            <button
+              style={{ marginLeft: 'auto', padding: '5px 10px', borderRadius: 8, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               onClick={() => deleteEntretien.mutate(entretien.id)}
             >
-              <Trash2 className="w-3 h-3" />
-            </Button>
+              <Trash2 size={13} />
+            </button>
           </div>
         )}
       </div>
@@ -130,11 +125,11 @@ export default function EntretiensPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-7">
+    <div className="d-page" style={{ maxWidth: 800 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h1 className="text-xl font-bold text-white">Entretiens</h1>
-          <p className="text-sm text-white/40 mt-0.5">
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Entretiens</h1>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
             {upcoming.length} à venir · {past.length} passés
           </p>
         </div>
@@ -145,33 +140,33 @@ export default function EntretiensPage() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-36 bg-white/5 animate-pulse rounded-xl border border-white/5" />
+            <div key={i} style={{ height: 144, background: 'var(--secondary)', borderRadius: 12, animation: 'pulse 2s infinite' }} />
           ))}
         </div>
       ) : (
         <>
           {upcoming.length === 0 && past.length === 0 ? (
-            <div className="text-center py-20">
-              <Calendar className="w-10 h-10 mx-auto mb-3 text-white/10" />
-              <p className="text-sm text-white/30 font-medium">Aucun entretien planifié</p>
-              <p className="text-xs text-white/20 mt-1">Cliquez sur &quot;Planifier un entretien&quot; pour commencer</p>
+            <div style={{ textAlign: 'center', padding: '80px 0' }}>
+              <Calendar size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>Aucun entretien planifié</p>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Cliquez sur &quot;Planifier un entretien&quot; pour commencer</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
               {upcoming.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest mb-3">À venir ({upcoming.length})</p>
-                  <div className="space-y-3">
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>À venir ({upcoming.length})</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {upcoming.map((e: any) => <EntretienCard key={e.id} entretien={e} />)}
                   </div>
                 </div>
               )}
               {past.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest mb-3">Historique ({past.length})</p>
-                  <div className="space-y-3">
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Historique ({past.length})</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {past.map((e: any) => <EntretienCard key={e.id} entretien={e} />)}
                   </div>
                 </div>
@@ -182,7 +177,7 @@ export default function EntretiensPage() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-lg bg-card border-white/10">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Planifier un entretien</DialogTitle>
           </DialogHeader>
@@ -227,17 +222,17 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <Label className="text-white/50 text-xs">Titre de l&apos;entretien *</Label>
-        <Input value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Entretien RH — Développeur Frontend" required className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Titre de l&apos;entretien *</label>
+        <Input value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Entretien RH — Développeur Frontend" required />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Candidat</Label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
           <Select value={candidatId} onValueChange={setCandidatId}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/60 h-9">
+            <SelectTrigger style={{ height: 38 }}>
               <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
             <SelectContent>
@@ -247,10 +242,10 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Offre</Label>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Offre</label>
           <Select value={offreId} onValueChange={setOffreId}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/60 h-9">
+            <SelectTrigger style={{ height: 38 }}>
               <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
             <SelectContent>
@@ -262,26 +257,32 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Date et heure *</Label>
-          <Input type="datetime-local" value={dateHeure} onChange={e => setDateHeure(e.target.value)} required className="bg-white/5 border-white/10 text-white/70 [color-scheme:dark]" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Date et heure *</label>
+          <Input type="datetime-local" value={dateHeure} onChange={e => setDateHeure(e.target.value)} required />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Durée (minutes)</Label>
-          <Input type="number" min="15" step="15" value={duree} onChange={e => setDuree(e.target.value)} className="bg-white/5 border-white/10 text-white" />
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Durée (minutes)</label>
+          <Input type="number" min="15" step="15" value={duree} onChange={e => setDuree(e.target.value)} />
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-white/50 text-xs">Format</Label>
-        <div className="flex gap-2">
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Format</label>
+        <div style={{ display: 'flex', gap: 8 }}>
           {(['visio', 'presentiel', 'telephone'] as const).map(t => (
             <button
               key={t}
               type="button"
               onClick={() => setType(t)}
-              className={`flex-1 py-2 text-xs rounded-md border transition-colors font-medium ${type === t ? 'border-primary/40 bg-primary/10 text-primary' : 'border-white/8 text-white/30 hover:border-white/15 hover:text-white/50'}`}
+              style={{
+                flex: 1, padding: '8px 0', fontSize: 12, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+                border: '1.5px solid', fontFamily: 'var(--font-body)',
+                borderColor: type === t ? 'var(--primary)' : 'var(--border)',
+                background: type === t ? '#FFF7ED' : 'transparent',
+                color: type === t ? 'var(--primary)' : 'var(--muted)',
+              }}
             >
               {TYPE_CONFIG[t].label}
             </button>
@@ -290,31 +291,31 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       {type === 'visio' && (
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Lien visio</Label>
-          <Input value={lienVisio} onChange={e => setLienVisio(e.target.value)} placeholder="https://meet.google.com/..." className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Lien visio</label>
+          <Input value={lienVisio} onChange={e => setLienVisio(e.target.value)} placeholder="https://meet.google.com/..." />
         </div>
       )}
       {type === 'presentiel' && (
-        <div className="space-y-1.5">
-          <Label className="text-white/50 text-xs">Lieu</Label>
-          <Input value={lieu} onChange={e => setLieu(e.target.value)} placeholder="ex: Rue du Rhône 12, Genève" className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Lieu</label>
+          <Input value={lieu} onChange={e => setLieu(e.target.value)} placeholder="ex: Rue du Rhône 12, Genève" />
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <Label className="text-white/50 text-xs">Intervieweur</Label>
-        <Input value={intervieweur} onChange={e => setIntervieweur(e.target.value)} placeholder="ex: J. Barbosa" className="bg-white/5 border-white/10 text-white placeholder:text-white/20" />
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Intervieweur</label>
+        <Input value={intervieweur} onChange={e => setIntervieweur(e.target.value)} placeholder="ex: J. Barbosa" />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-white/50 text-xs">Notes</Label>
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Points à aborder, documents à préparer..." rows={2} className="bg-white/5 border-white/10 text-white placeholder:text-white/20 resize-none" />
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Notes</label>
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Points à aborder, documents à préparer..." rows={2} style={{ resize: 'none' }} />
       </div>
 
-      <div className="flex justify-end gap-2 pt-1">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
         <Button type="submit" disabled={!titre || !dateHeure || createEntretien.isPending}>
-          {createEntretien.isPending ? 'Planification...' : 'Planifier l\'entretien'}
+          {createEntretien.isPending ? 'Planification...' : "Planifier l'entretien"}
         </Button>
       </div>
     </form>

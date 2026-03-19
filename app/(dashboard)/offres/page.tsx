@@ -1,24 +1,52 @@
 'use client'
 import { useState } from 'react'
-import { Plus, MapPin, Clock, Users } from 'lucide-react'
+import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useOffres, useCreateOffre } from '@/hooks/useOffres'
-import { formatSalaire } from '@/lib/utils'
+import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import type { Offre, OffreStatut } from '@/types/database'
 
-const STATUT_BADGE: Record<string, string> = {
+const supabase = createClient()
+
+const STATUT_BADGE: Record<OffreStatut, string> = {
   active:   'neo-badge neo-badge-green',
   pourvue:  'neo-badge neo-badge-blue',
   archivee: 'neo-badge neo-badge-gray',
 }
-const STATUT_LABELS: Record<string, string> = {
+const STATUT_LABELS: Record<OffreStatut, string> = {
   active: 'Active', pourvue: 'Pourvue', archivee: 'Archivée',
+}
+const STATUTS: OffreStatut[] = ['active', 'pourvue', 'archivee']
+
+function useDeleteOffre() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('offres').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offres'] })
+      toast.success('Offre supprimée')
+    },
+    onError: () => toast.error('Erreur suppression'),
+  })
 }
 
 export default function OffresPage() {
   const [showCreate, setShowCreate] = useState(false)
+  const [editOffre, setEditOffre] = useState<Offre | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const { data: offres, isLoading } = useOffres(true)
+  const updateOffre = useUpdateOffre()
+  const deleteOffre = useDeleteOffre()
+
+  const handleStatusChange = (id: string, statut: OffreStatut) => {
+    updateOffre.mutate({ id, statut })
+  }
 
   return (
     <div className="d-page">
@@ -51,21 +79,67 @@ export default function OffresPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
           {offres?.map(offre => (
-            <div key={offre.id} className="neo-card-soft" style={{ padding: 24, cursor: 'pointer' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
-                    {offre.titre}
-                  </h3>
-                  {offre.departement && (
-                    <p style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 4 }}>{offre.departement}</p>
-                  )}
+            <div key={offre.id} className="neo-card-soft" style={{ padding: 24, position: 'relative' }}>
+              {/* Actions top-right */}
+              <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, alignItems: 'center' }}>
+                {/* Status dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <StatusDropdown
+                    current={offre.statut}
+                    onSelect={(s) => handleStatusChange(offre.id, s)}
+                  />
                 </div>
-                <span className={STATUT_BADGE[offre.statut] || 'neo-badge neo-badge-gray'}>
-                  {STATUT_LABELS[offre.statut]}
-                </span>
+                {/* Edit */}
+                <button
+                  onClick={() => setEditOffre(offre)}
+                  title="Modifier"
+                  style={{
+                    background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
+                    color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
+                    alignItems: 'center', transition: 'all 0.12s',
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.background = '#F5F0E0'; e.currentTarget.style.color = '#1C1A14' }}
+                  onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060' }}
+                >
+                  <Pencil size={12} />
+                </button>
+                {/* Delete */}
+                {confirmDelete === offre.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                      onClick={() => { deleteOffre.mutate(offre.id); setConfirmDelete(null) }}
+                      style={{ fontSize: 10, fontWeight: 700, background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
+                    >Oui</button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      style={{ fontSize: 10, fontWeight: 700, background: 'none', color: '#7A7060', border: '1px solid #E8E0C8', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
+                    >Non</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(offre.id)}
+                    title="Supprimer"
+                    style={{
+                      background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
+                      color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
+                      alignItems: 'center', transition: 'all 0.12s',
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
+                    onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060'; e.currentTarget.style.borderColor = '#E8E0C8' }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
               </div>
 
+              {/* Title */}
+              <div style={{ marginBottom: 16, paddingRight: 110 }}>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
+                  {offre.titre}
+                </h3>
+              </div>
+
+              {/* Competences */}
               {offre.competences.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
                   {offre.competences.slice(0, 4).map(c => (
@@ -77,23 +151,12 @@ export default function OffresPage() {
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>
-                {offre.localisation && (
+              {/* Infos */}
+              {offre.localisation && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <MapPin style={{ width: 11, height: 11 }} />{offre.localisation}
                   </span>
-                )}
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Clock style={{ width: 11, height: 11 }} />{offre.exp_requise}+ ans
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Users style={{ width: 11, height: 11 }} />{offre.type_contrat}
-                </span>
-              </div>
-
-              {(offre.salaire_min || offre.salaire_max) && (
-                <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1.5px solid #E8E0C8', fontSize: 13, fontWeight: 700, color: 'var(--ink2)' }}>
-                  {formatSalaire(offre.salaire_min, offre.salaire_max)}
                 </div>
               )}
             </div>
@@ -101,80 +164,141 @@ export default function OffresPage() {
         </div>
       )}
 
+      {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Nouvelle offre d&apos;emploi</DialogTitle>
           </DialogHeader>
-          <CreateOffreForm onSuccess={() => setShowCreate(false)} />
+          <OffreForm onSuccess={() => setShowCreate(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editOffre} onOpenChange={v => { if (!v) setEditOffre(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Modifier l&apos;offre</DialogTitle>
+          </DialogHeader>
+          {editOffre && (
+            <OffreForm
+              initial={editOffre}
+              onSuccess={() => setEditOffre(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
   )
 }
 
-function CreateOffreForm({ onSuccess }: { onSuccess: () => void }) {
-  const [titre, setTitre]           = useState('')
-  const [departement, setDepartement] = useState('')
-  const [description, setDescription] = useState('')
-  const [competences, setCompetences] = useState('')
-  const [expRequise, setExpRequise] = useState('0')
-  const [localisation, setLocalisation] = useState('')
-  const [typeContrat, setTypeContrat] = useState('CDI')
+// ─── Status Dropdown ─────────────────────────────────────────────────────────
+
+function StatusDropdown({ current, onSelect }: { current: OffreStatut; onSelect: (s: OffreStatut) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={STATUT_BADGE[current] || 'neo-badge neo-badge-gray'}
+        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, border: 'none', fontFamily: 'inherit' }}
+      >
+        {STATUT_LABELS[current]}
+        <ChevronDown size={10} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0, zIndex: 50,
+          background: 'white', border: '1.5px solid #E8E0C8', borderRadius: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minWidth: 110, overflow: 'hidden',
+        }}>
+          {STATUTS.map(s => (
+            <button
+              key={s}
+              onClick={() => { onSelect(s); setOpen(false) }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 600, color: 'var(--ink)', fontFamily: 'inherit',
+                borderBottom: s !== 'archivee' ? '1px solid #F0EAD8' : 'none',
+              }}
+              onMouseOver={e => e.currentTarget.style.background = '#F9F5E8'}
+              onMouseOut={e => e.currentTarget.style.background = 'none'}
+            >
+              {STATUT_LABELS[s]}
+              {current === s && <Check size={12} color="#7A7060" />}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />}
+    </div>
+  )
+}
+
+// ─── Create / Edit Form ───────────────────────────────────────────────────────
+
+function OffreForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => void }) {
+  const [titre, setTitre]             = useState(initial?.titre || '')
+  const [description, setDescription] = useState(initial?.description || '')
+  const [competences, setCompetences] = useState(initial?.competences?.join(', ') || '')
+  const [localisation, setLocalisation] = useState(initial?.localisation || '')
+
   const createOffre = useCreateOffre()
+  const updateOffre = useUpdateOffre()
+
+  const isEdit = !!initial
+  const isPending = createOffre.isPending || updateOffre.isPending
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createOffre.mutate({
-      titre, departement: departement || undefined,
+    const payload = {
+      titre,
       description: description || undefined,
       competences: competences.split(',').map(c => c.trim()).filter(Boolean),
-      exp_requise: parseInt(expRequise) || 0,
       localisation: localisation || undefined,
-      type_contrat: typeContrat,
-    }, { onSuccess })
+      exp_requise: 0,
+    }
+
+    if (isEdit) {
+      updateOffre.mutate({ id: initial.id, ...payload }, { onSuccess })
+    } else {
+      createOffre.mutate(payload, { onSuccess })
+    }
   }
 
-  const inputStyle = { width: '100%', padding: '9px 12px', border: '1.5px solid #E8E0C8', borderRadius: 8, fontSize: 14, fontFamily: 'var(--font-body)', color: 'var(--ink)', background: 'white', outline: 'none' }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink2)', marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }
+  const inputStyle = {
+    width: '100%', padding: '9px 12px', border: '1.5px solid #E8E0C8',
+    borderRadius: 8, fontSize: 14, fontFamily: 'var(--font-body)',
+    color: 'var(--ink)', background: 'white', outline: 'none',
+    boxSizing: 'border-box' as const,
+  }
+  const labelStyle = {
+    display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink2)',
+    marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em',
+  }
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
         <label style={labelStyle}>Titre du poste *</label>
-        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Développeur Frontend Senior" required />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div>
-          <label style={labelStyle}>Département</label>
-          <input style={inputStyle} value={departement} onChange={e => setDepartement(e.target.value)} placeholder="Ingénierie" />
-        </div>
-        <div>
-          <label style={labelStyle}>Contrat</label>
-          <input style={inputStyle} value={typeContrat} onChange={e => setTypeContrat(e.target.value)} placeholder="CDI, CDD..." />
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div>
-          <label style={labelStyle}>Localisation</label>
-          <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève / Remote" />
-        </div>
-        <div>
-          <label style={labelStyle}>Expérience (ans)</label>
-          <input style={{ ...inputStyle }} type="number" min="0" value={expRequise} onChange={e => setExpRequise(e.target.value)} />
-        </div>
+        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Électricien CFC" required />
       </div>
       <div>
-        <label style={labelStyle}>Compétences (virgule)</label>
-        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="React, TypeScript, Node.js" />
+        <label style={labelStyle}>Localisation</label>
+        <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève, Lausanne..." />
+      </div>
+      <div>
+        <label style={labelStyle}>Compétences (séparées par virgule)</label>
+        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="Électricité, CFC, AutoCAD..." />
       </div>
       <div>
         <label style={labelStyle}>Description</label>
         <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Description du poste..." />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
-        <button type="submit" disabled={!titre || createOffre.isPending} className="neo-btn">
-          {createOffre.isPending ? 'Création...' : "Créer l'offre"}
+        <button type="submit" disabled={!titre || isPending} className="neo-btn">
+          {isPending ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : "Créer l'offre"}
         </button>
       </div>
     </form>

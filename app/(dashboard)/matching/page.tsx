@@ -1,40 +1,38 @@
 'use client'
 import { useState } from 'react'
-import { Sparkles, CheckCircle, XCircle, Zap } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Sparkles, CheckCircle, XCircle, Zap, Loader2 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCandidats } from '@/hooks/useCandidats'
 import { useOffres } from '@/hooks/useOffres'
 import { useCalculerScore } from '@/hooks/usePipeline'
-import { cn } from '@/lib/utils'
 
 function scoreColor(score: number) {
-  if (score >= 75) return { text: 'text-emerald-400', bg: 'bg-emerald-500/15', bar: 'bg-emerald-500' }
-  if (score >= 50) return { text: 'text-primary', bg: 'bg-primary/15', bar: 'bg-primary' }
-  return { text: 'text-rose-400', bg: 'bg-rose-500/15', bar: 'bg-rose-500' }
+  if (score >= 75) return { text: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', bar: '#22C55E', label: 'Fort' }
+  if (score >= 50) return { text: '#D97706', bg: '#FFFBEB', border: '#FDE68A', bar: '#F59E0B', label: 'Moyen' }
+  return { text: '#DC2626', bg: '#FEF2F2', border: '#FECACA', bar: '#EF4444', label: 'Faible' }
 }
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
-  const colors = scoreColor(value)
+  const c = scoreColor(value)
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs text-white/40">{label}</span>
-        <span className={cn('text-sm font-bold', colors.text)}>{value}%</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{label}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: c.text }}>{value}%</span>
       </div>
-      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-        <div className={cn('h-full rounded-full transition-all duration-700', colors.bar)} style={{ width: `${value}%` }} />
+      <div style={{ height: 6, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${value}%`, background: c.bar, borderRadius: 99, transition: 'width 0.7s ease' }} />
       </div>
     </div>
   )
 }
 
 export default function MatchingPage() {
-  const [selectedOffre, setSelectedOffre] = useState<string>('')
-  const [selectedCandidat, setSelectedCandidat] = useState<string>('')
+  const [selectedOffre, setSelectedOffre] = useState('')
+  const [selectedCandidat, setSelectedCandidat] = useState('')
   const [result, setResult] = useState<any>(null)
 
-  const { data: offres } = useOffres()
+  const { data: offres } = useOffres(true)
   const { data: candidats } = useCandidats()
   const calculerScore = useCalculerScore()
 
@@ -51,133 +49,152 @@ export default function MatchingPage() {
   const colors = result ? scoreColor(result.score) : null
 
   return (
-    <div className="p-6 max-w-2xl">
-      <div className="mb-7">
-        <h1 className="text-xl font-bold text-white flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-primary" />
+    <div className="d-page" style={{ maxWidth: 640 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
+          <Sparkles size={22} color="var(--primary)" />
           Matching IA
         </h1>
-        <p className="text-sm text-white/40 mt-1">
-          Calculez le score de compatibilité entre un candidat et une offre via Claude
+        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
+          Calculez le score de compatibilité entre un candidat et une offre via Claude AI
         </p>
       </div>
 
       {/* Selector Card */}
-      <div className="rounded-xl border border-white/6 bg-card p-6 space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-white/40 uppercase tracking-widest">Offre d&apos;emploi</label>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--card-shadow)' }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Offre d&apos;emploi
+          </label>
           <Select value={selectedOffre} onValueChange={setSelectedOffre}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/70 h-10">
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 42 }}>
               <SelectValue placeholder="Sélectionner une offre..." />
             </SelectTrigger>
             <SelectContent>
-              {offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.titre}</SelectItem>)}
+              {offres?.length === 0 ? (
+                <SelectItem value="_" disabled>Aucune offre — créez-en une d'abord</SelectItem>
+              ) : (
+                offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.titre}</SelectItem>)
+              )}
             </SelectContent>
           </Select>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-white/5" />
-          <span className="text-xs text-white/20 font-medium">vs</span>
-          <div className="flex-1 h-px bg-white/5" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>vs</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-white/40 uppercase tracking-widest">Candidat</label>
+        <div style={{ marginBottom: 24 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Candidat
+          </label>
           <Select value={selectedCandidat} onValueChange={setSelectedCandidat}>
-            <SelectTrigger className="bg-white/5 border-white/10 text-white/70 h-10">
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 42 }}>
               <SelectValue placeholder="Sélectionner un candidat..." />
             </SelectTrigger>
             <SelectContent>
-              {candidats?.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.prenom} {c.nom} — {c.titre_poste || 'Sans titre'}
-                </SelectItem>
-              ))}
+              {candidats?.length === 0 ? (
+                <SelectItem value="_" disabled>Aucun candidat — importez des CVs d'abord</SelectItem>
+              ) : (
+                candidats?.map(c => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.prenom} {c.nom} {c.titre_poste ? `— ${c.titre_poste}` : ''}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
 
-        <Button
+        <button
           onClick={handleMatch}
           disabled={!ready || calculerScore.isPending}
-          className="w-full h-10"
+          style={{
+            width: '100%', height: 44,
+            background: ready && !calculerScore.isPending ? 'var(--foreground)' : 'var(--secondary)',
+            color: ready && !calculerScore.isPending ? 'white' : 'var(--muted)',
+            border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
+            fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+          }}
         >
           {calculerScore.isPending ? (
-            <>
-              <Zap className="w-4 h-4 mr-2 animate-pulse" />
-              Analyse Claude en cours...
-            </>
+            <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse Claude en cours...</>
           ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Calculer le score de matching
-            </>
+            <><Sparkles size={16} />Calculer le score de matching</>
           )}
-        </Button>
+        </button>
       </div>
 
       {/* Result */}
       {result && colors && (
-        <div className="mt-4 rounded-xl border border-white/6 bg-card p-6 space-y-5">
+        <div style={{ marginTop: 20, background: 'var(--card)', border: `2px solid ${colors.border}`, borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--card-shadow)' }}>
+
           {/* Score principal */}
-          <div className="flex items-center justify-between">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
             <div>
-              <p className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-1">Score global</p>
-              <p className={cn('text-5xl font-black tracking-tight', colors.text)}>
-                {result.score}
-                <span className="text-2xl text-white/20">/100</span>
-              </p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Score global</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ fontSize: 52, fontWeight: 900, color: colors.text, lineHeight: 1 }}>{result.score}</span>
+                <span style={{ fontSize: 22, color: '#CBD5E1' }}>/100</span>
+              </div>
             </div>
-            <div className={cn('w-20 h-20 rounded-full border-4 flex items-center justify-center', colors.bg, `border-current`)}>
-              <span className={cn('text-lg font-black', colors.text)}>
-                {result.score >= 75 ? 'Fort' : result.score >= 50 ? 'Moy.' : 'Faible'}
-              </span>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: colors.bg, border: `3px solid ${colors.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ fontSize: 16, fontWeight: 900, color: colors.text }}>{colors.label}</span>
             </div>
           </div>
 
-          {/* Score bars */}
-          <div className="space-y-3">
+          {/* Barres */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
             <ScoreBar label="Compétences" value={result.score_competences} />
             <ScoreBar label="Expérience" value={result.score_experience} />
           </div>
 
-          {/* Compétences */}
+          {/* Compétences matchées */}
           {result.competences_matchees?.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 mb-2.5">
-                <CheckCircle className="w-3.5 h-3.5" />
-                Compétences correspondantes ({result.competences_matchees.length})
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <CheckCircle size={14} />Compétences correspondantes ({result.competences_matchees.length})
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {result.competences_matchees.map((c: string) => (
-                  <span key={c} className="text-xs bg-emerald-500/15 text-emerald-400 px-2.5 py-1 rounded-full font-medium">{c}</span>
+                  <span key={c} style={{ fontSize: 12, background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC', padding: '4px 12px', borderRadius: 99, fontWeight: 600 }}>{c}</span>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Compétences manquantes */}
           {result.competences_manquantes?.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-rose-400 flex items-center gap-1.5 mb-2.5">
-                <XCircle className="w-3.5 h-3.5" />
-                Compétences manquantes ({result.competences_manquantes.length})
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <XCircle size={14} />Compétences manquantes ({result.competences_manquantes.length})
               </p>
-              <div className="flex flex-wrap gap-1.5">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {result.competences_manquantes.map((c: string) => (
-                  <span key={c} className="text-xs bg-rose-500/15 text-rose-400 px-2.5 py-1 rounded-full font-medium">{c}</span>
+                  <span key={c} style={{ fontSize: 12, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '4px 12px', borderRadius: 99, fontWeight: 600 }}>{c}</span>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Explication */}
           {result.explication && (
-            <div className="pt-4 border-t border-white/5">
-              <p className="text-xs text-white/40 leading-relaxed">{result.explication}</p>
+            <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>{result.explication}</p>
             </div>
           )}
         </div>
       )}
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

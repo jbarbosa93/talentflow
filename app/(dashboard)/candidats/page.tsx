@@ -1,14 +1,14 @@
 'use client'
-import { useState, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
-import { useCandidats, useDeleteCandidatsBulk } from '@/hooks/useCandidats'
+import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import type { PipelineEtape } from '@/types/database'
 
@@ -31,20 +31,48 @@ const FILTER_OPTS = [
   { value: 'refuse',    label: 'Refusé' },
 ]
 const SORT_OPTS = [
-  { value: 'date_desc', label: '⬇ Plus récent' },
-  { value: 'date_asc',  label: '⬆ Plus ancien' },
-  { value: 'nom_az',    label: 'Nom A → Z' },
-  { value: 'titre_az',  label: 'Métier A → Z' },
+  { value: 'date_desc',  label: '⬇ Plus récent' },
+  { value: 'date_asc',   label: '⬆ Plus ancien' },
+  { value: 'nom_az',     label: 'Nom A → Z' },
+  { value: 'titre_az',   label: 'Métier A → Z' },
+  { value: 'distance',   label: '📍 Distance (Monthey)' },
 ]
 
-export default function CandidatsPage() {
+// Calcule l'âge à partir d'une date de naissance (formats DD/MM/YYYY ou YYYY-MM-DD)
+const calculerAge = (dateNaissance: string | null): number | null => {
+  if (!dateNaissance) return null
+  let birthDate: Date | null = null
+  const isoMatch = dateNaissance.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
+  if (isoMatch) {
+    birthDate = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
+  } else {
+    const euMatch = dateNaissance.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
+    if (euMatch) {
+      birthDate = new Date(parseInt(euMatch[3]), parseInt(euMatch[2]) - 1, parseInt(euMatch[1]))
+    }
+  }
+  if (!birthDate || isNaN(birthDate.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const m = today.getMonth() - birthDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
+  return age > 0 && age < 100 ? age : null
+}
+
+function CandidatsPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
   const [search, setSearch]               = useState('')
-  const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>('tous')
-  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az'>('date_desc')
+  const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
+    const s = searchParams.get('statut')
+    return (s && ['nouveau','contacte','entretien','place','refuse'].includes(s) ? s : 'tous') as PipelineEtape | 'tous'
+  })
+  const [filtreLocalisation, setFiltreLocalisation] = useState('')
+  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance'>('date_desc')
   const [groupByMetier, setGroupByMetier] = useState(false)
+  const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [showUpload, setShowUpload]       = useState(false)
@@ -57,34 +85,100 @@ export default function CandidatsPage() {
   const [aiResults, setAiResults] = useState<any[] | null>(null)
   const [aiInterpreted, setAiInterpreted] = useState('')
 
+  // CV hover preview
+  const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number } | null>(null)
+  const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Distance depuis Monthey, Suisse — cache par localisation
+  const [distances, setDistances] = useState<Record<string, number>>({})
+  const geocacheRef = useRef<Record<string, { lat: number; lon: number } | null>>({})
+  const geocodingRef = useRef<Set<string>>(new Set())
+
+  // Pipeline dropdown inline
+  const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
+
   const { data: allCandidats, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
   })
-  const deleteBulk = useDeleteCandidatsBulk()
+  const deleteBulk   = useDeleteCandidatsBulk()
+  const updateStatut = useUpdateStatutCandidat()
+
+  useEffect(() => {
+    if (!allCandidats) return
+    const locs = [...new Set(allCandidats.map((c: any) => c.localisation).filter(Boolean))] as string[]
+    const todo = locs.filter(loc => !(loc in geocacheRef.current) && !geocodingRef.current.has(loc))
+    if (!todo.length) return
+
+    let i = 0
+    const next = () => {
+      if (i >= todo.length) return
+      const loc = todo[i++]
+      geocodingRef.current.add(loc)
+      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc)}&format=json&limit=1`)
+        .then(r => r.json())
+        .then(d => {
+          if (d?.[0]) {
+            const lat2 = parseFloat(d[0].lat)
+            const lon2 = parseFloat(d[0].lon)
+            geocacheRef.current[loc] = { lat: lat2, lon: lon2 }
+            const R = 6371
+            const dLat = (lat2 - 46.2548) * Math.PI / 180
+            const dLon = (lon2 - 6.9567)  * Math.PI / 180
+            const a = Math.sin(dLat/2)**2 + Math.cos(46.2548*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2
+            const km = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
+            setDistances(prev => ({ ...prev, [loc]: km }))
+          } else {
+            geocacheRef.current[loc] = null
+          }
+          setTimeout(next, 1100) // 1 req/sec max (Nominatim limit)
+        })
+        .catch(() => { geocacheRef.current[loc] = null; setTimeout(next, 1100) })
+    }
+    next()
+  }, [allCandidats])
+
+  // Fermer le dropdown pipeline en cliquant ailleurs
+  useEffect(() => {
+    const close = () => setOpenPipelineId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [])
 
   // Filtrage client-side instantané
   const candidatsFiltres = useMemo(() => {
     const base = aiResults !== null ? aiResults : (allCandidats || [])
-    if (!search || aiResults !== null) return base as any[]
-    const q = search.toLowerCase()
-    return (base as any[]).filter((c: any) =>
-      (c.nom || '').toLowerCase().includes(q) ||
-      (c.prenom || '').toLowerCase().includes(q) ||
-      (c.titre_poste || '').toLowerCase().includes(q) ||
-      (c.email || '').toLowerCase().includes(q) ||
-      (c.formation || '').toLowerCase().includes(q) ||
-      (c.localisation || '').toLowerCase().includes(q) ||
-      (c.resume_ia || '').toLowerCase().includes(q) ||
-      (c.cv_texte_brut || '').toLowerCase().includes(q) ||
-      (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
-      (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
-      (c.experiences || []).some((e: any) =>
-        (e.poste || '').toLowerCase().includes(q) ||
-        (e.entreprise || '').toLowerCase().includes(q) ||
-        (e.description || '').toLowerCase().includes(q)
+    let filtered: any[] = base as any[]
+
+    if (search && aiResults === null) {
+      const q = search.toLowerCase()
+      filtered = filtered.filter((c: any) =>
+        (c.nom || '').toLowerCase().includes(q) ||
+        (c.prenom || '').toLowerCase().includes(q) ||
+        (c.titre_poste || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.formation || '').toLowerCase().includes(q) ||
+        (c.localisation || '').toLowerCase().includes(q) ||
+        (c.resume_ia || '').toLowerCase().includes(q) ||
+        (c.cv_texte_brut || '').toLowerCase().includes(q) ||
+        (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
+        (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
+        (c.experiences || []).some((e: any) =>
+          (e.poste || '').toLowerCase().includes(q) ||
+          (e.entreprise || '').toLowerCase().includes(q) ||
+          (e.description || '').toLowerCase().includes(q)
+        )
       )
-    )
-  }, [allCandidats, search, aiResults])
+    }
+
+    if (filtreLocalisation.trim()) {
+      const loc = filtreLocalisation.toLowerCase().trim()
+      filtered = filtered.filter((c: any) =>
+        (c.localisation || '').toLowerCase().includes(loc)
+      )
+    }
+
+    return filtered
+  }, [allCandidats, search, aiResults, filtreLocalisation])
 
   // Client-side sort
   const sorted = useMemo(() => {
@@ -96,26 +190,35 @@ export default function CandidatsPage() {
         return arr.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'))
       case 'titre_az':
         return arr.sort((a, b) => (a.titre_poste || 'ZZZZ').localeCompare(b.titre_poste || 'ZZZZ', 'fr'))
+      case 'distance':
+        return arr.sort((a, b) => {
+          const da = distances[a.localisation] ?? 99999
+          const db = distances[b.localisation] ?? 99999
+          return da - db
+        })
       default:
         return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }
-  }, [candidatsFiltres, sortBy])
+  }, [candidatsFiltres, sortBy, distances])
 
-  // Group by métier
+  // Group by métier ou lieu
   const grouped = useMemo(() => {
-    if (!groupByMetier) return null
+    if (!groupByMetier && !groupByLieu) return null
     const groups: Record<string, any[]> = {}
     for (const c of sorted) {
-      const key = c.titre_poste?.trim() || 'Sans métier'
+      const key = groupByMetier
+        ? (c.titre_poste?.trim() || 'Sans métier')
+        : (c.localisation?.trim() || 'Sans lieu')
       if (!groups[key]) groups[key] = []
       groups[key].push(c)
     }
+    const noVal = groupByMetier ? 'Sans métier' : 'Sans lieu'
     return Object.entries(groups).sort(([a], [b]) => {
-      if (a === 'Sans métier') return 1
-      if (b === 'Sans métier') return -1
+      if (a === noVal) return 1
+      if (b === noVal) return -1
       return a.localeCompare(b, 'fr')
     })
-  }, [sorted, groupByMetier])
+  }, [sorted, groupByMetier, groupByLieu])
 
   // Selection helpers
   const toggleSelect = useCallback((id: string) => {
@@ -144,26 +247,23 @@ export default function CandidatsPage() {
   const detectAndFormat = (tel: string): { number: string; flag: string; country: string } => {
     const c = tel.replace(/[\s\-().]/g, '')
 
-    // Déjà en format international
     if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '🇨🇭', country: 'Suisse' }
     if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '🇫🇷', country: 'France' }
     if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '🇪🇸', country: 'Espagne' }
     if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '🇵🇹', country: 'Portugal' }
     if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '🇮🇹', country: 'Italie' }
 
-    // Numéros locaux commençant par 0
     if (c.startsWith('0')) {
       const local = c.slice(1)
-      if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }    // 076-079
-      if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }    // 06/07
-      if (/^[0-5]/.test(local))  return { number: '+33' + local, flag: '🇫🇷', country: 'France' }    // 01-05 fixe FR
+      if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }
+      if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
+      if (/^[0-5]/.test(local))  return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
       return { number: c, flag: '❓', country: '' }
     }
 
-    // Sans préfixe 0
-    if (/^[67]/.test(c) && c.length === 9)      return { number: '+34'  + c, flag: '🇪🇸', country: 'Espagne' }   // Espagne mobile
-    if (/^9/.test(c)    && c.length === 9)       return { number: '+351' + c, flag: '🇵🇹', country: 'Portugal' }  // Portugal mobile
-    if (/^3/.test(c)    && c.length >= 9)        return { number: '+39'  + c, flag: '🇮🇹', country: 'Italie' }    // Italie mobile
+    if (/^[67]/.test(c) && c.length === 9)      return { number: '+34'  + c, flag: '🇪🇸', country: 'Espagne' }
+    if (/^9/.test(c)    && c.length === 9)       return { number: '+351' + c, flag: '🇵🇹', country: 'Portugal' }
+    if (/^3/.test(c)    && c.length >= 9)        return { number: '+39'  + c, flag: '🇮🇹', country: 'Italie' }
 
     return { number: c, flag: '📱', country: '' }
   }
@@ -175,7 +275,6 @@ export default function CandidatsPage() {
   }
 
   const openMessages = (formatted: string[]) => {
-    // Ouvrir Messages sans numéros dans l'URL — l'utilisateur colle depuis le presse-papiers
     window.open('sms:', '_self')
   }
 
@@ -237,6 +336,10 @@ export default function CandidatsPage() {
 
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
+    const age = calculerAge(c.date_naissance)
+    const hasCv = !!c.cv_url
+    const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
+
     return (
       <div
         key={c.id}
@@ -248,6 +351,7 @@ export default function CandidatsPage() {
           borderRadius: 12, padding: '12px 16px',
           cursor: 'pointer', transition: 'all 0.15s ease',
           boxShadow: selected ? '0 0 0 2px rgba(245,167,35,0.2)' : 'var(--card-shadow)',
+          position: 'relative',
         }}
       >
         {/* Checkbox */}
@@ -286,19 +390,53 @@ export default function CandidatsPage() {
               <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{c.titre_poste}</span>
             )}
             {c.localisation && (
-              <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {c.localisation}</span>
+              <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                📍 {c.localisation}
+                {distances[c.localisation] !== undefined && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '1px 5px', borderRadius: 100 }}>
+                    ~{distances[c.localisation]} km
+                  </span>
+                )}
+              </span>
             )}
-            {c.competences?.slice(0, 3).map((comp: string) => (
-              <span key={comp} className="neo-tag" style={{ fontSize: 10, padding: '1px 7px' }}>{comp}</span>
-            ))}
           </div>
         </div>
 
-        {/* Exp */}
-        {c.annees_exp != null && c.annees_exp > 0 && (
+        {/* Âge (calculé depuis date_naissance) */}
+        {age !== null && (
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {c.annees_exp} ans
+            {age} ans
           </span>
+        )}
+
+        {/* Bouton CV hover preview */}
+        {hasCv && (
+          <div
+            onClick={e => e.stopPropagation()}
+            onMouseEnter={e => {
+              if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              hoveredCvTimeout.current = setTimeout(() => {
+                setHoveredCv({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top })
+              }, 250)
+            }}
+            onMouseLeave={() => {
+              if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+              hoveredCvTimeout.current = setTimeout(() => setHoveredCv(null), 400)
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 9px', borderRadius: 7,
+              border: '1px solid var(--border)',
+              background: 'var(--background)',
+              cursor: 'default', fontSize: 11, fontWeight: 600,
+              color: 'var(--muted)', flexShrink: 0,
+              transition: 'all 0.15s',
+            }}
+            title="Survoler pour prévisualiser le CV"
+          >
+            <Eye size={11} /> CV
+          </div>
         )}
 
         {/* Date */}
@@ -306,13 +444,55 @@ export default function CandidatsPage() {
           {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
         </span>
 
-        {/* Status */}
-        <span
-          className={ETAPE_BADGE[c.statut_pipeline as PipelineEtape] || 'neo-badge neo-badge-gray'}
-          style={{ flexShrink: 0 }}
+        {/* Badge pipeline cliquable */}
+        <div
+          onClick={e => { e.stopPropagation(); setOpenPipelineId(openPipelineId === c.id ? null : c.id) }}
+          style={{ position: 'relative', flexShrink: 0 }}
         >
-          {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
-        </span>
+          <span
+            className={ETAPE_BADGE[c.statut_pipeline as PipelineEtape] || 'neo-badge neo-badge-gray'}
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          >
+            {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
+            <ChevronDown size={9} />
+          </span>
+
+          {/* Dropdown pipeline */}
+          {openPipelineId === c.id && (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 5px)', zIndex: 200,
+                background: 'white', border: '1px solid var(--border)',
+                borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                padding: 4, minWidth: 145,
+              }}
+            >
+              {(Object.entries(ETAPE_LABELS) as [PipelineEtape, string][]).map(([etape, label]) => (
+                <button
+                  key={etape}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (c.statut_pipeline !== etape) {
+                      updateStatut.mutate({ id: c.id, statut: etape })
+                    }
+                    setOpenPipelineId(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', width: '100%',
+                    padding: '7px 10px', borderRadius: 7, border: 'none',
+                    background: c.statut_pipeline === etape ? 'var(--primary-soft)' : 'transparent',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', gap: 8,
+                  }}
+                >
+                  <span className={ETAPE_BADGE[etape]}>{label}</span>
+                  {c.statut_pipeline === etape && <Check size={11} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -418,6 +598,26 @@ export default function CandidatsPage() {
           </button>
         </div>
 
+        {/* Filtre lieu */}
+        <div style={{ position: 'relative' }}>
+          <MapPin style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--muted)', pointerEvents: 'none' }} />
+          <input
+            className="neo-input-soft"
+            style={{ paddingLeft: 30, width: 150, fontSize: 13 }}
+            placeholder="Filtrer par lieu..."
+            value={filtreLocalisation}
+            onChange={e => setFiltreLocalisation(e.target.value)}
+          />
+          {filtreLocalisation && (
+            <button
+              onClick={() => setFiltreLocalisation('')}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
         {/* Sort */}
         <div style={{ position: 'relative' }}>
           <SortAsc style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--muted)', pointerEvents: 'none' }} />
@@ -433,11 +633,30 @@ export default function CandidatsPage() {
 
         {/* Group by métier */}
         <button
-          onClick={() => { setGroupByMetier(v => !v); setCollapsedGroups(new Set()) }}
+          onClick={() => {
+            const newVal = !groupByMetier
+            setGroupByMetier(newVal)
+            if (newVal) setGroupByLieu(false)
+            setCollapsedGroups(new Set())
+          }}
           className={groupByMetier ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
           style={groupByMetier ? { background: 'var(--primary)', color: '#0F172A' } : {}}
         >
           <LayoutGrid size={13} /> Par métier
+        </button>
+
+        {/* Group by lieu */}
+        <button
+          onClick={() => {
+            const newVal = !groupByLieu
+            setGroupByLieu(newVal)
+            if (newVal) setGroupByMetier(false)
+            setCollapsedGroups(new Set())
+          }}
+          className={groupByLieu ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
+          style={groupByLieu ? { background: 'var(--primary)', color: '#0F172A' } : {}}
+        >
+          <MapPin size={13} /> Par lieu
         </button>
 
         {/* Status pills */}
@@ -506,15 +725,15 @@ export default function CandidatsPage() {
           </button>
         </div>
       ) : grouped ? (
-        /* Grouped by métier */
+        /* Grouped */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {grouped.map(([metier, items]) => {
+          {grouped.map(([groupKey, items]) => {
             const ids = items.map((c: any) => c.id)
             const allSel = ids.every(id => selectedIds.has(id))
             const someSel = ids.some(id => selectedIds.has(id))
-            const isCollapsed = collapsedGroups.has(metier)
+            const isCollapsed = collapsedGroups.has(groupKey)
             return (
-              <div key={metier}>
+              <div key={groupKey}>
                 {/* Group header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 8, marginBottom: 8, borderBottom: '2px solid var(--border)', cursor: 'pointer' }}>
                   {/* Group checkbox */}
@@ -532,14 +751,14 @@ export default function CandidatsPage() {
                   </div>
 
                   <div
-                    onClick={() => toggleGroup(metier)}
+                    onClick={() => toggleGroup(groupKey)}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}
                   >
                     {isCollapsed
                       ? <ChevronRight size={15} color="var(--muted)" />
                       : <ChevronDown size={15} color="var(--muted)" />
                     }
-                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>{metier}</span>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>{groupKey}</span>
                     <span className="neo-badge neo-badge-gray">{items.length}</span>
                   </div>
                 </div>
@@ -558,6 +777,61 @@ export default function CandidatsPage() {
         /* Flat list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sorted.map((c: any) => renderCard(c))}
+        </div>
+      )}
+
+      {/* CV Preview Overlay (hover) */}
+      {hoveredCv && (
+        <div
+          onMouseEnter={() => {
+            if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+          }}
+          onMouseLeave={() => {
+            if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+            hoveredCvTimeout.current = setTimeout(() => setHoveredCv(null), 200)
+          }}
+          style={{
+            position: 'fixed',
+            top: 20,
+            bottom: 20,
+            ...(hoveredCv.x + 680 > (typeof window !== 'undefined' ? window.innerWidth : 1400)
+              ? { right: (typeof window !== 'undefined' ? window.innerWidth : 1400) - hoveredCv.x + 12 }
+              : { left: hoveredCv.x + 12 }),
+            width: 640,
+            background: 'white',
+            border: '1px solid var(--border)',
+            borderRadius: 14,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+            overflow: 'hidden',
+            zIndex: 500,
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* Header */}
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--background)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Eye size={13} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>Aperçu CV</span>
+          </div>
+          {/* Content */}
+          <div style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'hidden', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
+              <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 12 }}>
+                <img src={hoveredCv.url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
+              </div>
+            ) : hoveredCv.ext === 'pdf' ? (
+              <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+            ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
+              <iframe
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                title="Aperçu CV"
+              />
+            ) : (
+              <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
+                Aperçu non disponible
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -620,7 +894,6 @@ export default function CandidatsPage() {
               </div>
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {/* Numéros à copier — affichage direct un par ligne */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Numéros à coller dans Messages
@@ -659,7 +932,6 @@ export default function CandidatsPage() {
                   </p>
                 </div>
 
-                {/* Destinataires */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Destinataires — {avecTel.length} avec numéro
@@ -702,7 +974,6 @@ export default function CandidatsPage() {
                   </div>
                 </div>
 
-                {/* Zone message */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Message
@@ -724,7 +995,6 @@ export default function CandidatsPage() {
                   </div>
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => setShowMessage(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
                     Annuler
@@ -765,4 +1035,8 @@ export default function CandidatsPage() {
       </Dialog>
     </div>
   )
+}
+
+export default function CandidatsPage() {
+  return <Suspense fallback={null}><CandidatsPageInner /></Suspense>
 }

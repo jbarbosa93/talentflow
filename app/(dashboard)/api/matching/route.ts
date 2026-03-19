@@ -5,6 +5,7 @@ import type { Candidat, Offre } from '@/types/database'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
+export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
 export async function POST(request: NextRequest) {
   try {

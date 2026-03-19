@@ -1,10 +1,10 @@
 'use client'
 import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
-  Pencil, X, Check, Globe, Car, Languages, Maximize2,
+  Pencil, X, Check, Car, Languages, Maximize2,
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -22,6 +22,26 @@ const ETAPE_BADGE: Record<PipelineEtape, string> = {
 }
 const ETAPE_LABELS: Record<PipelineEtape, string> = {
   nouveau: 'Nouveau', contacte: 'Contacté', entretien: 'Entretien', place: 'Placé', refuse: 'Refusé',
+}
+
+const calculerAge = (dateNaissance: string | null): number | null => {
+  if (!dateNaissance) return null
+  let birthDate: Date | null = null
+  const isoMatch = dateNaissance.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
+  if (isoMatch) {
+    birthDate = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
+  } else {
+    const euMatch = dateNaissance.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
+    if (euMatch) {
+      birthDate = new Date(parseInt(euMatch[3]), parseInt(euMatch[2]) - 1, parseInt(euMatch[1]))
+    }
+  }
+  if (!birthDate || isNaN(birthDate.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birthDate.getFullYear()
+  const m = today.getMonth() - birthDate.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
+  return age > 0 && age < 100 ? age : null
 }
 
 const labelStyle: React.CSSProperties = {
@@ -46,6 +66,28 @@ export default function CandidatDetailPage() {
   const deleteCandidat  = useDeleteCandidat()
 
   const candidat = data as any
+
+  // Distance depuis Monthey, Suisse (46.2548, 6.9567)
+  const [distanceKm, setDistanceKm] = useState<number | null>(null)
+  useEffect(() => {
+    if (!candidat?.localisation) return
+    setDistanceKm(null)
+    const loc = candidat.localisation
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc)}&format=json&limit=1`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.[0]) {
+          const lat2 = parseFloat(d[0].lat)
+          const lon2 = parseFloat(d[0].lon)
+          const R = 6371
+          const dLat = (lat2 - 46.2548) * Math.PI / 180
+          const dLon = (lon2 - 6.9567)  * Math.PI / 180
+          const a = Math.sin(dLat/2)**2 + Math.cos(46.2548*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2
+          setDistanceKm(Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))))
+        }
+      })
+      .catch(() => {})
+  }, [candidat?.localisation])
 
   const set = (field: string, value: any) => setEditData(prev => ({ ...prev, [field]: value }))
 
@@ -98,7 +140,7 @@ export default function CandidatDetailPage() {
     return (
       <div className="d-page">
         <div style={{ height: 32, width: 200, background: 'var(--border)', borderRadius: 8, marginBottom: 24 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 380px', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 620px', gap: 20 }}>
           {[4, 3, 1].map((n, col) => (
             <div key={col} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {Array.from({ length: n }).map((_, i) => (
@@ -182,7 +224,7 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 400px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 620px', gap: 16, alignItems: 'start' }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -200,7 +242,14 @@ export default function CandidatDetailPage() {
                   </div>
                 ) : (
                   <>
-                    <h1 style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.3 }}>{candidat.prenom} {candidat.nom}</h1>
+                    <h1 style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.3 }}>
+                      {candidat.prenom} {candidat.nom}
+                      {calculerAge(candidat.date_naissance) !== null && (
+                        <span style={{ fontWeight: 500, fontSize: 12, color: 'var(--muted)', marginLeft: 6 }}>
+                          · {calculerAge(candidat.date_naissance)} ans
+                        </span>
+                      )}
+                    </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
                   </>
                 )}
@@ -228,6 +277,11 @@ export default function CandidatDetailPage() {
                 <label style={labelStyle}>Coordonnées</label>
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Email"        value={editData.email}       onChange={e => set('email', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Téléphone"    value={editData.telephone}   onChange={e => set('telephone', e.target.value)} />
+                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Date de naissance (JJ.MM.AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 2 }}>
+                  <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
+                  <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>
+                </label>
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Localisation" value={editData.localisation} onChange={e => set('localisation', e.target.value)} />
               </div>
             ) : (
@@ -243,48 +297,72 @@ export default function CandidatDetailPage() {
                     <Phone size={12} style={{ flexShrink: 0 }} /><span>{candidat.telephone}</span>
                   </a>
                 )}
+                {candidat.date_naissance && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
+                    <span style={{ fontSize: 12 }}>🎂</span>
+                    <span>{candidat.date_naissance}</span>
+                  </div>
+                )}
+                {candidat.permis_conduire != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
+                    <Car size={12} style={{ flexShrink: 0 }} />
+                    <span>Permis : {candidat.permis_conduire ? '✅ Oui' : '❌ Non'}</span>
+                  </div>
+                )}
                 {candidat.localisation && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
-                    <MapPin size={12} style={{ flexShrink: 0 }} /><span>{candidat.localisation}</span>
+                    <MapPin size={12} style={{ flexShrink: 0 }} />
+                    <span>{candidat.localisation}</span>
+                    {distanceKm !== null && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '1px 7px', borderRadius: 100, whiteSpace: 'nowrap' }}>
+                        ~{distanceKm} km
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Expérience & Formation */}
+          {/* Carte localisation */}
+          {candidat.localisation && (
+            <div className="neo-card-soft" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <MapPin size={12} style={{ color: 'var(--primary)' }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>{candidat.localisation}</span>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/dir/Monthey,+Suisse/${encodeURIComponent(candidat.localisation)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <ExternalLink size={10} /> Itinéraire
+                </a>
+              </div>
+              <iframe
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(candidat.localisation)}&output=embed&hl=fr&z=12`}
+                style={{ width: '100%', height: 200, border: 'none', display: 'block' }}
+                title="Localisation"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          {/* Formation */}
           <div className="neo-card-soft" style={{ padding: 14 }}>
             {isEditing ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle}>Expérience & Formation</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input className="neo-input" style={{ height: 30, fontSize: 12, width: 56 }} type="number" min={0} max={60} value={editData.annees_exp} onChange={e => set('annees_exp', e.target.value)} />
-                  <span style={smallMuted}>ans d&apos;expérience</span>
-                </div>
+                <label style={labelStyle}>Formation</label>
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Formation" value={editData.formation} onChange={e => set('formation', e.target.value)} />
-                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Date de naissance (JJ/MM/AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Briefcase size={12} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                    {candidat.annees_exp} an{candidat.annees_exp > 1 ? 's' : ''} d&apos;expérience
-                  </span>
-                </div>
-                {candidat.formation && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ ...smallMuted, lineHeight: 1.5 }}>{candidat.formation}</span>
-                  </div>
-                )}
-                {candidat.date_naissance && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
-                    <span>🎂</span><span>{candidat.date_naissance}</span>
-                  </div>
-                )}
+            ) : candidat.formation ? (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
+                <span style={{ ...smallMuted, lineHeight: 1.5 }}>{candidat.formation}</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Compétences */}
@@ -304,45 +382,25 @@ export default function CandidatDetailPage() {
             )}
           </div>
 
-          {/* Langues, LinkedIn, Permis */}
-          <div className="neo-card-soft" style={{ padding: 14 }}>
-            {isEditing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle}>Autres infos</label>
-                <textarea className="neo-input" style={{ height: 'auto', minHeight: 48, padding: '5px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12 }} placeholder="Langues : Français, Anglais..." value={editData.langues} onChange={e => set('langues', e.target.value)} />
-                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="LinkedIn URL" value={editData.linkedin} onChange={e => set('linkedin', e.target.value)} />
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 3 }}>
-                  <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
-                  <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>
-                </label>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {candidat.langues?.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <Languages size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {candidat.langues.map((l: string) => <span key={l} className="neo-badge neo-badge-gray">{l}</span>)}
-                    </div>
+          {/* Langues */}
+          {(isEditing || candidat.langues?.length > 0) && (
+            <div className="neo-card-soft" style={{ padding: 14 }}>
+              {isEditing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <label style={labelStyle}>Langues</label>
+                  <textarea className="neo-input" style={{ height: 'auto', minHeight: 48, padding: '5px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12 }} placeholder="Français, Anglais..." value={editData.langues} onChange={e => set('langues', e.target.value)} />
+                  <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>Séparer par des virgules</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  <Languages size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {candidat.langues.map((l: string) => <span key={l} className="neo-badge neo-badge-gray">{l}</span>)}
                   </div>
-                )}
-                {candidat.linkedin && (
-                  <a href={candidat.linkedin} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, textDecoration: 'none' }}>
-                    <Globe size={12} style={{ flexShrink: 0 }} /><span>LinkedIn</span><ExternalLink size={10} />
-                  </a>
-                )}
-                {candidat.permis_conduire != null && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
-                    <Car size={12} style={{ flexShrink: 0 }} />
-                    <span>Permis : {candidat.permis_conduire ? '✅ Oui' : '❌ Non'}</span>
-                  </div>
-                )}
-                {!candidat.langues?.length && !candidat.linkedin && candidat.permis_conduire == null && (
-                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>Aucune info supplémentaire</p>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Métadonnées */}
           <div className="neo-card-soft" style={{ padding: 14 }}>
@@ -350,7 +408,6 @@ export default function CandidatDetailPage() {
               {[
                 { label: 'Source',  value: candidat.source || '—' },
                 { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR') },
-                { label: 'Fichier', value: candidat.cv_nom_fichier || '—' },
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.label}</span>
@@ -591,7 +648,7 @@ export default function CandidatDetailPage() {
                   <p style={{ fontSize: 12 }}>Le fichier CV n&apos;a pas été importé</p>
                 </div>
               ) : cvIsPDF ? (
-                <iframe src={candidat.cv_url} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
+                <iframe src={`${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="CV" />
               ) : cvIsImage ? (
                 <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16 }}>
                   <img src={candidat.cv_url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }} />

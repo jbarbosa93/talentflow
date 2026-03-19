@@ -8,10 +8,6 @@ export default function Navbar() {
         TalentFlow
       </div>
 
-      <ul className="l-nav-links">
-        <li><a href="#tarifs">Tarifs</a></li>
-      </ul>
-
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <Link href="/login" style={{
           color: 'var(--ink)', fontWeight: 700, fontSize: 14,

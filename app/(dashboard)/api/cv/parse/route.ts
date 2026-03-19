@@ -7,9 +7,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { extractTextFromCV, validateCVFile } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import type { CandidatInsert } from '@/types/database'
+import { logActivity } from '@/lib/activity-log'
 
-export const runtime = 'nodejs'   // pdf-parse nécessite Node.js runtime (pas Edge)
-export const maxDuration = 120    // 120s max (Vercel Pro) — analyse IA + OCR scans lents
+export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
+export const maxDuration = 60          // 60s max (Vercel Hobby) — analyse IA + OCR scans
+export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
 export async function POST(request: NextRequest) {
   try {
@@ -226,6 +228,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[CV Parse] Succès ! Candidat créé : ${candidat?.id}`)
+    await logActivity({ action: 'cv_importe', details: { nom: analyse.nom, prenom: analyse.prenom } })
 
     return NextResponse.json({
       success: true,

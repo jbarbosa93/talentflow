@@ -161,10 +161,8 @@ export function TopBar() {
 
   return (
     <header className="d-topbar">
-      <h2 className="d-topbar-title">{title}</h2>
-
       {/* ── Barre de recherche ── */}
-      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, margin: '0 20px' }}>
+      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginRight: 20 }}>
         <div style={{
           display: 'flex', alignItems: 'center',
           background: focused ? 'white' : 'var(--background)',

@@ -34,36 +34,7 @@ export default function Hero() {
           </p>
         </BlurFade>
 
-        <BlurFade delay={0.3} inView>
-          <div className="l-actions">
-            <Link href="/demande-acces" className="l-btn-main">
-              Demander l&apos;accès →
-            </Link>
-            <Link href="/login" className="l-btn-ghost">
-              Espace Recruteurs →
-            </Link>
-          </div>
-        </BlurFade>
 
-        <BlurFade delay={0.4} inView>
-          <div className="l-social-proof">
-            <div className="l-avatars">
-              {[
-                { l: "M", bg: "#F7C948" },
-                { l: "S", bg: "#C8E6C9" },
-                { l: "A", bg: "#BBDEFB" },
-                { l: "L", bg: "#F8BBD9" },
-              ].map((av, i) => (
-                <div key={i} className="l-av" style={{ background: av.bg }}>
-                  {av.l}
-                </div>
-              ))}
-            </div>
-            <span>
-              Plus de <strong>500 équipes</strong> l&apos;utilisent chaque jour
-            </span>
-          </div>
-        </BlurFade>
       </div>
 
       {/* ── Right — Dashboard Mockup ── */}

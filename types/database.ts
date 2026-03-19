@@ -417,6 +417,33 @@ export type Database = {
         }
         Relationships: []
       }
+      logs_activite: {
+        Row: {
+          id: string
+          action: string
+          user_id: string | null
+          user_email: string | null
+          details: Record<string, unknown>
+          ip: string | null
+          created_at: string
+        }
+        Insert: {
+          action: string
+          user_id?: string | null
+          user_email?: string | null
+          details?: Record<string, unknown>
+          ip?: string | null
+          created_at?: string
+        }
+        Update: {
+          action?: string
+          user_id?: string | null
+          user_email?: string | null
+          details?: Record<string, unknown>
+          ip?: string | null
+        }
+        Relationships: []
+      }
       demandes_acces: {
         Row: {
           id: string

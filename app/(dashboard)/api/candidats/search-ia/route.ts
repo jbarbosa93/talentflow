@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
+export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 export const maxDuration = 30
 
 export async function POST(request: NextRequest) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens, getMicrosoftUser } from '@/lib/microsoft'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivity } from '@/lib/activity-log'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -61,6 +62,8 @@ export async function GET(request: NextRequest) {
         actif: true,
       })
     }
+
+    await logActivity({ action: 'microsoft_connecte', user_email: email })
 
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=microsoft`

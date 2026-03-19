@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   Camera, Save, Lock, Mail, Phone, User, Briefcase,
   LogOut, Check, Loader2, AlertCircle, Calendar, MapPin,
+  ShieldCheck, ShieldOff, QrCode,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -367,6 +368,9 @@ export default function ProfilPage() {
         </div>
       </div>
 
+      {/* ── 2FA ── */}
+      <TwoFactorSection />
+
       {/* ── Changer le mot de passe ── */}
       <div className="neo-card" style={{ padding: 24 }}>
         <p style={sectionTitle}><Lock size={15} style={{ color: '#7C3AED' }} /> Mot de passe</p>
@@ -440,6 +444,288 @@ export default function ProfilPage() {
       </div>
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </div>
+  )
+}
+
+// ── Composant 2FA ──────────────────────────────────────────────────────────────
+function TwoFactorSection() {
+  const supabase = createClient()
+
+  const [enrolling, setEnrolling]       = useState(false)
+  const [disabling, setDisabling]       = useState(false)
+  const [totpUri, setTotpUri]           = useState<string | null>(null)
+  const [qrFactorId, setQrFactorId]     = useState<string | null>(null)
+  const [verifyCode, setVerifyCode]     = useState('')
+  const [verifying, setVerifying]       = useState(false)
+  const [confirmDisable, setConfirmDisable] = useState(false)
+
+  // Charger les facteurs MFA existants
+  const { data: factors, isLoading, refetch } = useQuery({
+    queryKey: ['mfa-factors'],
+    queryFn: async () => {
+      const { data, error } = await supabase.auth.mfa.listFactors()
+      if (error) throw error
+      return data
+    },
+    staleTime: 30_000,
+  })
+
+  const activeFactor = factors?.totp?.find(f => f.status === 'verified')
+  const is2FAActive = !!activeFactor
+
+  // Démarrer l'enrôlement
+  const startEnroll = async () => {
+    setEnrolling(true)
+    setTotpUri(null)
+    setQrFactorId(null)
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' })
+      if (error) throw error
+      setTotpUri(data.totp.uri)
+      setQrFactorId(data.id)
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de l\'activation 2FA')
+    } finally {
+      setEnrolling(false)
+    }
+  }
+
+  // Vérifier le code et finaliser l'enrôlement
+  const verifyEnroll = async () => {
+    if (!qrFactorId || verifyCode.length !== 6) {
+      toast.error('Entrez le code à 6 chiffres depuis votre application')
+      return
+    }
+    setVerifying(true)
+    try {
+      const { error: challengeError, data: challengeData } = await supabase.auth.mfa.challenge({ factorId: qrFactorId })
+      if (challengeError) throw challengeError
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: qrFactorId,
+        challengeId: challengeData.id,
+        code: verifyCode,
+      })
+      if (verifyError) throw verifyError
+
+      toast.success('2FA activé avec succès ✓')
+      setTotpUri(null)
+      setQrFactorId(null)
+      setVerifyCode('')
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message?.includes('Invalid') ? 'Code incorrect. Réessayez.' : err.message || 'Erreur vérification')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  // Désactiver le 2FA
+  const disable2FA = async () => {
+    if (!activeFactor) return
+    setDisabling(true)
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: activeFactor.id })
+      if (error) throw error
+      toast.success('2FA désactivé')
+      setConfirmDisable(false)
+      refetch()
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur désactivation 2FA')
+    } finally {
+      setDisabling(false)
+    }
+  }
+
+  return (
+    <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
+      <p style={{
+        fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 16,
+        paddingBottom: 10, borderBottom: '2px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <ShieldCheck size={15} style={{ color: '#7C3AED' }} />
+        Authentification à 2 facteurs (2FA)
+      </p>
+
+      {isLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Chargement...
+        </div>
+      )}
+
+      {!isLoading && is2FAActive && !confirmDisable && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldCheck size={18} style={{ color: '#10B981' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', margin: 0 }}>2FA activé</p>
+              <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>Votre compte est protégé par l&apos;authentification à deux facteurs.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setConfirmDisable(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
+              borderRadius: 8, border: '1.5px solid #FECACA', background: 'white',
+              fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            <ShieldOff size={13} /> Désactiver le 2FA
+          </button>
+        </div>
+      )}
+
+      {!isLoading && is2FAActive && confirmDisable && (
+        <div>
+          <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+            <p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600, margin: 0 }}>
+              Confirmer la désactivation du 2FA ?
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>
+              Votre compte sera moins sécurisé sans l&apos;authentification à deux facteurs.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={disable2FA}
+              disabled={disabling}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
+                borderRadius: 8, border: 'none', background: '#EF4444',
+                fontSize: 12, fontWeight: 700, color: 'white', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', opacity: disabling ? 0.7 : 1,
+              }}
+            >
+              {disabling ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <ShieldOff size={13} />}
+              {disabling ? 'Désactivation...' : 'Confirmer la désactivation'}
+            </button>
+            <button
+              onClick={() => setConfirmDisable(false)}
+              style={{
+                padding: '9px 18px', borderRadius: 8,
+                border: '1.5px solid var(--border)', background: 'white',
+                fontSize: 12, fontWeight: 700, color: 'var(--foreground)', cursor: 'pointer',
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !is2FAActive && !totpUri && (
+        <div>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.6 }}>
+            Protégez votre compte en ajoutant une deuxième couche de sécurité. Vous aurez besoin d&apos;une application comme Google Authenticator, Authy ou 1Password.
+          </p>
+          <button
+            onClick={startEnroll}
+            disabled={enrolling}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
+              borderRadius: 9, border: 'none', background: '#7C3AED',
+              fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', opacity: enrolling ? 0.7 : 1,
+            }}
+          >
+            {enrolling ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ShieldCheck size={14} />}
+            {enrolling ? 'Préparation...' : 'Activer le 2FA'}
+          </button>
+        </div>
+      )}
+
+      {totpUri && qrFactorId && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, flexWrap: 'wrap' }}>
+            {/* QR Code */}
+            <div style={{ flexShrink: 0, textAlign: 'center' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Scanner avec votre app
+              </p>
+              <div style={{ padding: 12, background: 'white', borderRadius: 10, display: 'inline-block', border: '1.5px solid var(--border)' }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(totpUri)}`}
+                  alt="QR Code 2FA"
+                  width={160}
+                  height={160}
+                  style={{ display: 'block', borderRadius: 4 }}
+                />
+              </div>
+            </div>
+
+            {/* Instructions + vérification */}
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.7 }}>
+                1. Ouvrez <strong>Google Authenticator</strong>, <strong>Authy</strong> ou toute autre app TOTP.<br />
+                2. Scannez le QR code ci-contre.<br />
+                3. Entrez le code à 6 chiffres affiché dans l&apos;app pour confirmer.
+              </p>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{
+                  fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.08em',
+                  display: 'block', marginBottom: 6,
+                }}>
+                  Code de vérification
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  style={{
+                    width: 140, height: 42, padding: '0 14px', borderRadius: 8,
+                    border: '1.5px solid var(--border)', background: 'white',
+                    fontSize: 20, color: 'var(--foreground)', fontFamily: 'var(--font-body)',
+                    letterSpacing: '0.25em', textAlign: 'center', outline: 'none',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#7C3AED')}
+                  onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={verifyEnroll}
+                  disabled={verifying || verifyCode.length !== 6}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px',
+                    borderRadius: 9, border: 'none', background: '#7C3AED',
+                    fontSize: 13, fontWeight: 700, color: 'white',
+                    cursor: (verifying || verifyCode.length !== 6) ? 'default' : 'pointer',
+                    opacity: (verifying || verifyCode.length !== 6) ? 0.6 : 1,
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {verifying ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+                  {verifying ? 'Vérification...' : 'Confirmer l\'activation'}
+                </button>
+                <button
+                  onClick={() => { setTotpUri(null); setQrFactorId(null); setVerifyCode('') }}
+                  style={{
+                    padding: '10px 16px', borderRadius: 9,
+                    border: '1.5px solid var(--border)', background: 'white',
+                    fontSize: 12, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

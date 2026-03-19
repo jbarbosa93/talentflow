@@ -3,8 +3,8 @@
 
 const CONCURRENCY        = 3
 const MAX_RETRIES        = 4
-const FETCH_TIMEOUT      = 110_000
-const LARGE_FILE_LIMIT   = 5 * 1024 * 1024  // 5 Mo → upload direct Supabase au-delà
+const FETCH_TIMEOUT      = 55_000   // 55s — laisse 5s de marge avant timeout Vercel Hobby (60s)
+const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà (Vercel Hobby limite à 4.5 Mo)
 
 let queue   = []
 let running = false
