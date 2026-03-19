@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
-  Pencil, X, Check, Car, Languages, Maximize2,
+  Pencil, X, Check, Car, Languages, Maximize2, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -58,6 +58,7 @@ export default function CandidatDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
+  const [showCV, setShowCV]               = useState(true)
 
   const { data, isLoading, error } = useCandidat(id)
   const updateCandidat  = useUpdateCandidat()
@@ -224,7 +225,7 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 620px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showCV ? '240px 1fr 620px' : '240px 1fr', gap: 16, alignItems: 'start', transition: 'grid-template-columns 0.2s ease' }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -621,6 +622,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
+        {showCV && (
         <div style={{ position: 'sticky', top: 0, height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
@@ -637,6 +639,13 @@ export default function CandidatDetailPage() {
                   <Maximize2 size={11} /> Plein écran
                 </a>
               )}
+              <button
+                onClick={() => setShowCV(false)}
+                title="Masquer le CV"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)', padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', flexShrink: 0 }}
+              >
+                <ChevronRight size={12} /> Masquer
+              </button>
             </div>
 
             {/* Corps du viewer */}
@@ -667,8 +676,31 @@ export default function CandidatDetailPage() {
             </div>
           </div>
         </div>
+        )}
 
       </div>
+
+      {/* ── Bouton flottant "Voir CV" quand masqué ── */}
+      {!showCV && candidat.cv_url && (
+        <button
+          onClick={() => setShowCV(true)}
+          style={{
+            position: 'fixed', bottom: 28, right: 28, zIndex: 50,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px', borderRadius: 100,
+            background: 'var(--primary)', color: '#000',
+            fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.24)' }}
+          onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.18)' }}
+        >
+          <ChevronLeft size={15} />
+          Voir le CV
+        </button>
+      )}
+
     </div>
   )
 }
