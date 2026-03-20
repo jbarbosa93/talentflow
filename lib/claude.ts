@@ -124,78 +124,55 @@ function parseCV(text: string): CVAnalyse {
 }
 
 // ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
-// Convertit les pages PDF en images PNG via pdfjs-dist + @napi-rs/canvas
+// Convertit les pages PDF en images PNG via mupdf (WASM pur, compatible Vercel)
 // puis envoie chaque page au modèle vision Groq pour extraction
 
-async function renderPDFPageToImage(pdfBuffer: Buffer, pageNum: number): Promise<Buffer> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
-  const lib = (pdfjs as any).default ?? pdfjs
-  if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = ''
+async function renderPDFPagesToImages(pdfBuffer: Buffer, maxPages: number): Promise<Buffer[]> {
+  const mupdf = await import('mupdf')
+  const doc = mupdf.Document.openDocument(pdfBuffer, 'application/pdf')
+  const pageCount = Math.min(doc.countPages(), maxPages)
+  const images: Buffer[] = []
 
-  const { createCanvas } = await import('@napi-rs/canvas')
+  for (let i = 0; i < pageCount; i++) {
+    const page = doc.loadPage(i)
+    // Scale 2x = 144 DPI (meilleure lisibilité pour la vision IA)
+    const pixmap = page.toPixmap(
+      mupdf.Matrix.scale(2, 2),
+      mupdf.ColorSpace.DeviceRGB,
+      false, // pas d'alpha
+      true   // rendre les annotations
+    )
+    const pngBytes = pixmap.asPNG()
+    images.push(Buffer.from(pngBytes))
+    pixmap.destroy()
+    page.destroy()
+  }
 
-  const loadingTask = lib.getDocument({
-    data: new Uint8Array(pdfBuffer),
-    verbosity: 0,
-    disableFontFace: true,
-    useWorkerFetch: false,
-  })
-  const pdf = await loadingTask.promise
-  const page = await pdf.getPage(pageNum)
-
-  // Résolution 2x pour meilleure lisibilité OCR
-  const scale = 2.0
-  const viewport = page.getViewport({ scale })
-  const canvas = createCanvas(Math.floor(viewport.width), Math.floor(viewport.height))
-  const ctx = canvas.getContext('2d')
-
-  // Fond blanc
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-  // pdfjs render — @napi-rs/canvas est compatible avec l'API Canvas standard
-  await page.render({ canvasContext: ctx as any, viewport }).promise
-
-  // Exporter en PNG buffer
-  return canvas.toBuffer('image/png') as Buffer
-
+  doc.destroy()
+  return images
 }
 
 export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
-  // Déterminer le nombre de pages
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
-  const lib = (pdfjs as any).default ?? pdfjs
-  if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = ''
+  // Convertir les pages en images PNG
+  const images = await renderPDFPagesToImages(pdfBuffer, 5)
+  const totalPages = images.length
 
-  const loadingTask = lib.getDocument({
-    data: new Uint8Array(pdfBuffer),
-    verbosity: 0,
-    disableFontFace: true,
-    useWorkerFetch: false,
-  })
-  const pdf = await loadingTask.promise
-  const totalPages = Math.min(pdf.numPages, 5) // Max 5 pages pour un CV
-
-  console.log(`[CV Scan] PDF scanné : ${pdf.numPages} pages, traitement de ${totalPages}`)
+  console.log(`[CV Scan] PDF scanné : ${totalPages} pages converties en PNG`)
 
   if (totalPages === 1) {
-    // 1 seule page → envoyer directement au modèle vision
-    const pngBuffer = await renderPDFPageToImage(pdfBuffer, 1)
-    console.log(`[CV Scan] Page 1 rendue : ${(pngBuffer.length / 1024).toFixed(0)} KB PNG`)
-    return analyserCVDepuisImage(pngBuffer, 'image/png')
+    console.log(`[CV Scan] Page 1 : ${(images[0].length / 1024).toFixed(0)} KB PNG`)
+    return analyserCVDepuisImage(images[0], 'image/png')
   }
 
   // Plusieurs pages → analyser chaque page puis fusionner les résultats
   const analyses: CVAnalyse[] = []
-  for (let i = 1; i <= totalPages; i++) {
-    console.log(`[CV Scan] Rendu page ${i}/${totalPages}...`)
-    const pngBuffer = await renderPDFPageToImage(pdfBuffer, i)
-    console.log(`[CV Scan] Page ${i} : ${(pngBuffer.length / 1024).toFixed(0)} KB PNG`)
+  for (let i = 0; i < totalPages; i++) {
+    console.log(`[CV Scan] Analyse page ${i + 1}/${totalPages} (${(images[i].length / 1024).toFixed(0)} KB)...`)
     try {
-      const pageAnalyse = await analyserCVDepuisImage(pngBuffer, 'image/png')
+      const pageAnalyse = await analyserCVDepuisImage(images[i], 'image/png')
       analyses.push(pageAnalyse)
     } catch (err) {
-      console.warn(`[CV Scan] Échec page ${i}:`, err)
+      console.warn(`[CV Scan] Échec page ${i + 1}:`, err)
     }
   }
 

@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '100mb', // Pour les gros ZIP de CVs
     },
+    serverComponentsExternalPackages: ['mupdf'],
   },
   // pdfjs-dist v5 — exclure canvas optionnel côté serveur
   turbopack: {
