@@ -33,14 +33,31 @@ export async function GET(
   }
 }
 
+// Toutes les colonnes modifiables de la table candidats
+const ALLOWED_COLS = new Set([
+  'nom','prenom','email','telephone','localisation','titre_poste','annees_exp',
+  'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
+  'langues','linkedin','permis_conduire','date_naissance','experiences','formations_details',
+])
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const body = await request.json()
+    const rawBody = await request.json()
     const supabase = createAdminClient()
+
+    // Filtrer : ne garder que les colonnes autorisées
+    const body: Record<string, any> = {}
+    for (const [k, v] of Object.entries(rawBody)) {
+      if (ALLOWED_COLS.has(k)) body[k] = v
+    }
+
+    if (Object.keys(body).length === 0) {
+      return NextResponse.json({ error: 'Aucun champ valide à mettre à jour' }, { status: 400 })
+    }
 
     const { data, error } = await supabase
       .from('candidats')
@@ -49,7 +66,11 @@ export async function PATCH(
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      console.error('[PATCH candidat] update error:', error.message, error.details)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
     return NextResponse.json({ candidat: data })
   } catch (error) {
     return NextResponse.json(

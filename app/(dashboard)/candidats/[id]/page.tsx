@@ -13,6 +13,16 @@ import {
 } from '@/hooks/useCandidats'
 import type { PipelineEtape } from '@/types/database'
 
+// Convertit n'importe quel format de téléphone en numéro WhatsApp international
+// +41 79 123 45 67 → 41791234567 | 0041... → 41... | 079... → 41... | +33 6... → 336...
+const toWaPhone = (tel: string) => {
+  const clean = tel.replace(/[\s\-\.\(\)]/g, '')
+  if (clean.startsWith('+')) return clean.slice(1)
+  if (clean.startsWith('00')) return clean.slice(2)
+  if (clean.startsWith('0')) return '41' + clean.slice(1)
+  return clean
+}
+
 const AGENCE_METIERS_LS_KEY = 'agence_metiers'
 const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
@@ -179,12 +189,25 @@ export default function CandidatDetailPage() {
 
   const cancelEdit = () => { setIsEditing(false); setEditData({}) }
   const saveEdit   = () => {
+    const { metiers, ...rest } = editData
     const payload: Record<string, any> = {
-      ...editData,
-      annees_exp:  parseInt(editData.annees_exp) || 0,
-      competences: editData.competences ? editData.competences.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
-      langues:     editData.langues     ? editData.langues.split(',').map((s: string) => s.trim()).filter(Boolean)     : [],
-      tags:        editData.metiers || [],
+      nom:                rest.nom,
+      prenom:             rest.prenom,
+      email:              rest.email,
+      telephone:          rest.telephone,
+      localisation:       rest.localisation,
+      titre_poste:        rest.titre_poste,
+      annees_exp:         parseInt(rest.annees_exp) || 0,
+      formation:          rest.formation,
+      resume_ia:          rest.resume_ia,
+      linkedin:           rest.linkedin || '',
+      permis_conduire:    rest.permis_conduire,
+      date_naissance:     rest.date_naissance,
+      competences:        rest.competences ? rest.competences.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+      langues:            rest.langues     ? rest.langues.split(',').map((s: string) => s.trim()).filter(Boolean)     : [],
+      experiences:        rest.experiences        || [],
+      formations_details: rest.formations_details || [],
+      tags:               metiers || [],
     }
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
   }
@@ -385,9 +408,19 @@ export default function CandidatDetailPage() {
                   </a>
                 )}
                 {candidat.telephone && (
-                  <a href={`tel:${candidat.telephone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, textDecoration: 'none' }}>
-                    <Phone size={12} style={{ flexShrink: 0 }} /><span>{candidat.telephone}</span>
-                  </a>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <a href={`tel:${candidat.telephone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, textDecoration: 'none' }}>
+                      <Phone size={12} style={{ flexShrink: 0 }} /><span>{candidat.telephone}</span>
+                    </a>
+                    <a
+                      href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},`)}`}
+                      title="Envoyer un message WhatsApp"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, background: '#25D366', color: 'white', textDecoration: 'none', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-body)', width: 'fit-content' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      WhatsApp
+                    </a>
+                  </div>
                 )}
                 {(candidat.date_naissance || calculerAge(candidat.date_naissance) !== null) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
