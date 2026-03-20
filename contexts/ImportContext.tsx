@@ -73,6 +73,7 @@ interface ImportContextType {
   addFiles: (files: FileList | File[]) => void
   addFilesWithMeta: (items: Array<{ file: File; relativePath?: string }>) => void
   startProcessing: () => void
+  creditExhausted: boolean
   pause: () => void
   resume: () => void
   stop: () => void
@@ -94,8 +95,9 @@ export function useImport() {
 export function ImportProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobsState]  = useState<FileJob[]>(() => _jobs)
   const [statut, setStatut]   = useState<PipelineEtape>('nouveau')
-  const [running, setRunning] = useState(() => _workerRunning)
-  const [done, setDone]       = useState(() => _done)
+  const [running, setRunning]           = useState(() => _workerRunning)
+  const [done, setDone]                 = useState(() => _done)
+  const [creditExhausted, setCreditExhausted] = useState(false)
   const [speed, setSpeed]     = useState(0)
   const [eta, setEta]         = useState(0)
 
@@ -188,6 +190,12 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
         case 'JOB_WAITING':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, error } : j))
           break
+        case 'CREDIT_EXHAUSTED':
+          _workerRunning = false
+          _workerPaused = true
+          setRunning(false)
+          setCreditExhausted(true)
+          break
         case 'DONE':
           _workerRunning = false
           _workerPaused = false
@@ -276,7 +284,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   }, [statut, bindWorker])
 
   const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; _workerPaused = true; setRunning(false) }, [])
-  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  _workerPaused = false; setRunning(true) }, [])
+  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  _workerPaused = false; setRunning(true); setCreditExhausted(false) }, [])
   const stop   = useCallback(() => {
     _worker?.postMessage({ type: 'STOP' })
     _worker?.terminate()
@@ -357,7 +365,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ImportContext.Provider value={{
-      jobs, statut, running, done, speed, eta,
+      jobs, statut, running, done, speed, eta, creditExhausted,
       total, succeeded, failed, doublons, processing, pending, completed, progress, categories,
       setStatut, addFiles, addFilesWithMeta, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
     }}>

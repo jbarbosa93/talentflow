@@ -112,7 +112,7 @@ export default function ImportMassePage() {
   }, [ctx])
 
   const {
-    jobs, statut, running, done, speed, eta,
+    jobs, statut, running, done, speed, eta, creditExhausted,
     total, succeeded, failed, doublons, processing, pending, completed, progress, categories,
     setStatut, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
   } = ctx
@@ -249,6 +249,32 @@ export default function ImportMassePage() {
               >{cat} <span style={{ opacity: 0.8 }}>({count})</span></button>
             )
           })}
+        </div>
+      )}
+
+      {/* Bannière crédit épuisé */}
+      {creditExhausted && (
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: '#FEF2F2', border: '2px solid #FECACA', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
+          <XCircle size={22} color="#DC2626" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#991B1B', marginBottom: 3 }}>
+              ⚠️ Crédit Anthropic épuisé — import mis en pause automatiquement
+            </div>
+            <div style={{ fontSize: 12, color: '#B91C1C' }}>
+              Rechargez votre solde sur <strong>platform.anthropic.com/settings/billing</strong>, puis cliquez sur Reprendre.
+            </div>
+          </div>
+          <a
+            href="https://console.anthropic.com/settings/billing"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 8, background: '#DC2626', color: 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+          >
+            Recharger →
+          </a>
+          <button onClick={resume} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 8, background: '#16A34A', color: 'white', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            ▶ Reprendre
+          </button>
         </div>
       )}
 
