@@ -24,18 +24,27 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
     try {
       return await fn()
     } catch (err: any) {
+      const msg = err?.message || ''
       const status = err?.status || err?.statusCode || err?.error?.code
-      const isRateLimit = status === 429 || err?.message?.includes('rate_limit')
+      const isRateLimit = status === 429 || msg.includes('rate_limit')
+
+      // Limite journalière (TPD) → inutile de réessayer, on arrête direct
+      if (msg.includes('tokens per day') || msg.includes('requests per day')) {
+        throw new Error('Quota Groq journalier atteint (500K tokens/jour). Réessayez demain ou passez au plan Dev Tier gratuit sur console.groq.com')
+      }
+
       if (!isRateLimit || attempt === maxRetries) throw err
 
-      // Extraire le délai suggéré par Groq ou utiliser un backoff exponentiel
-      const retryAfterMatch = err?.message?.match(/try again in (\d+(?:\.\d+)?)(?:ms|s)/)
-      let waitMs = 2000 * (attempt + 1) // backoff : 2s, 4s, 6s
+      // Limite par minute → retry avec backoff
+      const retryAfterMatch = msg.match(/try again in (\d+(?:\.\d+)?)(?:ms|s)/)
+      let waitMs = 2000 * (attempt + 1)
       if (retryAfterMatch) {
         const val = parseFloat(retryAfterMatch[1])
-        waitMs = err.message.includes('ms') ? Math.ceil(val) + 500 : Math.ceil(val * 1000) + 500
+        waitMs = msg.includes('ms') ? Math.ceil(val) + 500 : Math.ceil(val * 1000) + 500
       }
-      console.log(`[Groq] Rate limit — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
+      // Max 10s d'attente par retry (éviter de bloquer trop longtemps)
+      waitMs = Math.min(waitMs, 10_000)
+      console.log(`[Groq] Rate limit/min — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
       await new Promise(r => setTimeout(r, waitMs))
     }
   }
