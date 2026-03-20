@@ -125,22 +125,37 @@ function parseCV(text: string): CVAnalyse {
 
 // Analyse depuis un PDF scanné — convertit les pages en images puis envoie au modèle vision
 export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
+  // Polyfill DOMMatrix pour Node.js (requis par mupdf/pdf-to-img)
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    (globalThis as any).DOMMatrix = class DOMMatrix {
+      m11=1;m12=0;m13=0;m14=0;m21=0;m22=1;m23=0;m24=0
+      m31=0;m32=0;m33=1;m34=0;m41=0;m42=0;m43=0;m44=1
+      a=1;b=0;c=0;d=1;e=0;f=0
+      is2D=true;isIdentity=true
+      constructor(init?: any) {
+        if (Array.isArray(init) && init.length === 6) {
+          this.a=this.m11=init[0];this.b=this.m12=init[1]
+          this.c=this.m21=init[2];this.d=this.m22=init[3]
+          this.e=this.m41=init[4];this.f=this.m42=init[5]
+          this.isIdentity=false
+        }
+      }
+    }
+  }
+
   const { pdf } = await import('pdf-to-img')
   const pages: Buffer[] = []
 
-  // Convertir les 3 premières pages en PNG (un CV dépasse rarement 3 pages)
-  let pageCount = 0
+  // Convertir la 1ère page en PNG (un CV dépasse rarement 1 page recto)
   for await (const image of await pdf(pdfBuffer, { scale: 2 })) {
     pages.push(Buffer.from(image))
-    pageCount++
-    if (pageCount >= 3) break
+    break // 1 page suffit pour un CV scanné
   }
 
   if (pages.length === 0) {
     throw new Error('Impossible de convertir le PDF en image')
   }
 
-  // Envoyer la première page (ou les pages combinées) au modèle vision
   return analyserCVDepuisImage(pages[0], 'image/png')
 }
 
