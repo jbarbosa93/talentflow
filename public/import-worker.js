@@ -77,11 +77,11 @@ async function processJobDirect(job, t0) {
     } catch (err) {
       clearTimeout(timeoutId)
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
+      lastError = err.name === 'AbortError' ? 'Timeout serveur (PDF trop lourd)' : (err.message || 'Erreur inconnue')
+      // Timeout → pas de retry, le PDF échoue systématiquement, inutile d'attendre
+      if (isTimeout) break
       if (attempt < MAX_RETRIES) {
-        // Timeout → attendre 20s pour laisser l'API récupérer, puis réessayer
-        // Autre erreur → attendre 3s
-        const wait = isTimeout ? 20_000 : attempt * 3000
+        const wait = attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
@@ -138,9 +138,10 @@ async function processJobLarge(job, t0) {
 
     } catch (err) {
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
+      lastError = err.name === 'AbortError' ? 'Timeout serveur (PDF trop lourd)' : (err.message || 'Erreur inconnue')
+      if (isTimeout) break
       if (attempt < MAX_RETRIES) {
-        const wait = isTimeout ? 20_000 : attempt * 3000
+        const wait = attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
