@@ -171,22 +171,61 @@ function parseCV(text: string): CVAnalyse {
   return result as CVAnalyse
 }
 
-// ─── Limiter PDF aux N premières pages (évite timeout sur PDFs scannés > 5 pages) ──
-// Un CV tient toujours sur les premières pages — inutile d'envoyer 15 pages scannées à Claude
+// ─── Limiter PDF aux N premières pages + normaliser les rotations ─────────────
+// Un CV tient sur les premières pages — et on corrige les scans à l'envers (180°, 90°, 270°)
 
 async function limitPDFPages(buffer: Buffer, maxPages = 5): Promise<Buffer> {
   try {
-    const { PDFDocument } = await import('pdf-lib')
+    const { PDFDocument, degrees } = await import('pdf-lib')
     const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
     const totalPages = srcDoc.getPageCount()
+    const pagesCount = Math.min(totalPages, maxPages)
 
-    if (totalPages <= maxPages) return buffer   // déjà dans la limite
+    // Vérifier si des pages ont une rotation non nulle
+    let hasRotation = false
+    for (let i = 0; i < pagesCount; i++) {
+      if (srcDoc.getPage(i).getRotation().angle !== 0) { hasRotation = true; break }
+    }
 
-    console.log(`[Claude] PDF ${totalPages} pages → limitation aux ${maxPages} premières pages`)
+    // Si pas de troncature ET pas de rotation → retour direct (optimisation)
+    if (totalPages <= maxPages && !hasRotation) return buffer
+
     const newDoc = await PDFDocument.create()
-    const pagesToCopy = Array.from({ length: maxPages }, (_, i) => i)
-    const copiedPages = await newDoc.copyPages(srcDoc, pagesToCopy)
-    copiedPages.forEach(p => newDoc.addPage(p))
+
+    for (let i = 0; i < pagesCount; i++) {
+      const srcPage = srcDoc.getPage(i)
+      const angle = srcPage.getRotation().angle  // 0, 90, 180 ou 270
+
+      if (angle === 0) {
+        // Pas de rotation → copie directe
+        const [copied] = await newDoc.copyPages(srcDoc, [i])
+        newDoc.addPage(copied)
+      } else {
+        // Rotation détectée → on "bake in" la correction pour que Claude voie le bon sens
+        const { width: w, height: h } = srcPage.getSize()
+        const embedded = await newDoc.embedPage(srcPage)
+
+        // Dimensions de la nouvelle page (swap si 90° / 270°)
+        const [nw, nh] = (angle === 90 || angle === 270) ? [h, w] : [w, h]
+        const page = newDoc.addPage([nw, nh])
+
+        // Translation pour replacer le contenu après rotation inverse
+        const pos: Record<number, { x: number; y: number }> = {
+          90:  { x: 0,  y: w  },
+          180: { x: w,  y: h  },
+          270: { x: h,  y: 0  },
+        }
+        const { x, y } = pos[angle] ?? { x: 0, y: 0 }
+
+        console.log(`[Claude] Page ${i + 1} : rotation ${angle}° détectée → correction automatique`)
+        page.drawPage(embedded, { x, y, rotate: degrees((360 - angle) % 360) })
+      }
+    }
+
+    if (totalPages > maxPages) {
+      console.log(`[Claude] PDF ${totalPages} pages → limité aux ${pagesCount} premières pages`)
+    }
+
     const trimmedBytes = await newDoc.save()
     return Buffer.from(trimmedBytes)
   } catch (e) {
@@ -224,7 +263,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
         },
         {
           type: 'text',
-          text: CV_JSON_PROMPT,
+          text: `${CV_JSON_PROMPT}\n\nIMPORTANT : Ce document est un scan. S'il apparaît pivoté (à l'envers, de côté), lis-le quand même dans la bonne orientation et extrais toutes les informations visibles.`,
         },
       ],
     }],
