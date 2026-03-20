@@ -539,7 +539,7 @@ function CandidatsPageInner() {
         <div>
           <h1 className="d-page-title">Candidats</h1>
           <p className="d-page-sub">
-            {isLoading ? '...' : `${sorted.length} candidat${sorted.length > 1 ? 's' : ''}`}
+            {isLoading ? '...' : `${(allCandidats || []).length} candidat${(allCandidats || []).length > 1 ? 's' : ''} au total`}
             {aiResults !== null && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}· Résultats IA
@@ -644,22 +644,6 @@ function CandidatsPageInner() {
               </button>
             )}
           </div>
-          <button
-            onClick={handleAiSearch}
-            disabled={!search.trim() || aiSearching}
-            className={aiResults !== null ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
-            style={{
-              gap: 5, whiteSpace: 'nowrap', flexShrink: 0,
-              ...(aiResults !== null ? { background: 'var(--primary)', color: '#0F172A' } : {}),
-              opacity: !search.trim() ? 0.4 : 1,
-            }}
-            title="Recherche IA — cherche dans tout le contenu des CVs"
-          >
-            {aiSearching
-              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Analyse...</>
-              : <><Sparkles size={13} /> Recherche IA</>
-            }
-          </button>
         </div>
 
         {/* Filtre lieu */}
@@ -884,7 +868,8 @@ function CandidatsPageInner() {
         /* Flat list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
-            {candidatesTries.length} candidat{candidatesTries.length > 1 ? 's' : ''}
+            {candidatesPagines.length} candidat{candidatesPagines.length > 1 ? 's' : ''} affichés
+            {candidatesTries.length !== candidatesPagines.length && ` (${candidatesTries.length} filtrés)`}
           </div>
           {candidatesPagines.map((c: any) => renderCard(c))}
           {candidatesTries.length > 0 && (
