@@ -116,6 +116,19 @@ function CandidatsPageInner() {
     if (!hoveredCv) prevHoveredCvUrl.current = null
   }, [hoveredCv])
 
+  // Non-passive wheel listener so e.preventDefault() works (React onWheel is passive in some builds)
+  useEffect(() => {
+    const el = previewScrollRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.25 : 0.25
+      setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2))))
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [hoveredCv])
+
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
     try {
@@ -941,7 +954,7 @@ function CandidatsPageInner() {
           <div
             ref={previewScrollRef}
             style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: previewZoom <= 1 ? 'center' : 'flex-start', cursor: 'grab' }}
-            onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.25 : 0.25; setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2)))) }}
+            onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.25 : 0.25; setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2)))) }} // fallback for non-iframe areas
             onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
@@ -962,16 +975,20 @@ function CandidatsPageInner() {
                 <img src={hoveredCv.url} alt="CV" style={{ width: `${previewZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%' }}>
-                <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+              <div style={{ width: '100%', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}>
+                  <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+                </div>
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%' }}>
+              <div style={{ width: '100%', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}>
                 <iframe
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
                   style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                   title="Aperçu CV"
                 />
+                </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
