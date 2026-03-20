@@ -153,7 +153,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
     } else if (isScanned && isPDF) {
       console.log('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
-      analyse = await withTimeout(analyserCVDepuisPDF(buffer), 50_000, 'analyse PDF scanné')
+      analyse = await withTimeout(analyserCVDepuisPDF(buffer), 55_000, 'analyse PDF scanné')
     } else if (isScanned && isDoc) {
       // .doc (Word 97-2003) : si word-extractor n'a pas pu extraire le texte,
       // on ne peut pas envoyer un .doc à Claude (format binaire non supporté)

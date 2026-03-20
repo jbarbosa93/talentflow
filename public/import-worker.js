@@ -1,7 +1,7 @@
 // Web Worker — traitement import en masse en arrière-plan
 // Tourne dans un thread séparé, actif même onglet inactif
 
-const CONCURRENCY        = 3
+const CONCURRENCY        = 6
 const MAX_RETRIES        = 3
 const FETCH_TIMEOUT      = 57_000   // 57s — laisse le temps à la route (55s global) de répondre
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
