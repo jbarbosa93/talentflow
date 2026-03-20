@@ -1,8 +1,8 @@
 // Web Worker — traitement import en masse en arrière-plan
 // Tourne dans un thread séparé, actif même onglet inactif
 
-const CONCURRENCY        = 2
-const MAX_RETRIES        = 5
+const CONCURRENCY        = 6
+const MAX_RETRIES        = 3
 const FETCH_TIMEOUT      = 52_000   // 52s — sous le timeout global route (55s) et Vercel (60s)
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
 
@@ -79,7 +79,7 @@ async function processJobDirect(job, t0) {
       // Affiche le message exact pour diagnostiquer l'erreur réelle
       lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = Math.pow(2, attempt) * 3000  // 6s, 12s, 24s, 48s
+        const wait = attempt * 3000  // 3s, 6s (au lieu de 6s, 12s, 24s, 48s)
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
@@ -135,15 +135,9 @@ async function processJobLarge(job, t0) {
       return
 
     } catch (err) {
-      if (err.name === 'AbortError') {
-        lastError = 'Timeout (52s)'
-      } else if (err.message && (err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed'))) {
-        lastError = `Erreur réseau (tentative ${attempt}/${MAX_RETRIES})`
-      } else {
-        lastError = err.message || 'Erreur inconnue'
-      }
+      lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = Math.pow(2, attempt) * 3000
+        const wait = attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
