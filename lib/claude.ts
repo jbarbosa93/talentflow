@@ -236,6 +236,34 @@ export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
   }
 }
 
+// ─── Redimensionner image si > 4.5 MB (limite Claude = 5 MB) ────────────────
+
+const IMAGE_MAX_BYTES = 4_500_000 // marge de sécurité sous la limite Claude de 5 MB
+
+async function resizeImageIfNeeded(
+  buffer: Buffer,
+  originalMimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+): Promise<{ buffer: Buffer; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' }> {
+  if (buffer.length <= IMAGE_MAX_BYTES) {
+    return { buffer, mimeType: originalMimeType }
+  }
+
+  console.log(`[Claude] Image ${(buffer.length / 1024 / 1024).toFixed(1)} MB > 4.5 MB — compression avec sharp...`)
+
+  const sharp = (await import('sharp')).default
+  const metadata = await sharp(buffer).metadata()
+  const scale = Math.sqrt(IMAGE_MAX_BYTES / buffer.length) * 0.9
+  const newWidth = Math.max(200, Math.round((metadata.width || 1000) * scale))
+
+  const resized = await sharp(buffer)
+    .resize(newWidth)
+    .jpeg({ quality: 80 })
+    .toBuffer()
+
+  console.log(`[Claude] Image réduite : ${(resized.length / 1024 / 1024).toFixed(1)} MB (width: ${newWidth}px)`)
+  return { buffer: resized, mimeType: 'image/jpeg' }
+}
+
 // ─── Analyse depuis une image (JPG, JPEG, PNG) ──────────────────────────────
 
 export async function analyserCVDepuisImage(
@@ -243,7 +271,9 @@ export async function analyserCVDepuisImage(
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 ): Promise<CVAnalyse> {
   const client = getClient()
-  const base64 = imageBuffer.toString('base64')
+  const { buffer: finalBuffer, mimeType: finalMimeType } = await resizeImageIfNeeded(imageBuffer, mimeType)
+  const base64 = finalBuffer.toString('base64')
+  mimeType = finalMimeType
 
   // Pas de retry ici — le worker gère ses propres retries.
   const response = await client.messages.create({
