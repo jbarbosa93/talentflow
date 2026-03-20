@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '100mb', // Pour les gros ZIP de CVs
     },
   },
+  // pdfjs-dist v5 — exclure canvas optionnel côté serveur (évite erreur de build)
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.resolve.alias = { ...config.resolve.alias, canvas: false }
+    }
+    return config
+  },
 };
 
 export default nextConfig;

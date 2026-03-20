@@ -1,19 +1,45 @@
 // lib/cv-parser.ts
-// Extraction du texte brut depuis PDF et Word (.docx)
-// Utilise pdf-parse (Node.js uniquement — Route Handler, pas Edge)
+// Extraction du texte brut depuis PDF, Word, images
+// ⚠ Utilise pdfjs-dist (NON BLOQUANT) — pdf-parse bloquait l'event loop Node.js sur certains PDFs
 
 /**
- * Extrait le texte brut d'un Buffer PDF
+ * Extrait le texte brut d'un Buffer PDF via pdfjs-dist (async, non-bloquant)
+ * Si l'extraction échoue → retourne '' → la route bascule sur Claude Vision
  */
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    const pdfModule = await import('pdf-parse')
-    const pdfParse = (pdfModule as any).default ?? pdfModule
-    const data = await pdfParse(buffer)
-    return data.text.replace(/\n{3,}/g, '\n\n').trim()
+    // pdfjs-dist v5 legacy build — compatible Node.js, vraiment async (ne bloque pas l'event loop)
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
+    const lib = (pdfjs as any).default ?? pdfjs
+
+    // Désactiver le worker PDF en mode serveur Node.js
+    if (lib.GlobalWorkerOptions) {
+      lib.GlobalWorkerOptions.workerSrc = ''
+    }
+
+    const loadingTask = lib.getDocument({
+      data: new Uint8Array(buffer),
+      verbosity: 0,
+      disableFontFace: true,
+      useWorkerFetch: false,
+    })
+
+    const pdf = await loadingTask.promise
+    const maxPages = Math.min(pdf.numPages, 15) // Max 15 pages, un CV ne va pas au-delà
+    const texts: string[] = []
+
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      const pageText = (content.items as any[])
+        .map((item: any) => item.str ?? '')
+        .join(' ')
+      texts.push(pageText)
+    }
+
+    return texts.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   } catch {
-    // Si l'extraction échoue (pdfjs incompatible avec l'env Node),
-    // on retourne '' → le route handler basculera sur Claude Vision
+    // Échec → retourne '' → route bascule sur Claude Vision
     return ''
   }
 }
