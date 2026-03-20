@@ -430,10 +430,10 @@ function CandidatsPageInner() {
         key={c.id}
         onClick={() => handleCardClick(c.id)}
         style={{
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'center', gap: 14,
           background: selected ? 'var(--primary-soft)' : 'white',
           border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-          borderRadius: 12, padding: '12px 16px',
+          borderRadius: 14, padding: '16px 18px',
           cursor: 'pointer', transition: 'all 0.15s ease',
           boxShadow: selected ? '0 0 0 2px rgba(245,167,35,0.2)' : 'var(--card-shadow)',
           position: 'relative',
@@ -455,13 +455,13 @@ function CandidatsPageInner() {
 
         {/* Avatar */}
         {(c.photo_url && c.photo_url !== 'checked')
-          ? <img src={c.photo_url} style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} alt="" />
+          ? <img src={c.photo_url} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="" />
           : (
             <div
               style={{
-                width: 42, height: 42, borderRadius: 6,
+                width: 56, height: 56, borderRadius: 8,
                 background: 'var(--bg-muted, #F1F5F9)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 14, fontWeight: 800,
+                justifyContent: 'center', fontSize: 18, fontWeight: 800,
                 color: 'var(--text-muted, #64748B)', flexShrink: 0, overflow: 'hidden',
               }}
             >
@@ -472,15 +472,15 @@ function CandidatsPageInner() {
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.2 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)', lineHeight: 1.3 }}>
             {c.prenom} {c.nom}
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             {c.titre_poste && (
-              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{c.titre_poste}</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>{c.titre_poste}</span>
             )}
             {c.localisation && (
-              <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 📍 {c.localisation}
               </span>
             )}

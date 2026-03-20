@@ -1,9 +1,10 @@
-// OTP 2FA via nodemailer + Resend SMTP (fiable, indépendant de Supabase email)
+// OTP 2FA via Resend HTTP API (plus fiable que SMTP)
 // Code HMAC-SHA256 déterministe — pas de stockage DB nécessaire
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const RESEND_API_KEY = process.env.RESEND_API_KEY!
 const WINDOW_SECS = 10 * 60 // fenêtre de 10 minutes
 
 function generateOTP(email: string, window: number): string {
@@ -24,40 +25,47 @@ function verifyOTP(email: string, otp: string): boolean {
   return otp === generateOTP(email, w) || otp === generateOTP(email, w - 1)
 }
 
-async function getTransporter() {
-  const nodemailer = (await import('nodemailer')).default
-  return nodemailer.createTransport({
-    host: 'smtp.resend.com',
-    port: 465,
-    secure: true,
-    auth: { user: 'resend', pass: process.env.RESEND_API_KEY },
-  })
-}
-
-// POST — envoie le code OTP par email
+// POST — envoie le code OTP par email via Resend HTTP API
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
     if (!email) return NextResponse.json({ error: 'Email requis' }, { status: 400 })
 
     const otp = currentOTP(email)
-    const transporter = await getTransporter()
 
-    await transporter.sendMail({
-      from: 'TalentFlow <noreply@talent-flow.ch>',
-      to: email,
-      subject: 'Votre code de connexion — TalentFlow',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
-          <h2 style="margin:0 0 8px">Code de connexion TalentFlow</h2>
-          <p style="color:#666;margin:0 0 24px">Entrez ce code dans l'application pour vous connecter :</p>
-          <div style="background:#f5f5f5;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
-            <span style="font-size:40px;font-weight:700;letter-spacing:12px;font-family:monospace;color:#111">${otp}</span>
+    console.log(`[OTP] Envoi code à ${email} via Resend API...`)
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'TalentFlow <noreply@talent-flow.ch>',
+        to: [email],
+        subject: 'Votre code de connexion — TalentFlow',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
+            <h2 style="margin:0 0 8px">Code de connexion TalentFlow</h2>
+            <p style="color:#666;margin:0 0 24px">Entrez ce code dans l'application pour vous connecter :</p>
+            <div style="background:#f5f5f5;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
+              <span style="font-size:40px;font-weight:700;letter-spacing:12px;font-family:monospace;color:#111">${otp}</span>
+            </div>
+            <p style="color:#999;font-size:13px;margin:0">Ce code expire dans 10 minutes. Ne le partagez avec personne.</p>
           </div>
-          <p style="color:#999;font-size:13px;margin:0">Ce code expire dans 10 minutes. Ne le partagez avec personne.</p>
-        </div>
-      `,
+        `,
+      }),
     })
+
+    if (!resendRes.ok) {
+      const errBody = await resendRes.text()
+      console.error('[OTP] Resend API error:', resendRes.status, errBody)
+      return NextResponse.json({ error: `Erreur Resend: ${resendRes.status}` }, { status: 500 })
+    }
+
+    const resendData = await resendRes.json()
+    console.log('[OTP] Email envoyé avec succès, id:', resendData.id)
 
     return NextResponse.json({ success: true })
   } catch (e: any) {

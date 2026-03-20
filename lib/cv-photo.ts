@@ -80,10 +80,14 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
           const width  = Number(widthObj.toString())
           const height = Number(heightObj.toString())
 
-          // Portrait or near-square, headshot dimensions
-          if (width < 40 || width > 700 || height < 40) continue
+          // Headshot filter: must be a real portrait photo, not a tiny icon/logo
+          // Minimum 80px wide, max 800px — typical CV headshots are 100-500px
+          if (width < 80 || width > 800 || height < 100) continue
           const ratio = height / width
-          if (ratio < 0.75) continue // skip landscape images
+          // Portrait or near-square (ratio 0.9 to 2.0) — skip landscape & extreme ratios
+          if (ratio < 0.9 || ratio > 2.0) continue
+          // Skip very small images (likely icons/logos) — require at least 8000 pixels
+          if (width * height < 8000) continue
 
           // Get filter name
           const filterObj  = dict.get(PDFName.of('Filter'))
@@ -230,7 +234,10 @@ async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
           const { width, height, data, kind } = img
 
           const ratio = height / width
-          if (ratio < 0.75 || width < 40 || width > 700 || height < 40) continue
+          // Headshot filter: real portrait photo, not icon/logo
+          if (width < 80 || width > 800 || height < 100) continue
+          if (ratio < 0.9 || ratio > 2.0) continue
+          if (width * height < 8000) continue
 
           const channels = kind === 1 ? 1 : kind === 2 ? 3 : 4
 

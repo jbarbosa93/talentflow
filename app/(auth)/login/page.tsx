@@ -82,12 +82,33 @@ function LoginForm() {
       return
     }
 
-    // Envoyer le code OTP par email (2FA — SMTP Resend opérationnel)
-    await fetch('/auth/api/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
+    // ✅ SÉCURITÉ : Déconnecter immédiatement après vérification du mot de passe
+    // La session ne sera recréée qu'après vérification du code OTP
+    await supabase.auth.signOut()
+    // Aussi nettoyer les cookies httpOnly côté serveur
+    await fetch('/api/auth/logout', { method: 'POST' })
+
+    // Envoyer le code OTP par email via Resend API
+    try {
+      const otpRes = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const otpData = await otpRes.json()
+      if (!otpRes.ok) {
+        console.error('[Login] OTP send failed:', otpData)
+        setError('Erreur envoi du code de vérification. Réessayez.')
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      console.error('[Login] OTP fetch error:', err)
+      setError('Erreur réseau lors de l\'envoi du code.')
+      setLoading(false)
+      return
+    }
+
     setEmailOtpRequired(true)
     setLoading(false)
   }
@@ -127,13 +148,30 @@ function LoginForm() {
     if (emailOtpCode.length !== 6) { setError('Entrez un code à 6 chiffres.'); return }
     setError('')
     setEmailOtpLoading(true)
-    const res = await fetch('/auth/api/send-otp', {
+
+    // 1. Vérifier le code OTP
+    const res = await fetch('/api/auth/send-otp', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code: emailOtpCode }),
     })
-    const data = await res.json()
-    if (!res.ok || !data.valid) { setError(data.error || 'Code invalide.'); setEmailOtpLoading(false); return }
+    const otpResult = await res.json()
+    if (!res.ok || !otpResult.valid) {
+      setError(otpResult.error || 'Code invalide.')
+      setEmailOtpLoading(false)
+      return
+    }
+
+    // 2. ✅ Code vérifié — maintenant recréer la session Supabase
+    const supabase = createClient()
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      setError('Erreur de reconnexion. Veuillez réessayer.')
+      setEmailOtpLoading(false)
+      return
+    }
+
+    // 3. Session créée avec succès → rediriger vers le dashboard
     router.push('/dashboard')
     router.refresh()
   }
@@ -206,12 +244,31 @@ function LoginForm() {
                   {emailOtpLoading ? 'Vérification...' : 'Confirmer'}
                 </button>
               </form>
-              <button
-                onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
-                style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                ← Retour
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+                <button
+                  onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  ← Retour
+                </button>
+                <button
+                  onClick={async () => {
+                    setError('')
+                    try {
+                      const r = await fetch('/api/auth/send-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email }),
+                      })
+                      if (r.ok) setError('✅ Nouveau code envoyé !')
+                      else setError('Erreur lors du renvoi.')
+                    } catch { setError('Erreur réseau.') }
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                >
+                  Renvoyer le code
+                </button>
+              </div>
             </>
           ) : !mfaRequired ? (
             <>

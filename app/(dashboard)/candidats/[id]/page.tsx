@@ -6,12 +6,14 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
+  Upload, Camera, Loader2,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
 } from '@/hooks/useCandidats'
 import type { PipelineEtape } from '@/types/database'
+import { createClient } from '@/lib/supabase/client'
 
 // Convertit n'importe quel format de téléphone en numéro WhatsApp international
 // +41 79 123 45 67 → 41791234567 | 0041... → 41... | 079... → 41... | +33 6... → 336...
@@ -96,6 +98,8 @@ export default function CandidatDetailPage() {
   })
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoInputRef   = useRef<HTMLInputElement>(null)
   const cvScrollRef     = useRef<HTMLDivElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
   const cvDragRef  = useRef({ active: false, startX: 0, startY: 0, sl: 0, st: 0 })
@@ -272,6 +276,66 @@ export default function CandidatDetailPage() {
     deleteCandidat.mutate(id, { onSuccess: () => router.push('/candidats') })
   }
 
+  // Photo upload handler
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    try {
+      const supabase = createClient()
+      const timestamp = Date.now()
+      const ext = file.name.split('.').pop() || 'jpg'
+      const photoPath = `photos/${id}_${timestamp}_upload.${ext}`
+
+      // Delete old photo if exists
+      if (candidat.photo_url && candidat.photo_url !== 'checked') {
+        try {
+          const oldPath = candidat.photo_url.split('/cvs/')[1]?.split('?')[0]
+          if (oldPath) await supabase.storage.from('cvs').remove([decodeURIComponent(oldPath)])
+        } catch {}
+      }
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cvs')
+        .upload(photoPath, file, { contentType: file.type, upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = await supabase.storage
+        .from('cvs')
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365 * 10)
+
+      if (urlData?.signedUrl) {
+        updateCandidat.mutate({ id, data: { photo_url: urlData.signedUrl } })
+      }
+    } catch (err: any) {
+      console.error('Photo upload error:', err)
+      alert('Erreur upload photo: ' + err.message)
+    } finally {
+      setPhotoUploading(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
+
+  // Photo delete handler
+  const handlePhotoDelete = async () => {
+    if (!confirm('Supprimer la photo du candidat ?')) return
+    setPhotoUploading(true)
+    try {
+      const supabase = createClient()
+      if (candidat.photo_url && candidat.photo_url !== 'checked') {
+        try {
+          const oldPath = candidat.photo_url.split('/cvs/')[1]?.split('?')[0]
+          if (oldPath) await supabase.storage.from('cvs').remove([decodeURIComponent(oldPath)])
+        } catch {}
+      }
+      updateCandidat.mutate({ id, data: { photo_url: null } })
+    } catch (err: any) {
+      console.error('Photo delete error:', err)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   // CV viewer helpers
   const ext          = (candidat.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
   const cvIsImage    = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
@@ -323,16 +387,47 @@ export default function CandidatDetailPage() {
       <div style={{ display: 'grid', gridTemplateColumns: showCV ? '240px 1fr 620px' : '240px 1fr', gap: 16, alignItems: 'start', transition: 'grid-template-columns 0.2s ease', flex: 1, minHeight: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', paddingBottom: 16 }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              {(candidat.photo_url && candidat.photo_url !== 'checked')
-                ? <img src={candidat.photo_url} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="Photo candidat" />
-                : <div className="neo-avatar" style={{ width: 44, height: 44, fontSize: 15, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none' }}>{initiales}</div>
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Photo + Nom */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              {/* Photo avec boutons upload/delete */}
+              <div style={{ position: 'relative' }}>
+                {(candidat.photo_url && candidat.photo_url !== 'checked')
+                  ? <img src={candidat.photo_url} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} alt="Photo candidat" />
+                  : <div className="neo-avatar" style={{ width: 100, height: 100, fontSize: 28, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none', borderRadius: 10 }}>{initiales}</div>
+                }
+                {photoUploading && (
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Loader2 size={20} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+                  </div>
+                )}
+                {/* Photo action buttons */}
+                <div style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', gap: 3 }}>
+                  <button
+                    onClick={() => photoInputRef.current?.click()}
+                    title="Changer la photo"
+                    style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                  >
+                    <Camera size={11} color="#0F172A" />
+                  </button>
+                  {candidat.photo_url && candidat.photo_url !== 'checked' && (
+                    <button
+                      onClick={handlePhotoDelete}
+                      title="Supprimer la photo"
+                      style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                    >
+                      <X size={11} color="#DC2626" />
+                    </button>
+                  )}
+                </div>
+                <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+              </div>
+
+              {/* Nom / Edit fields */}
+              <div style={{ width: '100%', textAlign: 'center' }}>
                 {isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Prénom" value={editData.prenom} onChange={e => set('prenom', e.target.value)} />
@@ -901,6 +996,7 @@ export default function CandidatDetailPage() {
         </button>
       )}
 
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )
 }
