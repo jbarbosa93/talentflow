@@ -60,10 +60,9 @@ export function Sidebar() {
   }
 
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    // POST vers la route serveur qui efface les cookies httpOnly (le client JS ne peut pas)
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
   }
 
   // Show import progress only when NOT on the import page
