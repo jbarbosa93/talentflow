@@ -43,9 +43,9 @@ export function useUpdateCandidat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Erreur mise à jour')
-      const { candidat } = await res.json()
-      return candidat
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Erreur mise à jour')
+      return json.candidat
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['candidats'] })

@@ -45,6 +45,7 @@ function getExt(name: string) { return name.toLowerCase().split('.').pop() || ''
 // (ex : navigation entre pages qui cause un hard refresh du layout)
 let _worker: Worker | null = null
 let _workerRunning = false
+let _workerPaused = false
 let _jobs: FileJob[] = []
 let _done = false
 let _startTime = 0
@@ -189,6 +190,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           break
         case 'DONE':
           _workerRunning = false
+          _workerPaused = false
           _done = true
           setRunning(false)
           setDone(true)
@@ -199,11 +201,20 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
 
   // Re-bind au worker existant si le provider se re-monte pendant un import
   useEffect(() => {
-    if (_worker && _workerRunning) {
+    if (_worker && (_workerRunning || _workerPaused)) {
       bindWorker(_worker)
-      setRunning(true)
+      setRunning(_workerRunning)
+      setDone(_done)
+      // Sync jobs from module-level state
+      if (_jobs.length > 0) {
+        setJobsState(_jobs)
+      }
+      // Sync completed count and speed
+      completedRef.current = _completedCount
+      startTimeRef.current = _startTime
+      if (_workerRunning) updateSpeedEta()
     }
-  }, [bindWorker])
+  }, [bindWorker, updateSpeedEta])
 
   const addFilesWithMeta = useCallback((items: Array<{ file: File; relativePath?: string }>) => {
     const valid    = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size <= MAX_FILE_SIZE)
@@ -264,13 +275,14 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     })
   }, [statut, bindWorker])
 
-  const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; setRunning(false) }, [])
-  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  setRunning(true) }, [])
+  const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; _workerPaused = true; setRunning(false) }, [])
+  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  _workerPaused = false; setRunning(true) }, [])
   const stop   = useCallback(() => {
     _worker?.postMessage({ type: 'STOP' })
     _worker?.terminate()
     _worker = null
     _workerRunning = false
+    _workerPaused = false
     setRunning(false)
   }, [])
 
@@ -279,6 +291,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     setJobs([])
     setDone(false)
     _done = false
+    _workerPaused = false
     setSpeed(0)
     setEta(0)
     completedRef.current = 0

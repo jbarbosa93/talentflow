@@ -98,9 +98,22 @@ const GEO_CACHE: Record<string, [number, number]> = {
   'liège': [50.6326, 5.5797], 'liege': [50.6326, 5.5797],
 }
 
-async function geocode(ville: string): Promise<[number, number] | null> {
+const LS_GEO_KEY = 'talentflow_geocache_map'
+
+function loadGeoLS(): Record<string, [number, number]> {
+  try {
+    const s = localStorage.getItem(LS_GEO_KEY)
+    return s ? JSON.parse(s) : {}
+  } catch { return {} }
+}
+function saveGeoLS(cache: Record<string, [number, number]>) {
+  try { localStorage.setItem(LS_GEO_KEY, JSON.stringify(cache)) } catch {}
+}
+
+async function geocode(ville: string, lsCache: Record<string, [number, number]>): Promise<[number, number] | null> {
   const key = ville.toLowerCase().trim()
   if (GEO_CACHE[key]) return GEO_CACHE[key]
+  if (lsCache[key]) return lsCache[key]
   try {
     // Essai 1 : avec "Suisse"
     const r1 = await fetch(
@@ -108,14 +121,24 @@ async function geocode(ville: string): Promise<[number, number] | null> {
       { headers: { 'User-Agent': 'TalentFlow ATS' } }
     )
     const d1 = await r1.json()
-    if (d1?.[0]) return [parseFloat(d1[0].lat), parseFloat(d1[0].lon)]
+    if (d1?.[0]) {
+      const coords: [number, number] = [parseFloat(d1[0].lat), parseFloat(d1[0].lon)]
+      lsCache[key] = coords
+      saveGeoLS(lsCache)
+      return coords
+    }
     // Essai 2 : juste le nom
     const r2 = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ville)}&format=json&limit=1`,
       { headers: { 'User-Agent': 'TalentFlow ATS' } }
     )
     const d2 = await r2.json()
-    if (d2?.[0]) return [parseFloat(d2[0].lat), parseFloat(d2[0].lon)]
+    if (d2?.[0]) {
+      const coords: [number, number] = [parseFloat(d2[0].lat), parseFloat(d2[0].lon)]
+      lsCache[key] = coords
+      saveGeoLS(lsCache)
+      return coords
+    }
   } catch { /* ignore */ }
   return null
 }
@@ -178,23 +201,39 @@ export default function CandidatsMap() {
     const villes = Object.entries(grouped)
     if (!villes.length) return
 
+    const lsCache = loadGeoLS()
+
+    // Pré-remplir avec les villes déjà cachées (statique ou localStorage)
+    const preloaded: LocGroup[] = villes
+      .map(([ville, cands]) => {
+        const key = ville.toLowerCase().trim()
+        const coords = GEO_CACHE[key] || lsCache[key] || null
+        return { ville, candidats: cands, coords }
+      })
+    setGroups(preloaded)
+
+    // Villes encore inconnues → fetch Nominatim
+    const todo = villes.filter(([ville]) => {
+      const key = ville.toLowerCase().trim()
+      return !GEO_CACHE[key] && !lsCache[key]
+    })
+    if (!todo.length) return
+
     setGeocoding(true)
     ;(async () => {
-      const result: LocGroup[] = []
-      for (let i = 0; i < villes.length; i++) {
-        const [ville, cands] = villes[i]
-        const coords = await geocode(ville)
-        result.push({ ville, candidats: cands, coords })
-        // Délai seulement si geocode a fait un vrai appel réseau (pas le cache statique)
-        const cached = GEO_CACHE[ville.toLowerCase().trim()]
-        if (!cached && i < villes.length - 1) await new Promise(r => setTimeout(r, 1100))
+      for (let i = 0; i < todo.length; i++) {
+        const [ville, cands] = todo[i]
+        const coords = await geocode(ville, lsCache)
+        if (coords) {
+          setGroups(prev => prev.map(g => g.ville === ville ? { ...g, coords } : g))
+        }
+        if (i < todo.length - 1) await new Promise(r => setTimeout(r, 1100))
       }
-      setGroups(result)
       setGeocoding(false)
     })()
   }, [candidats])
 
-  if (isLoading || geocoding) {
+  if (isLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 10, color: '#94A3B8', fontSize: 13 }}>
         <div style={{ width: 26, height: 26, border: '3px solid #E2E8F0', borderTopColor: '#F5A623', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />

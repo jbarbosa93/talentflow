@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +77,148 @@ export default function MessagesPage() {
       {tab === 'whatsapp'  && <WhatsAppTab />}
       {tab === 'sms'       && <SmsTab />}
       {tab === 'templates' && <TemplatesTab />}
+    </div>
+  )
+}
+
+// ─── Candidat Search ──────────────────────────────────────────────────────────
+
+function CandidatSearch({
+  candidats,
+  value,
+  onChange,
+  placeholder = 'Rechercher un candidat...',
+}: {
+  candidats: any[] | undefined
+  value: string
+  onChange: (id: string) => void
+  placeholder?: string
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [selectedLabel, setSelectedLabel] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const selected = candidats?.find(c => c.id === value)
+
+  useEffect(() => {
+    if (selected) {
+      setSelectedLabel(`${selected.prenom} ${selected.nom}`)
+      setQuery('')
+    } else {
+      setSelectedLabel('')
+    }
+  }, [value, selected])
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  const filtered = (candidats || []).filter(c => {
+    if (!query.trim()) return true
+    const q = query.toLowerCase()
+    return (
+      c.nom?.toLowerCase().includes(q) ||
+      c.prenom?.toLowerCase().includes(q) ||
+      c.telephone?.includes(q)
+    )
+  }).slice(0, 20)
+
+  const handleSelect = (c: any) => {
+    onChange(c.id)
+    setSelectedLabel(`${c.prenom} ${c.nom}`)
+    setQuery('')
+    setOpen(false)
+  }
+
+  const handleClear = () => {
+    onChange('')
+    setSelectedLabel('')
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
+  const displayValue = open ? query : (selectedLabel || '')
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+        <input
+          ref={inputRef}
+          value={displayValue}
+          placeholder={selectedLabel ? selectedLabel : placeholder}
+          onChange={e => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => { setOpen(true); setQuery('') }}
+          style={{
+            width: '100%', height: 38, paddingLeft: 32, paddingRight: selectedLabel ? 32 : 10,
+            border: '1.5px solid var(--border)', borderRadius: 8,
+            background: 'var(--secondary)', color: 'var(--foreground)',
+            fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        {selectedLabel && (
+          <button
+            onClick={handleClear}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100,
+          background: 'white', border: '1.5px solid var(--border)', borderRadius: 8,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.1)', maxHeight: 240, overflowY: 'auto',
+        }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
+              Aucun candidat trouvé
+            </div>
+          ) : filtered.map(c => (
+            <button
+              key={c.id}
+              onMouseDown={e => { e.preventDefault(); handleSelect(c) }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 12px', background: c.id === value ? 'var(--primary-soft)' : 'none',
+                border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer',
+                fontSize: 13, fontFamily: 'var(--font-body)', textAlign: 'left',
+              }}
+              onMouseOver={e => { if (c.id !== value) e.currentTarget.style.background = 'var(--secondary)' }}
+              onMouseOut={e => { if (c.id !== value) e.currentTarget.style.background = 'none' }}
+            >
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0,
+              }}>
+                {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {c.prenom} {c.nom}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  {c.telephone || 'Sans téléphone'}
+                  {c.titre_poste ? ` · ${c.titre_poste}` : ''}
+                </div>
+              </div>
+              {c.id === value && <Check size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -242,8 +384,15 @@ function WhatsAppTab() {
     }
   }
 
-  const waPhone = telephone.replace(/\D/g, '').replace(/^0/, '41')
-  const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`
+  const toWaPhone = (tel: string) => {
+    const clean = tel.replace(/[\s\-\.\(\)]/g, '')
+    if (clean.startsWith('+')) return clean.slice(1)
+    if (clean.startsWith('00')) return clean.slice(2)
+    if (clean.startsWith('0')) return '41' + clean.slice(1)
+    return clean
+  }
+  const waPhone = toWaPhone(telephone)
+  const waUrl = `whatsapp://send?phone=${waPhone}&text=${encodeURIComponent(message)}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message)
@@ -265,18 +414,7 @@ function WhatsAppTab() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
-          <Select value={candidatId} onValueChange={handleCandidatChange}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-              <SelectValue placeholder="Sélectionner..." />
-            </SelectTrigger>
-            <SelectContent>
-              {candidats?.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.prenom} {c.nom} {c.telephone ? `(${c.telephone})` : '(sans tél.)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CandidatSearch candidats={candidats} value={candidatId} onChange={handleCandidatChange} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
@@ -393,18 +531,7 @@ function SmsTab() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
-          <Select value={candidatId} onValueChange={handleCandidatChange}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-              <SelectValue placeholder="Sélectionner..." />
-            </SelectTrigger>
-            <SelectContent>
-              {candidats?.map(c => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.prenom} {c.nom} {c.telephone ? `(${c.telephone})` : '(sans tél.)'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CandidatSearch candidats={candidats} value={candidatId} onChange={handleCandidatChange} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>

@@ -84,6 +84,12 @@ export default function ImportMassePage() {
   const folderRef = useRef<HTMLInputElement>(null)
   const [folderKey, setFolderKey] = useState(0)
 
+  // Auto-reset filtres quand leur contenu disparaît
+  const doublonCount = ctx.doublons
+  const errorCount = ctx.failed
+  if (doubFilter && doublonCount === 0) setDoubFilter(false)
+  if (errorFilter && errorCount === 0) setErrorFilter(false)
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     setDragOver(false)
@@ -140,9 +146,10 @@ export default function ImportMassePage() {
 
   const filteredJobs = (() => {
     let list = jobs
+    // Filtres mutuellement exclusifs
     if (errorFilter) list = list.filter(j => j.status === 'error')
-    if (doubFilter)  list = list.filter(j => j.status === 'doublon')
-    if (catFilter)   list = list.filter(j => j.categorie === catFilter)
+    else if (doubFilter) list = list.filter(j => j.status === 'doublon')
+    if (catFilter) list = list.filter(j => j.categorie === catFilter)
     return list.slice(-100).reverse()
   })()
 
@@ -445,9 +452,11 @@ export default function ImportMassePage() {
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
               {errorFilter
                 ? `${failed} erreur${failed > 1 ? 's' : ''}`
-                : catFilter
-                  ? `${jobs.filter(j => j.categorie === catFilter).length} fichiers — ${catFilter}`
-                  : `Derniers 100 affichés sur ${total}`}
+                : doubFilter
+                  ? `${doublons} doublon${doublons > 1 ? 's' : ''} à traiter`
+                  : catFilter
+                    ? `${jobs.filter(j => j.categorie === catFilter).length} fichiers — ${catFilter}`
+                    : `Derniers 100 affichés sur ${total}`}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               {failed > 0 && (
