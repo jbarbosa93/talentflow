@@ -132,7 +132,19 @@ Règles :
 // ─── Parser JSON robuste ─────────────────────────────────────────────────────
 
 function parseCV(text: string): CVAnalyse {
-  let cleaned = text.replace(/```json|```/g, '').trim()
+  // Nettoyage agressif des backticks markdown (toutes variantes)
+  let cleaned = text
+    .replace(/^[\s\S]*?```(?:json|JSON)?\s*/m, '')  // Tout avant et incluant ```json
+    .replace(/```\s*$/m, '')                          // ``` final
+    .replace(/```json|```JSON|```/g, '')              // Résidus
+    .trim()
+
+  // Extraire le JSON entre le premier { et le dernier }
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1)
+  }
 
   let result: any
   try {
@@ -426,7 +438,10 @@ Règles de scoring :
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
     }))
-    const text = (response.content[0]?.type === 'text' ? response.content[0].text : '').replace(/```json|```/g, '').trim()
+    let text = (response.content[0]?.type === 'text' ? response.content[0].text : '')
+      .replace(/^[\s\S]*?```(?:json|JSON)?\s*/m, '').replace(/```\s*$/m, '').replace(/```json|```JSON|```/g, '').trim()
+    const fb = text.indexOf('{'), lb = text.lastIndexOf('}')
+    if (fb !== -1 && lb > fb) text = text.substring(fb, lb + 1)
     const parsed = JSON.parse(text) as MatchingResult
     parsed.score = Math.min(100, Math.max(0, Math.round(parsed.score)))
     return parsed
