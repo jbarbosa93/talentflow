@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.79.0",
     "@google/generative-ai": "^0.24.1",
     "@hello-pangea/dnd": "^18.0.1",
+    "@napi-rs/canvas": "^0.1.97",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-tabs": "^1.1.13",

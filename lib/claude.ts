@@ -123,10 +123,127 @@ function parseCV(text: string): CVAnalyse {
   return result
 }
 
-// Analyse depuis un PDF scanné — Groq ne supporte pas les PDFs natifs
-// Les PDFs scannés doivent être réimportés en JPG/PNG
-export async function analyserCVDepuisPDF(_pdfBuffer: Buffer): Promise<CVAnalyse> {
-  throw new Error('PDF scanné (sans texte) — réimportez ce fichier en JPG ou PNG')
+// ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
+// Convertit les pages PDF en images PNG via pdfjs-dist + @napi-rs/canvas
+// puis envoie chaque page au modèle vision Groq pour extraction
+
+async function renderPDFPageToImage(pdfBuffer: Buffer, pageNum: number): Promise<Buffer> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
+  const lib = (pdfjs as any).default ?? pdfjs
+  if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = ''
+
+  const { createCanvas } = await import('@napi-rs/canvas')
+
+  const loadingTask = lib.getDocument({
+    data: new Uint8Array(pdfBuffer),
+    verbosity: 0,
+    disableFontFace: true,
+    useWorkerFetch: false,
+  })
+  const pdf = await loadingTask.promise
+  const page = await pdf.getPage(pageNum)
+
+  // Résolution 2x pour meilleure lisibilité OCR
+  const scale = 2.0
+  const viewport = page.getViewport({ scale })
+  const canvas = createCanvas(Math.floor(viewport.width), Math.floor(viewport.height))
+  const ctx = canvas.getContext('2d')
+
+  // Fond blanc
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  // pdfjs render — @napi-rs/canvas est compatible avec l'API Canvas standard
+  await page.render({ canvasContext: ctx as any, viewport }).promise
+
+  // Exporter en PNG buffer
+  return canvas.toBuffer('image/png') as Buffer
+
+}
+
+export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
+  // Déterminer le nombre de pages
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
+  const lib = (pdfjs as any).default ?? pdfjs
+  if (lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = ''
+
+  const loadingTask = lib.getDocument({
+    data: new Uint8Array(pdfBuffer),
+    verbosity: 0,
+    disableFontFace: true,
+    useWorkerFetch: false,
+  })
+  const pdf = await loadingTask.promise
+  const totalPages = Math.min(pdf.numPages, 5) // Max 5 pages pour un CV
+
+  console.log(`[CV Scan] PDF scanné : ${pdf.numPages} pages, traitement de ${totalPages}`)
+
+  if (totalPages === 1) {
+    // 1 seule page → envoyer directement au modèle vision
+    const pngBuffer = await renderPDFPageToImage(pdfBuffer, 1)
+    console.log(`[CV Scan] Page 1 rendue : ${(pngBuffer.length / 1024).toFixed(0)} KB PNG`)
+    return analyserCVDepuisImage(pngBuffer, 'image/png')
+  }
+
+  // Plusieurs pages → analyser chaque page puis fusionner les résultats
+  const analyses: CVAnalyse[] = []
+  for (let i = 1; i <= totalPages; i++) {
+    console.log(`[CV Scan] Rendu page ${i}/${totalPages}...`)
+    const pngBuffer = await renderPDFPageToImage(pdfBuffer, i)
+    console.log(`[CV Scan] Page ${i} : ${(pngBuffer.length / 1024).toFixed(0)} KB PNG`)
+    try {
+      const pageAnalyse = await analyserCVDepuisImage(pngBuffer, 'image/png')
+      analyses.push(pageAnalyse)
+    } catch (err) {
+      console.warn(`[CV Scan] Échec page ${i}:`, err)
+    }
+  }
+
+  if (analyses.length === 0) {
+    throw new Error('Impossible de lire ce PDF scanné — aucune page n\'a pu être analysée')
+  }
+
+  // Fusionner : prendre les infos de base de la page 1, combiner expériences/compétences de toutes les pages
+  const merged = { ...analyses[0] }
+  for (let i = 1; i < analyses.length; i++) {
+    const a = analyses[i]
+    // Compléter les champs vides avec les pages suivantes
+    if (!merged.nom && a.nom) merged.nom = a.nom
+    if (!merged.prenom && a.prenom) merged.prenom = a.prenom
+    if (!merged.email && a.email) merged.email = a.email
+    if (!merged.telephone && a.telephone) merged.telephone = a.telephone
+    if (!merged.localisation && a.localisation) merged.localisation = a.localisation
+    if (!merged.titre_poste && a.titre_poste) merged.titre_poste = a.titre_poste
+    if (!merged.formation && a.formation) merged.formation = a.formation
+    if (!merged.linkedin && a.linkedin) merged.linkedin = a.linkedin
+    if (!merged.date_naissance && a.date_naissance) merged.date_naissance = a.date_naissance
+    if (a.annees_exp > merged.annees_exp) merged.annees_exp = a.annees_exp
+
+    // Fusionner tableaux (sans doublons)
+    const existingComps = new Set(merged.competences.map(c => c.toLowerCase()))
+    for (const comp of a.competences) {
+      if (!existingComps.has(comp.toLowerCase())) {
+        merged.competences.push(comp)
+        existingComps.add(comp.toLowerCase())
+      }
+    }
+
+    const existingLangues = new Set(merged.langues.map(l => l.toLowerCase()))
+    for (const lang of a.langues) {
+      if (!existingLangues.has(lang.toLowerCase())) {
+        merged.langues.push(lang)
+        existingLangues.add(lang.toLowerCase())
+      }
+    }
+
+    // Ajouter expériences et formations des pages suivantes
+    if (a.experiences?.length) merged.experiences.push(...a.experiences)
+    if (a.formations_details?.length) merged.formations_details.push(...a.formations_details)
+
+    if (!merged.permis_conduire && a.permis_conduire) merged.permis_conduire = true
+  }
+
+  return merged
 }
 
 export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
