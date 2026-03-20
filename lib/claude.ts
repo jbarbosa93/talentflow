@@ -17,6 +17,31 @@ function getClient(): Groq {
   return groqClient
 }
 
+// ─── Retry avec backoff pour les rate limits Groq (429) ─────────────────────
+
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (err: any) {
+      const status = err?.status || err?.statusCode || err?.error?.code
+      const isRateLimit = status === 429 || err?.message?.includes('rate_limit')
+      if (!isRateLimit || attempt === maxRetries) throw err
+
+      // Extraire le délai suggéré par Groq ou utiliser un backoff exponentiel
+      const retryAfterMatch = err?.message?.match(/try again in (\d+(?:\.\d+)?)(?:ms|s)/)
+      let waitMs = 2000 * (attempt + 1) // backoff : 2s, 4s, 6s
+      if (retryAfterMatch) {
+        const val = parseFloat(retryAfterMatch[1])
+        waitMs = err.message.includes('ms') ? Math.ceil(val) + 500 : Math.ceil(val * 1000) + 500
+      }
+      console.log(`[Groq] Rate limit — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
+      await new Promise(r => setTimeout(r, waitMs))
+    }
+  }
+  throw new Error('Unreachable')
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface CVExperience {
@@ -228,12 +253,12 @@ export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
 
   const prompt = `Tu es un assistant RH expert. Analyse ce CV et extrais les informations en JSON.\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 8000)}\n</cv>\n\n${CV_JSON_PROMPT}`
 
-  const completion = await client.chat.completions.create({
+  const completion = await withRetry(() => client.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.1,
     max_tokens: 2048,
-  })
+  }))
 
   const text = completion.choices[0]?.message?.content || ''
 
@@ -253,7 +278,7 @@ export async function analyserCVDepuisImage(
   const client = getClient()
   const base64 = imageBuffer.toString('base64')
 
-  const completion = await client.chat.completions.create({
+  const completion = await withRetry(() => client.chat.completions.create({
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     messages: [{
       role: 'user',
@@ -270,7 +295,7 @@ export async function analyserCVDepuisImage(
     }],
     temperature: 0.1,
     max_tokens: 2048,
-  })
+  }))
 
   const text = completion.choices[0]?.message?.content || ''
 
@@ -331,12 +356,12 @@ Règles de scoring :
 - recommandation : "fort" si score >= 75, "moyen" si 50-74, "faible" si < 50`
 
   try {
-    const completion = await client.chat.completions.create({
+    const completion = await withRetry(() => client.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
       max_tokens: 512,
-    })
+    }))
     const text = (completion.choices[0]?.message?.content || '').replace(/```json|```/g, '').trim()
     const parsed = JSON.parse(text) as MatchingResult
     parsed.score = Math.min(100, Math.max(0, Math.round(parsed.score)))
