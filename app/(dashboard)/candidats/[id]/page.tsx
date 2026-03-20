@@ -841,10 +841,10 @@ export default function CandidatDetailPage() {
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
-                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none', position: 'relative' }}
+                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: `${cvZoom * 100}%`, minWidth: '100%', height: `${Math.max(100, cvZoom * 100)}%`, minHeight: '200vh', position: 'relative' }}>
+                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, minHeight: '200vh', position: 'relative' }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
