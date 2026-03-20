@@ -123,12 +123,25 @@ function parseCV(text: string): CVAnalyse {
   return result
 }
 
-// Analyse depuis un PDF scanné — Groq ne supporte pas le PDF natif
-// Cette fonction n'est appelée que si pdfjs n'a pas pu extraire le texte
-export async function analyserCVDepuisPDF(_pdfBuffer: Buffer): Promise<CVAnalyse> {
-  // Groq ne supporte pas les PDFs en entrée directe.
-  // La route doit gérer ce cas en retournant une erreur appropriée.
-  throw new Error('PDF_SCAN_NON_SUPPORTE')
+// Analyse depuis un PDF scanné — convertit les pages en images puis envoie au modèle vision
+export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
+  const { pdf } = await import('pdf-to-img')
+  const pages: Buffer[] = []
+
+  // Convertir les 3 premières pages en PNG (un CV dépasse rarement 3 pages)
+  let pageCount = 0
+  for await (const image of await pdf(pdfBuffer, { scale: 2 })) {
+    pages.push(Buffer.from(image))
+    pageCount++
+    if (pageCount >= 3) break
+  }
+
+  if (pages.length === 0) {
+    throw new Error('Impossible de convertir le PDF en image')
+  }
+
+  // Envoyer la première page (ou les pages combinées) au modèle vision
+  return analyserCVDepuisImage(pages[0], 'image/png')
 }
 
 export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
