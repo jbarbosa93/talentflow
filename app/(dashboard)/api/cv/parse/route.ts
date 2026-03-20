@@ -125,8 +125,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
     analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 45_000, 'analyse image')
   } else if (isScanned && isPDF) {
-    console.log('[CV Parse] PDF scanné → vision Claude...')
-    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 45_000, 'analyse PDF scanné')
+    console.log('[CV Parse] PDF scanné → tentative vision IA...')
+    try {
+      analyse = await withTimeout(analyserCVDepuisPDF(buffer), 45_000, 'analyse PDF scanné')
+    } catch (err: any) {
+      if (err?.message === 'PDF_SCAN_NON_SUPPORTE') {
+        return NextResponse.json(
+          { error: 'Ce PDF semble être un scan sans texte. Veuillez convertir le scan en PDF avec texte (OCR) ou importer une image JPG/PNG du CV.' },
+          { status: 422 }
+        )
+      }
+      throw err
+    }
   } else if (isScanned) {
     return NextResponse.json(
       { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
@@ -225,11 +235,20 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
   }
 
-  const { data: candidatRaw, error: dbError } = await adminClient
+  let { data: candidatRaw, error: dbError } = await adminClient
     .from('candidats')
     .insert(nouveauCandidat)
     .select()
     .single()
+
+  // Si erreur de colonne inconnue (migration non exécutée), réessayer sans les colonnes optionnelles
+  if (dbError && (dbError.code === '42703' || dbError.message?.includes('column'))) {
+    console.warn('[CV Parse] Colonnes optionnelles absentes, retry sans:', dbError.message)
+    const { langues, linkedin, permis_conduire, date_naissance, experiences, formations_details, ...baseCandidat } = nouveauCandidat as any
+    const retry = await adminClient.from('candidats').insert(baseCandidat).select().single()
+    candidatRaw = retry.data
+    dbError = retry.error
+  }
 
   const candidat = candidatRaw as import('@/types/database').Candidat | null
 

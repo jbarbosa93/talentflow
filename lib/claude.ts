@@ -1,19 +1,20 @@
 // src/lib/claude.ts
-// Wrapper pour l'API Claude — analyse CV et scoring matching
+// Wrapper IA — analyse CV et scoring matching
+// Utilise Groq (gratuit : 14 400 req/jour, modèles LLaMA 3.3 70B + vision)
 
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 
 // Singleton client
-let client: Anthropic | null = null
+let groqClient: Groq | null = null
 
-function getClient(): Anthropic {
-  if (!client) {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY manquant dans .env.local')
+function getClient(): Groq {
+  if (!groqClient) {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY manquant — obtenir une clé gratuite sur https://console.groq.com')
     }
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 50_000 })
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY })
   }
-  return client
+  return groqClient
 }
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -122,70 +123,32 @@ function parseCV(text: string): CVAnalyse {
   return result
 }
 
-// Analyse depuis un PDF scanné — envoie le PDF directement à Claude (OCR natif)
-export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
-  const claude = getClient()
-  const base64 = pdfBuffer.toString('base64')
-
-  const response = await claude.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
-    messages: [{
-      role: 'user',
-      content: [
-        {
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: base64,
-          },
-        } as any,
-        {
-          type: 'text',
-          text: CV_JSON_PROMPT,
-        },
-      ],
-    }],
-  })
-
-  const text = response.content
-    .map(block => block.type === 'text' ? block.text : '')
-    .join('')
-
-  try {
-    return parseCV(text)
-  } catch {
-    throw new Error(`Claude a retourné un JSON invalide (PDF scan) : ${text.slice(0, 200)}`)
-  }
+// Analyse depuis un PDF scanné — Groq ne supporte pas le PDF natif
+// Cette fonction n'est appelée que si pdfjs n'a pas pu extraire le texte
+export async function analyserCVDepuisPDF(_pdfBuffer: Buffer): Promise<CVAnalyse> {
+  // Groq ne supporte pas les PDFs en entrée directe.
+  // La route doit gérer ce cas en retournant une erreur appropriée.
+  throw new Error('PDF_SCAN_NON_SUPPORTE')
 }
 
 export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
-  const claude = getClient()
+  const client = getClient()
 
-  const prompt = `Tu es un assistant RH expert. Analyse ce CV et extrais les informations en JSON.
+  const prompt = `Tu es un assistant RH expert. Analyse ce CV et extrais les informations en JSON.\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 8000)}\n</cv>\n\n${CV_JSON_PROMPT}`
 
-CV à analyser :
-<cv>
-${texteCV.slice(0, 8000)}
-</cv>
-
-${CV_JSON_PROMPT}`
-
-  const response = await claude.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
+  const completion = await client.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
     messages: [{ role: 'user', content: prompt }],
+    temperature: 0.1,
+    max_tokens: 2048,
   })
 
-  const text = response.content
-    .map(block => block.type === 'text' ? block.text : '')
-    .join('')
+  const text = completion.choices[0]?.message?.content || ''
 
   try {
     return parseCV(text)
   } catch {
-    throw new Error(`Claude a retourné un JSON invalide : ${text.slice(0, 200)}`)
+    throw new Error(`Groq a retourné un JSON invalide : ${text.slice(0, 200)}`)
   }
 }
 
@@ -195,22 +158,17 @@ export async function analyserCVDepuisImage(
   imageBuffer: Buffer,
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 ): Promise<CVAnalyse> {
-  const claude = getClient()
+  const client = getClient()
   const base64 = imageBuffer.toString('base64')
 
-  const response = await claude.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2048,
+  const completion = await client.chat.completions.create({
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     messages: [{
       role: 'user',
       content: [
         {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mimeType,
-            data: base64,
-          },
+          type: 'image_url',
+          image_url: { url: `data:${mimeType};base64,${base64}` },
         },
         {
           type: 'text',
@@ -218,16 +176,16 @@ export async function analyserCVDepuisImage(
         },
       ],
     }],
+    temperature: 0.1,
+    max_tokens: 2048,
   })
 
-  const text = response.content
-    .map(block => block.type === 'text' ? block.text : '')
-    .join('')
+  const text = completion.choices[0]?.message?.content || ''
 
   try {
     return parseCV(text)
   } catch {
-    throw new Error(`Claude a retourné un JSON invalide (image) : ${text.slice(0, 200)}`)
+    throw new Error(`Groq a retourné un JSON invalide (image) : ${text.slice(0, 200)}`)
   }
 }
 
@@ -247,7 +205,7 @@ export async function calculerScoreMatching(
     description: string | null
   }
 ): Promise<MatchingResult> {
-  const claude = getClient()
+  const client = getClient()
 
   const prompt = `Tu es un expert en recrutement. Évalue la compatibilité entre ce candidat et cette offre.
 
@@ -280,25 +238,19 @@ Règles de scoring :
 - score : moyenne pondérée (60% compétences + 40% expérience)
 - recommandation : "fort" si score >= 75, "moyen" si 50-74, "faible" si < 50`
 
-  const response = await claude.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 512,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const text = response.content
-    .map(block => block.type === 'text' ? block.text : '')
-    .join('')
-    .replace(/```json|```/g, '')
-    .trim()
-
   try {
-    const result = JSON.parse(text) as MatchingResult
-    // S'assurer que le score est dans les bornes
-    result.score = Math.min(100, Math.max(0, Math.round(result.score)))
-    return result
+    const completion = await client.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 512,
+    })
+    const text = (completion.choices[0]?.message?.content || '').replace(/```json|```/g, '').trim()
+    const parsed = JSON.parse(text) as MatchingResult
+    parsed.score = Math.min(100, Math.max(0, Math.round(parsed.score)))
+    return parsed
   } catch {
-    // Fallback : calcul algorithmique si Claude échoue
+    // Fallback : calcul algorithmique si Groq échoue
     return calculerScoreAlgorithmique(candidat, offre)
   }
 }
