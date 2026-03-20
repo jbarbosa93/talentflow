@@ -8,6 +8,8 @@ export type LogAction =
   | 'candidat_supprime'
   | 'offre_creee'
   | 'cv_importe'
+  | 'cv_doublon'
+  | 'cv_erreur'
   | 'microsoft_sync'
   | 'microsoft_connecte'
   | 'microsoft_deconnecte'

@@ -53,6 +53,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let replaceId: string | null = null
   let storagePathInput: string | null = null
 
+  let categorie: string | null = null
+
   if (ct.includes('application/json')) {
     const body = await request.json()
     storagePathInput = body.storage_path
@@ -60,6 +62,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     forceInsert      = body.force_insert === true
     replaceId        = body.replace_id || null
     offreId          = body.offre_id || null
+    categorie        = body.categorie || null
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -68,6 +71,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     forceInsert     = formData.get('force_insert') === 'true'
     replaceId       = formData.get('replace_id') as string | null
     storagePathInput = formData.get('storage_path') as string | null
+    categorie        = formData.get('categorie') as string | null
   }
 
   // Si storage_path fourni → télécharger depuis Supabase
@@ -111,6 +115,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     if (existingByFile) {
       console.log(`[CV Parse] Fichier déjà importé : ${file.name} → skip analyse IA`)
+      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
       return NextResponse.json({
         isDuplicate: true,
         candidatExistant: existingByFile,
@@ -141,28 +146,35 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   console.log('[CV Parse] Analyse Claude IA...')
   let analyse
 
-  if (isImage) {
-    console.log(`[CV Parse] Image (${ext}) → vision Claude...`)
-    const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
-    analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
-  } else if (isScanned && isPDF) {
-    console.log('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
-    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 55_000, 'analyse PDF scanné')
-  } else if (isScanned && isDoc) {
-    // .doc (Word 97-2003) : si word-extractor n'a pas pu extraire le texte,
-    // on ne peut pas envoyer un .doc à Claude (format binaire non supporté)
-    return NextResponse.json(
-      { error: 'Fichier .doc illisible. Convertissez-le en PDF ou DOCX avant de l\'importer.' },
-      { status: 422 }
-    )
-  } else if (isScanned) {
-    return NextResponse.json(
-      { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
-      { status: 422 }
-    )
-  } else {
-    console.log(`[CV Parse] Texte : ${texteCV.length} chars`)
-    analyse = await withTimeout(analyserCV(texteCV), 50_000, 'analyse texte')
+  try {
+    if (isImage) {
+      console.log(`[CV Parse] Image (${ext}) → vision Claude...`)
+      const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+      analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
+    } else if (isScanned && isPDF) {
+      console.log('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
+      analyse = await withTimeout(analyserCVDepuisPDF(buffer), 40_000, 'analyse PDF scanné')
+    } else if (isScanned && isDoc) {
+      // .doc (Word 97-2003) : si word-extractor n'a pas pu extraire le texte,
+      // on ne peut pas envoyer un .doc à Claude (format binaire non supporté)
+      return NextResponse.json(
+        { error: 'Fichier .doc illisible. Convertissez-le en PDF ou DOCX avant de l\'importer.' },
+        { status: 422 }
+      )
+    } else if (isScanned) {
+      return NextResponse.json(
+        { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
+        { status: 422 }
+      )
+    } else {
+      console.log(`[CV Parse] Texte : ${texteCV.length} chars`)
+      analyse = await withTimeout(analyserCV(texteCV), 50_000, 'analyse texte')
+    }
+  } catch (analyseErr: any) {
+    const errMsg = analyseErr?.message || 'Erreur analyse IA'
+    console.error('[CV Parse] Erreur analyse Claude:', errMsg)
+    await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: errMsg } })
+    throw analyseErr
   }
 
   console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
@@ -227,6 +239,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
   if (candidatExistant) {
     console.log(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+    await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'candidat_existant' } })
     return NextResponse.json({
       isDuplicate: true,
       candidatExistant,
@@ -282,6 +295,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (dbError) {
     console.error('[CV Parse] Erreur BDD:', dbError)
+    await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: dbError.message } })
     return NextResponse.json({ error: `Erreur création candidat : ${dbError.message}` }, { status: 500 })
   }
 
@@ -296,7 +310,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
-  await logActivity({ action: 'cv_importe', details: { nom: analyse.nom, prenom: analyse.prenom } })
+  await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), email: analyse.email || '—' } })
 
   return NextResponse.json({
     success: true,
