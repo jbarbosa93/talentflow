@@ -201,13 +201,23 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     await adminClient.from('candidats').delete().eq('id', replaceId)
   }
 
-  // 8b. Vérifier les doublons
+  // 8b. Vérifier les doublons (email → téléphone → nom+prénom)
   let candidatExistant: any = null
   if (!forceInsert && !replaceId && analyse.email) {
     const { data: byEmail } = await adminClient
       .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
       .eq('email', analyse.email).maybeSingle()
     candidatExistant = byEmail
+  }
+  if (!forceInsert && !replaceId && !candidatExistant && analyse.telephone) {
+    // Normaliser le téléphone : garder uniquement les chiffres pour comparaison
+    const telNormalise = analyse.telephone.replace(/\D/g, '')
+    if (telNormalise.length >= 8) {
+      const { data: byPhone } = await adminClient
+        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .ilike('telephone', `%${telNormalise.slice(-9)}%`).maybeSingle()
+      candidatExistant = byPhone
+    }
   }
   if (!forceInsert && !replaceId && !candidatExistant && analyse.nom && analyse.prenom) {
     const { data: byName } = await adminClient

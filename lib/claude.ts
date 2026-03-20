@@ -180,9 +180,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   console.log(`[Claude] Envoi PDF natif (${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
 
-  // Pas de retry ici — le worker gère ses propres retries.
-  // max_tokens réduit à 2048 : un CV en JSON fait ~800-1200 tokens, ça accélère la réponse.
-  const response = await client.messages.create({
+  const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [{
@@ -202,7 +200,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
         },
       ],
     }],
-  })
+  }))
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
@@ -275,8 +273,7 @@ export async function analyserCVDepuisImage(
   const base64 = finalBuffer.toString('base64')
   mimeType = finalMimeType
 
-  // Pas de retry ici — le worker gère ses propres retries.
-  const response = await client.messages.create({
+  const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [{
@@ -296,7 +293,7 @@ export async function analyserCVDepuisImage(
         },
       ],
     }],
-  })
+  }))
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
