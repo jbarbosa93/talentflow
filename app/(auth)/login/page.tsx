@@ -82,9 +82,14 @@ function LoginForm() {
       return
     }
 
-    // Connexion réussie → redirection directe (pas d'OTP email - dépend du SMTP)
-    router.push('/dashboard')
-    router.refresh()
+    // Envoyer le code OTP par email (2FA — SMTP Resend opérationnel)
+    await fetch('/auth/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    setEmailOtpRequired(true)
+    setLoading(false)
   }
 
   async function handleMfaVerify(e: React.FormEvent) {
