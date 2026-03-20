@@ -50,7 +50,13 @@ export function Sidebar() {
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
-    return pathname === href || pathname.startsWith(href + '/')
+    if (pathname === href) return true
+    if (!pathname.startsWith(href + '/')) return false
+    // Éviter que /parametres soit actif quand on est sur /parametres/admin ou /parametres/demandes-acces
+    // (ces sous-pages ont leur propre item de menu)
+    const allHrefs = [...NAV_ITEMS, ...FOOTER_ITEMS].map(i => i.href)
+    const moreSpecific = allHrefs.some(h => h !== href && h.startsWith(href + '/') && pathname.startsWith(h))
+    return !moreSpecific
   }
 
   async function handleLogout() {
@@ -137,7 +143,7 @@ export function Sidebar() {
         <span className="d-sidebar-section" style={{ margin: '0 0 6px' }}>Compte</span>
         {FOOTER_ITEMS.map(item => {
           const Icon = item.icon
-          const active = isActive(item.href)
+          const active = isActive(item.href, (item as any).exact)
           // Show import icon on Paramètres item when running
           const isParams = item.href === '/parametres'
           const showDot = importCtx.running && isParams

@@ -147,9 +147,9 @@ export default function AdminPage() {
         }}>
           <AlertTriangle size={20} style={{ color: '#DC2626', flexShrink: 0 }} />
           <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', margin: 0 }}>Accès non autorisé</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', margin: 0 }}>Erreur d&apos;accès</p>
             <p style={{ fontSize: 13, color: '#991B1B', marginTop: 4 }}>
-              Vous n&apos;avez pas les droits pour accéder à cette section.
+              {error instanceof Error ? error.message : 'Erreur lors du chargement des utilisateurs.'}
             </p>
           </div>
         </div>

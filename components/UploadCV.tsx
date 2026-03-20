@@ -232,22 +232,22 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
                 borderRadius: 8, padding: '8px 12px',
               }}
             >
-              <FileText size={14} style={{ flexShrink: 0, color: item.status === 'success' ? '#16A34A' : item.status === 'error' ? '#DC2626' : 'var(--muted)' }} />
+              <FileText size={14} style={{ flexShrink: 0, color: item.status === 'success' ? '#16A34A' : item.status === 'error' ? '#DC2626' : 'var(--muted)', alignSelf: 'center' }} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
                   {item.file.name}
                 </p>
                 {item.status === 'pending' && (
-                  <p style={{ fontSize: 10, color: 'var(--muted)' }}>{formatSize(item.file.size)}</p>
+                  <p style={{ fontSize: 10, color: 'var(--muted)', margin: 0 }}>{formatSize(item.file.size)}</p>
                 )}
                 {item.status === 'processing' && (
-                  <p style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600 }}>Analyse en cours...</p>
+                  <p style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, margin: 0 }}>Analyse en cours...</p>
                 )}
                 {item.status === 'success' && (
-                  <p style={{ fontSize: 10, color: '#16A34A', fontWeight: 600 }}>{item.candidatNom}</p>
+                  <p style={{ fontSize: 10, color: '#16A34A', fontWeight: 600, margin: 0 }}>{item.candidatNom}</p>
                 )}
                 {item.status === 'error' && (
-                  <p style={{ fontSize: 10, color: '#DC2626' }}>{item.error}</p>
+                  <p style={{ fontSize: 10, color: '#DC2626', margin: 0 }}>{item.error}</p>
                 )}
               </div>
               {/* Icône statut */}

@@ -135,8 +135,38 @@ Règles :
 - Ne rien inventer, extraire uniquement ce qui est dans le CV`
 
 function parseCV(text: string): CVAnalyse {
-  const cleaned = text.replace(/```json|```/g, '').trim()
-  const result = JSON.parse(cleaned) as CVAnalyse
+  let cleaned = text.replace(/```json|```/g, '').trim()
+
+  // Tenter le parse direct
+  let result: any
+  try {
+    result = JSON.parse(cleaned)
+  } catch {
+    // JSON tronqué → fermer les tableaux/objets ouverts et réessayer
+    // Compter les { et [ non fermés
+    let braces = 0, brackets = 0
+    let inString = false, escape = false
+    for (const ch of cleaned) {
+      if (escape) { escape = false; continue }
+      if (ch === '\\' && inString) { escape = true; continue }
+      if (ch === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (ch === '{') braces++
+      else if (ch === '}') braces--
+      else if (ch === '[') brackets++
+      else if (ch === ']') brackets--
+    }
+    // Supprimer la dernière valeur incomplète (après la dernière virgule)
+    cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"}\]]*$/, '')
+    // Fermer les structures ouvertes
+    cleaned += ']'.repeat(Math.max(0, brackets)) + '}'.repeat(Math.max(0, braces))
+    try {
+      result = JSON.parse(cleaned)
+    } catch {
+      throw new Error(`JSON invalide même après réparation : ${text.slice(0, 200)}`)
+    }
+  }
+
   if (!result.nom && !result.prenom) result.nom = 'Candidat'
   if (!Array.isArray(result.competences)) result.competences = []
   if (!Array.isArray(result.langues)) result.langues = []
@@ -145,7 +175,7 @@ function parseCV(text: string): CVAnalyse {
   if (!result.date_naissance) result.date_naissance = ''
   if (!Array.isArray(result.experiences)) result.experiences = []
   if (!Array.isArray(result.formations_details)) result.formations_details = []
-  return result
+  return result as CVAnalyse
 }
 
 // ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
@@ -294,7 +324,7 @@ export async function analyserCVDepuisImage(
       ],
     }],
     temperature: 0.1,
-    max_tokens: 2048,
+    max_tokens: 4096,
   }))
 
   const text = completion.choices[0]?.message?.content || ''

@@ -5,7 +5,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
-  ChevronUp, ChevronDown,
+  ChevronUp, ChevronDown, Info,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -86,6 +86,8 @@ export default function CandidatDetailPage() {
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
+  const [showInfo, setShowInfo]           = useState(false)
+  const [showNotes, setShowNotes]         = useState(false)
   const [cvZoom, setCvZoom]               = useState(1.0)
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
@@ -520,20 +522,66 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Métadonnées */}
-          <div className="neo-card-soft" style={{ padding: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {[
-                { label: 'Source',  value: candidat.source || '—' },
-                { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR') },
-              ].map(item => (
-                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.label}</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.value}>{item.value}</span>
-                </div>
-              ))}
-            </div>
+          {/* Info + Notes — boutons ronds */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowInfo(v => !v)} title="Infos"
+              style={{ width: 34, height: 34, borderRadius: '50%', border: showInfo ? '2px solid var(--primary)' : '1px solid var(--border)', background: showInfo ? 'var(--primary-soft)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+              <Info size={15} style={{ color: showInfo ? 'var(--primary)' : 'var(--muted)' }} />
+            </button>
+            <button onClick={() => setShowNotes(v => !v)} title="Notes"
+              style={{ width: 34, height: 34, borderRadius: '50%', border: showNotes ? '2px solid var(--primary)' : '1px solid var(--border)', background: showNotes ? 'var(--primary-soft)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s', position: 'relative' }}>
+              <MessageSquare size={15} style={{ color: showNotes ? 'var(--primary)' : 'var(--muted)' }} />
+              {(candidat.notes_candidat?.length || 0) > 0 && (
+                <span style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#000', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {candidat.notes_candidat.length}
+                </span>
+              )}
+            </button>
           </div>
+
+          {/* Métadonnées (expandable) */}
+          {showInfo && (
+            <div className="neo-card-soft" style={{ padding: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {[
+                  { label: 'Source',  value: candidat.source || '—' },
+                  { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR') },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.value}>{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notes (expandable in-place) */}
+          {showNotes && (
+            <div className="neo-card-soft" style={{ padding: 14 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: candidat.notes_candidat?.length > 0 ? 10 : 0 }}>
+                <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée)" value={note} onChange={e => setNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendNote() }}
+                  style={{ height: 'auto', minHeight: 56, padding: '7px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12, flex: 1 }} />
+                <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '8px 10px' }}>
+                  <Send size={12} />
+                </button>
+              </div>
+              {candidat.notes_candidat?.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 250, overflowY: 'auto' }}>
+                  {[...candidat.notes_candidat].reverse().map((n: any) => (
+                    <div key={n.id} style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                        <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{n.contenu}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
@@ -728,42 +776,7 @@ export default function CandidatDetailPage() {
           )}
           </div>
 
-          {/* Notes */}
-          <div className="neo-card-soft" style={{ order: sectionsOrder.indexOf('notes') }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <MessageSquare size={14} style={{ color: 'var(--muted)' }} />
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Notes ({candidat.notes_candidat?.length || 0})</h2>
-              {isEditing && (
-                <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
-                  <button type="button" onClick={() => moveSection('notes', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                  <button type="button" onClick={() => moveSection('notes', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
-                </div>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée pour envoyer)" value={note} onChange={e => setNote(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendNote() }}
-                style={{ height: 'auto', minHeight: 68, padding: '7px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13, flex: 1 }} />
-              <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '8px 12px' }}>
-                <Send size={13} />
-              </button>
-            </div>
-            {candidat.notes_candidat?.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {[...candidat.notes_candidat].reverse().map((n: any) => (
-                  <div key={n.id} style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                    </div>
-                    <p style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{n.contenu}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: '12px 0' }}>Aucune note pour l&apos;instant.</p>
-            )}
-          </div>
+          {/* Notes déplacées dans colonne 1 (boutons ronds) */}
 
           {/* Texte brut */}
           {candidat.cv_texte_brut && (
@@ -831,7 +844,7 @@ export default function CandidatDetailPage() {
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none', position: 'relative' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: `${cvZoom * 100}%`, minWidth: '100%', height: `${cvZoom * 100}%`, minHeight: '100%', position: 'relative' }}>
+                <div style={{ width: `${cvZoom * 100}%`, minWidth: '100%', height: `${Math.max(100, cvZoom * 100)}%`, minHeight: '200vh', position: 'relative' }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />

@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload } from 'lucide-react'
 import Link from 'next/link'
 import NumberTicker from '@/components/magicui/number-ticker'
 import BlurFade from '@/components/magicui/blur-fade'
@@ -116,6 +116,7 @@ export default function DashboardPage() {
           <h2 className="neo-section-title">Actions rapides</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
+              { href: '/parametres/import-masse', label: 'Importer des CVs',          icon: Upload },
               { href: '/offres',     label: 'Nouvelle offre d\'emploi', icon: Plus },
               { href: '/entretiens', label: 'Planifier un entretien',    icon: Calendar },
               { href: '/pipeline',   label: 'Voir le pipeline',          icon: ArrowRight },
