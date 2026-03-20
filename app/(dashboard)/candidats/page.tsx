@@ -975,20 +975,20 @@ function CandidatsPageInner() {
                 <img src={hoveredCv.url} alt="CV" style={{ width: `${previewZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: '100%', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
-                <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}>
-                  <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
-                </div>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
+                <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+                {/* Overlay transparent : capte les events souris pour le pan (l'iframe les avalerait sinon) */}
+                <div style={{ position: 'absolute', inset: 0 }} />
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: '100%', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
-                <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                 <iframe
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
                   style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                   title="Aperçu CV"
                 />
-                </div>
+                {/* Overlay transparent : capte les events souris pour le pan */}
+                <div style={{ position: 'absolute', inset: 0 }} />
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
