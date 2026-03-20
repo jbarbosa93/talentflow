@@ -188,18 +188,33 @@ async function renderPDFPagesToImages(pdfBuffer: Buffer, maxPages: number): Prom
   const pageCount = Math.min(doc.countPages(), maxPages)
   const images: Buffer[] = []
 
+  // Groq limite à ~4MB par requête — on utilise JPEG 80% et scale adaptatif
+  const MAX_IMAGE_SIZE = 3_500_000 // 3.5 MB max par image (base64 sera ~33% plus gros)
+
   for (let i = 0; i < pageCount; i++) {
     const page = doc.loadPage(i)
-    // Scale 2x = 144 DPI (meilleure lisibilité pour la vision IA)
-    const pixmap = page.toPixmap(
-      mupdf.Matrix.scale(2, 2),
-      mupdf.ColorSpace.DeviceRGB,
-      false, // pas d'alpha
-      true   // rendre les annotations
-    )
-    const pngBytes = pixmap.asPNG()
-    images.push(Buffer.from(pngBytes))
-    pixmap.destroy()
+
+    // Essayer scale 1.5x d'abord (108 DPI), réduire si trop gros
+    let scale = 1.5
+    let imgBuffer: Buffer
+
+    while (scale >= 0.75) {
+      const pixmap = page.toPixmap(
+        mupdf.Matrix.scale(scale, scale),
+        mupdf.ColorSpace.DeviceRGB,
+        false, // pas d'alpha
+        true   // rendre les annotations
+      )
+      const jpegBytes = pixmap.asJPEG(80)
+      imgBuffer = Buffer.from(jpegBytes)
+      pixmap.destroy()
+
+      if (imgBuffer.length <= MAX_IMAGE_SIZE) break
+      console.log(`[CV Scan] Page ${i + 1} trop grosse (${(imgBuffer.length / 1024).toFixed(0)} KB) à scale ${scale}, réduction...`)
+      scale -= 0.25
+    }
+
+    images.push(imgBuffer!)
     page.destroy()
   }
 
@@ -208,15 +223,15 @@ async function renderPDFPagesToImages(pdfBuffer: Buffer, maxPages: number): Prom
 }
 
 export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
-  // Convertir les pages en images PNG
+  // Convertir les pages en images JPEG
   const images = await renderPDFPagesToImages(pdfBuffer, 5)
   const totalPages = images.length
 
-  console.log(`[CV Scan] PDF scanné : ${totalPages} pages converties en PNG`)
+  console.log(`[CV Scan] PDF scanné : ${totalPages} pages converties en JPEG`)
 
   if (totalPages === 1) {
     console.log(`[CV Scan] Page 1 : ${(images[0].length / 1024).toFixed(0)} KB PNG`)
-    return analyserCVDepuisImage(images[0], 'image/png')
+    return analyserCVDepuisImage(images[0], 'image/jpeg')
   }
 
   // Plusieurs pages → analyser chaque page puis fusionner les résultats
@@ -224,7 +239,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
   for (let i = 0; i < totalPages; i++) {
     console.log(`[CV Scan] Analyse page ${i + 1}/${totalPages} (${(images[i].length / 1024).toFixed(0)} KB)...`)
     try {
-      const pageAnalyse = await analyserCVDepuisImage(images[i], 'image/png')
+      const pageAnalyse = await analyserCVDepuisImage(images[i], 'image/jpeg')
       analyses.push(pageAnalyse)
     } catch (err) {
       console.warn(`[CV Scan] Échec page ${i + 1}:`, err)
