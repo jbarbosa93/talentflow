@@ -125,8 +125,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
     analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 45_000, 'analyse image')
   } else if (isScanned && isPDF) {
-    console.log('[CV Parse] PDF scanné → conversion image + vision IA...')
-    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 45_000, 'analyse PDF scanné')
+    return NextResponse.json(
+      { error: 'Ce PDF est un scan sans texte. Réimportez-le en JPG ou PNG pour que l\'IA puisse le lire.' },
+      { status: 422 }
+    )
   } else if (isScanned) {
     return NextResponse.json(
       { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
