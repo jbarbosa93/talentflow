@@ -165,6 +165,8 @@ async function parseResponse(res, job, t0) {
   }
 
   if (res.status === 429) return 'retry'
+  // Crédit Anthropic épuisé → attendre et réessayer (utilisateur peut recharger)
+  if (!res.ok && typeof data.error === 'string' && data.error.includes('credit balance')) return 'retry'
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
 
   if (data.isDuplicate) {
