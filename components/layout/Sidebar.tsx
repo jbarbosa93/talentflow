@@ -185,15 +185,16 @@ export function Sidebar() {
             onClick={handleLogout}
             title="Se déconnecter"
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.35)', padding: 4, borderRadius: 6,
-              display: 'flex', alignItems: 'center', flexShrink: 0,
-              transition: 'color 0.15s',
+              background: 'none', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer',
+              color: 'rgba(255,255,255,0.65)', padding: '4px 8px', borderRadius: 6,
+              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+              transition: 'color 0.15s, border-color 0.15s', fontSize: 11, fontWeight: 500,
             }}
-            onMouseOver={e => (e.currentTarget.style.color = '#F5A623')}
-            onMouseOut={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.35)')}
+            onMouseOver={e => { e.currentTarget.style.color = '#F5A623'; e.currentTarget.style.borderColor = '#F5A623' }}
+            onMouseOut={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
           >
-            <LogOut size={15} />
+            <LogOut size={13} />
+            <span>Déconnexion</span>
           </button>
         </div>
       </div>
