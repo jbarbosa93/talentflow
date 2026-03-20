@@ -89,7 +89,11 @@ export default function CandidatDetailPage() {
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
   const [cvZoom, setCvZoom]               = useState(1.0)
-  const [cvRotation, setCvRotation]       = useState(0)
+  const [cvRotation, setCvRotation]       = useState(() => {
+    if (typeof window === 'undefined') return 0
+    const saved = localStorage.getItem(`cv_rotation_${id}`)
+    return saved ? parseInt(saved, 10) : 0
+  })
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const cvScrollRef     = useRef<HTMLDivElement>(null)
@@ -794,10 +798,10 @@ export default function CandidatDetailPage() {
                   >
                     <Printer size={14} />
                   </button>
-                  <button onClick={() => setCvRotation(r => (r - 90 + 360) % 360)} title="Rotation gauche" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                  <button onClick={() => { const r = (cvRotation - 90 + 360) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation gauche" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                     <RotateCcw size={14} />
                   </button>
-                  <button onClick={() => setCvRotation(r => (r + 90) % 360)} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
+                  <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
                     <RotateCw size={14} />
                   </button>
                   {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
@@ -833,7 +837,7 @@ export default function CandidatDetailPage() {
                 onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
                 onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: cvRotation !== 0 ? 'visible' : 'hidden' }}>
                   <img src={candidat.cv_url} alt="CV" style={{ width: (cvRotation === 90 || cvRotation === 270) ? `${cvZoom * 100}vh` : `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.3s ease' }} />
                 </div>
               </div>
@@ -842,7 +846,7 @@ export default function CandidatDetailPage() {
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative', overflow: cvRotation !== 0 ? 'visible' : 'hidden' }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />

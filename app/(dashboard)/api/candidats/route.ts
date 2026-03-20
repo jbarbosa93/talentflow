@@ -7,6 +7,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
+export const maxDuration = 60
+
+// Tous les champs utiles pour la liste (excl. cv_texte_brut qui peut peser plusieurs MB)
+const LIST_COLUMNS = [
+  'id', 'nom', 'prenom', 'email', 'telephone', 'localisation',
+  'titre_poste', 'annees_exp', 'competences', 'formation',
+  'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
+  'statut_pipeline', 'tags', 'notes', 'source',
+  'langues', 'linkedin', 'permis_conduire', 'date_naissance',
+  'experiences', 'formations_details', 'created_at', 'updated_at',
+].join(', ')
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,41 +26,56 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const statut = searchParams.get('statut') || ''
 
-    let query = supabase
-      .from('candidats')
-      .select('*', { count: 'exact' })
-      .range(0, 9999)
-      .order('created_at', { ascending: false })
+    // ── Fetch ALL rows via pagination loop ───────────────────────────────────
+    // PostgREST caps at 1000 rows per request regardless of .range() — loop to bypass
+    const PAGE_SIZE = 1000
+    const allData: any[] = []
+    let offset = 0
 
-    if (statut) {
-      query = query.eq('statut_pipeline', statut as any)
+    while (true) {
+      let query = supabase
+        .from('candidats')
+        .select(LIST_COLUMNS)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1)
+
+      if (statut) query = query.eq('statut_pipeline', statut as any)
+
+      const { data, error } = await query
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (!data || data.length === 0) break
+
+      allData.push(...data)
+
+      if (data.length < PAGE_SIZE) break  // last page
+      offset += PAGE_SIZE
     }
 
-    const { data, error, count } = await query
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    let candidats = data || []
+    // ── Filtrage client-side (recherche texte) ───────────────────────────────
+    let candidats = allData
 
     if (search) {
-      const q = search.toLowerCase()
+      const q = search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
       candidats = candidats.filter((c: any) =>
-        (c.nom || '').toLowerCase().includes(q) ||
-        (c.prenom || '').toLowerCase().includes(q) ||
-        (c.titre_poste || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.formation || '').toLowerCase().includes(q) ||
-        (c.localisation || '').toLowerCase().includes(q) ||
-        (c.resume_ia || '').toLowerCase().includes(q) ||
-        (c.cv_texte_brut || '').toLowerCase().includes(q) ||
-        (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
-        (c.langues || []).some((s: string) => s.toLowerCase().includes(q))
+        norm(c.nom || '').includes(q) ||
+        norm(c.prenom || '').includes(q) ||
+        norm(c.titre_poste || '').includes(q) ||
+        norm(c.email || '').includes(q) ||
+        norm(c.formation || '').includes(q) ||
+        norm(c.localisation || '').includes(q) ||
+        norm(c.resume_ia || '').includes(q) ||
+        (c.competences || []).some((s: string) => norm(s).includes(q)) ||
+        (c.langues || []).some((s: string) => norm(s).includes(q))
       )
     }
 
-    return NextResponse.json({ candidats, total: count })
+    return NextResponse.json({ candidats, total: allData.length })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur serveur' },

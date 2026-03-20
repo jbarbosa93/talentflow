@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   const { batchSize = 10 } = await request.json().catch(() => ({}))
 
-  // Get candidates with cv_url but no photo_url, limit to batch size
+  // Get candidates with cv_url but no photo_url (and not already checked)
   const { data: candidates, error } = await supabase
     .from('candidats')
     .select('id, cv_url, cv_nom_fichier')
@@ -27,9 +27,10 @@ export async function POST(request: NextRequest) {
 
   for (const cand of candidates) {
     try {
-      const ext = (cand.cv_nom_fichier || '').toLowerCase().split('.').pop()
-      if (ext !== 'pdf') {
-        // Non-PDF: skip but count as processed
+      const ext = (cand.cv_nom_fichier || cand.cv_url || '').toLowerCase().split('.').pop()
+      if (!['pdf'].includes(ext || '')) {
+        // Non-PDF: mark as checked immediately (no photo possible)
+        await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         processed++
         continue
       }
@@ -61,8 +62,10 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      // If no photo found, leave photo_url as null so it won't be re-fetched infinitely.
-      // To avoid reprocessing, we accept that candidates without photos will be retried each batch.
+      // If no photo found, mark as 'checked' to avoid reprocessing on every batch
+      if (!photoBuffer) {
+        await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
+      }
       processed++
     } catch (e) {
       console.error(`Photo extraction failed for ${cand.id}:`, e)

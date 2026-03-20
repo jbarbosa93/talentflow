@@ -68,16 +68,17 @@ export function TopBar() {
     staleTime: 60_000,
   })
 
-  const { data: allCandidats } = useQuery({
-    queryKey: ['candidats', { statut: undefined }],
+  const { data: _candidatsRaw } = useQuery({
+    queryKey: ['candidats', {}],
     queryFn: async () => {
       const res = await fetch('/api/candidats')
-      if (!res.ok) return []
-      const { candidats } = await res.json()
-      return (candidats || []) as Candidat[]
+      if (!res.ok) return { candidats: [], total: 0 }
+      const { candidats, total } = await res.json()
+      return { candidats: (candidats || []) as Candidat[], total: (total || 0) as number }
     },
     staleTime: 60_000,
   })
+  const allCandidats = _candidatsRaw?.candidats
 
   // ── Filtrage client-side ──────────────────────────────────────────────────
 
@@ -191,28 +192,17 @@ export function TopBar() {
             placeholder="Rechercher un candidat, compétence, métier..."
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--foreground)', padding: '9px 0', fontFamily: 'var(--font-body)' }}
           />
-          {query && (
+          {aiSearching && (
+            <div style={{ padding: '0 10px', display: 'flex', alignItems: 'center' }}>
+              <Loader2 size={13} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+            </div>
+          )}
+          {query && !aiSearching && (
             <button onMouseDown={e => { e.preventDefault(); clearSearch() }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 6px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 10px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}>
               <X size={13} />
             </button>
           )}
-          <button
-            onMouseDown={e => { e.preventDefault(); if (query.trim()) handleAiSearch() }}
-            disabled={!query.trim() || aiSearching}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '0 12px', height: '100%', minHeight: 38,
-              background: aiResults !== null ? 'var(--primary)' : 'var(--background)',
-              border: 'none', borderLeft: '1.5px solid var(--border)',
-              cursor: query.trim() ? 'pointer' : 'default', fontSize: 12, fontWeight: 700,
-              color: aiResults !== null ? '#0F172A' : 'var(--muted)',
-              opacity: !query.trim() ? 0.4 : 1, transition: 'all 0.15s',
-              fontFamily: 'var(--font-body)', flexShrink: 0,
-            }}
-            title="Recherche IA — Entrée ou clic"
-          >
-            {aiSearching ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> IA</> : <><Sparkles size={12} /> IA</>}
-          </button>
         </div>
 
         {/* Dropdown */}

@@ -200,7 +200,8 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
   const [notes, setNotes] = useState('')
   const [intervieweur, setIntervieweur] = useState('')
 
-  const { data: candidats } = useCandidats()
+  const { data: _candidatsData } = useCandidats()
+  const candidats = _candidatsData?.candidats
   const { data: offres } = useOffres()
   const createEntretien = useCreateEntretien()
 

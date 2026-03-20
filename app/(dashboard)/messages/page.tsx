@@ -233,7 +233,8 @@ function EmailTab() {
   const [corps, setCorps] = useState('')
   const [sent, setSent] = useState(false)
 
-  const { data: candidats } = useCandidats()
+  const { data: _candidatsData } = useCandidats()
+  const candidats = _candidatsData?.candidats
   const { data: templates } = useEmailTemplates()
   const sendEmail = useSendEmail()
 
@@ -364,7 +365,8 @@ function WhatsAppTab() {
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const { data: candidats } = useCandidats()
+  const { data: _candidatsData } = useCandidats()
+  const candidats = _candidatsData?.candidats
   const { data: templates } = useEmailTemplates()
 
   const handleCandidatChange = (id: string) => {
@@ -489,7 +491,8 @@ function SmsTab() {
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const { data: candidats } = useCandidats()
+  const { data: _candidatsData } = useCandidats()
+  const candidats = _candidatsData?.candidats
   const { data: templates } = useEmailTemplates()
 
   const handleCandidatChange = (id: string) => {

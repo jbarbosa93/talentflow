@@ -33,7 +33,8 @@ export default function MatchingPage() {
   const [result, setResult] = useState<any>(null)
 
   const { data: offres } = useOffres(true)
-  const { data: candidats } = useCandidats()
+  const { data: _candidatsData } = useCandidats()
+  const candidats = _candidatsData?.candidats
   const calculerScore = useCalculerScore()
 
   const handleMatch = () => {

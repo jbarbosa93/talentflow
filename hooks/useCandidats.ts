@@ -14,8 +14,8 @@ export function useCandidats(filters?: { statut?: PipelineEtape }) {
       if (filters?.statut) params.set('statut', filters.statut)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
-      const { candidats } = await res.json()
-      return (candidats || []) as Candidat[]
+      const { candidats, total } = await res.json()
+      return { candidats: (candidats || []) as Candidat[], total: (total ?? candidats?.length ?? 0) as number }
     },
     staleTime: 60_000,
   })

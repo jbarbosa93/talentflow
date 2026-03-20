@@ -138,14 +138,16 @@ function CandidatsPageInner() {
     } catch {}
   }, [])
 
-  const { data: allCandidats, isLoading } = useCandidats({
+  const { data: candidatsData, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
   })
+  const allCandidats = candidatsData?.candidats || []
+  const totalCandidats = candidatsData?.total ?? allCandidats.length
   const deleteBulk   = useDeleteCandidatsBulk()
   const updateStatut = useUpdateStatutCandidat()
 
   useEffect(() => {
-    if (!allCandidats) return
+    if (!allCandidats.length) return
     const locs = [...new Set(allCandidats.map((c: any) => c.localisation).filter(Boolean))] as string[]
     // Skip locs already in distances (loaded from localStorage) or already being geocoded
     const todo = locs.filter(loc => distances[loc] === undefined && !(loc in geocacheRef.current) && !geocodingRef.current.has(loc))
@@ -205,7 +207,6 @@ function CandidatsPageInner() {
         normalize(c.formation || '').includes(q) ||
         normalize(c.localisation || '').includes(q) ||
         normalize(c.resume_ia || '').includes(q) ||
-        normalize(c.cv_texte_brut || '').includes(q) ||
         normalize(c.notes || '').includes(q) ||
         (c.competences || []).some((s: string) => normalize(s).includes(q)) ||
         (c.langues || []).some((s: string) => normalize(s).includes(q)) ||
@@ -539,7 +540,7 @@ function CandidatsPageInner() {
         <div>
           <h1 className="d-page-title">Candidats</h1>
           <p className="d-page-sub">
-            {isLoading ? '...' : `${(allCandidats || []).length} candidat${(allCandidats || []).length > 1 ? 's' : ''} au total`}
+            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''} au total`}
             {aiResults !== null && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}· Résultats IA
@@ -869,7 +870,6 @@ function CandidatsPageInner() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
             {candidatesPagines.length} candidat{candidatesPagines.length > 1 ? 's' : ''} affichés
-            {candidatesTries.length !== candidatesPagines.length && ` (${candidatesTries.length} filtrés)`}
           </div>
           {candidatesPagines.map((c: any) => renderCard(c))}
           {candidatesTries.length > 0 && (
@@ -898,7 +898,7 @@ function CandidatsPageInner() {
             hoveredCvTimeout.current = setTimeout(() => {
               setHoveredCv(null)
               if (previewZoom < 1) setPreviewZoom(1)
-            }, 200)
+            }, 900)
           }}
           style={{
             position: 'fixed',
@@ -923,13 +923,15 @@ function CandidatsPageInner() {
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>Aperçu CV</span>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
               <button
-                onClick={() => setPreviewZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setPreviewZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2))) }}
                 style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontWeight: 700 }}
                 title="Dézoomer"
               >−</button>
               <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 36, textAlign: 'center' }}>{Math.round(previewZoom * 100)}%</span>
               <button
-                onClick={() => setPreviewZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setPreviewZoom(z => Math.min(3, +(z + 0.25).toFixed(2))) }}
                 style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontWeight: 700 }}
                 title="Zoomer"
               >+</button>
@@ -938,7 +940,9 @@ function CandidatsPageInner() {
           {/* Content */}
           <div
             ref={previewScrollRef}
-            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: 'center', cursor: 'grab' }}
+            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: previewZoom <= 1 ? 'center' : 'flex-start', cursor: 'grab' }}
+            onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.25 : 0.25; setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2)))) }}
+            onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
               previewPanRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }
@@ -1166,7 +1170,7 @@ function CandidatsPageInner() {
 
       {/* Pipeline dropdown (fixed position — bypass overflow clipping) */}
       {openPipelineId && pipelinePos && (() => {
-        const cand = (allCandidats || []).find((x: any) => x.id === openPipelineId)
+        const cand = allCandidats.find((x: any) => x.id === openPipelineId)
         if (!cand) return null
         return (
           <>
