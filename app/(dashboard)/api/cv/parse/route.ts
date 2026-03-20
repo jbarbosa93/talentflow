@@ -126,7 +126,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 45_000, 'analyse image')
   } else if (isScanned && isPDF) {
     console.log('[CV Parse] PDF scanné détecté → conversion en images + vision IA...')
-    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 45_000, 'analyse PDF scanné')
+    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 50_000, 'analyse PDF scanné')
   } else if (isScanned) {
     return NextResponse.json(
       { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
