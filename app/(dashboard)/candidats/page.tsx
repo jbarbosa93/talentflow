@@ -557,20 +557,26 @@ function CandidatsPageInner() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={async () => {
+              // Mode force: re-extraire TOUTES les photos avec les filtres stricts (supprime les mauvaises images)
               setExtractingPhotos(true)
-              setPhotoExtractionStatus('Extraction en cours...')
+              setPhotoExtractionStatus('Extraction en cours (re-analyse complète)...')
               try {
-                let totalProcessed = 0, totalFound = 0
+                let totalProcessed = 0, totalFound = 0, currentOffset = 0
                 while (true) {
-                  const res = await fetch('/api/cv/extract-photos', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batchSize: 10 }) })
+                  const res = await fetch('/api/cv/extract-photos', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ batchSize: 5, force: true, offset: currentOffset }),
+                  })
                   const data = await res.json()
                   totalProcessed += data.processed || 0
                   totalFound += data.found || 0
-                  setPhotoExtractionStatus(`${totalProcessed} traités, ${totalFound} photos trouvées... (${data.remaining || 0} restants)`)
-                  if (data.done || data.remaining === 0) break
-                  await new Promise(r => setTimeout(r, 500))
+                  currentOffset = data.nextOffset ?? (currentOffset + (data.processed || 0))
+                  setPhotoExtractionStatus(`${totalProcessed} CVs analysés, ${totalFound} photos extraites... (${data.remaining || 0} restants)`)
+                  if (data.done || data.remaining === 0 || (data.processed || 0) === 0) break
+                  await new Promise(r => setTimeout(r, 300))
                 }
-                setPhotoExtractionStatus(`✓ Terminé: ${totalFound} photos extraites`)
+                setPhotoExtractionStatus(`✓ Terminé : ${totalProcessed} CVs analysés, ${totalFound} photos extraites`)
                 queryClient.invalidateQueries({ queryKey: ['candidats'] })
               } catch {
                 setPhotoExtractionStatus('Erreur lors de l\'extraction')

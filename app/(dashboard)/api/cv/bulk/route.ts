@@ -80,6 +80,30 @@ async function traiterUnFichier(
     cvUrl = urlData?.signedUrl || null
   }
 
+  // Extraction photo candidat (PDFs uniquement)
+  let photoUrl: string | null = null
+  if (isPDF) {
+    try {
+      const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+      const photoBuffer = await extractPhotoFromPDF(buffer)
+      if (photoBuffer) {
+        const photoTimestamp = Date.now()
+        const photoFileName = `photos/${photoTimestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+        const { data: photoData } = await supabase.storage.from('cvs').upload(photoFileName, photoBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        })
+        if (photoData?.path) {
+          const { data: photoUrlData } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+          photoUrl = photoUrlData?.signedUrl || null
+          if (photoUrl) console.log(`[CV Bulk] Photo extraite pour ${filename}`)
+        }
+      }
+    } catch (photoErr) {
+      console.warn(`[CV Bulk] Photo extraction skipped for ${filename}:`, (photoErr as Error).message)
+    }
+  }
+
   // Créer le candidat en base
   const nouveauCandidat: CandidatInsert = {
     nom: analyse.nom || 'Candidat',
@@ -93,6 +117,7 @@ async function traiterUnFichier(
     formation: analyse.formation || null,
     cv_url: cvUrl,
     cv_nom_fichier: filename,
+    photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: null,
     statut_pipeline: statut as any,
