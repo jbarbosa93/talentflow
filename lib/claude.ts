@@ -171,16 +171,44 @@ function parseCV(text: string): CVAnalyse {
   return result as CVAnalyse
 }
 
+// ─── Limiter PDF aux N premières pages (évite timeout sur PDFs scannés > 5 pages) ──
+// Un CV tient toujours sur les premières pages — inutile d'envoyer 15 pages scannées à Claude
+
+async function limitPDFPages(buffer: Buffer, maxPages = 5): Promise<Buffer> {
+  try {
+    const { PDFDocument } = await import('pdf-lib')
+    const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+    const totalPages = srcDoc.getPageCount()
+
+    if (totalPages <= maxPages) return buffer   // déjà dans la limite
+
+    console.log(`[Claude] PDF ${totalPages} pages → limitation aux ${maxPages} premières pages`)
+    const newDoc = await PDFDocument.create()
+    const pagesToCopy = Array.from({ length: maxPages }, (_, i) => i)
+    const copiedPages = await newDoc.copyPages(srcDoc, pagesToCopy)
+    copiedPages.forEach(p => newDoc.addPage(p))
+    const trimmedBytes = await newDoc.save()
+    return Buffer.from(trimmedBytes)
+  } catch (e) {
+    // Si pdf-lib ne peut pas lire le PDF → on envoie l'original, Claude fera de son mieux
+    console.warn('[Claude] limitPDFPages failed, sending original:', (e as Error).message)
+    return buffer
+  }
+}
+
 // ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
 // Claude supporte les PDFs nativement → envoi direct sans conversion en images !
 
 export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
   const client = getClient()
-  const base64 = pdfBuffer.toString('base64')
 
-  console.log(`[Claude] Envoi PDF natif (${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
+  // Limiter aux 5 premières pages → réduit drastiquement le temps de traitement Claude
+  const trimmedBuffer = await limitPDFPages(pdfBuffer, 5)
+  const base64 = trimmedBuffer.toString('base64')
 
-  const response = await client.messages.create({
+  console.log(`[Claude] Envoi PDF natif (${(trimmedBuffer.length / 1024).toFixed(0)} KB, original: ${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
+
+  const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1200,
     messages: [{
@@ -200,7 +228,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
         },
       ],
     }],
-  })
+  }))
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
