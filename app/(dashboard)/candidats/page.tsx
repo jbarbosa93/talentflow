@@ -116,18 +116,6 @@ function CandidatsPageInner() {
     if (!hoveredCv) prevHoveredCvUrl.current = null
   }, [hoveredCv])
 
-  // Non-passive wheel listener so e.preventDefault() works (React onWheel is passive in some builds)
-  useEffect(() => {
-    const el = previewScrollRef.current
-    if (!el) return
-    const handler = (e: WheelEvent) => {
-      e.preventDefault()
-      const delta = e.deltaY > 0 ? -0.25 : 0.25
-      setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2))))
-    }
-    el.addEventListener('wheel', handler, { passive: false })
-    return () => el.removeEventListener('wheel', handler)
-  }, [hoveredCv])
 
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
@@ -954,7 +942,6 @@ function CandidatsPageInner() {
           <div
             ref={previewScrollRef}
             style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: previewZoom <= 1 ? 'center' : 'flex-start', cursor: 'grab' }}
-            onWheel={e => { e.preventDefault(); const delta = e.deltaY > 0 ? -0.25 : 0.25; setPreviewZoom(z => Math.min(3, Math.max(0.5, +((z + delta)).toFixed(2)))) }} // fallback for non-iframe areas
             onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
