@@ -1,50 +1,36 @@
 // src/lib/claude.ts
 // Wrapper IA — analyse CV et scoring matching
-// Utilise Groq (gratuit : 14 400 req/jour, modèles LLaMA 3.3 70B + vision)
+// Utilise Claude Haiku 4.5 (Anthropic) — rapide, précis, ~$0.008/CV
 
-import Groq from 'groq-sdk'
+import Anthropic from '@anthropic-ai/sdk'
 
 // Singleton client
-let groqClient: Groq | null = null
+let anthropicClient: Anthropic | null = null
 
-function getClient(): Groq {
-  if (!groqClient) {
-    if (!process.env.GROQ_API_KEY) {
-      throw new Error('GROQ_API_KEY manquant — obtenir une clé gratuite sur https://console.groq.com')
+function getClient(): Anthropic {
+  if (!anthropicClient) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY manquant — ajouter la clé dans les variables d\'environnement')
     }
-    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   }
-  return groqClient
+  return anthropicClient
 }
 
-// ─── Retry avec backoff pour les rate limits Groq (429) ─────────────────────
+// ─── Retry avec backoff pour les erreurs transitoires ────────────────────────
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn()
     } catch (err: any) {
-      const msg = err?.message || ''
-      const status = err?.status || err?.statusCode || err?.error?.code
-      const isRateLimit = status === 429 || msg.includes('rate_limit')
+      const status = err?.status || err?.statusCode || 0
+      const isRetryable = status === 429 || status === 529 || status >= 500
 
-      // Limite journalière (TPD) → inutile de réessayer, on arrête direct
-      if (msg.includes('tokens per day') || msg.includes('requests per day')) {
-        throw new Error('Quota Groq journalier atteint (500K tokens/jour). Réessayez demain ou passez au plan Dev Tier gratuit sur console.groq.com')
-      }
+      if (!isRetryable || attempt === maxRetries) throw err
 
-      if (!isRateLimit || attempt === maxRetries) throw err
-
-      // Limite par minute → retry avec backoff
-      const retryAfterMatch = msg.match(/try again in (\d+(?:\.\d+)?)(?:ms|s)/)
-      let waitMs = 2000 * (attempt + 1)
-      if (retryAfterMatch) {
-        const val = parseFloat(retryAfterMatch[1])
-        waitMs = msg.includes('ms') ? Math.ceil(val) + 500 : Math.ceil(val * 1000) + 500
-      }
-      // Max 10s d'attente par retry (éviter de bloquer trop longtemps)
-      waitMs = Math.min(waitMs, 10_000)
-      console.log(`[Groq] Rate limit/min — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
+      const waitMs = Math.min(2000 * (attempt + 1), 8000)
+      console.log(`[Claude] Erreur ${status} — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
       await new Promise(r => setTimeout(r, waitMs))
     }
   }
@@ -95,7 +81,7 @@ export interface MatchingResult {
   recommandation: 'fort' | 'moyen' | 'faible'
 }
 
-// ─── Analyse de CV ──────────────────────────────────────────────────────────
+// ─── Prompt commun ──────────────────────────────────────────────────────────
 
 const CV_JSON_PROMPT = `Tu es un assistant RH expert. Analyse ce CV et extrais les informations en JSON.
 
@@ -143,16 +129,16 @@ Règles :
 - Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens, [] pour les tableaux)
 - Ne rien inventer, extraire uniquement ce qui est dans le CV`
 
+// ─── Parser JSON robuste ─────────────────────────────────────────────────────
+
 function parseCV(text: string): CVAnalyse {
   let cleaned = text.replace(/```json|```/g, '').trim()
 
-  // Tenter le parse direct
   let result: any
   try {
     result = JSON.parse(cleaned)
   } catch {
-    // JSON tronqué → fermer les tableaux/objets ouverts et réessayer
-    // Compter les { et [ non fermés
+    // JSON tronqué → fermer les structures ouvertes
     let braces = 0, brackets = 0
     let inString = false, escape = false
     for (const ch of cleaned) {
@@ -165,9 +151,7 @@ function parseCV(text: string): CVAnalyse {
       else if (ch === '[') brackets++
       else if (ch === ']') brackets--
     }
-    // Supprimer la dernière valeur incomplète (après la dernière virgule)
     cleaned = cleaned.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"}\]]*$/, '')
-    // Fermer les structures ouvertes
     cleaned += ']'.repeat(Math.max(0, brackets)) + '}'.repeat(Math.max(0, braces))
     try {
       result = JSON.parse(cleaned)
@@ -188,126 +172,67 @@ function parseCV(text: string): CVAnalyse {
 }
 
 // ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
-// Convertit les pages PDF en images PNG via mupdf (WASM pur, compatible Vercel)
-// puis envoie chaque page au modèle vision Groq pour extraction
-
-async function renderPDFPagesToImages(pdfBuffer: Buffer, maxPages: number): Promise<Buffer[]> {
-  const mupdf = await import('mupdf')
-  const doc = mupdf.Document.openDocument(pdfBuffer, 'application/pdf')
-  const pageCount = Math.min(doc.countPages(), maxPages)
-  const images: Buffer[] = []
-
-  // Groq limite ~4MB par requête — JPEG 75% + scale 1x (rapide sur Vercel serverless)
-  for (let i = 0; i < pageCount; i++) {
-    const page = doc.loadPage(i)
-
-    const pixmap = page.toPixmap(
-      mupdf.Matrix.scale(1, 1), // 72 DPI — suffisant pour vision IA, rapide à rendre
-      mupdf.ColorSpace.DeviceRGB,
-      false,
-      true
-    )
-    const jpegBytes = pixmap.asJPEG(75)
-    const imgBuffer = Buffer.from(jpegBytes)
-    pixmap.destroy()
-
-    images.push(imgBuffer!)
-    page.destroy()
-  }
-
-  doc.destroy()
-  return images
-}
+// Claude supporte les PDFs nativement → envoi direct sans conversion en images !
 
 export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
-  // Convertir les pages en images JPEG
-  const images = await renderPDFPagesToImages(pdfBuffer, 5)
-  const totalPages = images.length
-
-  console.log(`[CV Scan] PDF scanné : ${totalPages} pages converties en JPEG`)
-
-  if (totalPages === 1) {
-    console.log(`[CV Scan] Page 1 : ${(images[0].length / 1024).toFixed(0)} KB PNG`)
-    return analyserCVDepuisImage(images[0], 'image/jpeg')
-  }
-
-  // Plusieurs pages → analyser chaque page puis fusionner les résultats
-  const analyses: CVAnalyse[] = []
-  for (let i = 0; i < totalPages; i++) {
-    console.log(`[CV Scan] Analyse page ${i + 1}/${totalPages} (${(images[i].length / 1024).toFixed(0)} KB)...`)
-    try {
-      const pageAnalyse = await analyserCVDepuisImage(images[i], 'image/jpeg')
-      analyses.push(pageAnalyse)
-    } catch (err) {
-      console.warn(`[CV Scan] Échec page ${i + 1}:`, err)
-    }
-  }
-
-  if (analyses.length === 0) {
-    throw new Error('Impossible de lire ce PDF scanné — aucune page n\'a pu être analysée')
-  }
-
-  // Fusionner : prendre les infos de base de la page 1, combiner expériences/compétences de toutes les pages
-  const merged = { ...analyses[0] }
-  for (let i = 1; i < analyses.length; i++) {
-    const a = analyses[i]
-    // Compléter les champs vides avec les pages suivantes
-    if (!merged.nom && a.nom) merged.nom = a.nom
-    if (!merged.prenom && a.prenom) merged.prenom = a.prenom
-    if (!merged.email && a.email) merged.email = a.email
-    if (!merged.telephone && a.telephone) merged.telephone = a.telephone
-    if (!merged.localisation && a.localisation) merged.localisation = a.localisation
-    if (!merged.titre_poste && a.titre_poste) merged.titre_poste = a.titre_poste
-    if (!merged.formation && a.formation) merged.formation = a.formation
-    if (!merged.linkedin && a.linkedin) merged.linkedin = a.linkedin
-    if (!merged.date_naissance && a.date_naissance) merged.date_naissance = a.date_naissance
-    if (a.annees_exp > merged.annees_exp) merged.annees_exp = a.annees_exp
-
-    // Fusionner tableaux (sans doublons)
-    const existingComps = new Set(merged.competences.map(c => c.toLowerCase()))
-    for (const comp of a.competences) {
-      if (!existingComps.has(comp.toLowerCase())) {
-        merged.competences.push(comp)
-        existingComps.add(comp.toLowerCase())
-      }
-    }
-
-    const existingLangues = new Set(merged.langues.map(l => l.toLowerCase()))
-    for (const lang of a.langues) {
-      if (!existingLangues.has(lang.toLowerCase())) {
-        merged.langues.push(lang)
-        existingLangues.add(lang.toLowerCase())
-      }
-    }
-
-    // Ajouter expériences et formations des pages suivantes
-    if (a.experiences?.length) merged.experiences.push(...a.experiences)
-    if (a.formations_details?.length) merged.formations_details.push(...a.formations_details)
-
-    if (!merged.permis_conduire && a.permis_conduire) merged.permis_conduire = true
-  }
-
-  return merged
-}
-
-export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
   const client = getClient()
+  const base64 = pdfBuffer.toString('base64')
 
-  const prompt = `Tu es un assistant RH expert. Analyse ce CV et extrais les informations en JSON.\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 8000)}\n</cv>\n\n${CV_JSON_PROMPT}`
+  console.log(`[Claude] Envoi PDF natif (${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
 
-  const completion = await withRetry(() => client.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.1,
+  // Pas de retry ici — le worker gère ses propres retries.
+  // max_tokens réduit à 2048 : un CV en JSON fait ~800-1200 tokens, ça accélère la réponse.
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
-  }))
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: base64,
+          },
+        },
+        {
+          type: 'text',
+          text: CV_JSON_PROMPT,
+        },
+      ],
+    }],
+  })
 
-  const text = completion.choices[0]?.message?.content || ''
+  const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
   try {
     return parseCV(text)
   } catch {
-    throw new Error(`Groq a retourné un JSON invalide : ${text.slice(0, 200)}`)
+    throw new Error(`Claude a retourné un JSON invalide (PDF) : ${text.slice(0, 200)}`)
+  }
+}
+
+// ─── Analyse depuis texte extrait ───────────────────────────────────────────
+
+export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
+  const client = getClient()
+
+  const response = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
+    messages: [{
+      role: 'user',
+      content: `${CV_JSON_PROMPT}\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 12000)}\n</cv>`,
+    }],
+  }))
+
+  const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
+
+  try {
+    return parseCV(text)
+  } catch {
+    throw new Error(`Claude a retourné un JSON invalide : ${text.slice(0, 200)}`)
   }
 }
 
@@ -320,14 +245,20 @@ export async function analyserCVDepuisImage(
   const client = getClient()
   const base64 = imageBuffer.toString('base64')
 
-  const completion = await withRetry(() => client.chat.completions.create({
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+  // Pas de retry ici — le worker gère ses propres retries.
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 2048,
     messages: [{
       role: 'user',
       content: [
         {
-          type: 'image_url',
-          image_url: { url: `data:${mimeType};base64,${base64}` },
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType,
+            data: base64,
+          },
         },
         {
           type: 'text',
@@ -335,16 +266,14 @@ export async function analyserCVDepuisImage(
         },
       ],
     }],
-    temperature: 0.1,
-    max_tokens: 4096,
-  }))
+  })
 
-  const text = completion.choices[0]?.message?.content || ''
+  const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
   try {
     return parseCV(text)
   } catch {
-    throw new Error(`Groq a retourné un JSON invalide (image) : ${text.slice(0, 200)}`)
+    throw new Error(`Claude a retourné un JSON invalide (image) : ${text.slice(0, 200)}`)
   }
 }
 
@@ -398,18 +327,17 @@ Règles de scoring :
 - recommandation : "fort" si score >= 75, "moyen" si 50-74, "faible" si < 50`
 
   try {
-    const completion = await withRetry(() => client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1,
+    const response = await withRetry(() => client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
+      messages: [{ role: 'user', content: prompt }],
     }))
-    const text = (completion.choices[0]?.message?.content || '').replace(/```json|```/g, '').trim()
+    const text = (response.content[0]?.type === 'text' ? response.content[0].text : '').replace(/```json|```/g, '').trim()
     const parsed = JSON.parse(text) as MatchingResult
     parsed.score = Math.min(100, Math.max(0, Math.round(parsed.score)))
     return parsed
   } catch {
-    // Fallback : calcul algorithmique si Groq échoue
+    // Fallback : calcul algorithmique si Claude échoue
     return calculerScoreAlgorithmique(candidat, offre)
   }
 }

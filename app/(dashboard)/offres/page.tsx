@@ -1,8 +1,7 @@
 'use client'
-import { useState } from 'react'
-import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -37,6 +36,7 @@ function useDeleteOffre() {
 }
 
 export default function OffresPage() {
+  const [activeTab, setActiveTab] = useState<'offres' | 'facebook'>('offres')
   const [showCreate, setShowCreate] = useState(false)
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -48,6 +48,15 @@ export default function OffresPage() {
     updateOffre.mutate({ id, statut })
   }
 
+  const tabStyle = (active: boolean) => ({
+    padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    border: 'none', borderRadius: 8, fontFamily: 'inherit',
+    color: active ? 'var(--ink)' : 'var(--ink2)',
+    background: active ? 'white' : 'transparent',
+    boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+    display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+  } as React.CSSProperties)
+
   return (
     <div className="d-page">
       <div className="d-page-header">
@@ -55,11 +64,28 @@ export default function OffresPage() {
           <h1 className="d-page-title">Offres d&apos;emploi</h1>
           <p className="d-page-sub">{offres?.length || 0} offre{(offres?.length || 0) > 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="neo-btn">
-          <Plus style={{ width: 15, height: 15 }} />
-          Nouvelle offre
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Tabs */}
+          <div style={{ display: 'flex', background: '#F0EAD8', borderRadius: 10, padding: 4, gap: 2 }}>
+            <button style={tabStyle(activeTab === 'offres')} onClick={() => setActiveTab('offres')}>
+              Offres
+            </button>
+            <button style={tabStyle(activeTab === 'facebook')} onClick={() => setActiveTab('facebook')}>
+              <img src="https://www.job-room.ch/favicon.ico" width={14} height={14} style={{ borderRadius: 2 }} onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+              job-room.ch
+            </button>
+          </div>
+          {activeTab === 'offres' && (
+            <button onClick={() => setShowCreate(true)} className="neo-btn">
+              <Plus style={{ width: 15, height: 15 }} />
+              Nouvelle offre
+            </button>
+          )}
+        </div>
       </div>
+
+      {activeTab === 'facebook' && <JobRoomComposer offres={offres || []} />}
+      {activeTab === 'offres' && (<>
 
       {isLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -163,6 +189,8 @@ export default function OffresPage() {
           ))}
         </div>
       )}
+      </>)}
+      {/* end offres tab */}
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
@@ -302,5 +330,406 @@ function OffreForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => v
         </button>
       </div>
     </form>
+  )
+}
+
+// ─── Job-Room Composer ────────────────────────────────────────────────────────
+
+function JobRoomComposer({ offres }: { offres: Offre[] }) {
+  const today = new Date().toISOString().split('T')[0]
+  const in60 = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0]
+
+  const [publishing, setPublishing] = useState(false)
+  const [selectedOffre, setSelectedOffre] = useState<string>('')
+
+  // Contact administratif
+  const [contactLang, setContactLang] = useState('fr')
+  const [contactSal, setContactSal] = useState('MR')
+  const [contactFirst, setContactFirst] = useState('')
+  const [contactLast, setContactLast] = useState('')
+  const [contactPhone, setContactPhone] = useState('+41')
+  const [contactEmail, setContactEmail] = useState('')
+
+  // Description poste
+  const [jobLang, setJobLang] = useState('fr')
+  const [jobTitle, setJobTitle] = useState('')
+  const [jobDesc, setJobDesc] = useState('')
+
+  // Lieu de travail
+  const [locPostal, setLocPostal] = useState('')
+  const [locCity, setLocCity] = useState('')
+
+  // Emploi
+  const [workMin, setWorkMin] = useState('100')
+  const [workMax, setWorkMax] = useState('100')
+  const [startDate, setStartDate] = useState('')
+  const [immediately, setImmediately] = useState(true)
+  const [permanent, setPermanent] = useState(true)
+
+  // Profession (AVAM)
+  const [avamCode, setAvamCode] = useState('')
+  const [workExp, setWorkExp] = useState('MORE_THAN_1_YEAR')
+  const [eduCode, setEduCode] = useState('132')
+
+  // Entreprise mandante (client)
+  const [employerName, setEmployerName] = useState('')
+  const [employerPostal, setEmployerPostal] = useState('')
+  const [employerCity, setEmployerCity] = useState('')
+  const [showEmployer, setShowEmployer] = useState(false)
+
+  // Canal de candidature
+  const [applyEmail, setApplyEmail] = useState('')
+  const [applyPhone, setApplyPhone] = useState('')
+  const [applyForm, setApplyForm] = useState('')
+
+  // Publication
+  const [pubStart, setPubStart] = useState(today)
+  const [pubEnd, setPubEnd] = useState(in60)
+  const [eures, setEures] = useState(false)
+  const [publicDisplay, setPublicDisplay] = useState(true)
+  const [reportToAvam, setReportToAvam] = useState(false)
+
+  const fillFromOffre = () => {
+    const o = offres.find(x => x.id === selectedOffre)
+    if (!o) return
+    setJobTitle(o.titre || '')
+    const desc = [
+      o.description || '',
+      o.competences?.length ? `## Compétences requises\n${o.competences.map(c => `- ${c}`).join('\n')}` : '',
+    ].filter(Boolean).join('\n\n')
+    setJobDesc(desc)
+    if (o.localisation) {
+      const parts = o.localisation.split(',')
+      setLocCity(parts[0].trim())
+    }
+  }
+
+  const iStyle = {
+    width: '100%', padding: '8px 10px', border: '1.5px solid #E8E0C8', borderRadius: 8,
+    fontSize: 13, color: 'var(--ink)', background: 'white', fontFamily: 'inherit',
+    outline: 'none', boxSizing: 'border-box' as const,
+  }
+  const lStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--ink2)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }
+  const sStyle: React.CSSProperties = { background: '#F8F5ED', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }
+  const sTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }
+  const grid2: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }
+
+  const handleSubmit = async () => {
+    if (!jobTitle || !jobDesc || !locPostal || !locCity || !avamCode || !contactFirst || !contactLast || !contactEmail || !contactPhone) {
+      toast.error('Veuillez remplir tous les champs obligatoires (*)'); return
+    }
+    if (!applyEmail && !applyPhone && !applyForm) {
+      toast.error('Au moins un canal de candidature requis'); return
+    }
+    setPublishing(true)
+    const body = {
+      reportToAvam,
+      numberOfJobs: 1,
+      contact: { languageIsoCode: contactLang, salutation: contactSal, firstName: contactFirst, lastName: contactLast, phone: contactPhone, email: contactEmail },
+      jobDescriptions: [{ languageIsoCode: jobLang, title: jobTitle, description: jobDesc }],
+      company: { name: 'L-Agence SA', street: 'Rue du Bourg', houseNumber: '4', postalCode: '1870', city: 'Monthey', countryIsoCode: 'CH', surrogate: showEmployer },
+      ...(showEmployer && employerName ? { employer: { name: employerName, postalCode: employerPostal, city: employerCity, countryIsoCode: 'CH' } } : {}),
+      employment: { immediately, permanent, shortEmployment: false, workloadPercentageMin: parseInt(workMin), workloadPercentageMax: parseInt(workMax), ...(startDate && !immediately ? { startDate } : {}), workForms: [] },
+      location: { postalCode: locPostal, city: locCity, countryIsoCode: 'CH' },
+      occupation: { avamOccupationCode: avamCode, workExperience: workExp, educationCode: eduCode },
+      applyChannel: { emailAddress: applyEmail || null, phoneNumber: applyPhone || null, formUrl: applyForm || null },
+      publication: { startDate: pubStart, endDate: pubEnd, euresDisplay: eures, publicDisplay },
+    }
+    try {
+      const res = await fetch('/api/jobroom/post', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Offre publiée sur job-room.ch !')
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur de publication')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+      <div>
+        {/* Auto-fill */}
+        {offres.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <select value={selectedOffre} onChange={e => setSelectedOffre(e.target.value)} style={{ ...iStyle, flex: 1 }}>
+              <option value="">Importer depuis une offre TalentFlow...</option>
+              {offres.map(o => <option key={o.id} value={o.id}>{o.titre}</option>)}
+            </select>
+            <button onClick={fillFromOffre} disabled={!selectedOffre} className="neo-btn" style={{ gap: 6, opacity: selectedOffre ? 1 : 0.5 }}>
+              <Sparkles size={13} /> Importer
+            </button>
+          </div>
+        )}
+
+        {/* Description du poste */}
+        <div style={sStyle}>
+          <p style={sTitle}>📋 Description du poste</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Langue *</label>
+              <select value={jobLang} onChange={e => setJobLang(e.target.value)} style={iStyle}>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="it">Italiano</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+            <div>
+              <label style={lStyle}>Titre du poste *</label>
+              <input style={iStyle} value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="ex: Électricien CFC" />
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <label style={lStyle}>Description (Markdown) *</label>
+            <textarea rows={6} style={{ ...iStyle, resize: 'vertical', lineHeight: 1.5 }} value={jobDesc} onChange={e => setJobDesc(e.target.value)} placeholder={'## Missions\n- ...\n\n## Profil\n- ...'} />
+          </div>
+        </div>
+
+        {/* Lieu + Emploi */}
+        <div style={sStyle}>
+          <p style={sTitle}>📍 Lieu de travail</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>NPA *</label>
+              <input style={iStyle} value={locPostal} onChange={e => setLocPostal(e.target.value)} placeholder="1870" maxLength={10} />
+            </div>
+            <div>
+              <label style={lStyle}>Ville *</label>
+              <input style={iStyle} value={locCity} onChange={e => setLocCity(e.target.value)} placeholder="Monthey" />
+            </div>
+          </div>
+        </div>
+
+        {/* Conditions d'emploi */}
+        <div style={sStyle}>
+          <p style={sTitle}>⚙️ Conditions d&apos;emploi</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Taux min % *</label>
+              <input style={iStyle} type="number" min={10} max={100} value={workMin} onChange={e => setWorkMin(e.target.value)} />
+            </div>
+            <div>
+              <label style={lStyle}>Taux max % *</label>
+              <input style={iStyle} type="number" min={10} max={100} value={workMax} onChange={e => setWorkMax(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={immediately} onChange={e => { setImmediately(e.target.checked); if (e.target.checked) setStartDate('') }} />
+              Entrée immédiate
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={permanent} onChange={e => setPermanent(e.target.checked)} />
+              CDI (permanent)
+            </label>
+          </div>
+          {!immediately && (
+            <div style={{ marginTop: 10 }}>
+              <label style={lStyle}>Date d&apos;entrée</label>
+              <input style={iStyle} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        {/* Profession */}
+        <div style={sStyle}>
+          <p style={sTitle}>🎓 Profession (AVAM)</p>
+          <div>
+            <label style={lStyle}>Code AVAM * <a href="https://www.arbeit.swiss/secoalv/fr/home.html" target="_blank" rel="noreferrer" style={{ fontWeight: 400, color: '#3B82F6', textDecoration: 'none', fontSize: 10 }}>Trouver le code ↗</a></label>
+            <input style={iStyle} value={avamCode} onChange={e => setAvamCode(e.target.value)} placeholder="ex: 102231 (Électricien)" />
+          </div>
+          <div style={{ ...grid2, marginTop: 10 }}>
+            <div>
+              <label style={lStyle}>Expérience requise</label>
+              <select value={workExp} onChange={e => setWorkExp(e.target.value)} style={iStyle}>
+                <option value="LESS_THAN_1_YEAR">Moins d&apos;1 an</option>
+                <option value="MORE_THAN_1_YEAR">Plus d&apos;1 an</option>
+                <option value="MORE_THAN_3_YEARS">Plus de 3 ans</option>
+              </select>
+            </div>
+            <div>
+              <label style={lStyle}>Formation</label>
+              <select value={eduCode} onChange={e => setEduCode(e.target.value)} style={iStyle}>
+                <option value="130">Scolarité obligatoire</option>
+                <option value="131">CFC</option>
+                <option value="132">Brevet fédéral</option>
+                <option value="134">Maturité professionnelle</option>
+                <option value="150">Diplôme ES</option>
+                <option value="170">Bachelor HES</option>
+                <option value="171">Bachelor Université</option>
+                <option value="173">Master Université</option>
+                <option value="180">Doctorat</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Entreprise mandante */}
+        <div style={sStyle}>
+          <p style={{ ...sTitle, marginBottom: 10 }}>🏢 Entreprise mandante (client)</p>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', marginBottom: showEmployer ? 12 : 0 }}>
+            <input type="checkbox" checked={showEmployer} onChange={e => setShowEmployer(e.target.checked)} />
+            Publier au nom d&apos;un client (agence de placement)
+          </label>
+          {showEmployer && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label style={lStyle}>Nom de l&apos;entreprise *</label>
+                <input style={iStyle} value={employerName} onChange={e => setEmployerName(e.target.value)} placeholder="Nom du client" />
+              </div>
+              <div style={grid2}>
+                <div>
+                  <label style={lStyle}>NPA *</label>
+                  <input style={iStyle} value={employerPostal} onChange={e => setEmployerPostal(e.target.value)} placeholder="1200" />
+                </div>
+                <div>
+                  <label style={lStyle}>Ville *</label>
+                  <input style={iStyle} value={employerCity} onChange={e => setEmployerCity(e.target.value)} placeholder="Genève" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Contact administratif */}
+        <div style={sStyle}>
+          <p style={sTitle}>👤 Contact administratif (notifications SECO)</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Prénom *</label>
+              <input style={iStyle} value={contactFirst} onChange={e => setContactFirst(e.target.value)} placeholder="João" />
+            </div>
+            <div>
+              <label style={lStyle}>Nom *</label>
+              <input style={iStyle} value={contactLast} onChange={e => setContactLast(e.target.value)} placeholder="Barbosa" />
+            </div>
+          </div>
+          <div style={{ ...grid2, marginTop: 10 }}>
+            <div>
+              <label style={lStyle}>Téléphone * (+41...)</label>
+              <input style={iStyle} value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="+41791234567" />
+            </div>
+            <div>
+              <label style={lStyle}>Email *</label>
+              <input style={iStyle} type="email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="contact@lagence.ch" />
+            </div>
+          </div>
+          <div style={{ ...grid2, marginTop: 10 }}>
+            <div>
+              <label style={lStyle}>Civilité</label>
+              <select value={contactSal} onChange={e => setContactSal(e.target.value)} style={iStyle}>
+                <option value="MR">M.</option>
+                <option value="MS">Mme</option>
+              </select>
+            </div>
+            <div>
+              <label style={lStyle}>Langue communication</label>
+              <select value={contactLang} onChange={e => setContactLang(e.target.value)} style={iStyle}>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="it">Italiano</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Canal de candidature */}
+        <div style={sStyle}>
+          <p style={sTitle}>📩 Canal de candidature (min. 1 requis)</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <label style={lStyle}>Email</label>
+              <input style={iStyle} type="email" value={applyEmail} onChange={e => setApplyEmail(e.target.value)} placeholder="candidatures@lagence.ch" />
+            </div>
+            <div>
+              <label style={lStyle}>Téléphone</label>
+              <input style={iStyle} value={applyPhone} onChange={e => setApplyPhone(e.target.value)} placeholder="+41791234567" />
+            </div>
+            <div>
+              <label style={lStyle}>Formulaire en ligne (URL)</label>
+              <input style={iStyle} value={applyForm} onChange={e => setApplyForm(e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+        </div>
+
+        {/* Publication */}
+        <div style={sStyle}>
+          <p style={sTitle}>📅 Publication</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Date début *</label>
+              <input style={iStyle} type="date" value={pubStart} onChange={e => setPubStart(e.target.value)} />
+            </div>
+            <div>
+              <label style={lStyle}>Date fin (max 60j)</label>
+              <input style={iStyle} type="date" value={pubEnd} onChange={e => setPubEnd(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={publicDisplay} onChange={e => setPublicDisplay(e.target.checked)} />
+              Visible publiquement
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={eures} onChange={e => setEures(e.target.checked)} />
+              Publier sur EURES (Europe)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={reportToAvam} onChange={e => setReportToAvam(e.target.checked)} />
+              Obligation de déclarer (AVAM)
+            </label>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 }}>
+          <button onClick={handleSubmit} disabled={publishing} className="neo-btn" style={{ gap: 8, padding: '10px 24px', fontSize: 14 }}>
+            <Send size={14} />
+            {publishing ? 'Publication en cours...' : 'Publier sur job-room.ch'}
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar info */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 80 }}>
+        <div style={{ background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#166534', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Info size={13} /> job-room.ch
+          </p>
+          <p style={{ fontSize: 11, color: '#15803D', margin: '0 0 10px', lineHeight: 1.6 }}>
+            Portail officiel de la Confédération (SECO). Gratuit. Satisfait l&apos;obligation légale de déclaration des postes.
+          </p>
+          <a href="https://www.job-room.ch" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#16A34A', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+            Voir job-room.ch <ExternalLink size={10} />
+          </a>
+        </div>
+
+        <div style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', margin: '0 0 8px' }}>⚙️ Accès API requis</p>
+          <p style={{ fontSize: 11, color: '#78350F', margin: '0 0 8px', lineHeight: 1.6 }}>
+            Envoyez un email à :<br/>
+            <strong>jobroom-api@seco.admin.ch</strong><br/>
+            Objet : "Job-Room API access"<br/>
+            Contenu : nom entreprise, adresse, contact technique, volume mensuel estimé.
+          </p>
+          <p style={{ fontSize: 11, color: '#78350F', margin: 0 }}>
+            Puis ajoutez dans <code>.env.local</code> :<br/>
+            <code style={{ fontSize: 10 }}>JOBROOM_USERNAME=...</code><br/>
+            <code style={{ fontSize: 10 }}>JOBROOM_PASSWORD=...</code>
+          </p>
+        </div>
+
+        <div style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', margin: '0 0 8px' }}>📌 Statuts de publication</p>
+          <div style={{ fontSize: 11, color: '#1E40AF', lineHeight: 1.9 }}>
+            <div><span style={{ fontWeight: 700 }}>INSPECTING</span> — En validation AVAM</div>
+            <div><span style={{ fontWeight: 700 }}>PUBLISHED_RESTRICTED</span> — 5j réservé aux inscrits</div>
+            <div><span style={{ fontWeight: 700 }}>PUBLISHED_PUBLIC</span> — Visible publiquement</div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

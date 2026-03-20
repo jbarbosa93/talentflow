@@ -92,12 +92,18 @@ function CandidatsPageInner() {
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Distance depuis Monthey, Suisse — cache par localisation
-  const [distances, setDistances] = useState<Record<string, number>>({})
+  const [distances, setDistances] = useState<Record<string, number>>(() => {
+    try {
+      const s = typeof localStorage !== 'undefined' ? localStorage.getItem('talentflow_distances_monthey') : null
+      return s ? JSON.parse(s) : {}
+    } catch { return {} }
+  })
   const geocacheRef = useRef<Record<string, { lat: number; lon: number } | null>>({})
   const geocodingRef = useRef<Set<string>>(new Set())
 
   // Pipeline dropdown inline
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
+  const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
 
   useEffect(() => {
     try {
@@ -115,7 +121,8 @@ function CandidatsPageInner() {
   useEffect(() => {
     if (!allCandidats) return
     const locs = [...new Set(allCandidats.map((c: any) => c.localisation).filter(Boolean))] as string[]
-    const todo = locs.filter(loc => !(loc in geocacheRef.current) && !geocodingRef.current.has(loc))
+    // Skip locs already in distances (loaded from localStorage) or already being geocoded
+    const todo = locs.filter(loc => distances[loc] === undefined && !(loc in geocacheRef.current) && !geocodingRef.current.has(loc))
     if (!todo.length) return
 
     let i = 0
@@ -135,7 +142,11 @@ function CandidatsPageInner() {
             const dLon = (lon2 - 6.9567)  * Math.PI / 180
             const a = Math.sin(dLat/2)**2 + Math.cos(46.2548*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2
             const km = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
-            setDistances(prev => ({ ...prev, [loc]: km }))
+            setDistances(prev => {
+              const next = { ...prev, [loc]: km }
+              try { localStorage.setItem('talentflow_distances_monthey', JSON.stringify(next)) } catch {}
+              return next
+            })
           } else {
             geocacheRef.current[loc] = null
           }
@@ -148,7 +159,7 @@ function CandidatsPageInner() {
 
   // Fermer le dropdown pipeline en cliquant ailleurs
   useEffect(() => {
-    const close = () => setOpenPipelineId(null)
+    const close = () => { setOpenPipelineId(null); setPipelinePos(null) }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
   }, [])
@@ -452,60 +463,10 @@ function CandidatsPageInner() {
           </div>
         )}
 
-        {/* Date */}
+        {/* Date d'ajout */}
         <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          Ajouté le {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
         </span>
-
-        {/* Badge pipeline cliquable */}
-        <div
-          onClick={e => { e.stopPropagation(); setOpenPipelineId(openPipelineId === c.id ? null : c.id) }}
-          style={{ position: 'relative', flexShrink: 0 }}
-        >
-          <span
-            className={ETAPE_BADGE[c.statut_pipeline as PipelineEtape] || 'neo-badge neo-badge-gray'}
-            style={{ cursor: 'pointer', userSelect: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-          >
-            {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
-            <ChevronDown size={9} />
-          </span>
-
-          {/* Dropdown pipeline */}
-          {openPipelineId === c.id && (
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                position: 'absolute', right: 0, top: 'calc(100% + 5px)', zIndex: 200,
-                background: 'white', border: '1px solid var(--border)',
-                borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-                padding: 4, minWidth: 145,
-              }}
-            >
-              {(Object.entries(ETAPE_LABELS) as [PipelineEtape, string][]).map(([etape, label]) => (
-                <button
-                  key={etape}
-                  onClick={e => {
-                    e.stopPropagation()
-                    if (c.statut_pipeline !== etape) {
-                      updateStatut.mutate({ id: c.id, statut: etape })
-                    }
-                    setOpenPipelineId(null)
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', width: '100%',
-                    padding: '7px 10px', borderRadius: 7, border: 'none',
-                    background: c.statut_pipeline === etape ? 'var(--primary-soft)' : 'transparent',
-                    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', gap: 8,
-                  }}
-                >
-                  <span className={ETAPE_BADGE[etape]}>{label}</span>
-                  {c.statut_pipeline === etape && <Check size={11} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     )
   }
@@ -1044,6 +1005,49 @@ function CandidatsPageInner() {
               </div>
             </div>
           </div>
+        )
+      })()}
+
+      {/* Pipeline dropdown (fixed position — bypass overflow clipping) */}
+      {openPipelineId && pipelinePos && (() => {
+        const cand = (allCandidats || []).find((x: any) => x.id === openPipelineId)
+        if (!cand) return null
+        return (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={() => { setOpenPipelineId(null); setPipelinePos(null) }} />
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'fixed', top: pipelinePos.top, left: pipelinePos.left, zIndex: 999,
+                background: 'white', border: '1px solid var(--border)',
+                borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                padding: 4, minWidth: 145,
+              }}
+            >
+              {(Object.entries(ETAPE_LABELS) as [PipelineEtape, string][]).map(([etape, label]) => (
+                <button
+                  key={etape}
+                  onClick={() => {
+                    if (cand.statut_pipeline !== etape) {
+                      updateStatut.mutate({ id: cand.id, statut: etape })
+                    }
+                    setOpenPipelineId(null)
+                    setPipelinePos(null)
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', width: '100%',
+                    padding: '7px 10px', borderRadius: 7, border: 'none',
+                    background: cand.statut_pipeline === etape ? 'var(--primary-soft)' : 'transparent',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', gap: 8,
+                  }}
+                >
+                  <span className={ETAPE_BADGE[etape]}>{label}</span>
+                  {cand.statut_pipeline === etape && <Check size={11} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
+                </button>
+              ))}
+            </div>
+          </>
         )
       })()}
 

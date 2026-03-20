@@ -68,6 +68,17 @@ export async function extractTextFromWord(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Extrait le texte brut d'un Buffer Word ancien format (.doc) via word-extractor
+ */
+export async function extractTextFromDoc(buffer: Buffer): Promise<string> {
+  const WordExtractor = (await import('word-extractor')).default
+  const extractor = new WordExtractor()
+  const doc = await extractor.extract(buffer)
+  const text = doc.getBody()
+  return text.replace(/\n{3,}/g, '\n\n').trim()
+}
+
+/**
  * Détecte le type de fichier et extrait le texte
  */
 export async function extractTextFromCV(
@@ -90,7 +101,17 @@ export async function extractTextFromCV(
   }
 
   if (ext === 'doc' || type === 'application/msword') {
-    return extractTextFromWord(buffer)
+    // .doc (Word 97-2003) : mammoth ne le supporte pas → utiliser word-extractor
+    try {
+      return await extractTextFromDoc(buffer)
+    } catch {
+      // Si word-extractor échoue aussi, essayer mammoth en dernier recours
+      try {
+        return await extractTextFromWord(buffer)
+      } catch {
+        return '' // tout échoue → traité comme "scanné" → envoyé à Claude
+      }
+    }
   }
 
   if (ext === 'txt' || type === 'text/plain') {

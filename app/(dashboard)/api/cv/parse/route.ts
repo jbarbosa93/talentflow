@@ -100,6 +100,26 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   console.log(`[CV Parse] Début : ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
 
+  // 3b. Vérification rapide : fichier déjà importé ? (par nom de fichier)
+  //     Évite de consommer l'API Claude pour des CVs déjà en base
+  if (!forceInsert && !replaceId) {
+    const { data: existingByFile } = await supabase
+      .from('candidats')
+      .select('id, prenom, nom, email, titre_poste, created_at')
+      .eq('cv_nom_fichier', file.name)
+      .maybeSingle()
+
+    if (existingByFile) {
+      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → skip analyse IA`)
+      return NextResponse.json({
+        isDuplicate: true,
+        candidatExistant: existingByFile,
+        analyse: { prenom: existingByFile.prenom, nom: existingByFile.nom, email: existingByFile.email, titre_poste: existingByFile.titre_poste },
+        message: `Déjà importé : ${existingByFile.prenom} ${existingByFile.nom}`,
+      })
+    }
+  }
+
   // 4. Convertir en Buffer
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
@@ -113,6 +133,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   const ext      = file.name.toLowerCase().split('.').pop() || ''
   const isPDF    = ext === 'pdf' || file.type === 'application/pdf'
+  const isDoc    = ext === 'doc' || file.type === 'application/msword'
   const isImage  = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
   const isScanned = !texteCV || texteCV.trim().length < 50
 
@@ -123,10 +144,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (isImage) {
     console.log(`[CV Parse] Image (${ext}) → vision Claude...`)
     const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
-    analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 45_000, 'analyse image')
+    analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
   } else if (isScanned && isPDF) {
-    console.log('[CV Parse] PDF scanné détecté → conversion en images + vision IA...')
-    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 50_000, 'analyse PDF scanné')
+    console.log('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
+    analyse = await withTimeout(analyserCVDepuisPDF(buffer), 55_000, 'analyse PDF scanné')
+  } else if (isScanned && isDoc) {
+    // .doc (Word 97-2003) : si word-extractor n'a pas pu extraire le texte,
+    // on ne peut pas envoyer un .doc à Claude (format binaire non supporté)
+    return NextResponse.json(
+      { error: 'Fichier .doc illisible. Convertissez-le en PDF ou DOCX avant de l\'importer.' },
+      { status: 422 }
+    )
   } else if (isScanned) {
     return NextResponse.json(
       { error: 'Le fichier semble vide ou illisible. Vérifiez que le CV contient du texte.' },
@@ -134,7 +162,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     )
   } else {
     console.log(`[CV Parse] Texte : ${texteCV.length} chars`)
-    analyse = await withTimeout(analyserCV(texteCV), 45_000, 'analyse texte')
+    analyse = await withTimeout(analyserCV(texteCV), 50_000, 'analyse texte')
   }
 
   console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)

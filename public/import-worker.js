@@ -3,7 +3,7 @@
 
 const CONCURRENCY        = 6
 const MAX_RETRIES        = 3
-const FETCH_TIMEOUT      = 52_000   // 52s — sous le timeout global route (55s) et Vercel (60s)
+const FETCH_TIMEOUT      = 57_000   // 57s — laisse le temps à la route (55s global) de répondre
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
 
 let queue          = []
@@ -77,9 +77,12 @@ async function processJobDirect(job, t0) {
     } catch (err) {
       clearTimeout(timeoutId)
       // Affiche le message exact pour diagnostiquer l'erreur réelle
+      const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
       lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
+      // Ne pas retenter les timeouts — le PDF est trop lourd, ça échouera à chaque fois
+      if (isTimeout) break
       if (attempt < MAX_RETRIES) {
-        const wait = attempt * 3000  // 3s, 6s (au lieu de 6s, 12s, 24s, 48s)
+        const wait = attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
@@ -135,7 +138,9 @@ async function processJobLarge(job, t0) {
       return
 
     } catch (err) {
+      const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
       lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
+      if (isTimeout) break
       if (attempt < MAX_RETRIES) {
         const wait = attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })

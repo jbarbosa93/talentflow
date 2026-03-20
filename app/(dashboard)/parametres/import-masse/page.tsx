@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import {
   Upload, FolderOpen, Play, Pause, RotateCcw, Download,
   CheckCircle, XCircle, Loader2, FileText, AlertTriangle,
-  Zap, Clock, X, Tag, Copy,
+  Zap, Clock, X, Tag, Copy, CheckSquare, Square,
 } from 'lucide-react'
 import { useImport, getCatColor, type FileJob } from '@/contexts/ImportContext'
 
@@ -78,6 +78,7 @@ export default function ImportMassePage() {
   const [errorFilter, setErrorFilter] = useState(false)
   const [doubFilter, setDoubFilter]   = useState(false)
   const [catFilter, setCatFilter]     = useState<string | null>(null)
+  const [selectedDoublons, setSelectedDoublons] = useState<Set<string>>(new Set())
 
   const inputRef  = useRef<HTMLInputElement>(null)
   const folderRef = useRef<HTMLInputElement>(null)
@@ -111,6 +112,31 @@ export default function ImportMassePage() {
   } = ctx
 
   const isPaused = !running && !done && completed > 0 && pending > 0
+
+  const doublonJobs = jobs.filter(j => j.status === 'doublon')
+  const allDoublonsSelected = doublonJobs.length > 0 && doublonJobs.every(j => selectedDoublons.has(j.id))
+  const someDoublonsSelected = selectedDoublons.size > 0
+
+  const toggleDoublon = (id: string) => {
+    setSelectedDoublons(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleAllDoublons = () => {
+    if (allDoublonsSelected) {
+      setSelectedDoublons(new Set())
+    } else {
+      setSelectedDoublons(new Set(doublonJobs.map(j => j.id)))
+    }
+  }
+  const bulkResolveDoublons = (action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
+    const selected = doublonJobs.filter(j => selectedDoublons.has(j.id))
+    selected.forEach(job => resolveDoublon(job, action))
+    setSelectedDoublons(new Set())
+  }
 
   const filteredJobs = (() => {
     let list = jobs
@@ -283,6 +309,56 @@ export default function ImportMassePage() {
         </div>
       )}
 
+      {/* Rapport de fin d'import */}
+      {done && (failed > 0 || doublons > 0) && (
+        <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <AlertTriangle size={18} color={failed > 0 ? '#DC2626' : '#F59E0B'} />
+              <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
+                Rapport d&apos;import
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              {succeeded} importé{succeeded > 1 ? 's' : ''} · {doublons} doublon{doublons > 1 ? 's' : ''} · {failed} erreur{failed > 1 ? 's' : ''}
+            </div>
+          </div>
+
+          {failed > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <XCircle size={13} />
+                {failed} fichier{failed > 1 ? 's' : ''} non importé{failed > 1 ? 's' : ''}
+              </div>
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, overflow: 'hidden', marginBottom: doublons > 0 ? 16 : 0 }}>
+                {jobs.filter(j => j.status === 'error').map(job => (
+                  <div key={job.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #FECACA' }}>
+                    <XCircle size={12} color="#DC2626" style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>{job.file.name}</span>
+                      <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6 }}>({formatSize(job.file.size)})</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600, flexShrink: 0, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {job.error || 'Erreur inconnue'}
+                    </span>
+                    {job.duration && (
+                      <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>{formatDuration(job.duration)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {doublons > 0 && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Copy size={13} />
+              {doublons} doublon{doublons > 1 ? 's' : ''} à traiter — utilisez le filtre ci-dessous
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Zone de drop */}
       {!running && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
@@ -376,7 +452,7 @@ export default function ImportMassePage() {
             <div style={{ display: 'flex', gap: 8 }}>
               {failed > 0 && (
                 <button
-                  onClick={() => setErrorFilter(v => !v)}
+                  onClick={() => { setErrorFilter(v => !v); setDoubFilter(false) }}
                   style={{
                     fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
                     border: '1.5px solid', borderColor: errorFilter ? '#DC2626' : 'var(--border)',
@@ -405,6 +481,36 @@ export default function ImportMassePage() {
             </div>
           </div>
 
+          {/* Barre actions bulk doublons */}
+          {doubFilter && doublonJobs.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 20px', background: '#FFFBEB', borderBottom: '1.5px solid #FDE68A' }}>
+              <button onClick={toggleAllDoublons}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#92400E', fontFamily: 'inherit', padding: 0 }}>
+                {allDoublonsSelected ? <CheckSquare size={14} /> : <Square size={14} />}
+                {allDoublonsSelected ? 'Désélectionner tout' : `Tout sélectionner (${doublonJobs.length})`}
+              </button>
+              {someDoublonsSelected && (
+                <>
+                  <span style={{ fontSize: 12, color: '#D97706', fontWeight: 600, marginLeft: 8 }}>
+                    {selectedDoublons.size} sélectionné{selectedDoublons.size > 1 ? 's' : ''} →
+                  </span>
+                  <button onClick={() => bulkResolveDoublons('ignorer')}
+                    style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Garder existants
+                  </button>
+                  <button onClick={() => bulkResolveDoublons('remplacer')}
+                    style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Remplacer tous
+                  </button>
+                  <button onClick={() => bulkResolveDoublons('garder_les_deux')}
+                    style={{ padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Garder les deux
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {filteredJobs.map((job: FileJob) => {
               const catColor = job.categorie ? getCatColor(job.categorie) : undefined
@@ -413,26 +519,38 @@ export default function ImportMassePage() {
                   borderBottom: '1px solid var(--border)',
                   background: job.status === 'success'    ? '#F0FDF4'
                     : job.status === 'error'      ? '#FEF2F2'
+                    : job.status === 'skipped'    ? '#F9FAFB'
                     : job.status === 'doublon'    ? '#FFFBEB'
                     : job.status === 'processing' ? '#FFFBEB'
                     : 'transparent',
                 }}>
                   {/* Ligne principale */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+                    {/* Checkbox pour doublons en mode filtre */}
+                    {doubFilter && job.status === 'doublon' && (
+                      <button onClick={() => toggleDoublon(job.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, color: selectedDoublons.has(job.id) ? '#D97706' : 'var(--muted)' }}>
+                        {selectedDoublons.has(job.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                      </button>
+                    )}
+                    {!(doubFilter && job.status === 'doublon') && (
                     <div style={{ flexShrink: 0 }}>
                       {job.status === 'pending'    && <FileText size={14} color="var(--muted)" />}
                       {job.status === 'processing' && <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
                       {job.status === 'success'    && <CheckCircle size={14} color="#16A34A" />}
                       {job.status === 'error'      && <XCircle size={14} color="#DC2626" />}
+                      {job.status === 'skipped'    && <CheckCircle size={14} color="#9CA3AF" />}
                       {job.status === 'doublon'    && <Copy size={14} color="#F59E0B" />}
                     </div>
+                    )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {job.file.name}
                       </div>
-                      <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : job.status === 'doublon' ? '#D97706' : 'var(--muted)' }}>
+                      <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : job.status === 'skipped' ? '#9CA3AF' : job.status === 'doublon' ? '#D97706' : 'var(--muted)' }}>
                         {job.status === 'success'    && job.candidatNom}
                         {job.status === 'error'      && job.error}
+                        {job.status === 'skipped'    && job.candidatNom}
                         {job.status === 'pending'    && formatSize(job.file.size)}
                         {job.status === 'processing' && (job.error || 'Analyse IA en cours...')}
                         {job.status === 'doublon'    && `Doublon — existe déjà : ${job.candidatExistant?.prenom} ${job.candidatExistant?.nom}`}

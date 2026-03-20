@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type FileStatus = 'pending' | 'processing' | 'success' | 'error' | 'doublon'
+export type FileStatus = 'pending' | 'processing' | 'success' | 'error' | 'doublon' | 'skipped'
 export type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
 
 export interface CandidatExistant {
@@ -39,6 +39,16 @@ export function getCatColor(cat: string) {
 }
 
 function getExt(name: string) { return name.toLowerCase().split('.').pop() || '' }
+
+// ─── État persistant (module-level) ──────────────────────────────────────────
+// Stocké hors du composant React pour survivre aux re-montages du provider
+// (ex : navigation entre pages qui cause un hard refresh du layout)
+let _worker: Worker | null = null
+let _workerRunning = false
+let _jobs: FileJob[] = []
+let _done = false
+let _startTime = 0
+let _completedCount = 0
 
 // ─── Context Interface ────────────────────────────────────────────────────────
 
@@ -81,26 +91,29 @@ export function useImport() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function ImportProvider({ children }: { children: React.ReactNode }) {
-  const [jobs, setJobs]       = useState<FileJob[]>([])
+  const [jobs, setJobsState]  = useState<FileJob[]>(() => _jobs)
   const [statut, setStatut]   = useState<PipelineEtape>('nouveau')
-  const [running, setRunning] = useState(false)
-  const [done, setDone]       = useState(false)
+  const [running, setRunning] = useState(() => _workerRunning)
+  const [done, setDone]       = useState(() => _done)
   const [speed, setSpeed]     = useState(0)
   const [eta, setEta]         = useState(0)
 
-  const workerRef    = useRef<Worker | null>(null)
-  const startTimeRef = useRef<number>(0)
-  const completedRef = useRef(0)
+  const startTimeRef = useRef<number>(_startTime)
+  const completedRef = useRef(_completedCount)
+
+  // Wrapper setJobs qui synchronise l'état module-level
+  const setJobs: typeof setJobsState = useCallback((action) => {
+    setJobsState(prev => {
+      const next = typeof action === 'function' ? action(prev) : action
+      _jobs = next
+      return next
+    })
+  }, [])
 
   const pathname    = usePathname()
   const router      = useRouter()
   const pathnameRef = useRef(pathname)
   useEffect(() => { pathnameRef.current = pathname }, [pathname])
-
-  // Terminate worker only when the provider unmounts (full app unmount)
-  useEffect(() => {
-    return () => { workerRef.current?.terminate() }
-  }, [])
 
   // Notification quand l'import se termine — seulement si on n'est pas sur la page d'import
   useEffect(() => {
@@ -156,28 +169,41 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
         case 'JOB_SUCCESS':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'success', candidatNom, duration, error: undefined } : j))
           completedRef.current++
+          _completedCount = completedRef.current
           updateSpeedEta()
           break
         case 'JOB_DUPLICATE':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'doublon', candidatExistant, analyseNouv: analyse, duration } : j))
           completedRef.current++
+          _completedCount = completedRef.current
           updateSpeedEta()
           break
         case 'JOB_ERROR':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'error', error, duration } : j))
           completedRef.current++
+          _completedCount = completedRef.current
           updateSpeedEta()
           break
         case 'JOB_WAITING':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, error } : j))
           break
         case 'DONE':
+          _workerRunning = false
+          _done = true
           setRunning(false)
           setDone(true)
           break
       }
     }
   }, [updateSpeedEta])
+
+  // Re-bind au worker existant si le provider se re-monte pendant un import
+  useEffect(() => {
+    if (_worker && _workerRunning) {
+      bindWorker(_worker)
+      setRunning(true)
+    }
+  }, [bindWorker])
 
   const addFilesWithMeta = useCallback((items: Array<{ file: File; relativePath?: string }>) => {
     const valid    = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size <= MAX_FILE_SIZE)
@@ -214,15 +240,19 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       const pendingJobs = current.filter(j => j.status === 'pending')
       if (pendingJobs.length === 0) return current
 
-      workerRef.current?.terminate()
+      _worker?.terminate()
       const w = new Worker('/import-worker.js')
-      workerRef.current = w
+      _worker = w
+      _workerRunning = true
       bindWorker(w)
 
       setRunning(true)
       setDone(false)
+      _done = false
       startTimeRef.current = Date.now()
+      _startTime = startTimeRef.current
       completedRef.current = current.filter(j => j.status === 'success' || j.status === 'error' || j.status === 'doublon').length
+      _completedCount = completedRef.current
 
       w.postMessage({
         type: 'START',
@@ -234,12 +264,13 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     })
   }, [statut, bindWorker])
 
-  const pause  = useCallback(() => { workerRef.current?.postMessage({ type: 'PAUSE' });  setRunning(false) }, [])
-  const resume = useCallback(() => { workerRef.current?.postMessage({ type: 'RESUME' }); setRunning(true) }, [])
+  const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; setRunning(false) }, [])
+  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  setRunning(true) }, [])
   const stop   = useCallback(() => {
-    workerRef.current?.postMessage({ type: 'STOP' })
-    workerRef.current?.terminate()
-    workerRef.current = null
+    _worker?.postMessage({ type: 'STOP' })
+    _worker?.terminate()
+    _worker = null
+    _workerRunning = false
     setRunning(false)
   }, [])
 
@@ -247,9 +278,12 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     stop()
     setJobs([])
     setDone(false)
+    _done = false
     setSpeed(0)
     setEta(0)
     completedRef.current = 0
+    _completedCount = 0
+    _startTime = 0
     catColorMap.clear()
   }, [stop])
 
@@ -260,7 +294,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
 
   const resolveDoublon = useCallback(async (job: FileJob, action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
     if (action === 'ignorer') {
-      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'error', error: 'Ignoré — doublon conservé' } : j))
+      setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'skipped', candidatNom: 'Doublon ignoré — existant conservé' } : j))
     } else {
       setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'processing' } : j))
       const formData = new FormData()
@@ -300,10 +334,11 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   const total      = jobs.length
   const succeeded  = jobs.filter(j => j.status === 'success').length
   const failed     = jobs.filter(j => j.status === 'error').length
+  const skipped    = jobs.filter(j => j.status === 'skipped').length
   const doublons   = jobs.filter(j => j.status === 'doublon').length
   const processing = jobs.filter(j => j.status === 'processing').length
   const pending    = jobs.filter(j => j.status === 'pending').length
-  const completed  = succeeded + failed + doublons
+  const completed  = succeeded + failed + skipped + doublons
   const progress   = total > 0 ? Math.round((completed / total) * 100) : 0
   const categories = Array.from(new Set(jobs.map(j => j.categorie).filter(Boolean))) as string[]
 

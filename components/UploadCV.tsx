@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X, Plus } from 'lucide-react'
+import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X, Plus, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
@@ -12,18 +12,25 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'processing' | 'success' | 'error'
+type FileStatus = 'pending' | 'processing' | 'success' | 'error' | 'doublon' | 'skipped'
+
+interface DuplicateInfo {
+  id: string; prenom: string; nom: string; email?: string
+  titre_poste?: string; created_at: string
+}
 
 interface FileItem {
   file: File
   status: FileStatus
   error?: string
   candidatNom?: string
+  candidatExistant?: DuplicateInfo
+  analyseNouv?: { prenom?: string; nom?: string; email?: string; titre_poste?: string }
 }
 
 const FORMATS_OK   = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
 const CONCURRENCY  = 2
-const FETCH_TIMEOUT = 54_000  // 54s — sous le timeout global route (55s) et Vercel (60s)
+const FETCH_TIMEOUT = 57_000
 
 const ETAPES: { value: PipelineEtape; label: string }[] = [
   { value: 'nouveau',   label: 'Nouveau' },
@@ -51,10 +58,11 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
   const [done, setDone]           = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Nombre de fichiers traités (success ou error)
-  const completed = files.filter(f => f.status === 'success' || f.status === 'error').length
+  const completed = files.filter(f => f.status === 'success' || f.status === 'error' || f.status === 'doublon' || f.status === 'skipped').length
   const succeeded = files.filter(f => f.status === 'success').length
   const failed    = files.filter(f => f.status === 'error').length
+  const doublons  = files.filter(f => f.status === 'doublon').length
+  const skipped   = files.filter(f => f.status === 'skipped').length
   const progress  = files.length > 0 ? Math.round((completed / files.length) * 100) : 0
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
@@ -67,7 +75,6 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     }
 
     setFiles(prev => {
-      // Éviter les doublons par nom+taille
       const existing = new Set(prev.map(f => `${f.file.name}-${f.file.size}`))
       const toAdd = valid.filter(f => !existing.has(`${f.name}-${f.size}`))
       return [...prev, ...toAdd.map(f => ({ file: f, status: 'pending' as FileStatus }))]
@@ -88,6 +95,32 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, ...patch } : f))
   }
 
+  const resolveDoublon = async (i: number, action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
+    const item = files[i]
+    if (action === 'ignorer') {
+      updateFile(i, { status: 'skipped', candidatNom: 'Doublon ignoré' })
+      return
+    }
+    updateFile(i, { status: 'processing' })
+    const formData = new FormData()
+    formData.append('cv', item.file)
+    formData.append('statut', statut)
+    if (offreId) formData.append('offre_id', offreId)
+    if (action === 'remplacer' && item.candidatExistant) formData.append('replace_id', item.candidatExistant.id)
+    if (action === 'garder_les_deux') formData.append('force_insert', 'true')
+    try {
+      const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+      const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+      const suffix = action === 'remplacer' ? ' (remplacé)' : ''
+      updateFile(i, { status: 'success', candidatNom: (nom || 'Candidat créé') + suffix })
+      if (data.candidat) onSuccess?.(data.candidat)
+    } catch {
+      updateFile(i, { status: 'error', error: 'Erreur résolution doublon' })
+    }
+  }
+
   const handleUpload = async () => {
     const pending = files.filter(f => f.status === 'pending')
     if (pending.length === 0) return
@@ -95,13 +128,11 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     setUploading(true)
     setDone(false)
 
-    // Indices des fichiers pending dans le tableau files
     const pendingIndices = files
       .map((f, i) => ({ f, i }))
       .filter(({ f }) => f.status === 'pending')
       .map(({ i }) => i)
 
-    // File d'attente avec concurrence limitée
     const queue = [...pendingIndices]
     let lastSuccessCandidat: any = null
 
@@ -122,17 +153,27 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
         const ct   = res.headers.get('content-type') || ''
         const data = ct.includes('application/json') ? await res.json() : {}
         if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+
+        // Doublon détecté
+        if (data.isDuplicate) {
+          updateFile(idx, {
+            status: 'doublon',
+            candidatExistant: data.candidatExistant,
+            analyseNouv: data.analyse,
+          })
+          return
+        }
+
         const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
         updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé' })
         lastSuccessCandidat = data.candidat
       } catch (err: any) {
         clearTimeout(timeoutId)
-        const msg = err.name === 'AbortError' ? 'Timeout (54s) — réessayez' : (err.message || 'Erreur inconnue')
+        const msg = err.name === 'AbortError' ? 'Timeout — réessayez' : (err.message || 'Erreur inconnue')
         updateFile(idx, { status: 'error', error: msg })
       }
     }
 
-    // Travailleurs parallèles
     const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
       while (queue.length > 0) {
         const idx = queue.shift()!
@@ -185,10 +226,10 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
             onChange={e => e.target.files && addFiles(e.target.files)}
           />
           <Upload size={28} style={{ color: dragOver ? 'var(--primary)' : 'var(--muted)', margin: '0 auto 10px' }} />
-          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4, margin: '0 0 4px' }}>
             Glissez vos CVs ici ou cliquez pour sélectionner
           </p>
-          <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+          <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
             Plusieurs fichiers acceptés · PDF, Word, JPG, PNG, TXT
           </p>
         </div>
@@ -221,43 +262,70 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
 
       {/* File list */}
       {files.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
           {files.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: item.status === 'success' ? '#F0FDF4' : item.status === 'error' ? '#FEF2F2' : 'white',
-                border: `1px solid ${item.status === 'success' ? '#BBF7D0' : item.status === 'error' ? '#FECACA' : 'var(--border)'}`,
-                borderRadius: 8, padding: '8px 12px',
-              }}
-            >
-              <FileText size={14} style={{ flexShrink: 0, color: item.status === 'success' ? '#16A34A' : item.status === 'error' ? '#DC2626' : 'var(--muted)', alignSelf: 'center' }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
-                  {item.file.name}
-                </p>
-                {item.status === 'pending' && (
-                  <p style={{ fontSize: 10, color: 'var(--muted)', margin: 0 }}>{formatSize(item.file.size)}</p>
+            <div key={i}>
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: item.status === 'success' ? '#F0FDF4'
+                    : item.status === 'error' ? '#FEF2F2'
+                    : item.status === 'doublon' ? '#FFFBEB'
+                    : item.status === 'skipped' ? '#F9FAFB'
+                    : 'white',
+                  border: `1px solid ${item.status === 'success' ? '#BBF7D0' : item.status === 'error' ? '#FECACA' : item.status === 'doublon' ? '#FDE68A' : 'var(--border)'}`,
+                  borderRadius: item.status === 'doublon' ? '8px 8px 0 0' : 8,
+                  padding: '8px 12px',
+                }}
+              >
+                {item.status === 'doublon' ? (
+                  <Copy size={14} style={{ flexShrink: 0, color: '#F59E0B' }} />
+                ) : (
+                  <FileText size={14} style={{ flexShrink: 0, color: item.status === 'success' ? '#16A34A' : item.status === 'error' ? '#DC2626' : item.status === 'skipped' ? '#9CA3AF' : 'var(--muted)' }} />
                 )}
-                {item.status === 'processing' && (
-                  <p style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600, margin: 0 }}>Analyse en cours...</p>
-                )}
-                {item.status === 'success' && (
-                  <p style={{ fontSize: 10, color: '#16A34A', fontWeight: 600, margin: 0 }}>{item.candidatNom}</p>
-                )}
-                {item.status === 'error' && (
-                  <p style={{ fontSize: 10, color: '#DC2626', margin: 0 }}>{item.error}</p>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                    {item.file.name}
+                  </p>
+                  <p style={{ fontSize: 10, margin: 0, fontWeight: item.status === 'pending' ? 400 : 600,
+                    color: item.status === 'success' ? '#16A34A' : item.status === 'error' ? '#DC2626' : item.status === 'doublon' ? '#D97706' : item.status === 'skipped' ? '#9CA3AF' : 'var(--muted)' }}>
+                    {item.status === 'pending' && `${formatSize(item.file.size)} · ${getExt(item.file.name).toUpperCase()}`}
+                    {item.status === 'processing' && 'Analyse IA en cours...'}
+                    {item.status === 'success' && item.candidatNom}
+                    {item.status === 'error' && item.error}
+                    {item.status === 'doublon' && `Doublon — existe déjà : ${item.candidatExistant?.prenom} ${item.candidatExistant?.nom}`}
+                    {item.status === 'skipped' && item.candidatNom}
+                  </p>
+                </div>
+                {item.status === 'processing' && <Loader2 size={14} style={{ color: 'var(--primary)', flexShrink: 0, animation: 'spin 1s linear infinite' }} />}
+                {item.status === 'success'    && <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />}
+                {item.status === 'error'      && <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0 }} />}
+                {item.status === 'skipped'    && <CheckCircle size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />}
+                {item.status === 'pending' && !uploading && (
+                  <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
+                    <X size={13} />
+                  </button>
                 )}
               </div>
-              {/* Icône statut */}
-              {item.status === 'processing' && <Loader2 size={14} style={{ color: 'var(--primary)', flexShrink: 0, animation: 'spin 1s linear infinite' }} />}
-              {item.status === 'success'    && <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />}
-              {item.status === 'error'      && <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0 }} />}
-              {item.status === 'pending' && !uploading && (
-                <button onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
-                  <X size={13} />
-                </button>
+
+              {/* Panneau résolution doublon */}
+              {item.status === 'doublon' && item.candidatExistant && (
+                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '8px 12px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => resolveDoublon(i, 'ignorer')}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Garder existant
+                    </button>
+                    <button onClick={() => resolveDoublon(i, 'remplacer')}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Remplacer
+                    </button>
+                    <button onClick={() => resolveDoublon(i, 'garder_les_deux')}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Garder les deux
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           ))}
@@ -272,7 +340,11 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
               {done ? (
                 <>
                   {succeeded > 0 && <span style={{ color: '#16A34A' }}>{succeeded} importé{succeeded > 1 ? 's' : ''}</span>}
-                  {succeeded > 0 && failed > 0 && ' · '}
+                  {succeeded > 0 && (failed > 0 || doublons > 0 || skipped > 0) && ' · '}
+                  {doublons > 0 && <span style={{ color: '#D97706' }}>{doublons} doublon{doublons > 1 ? 's' : ''}</span>}
+                  {doublons > 0 && (failed > 0 || skipped > 0) && ' · '}
+                  {skipped > 0 && <span style={{ color: '#9CA3AF' }}>{skipped} ignoré{skipped > 1 ? 's' : ''}</span>}
+                  {skipped > 0 && failed > 0 && ' · '}
                   {failed > 0 && <span style={{ color: '#DC2626' }}>{failed} erreur{failed > 1 ? 's' : ''}</span>}
                 </>
               ) : (
@@ -288,7 +360,7 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
               style={{
                 height: '100%',
                 width: `${progress}%`,
-                background: done && failed === 0
+                background: done && failed === 0 && doublons === 0
                   ? 'linear-gradient(90deg, #16A34A, #22C55E)'
                   : done && succeeded === 0
                   ? 'linear-gradient(90deg, #DC2626, #EF4444)'
@@ -327,7 +399,7 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 0' }}>
             <Loader2 size={15} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>
-              Import en cours — {CONCURRENCY} fichiers en parallèle...
+              Import en cours...
             </span>
           </div>
         )}

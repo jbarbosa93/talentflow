@@ -5,7 +5,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
-  ChevronUp, ChevronDown, Info,
+  ChevronUp, ChevronDown, Info, Download,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -277,7 +277,7 @@ export default function CandidatDetailPage() {
     : ''
 
   return (
-    <div className="d-page" style={{ paddingBottom: 40 }}>
+    <div className="d-page" style={{ paddingBottom: 0, height: 'calc(100vh - 64px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -315,10 +315,10 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: showCV ? '240px 1fr 620px' : '240px 1fr', gap: 16, alignItems: 'start', transition: 'grid-template-columns 0.2s ease' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: showCV ? '240px 1fr 620px' : '240px 1fr', gap: 16, alignItems: 'start', transition: 'grid-template-columns 0.2s ease', flex: 1, minHeight: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
@@ -585,7 +585,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
 
           {/* Résumé IA */}
           <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
@@ -804,6 +804,11 @@ export default function CandidatDetailPage() {
               <span style={{ flex: 1 }} />
               {candidat.cv_url && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <a href={candidat.cv_url} download={candidat.cv_nom_fichier || 'cv'} target="_blank" rel="noopener noreferrer"
+                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'var(--muted)', marginRight: 4 }}
+                    title="Télécharger le CV">
+                    <Download size={12} />
+                  </a>
                   {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
                     { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
                     { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
@@ -844,7 +849,7 @@ export default function CandidatDetailPage() {
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, minHeight: '200vh', position: 'relative' }}>
+                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative' }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
