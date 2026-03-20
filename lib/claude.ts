@@ -249,7 +249,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1200,
+    max_tokens: 1800,
     messages: [{
       role: 'user',
       content: [
@@ -285,7 +285,7 @@ export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
 
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1200,
+    max_tokens: 1800,
     messages: [{
       role: 'user',
       content: `${CV_JSON_PROMPT}\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 12000)}\n</cv>`,
@@ -342,7 +342,7 @@ export async function analyserCVDepuisImage(
 
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1200,
+    max_tokens: 1800,
     messages: [{
       role: 'user',
       content: [

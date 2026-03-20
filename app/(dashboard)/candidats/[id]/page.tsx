@@ -5,7 +5,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
-  ChevronUp, ChevronDown, Info, Download,
+  ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -89,6 +89,7 @@ export default function CandidatDetailPage() {
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
   const [cvZoom, setCvZoom]               = useState(1.0)
+  const [cvRotation, setCvRotation]       = useState(0)
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const cvScrollRef     = useRef<HTMLDivElement>(null)
@@ -323,7 +324,10 @@ export default function CandidatDetailPage() {
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <div className="neo-avatar" style={{ width: 44, height: 44, fontSize: 15, flexShrink: 0 }}>{initiales}</div>
+              {candidat.photo_url
+                ? <img src={candidat.photo_url} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="Photo candidat" />
+                : <div className="neo-avatar" style={{ width: 44, height: 44, fontSize: 15, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none' }}>{initiales}</div>
+              }
               <div style={{ flex: 1, minWidth: 0 }}>
                 {isEditing ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -339,33 +343,6 @@ export default function CandidatDetailPage() {
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
                   </>
                 )}
-              </div>
-            </div>
-
-            {/* Statut pipeline */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Pipeline</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-                {(Object.keys(ETAPE_LABELS) as PipelineEtape[]).map(e => {
-                  const isActive = candidat.statut_pipeline === e
-                  const colors: Record<PipelineEtape, string> = {
-                    nouveau: '#3B82F6', contacte: '#F59E0B', entretien: '#8B5CF6',
-                    place: '#10B981', refuse: '#EF4444',
-                  }
-                  return (
-                    <button key={e} onClick={() => updateStatut.mutate({ id, statut: e })}
-                      disabled={updateStatut.isPending || isActive}
-                      style={{
-                        padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: isActive ? 700 : 500,
-                        cursor: isActive ? 'default' : 'pointer', transition: 'all 0.15s',
-                        border: isActive ? `2px solid ${colors[e]}` : '1px solid var(--border)',
-                        background: isActive ? colors[e] : 'white',
-                        color: isActive ? 'white' : 'var(--muted)',
-                        boxShadow: isActive ? `0 2px 8px ${colors[e]}44` : 'none',
-                      }}
-                    >{ETAPE_LABELS[e]}</button>
-                  )
-                })}
               </div>
             </div>
 
@@ -471,19 +448,25 @@ export default function CandidatDetailPage() {
 
 
           {/* Formation */}
-          <div className="neo-card-soft" style={{ padding: 14 }}>
-            {isEditing ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <label style={labelStyle}>Formation</label>
-                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Formation" value={editData.formation} onChange={e => set('formation', e.target.value)} />
+          {(() => {
+            const hasCFC = candidat.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(candidat.formation)
+            if (!isEditing && !hasCFC) return null
+            return (
+              <div className="neo-card-soft" style={{ padding: 14 }}>
+                {isEditing ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <label style={labelStyle}>Formation</label>
+                    <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Formation" value={editData.formation} onChange={e => set('formation', e.target.value)} />
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ ...smallMuted, lineHeight: 1.5 }}>{candidat.formation}</span>
+                  </div>
+                )}
               </div>
-            ) : candidat.formation ? (
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
-                <span style={{ ...smallMuted, lineHeight: 1.5 }}>{candidat.formation}</span>
-              </div>
-            ) : null}
-          </div>
+            )
+          })()}
 
           {/* Compétences */}
           <div className="neo-card-soft" style={{ padding: 14 }}>
@@ -809,6 +792,19 @@ export default function CandidatDetailPage() {
                     title="Télécharger le CV">
                     <Download size={12} />
                   </a>
+                  <button
+                    onClick={() => { if (candidat.cv_url) { const w = window.open(candidat.cv_url); w?.print() } else window.print() }}
+                    title="Imprimer le CV"
+                    style={{ background:'none', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'var(--text)', display:'flex', alignItems:'center', gap:4, fontSize:12, marginRight: 4 }}
+                  >
+                    <Printer size={14} />
+                  </button>
+                  <button onClick={() => setCvRotation(r => (r - 90 + 360) % 360)} title="Rotation gauche" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                    <RotateCcw size={14} />
+                  </button>
+                  <button onClick={() => setCvRotation(r => (r + 90) % 360)} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
+                    <RotateCw size={14} />
+                  </button>
                   {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
                     { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
                     { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
@@ -842,7 +838,7 @@ export default function CandidatDetailPage() {
                 onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
                 onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
               >
-                <img src={candidat.cv_url} alt="CV" style={{ width: `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', alignSelf: 'flex-start' }} />
+                <img src={candidat.cv_url} alt="CV" style={{ width: `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', alignSelf: 'flex-start', transform: `rotate(${cvRotation}deg)`, transition: 'transform 0.3s ease' }} />
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
@@ -861,7 +857,7 @@ export default function CandidatDetailPage() {
                   </>}
                   <iframe
                     src={cvIsPDF ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width` : docViewerUrl}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transition: 'transform 0.3s ease' }}
                     title="CV"
                   />
                 </div>

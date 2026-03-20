@@ -159,6 +159,9 @@ export function TopBar() {
 
   const showDropdown = open && (filtered.length > 0 || aiSearching || aiResults !== null)
 
+  const isOnCandidats = pathname === '/candidats' || pathname.startsWith('/candidats')
+  if (isOnCandidats) return null
+
   return (
     <header className="d-topbar">
       {/* ── Barre de recherche ── */}

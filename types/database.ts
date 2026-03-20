@@ -23,6 +23,7 @@ export type Candidat = {
   formation: string | null
   cv_url: string | null
   cv_nom_fichier: string | null
+  photo_url: string | null
   resume_ia: string | null
   cv_texte_brut: string | null
   statut_pipeline: PipelineEtape
@@ -188,6 +189,7 @@ export type Database = {
           formation?: string | null
           cv_url?: string | null
           cv_nom_fichier?: string | null
+          photo_url?: string | null
           resume_ia?: string | null
           cv_texte_brut?: string | null
           statut_pipeline?: PipelineEtape
@@ -213,6 +215,7 @@ export type Database = {
           formation?: string | null
           cv_url?: string | null
           cv_nom_fichier?: string | null
+          photo_url?: string | null
           resume_ia?: string | null
           cv_texte_brut?: string | null
           statut_pipeline?: PipelineEtape

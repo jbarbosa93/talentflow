@@ -179,6 +179,30 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
 
+  // 6b. Extraction photo candidat (PDFs uniquement)
+  let photoUrl: string | null = null
+  if (isPDF && analyse) {
+    try {
+      const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+      const photoBuffer = await extractPhotoFromPDF(buffer)
+      if (photoBuffer) {
+        const photoTimestamp = Date.now()
+        const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+        const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, photoBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        })
+        if (photoData?.path) {
+          const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+          photoUrl = photoUrlData?.signedUrl || null
+          if (photoUrl) console.log('[CV Parse] Photo extraite et stockée')
+        }
+      }
+    } catch (photoErr) {
+      console.warn('[CV Parse] Photo extraction skipped:', (photoErr as Error).message)
+    }
+  }
+
   // 7. Upload Supabase Storage — timeout 15s
   const adminClient = createAdminClient()
   const timestamp = Date.now()
@@ -262,6 +286,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     formation: analyse.formation || null,
     cv_url: cvUrl,
     cv_nom_fichier: file.name,
+    photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: texteCV.slice(0, 10000),
     statut_pipeline: statutPipeline as any,

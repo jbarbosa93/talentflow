@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -87,9 +87,28 @@ function CandidatsPageInner() {
   const [aiResults, setAiResults] = useState<any[] | null>(null)
   const [aiInterpreted, setAiInterpreted] = useState('')
 
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [filterMetier, setFilterMetier] = useState('')
+  const [filterLieu, setFilterLieu] = useState('')
+  const [filterAgeMin, setFilterAgeMin] = useState<number | ''>('')
+  const [filterAgeMax, setFilterAgeMax] = useState<number | ''>('')
+  const [filterLangue, setFilterLangue] = useState('')
+  const [filterPermis, setFilterPermis] = useState<boolean | null>(null)
+  const [filterExpMin, setFilterExpMin] = useState<number | ''>('')
+
   // CV hover preview
   const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number } | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const prevHoveredCvUrl = useRef<string | null>(null)
+  useEffect(() => {
+    if (hoveredCv && hoveredCv.url !== prevHoveredCvUrl.current) {
+      setPreviewZoom(1)
+      prevHoveredCvUrl.current = hoveredCv.url
+    }
+    if (!hoveredCv) prevHoveredCvUrl.current = null
+  }, [hoveredCv])
 
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
@@ -104,6 +123,7 @@ function CandidatsPageInner() {
   // Pipeline dropdown inline
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
   const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
+  const [perPage, setPerPage] = useState<number>(20)
 
   useEffect(() => {
     try {
@@ -180,13 +200,16 @@ function CandidatsPageInner() {
         (c.localisation || '').toLowerCase().includes(q) ||
         (c.resume_ia || '').toLowerCase().includes(q) ||
         (c.cv_texte_brut || '').toLowerCase().includes(q) ||
+        (c.notes || '').toLowerCase().includes(q) ||
         (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
         (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
+        (c.tags || []).some((s: string) => s.toLowerCase().includes(q)) ||
         (c.experiences || []).some((e: any) =>
           (e.poste || '').toLowerCase().includes(q) ||
           (e.entreprise || '').toLowerCase().includes(q) ||
           (e.description || '').toLowerCase().includes(q)
-        )
+        ) ||
+        JSON.stringify(c.formations_details || []).toLowerCase().includes(q)
       )
     }
 
@@ -201,8 +224,34 @@ function CandidatsPageInner() {
       filtered = filtered.filter((c: any) => (c.tags || []).includes(filtreMetier))
     }
 
+    // Advanced filters
+    filtered = filtered
+      .filter(c => !filterMetier || (c.titre_poste || '').toLowerCase().includes(filterMetier.toLowerCase()))
+      .filter(c => !filterLieu || (c.localisation || '').toLowerCase().includes(filterLieu.toLowerCase()))
+      .filter(c => {
+        if (filterAgeMin === '' && filterAgeMax === '') return true
+        const age = c.date_naissance ? calculerAge(c.date_naissance) : null
+        if (age === null) return filterAgeMin === ''
+        if (filterAgeMin !== '' && age < filterAgeMin) return false
+        if (filterAgeMax !== '' && age > filterAgeMax) return false
+        return true
+      })
+      .filter(c => !filterLangue || (c.langues || []).some((l: string) => l.toLowerCase().includes(filterLangue.toLowerCase())))
+      .filter(c => filterPermis === null || c.permis_conduire === filterPermis)
+      .filter(c => filterExpMin === '' || (c.annees_exp || 0) >= filterExpMin)
+
     return filtered
-  }, [allCandidats, search, aiResults, filtreLocalisation, filtreMetier])
+  }, [allCandidats, search, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin])
+
+  const activeFiltersCount = [
+    filterMetier !== '',
+    filterLieu !== '',
+    filterAgeMin !== '',
+    filterAgeMax !== '',
+    filterLangue !== '',
+    filterPermis !== null,
+    filterExpMin !== '',
+  ].filter(Boolean).length
 
   // Client-side sort
   const sorted = useMemo(() => {
@@ -224,6 +273,10 @@ function CandidatsPageInner() {
         return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     }
   }, [candidatsFiltres, sortBy, distances])
+
+  // Alias for readability + pagination
+  const candidatesTries = sorted
+  const candidatesPagines = perPage === 0 ? candidatesTries : candidatesTries.slice(0, perPage)
 
   // Group by métier ou lieu
   const grouped = useMemo(() => {
@@ -393,16 +446,21 @@ function CandidatsPageInner() {
         </div>
 
         {/* Avatar */}
-        <div
-          style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'var(--primary)', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: 14, fontWeight: 800,
-            color: '#0F172A', flexShrink: 0,
-          }}
-        >
-          {initiales(c)}
-        </div>
+        {c.photo_url
+          ? <img src={c.photo_url} style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} alt="" />
+          : (
+            <div
+              style={{
+                width: 42, height: 42, borderRadius: 6,
+                background: 'var(--bg-muted, #F1F5F9)', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 14, fontWeight: 800,
+                color: 'var(--text-muted, #64748B)', flexShrink: 0, overflow: 'hidden',
+              }}
+            >
+              {initiales(c)}
+            </div>
+          )
+        }
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -416,11 +474,6 @@ function CandidatsPageInner() {
             {c.localisation && (
               <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 📍 {c.localisation}
-                {distances[c.localisation] !== undefined && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '1px 5px', borderRadius: 100 }}>
-                    ~{distances[c.localisation]} km
-                  </span>
-                )}
               </span>
             )}
           </div>
@@ -646,26 +699,56 @@ function CandidatsPageInner() {
           <MapPin size={13} /> Par lieu
         </button>
 
-        {/* Status pills */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {FILTER_OPTS.map(o => (
-            <button
-              key={o.value}
-              onClick={() => setFiltreStatut(o.value as any)}
-              style={{
-                padding: '5px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700,
-                border: '1.5px solid',
-                borderColor: filtreStatut === o.value ? 'var(--foreground)' : 'var(--border)',
-                background: filtreStatut === o.value ? 'var(--foreground)' : 'white',
-                color: filtreStatut === o.value ? 'white' : 'var(--muted)',
-                cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s',
-              }}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        {/* Filtres avancés button */}
+        <button onClick={() => setShowAdvancedFilters(v => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'white':'var(--text)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+          <SlidersHorizontal size={14} />
+          Filtres avancés
+          {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
+        </button>
       </div>
+
+      {/* Advanced filters panel */}
+      {showAdvancedFilters && (
+        <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12}}>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>MÉTIER</label>
+            <input value={filterMetier} onChange={e=>setFilterMetier(e.target.value)} placeholder="Ex: Soudeur, Maçon..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LIEU</label>
+            <input value={filterLieu} onChange={e=>setFilterLieu(e.target.value)} placeholder="Ex: Genève, Lausanne..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>ÂGE MIN</label>
+            <input type="number" min={16} max={80} value={filterAgeMin} onChange={e=>setFilterAgeMin(e.target.value?Number(e.target.value):'')} placeholder="18" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>ÂGE MAX</label>
+            <input type="number" min={16} max={80} value={filterAgeMax} onChange={e=>setFilterAgeMax(e.target.value?Number(e.target.value):'')} placeholder="65" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LANGUE</label>
+            <input value={filterLangue} onChange={e=>setFilterLangue(e.target.value)} placeholder="Ex: Français, Anglais..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>EXP. MIN (ans)</label>
+            <input type="number" min={0} max={50} value={filterExpMin} onChange={e=>setFilterExpMin(e.target.value?Number(e.target.value):'')} placeholder="0" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>PERMIS B</label>
+            <select value={filterPermis===null?'':filterPermis?'oui':'non'} onChange={e=>setFilterPermis(e.target.value===''?null:e.target.value==='oui')} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}>
+              <option value="">Tous</option>
+              <option value="oui">Oui</option>
+              <option value="non">Non</option>
+            </select>
+          </div>
+          <div style={{display:'flex',alignItems:'flex-end'}}>
+            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
+              Réinitialiser
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bannière résultat IA */}
       {aiResults !== null && (
@@ -763,7 +846,22 @@ function CandidatsPageInner() {
       ) : (
         /* Flat list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {sorted.map((c: any) => renderCard(c))}
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
+            {candidatesTries.length} candidat{candidatesTries.length > 1 ? 's' : ''}
+          </div>
+          {candidatesPagines.map((c: any) => renderCard(c))}
+          {candidatesTries.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Afficher :</span>
+              <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer' }}>
+                <option value={20}>20</option>
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+                <option value={0}>Tous</option>
+              </select>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>sur {candidatesTries.length}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -775,7 +873,10 @@ function CandidatsPageInner() {
           }}
           onMouseLeave={() => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-            hoveredCvTimeout.current = setTimeout(() => setHoveredCv(null), 200)
+            hoveredCvTimeout.current = setTimeout(() => {
+              setHoveredCv(null)
+              if (previewZoom < 1) setPreviewZoom(1)
+            }, 200)
           }}
           style={{
             position: 'fixed',
@@ -798,21 +899,38 @@ function CandidatsPageInner() {
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--background)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <Eye size={13} style={{ color: 'var(--primary)' }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>Aperçu CV</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                onClick={() => setPreviewZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontWeight: 700 }}
+                title="Dézoomer"
+              >−</button>
+              <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 36, textAlign: 'center' }}>{Math.round(previewZoom * 100)}%</span>
+              <button
+                onClick={() => setPreviewZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))}
+                style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontWeight: 700 }}
+                title="Zoomer"
+              >+</button>
+            </div>
           </div>
           {/* Content */}
-          <div style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'hidden', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: 'center', cursor: previewZoom > 1 ? 'grab' : 'default' }}>
             {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
-              <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 12 }}>
-                <img src={hoveredCv.url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
+              <div style={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 12 }}>
+                <img src={hoveredCv.url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }} />
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+              <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }}>
+                <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+              </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                title="Aperçu CV"
-              />
+              <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }}>
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                  title="Aperçu CV"
+                />
+              </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
                 Aperçu non disponible
@@ -928,7 +1046,7 @@ function CandidatsPageInner() {
                       const { number, flag, country } = detectAndFormat(c.telephone)
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
                             {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>

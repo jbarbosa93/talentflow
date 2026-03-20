@@ -3,7 +3,7 @@ import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck, Mail } from 'lucide-react'
 
 function LoginForm() {
   const router = useRouter()
@@ -14,11 +14,16 @@ function LoginForm() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
-  // État 2FA
+  // État 2FA TOTP
   const [mfaRequired, setMfaRequired] = useState(false)
   const [mfaCode, setMfaCode]         = useState('')
   const [mfaFactorId, setMfaFactorId] = useState('')
   const [loadingMfa, setLoadingMfa]   = useState(false)
+
+  // État 2FA Email OTP
+  const [emailOtpRequired, setEmailOtpRequired] = useState(false)
+  const [emailOtpCode, setEmailOtpCode]         = useState('')
+  const [emailOtpLoading, setEmailOtpLoading]   = useState(false)
 
   // Erreur domaine depuis le middleware
   const urlError = searchParams.get('error')
@@ -59,7 +64,7 @@ function LoginForm() {
       return
     }
 
-    // Vérifier si MFA requis
+    // Vérifier si MFA TOTP requis
     if (data.session === null) {
       // MFA requis — récupérer le factorId
       const { data: mfaData } = await supabase.auth.mfa.listFactors()
@@ -77,8 +82,14 @@ function LoginForm() {
       return
     }
 
-    router.push('/dashboard')
-    router.refresh()
+    // Envoyer le code OTP par email
+    await fetch('/auth/api/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    setEmailOtpRequired(true)
+    setLoading(false)
   }
 
   async function handleMfaVerify(e: React.FormEvent) {
@@ -109,6 +120,22 @@ function LoginForm() {
       setError('Erreur lors de la vérification 2FA.')
       setLoadingMfa(false)
     }
+  }
+
+  async function handleEmailOtpVerify(e: React.FormEvent) {
+    e.preventDefault()
+    if (emailOtpCode.length !== 6) { setError('Entrez un code à 6 chiffres.'); return }
+    setError('')
+    setEmailOtpLoading(true)
+    const res = await fetch('/auth/api/send-otp', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code: emailOtpCode }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.valid) { setError(data.error || 'Code invalide.'); setEmailOtpLoading(false); return }
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -149,7 +176,44 @@ function LoginForm() {
       {/* Panel droit */}
       <div className="auth-right">
         <div className="auth-card">
-          {!mfaRequired ? (
+          {emailOtpRequired && !mfaRequired ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <Mail size={22} style={{ color: '#7C3AED' }} />
+                <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification par email</h2>
+              </div>
+              <p className="auth-card-sub">Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.</p>
+              <form className="auth-form" onSubmit={handleEmailOtpVerify}>
+                {error && <div className="auth-error">{error}</div>}
+                <div className="auth-field">
+                  <label className="auth-label">Code de vérification</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    className="auth-input"
+                    placeholder="000000"
+                    value={emailOtpCode}
+                    onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                    style={{ letterSpacing: '0.3em', textAlign: 'center', fontSize: 20 }}
+                  />
+                </div>
+                <button type="submit" className="auth-btn" disabled={emailOtpLoading}>
+                  {emailOtpLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {emailOtpLoading ? 'Vérification...' : 'Confirmer'}
+                </button>
+              </form>
+              <button
+                onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
+                style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                ← Retour
+              </button>
+            </>
+          ) : !mfaRequired ? (
             <>
               <h2 className="auth-card-title">Bon retour 👋</h2>
               <p className="auth-card-sub">Connectez-vous à votre espace recruteur.</p>
