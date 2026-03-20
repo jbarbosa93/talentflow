@@ -957,25 +957,30 @@ function CandidatsPageInner() {
             onMouseUp={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
             onMouseLeave={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
           >
+            {/* Zone de scroll = previewZoom*100% → crée l'espace pour scroll/pan
+                Contenu rendu à taille réelle (100/zoom %) puis scale() visuel
+                → qualité max (iframe render à pleine res) + scroll/pan natifs */}
             {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
-              <div style={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 12 }}>
-                <img src={hoveredCv.url} alt="CV" style={{ width: `${previewZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
+              <div style={{ width: `${previewZoom * 100}%`, minWidth: '100%', flexShrink: 0, padding: 12 }}>
+                <img src={hoveredCv.url} alt="CV" style={{ width: '100%', display: 'block', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
               <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
-                {/* Overlay transparent : capte les events souris pour le pan (l'iframe les avalerait sinon) */}
-                <div style={{ position: 'absolute', inset: 0 }} />
+                <div style={{ position: 'absolute', top: 0, left: 0, width: `${100 / previewZoom}%`, height: `${100 / previewZoom}%`, transform: `scale(${previewZoom})`, transformOrigin: 'top left' }}>
+                  <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
+                  <div style={{ position: 'absolute', inset: 0 }} />
+                </div>
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
               <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                <iframe
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                  title="Aperçu CV"
-                />
-                {/* Overlay transparent : capte les events souris pour le pan */}
-                <div style={{ position: 'absolute', inset: 0 }} />
+                <div style={{ position: 'absolute', top: 0, left: 0, width: `${100 / previewZoom}%`, height: `${100 / previewZoom}%`, transform: `scale(${previewZoom})`, transformOrigin: 'top left' }}>
+                  <iframe
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                    title="Aperçu CV"
+                  />
+                  <div style={{ position: 'absolute', inset: 0 }} />
+                </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
