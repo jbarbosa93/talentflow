@@ -1,7 +1,7 @@
 // Web Worker — traitement import en masse en arrière-plan
 // Tourne dans un thread séparé, actif même onglet inactif
 
-const CONCURRENCY        = 6
+const CONCURRENCY        = 3
 const MAX_RETRIES        = 3
 const FETCH_TIMEOUT      = 57_000   // 57s — laisse le temps à la route (55s global) de répondre
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
@@ -76,14 +76,13 @@ async function processJobDirect(job, t0) {
       return
     } catch (err) {
       clearTimeout(timeoutId)
-      // Affiche le message exact pour diagnostiquer l'erreur réelle
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
-      // Ne pas retenter les timeouts — le PDF est trop lourd, ça échouera à chaque fois
-      if (isTimeout) break
+      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = attempt * 3000
-        self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
+        // Timeout → attendre 20s pour laisser l'API récupérer, puis réessayer
+        // Autre erreur → attendre 3s
+        const wait = isTimeout ? 20_000 : attempt * 3000
+        self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
     }
@@ -139,11 +138,10 @@ async function processJobLarge(job, t0) {
 
     } catch (err) {
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout (52s)' : (err.message || 'Erreur inconnue')
-      if (isTimeout) break
+      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = attempt * 3000
-        self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry dans ${Math.round(wait/1000)}s` })
+        const wait = isTimeout ? 20_000 : attempt * 3000
+        self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
     }

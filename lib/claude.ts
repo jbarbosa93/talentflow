@@ -180,7 +180,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   console.log(`[Claude] Envoi PDF natif (${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
 
-  const response = await withRetry(() => client.messages.create({
+  const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1200,
     messages: [{
@@ -200,7 +200,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
         },
       ],
     }],
-  }))
+  })
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
