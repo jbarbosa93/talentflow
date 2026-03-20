@@ -941,7 +941,7 @@ function CandidatsPageInner() {
           {/* Content */}
           <div
             ref={previewScrollRef}
-            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: previewZoom <= 1 ? 'center' : 'flex-start', cursor: 'grab' }}
+            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', cursor: 'grab' }}
             onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
