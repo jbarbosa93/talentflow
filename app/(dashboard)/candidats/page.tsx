@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, ImageIcon,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -35,7 +35,6 @@ const SORT_OPTS = [
   { value: 'date_asc',   label: '⬆ Plus ancien' },
   { value: 'nom_az',     label: 'Nom A → Z' },
   { value: 'titre_az',   label: 'Métier A → Z' },
-  { value: 'distance',   label: '📍 Distance (Monthey)' },
 ]
 
 // Calcule l'âge à partir d'une date de naissance (formats DD/MM/YYYY ou YYYY-MM-DD)
@@ -58,6 +57,8 @@ const calculerAge = (dateNaissance: string | null): number | null => {
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
   return age > 0 && age < 100 ? age : null
 }
+
+const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 function CandidatsPageInner() {
   const router = useRouter()
@@ -87,6 +88,9 @@ function CandidatsPageInner() {
   const [aiResults, setAiResults] = useState<any[] | null>(null)
   const [aiInterpreted, setAiInterpreted] = useState('')
 
+  const [extractingPhotos, setExtractingPhotos] = useState(false)
+  const [photoExtractionStatus, setPhotoExtractionStatus] = useState<string | null>(null)
+
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [filterMetier, setFilterMetier] = useState('')
@@ -102,6 +106,8 @@ function CandidatsPageInner() {
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
+  const previewPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
+  const previewScrollRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (hoveredCv && hoveredCv.url !== prevHoveredCvUrl.current) {
       setPreviewZoom(1)
@@ -190,33 +196,33 @@ function CandidatsPageInner() {
     let filtered: any[] = base as any[]
 
     if (search && aiResults === null) {
-      const q = search.toLowerCase()
+      const q = normalize(search)
       filtered = filtered.filter((c: any) =>
-        (c.nom || '').toLowerCase().includes(q) ||
-        (c.prenom || '').toLowerCase().includes(q) ||
-        (c.titre_poste || '').toLowerCase().includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.formation || '').toLowerCase().includes(q) ||
-        (c.localisation || '').toLowerCase().includes(q) ||
-        (c.resume_ia || '').toLowerCase().includes(q) ||
-        (c.cv_texte_brut || '').toLowerCase().includes(q) ||
-        (c.notes || '').toLowerCase().includes(q) ||
-        (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
-        (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
-        (c.tags || []).some((s: string) => s.toLowerCase().includes(q)) ||
+        normalize(c.nom || '').includes(q) ||
+        normalize(c.prenom || '').includes(q) ||
+        normalize(c.titre_poste || '').includes(q) ||
+        normalize(c.email || '').includes(q) ||
+        normalize(c.formation || '').includes(q) ||
+        normalize(c.localisation || '').includes(q) ||
+        normalize(c.resume_ia || '').includes(q) ||
+        normalize(c.cv_texte_brut || '').includes(q) ||
+        normalize(c.notes || '').includes(q) ||
+        (c.competences || []).some((s: string) => normalize(s).includes(q)) ||
+        (c.langues || []).some((s: string) => normalize(s).includes(q)) ||
+        (c.tags || []).some((s: string) => normalize(s).includes(q)) ||
         (c.experiences || []).some((e: any) =>
-          (e.poste || '').toLowerCase().includes(q) ||
-          (e.entreprise || '').toLowerCase().includes(q) ||
-          (e.description || '').toLowerCase().includes(q)
+          normalize(e.poste || '').includes(q) ||
+          normalize(e.entreprise || '').includes(q) ||
+          normalize(e.description || '').includes(q)
         ) ||
-        JSON.stringify(c.formations_details || []).toLowerCase().includes(q)
+        normalize(JSON.stringify(c.formations_details || [])).includes(q)
       )
     }
 
     if (filtreLocalisation.trim()) {
-      const loc = filtreLocalisation.toLowerCase().trim()
+      const loc = normalize(filtreLocalisation)
       filtered = filtered.filter((c: any) =>
-        (c.localisation || '').toLowerCase().includes(loc)
+        normalize(c.localisation || '').includes(loc)
       )
     }
 
@@ -226,8 +232,8 @@ function CandidatsPageInner() {
 
     // Advanced filters
     filtered = filtered
-      .filter(c => !filterMetier || (c.titre_poste || '').toLowerCase().includes(filterMetier.toLowerCase()))
-      .filter(c => !filterLieu || (c.localisation || '').toLowerCase().includes(filterLieu.toLowerCase()))
+      .filter(c => !filterMetier || normalize(c.titre_poste || '').includes(normalize(filterMetier)))
+      .filter(c => !filterLieu || normalize(c.localisation || '').includes(normalize(filterLieu)))
       .filter(c => {
         if (filterAgeMin === '' && filterAgeMax === '') return true
         const age = c.date_naissance ? calculerAge(c.date_naissance) : null
@@ -236,7 +242,7 @@ function CandidatsPageInner() {
         if (filterAgeMax !== '' && age > filterAgeMax) return false
         return true
       })
-      .filter(c => !filterLangue || (c.langues || []).some((l: string) => l.toLowerCase().includes(filterLangue.toLowerCase())))
+      .filter(c => !filterLangue || (c.langues || []).some((l: string) => normalize(l).includes(normalize(filterLangue))))
       .filter(c => filterPermis === null || c.permis_conduire === filterPermis)
       .filter(c => filterExpMin === '' || (c.annees_exp || 0) >= filterExpMin)
 
@@ -446,7 +452,7 @@ function CandidatsPageInner() {
         </div>
 
         {/* Avatar */}
-        {c.photo_url
+        {(c.photo_url && c.photo_url !== 'checked')
           ? <img src={c.photo_url} style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} alt="" />
           : (
             <div
@@ -546,9 +552,40 @@ function CandidatsPageInner() {
             )}
           </p>
         </div>
-        <button onClick={() => setShowUpload(true)} className="neo-btn">
-          <Upload size={15} /> Importer un CV
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={async () => {
+              setExtractingPhotos(true)
+              setPhotoExtractionStatus('Extraction en cours...')
+              try {
+                let totalProcessed = 0, totalFound = 0
+                while (true) {
+                  const res = await fetch('/api/cv/extract-photos', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batchSize: 10 }) })
+                  const data = await res.json()
+                  totalProcessed += data.processed || 0
+                  totalFound += data.found || 0
+                  setPhotoExtractionStatus(`${totalProcessed} traités, ${totalFound} photos trouvées... (${data.remaining || 0} restants)`)
+                  if (data.done || data.remaining === 0) break
+                  await new Promise(r => setTimeout(r, 500))
+                }
+                setPhotoExtractionStatus(`✓ Terminé: ${totalFound} photos extraites`)
+                queryClient.invalidateQueries({ queryKey: ['candidats'] })
+              } catch {
+                setPhotoExtractionStatus('Erreur lors de l\'extraction')
+              }
+              setExtractingPhotos(false)
+            }}
+            disabled={extractingPhotos}
+            style={{ padding:'8px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg-card)', color:'var(--text)', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: extractingPhotos ? 0.7 : 1 }}
+          >
+            {extractingPhotos ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+            Extraire photos
+          </button>
+          {photoExtractionStatus && <span style={{fontSize:12,color:'var(--muted)'}}>{photoExtractionStatus}</span>}
+          <button onClick={() => setShowUpload(true)} className="neo-btn">
+            <Upload size={15} /> Importer un CV
+          </button>
+        </div>
       </div>
 
       {/* Selection action bar */}
@@ -914,17 +951,33 @@ function CandidatsPageInner() {
             </div>
           </div>
           {/* Content */}
-          <div style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: 'center', cursor: previewZoom > 1 ? 'grab' : 'default' }}>
+          <div
+            ref={previewScrollRef}
+            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: previewZoom <= 1 ? 'center' : 'flex-start', justifyContent: 'center', cursor: 'grab' }}
+            onMouseDown={e => {
+              const el = previewScrollRef.current; if (!el) return
+              previewPanRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }
+              el.style.cursor = 'grabbing'
+            }}
+            onMouseMove={e => {
+              const d = previewPanRef.current; const el = previewScrollRef.current
+              if (!d.active || !el) return
+              el.scrollLeft = d.scrollLeft - (e.clientX - d.startX)
+              el.scrollTop = d.scrollTop - (e.clientY - d.startY)
+            }}
+            onMouseUp={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
+            onMouseLeave={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
+          >
             {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
               <div style={{ width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 12 }}>
-                <img src={hoveredCv.url} alt="CV" style={{ maxWidth: '100%', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }} />
+                <img src={hoveredCv.url} alt="CV" style={{ width: `${previewZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }} />
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%' }}>
                 <iframe src={`${hoveredCv.url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`} style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} title="Aperçu CV" />
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: '100%', height: '100%', transform: `scale(${previewZoom})`, transformOrigin: 'top center', transition: 'transform 0.15s' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${previewZoom * 100}%`, minWidth: '100%', minHeight: '100%' }}>
                 <iframe
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
                   style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}

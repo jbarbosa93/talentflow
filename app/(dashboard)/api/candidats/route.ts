@@ -17,14 +17,15 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('candidats')
-      .select('*')
+      .select('*', { count: 'exact' })
+      .range(0, 9999)
       .order('created_at', { ascending: false })
 
     if (statut) {
       query = query.eq('statut_pipeline', statut as any)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ candidats })
+    return NextResponse.json({ candidats, total: count })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur serveur' },

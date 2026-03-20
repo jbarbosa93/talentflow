@@ -324,7 +324,7 @@ export default function CandidatDetailPage() {
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              {candidat.photo_url
+              {(candidat.photo_url && candidat.photo_url !== 'checked')
                 ? <img src={candidat.photo_url} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="Photo candidat" />
                 : <div className="neo-avatar" style={{ width: 44, height: 44, fontSize: 15, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none' }}>{initiales}</div>
               }
@@ -435,11 +435,6 @@ export default function CandidatDetailPage() {
                       onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
                       onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
                     >{candidat.localisation}</a>
-                    {distanceKm !== null && (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '1px 7px', borderRadius: 100, whiteSpace: 'nowrap' }}>
-                        ~{distanceKm} km
-                      </span>
-                    )}
                   </div>
                 )}
               </div>
@@ -838,14 +833,16 @@ export default function CandidatDetailPage() {
                 onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
                 onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
               >
-                <img src={candidat.cv_url} alt="CV" style={{ width: `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', alignSelf: 'flex-start', transform: `rotate(${cvRotation}deg)`, transition: 'transform 0.3s ease' }} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <img src={candidat.cv_url} alt="CV" style={{ width: (cvRotation === 90 || cvRotation === 270) ? `${cvZoom * 100}vh` : `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.3s ease' }} />
+                </div>
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative' }}>
+                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative', overflow: 'hidden' }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
@@ -857,7 +854,7 @@ export default function CandidatDetailPage() {
                   </>}
                   <iframe
                     src={cvIsPDF ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width` : docViewerUrl}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transition: 'transform 0.3s ease' }}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.3s ease' }}
                     title="CV"
                   />
                 </div>
