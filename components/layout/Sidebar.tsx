@@ -169,32 +169,32 @@ export function Sidebar() {
         {/* User card */}
         <div className="d-user-card">
           <div className="d-user-avatar">{initiales}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div className="d-user-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {fullName}
             </div>
             <div className="d-user-role">Consultant</div>
             {entreprise && (
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {entreprise}
               </div>
             )}
+            <button
+              onClick={handleLogout}
+              title="Se déconnecter"
+              style={{
+                marginTop: 6, background: 'none', border: 'none', cursor: 'pointer',
+                color: 'rgba(255,255,255,0.4)', padding: 0, borderRadius: 0,
+                display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+                transition: 'color 0.15s', fontSize: 10, fontWeight: 500,
+              }}
+              onMouseOver={e => { e.currentTarget.style.color = '#F5A623' }}
+              onMouseOut={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)' }}
+            >
+              <LogOut size={11} />
+              <span>Se déconnecter</span>
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Se déconnecter"
-            style={{
-              background: 'none', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer',
-              color: 'rgba(255,255,255,0.65)', padding: '4px 8px', borderRadius: 6,
-              display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-              transition: 'color 0.15s, border-color 0.15s', fontSize: 11, fontWeight: 500,
-            }}
-            onMouseOver={e => { e.currentTarget.style.color = '#F5A623'; e.currentTarget.style.borderColor = '#F5A623' }}
-            onMouseOut={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.65)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)' }}
-          >
-            <LogOut size={13} />
-            <span>Déconnexion</span>
-          </button>
         </div>
       </div>
 
