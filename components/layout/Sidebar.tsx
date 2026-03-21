@@ -286,16 +286,21 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   }} />
                 )}
               </Link>
-              {showATraiterBadge && (
+              {(aTraiterCount ?? 0) > 0 && (
                 <Link
                   href="/candidats/a-traiter"
-                  className={`d-nav-link${pathname === '/candidats/a-traiter' ? ' active' : ''}`}
-                  style={{ paddingLeft: 36, fontSize: 12 }}
+                  className="d-nav-link"
+                  style={{
+                    paddingLeft: 36, fontSize: 12,
+                    background: pathname === '/candidats/a-traiter' ? 'rgba(245,166,35,0.15)' : undefined,
+                    color: pathname === '/candidats/a-traiter' ? 'var(--primary)' : undefined,
+                    fontWeight: pathname === '/candidats/a-traiter' ? 700 : undefined,
+                  }}
                 >
                   <span style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     minWidth: 20, height: 20, borderRadius: 99, padding: '0 6px',
-                    background: 'rgba(245,166,35,0.2)', color: '#F5A623',
+                    background: 'rgba(245,166,35,0.25)', color: '#F5A623',
                     fontSize: 10, fontWeight: 800, marginRight: 6,
                   }}>
                     {aTraiterCount}
