@@ -21,7 +21,42 @@ export type MatchResult = {
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 
-const LS_KEY = 'tf_matching_state'
+const LS_KEY         = 'tf_matching_state'
+const LS_HISTORY_KEY = 'tf_matching_history'
+const MAX_HISTORY    = 20
+const MAX_RESULTS_IN_HISTORY = 15
+
+export type MatchHistoryItem = {
+  id: string
+  date: string
+  offreId: string
+  offreName: string
+  totalBase: number
+  totalAnalyzed: number
+  keywords: string[]
+  results: Array<{
+    candidat: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string | null }
+    score: number
+    recommandation: string
+  }>
+}
+
+export function historyLoad(): MatchHistoryItem[] {
+  try {
+    const raw = localStorage.getItem(LS_HISTORY_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function historySave(item: MatchHistoryItem) {
+  try {
+    const existing = historyLoad()
+    // Remove same offreId if already exists, then prepend new
+    const filtered = existing.filter(h => h.id !== item.id)
+    const updated = [item, ...filtered].slice(0, MAX_HISTORY)
+    localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(updated))
+  } catch {}
+}
 
 type LsData = {
   phase: 'idle' | 'running' | 'paused' | 'done'
@@ -230,10 +265,26 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     return () => { if (_onUpdate === update) _onUpdate = null }
   }, [update])
 
-  // Toast notification when analysis finishes away from /matching
+  // Save to history + toast when analysis finishes
   const prevPhaseRef = useRef(state.phase)
   useEffect(() => {
-    if (prevPhaseRef.current !== 'done' && state.phase === 'done') {
+    if (prevPhaseRef.current !== 'done' && state.phase === 'done' && state.results.length > 0) {
+      // Save to history
+      historySave({
+        id: `${state.offreId}-${Date.now()}`,
+        date: new Date().toISOString(),
+        offreId: state.offreId,
+        offreName: state.offreName,
+        totalBase: state.totalBase,
+        totalAnalyzed: state.total,
+        keywords: state.keywords,
+        results: state.results.slice(0, MAX_RESULTS_IN_HISTORY).map(r => ({
+          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url },
+          score: r.score,
+          recommandation: r.recommandation,
+        })),
+      })
+      // Toast si pas sur la page matching
       if (pathnameRef.current !== '/matching') {
         const count = state.results.length
         toast.success(
@@ -243,7 +294,7 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
       }
     }
     prevPhaseRef.current = state.phase
-  }, [state.phase, state.results.length, router])
+  }, [state.phase, state.results.length, state.offreId, state.offreName, state.totalBase, state.total, state.keywords, state.results, router])
 
   const startAnalysis = useCallback((offreId: string, offreName: string) => {
     _abortFlag = false

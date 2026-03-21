@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square } from 'lucide-react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
@@ -43,14 +43,22 @@ export default function MatchingPage() {
     <div className="d-page" style={{ maxWidth: 860 }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
-          <Sparkles size={22} color="var(--primary)" />
-          Matching IA
-        </h1>
-        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
-          Sélectionnez une commande — l&apos;IA analyse tous vos candidats et les classe par compatibilité
-        </p>
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
+            <Sparkles size={22} color="var(--primary)" />
+            Matching IA
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
+            Sélectionnez une commande — l&apos;IA pré-sélectionne et classe vos candidats
+          </p>
+        </div>
+        <Link
+          href="/matching/historique"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+        >
+          <History size={14} />Historique
+        </Link>
       </div>
 
       {/* Sélection commande + boutons */}
