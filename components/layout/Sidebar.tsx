@@ -286,7 +286,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   }} />
                 )}
               </Link>
-              {(aTraiterCount ?? 0) > 0 && (
+              {showATraiterBadge && (
                 <Link
                   href="/candidats/a-traiter"
                   className="d-nav-link"
