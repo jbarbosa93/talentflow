@@ -52,6 +52,21 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   const entreprise = user?.user_metadata?.entreprise || ''
 
+  // Count candidats à traiter
+  const { data: aTraiterCount } = useQuery({
+    queryKey: ['candidats-a-traiter-count'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/candidats/init-import-status')
+        if (!res.ok) return 0
+        const data = await res.json()
+        return data.a_traiter || 0
+      } catch { return 0 }
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
     if (pathname === href) return true
@@ -250,23 +265,43 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           const active = isActive(item.href, item.exact)
           const isMatchingNav = item.href === '/matching'
           const showMatchingDot = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && isMatchingNav && !active
+          const isCandidatsNav = item.href === '/candidats'
+          const showATraiterBadge = isCandidatsNav && (aTraiterCount ?? 0) > 0
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`d-nav-link${active ? ' active' : ''}`}
-              style={isMatchingNav ? { position: 'relative' } : undefined}
-            >
-              <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
-              {item.label}
-              {showMatchingDot && (
-                <span style={{
-                  marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
-                  background: matchingCtx.phase === 'paused' ? '#818CF8' : '#6366F1', flexShrink: 0,
-                  animation: matchingCtx.phase === 'running' ? 'pulse 2s infinite' : 'none',
-                }} />
+            <div key={item.href}>
+              <Link
+                href={item.href}
+                className={`d-nav-link${active ? ' active' : ''}`}
+                style={isMatchingNav ? { position: 'relative' } : undefined}
+              >
+                <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
+                {item.label}
+                {showMatchingDot && (
+                  <span style={{
+                    marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
+                    background: matchingCtx.phase === 'paused' ? '#818CF8' : '#6366F1', flexShrink: 0,
+                    animation: matchingCtx.phase === 'running' ? 'pulse 2s infinite' : 'none',
+                  }} />
+                )}
+              </Link>
+              {showATraiterBadge && (
+                <Link
+                  href="/candidats/a-traiter"
+                  className={`d-nav-link${pathname === '/candidats/a-traiter' ? ' active' : ''}`}
+                  style={{ paddingLeft: 36, fontSize: 12 }}
+                >
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: 20, height: 20, borderRadius: 99, padding: '0 6px',
+                    background: 'rgba(245,166,35,0.2)', color: '#F5A623',
+                    fontSize: 10, fontWeight: 800, marginRight: 6,
+                  }}>
+                    {aTraiterCount}
+                  </span>
+                  À traiter
+                </Link>
               )}
-            </Link>
+            </div>
           )
         })}
       </nav>

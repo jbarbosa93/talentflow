@@ -16,7 +16,8 @@ const LIST_COLUMNS = [
   'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'linkedin', 'permis_conduire', 'date_naissance',
-  'experiences', 'formations_details', 'created_at', 'updated_at',
+  'experiences', 'formations_details', 'import_status',
+  'created_at', 'updated_at',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const statut = searchParams.get('statut') || ''
+    const importStatus = searchParams.get('import_status') || ''
 
     // ── Fetch ALL rows via pagination loop ───────────────────────────────────
     // PostgREST caps at 1000 rows per request regardless of .range() — loop to bypass
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
         .range(offset, offset + PAGE_SIZE - 1)
 
       if (statut) query = query.eq('statut_pipeline', statut as any)
+      if (importStatus) query = query.eq('import_status', importStatus as any)
 
       const { data, error } = await query
 

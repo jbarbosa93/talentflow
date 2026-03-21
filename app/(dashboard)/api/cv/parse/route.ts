@@ -379,6 +379,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     date_naissance: analyse.date_naissance || null,
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
+    import_status: 'a_traiter',
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient

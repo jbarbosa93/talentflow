@@ -2,15 +2,14 @@
 import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Upload, Search, Trash2, ChevronDown, ChevronRight,
+  Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
+  Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
+  CheckCircle, Archive,
 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import UploadCV from '@/components/UploadCV'
-import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat } from '@/hooks/useCandidats'
+import { useCandidats, useDeleteCandidatsBulk, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
-import type { PipelineEtape } from '@/types/database'
+import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
@@ -60,7 +59,7 @@ const calculerAge = (dateNaissance: string | null): number | null => {
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
-function CandidatsPageInner() {
+function CandidatsATraiterInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
@@ -78,11 +77,7 @@ function CandidatsPageInner() {
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
-  const [showUpload, setShowUpload]       = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showMessage, setShowMessage]     = useState(false)
-  const [messageText, setMessageText]     = useState('')
-  const [numCopied, setNumCopied]         = useState(false)
 
   const [aiSearching, setAiSearching] = useState(false)
   const [aiResults, setAiResults] = useState<any[] | null>(null)
@@ -125,9 +120,6 @@ function CandidatsPageInner() {
   const geocacheRef = useRef<Record<string, { lat: number; lon: number } | null>>({})
   const geocodingRef = useRef<Set<string>>(new Set())
 
-  // Pipeline dropdown inline
-  const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
-  const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
   const [perPage, setPerPage] = useState<number>(20)
 
   useEffect(() => {
@@ -137,14 +129,11 @@ function CandidatsPageInner() {
     } catch {}
   }, [])
 
-  const { data: candidatsData, isLoading } = useCandidats({
-    statut: filtreStatut === 'tous' ? undefined : filtreStatut,
-    import_status: 'traite',
-  })
+  const { data: candidatsData, isLoading } = useCandidats({ import_status: 'a_traiter' })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
   const deleteBulk   = useDeleteCandidatsBulk()
-  const updateStatut = useUpdateStatutCandidat()
+  const updateImportStatus = useUpdateImportStatusBulk()
 
   useEffect(() => {
     if (!allCandidats.length) return
@@ -184,13 +173,6 @@ function CandidatsPageInner() {
     }
     next()
   }, [allCandidats])
-
-  // Fermer le dropdown pipeline en cliquant ailleurs
-  useEffect(() => {
-    const close = () => { setOpenPipelineId(null); setPipelinePos(null) }
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [])
 
   // Filtrage client-side instantané
   const candidatsFiltres = useMemo(() => {
@@ -327,48 +309,54 @@ function CandidatsPageInner() {
     })
   }
 
-  // Détecte et formate automatiquement un numéro en international
-  const detectAndFormat = (tel: string): { number: string; flag: string; country: string } => {
-    const c = tel.replace(/[\s\-().]/g, '')
-
-    if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '🇨🇭', country: 'Suisse' }
-    if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '🇫🇷', country: 'France' }
-    if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '🇪🇸', country: 'Espagne' }
-    if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '🇵🇹', country: 'Portugal' }
-    if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '🇮🇹', country: 'Italie' }
-
-    if (c.startsWith('0')) {
-      const local = c.slice(1)
-      if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }
-      if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
-      if (/^[0-5]/.test(local))  return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
-      return { number: c, flag: '❓', country: '' }
-    }
-
-    if (/^[67]/.test(c) && c.length === 9)      return { number: '+34'  + c, flag: '🇪🇸', country: 'Espagne' }
-    if (/^9/.test(c)    && c.length === 9)       return { number: '+351' + c, flag: '🇵🇹', country: 'Portugal' }
-    if (/^3/.test(c)    && c.length >= 9)        return { number: '+39'  + c, flag: '🇮🇹', country: 'Italie' }
-
-    return { number: c, flag: '📱', country: '' }
-  }
-
-  const copyNumbers = async (formatted: string[]) => {
-    await navigator.clipboard.writeText(formatted.join('\n'))
-    setNumCopied(true)
-    setTimeout(() => setNumCopied(false), 2500)
-  }
-
-  const openMessages = (formatted: string[]) => {
-    window.open('sms:', '_self')
-  }
-
   const handleBulkDelete = () => {
     deleteBulk.mutate(Array.from(selectedIds), {
       onSuccess: () => {
         setSelectedIds(new Set())
         setShowDeleteConfirm(false)
+        queryClient.invalidateQueries({ queryKey: ['candidats'] })
       },
     })
+  }
+
+  const handleBulkValidate = () => {
+    updateImportStatus.mutate(
+      { ids: Array.from(selectedIds), status: 'traite' as ImportStatus },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set())
+          queryClient.invalidateQueries({ queryKey: ['candidats'] })
+        },
+      }
+    )
+  }
+
+  const handleBulkArchive = () => {
+    updateImportStatus.mutate(
+      { ids: Array.from(selectedIds), status: 'archive' as ImportStatus },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set())
+          queryClient.invalidateQueries({ queryKey: ['candidats'] })
+        },
+      }
+    )
+  }
+
+  const handleSingleValidate = (id: string) => {
+    updateImportStatus.mutate(
+      { ids: [id], status: 'traite' as ImportStatus },
+      {
+        onSuccess: () => {
+          setSelectedIds(prev => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
+          queryClient.invalidateQueries({ queryKey: ['candidats'] })
+        },
+      }
+    )
   }
 
   const toggleGroup = (key: string) => {
@@ -523,6 +511,22 @@ function CandidatsPageInner() {
           </div>
         )}
 
+        {/* Quick validate button */}
+        <button
+          onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
+          title="Valider ce candidat"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30, borderRadius: 8, border: '1px solid #BBF7D0',
+            background: '#F0FDF4', cursor: 'pointer', flexShrink: 0,
+            transition: 'all 0.15s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.background = '#DCFCE7'; e.currentTarget.style.borderColor = '#86EFAC' }}
+          onMouseOut={e => { e.currentTarget.style.background = '#F0FDF4'; e.currentTarget.style.borderColor = '#BBF7D0' }}
+        >
+          <CheckCircle size={15} color="#16A34A" />
+        </button>
+
         {/* Date d'ajout */}
         <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
           Ajouté le {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -538,9 +542,9 @@ function CandidatsPageInner() {
       {/* Header */}
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title">Candidats</h1>
+          <h1 className="d-page-title">Candidats à traiter</h1>
           <p className="d-page-sub">
-            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''} au total`}
+            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''} à traiter`}
             {aiResults !== null && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}· Résultats IA
@@ -552,11 +556,6 @@ function CandidatsPageInner() {
               </span>
             )}
           </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setShowUpload(true)} className="neo-btn">
-            <Upload size={15} /> Importer un CV
-          </button>
         </div>
       </div>
 
@@ -577,11 +576,20 @@ function CandidatsPageInner() {
             <X size={13} /> Désélectionner
           </button>
           <button
-            onClick={() => setShowMessage(true)}
+            onClick={handleBulkValidate}
+            disabled={updateImportStatus.isPending}
             className="neo-btn neo-btn-sm"
-            style={{ background: '#007AFF', color: 'white', boxShadow: 'none' }}
+            style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}
           >
-            <MessageSquare size={13} /> Message ({selCount})
+            <CheckCircle size={13} /> Valider ({selCount})
+          </button>
+          <button
+            onClick={handleBulkArchive}
+            disabled={updateImportStatus.isPending}
+            className="neo-btn neo-btn-sm"
+            style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}
+          >
+            <Archive size={13} /> Archiver ({selCount})
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -769,11 +777,8 @@ function CandidatsPageInner() {
       ) : sorted.length === 0 ? (
         <div className="neo-empty">
           <div className="neo-empty-icon">🔍</div>
-          <div className="neo-empty-title">Aucun candidat trouvé</div>
-          <div className="neo-empty-sub">Modifiez vos filtres ou importez un nouveau CV</div>
-          <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
-            <Upload size={15} /> Importer un CV
-          </button>
+          <div className="neo-empty-title">Aucun candidat à traiter</div>
+          <div className="neo-empty-sub">Tous les candidats importés ont été traités</div>
         </div>
       ) : grouped ? (
         /* Grouped */
@@ -922,10 +927,6 @@ function CandidatsPageInner() {
             onMouseUp={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
             onMouseLeave={() => { previewPanRef.current.active = false; if (previewScrollRef.current) previewScrollRef.current.style.cursor = 'grab' }}
           >
-            {/* Zoom via transform:scale → contenu visuellement agrandi sans recalcul iframe
-                Outer div = espace de scroll (previewZoom * taille de base)
-                Inner div = rendu à taille réelle (÷zoom) puis scale() visuel
-                pointerEvents:none sur iframe → wheel/drag passent au scroll container */}
             {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
               <div style={{ width: `${previewZoom * 100}%`, minWidth: '100%', flexShrink: 0, position: 'relative', paddingTop: `${previewZoom * 100}%` }}>
                 <div style={{ position: 'absolute', inset: 0, transform: `scale(${previewZoom})`, transformOrigin: 'top left', width: `${100 / previewZoom}%`, height: `${100 / previewZoom}%` }}>
@@ -996,222 +997,10 @@ function CandidatsPageInner() {
           </div>
         </div>
       )}
-
-      {/* Modal Message */}
-      {showMessage && (() => {
-        const selected = sorted.filter((c: any) => selectedIds.has(c.id))
-        const avecTel   = selected.filter((c: any) => c.telephone)
-        const sansTel   = selected.filter((c: any) => !c.telephone)
-        const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
-        return (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
-          }}>
-            <div className="neo-card" style={{ maxWidth: 500, width: '92%', padding: 0, overflow: 'hidden' }}>
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <MessageSquare size={15} color="white" />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Envoyer un message</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ouvre l&apos;app Messages sur votre Mac</div>
-                  </div>
-                </div>
-                <button onClick={() => setShowMessage(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
-                  <X size={18} />
-                </button>
-              </div>
-
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Numéros à coller dans Messages
-                  </div>
-                  <div style={{ position: 'relative' }}>
-                    <textarea
-                      readOnly
-                      value={formatted.join('\n')}
-                      rows={Math.min(formatted.length, 5)}
-                      style={{
-                        width: '100%', padding: '10px 14px', paddingRight: 90,
-                        fontSize: 13, fontFamily: 'monospace', fontWeight: 600,
-                        border: '1.5px solid var(--border)', borderRadius: 10,
-                        resize: 'none', background: '#F8F9FA', color: 'var(--foreground)',
-                        outline: 'none', boxSizing: 'border-box', lineHeight: 1.8,
-                      }}
-                      onFocus={e => e.target.select()}
-                    />
-                    <button
-                      onClick={() => copyNumbers(formatted)}
-                      style={{
-                        position: 'absolute', right: 8, top: 8,
-                        padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700,
-                        border: '1.5px solid',
-                        borderColor: numCopied ? '#16A34A' : 'var(--border)',
-                        background: numCopied ? '#F0FDF4' : 'white',
-                        color: numCopied ? '#16A34A' : 'var(--foreground)',
-                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
-                      }}
-                    >
-                      {numCopied ? '✓ Copié' : 'Copier'}
-                    </button>
-                  </div>
-                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>
-                    Un numéro par ligne · Ouvrez Messages → champ <strong>À :</strong> → <strong>⌘V</strong>
-                  </p>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Destinataires — {avecTel.length} avec numéro
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                    {avecTel.map((c: any) => {
-                      const { number, flag, country } = detectAndFormat(c.telephone)
-                      return (
-                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
-                            {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
-                              <Phone size={10} /> {number}
-                            </div>
-                          </div>
-                          {flag && (
-                            <span style={{ fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontWeight: 600 }}>
-                              {flag} {country}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                    {sansTel.length > 0 && sansTel.map((c: any) => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
-                          {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{c.prenom} {c.nom}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}>
-                            <AlertTriangle size={10} /> Pas de numéro — sera ignoré
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Message
-                  </div>
-                  <textarea
-                    value={messageText}
-                    onChange={e => setMessageText(e.target.value)}
-                    placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
-                    rows={4}
-                    style={{
-                      width: '100%', padding: '10px 14px', fontSize: 14,
-                      border: '1.5px solid var(--border)', borderRadius: 10,
-                      resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)',
-                      background: 'var(--background)', outline: 'none', boxSizing: 'border-box',
-                    }}
-                  />
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                    {messageText.length} caractères · Le message sera pré-rempli dans l&apos;app Messages
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setShowMessage(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
-                    Annuler
-                  </button>
-                  <button
-                    onClick={() => openMessages(formatted)}
-                    disabled={avecTel.length === 0}
-                    className="neo-btn"
-                    style={{ flex: 2, justifyContent: 'center', background: '#007AFF', color: 'white', boxShadow: 'none', opacity: avecTel.length === 0 ? 0.4 : 1 }}
-                  >
-                    <MessageSquare size={14} />
-                    Ouvrir Messages
-                  </button>
-                </div>
-
-                {avecTel.length === 0 && (
-                  <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>
-                    Aucun candidat sélectionné n&apos;a de numéro de téléphone.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
-      {/* Pipeline dropdown (fixed position — bypass overflow clipping) */}
-      {openPipelineId && pipelinePos && (() => {
-        const cand = allCandidats.find((x: any) => x.id === openPipelineId)
-        if (!cand) return null
-        return (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onClick={() => { setOpenPipelineId(null); setPipelinePos(null) }} />
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                position: 'fixed', top: pipelinePos.top, left: pipelinePos.left, zIndex: 999,
-                background: 'white', border: '1px solid var(--border)',
-                borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-                padding: 4, minWidth: 145,
-              }}
-            >
-              {(Object.entries(ETAPE_LABELS) as [PipelineEtape, string][]).map(([etape, label]) => (
-                <button
-                  key={etape}
-                  onClick={() => {
-                    if (cand.statut_pipeline !== etape) {
-                      updateStatut.mutate({ id: cand.id, statut: etape })
-                    }
-                    setOpenPipelineId(null)
-                    setPipelinePos(null)
-                  }}
-                  style={{
-                    display: 'flex', alignItems: 'center', width: '100%',
-                    padding: '7px 10px', borderRadius: 7, border: 'none',
-                    background: cand.statut_pipeline === etape ? 'var(--primary-soft)' : 'transparent',
-                    cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                    color: 'var(--foreground)', fontFamily: 'inherit', textAlign: 'left', gap: 8,
-                  }}
-                >
-                  <span className={ETAPE_BADGE[etape]}>{label}</span>
-                  {cand.statut_pipeline === etape && <Check size={11} style={{ marginLeft: 'auto', color: 'var(--primary)' }} />}
-                </button>
-              ))}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* Upload dialog */}
-      <Dialog open={showUpload} onOpenChange={setShowUpload}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer un CV</DialogTitle>
-          </DialogHeader>
-          <UploadCV onSuccess={() => {
-            setShowUpload(false)
-            queryClient.invalidateQueries({ queryKey: ['candidats'] })
-          }} />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
 
-export default function CandidatsPage() {
-  return <Suspense fallback={null}><CandidatsPageInner /></Suspense>
+export default function CandidatsATraiterPage() {
+  return <Suspense fallback={null}><CandidatsATraiterInner /></Suspense>
 }

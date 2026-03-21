@@ -2,6 +2,7 @@
 // Compatible avec @supabase/supabase-js v2.99+
 
 export type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
+export type ImportStatus = 'a_traiter' | 'traite' | 'archive'
 export type OffreStatut = 'active' | 'pourvue' | 'archivee'
 export type IntegrationType = 'microsoft' | 'google' | 'whatsapp'
 export type EntretienType = 'visio' | 'presentiel' | 'telephone'
@@ -37,6 +38,7 @@ export type Candidat = {
   date_naissance: string | null
   experiences: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
   formations_details: Array<{ diplome: string; etablissement: string; annee: string }> | null
+  import_status: ImportStatus
   created_at: string
   updated_at: string
 }
@@ -207,6 +209,7 @@ export type Database = {
           date_naissance?: string | null
           experiences?: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
           formations_details?: Array<{ diplome: string; etablissement: string; annee: string }> | null
+          import_status?: ImportStatus
         }
         Update: {
           nom?: string
@@ -233,6 +236,7 @@ export type Database = {
           date_naissance?: string | null
           experiences?: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
           formations_details?: Array<{ diplome: string; etablissement: string; annee: string }> | null
+          import_status?: ImportStatus
         }
         Relationships: []
       }

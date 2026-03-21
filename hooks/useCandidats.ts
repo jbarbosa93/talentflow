@@ -1,17 +1,18 @@
 // hooks/useCandidats.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import type { Candidat, PipelineEtape } from '@/types/database'
+import type { Candidat, PipelineEtape, ImportStatus } from '@/types/database'
 import { toast } from 'sonner'
 
 const supabase = createClient()
 
-export function useCandidats(filters?: { statut?: PipelineEtape }) {
+export function useCandidats(filters?: { statut?: PipelineEtape; import_status?: ImportStatus }) {
   return useQuery({
-    queryKey: ['candidats', { statut: filters?.statut }],
+    queryKey: ['candidats', { statut: filters?.statut, import_status: filters?.import_status }],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filters?.statut) params.set('statut', filters.statut)
+      if (filters?.import_status) params.set('import_status', filters.import_status)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
       const { candidats, total } = await res.json()
@@ -106,6 +107,30 @@ export function useDeleteCandidat() {
       toast.success('Candidat supprimé')
     },
     onError: (error: Error) => { toast.error('Erreur suppression : ' + error.message) },
+  })
+}
+
+export function useUpdateImportStatusBulk() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: ImportStatus }) => {
+      const results = await Promise.all(
+        ids.map(id =>
+          fetch(`/api/candidats/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ import_status: status }),
+          })
+        )
+      )
+      return results.length
+    },
+    onSuccess: (count: number) => {
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      const label = count > 1 ? `${count} candidats` : '1 candidat'
+      toast.success(`${label} mis à jour`)
+    },
+    onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
   })
 }
 
