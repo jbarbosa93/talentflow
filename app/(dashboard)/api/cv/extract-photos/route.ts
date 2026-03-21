@@ -68,6 +68,8 @@ export async function POST(request: NextRequest) {
   let error: any = null
   let totalToProcess = 0
 
+  const FIELDS = 'id, nom, prenom, titre_poste, cv_url, cv_nom_fichier, photo_url'
+
   if (force) {
     // Force mode: re-extract ALL candidates with a CV (even those with photos)
     const countResult = await supabase
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     const result = await supabase
       .from('candidats')
-      .select('id, cv_url, cv_nom_fichier, photo_url')
+      .select(FIELDS)
       .not('cv_url', 'is', null)
       .order('created_at', { ascending: true })
       .range(offset, offset + batchSize - 1)
@@ -87,10 +89,9 @@ export async function POST(request: NextRequest) {
     error = result.error
   } else {
     // Normal mode: only candidates sans vraie photo (null OU 'checked')
-    // On utilise 2 requêtes pour combiner null + checked
     const { data: nullPhotos, error: e1 } = await supabase
       .from('candidats')
-      .select('id, cv_url, cv_nom_fichier, photo_url')
+      .select(FIELDS)
       .is('photo_url', null)
       .not('cv_url', 'is', null)
       .limit(batchSize)
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     if (remaining > 0) {
       const { data: cp } = await supabase
         .from('candidats')
-        .select('id, cv_url, cv_nom_fichier, photo_url')
+        .select(FIELDS)
         .eq('photo_url', 'checked')
         .not('cv_url', 'is', null)
         .limit(remaining)
@@ -117,6 +118,7 @@ export async function POST(request: NextRequest) {
   const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
   let processed = 0
   let found = 0
+  const foundCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string }[] = []
 
   for (const cand of candidates) {
     try {
@@ -167,6 +169,7 @@ export async function POST(request: NextRequest) {
           if (urlData?.signedUrl) {
             await supabase.from('candidats').update({ photo_url: urlData.signedUrl }).eq('id', cand.id)
             found++
+            foundCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, photo_url: urlData.signedUrl })
           }
         }
       } else {
@@ -213,6 +216,7 @@ export async function POST(request: NextRequest) {
     found,
     remaining,
     nextOffset: force ? offset + processed : undefined,
+    foundCandidats,
   })
 }
 
