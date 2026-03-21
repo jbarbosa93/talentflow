@@ -616,26 +616,6 @@ function CandidatsPageInner() {
           </div>
         </div>
 
-        {/* Filtre lieu */}
-        <div style={{ position: 'relative' }}>
-          <MapPin style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--muted)', pointerEvents: 'none' }} />
-          <input
-            className="neo-input-soft"
-            style={{ paddingLeft: 30, width: 150, fontSize: 13 }}
-            placeholder="Filtrer par lieu..."
-            value={filtreLocalisation}
-            onChange={e => setFiltreLocalisation(e.target.value)}
-          />
-          {filtreLocalisation && (
-            <button
-              onClick={() => setFiltreLocalisation('')}
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-
         {/* Filtre métier */}
         {agenceMetiers.length > 0 && (
           <select

@@ -396,8 +396,8 @@ export default function CandidatDetailPage() {
               {/* Photo avec boutons upload/delete */}
               <div style={{ position: 'relative' }}>
                 {(candidat.photo_url && candidat.photo_url !== 'checked')
-                  ? <img src={candidat.photo_url} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} alt="Photo candidat" />
-                  : <div className="neo-avatar" style={{ width: 100, height: 100, fontSize: 28, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none', borderRadius: 10 }}>{initiales}</div>
+                  ? <img src={candidat.photo_url} style={{ width: 140, height: 140, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} alt="Photo candidat" />
+                  : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none', borderRadius: 12 }}>{initiales}</div>
                 }
                 {photoUploading && (
                   <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
