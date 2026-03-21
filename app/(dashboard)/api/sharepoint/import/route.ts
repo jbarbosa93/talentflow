@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
       tags: [],
       notes: null,
       source: 'sharepoint',
+      import_status: 'a_traiter',
     }
 
     const { data: candidatRaw, error: dbError } = await supabase
