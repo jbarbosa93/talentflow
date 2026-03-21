@@ -180,8 +180,14 @@ export default function CandidatDetailPage() {
 
   const printCV = () => {
     if (!candidat?.cv_url) return
-    // Proxy same-origin avec Content-Type forcé → ouvre le PDF viewer natif du navigateur
-    window.open(`/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
+    const ext = (candidat.cv_nom_fichier || candidat.cv_url || '').split('.').pop()?.toLowerCase()
+    if (ext === 'pdf' || ext === 'jpg' || ext === 'jpeg' || ext === 'png') {
+      // PDF/images → proxy same-origin → viewer natif du navigateur
+      window.open(`/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
+    } else {
+      // Word/autres → Google Docs Viewer (seul moyen de les afficher dans le browser)
+      window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
+    }
   }
 
   const downloadCV = async () => {
