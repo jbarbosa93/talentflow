@@ -113,7 +113,7 @@ function getPairsToCheck(candidats: Candidat[]): Array<[Candidat, Candidat]> {
           addPair(group[i], group[j])
   }
 
-  return pairs.slice(0, 60)
+  return pairs.slice(0, 500)
 }
 
 // ─── Module-level persistent state ────────────────────────────────────────────

@@ -587,7 +587,7 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
           <div style={{ flex: 1 }} />
           <button onClick={() => onIgnorer(pair.id)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--muted)', fontFamily: 'inherit' }}>
-            <XCircle size={13} />Ignorer
+            <XCircle size={13} />Personnes différentes
           </button>
           <button onClick={() => onFusionner(pair)}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 16px', borderRadius: 8, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}>
