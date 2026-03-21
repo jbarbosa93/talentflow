@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOffres } from '@/hooks/useOffres'
@@ -22,8 +22,17 @@ export default function MatchingPage() {
   const matching = useMatching()
 
   const offre = offres?.find(o => o.id === selectedOffre)
-  // When context already has a running analysis, show its offre
-  const activeOffre = offres?.find(o => o.id === matching.offreId)
+
+  // À l'arrivée sur la page : toujours repartir en mode nouvelle recherche,
+  // SAUF si une analyse est déjà en cours (running/paused)
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (didInit.current) return
+    didInit.current = true
+    if (matching.phase !== 'running' && matching.phase !== 'paused') {
+      matching.reset()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => {
     if (!selectedOffre) return
@@ -175,10 +184,10 @@ export default function MatchingPage() {
         </div>
 
         {/* Infos commande sélectionnée */}
-        {(offre || activeOffre) && (
+        {offre && (
           <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.2)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {(() => {
-              const o = activeOffre || offre!
+              const o = offre
               return <>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{o.titre}</span>
                 {o.client_nom && <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>👤 {o.client_nom}</span>}
