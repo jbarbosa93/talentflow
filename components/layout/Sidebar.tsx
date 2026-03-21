@@ -22,10 +22,12 @@ const NAV_ITEMS = [
 
 const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug },
-  { href: '/parametres/demandes-acces',  label: 'Demandes d\'accès', icon: UserCheck },
-  { href: '/parametres/admin',           label: 'Administration',    icon: Shield },
+  { href: '/parametres/demandes-acces',  label: 'Demandes d\'accès', icon: UserCheck, adminOnly: true },
+  { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
   { href: '/parametres',                 label: 'Paramètres',        icon: Settings },
 ]
+
+const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -140,7 +142,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="d-sidebar-footer">
         <span className="d-sidebar-section" style={{ margin: '0 0 6px' }}>Compte</span>
-        {FOOTER_ITEMS.map(item => {
+        {FOOTER_ITEMS.filter(item => !item.adminOnly || user?.email === ADMIN_EMAIL).map(item => {
           const Icon = item.icon
           const active = isActive(item.href, (item as any).exact)
           // Show import icon on Paramètres item when running

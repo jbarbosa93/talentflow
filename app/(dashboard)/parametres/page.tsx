@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, ImageIcon, Camera } from 'lucide-react'
+import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -17,7 +17,6 @@ const SECTIONS = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
-  { id: 'photos',        label: 'Photos',        icon: Camera },
 ]
 
 export const AGENCE_METIERS_LS_KEY = 'agence_metiers'
@@ -39,11 +38,22 @@ const ADMIN_SECTIONS = [
   { href: '/parametres/admin',        label: 'Administration',  icon: Shield },
 ]
 const TOOLS_SECTIONS = [
-  { href: '/parametres/import-masse', label: 'Import en masse', icon: FolderInput },
+  { href: '/parametres/import-masse',    label: 'Import en masse',        icon: FolderInput },
+  { href: '/parametres/corriger-photos', label: 'Corriger photos',        icon: Camera },
 ]
+
+const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
 export default function ParametresPage() {
   const [section, setSection] = useState('profil')
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email || null)
+    })
+  }, [])
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -89,9 +99,11 @@ export default function ParametresPage() {
             {LINK_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
           </NavGroup>
 
-          <NavGroup label="Admin">
-            {ADMIN_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
-          </NavGroup>
+          {userEmail === ADMIN_EMAIL && (
+            <NavGroup label="Admin">
+              {ADMIN_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
+            </NavGroup>
+          )}
         </nav>
 
         {/* Content */}
@@ -101,7 +113,6 @@ export default function ParametresPage() {
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
           {section === 'metiers'        && <MetiersSection />}
-          {section === 'photos'         && <PhotosSection />}
         </div>
       </div>
     </div>
