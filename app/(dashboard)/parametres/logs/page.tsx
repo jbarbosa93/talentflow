@@ -1,10 +1,11 @@
 'use client'
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import {
   LogIn, LogOut, UserPlus, UserMinus, Briefcase, FileUp,
   RefreshCw, Link2, Link2Off, GitBranch, Activity, Loader2,
-  AlertCircle, Copy, FolderOpen, Filter, ChevronDown, XCircle,
+  AlertCircle, Copy, FolderOpen, Filter, ChevronDown, XCircle, Search,
 } from 'lucide-react'
 
 type LogEntry = {
@@ -54,11 +55,21 @@ function formatDetails(details: Record<string, unknown>): string {
 
 type VueType = 'tout' | 'imports' | 'erreurs'
 
+// Extrait le nom sans extension pour la recherche candidat
+function nomRecherche(fichier: string): string {
+  return fichier
+    .replace(/\.[^.]+$/, '')           // enlève extension
+    .replace(/^\d+_/, '')              // enlève timestamp préfixé
+    .replace(/[_-]+/g, ' ')           // remplace _ et - par espace
+    .trim()
+}
+
 export default function LogsPage() {
   const [vue, setVue] = useState<VueType>('tout')
   const [pageSize] = useState(100)
   const [loadedPages, setLoadedPages] = useState(1)
   const queryClient = useQueryClient()
+  const router = useRouter()
 
   const buildUrl = useCallback(() => {
     const limit = pageSize * loadedPages
@@ -171,16 +182,20 @@ export default function LogsPage() {
       {vue === 'erreurs' && totalErreurs > 0 && (
         <div style={{
           background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12,
-          padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12,
+          padding: '14px 20px', marginBottom: 20,
         }}>
-          <AlertCircle size={20} style={{ color: '#EF4444', flexShrink: 0 }} />
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', margin: 0 }}>
-              {totalErreurs} CV{totalErreurs > 1 ? 's' : ''} en erreur
-            </p>
-            <p style={{ fontSize: 12, color: '#B91C1C', margin: '4px 0 0 0' }}>
-              Ces fichiers n&apos;ont pas pu etre importes. Vous pouvez les reimporter apres correction.
-            </p>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <AlertCircle size={20} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', margin: 0 }}>
+                {totalErreurs} événements d&apos;erreur enregistrés
+              </p>
+              <p style={{ fontSize: 12, color: '#B91C1C', margin: '4px 0 0 0', lineHeight: 1.5 }}>
+                Certains CVs n&apos;ont pas pu être importés. Pour chaque ligne, cliquez <strong>Chercher dans la base</strong> pour vérifier si le candidat a quand même été créé.
+                <br />
+                <span style={{ opacity: 0.8 }}>Note : le compteur inclut les tentatives multiples — le nombre réel de fichiers en erreur est inférieur.</span>
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -213,7 +228,7 @@ export default function LogsPage() {
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       {(vue === 'tout'
                         ? ['Date / Heure', 'Action', 'Utilisateur', 'Details', 'IP']
-                        : ['Date / Heure', 'Statut', 'Fichier', 'Dossier', 'Erreur / Candidat']
+                        : ['Date / Heure', 'Statut', 'Nom du fichier', 'Dossier', 'Détail', '']
                       ).map(col => (
                         <th key={col} style={{
                           padding: '12px 16px', textAlign: 'left',
@@ -233,12 +248,13 @@ export default function LogsPage() {
                       const d = log.details
 
                       if (vue !== 'tout') {
-                        // Import / Error view
                         const isError = log.action === 'cv_erreur'
+                        const fichier = (d.fichier as string) || ''
+                        const searchTerm = fichier ? nomRecherche(fichier) : ((d.candidat as string) || '')
                         return (
                           <tr key={log.id} style={{
                             borderBottom: idx < logs.length - 1 ? '1px solid var(--border)' : 'none',
-                            background: isError ? 'rgba(239,68,68,0.04)' : 'transparent',
+                            background: isError ? 'rgba(239,68,68,0.03)' : 'transparent',
                           }}>
                             <td style={{ padding: '10px 16px', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
                               {formatDate(log.created_at)}
@@ -248,26 +264,56 @@ export default function LogsPage() {
                                 <Icon size={10} />{cfg.label}
                               </span>
                             </td>
-                            <td style={{ padding: '10px 16px', maxWidth: 300 }}>
-                              <span style={{ fontSize: 12, color: 'var(--foreground)', fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {(d.fichier as string) || '—'}
-                              </span>
+                            {/* Nom du fichier — colonne principale */}
+                            <td style={{ padding: '10px 16px', maxWidth: 260 }}>
+                              {fichier ? (
+                                <div>
+                                  <span style={{ fontSize: 12, color: 'var(--foreground)', fontWeight: 700, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {fichier}
+                                  </span>
+                                  {!isError && !!d.candidat && (
+                                    <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginTop: 1 }}>
+                                      → {String(d.candidat)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>
+                              )}
                             </td>
                             <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
                               <span style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <FolderOpen size={11} />{(d.dossier as string) || '—'}
                               </span>
                             </td>
-                            <td style={{ padding: '10px 16px', maxWidth: 320 }}>
+                            {/* Détail erreur ou email */}
+                            <td style={{ padding: '10px 16px', maxWidth: 260 }}>
                               {isError && d.erreur ? (
-                                <span style={{ fontSize: 12, color: '#EF4444', fontWeight: 600, display: 'block', lineHeight: 1.4 }}>
-                                  {String(d.erreur).length > 120 ? String(d.erreur).slice(0, 120) + '...' : String(d.erreur)}
+                                <span style={{ fontSize: 11, color: '#EF4444', display: 'block', lineHeight: 1.4 }}>
+                                  {String(d.erreur).length > 100 ? String(d.erreur).slice(0, 100) + '…' : String(d.erreur)}
                                 </span>
                               ) : (
-                                <span style={{ fontSize: 12, color: 'var(--foreground)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {(d.candidat as string) || '—'}
-                                  {d.email && d.email !== '—' ? <span style={{ color: 'var(--muted)', marginLeft: 6, fontSize: 11 }}>{String(d.email)}</span> : null}
+                                <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                  {d.email && d.email !== '—' ? String(d.email) : '—'}
                                 </span>
+                              )}
+                            </td>
+                            {/* Bouton Chercher dans la base */}
+                            <td style={{ padding: '10px 16px', whiteSpace: 'nowrap' }}>
+                              {searchTerm && (
+                                <button
+                                  onClick={() => router.push(`/candidats?search=${encodeURIComponent(searchTerm)}`)}
+                                  title={`Rechercher "${searchTerm}" dans les candidats`}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                                    padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                                    border: '1.5px solid rgba(99,102,241,0.3)',
+                                    background: 'rgba(99,102,241,0.08)', color: '#6366F1',
+                                    cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  <Search size={11} />Chercher
+                                </button>
                               )}
                             </td>
                           </tr>
