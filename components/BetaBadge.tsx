@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { APP_VERSION, APP_ENV, CHANGELOG } from '@/lib/version'
 import { X } from 'lucide-react'
 
@@ -97,8 +98,8 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
         </button>
       )}
 
-      {/* Changelog modal */}
-      {showChangelog && (
+      {/* Changelog modal — portail pour sortir du stacking context sidebar */}
+      {showChangelog && typeof document !== 'undefined' && createPortal(
         <div
           onClick={() => setShowChangelog(false)}
           style={{
@@ -233,7 +234,8 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
