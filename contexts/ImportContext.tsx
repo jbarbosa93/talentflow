@@ -309,9 +309,16 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   }, [stop])
 
   const retryErrors = useCallback(() => {
-    setJobs(prev => prev.map(j => j.status === 'error' ? { ...j, status: 'pending', error: undefined } : j))
+    setJobs(prev => {
+      const updated = prev.map(j => j.status === 'error' ? { ...j, status: 'pending' as FileStatus, error: undefined } : j)
+      _jobs = updated
+      return updated
+    })
     setDone(false)
-  }, [])
+    _done = false
+    // Relancer le worker pour traiter les jobs remis en pending
+    setTimeout(() => startProcessing(), 100)
+  }, [startProcessing])
 
   const resolveDoublon = useCallback(async (job: FileJob, action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
     if (action === 'ignorer') {
