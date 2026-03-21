@@ -92,6 +92,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/integrations') ||
     pathname.startsWith('/parametres')
 
+  // Dev bypass — accès direct sans auth sur localhost (NODE_ENV=development uniquement)
+  if (process.env.NODE_ENV === 'development' && isProtectedRoute && !user) {
+    return supabaseResponse
+  }
+
   // Si pas authentifié et sur une route protégée → redirection login
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
