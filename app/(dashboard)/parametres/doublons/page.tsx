@@ -577,14 +577,14 @@ export default function DoublonsPage() {
                           borderRadius: 12, padding: '12px 14px', minWidth: 0, overflow: 'hidden',
                           cursor: merging ? 'default' : 'pointer',
                           background: isSelected ? '#F0FDF4' : 'var(--secondary)',
-                          transition: 'all 0.15s', position: 'relative',
+                          transition: 'all 0.15s',
                         }}
                       >
                         <div style={{
-                          position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                          textAlign: 'center', marginBottom: 6,
                           background: isSelected ? '#16A34A' : 'var(--border)',
                           color: isSelected ? 'white' : 'var(--muted)',
-                          fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 99,
+                          fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99,
                           whiteSpace: 'nowrap', transition: 'all 0.15s',
                         }}>
                           {isSelected ? '✅ Garder ce profil' : 'Cliquer pour garder'}
