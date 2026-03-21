@@ -180,18 +180,12 @@ export default function CandidatDetailPage() {
 
   const printCV = () => {
     if (!candidat?.cv_url) return
-    // Proxy serveur → Content-Disposition: inline garanti → print() fiable
+    // window.open sur proxy same-origin → Chrome PDF viewer visible → print() fonctionne
+    // (iframe caché = Chrome télécharge au lieu de rendre)
     const proxyUrl = `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`
-    const frame = document.createElement('iframe')
-    frame.style.cssText = 'position:fixed;visibility:hidden;top:0;left:0;width:1px;height:1px;border:none'
-    frame.src = proxyUrl
-    document.body.appendChild(frame)
-    frame.onload = () => {
-      setTimeout(() => {
-        try { frame.contentWindow?.print() } catch { window.open(candidat.cv_url, '_blank') }
-        setTimeout(() => document.body.removeChild(frame), 3000)
-      }, 300)
-    }
+    const popup = window.open(proxyUrl, '_blank', 'width=900,height=700')
+    if (!popup) return
+    setTimeout(() => { try { popup.print() } catch {} }, 1500)
   }
 
   const downloadCV = async () => {
