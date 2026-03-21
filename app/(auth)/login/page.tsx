@@ -25,11 +25,24 @@ function LoginForm() {
   const [emailOtpCode, setEmailOtpCode]         = useState('')
   const [emailOtpLoading, setEmailOtpLoading]   = useState(false)
 
-  // Erreur domaine depuis le middleware
+  // Erreurs depuis le middleware
   const urlError = searchParams.get('error')
   const domainError = urlError === 'domain'
     ? 'Votre domaine email n\'est pas autorisé à accéder à cette application.'
+    : urlError === 'rate_limit'
+    ? 'Trop de tentatives de connexion. Réessayez dans 5 minutes.'
+    : urlError === 'timeout'
+    ? 'Votre session a expiré pour inactivité. Reconnectez-vous.'
     : ''
+
+  // Helper log d'accès (fire & forget)
+  const logAccess = (action: string, details?: Record<string, unknown>) => {
+    fetch('/api/auth/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, email, details }),
+    }).catch(() => {})
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -53,6 +66,7 @@ function LoginForm() {
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (authError) {
+      logAccess('login_failed', { reason: authError.message })
       setError(
         authError.message.includes('Invalid login')
           ? 'Email ou mot de passe incorrect.'
@@ -109,6 +123,7 @@ function LoginForm() {
       return
     }
 
+    logAccess('login_otp_sent')
     setEmailOtpRequired(true)
     setLoading(false)
   }
@@ -171,7 +186,8 @@ function LoginForm() {
       return
     }
 
-    // 3. Session créée avec succès → rediriger vers le dashboard
+    // 3. Session créée avec succès → log + rediriger vers le dashboard
+    logAccess('login_success')
     router.push('/dashboard')
     router.refresh()
   }

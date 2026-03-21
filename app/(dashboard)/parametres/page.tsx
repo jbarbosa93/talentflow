@@ -31,10 +31,11 @@ export const CANDIDAT_SECTIONS_DEFAULT = [
 export const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
 const LINK_SECTIONS = [
-  { href: '/parametres/logs',         label: "Logs d'activité", icon: Activity },
+  { href: '/parametres/logs',      label: "Logs d'activité", icon: Activity },
+  { href: '/parametres/securite', label: 'Sécurité & Accès', icon: Shield },
 ]
 const ADMIN_SECTIONS = [
-  { href: '/parametres/admin',        label: 'Administration',  icon: Shield },
+  { href: '/parametres/admin', label: 'Administration', icon: Shield },
 ]
 const TOOLS_SECTIONS = [
   { href: '/parametres/import-masse',    label: 'Import en masse',        icon: FolderInput },

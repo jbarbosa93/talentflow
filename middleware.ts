@@ -1,7 +1,57 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// ── Rate limiting (in-memory, par IP) ────────────────────────────────────────
+// Max 10 tentatives de login par IP sur une fenêtre de 5 minutes
+const RATE_LIMIT_MAX      = 10
+const RATE_LIMIT_WINDOW   = 5 * 60 * 1000  // 5 min en ms
+const loginAttempts = new Map<string, { count: number; windowStart: number }>()
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = loginAttempts.get(ip)
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW) {
+    loginAttempts.set(ip, { count: 1, windowStart: now })
+    return false
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) return true
+
+  entry.count++
+  return false
+}
+
+function getClientIp(request: NextRequest): string {
+  return (
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('x-real-ip') ||
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    'unknown'
+  )
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // ── Rate limiting sur les routes d'auth sensibles ─────────────────────────
+  const isLoginRoute = pathname === '/login' || pathname.startsWith('/api/auth/send-otp')
+  if (isLoginRoute && request.method === 'POST') {
+    const ip = getClientIp(request)
+    if (isRateLimited(ip)) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { error: 'Trop de tentatives. Réessayez dans 5 minutes.' },
+          { status: 429 }
+        )
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'rate_limit')
+      return NextResponse.redirect(url)
+    }
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -26,7 +76,6 @@ export async function middleware(request: NextRequest) {
   // Refresh session - IMPORTANT: ne pas supprimer ce code
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/verify-email')
   const isApiRoute = pathname.startsWith('/api')
   const isPublicAsset = pathname.startsWith('/_next') || pathname.startsWith('/favicon')

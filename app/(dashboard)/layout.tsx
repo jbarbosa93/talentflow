@@ -9,6 +9,7 @@ import { MatchingProvider } from "@/contexts/MatchingContext"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import BetaBadge from "@/components/BetaBadge"
+import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -40,6 +41,7 @@ export default function DashboardRootLayout({
                   </main>
                 </div>
               </div>
+              <SessionTimeoutModal />
               <Toaster richColors position="top-right" />
               <BetaBadge />
             </MatchingProvider>
