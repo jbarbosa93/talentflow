@@ -505,7 +505,7 @@ export default function DoublonsPage() {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         }}>
-          <div style={{ background: 'var(--card)', borderRadius: 16, padding: '28px 28px 24px', maxWidth: 700, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 16, padding: '24px', maxWidth: 640, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <AlertTriangle size={22} color="#D97706" />
               <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Choisir le profil à garder</h3>
@@ -519,7 +519,7 @@ export default function DoublonsPage() {
               const b = confirmModal.pair.candidat_b as Candidat
               const recentId = getRecentId(a, b)
               return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
                   {[a, b].map((candidat) => {
                     const isSelected = confirmModal.keepId === candidat.id
                     const isRecent = candidat.id === recentId
@@ -535,7 +535,7 @@ export default function DoublonsPage() {
                         })}
                         style={{
                           border: `2px solid ${isSelected ? '#16A34A' : 'var(--border)'}`,
-                          borderRadius: 12, padding: '14px 16px',
+                          borderRadius: 12, padding: '12px 14px', minWidth: 0, overflow: 'hidden',
                           cursor: merging ? 'default' : 'pointer',
                           background: isSelected ? '#F0FDF4' : 'var(--secondary)',
                           transition: 'all 0.15s', position: 'relative',
@@ -550,16 +550,16 @@ export default function DoublonsPage() {
                         }}>
                           {isSelected ? '✅ Garder ce profil' : 'Cliquer pour garder'}
                         </div>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--foreground)', marginBottom: 4, marginTop: 4 }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--foreground)', marginBottom: 3, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {candidat.prenom} {candidat.nom}
                         </div>
                         {candidat.titre_poste && (
                           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{candidat.titre_poste}</div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                          {candidat.email && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📧 {candidat.email}</span>}
-                          {candidat.telephone && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {candidat.telephone}</span>}
-                          {candidat.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
+                          {candidat.email && <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>📧 {candidat.email}</span>}
+                          {candidat.telephone && <span style={{ fontSize: 10, color: 'var(--muted)' }}>📞 {candidat.telephone}</span>}
+                          {candidat.localisation && <span style={{ fontSize: 10, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                               🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
