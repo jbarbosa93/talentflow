@@ -47,7 +47,7 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
       canvas.width = viewport.width
       canvas.height = viewport.height
 
-      await page.render({ canvasContext: ctx, viewport }).promise
+      await page.render({ canvasContext: ctx as any, viewport, canvas: canvasRef.current! }).promise
 
       const overlay = overlayRef.current!
       overlay.width = viewport.width

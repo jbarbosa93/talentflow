@@ -625,7 +625,7 @@ export default function CandidatDetailPage() {
       <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', paddingBottom: 16 }}>
+        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', paddingBottom: 16 }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
@@ -988,7 +988,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
 
           {/* Résumé IA */}
           <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
@@ -1215,7 +1215,7 @@ export default function CandidatDetailPage() {
 
         {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
         {showCV && (
-        <div style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
             {/* Header du viewer */}

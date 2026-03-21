@@ -515,7 +515,6 @@ export default function DoublonsPage() {
               </div>
               )
             })()}
-            </div>
 
             <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
               ⚠️ Cette action est <strong>irréversible</strong> — le profil non sélectionné sera définitivement supprimé.
