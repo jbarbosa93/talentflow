@@ -1,15 +1,100 @@
-// Extracts the first portrait-ratio image from a PDF using pdf-lib (raw XObject parsing)
-// Falls back to pdfjs-dist pixel extraction if pdf-lib finds no JPEG data
-// Returns a JPEG buffer or null if no suitable image found
+// Extracts the best portrait/headshot photo from a PDF
+// Collects ALL candidate images, scores them, and picks the most likely headshot
+// Returns a JPEG buffer or null if no suitable headshot found
+
+interface ImageCandidate {
+  buffer: Buffer
+  width: number
+  height: number
+  ratio: number       // height/width
+  area: number        // width * height
+  compressedSize: number // JPEG size in bytes (proxy for photo complexity)
+  pageIndex: number
+  source: string      // debug label
+}
+
+/**
+ * Score an image candidate on how likely it is to be a real headshot photo.
+ * Higher score = more likely a headshot.
+ */
+function scoreHeadshot(img: ImageCandidate): number {
+  let score = 0
+
+  // --- Dimension scoring ---
+  // Ideal headshot: 150-500px wide, 200-600px tall
+  if (img.width >= 150 && img.width <= 500) score += 20
+  else if (img.width >= 100 && img.width <= 700) score += 10
+  else score -= 10
+
+  if (img.height >= 180 && img.height <= 600) score += 20
+  else if (img.height >= 130 && img.height <= 800) score += 10
+  else score -= 10
+
+  // --- Aspect ratio scoring ---
+  // Ideal passport/ID photo ratio: 1.2-1.5 (4:3 to 3:2 portrait)
+  if (img.ratio >= 1.15 && img.ratio <= 1.55) score += 30  // Perfect portrait
+  else if (img.ratio >= 1.0 && img.ratio <= 1.7) score += 15 // Acceptable portrait
+  else if (img.ratio >= 0.85 && img.ratio <= 1.0) score += 5  // Near-square (sometimes headshots)
+  else score -= 20 // Too wide or too tall — not a headshot
+
+  // --- Area scoring (prefer medium-sized images) ---
+  if (img.area >= 20000 && img.area <= 200000) score += 15 // Sweet spot for headshots
+  else if (img.area >= 10000 && img.area <= 400000) score += 5
+  else if (img.area < 5000) score -= 20 // Too small — icon/logo
+  else if (img.area > 500000) score -= 10 // Too large — full page image
+
+  // --- Compressed size scoring (real photos have high JPEG complexity) ---
+  // Real photos: typically 5KB-200KB when resized to 300x400
+  // Logos/simple graphics: typically < 3KB
+  if (img.compressedSize >= 5000 && img.compressedSize <= 300000) score += 25
+  else if (img.compressedSize >= 2000 && img.compressedSize <= 500000) score += 10
+  else if (img.compressedSize < 1500) score -= 30 // Very small = simple graphic, not photo
+
+  // --- Page preference ---
+  if (img.pageIndex === 0) score += 10 // Headshots are usually on page 1
+  else score += 2
+
+  return score
+}
+
+// Minimum score threshold — images below this are not headshots
+const MIN_HEADSHOT_SCORE = 50
 
 export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | null> {
   try {
-    // --- Strategy 1: Extract raw JPEG/DCT data directly from PDF XObjects ---
-    const result = await extractJpegFromPdfRaw(pdfBuffer)
-    if (result) return result
+    const candidates: ImageCandidate[] = []
 
-    // --- Strategy 2: Render page via pdfjs-dist and grab pixel image ---
-    return await extractImageViaPdfjs(pdfBuffer)
+    // --- Strategy 1: Extract raw JPEG/image data from PDF XObjects ---
+    await collectImagesFromPdfRaw(pdfBuffer, candidates)
+
+    // --- Strategy 2: Use pdfjs-dist as fallback ---
+    if (candidates.length === 0) {
+      await collectImagesViaPdfjs(pdfBuffer, candidates)
+    }
+
+    if (candidates.length === 0) return null
+
+    // Score all candidates and pick the best
+    let bestCandidate: ImageCandidate | null = null
+    let bestScore = -Infinity
+
+    for (const img of candidates) {
+      const s = scoreHeadshot(img)
+      console.log(`[CV Photo] Candidate: ${img.source} ${img.width}x${img.height} ratio=${img.ratio.toFixed(2)} compressed=${img.compressedSize}B score=${s}`)
+      if (s > bestScore) {
+        bestScore = s
+        bestCandidate = img
+      }
+    }
+
+    if (!bestCandidate || bestScore < MIN_HEADSHOT_SCORE) {
+      console.log(`[CV Photo] No suitable headshot found. Best score: ${bestScore} (threshold: ${MIN_HEADSHOT_SCORE})`)
+      return null
+    }
+
+    console.log(`[CV Photo] Selected: ${bestCandidate.source} ${bestCandidate.width}x${bestCandidate.height} score=${bestScore}`)
+    return bestCandidate.buffer
+
   } catch (e) {
     console.warn('[CV Photo] extraction failed:', (e as Error).message)
     return null
@@ -17,13 +102,10 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
 }
 
 /**
- * Strategy 1: Walk the raw PDF byte structure looking for image XObjects
- * with DCTDecode (JPEG) or FlateDecode filters and portrait-ratio dimensions.
- *
- * KEY FIX: pdf-lib dict.get() returns PDFRef objects for indirect objects.
- * We must resolve them with pdfDoc.context.lookup(ref).
+ * Strategy 1: Walk raw PDF structure for image XObjects.
+ * Collects ALL qualifying images instead of returning the first.
  */
-async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> {
+async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandidate[]): Promise<void> {
   try {
     const pdflib = await import('pdf-lib')
     const { PDFDocument, PDFName, PDFRawStream, PDFRef } = pdflib
@@ -32,13 +114,13 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
     const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
     const sharp = (await import('sharp')).default
 
-    const pagesToCheck = Math.min(2, pdfDoc.getPageCount())
+    const pagesToCheck = Math.min(3, pdfDoc.getPageCount())
 
     for (let pageIdx = 0; pageIdx < pagesToCheck; pageIdx++) {
       const page = pdfDoc.getPage(pageIdx)
       const pageDict = page.node
 
-      // Resolve Resources — may be a direct PDFDict or a PDFRef to one
+      // Resolve Resources
       const rawResources = pageDict.get(PDFName.of('Resources'))
       let resources: any = rawResources
       if (rawResources instanceof PDFRef) {
@@ -46,7 +128,7 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
       }
       if (!(resources instanceof PDFDict)) continue
 
-      // Resolve XObject dictionary — same pattern
+      // Resolve XObject dictionary
       const rawXObjects = resources.get(PDFName.of('XObject'))
       let xObjects: any = rawXObjects
       if (rawXObjects instanceof PDFRef) {
@@ -54,10 +136,8 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
       }
       if (!(xObjects instanceof PDFDict)) continue
 
-      // Iterate all XObject entries
       for (const key of xObjects.keys()) {
         try {
-          // Resolve the XObject itself — almost always a PDFRef in practice
           const rawXObj = xObjects.get(key)
           let xobj: any = rawXObj
           if (rawXObj instanceof PDFRef) {
@@ -80,49 +160,33 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
           const width  = Number(widthObj.toString())
           const height = Number(heightObj.toString())
 
-          // Headshot filter: must be a real portrait photo, not a tiny icon/logo
-          // Minimum 80px wide, max 800px — typical CV headshots are 100-500px
-          if (width < 80 || width > 800 || height < 100) continue
+          // Basic pre-filter: skip tiny icons and huge full-page scans
+          if (width < 60 || height < 60) continue
+          if (width > 1200 || height > 1600) continue
           const ratio = height / width
-          // Portrait or near-square (ratio 0.9 to 2.0) — skip landscape & extreme ratios
-          if (ratio < 0.9 || ratio > 2.0) continue
-          // Skip very small images (likely icons/logos) — require at least 8000 pixels
-          if (width * height < 8000) continue
+          // Skip extreme ratios (banners, thin lines, etc.)
+          if (ratio < 0.5 || ratio > 3.0) continue
 
-          // Get filter name
           const filterObj  = dict.get(PDFName.of('Filter'))
           const filterName = filterObj ? filterObj.toString() : ''
 
-          // Get raw compressed bytes
           const rawBytes: Uint8Array = xobj.getContents()
           if (!rawBytes || rawBytes.length < 100) continue
 
+          let resizedBuffer: Buffer | null = null
+
           // --- DCTDecode = raw JPEG ---
-          if (filterName.includes('DCTDecode') || rawBytes[0] === 0xFF && rawBytes[1] === 0xD8) {
-            if (rawBytes[0] === 0xFF && rawBytes[1] === 0xD8) {
-              const jpegBuf = Buffer.from(rawBytes)
-              const resized = await sharp(jpegBuf)
-                .resize({ width: 300, height: 400, fit: 'inside' })
-                .jpeg({ quality: 85 })
-                .toBuffer()
-              console.log(`[CV Photo] DCT JPEG found: ${width}×${height}px → ${resized.length} bytes`)
-              return resized
-            }
-            // Sometimes the bytes are the JPEG but don't start with FF D8 due to encoding — try anyway
+          if (filterName.includes('DCTDecode') || (rawBytes[0] === 0xFF && rawBytes[1] === 0xD8)) {
             try {
-              const jpegBuf = Buffer.from(rawBytes)
-              const resized = await sharp(jpegBuf)
+              resizedBuffer = await sharp(Buffer.from(rawBytes))
                 .resize({ width: 300, height: 400, fit: 'inside' })
                 .jpeg({ quality: 85 })
                 .toBuffer()
-              console.log(`[CV Photo] DCT JPEG (alt): ${width}×${height}px → ${resized.length} bytes`)
-              return resized
             } catch { continue }
           }
 
           // --- FlateDecode = deflate-compressed raw pixel data ---
-          if (filterName.includes('FlateDecode')) {
-            // We need to decompress first — use Node.js zlib
+          else if (filterName.includes('FlateDecode')) {
             const zlib = await import('zlib')
             let decompressed: Buffer
             try {
@@ -149,29 +213,37 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
             if (decompressed.length < expectedBytes * 0.7) continue
 
             try {
-              const jpegBuf = await sharp(decompressed, {
+              resizedBuffer = await sharp(decompressed, {
                 raw: { width, height, channels }
               })
                 .resize({ width: 300, height: 400, fit: 'inside' })
                 .jpeg({ quality: 85 })
                 .toBuffer()
-              console.log(`[CV Photo] FlateDecode image: ${width}×${height}px ch=${channels} → ${jpegBuf.length} bytes`)
-              return jpegBuf
             } catch { continue }
           }
 
-          // --- JPXDecode = JPEG 2000 — try passing raw bytes to sharp ---
-          if (filterName.includes('JPXDecode')) {
+          // --- JPXDecode = JPEG 2000 ---
+          else if (filterName.includes('JPXDecode')) {
             try {
-              const jpegBuf = await sharp(Buffer.from(rawBytes))
+              resizedBuffer = await sharp(Buffer.from(rawBytes))
                 .resize({ width: 300, height: 400, fit: 'inside' })
                 .jpeg({ quality: 85 })
                 .toBuffer()
-              console.log(`[CV Photo] JPX image: ${width}×${height}px → ${jpegBuf.length} bytes`)
-              return jpegBuf
             } catch { continue }
           }
 
+          if (resizedBuffer) {
+            candidates.push({
+              buffer: resizedBuffer,
+              width,
+              height,
+              ratio,
+              area: width * height,
+              compressedSize: resizedBuffer.length,
+              pageIndex: pageIdx,
+              source: `pdf-lib:${filterName}:p${pageIdx + 1}:${key.toString()}`,
+            })
+          }
         } catch {
           continue
         }
@@ -180,14 +252,13 @@ async function extractJpegFromPdfRaw(pdfBuffer: Buffer): Promise<Buffer | null> 
   } catch (e) {
     console.warn('[CV Photo] pdf-lib strategy failed:', (e as Error).message)
   }
-  return null
 }
 
 /**
- * Strategy 2: Use pdfjs-dist operator list to find painted images and extract
- * pixel data via the object store.
+ * Strategy 2: Use pdfjs-dist operator list to find painted images.
+ * Collects ALL qualifying images.
  */
-async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
+async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandidate[]): Promise<void> {
   try {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
     const lib = (pdfjs as any).default ?? pdfjs
@@ -202,13 +273,12 @@ async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
     const pdf = await loadingTask.promise
     const sharp = (await import('sharp')).default
 
-    for (let pageNum = 1; pageNum <= Math.min(2, pdf.numPages); pageNum++) {
+    for (let pageNum = 1; pageNum <= Math.min(3, pdf.numPages); pageNum++) {
       const page = await pdf.getPage(pageNum)
       const opList = await page.getOperatorList()
 
       const imgNames: string[] = []
       for (let i = 0; i < opList.fnArray.length; i++) {
-        // OPS.paintImageXObject = 85
         if (opList.fnArray[i] === 85 && opList.argsArray[i]?.[0]) {
           imgNames.push(opList.argsArray[i][0] as string)
         }
@@ -233,11 +303,11 @@ async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
           if (!img || !img.data) continue
           const { width, height, data, kind } = img
 
+          // Basic pre-filter
+          if (width < 60 || height < 60) continue
+          if (width > 1200 || height > 1600) continue
           const ratio = height / width
-          // Headshot filter: real portrait photo, not icon/logo
-          if (width < 80 || width > 800 || height < 100) continue
-          if (ratio < 0.9 || ratio > 2.0) continue
-          if (width * height < 8000) continue
+          if (ratio < 0.5 || ratio > 3.0) continue
 
           const channels = kind === 1 ? 1 : kind === 2 ? 3 : 4
 
@@ -248,8 +318,17 @@ async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
               .resize({ width: 300, height: 400, fit: 'inside' })
               .jpeg({ quality: 85 })
               .toBuffer()
-            console.log(`[CV Photo] pdfjs pixel image: ${width}×${height}px → ${jpegBuffer.length} bytes`)
-            return jpegBuffer
+
+            candidates.push({
+              buffer: jpegBuffer,
+              width,
+              height,
+              ratio,
+              area: width * height,
+              compressedSize: jpegBuffer.length,
+              pageIndex: pageNum - 1,
+              source: `pdfjs:p${pageNum}:${imgName}`,
+            })
           } catch {
             continue
           }
@@ -261,5 +340,4 @@ async function extractImageViaPdfjs(pdfBuffer: Buffer): Promise<Buffer | null> {
   } catch (e) {
     console.warn('[CV Photo] pdfjs strategy failed:', (e as Error).message)
   }
-  return null
 }
