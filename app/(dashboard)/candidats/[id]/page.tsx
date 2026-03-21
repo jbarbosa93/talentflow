@@ -6,7 +6,7 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2,
+  Upload, Camera, Loader2, Eye,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -138,6 +138,7 @@ export default function CandidatDetailPage() {
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
+  const [cvLightbox, setCvLightbox]       = useState(false)
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
   const [cvZoom, setCvZoom]               = useState(1.0)
@@ -177,18 +178,26 @@ export default function CandidatDetailPage() {
   }
   const cvDragEnd = () => { cvDragRef.current.active = false; if (cvScrollRef.current) cvScrollRef.current.style.cursor = 'grab' }
 
-  const printCV = () => {
+  const printCV = async () => {
     if (!candidat?.cv_url) return
-    // Ouvrir le PDF dans un nouvel onglet et déclencher l'impression
-    const w = window.open(candidat.cv_url, '_blank')
-    if (w) {
-      w.addEventListener('load', () => {
-        setTimeout(() => w.print(), 800)
-      })
-      // Fallback si l'event load ne se déclenche pas (cross-origin)
-      setTimeout(() => {
-        try { w.print() } catch {}
-      }, 2000)
+    try {
+      // Fetch → blob URL same-origin → iframe caché → print()
+      const res = await fetch(candidat.cv_url)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const frame = document.createElement('iframe')
+      frame.style.display = 'none'
+      frame.src = blobUrl
+      document.body.appendChild(frame)
+      frame.onload = () => {
+        frame.contentWindow?.print()
+        setTimeout(() => {
+          document.body.removeChild(frame)
+          URL.revokeObjectURL(blobUrl)
+        }, 2000)
+      }
+    } catch {
+      window.open(candidat.cv_url, '_blank')
     }
   }
 
@@ -1224,6 +1233,11 @@ export default function CandidatDetailPage() {
               <span style={{ flex: 1 }} />
               {candidat.cv_url && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <button onClick={() => setCvLightbox(true)}
+                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', marginRight: 4 }}
+                    title="Voir en plein écran">
+                    <Eye size={12} />
+                  </button>
                   <button onClick={downloadCV}
                     style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', marginRight: 4 }}
                     title="Télécharger le CV">
@@ -1282,12 +1296,17 @@ export default function CandidatDetailPage() {
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', position: 'relative' }}
+                onMouseDown={cvZoom > 1 ? cvDragStart : undefined}
+                onMouseMove={cvZoom > 1 ? cvDragMove : undefined}
+                onMouseUp={cvZoom > 1 ? cvDragEnd : undefined}
+                onMouseLeave={cvZoom > 1 ? cvDragEnd : undefined}
               >
                 <div style={{
                   width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
-                  height: '100%',
+                  height: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
                   background: '#F1F5F9',
                   position: 'relative',
+                  cursor: cvZoom > 1 ? 'grab' : 'default',
                 }}>
                   {cvIsWord && <>
                     {/* Masque bouton [↗] Google Docs (haut droite) */}
@@ -1299,13 +1318,14 @@ export default function CandidatDetailPage() {
                     key={`cv-iframe-${cvRotation}`}
                     src={
                       cvIsPDF && cvRotation !== 0
-                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&view=FitH`
+                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
                         : cvIsPDF
-                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`
+                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=page-width`
                           : docViewerUrl
                     }
                     style={{
                       width: '100%', height: '100%', border: 'none', display: 'block',
+                      pointerEvents: cvZoom > 1 ? 'none' : 'auto',
                     }}
                     title="CV"
                   />
@@ -1322,6 +1342,7 @@ export default function CandidatDetailPage() {
                 </div>
               </div>
             )}
+
           </div>
         </div>
         )}
@@ -1450,10 +1471,56 @@ export default function CandidatDetailPage() {
         </div>
       )}
 
+      {/* ── Lightbox CV plein écran ── */}
+      {cvLightbox && candidat.cv_url && (
+        <div
+          onClick={() => setCvLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9000,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)',
+            display: 'flex', flexDirection: 'column',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          {/* Toolbar */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              gap: 8, padding: '10px 16px', flexShrink: 0,
+            }}
+          >
+            <button
+              onClick={() => setCvLightbox(false)}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          {/* Contenu */}
+          <div onClick={e => e.stopPropagation()} style={{ flex: 1, padding: '0 24px 24px', minHeight: 0 }}>
+            {cvIsImage ? (
+              <img
+                src={candidat.cv_url}
+                alt="CV"
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, display: 'block', margin: '0 auto' }}
+              />
+            ) : (
+              <iframe
+                src={cvIsPDF ? `${candidat.cv_url}#toolbar=1&zoom=100` : docViewerUrl}
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+                title="CV plein écran"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   )
