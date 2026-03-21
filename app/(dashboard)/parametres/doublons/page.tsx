@@ -1,8 +1,34 @@
 'use client'
-import { useState, useCallback } from 'react'
-import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+
+// ─── Persistence helpers ───────────────────────────────────────────────────────
+
+type MergedHistoryItem = {
+  keyId: string
+  nomA: string; prenomA: string | null
+  nomB: string; prenomB: string | null
+  mergedAt: string
+}
+
+const LS_IGNORED = 'doublons-ignored-keys'
+const LS_MERGED  = 'doublons-merged-history'
+
+function loadIgnoredKeys(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_IGNORED) || '[]')) } catch { return new Set() }
+}
+function saveIgnoredKeys(keys: Set<string>) {
+  try { localStorage.setItem(LS_IGNORED, JSON.stringify([...keys])) } catch {}
+}
+function loadMergedHistory(): MergedHistoryItem[] {
+  try { return JSON.parse(localStorage.getItem(LS_MERGED) || '[]') } catch { return [] }
+}
+function saveMergedHistory(items: MergedHistoryItem[]) {
+  try { localStorage.setItem(LS_MERGED, JSON.stringify(items.slice(-500))) } catch {}
+}
+function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +64,27 @@ type DoublonPair = {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Try to extract a date from a CV filename, e.g. "CV_26.10.2021.pdf" → Date(2021-10-26) */
+function extractDateFromFilename(filename: string | null): Date | null {
+  if (!filename) return null
+  const match = filename.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/)
+  if (match) {
+    const d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]))
+    if (!isNaN(d.getTime())) return d
+  }
+  return null
+}
+
+/** Returns the id of the candidate with the more recent CV/profile */
+function getRecentId(a: Candidat, b: Candidat): string {
+  const da = extractDateFromFilename(a.cv_nom_fichier)
+  const db = extractDateFromFilename(b.cv_nom_fichier)
+  // If both have a date in filename, compare those
+  if (da && db) return da >= db ? a.id : b.id
+  // Fall back to created_at
+  return a.created_at >= b.created_at ? a.id : b.id
+}
 
 function normalize(s: string) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
@@ -135,15 +182,30 @@ export default function DoublonsPage() {
   const [checkedPairs, setCheckedPairs] = useState(0)
   const [doublons, setDoublons] = useState<DoublonPair[]>([])
   const [ignoredPairs, setIgnoredPairs] = useState<DoublonPair[]>([])
+  const [mergedHistory, setMergedHistory] = useState<MergedHistoryItem[]>([])
+  const [ignoredKeys, setIgnoredKeys] = useState<Set<string>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
+  const [showPersistentHistory, setShowPersistentHistory] = useState(false)
   const [confirmModal, setConfirmModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string } | null>(null)
   const [merging, setMerging] = useState(false)
+
+  // Load persistent data on mount
+  useEffect(() => {
+    const keys = loadIgnoredKeys()
+    setIgnoredKeys(keys)
+    setMergedHistory(loadMergedHistory())
+  }, [])
 
   const handleLancer = useCallback(async () => {
     setPhase('loading')
     setDoublons([])
+    setIgnoredPairs([])
     setCheckedPairs(0)
     setTotalPairs(0)
+
+    // Reload ignored keys from storage (may have changed)
+    const currentIgnoredKeys = loadIgnoredKeys()
+    setIgnoredKeys(currentIgnoredKeys)
 
     // 1. Charger tous les candidats
     let allCandidats: Candidat[] = []
@@ -165,8 +227,12 @@ export default function DoublonsPage() {
       return
     }
 
-    // 2. Pré-filtrer les paires suspectes
-    const pairs = getPairsToCheck(allCandidats)
+    // 2. Pré-filtrer les paires suspectes (excluant les ignorées et déjà fusionnées)
+    const mergedKeys = new Set(loadMergedHistory().map(m => m.keyId))
+    const pairs = getPairsToCheck(allCandidats).filter(([a, b]) => {
+      const k = pairKey(a.id, b.id)
+      return !currentIgnoredKeys.has(k) && !mergedKeys.has(k)
+    })
     setTotalPairs(pairs.length)
     setPhase('analysing')
 
@@ -211,7 +277,17 @@ export default function DoublonsPage() {
   const handleIgnorer = (pairId: string) => {
     setDoublons(prev => {
       const pair = prev.find(p => p.id === pairId)
-      if (pair) setIgnoredPairs(ign => [...ign, { ...pair, status: 'ignored' }])
+      if (pair) {
+        setIgnoredPairs(ign => [...ign, { ...pair, status: 'ignored' }])
+        // Persist to localStorage
+        const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
+        setIgnoredKeys(keys => {
+          const next = new Set(keys)
+          next.add(k)
+          saveIgnoredKeys(next)
+          return next
+        })
+      }
       return prev.filter(p => p.id !== pairId)
     })
   }
@@ -219,15 +295,23 @@ export default function DoublonsPage() {
   const handleRestorer = (pairId: string) => {
     setIgnoredPairs(prev => {
       const pair = prev.find(p => p.id === pairId)
-      if (pair) setDoublons(d => [...d, { ...pair, status: 'pending' }])
+      if (pair) {
+        setDoublons(d => [...d, { ...pair, status: 'pending' }])
+        // Remove from localStorage
+        const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
+        setIgnoredKeys(keys => {
+          const next = new Set(keys)
+          next.delete(k)
+          saveIgnoredKeys(next)
+          return next
+        })
+      }
       return prev.filter(p => p.id !== pairId)
     })
   }
 
   const handleFusionnerClick = (pair: DoublonPair) => {
-    // Par défaut : garder le plus récent (CV probablement plus à jour)
-    const keepId = pair.candidat_a.created_at >= pair.candidat_b.created_at
-      ? pair.candidat_a.id : pair.candidat_b.id
+    const keepId = getRecentId(pair.candidat_a, pair.candidat_b)
     const deleteId = keepId === pair.candidat_a.id ? pair.candidat_b.id : pair.candidat_a.id
     setConfirmModal({ pair, keepId, deleteId })
   }
@@ -242,7 +326,23 @@ export default function DoublonsPage() {
         body: JSON.stringify({ action: 'merge', keep_id: confirmModal.keepId, delete_id: confirmModal.deleteId }),
       })
       if (!res.ok) throw new Error('Erreur fusion')
-      setDoublons(prev => prev.map(p => p.id === confirmModal.pair.id ? { ...p, status: 'merged' } : p))
+
+      const pair = confirmModal.pair
+      setDoublons(prev => prev.map(p => p.id === pair.id ? { ...p, status: 'merged' } : p))
+
+      // Persist merge to history
+      const item: MergedHistoryItem = {
+        keyId: pairKey(pair.candidat_a.id, pair.candidat_b.id),
+        nomA: pair.candidat_a.nom, prenomA: pair.candidat_a.prenom,
+        nomB: pair.candidat_b.nom, prenomB: pair.candidat_b.prenom,
+        mergedAt: new Date().toISOString(),
+      }
+      setMergedHistory(prev => {
+        const next = [...prev, item]
+        saveMergedHistory(next)
+        return next
+      })
+
       toast.success('Candidats fusionnés avec succès')
       setConfirmModal(null)
     } catch {
@@ -255,6 +355,7 @@ export default function DoublonsPage() {
   const mergedCount = doublons.filter(p => p.status === 'merged').length
   const doublonCandidatIds = new Set(doublons.flatMap(p => [p.candidat_a.id, p.candidat_b.id]))
   const cleanCount = phase === 'done' && candidats.length > 0 ? candidats.length - doublonCandidatIds.size : 0
+  const totalIgnoredPersisted = ignoredKeys.size
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -353,7 +454,7 @@ export default function DoublonsPage() {
         </div>
       )}
 
-      {/* Historique des actions (ignorés + fusionnés) */}
+      {/* Historique de session (ignorés + fusionnés cette session) */}
       {(ignoredPairs.length > 0 || mergedCount > 0) && (
         <div style={{ marginTop: 24 }}>
           <button
@@ -361,14 +462,13 @@ export default function DoublonsPage() {
             style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}
           >
             <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
-            Historique des actions ({ignoredPairs.length + mergedCount})
+            Cette session ({ignoredPairs.length + mergedCount})
             {ignoredPairs.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{ignoredPairs.length} ignoré{ignoredPairs.length > 1 ? 's' : ''}</span>}
             {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', fontWeight: 600 }}>{mergedCount} fusionné{mergedCount > 1 ? 's' : ''}</span>}
           </button>
 
           {showHistory && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Pairs ignorées — restaurables */}
               {ignoredPairs.map(pair => (
                 <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10, opacity: 0.8 }}>
                   <XCircle size={14} color="var(--muted)" />
@@ -376,7 +476,7 @@ export default function DoublonsPage() {
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
                     <span style={{ margin: '0 6px' }}>·</span>
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
-                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>— Ignoré</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>— Ignoré (persisté)</span>
                   </div>
                   <button
                     onClick={() => handleRestorer(pair.id)}
@@ -386,8 +486,6 @@ export default function DoublonsPage() {
                   </button>
                 </div>
               ))}
-
-              {/* Pairs fusionnées — informatif seulement */}
               {doublons.filter(p => p.status === 'merged').map(pair => (
                 <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 10, opacity: 0.8 }}>
                   <CheckCircle size={14} color="#16A34A" />
@@ -400,6 +498,68 @@ export default function DoublonsPage() {
                   <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, whiteSpace: 'nowrap' }}>✓ Irréversible</span>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Historique persistant (toutes sessions) */}
+      {(totalIgnoredPersisted > 0 || mergedHistory.length > 0) && (
+        <div style={{ marginTop: 24, background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <button
+            onClick={() => setShowPersistentHistory(h => !h)}
+            style={{ width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit' }}
+          >
+            <History size={16} color="var(--muted)" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', flex: 1, textAlign: 'left' }}>
+              Historique complet
+              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>
+                {totalIgnoredPersisted} ignoré{totalIgnoredPersisted > 1 ? 's' : ''}
+                {' · '}{mergedHistory.length} fusionné{mergedHistory.length > 1 ? 's' : ''}
+              </span>
+            </span>
+            <span style={{ fontSize: 14, color: 'var(--muted)' }}>{showPersistentHistory ? '▾' : '▸'}</span>
+          </button>
+
+          {showPersistentHistory && (
+            <div style={{ borderTop: '1px solid var(--border)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+              {/* Merged history */}
+              {mergedHistory.slice().reverse().map(item => (
+                <div key={item.keyId + item.mergedAt} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                  <CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>
+                    <strong style={{ color: 'var(--foreground)' }}>{item.prenomA} {item.nomA}</strong>
+                    <span style={{ margin: '0 5px' }}>·</span>
+                    <strong style={{ color: 'var(--foreground)' }}>{item.prenomB} {item.nomB}</strong>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
+                    {new Date(item.mergedAt).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', whiteSpace: 'nowrap' }}>Fusionné</span>
+                </div>
+              ))}
+
+              {/* Info about persistent ignored pairs */}
+              {totalIgnoredPersisted > 0 && (
+                <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{totalIgnoredPersisted} paire{totalIgnoredPersisted > 1 ? 's' : ''} ignorée{totalIgnoredPersisted > 1 ? 's' : ''}</span>
+                  {' '}— ces paires ne réapparaîtront plus lors des prochaines analyses.
+                  <button
+                    onClick={() => {
+                      if (!confirm('Réinitialiser les paires ignorées ?')) return
+                      saveIgnoredKeys(new Set())
+                      setIgnoredKeys(new Set())
+                    }}
+                    style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#DC2626' }}
+                  >
+                    <Trash2 size={10} style={{ display: 'inline', marginRight: 3 }} />Réinitialiser
+                  </button>
+                </div>
+              )}
+
+              {mergedHistory.length === 0 && totalIgnoredPersisted === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '16px 0' }}>Aucun historique</div>
+              )}
             </div>
           )}
         </div>
@@ -420,7 +580,7 @@ export default function DoublonsPage() {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         }}>
-          <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 540, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: 'var(--card)', borderRadius: 16, padding: '28px 28px 24px', maxWidth: 700, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <AlertTriangle size={22} color="#D97706" />
               <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Choisir le profil à garder</h3>
@@ -433,7 +593,7 @@ export default function DoublonsPage() {
             {(() => {
               const a = confirmModal.pair.candidat_a
               const b = confirmModal.pair.candidat_b
-              const recentId = a.created_at >= b.created_at ? a.id : b.id
+              const recentId = getRecentId(a, b)
               return (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               {[a, b].map((candidat) => {
@@ -482,20 +642,25 @@ export default function DoublonsPage() {
                       {candidat.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
 
                       {/* Date d'ajout avec badge "plus récent" */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                           🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
-                        {isRecent && (
-                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
-                            🕐 CV plus récent
-                          </span>
-                        )}
+                        {isRecent && (() => {
+                          const da = extractDateFromFilename(a.cv_nom_fichier)
+                          const db = extractDateFromFilename(b.cv_nom_fichier)
+                          const basedOnFile = da && db
+                          return (
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                              🕐 {basedOnFile ? 'CV le plus récent' : 'Ajouté en premier'}
+                            </span>
+                          )
+                        })()}
                       </div>
 
                       {/* Nom du fichier CV */}
                       {candidat.cv_nom_fichier && (
-                        <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={candidat.cv_nom_fichier}>
+                        <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }} title={candidat.cv_nom_fichier}>
                           📄 {candidat.cv_nom_fichier}
                         </span>
                       )}
