@@ -65,6 +65,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     },
     staleTime: 30_000,
     refetchInterval: 60_000,
+    placeholderData: 0,
   })
 
   const isActive = (href: string, exact?: boolean) => {
@@ -267,7 +268,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           const isMatchingNav = item.href === '/matching'
           const showMatchingDot = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && isMatchingNav && !active
           const isCandidatsNav = item.href === '/candidats'
-          const showATraiterBadge = isCandidatsNav && (aTraiterCount ?? 0) > 0
+          const showATraiterBadge = isCandidatsNav && typeof aTraiterCount === 'number' && aTraiterCount > 0
           return (
             <div key={item.href}>
               <Link
