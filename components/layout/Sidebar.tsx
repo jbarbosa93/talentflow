@@ -10,6 +10,8 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { useImport } from '@/contexts/ImportContext'
 import { useMatching } from '@/contexts/MatchingContext'
+import { usePhotos } from '@/contexts/PhotosContext'
+import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
 
 const NAV_ITEMS = [
@@ -35,6 +37,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const pathname = usePathname()
   const importCtx = useImport()
   const matchingCtx = useMatching()
+  const photosCtx = usePhotos()
+  const doublonsCtx = useDoublons()
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -64,6 +68,14 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   // Show matching progress only when NOT on /matching
   const isMatchingPage = pathname === '/matching'
   const showMatchingBadge = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && !isMatchingPage && matchingCtx.total > 0
+
+  // Show photos progress only when NOT on corriger-photos page
+  const isPhotosPage = pathname === '/parametres/corriger-photos'
+  const showPhotosBadge = photosCtx.phase === 'running' && !isPhotosPage && photosCtx.total > 0
+
+  // Show doublons progress only when NOT on doublons page
+  const isDoublonsPage = pathname === '/parametres/doublons'
+  const showDoblonsBadge = (doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing') && !isDoublonsPage
 
   return (
     <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}`}>
@@ -153,6 +165,80 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         </Link>
       )}
 
+      {/* Photos progress badge */}
+      {showPhotosBadge && (
+        <Link href="/parametres/corriger-photos" style={{ textDecoration: 'none' }}>
+          <div style={{
+            margin: '0 12px 8px',
+            background: 'rgba(16,185,129,0.12)',
+            border: '1.5px solid rgba(16,185,129,0.35)',
+            borderRadius: 10,
+            padding: '10px 12px',
+            cursor: 'pointer',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Loader2 size={13} color="#10B981" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Analyse photos</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                {photosCtx.progress}%
+              </span>
+            </div>
+            <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${photosCtx.progress}%`,
+                background: 'linear-gradient(90deg, #10B981, #059669)',
+                borderRadius: 99,
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+              {photosCtx.processed}/{photosCtx.total} CVs · {photosCtx.found} photo{photosCtx.found !== 1 ? 's' : ''} trouvée{photosCtx.found !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* Doublons progress badge */}
+      {showDoblonsBadge && (
+        <Link href="/parametres/doublons" style={{ textDecoration: 'none' }}>
+          <div style={{
+            margin: '0 12px 8px',
+            background: 'rgba(239,68,68,0.1)',
+            border: '1.5px solid rgba(239,68,68,0.3)',
+            borderRadius: 10,
+            padding: '10px 12px',
+            cursor: 'pointer',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Loader2 size={13} color="#EF4444" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444' }}>
+                {doublonsCtx.phase === 'loading' ? 'Chargement doublons' : 'Analyse doublons'}
+              </span>
+              {doublonsCtx.phase === 'analysing' && (
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                  {doublonsCtx.progress}%
+                </span>
+              )}
+            </div>
+            {doublonsCtx.phase === 'analysing' && (
+              <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${doublonsCtx.progress}%`,
+                  background: 'linear-gradient(90deg, #EF4444, #DC2626)',
+                  borderRadius: 99,
+                  transition: 'width 0.5s ease',
+                }} />
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+              {doublonsCtx.checkedPairs}/{doublonsCtx.totalPairs} paires · {doublonsCtx.doublons.length} doublon{doublonsCtx.doublons.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </Link>
+      )}
+
       {/* Main nav */}
       <nav className="d-sidebar-nav">
         <span className="d-sidebar-section">Menu</span>
@@ -190,7 +276,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           const active = isActive(item.href, (item as any).exact)
           // Show import icon on Paramètres item when running
           const isParams = item.href === '/parametres'
-          const showDot = importCtx.running && isParams
+          const showDot = isParams && (importCtx.running || photosCtx.phase === 'running' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
 
           return (
             <Link

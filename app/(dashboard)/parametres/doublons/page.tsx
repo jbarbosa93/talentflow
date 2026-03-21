@@ -3,6 +3,8 @@ import { useState, useCallback, useEffect } from 'react'
 import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useDoublons } from '@/contexts/DoublonsContext'
+import type { DoublonPair } from '@/contexts/DoublonsContext'
 
 // ─── Persistence helpers ───────────────────────────────────────────────────────
 
@@ -33,39 +35,14 @@ function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Candidat = {
-  id: string
-  nom: string
-  prenom: string | null
-  email: string | null
-  telephone: string | null
-  titre_poste: string | null
-  localisation: string | null
-  annees_exp: number
-  competences: string[]
-  cv_url: string | null
-  cv_nom_fichier: string | null
-  cv_texte_brut: string | null
-  created_at: string
-}
-
-type DoublonResult = {
-  is_doublon: boolean
-  score: number
-  raisons: string[]
-  explication: string
-}
-
-type DoublonPair = {
-  id: string
-  candidat_a: Candidat
-  candidat_b: Candidat
-  result: DoublonResult
-  status: 'pending' | 'ignored' | 'merged'
+  id: string; nom: string; prenom: string | null; email: string | null
+  telephone: string | null; titre_poste: string | null; localisation: string | null
+  annees_exp: number; competences: string[]; cv_url: string | null
+  cv_nom_fichier: string | null; cv_texte_brut: string | null; created_at: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Try to extract a date from a CV filename, e.g. "CV_26.10.2021.pdf" → Date(2021-10-26) */
 function extractDateFromFilename(filename: string | null): Date | null {
   if (!filename) return null
   const match = filename.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/)
@@ -76,26 +53,11 @@ function extractDateFromFilename(filename: string | null): Date | null {
   return null
 }
 
-/** Returns the id of the candidate with the more recent CV/profile */
 function getRecentId(a: Candidat, b: Candidat): string {
   const da = extractDateFromFilename(a.cv_nom_fichier)
   const db = extractDateFromFilename(b.cv_nom_fichier)
-  // If both have a date in filename, compare those
   if (da && db) return da >= db ? a.id : b.id
-  // Fall back to created_at
   return a.created_at >= b.created_at ? a.id : b.id
-}
-
-function normalize(s: string) {
-  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-}
-
-function normalizePhone(s: string) {
-  return (s || '').replace(/[\s\-\.\(\)]/g, '').replace(/^00/, '+')
-}
-
-function nameKey(c: Candidat) {
-  return normalize(c.nom) + '|' + normalize(c.prenom || '')
 }
 
 function scoreColor(score: number) {
@@ -104,84 +66,10 @@ function scoreColor(score: number) {
   return { text: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', label: 'Possible' }
 }
 
-// Pre-filter: generate suspicious pairs without calling Claude
-function getPairsToCheck(candidats: Candidat[]): Array<[Candidat, Candidat]> {
-  const pairs: Array<[Candidat, Candidat]> = []
-  const checked = new Set<string>()
-
-  const addPair = (a: Candidat, b: Candidat) => {
-    const key = [a.id, b.id].sort().join('|')
-    if (!checked.has(key)) { checked.add(key); pairs.push([a, b]) }
-  }
-
-  // Group by email
-  const byEmail: Record<string, Candidat[]> = {}
-  for (const c of candidats) {
-    if (c.email) {
-      const k = normalize(c.email)
-      if (!byEmail[k]) byEmail[k] = []
-      byEmail[k].push(c)
-    }
-  }
-  for (const group of Object.values(byEmail)) {
-    if (group.length >= 2) {
-      for (let i = 0; i < group.length; i++)
-        for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
-    }
-  }
-
-  // Group by phone
-  const byPhone: Record<string, Candidat[]> = {}
-  for (const c of candidats) {
-    if (c.telephone) {
-      const k = normalizePhone(c.telephone)
-      if (k.length > 5) {
-        if (!byPhone[k]) byPhone[k] = []
-        byPhone[k].push(c)
-      }
-    }
-  }
-  for (const group of Object.values(byPhone)) {
-    if (group.length >= 2) {
-      for (let i = 0; i < group.length; i++)
-        for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
-    }
-  }
-
-  // Group by similar name (first 3 chars nom + first 3 chars prenom)
-  const byName: Record<string, Candidat[]> = {}
-  for (const c of candidats) {
-    const nom3 = normalize(c.nom).slice(0, 4)
-    const prenom3 = normalize(c.prenom || '').slice(0, 4)
-    if (nom3.length >= 3) {
-      const k = `${nom3}|${prenom3}`
-      if (!byName[k]) byName[k] = []
-      byName[k].push(c)
-    }
-  }
-  for (const group of Object.values(byName)) {
-    if (group.length >= 2) {
-      for (let i = 0; i < group.length; i++)
-        for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
-    }
-  }
-
-  // Limit to 60 pairs max to avoid timeout
-  return pairs.slice(0, 60)
-}
-
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function DoublonsPage() {
-  const [phase, setPhase] = useState<'idle' | 'loading' | 'analysing' | 'done'>('idle')
-  const [candidats, setCandidats] = useState<Candidat[]>([])
-  const [totalPairs, setTotalPairs] = useState(0)
-  const [checkedPairs, setCheckedPairs] = useState(0)
-  const [doublons, setDoublons] = useState<DoublonPair[]>([])
-  const [ignoredPairs, setIgnoredPairs] = useState<DoublonPair[]>([])
+  const doublonsCtx = useDoublons()
   const [mergedHistory, setMergedHistory] = useState<MergedHistoryItem[]>([])
   const [ignoredKeys, setIgnoredKeys] = useState<Set<string>>(new Set())
   const [showHistory, setShowHistory] = useState(false)
@@ -189,129 +77,45 @@ export default function DoublonsPage() {
   const [confirmModal, setConfirmModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string } | null>(null)
   const [merging, setMerging] = useState(false)
 
-  // Load persistent data on mount
   useEffect(() => {
-    const keys = loadIgnoredKeys()
-    setIgnoredKeys(keys)
+    setIgnoredKeys(loadIgnoredKeys())
     setMergedHistory(loadMergedHistory())
   }, [])
 
-  const handleLancer = useCallback(async () => {
-    setPhase('loading')
-    setDoublons([])
-    setIgnoredPairs([])
-    setCheckedPairs(0)
-    setTotalPairs(0)
-
-    // Reload ignored keys from storage (may have changed)
-    const currentIgnoredKeys = loadIgnoredKeys()
-    setIgnoredKeys(currentIgnoredKeys)
-
-    // 1. Charger tous les candidats
-    let allCandidats: Candidat[] = []
-    try {
-      const res = await fetch('/api/candidats?limit=1000')
-      const data = await res.json()
-      allCandidats = data.candidats || []
-    } catch {
-      toast.error('Impossible de charger les candidats')
-      setPhase('idle')
-      return
-    }
-
-    setCandidats(allCandidats)
-
-    if (allCandidats.length < 2) {
-      toast.info('Pas assez de candidats pour analyser les doublons')
-      setPhase('done')
-      return
-    }
-
-    // 2. Pré-filtrer les paires suspectes (excluant les ignorées et déjà fusionnées)
-    const mergedKeys = new Set(loadMergedHistory().map(m => m.keyId))
-    const pairs = getPairsToCheck(allCandidats).filter(([a, b]) => {
-      const k = pairKey(a.id, b.id)
-      return !currentIgnoredKeys.has(k) && !mergedKeys.has(k)
-    })
-    setTotalPairs(pairs.length)
-    setPhase('analysing')
-
-    if (pairs.length === 0) {
-      toast.success('Aucun doublon potentiel détecté (analyse rapide)')
-      setPhase('done')
-      return
-    }
-
-    // 3. Analyser chaque paire avec Claude
-    for (let i = 0; i < pairs.length; i++) {
-      const [a, b] = pairs[i]
-      try {
-        const res = await fetch('/api/candidats/doublons', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'compare', candidat_a: a, candidat_b: b }),
-        })
-        if (!res.ok) throw new Error('API error')
-        const result: DoublonResult = await res.json()
-
-        if (result.is_doublon) {
-          const pair: DoublonPair = {
-            id: `${a.id}|${b.id}`,
-            candidat_a: a,
-            candidat_b: b,
-            result,
-            status: 'pending',
-          }
-          setDoublons(prev => [...prev, pair])
-        }
-      } catch {
-        // Ignore erreurs individuelles
-      }
-      setCheckedPairs(i + 1)
-    }
-
-    setPhase('done')
-    toast.success('Analyse terminée !')
-  }, [])
+  const handleLancer = useCallback(() => {
+    doublonsCtx.start()
+  }, [doublonsCtx])
 
   const handleIgnorer = (pairId: string) => {
-    setDoublons(prev => {
-      const pair = prev.find(p => p.id === pairId)
-      if (pair) {
-        setIgnoredPairs(ign => [...ign, { ...pair, status: 'ignored' }])
-        // Persist to localStorage
-        const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
-        setIgnoredKeys(keys => {
-          const next = new Set(keys)
-          next.add(k)
-          saveIgnoredKeys(next)
-          return next
-        })
-      }
-      return prev.filter(p => p.id !== pairId)
-    })
+    const pair = doublonsCtx.doublons.find(p => p.id === pairId)
+    if (pair) {
+      const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
+      setIgnoredKeys(keys => {
+        const next = new Set(keys)
+        next.add(k)
+        saveIgnoredKeys(next)
+        return next
+      })
+    }
+    doublonsCtx.markIgnored(pairId)
   }
 
   const handleRestorer = (pairId: string) => {
-    setIgnoredPairs(prev => {
-      const pair = prev.find(p => p.id === pairId)
-      if (pair) {
-        setDoublons(d => [...d, { ...pair, status: 'pending' }])
-        // Remove from localStorage
-        const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
-        setIgnoredKeys(keys => {
-          const next = new Set(keys)
-          next.delete(k)
-          saveIgnoredKeys(next)
-          return next
-        })
-      }
-      return prev.filter(p => p.id !== pairId)
-    })
+    const pair = doublonsCtx.doublons.find(p => p.id === pairId)
+    if (pair) {
+      const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
+      setIgnoredKeys(keys => {
+        const next = new Set(keys)
+        next.delete(k)
+        saveIgnoredKeys(next)
+        return next
+      })
+    }
+    doublonsCtx.markPending(pairId)
   }
 
   const handleFusionnerClick = (pair: DoublonPair) => {
-    const keepId = getRecentId(pair.candidat_a, pair.candidat_b)
+    const keepId = getRecentId(pair.candidat_a as Candidat, pair.candidat_b as Candidat)
     const deleteId = keepId === pair.candidat_a.id ? pair.candidat_b.id : pair.candidat_a.id
     setConfirmModal({ pair, keepId, deleteId })
   }
@@ -328,9 +132,8 @@ export default function DoublonsPage() {
       if (!res.ok) throw new Error('Erreur fusion')
 
       const pair = confirmModal.pair
-      setDoublons(prev => prev.map(p => p.id === pair.id ? { ...p, status: 'merged' } : p))
+      doublonsCtx.markMerged(pair.id)
 
-      // Persist merge to history
       const item: MergedHistoryItem = {
         keyId: pairKey(pair.candidat_a.id, pair.candidat_b.id),
         nomA: pair.candidat_a.nom, prenomA: pair.candidat_a.prenom,
@@ -351,10 +154,15 @@ export default function DoublonsPage() {
     setMerging(false)
   }
 
-  const progress = totalPairs > 0 ? Math.round((checkedPairs / totalPairs) * 100) : 0
+  const phase = doublonsCtx.phase
+  const doublons = doublonsCtx.doublons
+  const totalPairs = doublonsCtx.totalPairs
+  const checkedPairs = doublonsCtx.checkedPairs
+  const progress = doublonsCtx.progress
+
+  const pendingDoublons = doublons.filter(p => p.status === 'pending')
+  const ignoredDoublons = doublons.filter(p => p.status === 'ignored')
   const mergedCount = doublons.filter(p => p.status === 'merged').length
-  const doublonCandidatIds = new Set(doublons.flatMap(p => [p.candidat_a.id, p.candidat_b.id]))
-  const cleanCount = phase === 'done' && candidats.length > 0 ? candidats.length - doublonCandidatIds.size : 0
   const totalIgnoredPersisted = ignoredKeys.size
 
   return (
@@ -371,7 +179,7 @@ export default function DoublonsPage() {
           Analyser les doublons
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
-          L&apos;IA analyse tous vos CVs pour détecter les candidats en double
+          L&apos;IA analyse tous vos CVs pour détecter les candidats en double · continue en arrière-plan si vous naviguez
         </p>
       </div>
 
@@ -379,10 +187,9 @@ export default function DoublonsPage() {
       <div className="neo-card-soft" style={{ padding: 24, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            <StatBadge label="Candidats" value={candidats.length || '—'} color="var(--foreground)" />
             <StatBadge label="Paires vérifiées" value={checkedPairs > 0 ? `${checkedPairs}/${totalPairs}` : '—'} color="#2563EB" />
-            <StatBadge label="Doublons" value={doublons.length || '—'} color={doublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
-            <StatBadge label="Sans doublon" value={cleanCount > 0 ? cleanCount : '—'} color="#16A34A" />
+            <StatBadge label="Doublons" value={doublons.length > 0 ? doublons.length : '—'} color={doublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
+            <StatBadge label="À traiter" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#D97706' : 'var(--foreground)'} />
             <StatBadge label="Fusionnés" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
           <button
@@ -393,7 +200,7 @@ export default function DoublonsPage() {
           >
             {phase === 'loading' || phase === 'analysing'
               ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse en cours...</>
-              : <><RefreshCw size={16} />Lancer l&apos;analyse</>
+              : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer l\'analyse' : 'Lancer l\'analyse'}</>
             }
           </button>
         </div>
@@ -435,15 +242,14 @@ export default function DoublonsPage() {
         )}
       </div>
 
-      {/* Liste des doublons */}
-      {doublons.filter(p => p.status === 'pending').length > 0 && (
+      {/* Liste des doublons à traiter */}
+      {pendingDoublons.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Users size={16} color="var(--primary)" />
-            À traiter ({doublons.filter(p => p.status === 'pending').length})
+            À traiter ({pendingDoublons.length})
           </h2>
-
-          {doublons.filter(p => p.status === 'pending').map(pair => (
+          {pendingDoublons.map(pair => (
             <DoublonCard
               key={pair.id}
               pair={pair}
@@ -455,21 +261,21 @@ export default function DoublonsPage() {
       )}
 
       {/* Historique de session (ignorés + fusionnés cette session) */}
-      {(ignoredPairs.length > 0 || mergedCount > 0) && (
+      {(ignoredDoublons.length > 0 || mergedCount > 0) && (
         <div style={{ marginTop: 24 }}>
           <button
             onClick={() => setShowHistory(h => !h)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}
           >
             <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
-            Cette session ({ignoredPairs.length + mergedCount})
-            {ignoredPairs.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{ignoredPairs.length} ignoré{ignoredPairs.length > 1 ? 's' : ''}</span>}
+            Cette session ({ignoredDoublons.length + mergedCount})
+            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{ignoredDoublons.length} ignoré{ignoredDoublons.length > 1 ? 's' : ''}</span>}
             {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', fontWeight: 600 }}>{mergedCount} fusionné{mergedCount > 1 ? 's' : ''}</span>}
           </button>
 
           {showHistory && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {ignoredPairs.map(pair => (
+              {ignoredDoublons.map(pair => (
                 <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10, opacity: 0.8 }}>
                   <XCircle size={14} color="var(--muted)" />
                   <div style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
@@ -523,7 +329,6 @@ export default function DoublonsPage() {
 
           {showPersistentHistory && (
             <div style={{ borderTop: '1px solid var(--border)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-              {/* Merged history */}
               {mergedHistory.slice().reverse().map(item => (
                 <div key={item.keyId + item.mergedAt} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                   <CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0 }} />
@@ -539,7 +344,6 @@ export default function DoublonsPage() {
                 </div>
               ))}
 
-              {/* Info about persistent ignored pairs */}
               {totalIgnoredPersisted > 0 && (
                 <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)' }}>
                   <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{totalIgnoredPersisted} paire{totalIgnoredPersisted > 1 ? 's' : ''} ignorée{totalIgnoredPersisted > 1 ? 's' : ''}</span>
@@ -589,95 +393,84 @@ export default function DoublonsPage() {
               Cliquez sur le profil que vous souhaitez <strong>conserver</strong>. L&apos;autre sera supprimé et ses données fusionnées dans le profil principal.
             </p>
 
-            {/* Sélection interactive du profil à garder */}
             {(() => {
-              const a = confirmModal.pair.candidat_a
-              const b = confirmModal.pair.candidat_b
+              const a = confirmModal.pair.candidat_a as Candidat
+              const b = confirmModal.pair.candidat_b as Candidat
               const recentId = getRecentId(a, b)
               return (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-              {[a, b].map((candidat) => {
-                const isSelected = confirmModal.keepId === candidat.id
-                const isRecent = candidat.id === recentId
-                return (
-                  <div
-                    key={candidat.id}
-                    onClick={() => !merging && setConfirmModal({
-                      ...confirmModal,
-                      keepId: candidat.id,
-                      deleteId: candidat.id === confirmModal.pair.candidat_a.id
-                        ? confirmModal.pair.candidat_b.id
-                        : confirmModal.pair.candidat_a.id,
-                    })}
-                    style={{
-                      border: `2px solid ${isSelected ? '#16A34A' : 'var(--border)'}`,
-                      borderRadius: 12,
-                      padding: '14px 16px',
-                      cursor: merging ? 'default' : 'pointer',
-                      background: isSelected ? '#F0FDF4' : 'var(--secondary)',
-                      transition: 'all 0.15s',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Badge sélection */}
-                    <div style={{
-                      position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
-                      background: isSelected ? '#16A34A' : 'var(--border)',
-                      color: isSelected ? 'white' : 'var(--muted)',
-                      fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 99,
-                      whiteSpace: 'nowrap', transition: 'all 0.15s',
-                    }}>
-                      {isSelected ? '✅ Garder ce profil' : 'Cliquer pour garder'}
-                    </div>
-
-                    <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--foreground)', marginBottom: 4, marginTop: 4 }}>
-                      {candidat.prenom} {candidat.nom}
-                    </div>
-                    {candidat.titre_poste && (
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{candidat.titre_poste}</div>
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {candidat.email && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📧 {candidat.email}</span>}
-                      {candidat.telephone && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {candidat.telephone}</span>}
-                      {candidat.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
-
-                      {/* Date d'ajout avec badge "plus récent" */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                          🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
-                        {isRecent && (() => {
-                          const da = extractDateFromFilename(a.cv_nom_fichier)
-                          const db = extractDateFromFilename(b.cv_nom_fichier)
-                          const basedOnFile = da && db
-                          return (
-                            <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
-                              🕐 {basedOnFile ? 'CV le plus récent' : 'Ajouté en premier'}
-                            </span>
-                          )
-                        })()}
-                      </div>
-
-                      {/* Nom du fichier CV */}
-                      {candidat.cv_nom_fichier && (
-                        <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }} title={candidat.cv_nom_fichier}>
-                          📄 {candidat.cv_nom_fichier}
-                        </span>
-                      )}
-
-                      {candidat.competences?.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                          {candidat.competences.slice(0, 3).map(c => (
-                            <span key={c} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: isSelected ? '#DCFCE7' : 'var(--border)', color: isSelected ? '#166534' : 'var(--muted)', fontWeight: 600 }}>{c}</span>
-                          ))}
-                          {candidat.competences.length > 3 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{candidat.competences.length - 3}</span>}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                  {[a, b].map((candidat) => {
+                    const isSelected = confirmModal.keepId === candidat.id
+                    const isRecent = candidat.id === recentId
+                    return (
+                      <div
+                        key={candidat.id}
+                        onClick={() => !merging && setConfirmModal({
+                          ...confirmModal,
+                          keepId: candidat.id,
+                          deleteId: candidat.id === confirmModal.pair.candidat_a.id
+                            ? confirmModal.pair.candidat_b.id
+                            : confirmModal.pair.candidat_a.id,
+                        })}
+                        style={{
+                          border: `2px solid ${isSelected ? '#16A34A' : 'var(--border)'}`,
+                          borderRadius: 12, padding: '14px 16px',
+                          cursor: merging ? 'default' : 'pointer',
+                          background: isSelected ? '#F0FDF4' : 'var(--secondary)',
+                          transition: 'all 0.15s', position: 'relative',
+                        }}
+                      >
+                        <div style={{
+                          position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                          background: isSelected ? '#16A34A' : 'var(--border)',
+                          color: isSelected ? 'white' : 'var(--muted)',
+                          fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 99,
+                          whiteSpace: 'nowrap', transition: 'all 0.15s',
+                        }}>
+                          {isSelected ? '✅ Garder ce profil' : 'Cliquer pour garder'}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-              </div>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--foreground)', marginBottom: 4, marginTop: 4 }}>
+                          {candidat.prenom} {candidat.nom}
+                        </div>
+                        {candidat.titre_poste && (
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{candidat.titre_poste}</div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {candidat.email && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📧 {candidat.email}</span>}
+                          {candidat.telephone && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {candidat.telephone}</span>}
+                          {candidat.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                              🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                            {isRecent && (() => {
+                              const da = extractDateFromFilename(a.cv_nom_fichier)
+                              const db = extractDateFromFilename(b.cv_nom_fichier)
+                              return (
+                                <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                                  🕐 {(da && db) ? 'CV le plus récent' : 'Ajouté en premier'}
+                                </span>
+                              )
+                            })()}
+                          </div>
+                          {candidat.cv_nom_fichier && (
+                            <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }} title={candidat.cv_nom_fichier}>
+                              📄 {candidat.cv_nom_fichier}
+                            </span>
+                          )}
+                          {candidat.competences?.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                              {candidat.competences.slice(0, 3).map(c => (
+                                <span key={c} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: isSelected ? '#DCFCE7' : 'var(--border)', color: isSelected ? '#166534' : 'var(--muted)', fontWeight: 600 }}>{c}</span>
+                              ))}
+                              {candidat.competences.length > 3 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{candidat.competences.length - 3}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               )
             })()}
 
@@ -743,7 +536,6 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
       borderRadius: 14, padding: 20, opacity: isMerged ? 0.6 : 1,
       boxShadow: 'var(--card-shadow)',
     }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ padding: '4px 12px', borderRadius: 99, background: c.bg, border: `1px solid ${c.border}` }}>
@@ -756,14 +548,12 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
         {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={14} />Fusionné</span>}
       </div>
 
-      {/* Deux candidats côte à côte */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 16 }}>
         <CandidatMiniProfile candidat={pair.candidat_a} />
         <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--muted)', textAlign: 'center', padding: '0 4px' }}>vs</div>
         <CandidatMiniProfile candidat={pair.candidat_b} />
       </div>
 
-      {/* Explication IA */}
       {pair.result.explication && (
         <div style={{ padding: '10px 14px', borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', marginBottom: 14 }}>
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
@@ -772,7 +562,6 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
         </div>
       )}
 
-      {/* Actions */}
       {!isMerged && (
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <Link href={`/candidats/${pair.candidat_a.id}`} target="_blank"
@@ -810,7 +599,7 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
   )
 }
 
-function CandidatMiniProfile({ candidat }: { candidat: Candidat }) {
+function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a'] }) {
   const initials = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
   return (
     <div style={{ padding: 12, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)' }}>
@@ -832,17 +621,6 @@ function CandidatMiniProfile({ candidat }: { candidat: Candidat }) {
       {candidat.email && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>📧 {candidat.email}</div>}
       {candidat.telephone && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>📞 {candidat.telephone}</div>}
       {candidat.localisation && <div style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</div>}
-    </div>
-  )
-}
-
-function MiniCandidatCard({ candidat, label, color, border }: { candidat: Candidat; label: string; color: string; border: string }) {
-  return (
-    <div style={{ padding: 12, borderRadius: 10, background: color, border: `1px solid ${border}` }}>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 6 }}>{label}</p>
-      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 2px 0' }}>{candidat.prenom} {candidat.nom}</p>
-      {candidat.email && <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>{candidat.email}</p>}
-      {candidat.titre_poste && <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0 0' }}>{candidat.titre_poste}</p>}
     </div>
   )
 }

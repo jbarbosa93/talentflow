@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
     candidates = result.data
     error = result.error
   } else {
-    // Normal mode: only candidates sans vraie photo (null OU 'checked')
+    // Normal mode: only candidates with photo_url IS NULL (not yet analyzed)
+    // 'checked' = already analyzed, no photo found → skip to avoid re-doing work
     const { data: nullPhotos, error: e1 } = await supabase
       .from('candidats')
       .select(FIELDS)
@@ -96,19 +97,7 @@ export async function POST(request: NextRequest) {
       .not('cv_url', 'is', null)
       .limit(batchSize)
 
-    const remaining = batchSize - (nullPhotos?.length || 0)
-    let checkedPhotos: any[] = []
-    if (remaining > 0) {
-      const { data: cp } = await supabase
-        .from('candidats')
-        .select(FIELDS)
-        .eq('photo_url', 'checked')
-        .not('cv_url', 'is', null)
-        .limit(remaining)
-      checkedPhotos = cp || []
-    }
-
-    candidates = [...(nullPhotos || []), ...checkedPhotos]
+    candidates = nullPhotos || []
     error = e1
   }
 
@@ -208,18 +197,13 @@ export async function POST(request: NextRequest) {
   if (force) {
     remaining = Math.max(0, totalToProcess - offset - processed)
   } else {
-    // Compter null + checked
+    // Only count NULL (not yet analyzed) — 'checked' means already done
     const { count: nullCount } = await supabase
       .from('candidats')
       .select('*', { count: 'exact', head: true })
       .is('photo_url', null)
       .not('cv_url', 'is', null)
-    const { count: checkedCount } = await supabase
-      .from('candidats')
-      .select('*', { count: 'exact', head: true })
-      .eq('photo_url', 'checked')
-      .not('cv_url', 'is', null)
-    remaining = (nullCount || 0) + (checkedCount || 0)
+    remaining = nullCount || 0
   }
 
   return NextResponse.json({
@@ -244,19 +228,22 @@ export async function GET() {
     .neq('photo_url', 'checked')
     .not('cv_url', 'is', null)
 
+  // Candidats non encore analysés (photo_url IS NULL)
+  const { count: withoutPhoto } = await supabase
+    .from('candidats')
+    .select('*', { count: 'exact', head: true })
+    .is('photo_url', null)
+    .not('cv_url', 'is', null)
+
   // Total candidats avec CV
   const { count: total } = await supabase
     .from('candidats')
     .select('*', { count: 'exact', head: true })
     .not('cv_url', 'is', null)
 
-  // Sans photo = total - avec photo (inclut null ET 'checked')
-  const withPhotoCount = withPhoto || 0
-  const totalCount = total || 0
-
   return NextResponse.json({
-    withoutPhoto: totalCount - withPhotoCount,
-    withPhoto: withPhotoCount,
-    total: totalCount,
+    withoutPhoto: withoutPhoto || 0,  // Only NULL = truly not yet analyzed
+    withPhoto: withPhoto || 0,
+    total: total || 0,
   })
 }

@@ -6,6 +6,8 @@ import { Toaster } from "sonner"
 import ReactQueryProvider from "@/components/providers/ReactQueryProvider"
 import { ImportProvider } from "@/contexts/ImportContext"
 import { MatchingProvider } from "@/contexts/MatchingContext"
+import { PhotosProvider } from "@/contexts/PhotosContext"
+import { DoublonsProvider } from "@/contexts/DoublonsContext"
 import DashboardShell from "@/components/layout/DashboardShell"
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
 
@@ -30,11 +32,15 @@ export default function DashboardRootLayout({
         <ReactQueryProvider>
           <ImportProvider>
             <MatchingProvider>
-              <DashboardShell>
-                {children}
-              </DashboardShell>
-              <SessionTimeoutModal />
-              <Toaster richColors position="top-right" />
+              <PhotosProvider>
+                <DoublonsProvider>
+                  <DashboardShell>
+                    {children}
+                  </DashboardShell>
+                  <SessionTimeoutModal />
+                  <Toaster richColors position="top-right" />
+                </DoublonsProvider>
+              </PhotosProvider>
             </MatchingProvider>
           </ImportProvider>
         </ReactQueryProvider>

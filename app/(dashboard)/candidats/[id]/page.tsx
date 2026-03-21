@@ -622,7 +622,7 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', overflowX: 'auto', minWidth: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
         <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1281,19 +1281,14 @@ export default function CandidatDetailPage() {
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
-                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
-                onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
+                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', position: 'relative' }}
               >
                 <div style={{
                   width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
                   height: '100%',
                   background: '#F1F5F9',
                   position: 'relative',
-                  overflow: 'hidden',
                 }}>
-                  {/* Drag overlay — couvre le iframe pour capturer les events souris */}
-                  <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
-                    onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
                   {cvIsWord && <>
                     {/* Masque bouton [↗] Google Docs (haut droite) */}
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
@@ -1310,7 +1305,7 @@ export default function CandidatDetailPage() {
                           : docViewerUrl
                     }
                     style={{
-                      width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none',
+                      width: '100%', height: '100%', border: 'none', display: 'block',
                     }}
                     title="CV"
                   />
