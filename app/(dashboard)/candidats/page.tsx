@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, ImageIcon,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -88,8 +88,6 @@ function CandidatsPageInner() {
   const [aiResults, setAiResults] = useState<any[] | null>(null)
   const [aiInterpreted, setAiInterpreted] = useState('')
 
-  const [extractingPhotos, setExtractingPhotos] = useState(false)
-  const [photoExtractionStatus, setPhotoExtractionStatus] = useState<string | null>(null)
 
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -258,7 +256,6 @@ function CandidatsPageInner() {
     filterAgeMax !== '',
     filterLangue !== '',
     filterPermis !== null,
-    filterExpMin !== '',
   ].filter(Boolean).length
 
   // Client-side sort
@@ -489,7 +486,7 @@ function CandidatsPageInner() {
 
         {/* Âge (calculé depuis date_naissance) */}
         {age !== null && (
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--bg-muted, #F1F5F9)', padding: '4px 10px', borderRadius: 8 }}>
             {age} ans
           </span>
         )}
@@ -555,41 +552,6 @@ function CandidatsPageInner() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={async () => {
-              // Mode force: re-extraire TOUTES les photos avec les filtres stricts (supprime les mauvaises images)
-              setExtractingPhotos(true)
-              setPhotoExtractionStatus('Extraction en cours (re-analyse complète)...')
-              try {
-                let totalProcessed = 0, totalFound = 0, currentOffset = 0
-                while (true) {
-                  const res = await fetch('/api/cv/extract-photos', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ batchSize: 5, force: true, offset: currentOffset }),
-                  })
-                  const data = await res.json()
-                  totalProcessed += data.processed || 0
-                  totalFound += data.found || 0
-                  currentOffset = data.nextOffset ?? (currentOffset + (data.processed || 0))
-                  setPhotoExtractionStatus(`${totalProcessed} CVs analysés, ${totalFound} photos extraites... (${data.remaining || 0} restants)`)
-                  if (data.done || data.remaining === 0 || (data.processed || 0) === 0) break
-                  await new Promise(r => setTimeout(r, 300))
-                }
-                setPhotoExtractionStatus(`✓ Terminé : ${totalProcessed} CVs analysés, ${totalFound} photos extraites`)
-                queryClient.invalidateQueries({ queryKey: ['candidats'] })
-              } catch {
-                setPhotoExtractionStatus('Erreur lors de l\'extraction')
-              }
-              setExtractingPhotos(false)
-            }}
-            disabled={extractingPhotos}
-            style={{ padding:'8px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg-card)', color:'var(--text)', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontFamily:'inherit', opacity: extractingPhotos ? 0.7 : 1 }}
-          >
-            {extractingPhotos ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-            Extraire photos
-          </button>
-          {photoExtractionStatus && <span style={{fontSize:12,color:'var(--muted)'}}>{photoExtractionStatus}</span>}
           <button onClick={() => setShowUpload(true)} className="neo-btn">
             <Upload size={15} /> Importer un CV
           </button>
@@ -734,6 +696,18 @@ function CandidatsPageInner() {
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
         </button>
+
+        {/* Nombre de résultats par page */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <option value={20}>20</option>
+            <option value={100}>100</option>
+            <option value={500}>500</option>
+            <option value={1000}>1000</option>
+            <option value={0}>Tous</option>
+          </select>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>/ {candidatesTries.length}</span>
+        </div>
       </div>
 
       {/* Advanced filters panel */}
@@ -760,11 +734,7 @@ function CandidatsPageInner() {
             <input value={filterLangue} onChange={e=>setFilterLangue(e.target.value)} placeholder="Ex: Français, Anglais..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
           </div>
           <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>EXP. MIN (ans)</label>
-            <input type="number" min={0} max={50} value={filterExpMin} onChange={e=>setFilterExpMin(e.target.value?Number(e.target.value):'')} placeholder="0" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
-          </div>
-          <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>PERMIS B</label>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>PERMIS DE CONDUIRE</label>
             <select value={filterPermis===null?'':filterPermis?'oui':'non'} onChange={e=>setFilterPermis(e.target.value===''?null:e.target.value==='oui')} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}>
               <option value="">Tous</option>
               <option value="oui">Oui</option>
@@ -879,18 +849,6 @@ function CandidatsPageInner() {
             {candidatesPagines.length} candidat{candidatesPagines.length > 1 ? 's' : ''} affichés
           </div>
           {candidatesPagines.map((c: any) => renderCard(c))}
-          {candidatesTries.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Afficher :</span>
-              <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer' }}>
-                <option value={20}>20</option>
-                <option value={100}>100</option>
-                <option value={500}>500</option>
-                <option value={0}>Tous</option>
-              </select>
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>sur {candidatesTries.length}</span>
-            </div>
-          )}
         </div>
       )}
 

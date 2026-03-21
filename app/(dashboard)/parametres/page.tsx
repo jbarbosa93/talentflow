@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X } from 'lucide-react'
+import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, ImageIcon, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
+  { id: 'photos',        label: 'Photos',        icon: Camera },
 ]
 
 export const AGENCE_METIERS_LS_KEY = 'agence_metiers'
@@ -100,6 +101,7 @@ export default function ParametresPage() {
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
           {section === 'metiers'        && <MetiersSection />}
+          {section === 'photos'         && <PhotosSection />}
         </div>
       </div>
     </div>
@@ -544,6 +546,97 @@ function AffichageSection() {
       <button onClick={reset} style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
         Réinitialiser l&apos;ordre par défaut
       </button>
+    </SectionCard>
+  )
+}
+
+// ─── Photos candidats ─────────────────────────────────────────────────────────
+
+function PhotosSection() {
+  const [extracting, setExtracting] = useState(false)
+  const [status, setStatus] = useState('')
+  const [stats, setStats] = useState<{ withPhoto: number; withoutPhoto: number; total: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/cv/extract-photos')
+      .then(r => r.json())
+      .then(setStats)
+      .catch(() => {})
+  }, [])
+
+  const handleCorrectPhotos = async () => {
+    setExtracting(true)
+    setStatus('Analyse en cours (re-extraction complète avec filtres stricts)...')
+    try {
+      let totalProcessed = 0, totalFound = 0, currentOffset = 0
+      while (true) {
+        const res = await fetch('/api/cv/extract-photos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batchSize: 5, force: true, offset: currentOffset }),
+        })
+        const data = await res.json()
+        totalProcessed += data.processed || 0
+        totalFound += data.found || 0
+        currentOffset = data.nextOffset ?? (currentOffset + (data.processed || 0))
+        setStatus(`${totalProcessed} CVs analysés, ${totalFound} photos extraites... (${data.remaining || 0} restants)`)
+        if (data.done || data.remaining === 0 || (data.processed || 0) === 0) break
+        await new Promise(r => setTimeout(r, 300))
+      }
+      setStatus(`Terminé : ${totalProcessed} CVs analysés, ${totalFound} photos de visage extraites`)
+      // Refresh stats
+      fetch('/api/cv/extract-photos').then(r => r.json()).then(setStats).catch(() => {})
+    } catch {
+      setStatus('Erreur lors de la correction')
+    }
+    setExtracting(false)
+  }
+
+  return (
+    <SectionCard title="Photos des candidats" description="Gérez l'extraction automatique des photos de visage depuis les CVs">
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 8 }}>
+          <div style={{ padding: 14, borderRadius: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', margin: 0 }}>{stats.withPhoto}</p>
+            <p style={{ fontSize: 11, color: '#15803D', margin: 0, fontWeight: 600 }}>Avec photo</p>
+          </div>
+          <div style={{ padding: 14, borderRadius: 10, background: '#FEF9C3', border: '1px solid #FDE68A', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#CA8A04', margin: 0 }}>{stats.withoutPhoto}</p>
+            <p style={{ fontSize: 11, color: '#A16207', margin: 0, fontWeight: 600 }}>Sans photo</p>
+          </div>
+          <div style={{ padding: 14, borderRadius: 10, background: '#F1F5F9', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: '#475569', margin: 0 }}>{stats.total}</p>
+            <p style={{ fontSize: 11, color: '#64748B', margin: 0, fontWeight: 600 }}>Total CVs</p>
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: 16, borderRadius: 10, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#92400E', margin: '0 0 8px 0' }}>
+          Corriger photos candidats
+        </p>
+        <p style={{ fontSize: 12, color: '#A16207', margin: '0 0 14px 0' }}>
+          Re-analyse TOUS les CVs avec les filtres stricts pour ne garder que les vraies photos de visage.
+          Les logos, images décoratives et mauvaises extractions seront supprimés et remplacés.
+        </p>
+        <button
+          onClick={handleCorrectPhotos}
+          disabled={extracting}
+          className="neo-btn-primary"
+          style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: extracting ? 0.7 : 1, fontSize: 14, padding: '10px 20px' }}
+        >
+          {extracting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <ImageIcon size={16} />}
+          {extracting ? 'Correction en cours...' : 'Corriger photos candidats'}
+        </button>
+      </div>
+
+      {status && (
+        <div style={{ padding: 12, borderRadius: 8, background: extracting ? '#EFF6FF' : '#F0FDF4', border: `1px solid ${extracting ? '#BFDBFE' : '#BBF7D0'}` }}>
+          <p style={{ fontSize: 13, color: extracting ? '#1D4ED8' : '#16A34A', margin: 0, fontWeight: 600 }}>
+            {status}
+          </p>
+        </div>
+      )}
     </SectionCard>
   )
 }
