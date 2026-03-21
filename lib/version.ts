@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.9.0'
+export const APP_VERSION = 'v0.10.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.10.0',
+    date: '2026-03-21',
+    label: 'Workflow & Doublons',
+    features: [
+      'Candidats a traiter : workflow de verification avant mise en base active',
+      'Bouton Valider dans la fiche candidat pour passer en base active',
+      'Badge sidebar avec compteur de candidats a traiter',
+      'Fusion intelligente des doublons (combine le max d\'infos des deux profils)',
+      'Doublons groupes par candidat (clusters de profils identiques)',
+      'Fusion manuelle depuis la fiche candidat (menu 3 points → Fusionner avec)',
+      'Bouton "Personnes differentes" au lieu de "Ignorer"',
+      'Pause/Reprise/Recommencer sur l\'analyse doublons',
+      'Historique detaille des paires ignorees avec noms',
+      'Analyse photos : pause/reprise + re-analyser tout',
+      'Impression CV via proxy (compatible tous navigateurs)',
+      'Lightbox CV plein ecran a 100%',
+      'Notes et Infos en panneau lateral slide-in',
+      'Log d\'import groupe par session avec erreurs detaillees',
+      'Retry import qui relance le worker automatiquement',
+      'Menu 3 points dans la fiche candidat (Notes, Infos, Fusionner, Supprimer)',
+    ],
+  },
   {
     version: 'v0.9.0',
     date: '2026-03-21',
