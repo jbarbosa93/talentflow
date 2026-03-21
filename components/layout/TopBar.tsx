@@ -345,33 +345,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               zIndex: 999, minWidth: 220, overflow: 'hidden',
               animation: 'fadeInDown 0.15s ease',
             }}>
-              {/* User info header */}
-              <div style={{
-                padding: '14px 16px', borderBottom: '1px solid var(--border)',
-                background: 'var(--background)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-                    background: avatarUrl ? 'transparent' : 'var(--primary)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
-                  }}>
-                    {avatarUrl
-                      ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : initiales
-                    }
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>{fullName}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{role}</div>
-                    {entreprise && (
-                      <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700, marginTop: 1 }}>{entreprise}</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Menu items */}
               <div style={{ padding: '6px' }}>
                 <button
