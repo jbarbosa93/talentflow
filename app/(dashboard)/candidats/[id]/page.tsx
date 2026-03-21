@@ -994,23 +994,6 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Info + Notes — boutons ronds */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setShowInfo(v => !v)} title="Infos"
-              style={{ width: 34, height: 34, borderRadius: '50%', border: showInfo ? '2px solid var(--primary)' : '1px solid var(--border)', background: showInfo ? 'var(--primary-soft)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-              <Info size={15} style={{ color: showInfo ? 'var(--primary)' : 'var(--muted)' }} />
-            </button>
-            <button onClick={() => setShowNotes(v => !v)} title="Notes"
-              style={{ width: 34, height: 34, borderRadius: '50%', border: showNotes ? '2px solid var(--primary)' : '1px solid var(--border)', background: showNotes ? 'var(--primary-soft)' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s', position: 'relative' }}>
-              <MessageSquare size={15} style={{ color: showNotes ? 'var(--primary)' : 'var(--muted)' }} />
-              {(candidat.notes_candidat?.length || 0) > 0 && (
-                <span style={{ position: 'absolute', top: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#000', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {candidat.notes_candidat.length}
-                </span>
-              )}
-            </button>
-          </div>
-
           {/* Métadonnées (expandable) */}
           {showInfo && (
             <div className="neo-card-soft" style={{ padding: 14 }}>
