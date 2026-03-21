@@ -1,10 +1,32 @@
 'use client'
-import { useState } from 'react'
-import { Sparkles, CheckCircle, XCircle, Zap, Loader2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Sparkles, CheckCircle, XCircle, Loader2, User, ArrowRight, Trophy } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCandidats } from '@/hooks/useCandidats'
 import { useOffres } from '@/hooks/useOffres'
-import { useCalculerScore } from '@/hooks/usePipeline'
+import Link from 'next/link'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type MatchResult = {
+  candidat: {
+    id: string
+    nom: string
+    prenom: string | null
+    titre_poste: string | null
+    localisation: string | null
+    photo_url: string | null
+    annees_exp: number
+  }
+  score: number
+  score_competences: number
+  score_experience: number
+  competences_matchees: string[]
+  competences_manquantes: string[]
+  explication: string
+  recommandation: 'fort' | 'moyen' | 'faible'
+}
+
+// ─── Couleurs par score ───────────────────────────────────────────────────────
 
 function scoreColor(score: number) {
   if (score >= 75) return { text: '#16A34A', bg: '#F0FDF4', border: '#86EFAC', bar: '#22C55E', label: 'Fort' }
@@ -12,190 +34,308 @@ function scoreColor(score: number) {
   return { text: '#DC2626', bg: '#FEF2F2', border: '#FECACA', bar: '#EF4444', label: 'Faible' }
 }
 
-function ScoreBar({ label, value }: { label: string; value: number }) {
-  const c = scoreColor(value)
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{label}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: c.text }}>{value}%</span>
-      </div>
-      <div style={{ height: 6, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: c.bar, borderRadius: 99, transition: 'width 0.7s ease' }} />
-      </div>
-    </div>
-  )
-}
+// ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function MatchingPage() {
   const [selectedOffre, setSelectedOffre] = useState('')
-  const [selectedCandidat, setSelectedCandidat] = useState('')
-  const [result, setResult] = useState<any>(null)
+  const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle')
+  const [results, setResults] = useState<MatchResult[]>([])
+  const [total, setTotal] = useState(0)
+  const [done, setDone] = useState(0)
+  const abortRef = useRef(false)
 
   const { data: offres } = useOffres(true)
-  const { data: _candidatsData } = useCandidats()
-  const candidats = _candidatsData?.candidats
-  const calculerScore = useCalculerScore()
+  const offre = offres?.find(o => o.id === selectedOffre)
 
-  const handleMatch = () => {
-    if (!selectedOffre || !selectedCandidat) return
-    setResult(null)
-    calculerScore.mutate(
-      { candidat_id: selectedCandidat, offre_id: selectedOffre },
-      { onSuccess: (data) => setResult(data.score) }
-    )
+  const handleSearch = async () => {
+    if (!selectedOffre) return
+    abortRef.current = false
+    setPhase('running')
+    setResults([])
+    setDone(0)
+
+    // 1. Charger tous les candidats
+    const res = await fetch('/api/candidats?limit=500')
+    const { candidats } = await res.json()
+    if (!candidats?.length) { setPhase('done'); return }
+
+    setTotal(candidats.length)
+
+    // 2. Analyser par batch de 3 en parallèle
+    const BATCH = 3
+    const sorted: MatchResult[] = []
+
+    for (let i = 0; i < candidats.length; i += BATCH) {
+      if (abortRef.current) break
+      const batch = candidats.slice(i, i + BATCH)
+
+      await Promise.all(batch.map(async (c: any) => {
+        try {
+          const r = await fetch('/api/matching', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidat_id: c.id, offre_id: selectedOffre }),
+          })
+          if (!r.ok) return
+          const data = await r.json()
+          const entry: MatchResult = {
+            candidat: { id: c.id, nom: c.nom, prenom: c.prenom, titre_poste: c.titre_poste, localisation: c.localisation, photo_url: c.photo_url, annees_exp: c.annees_exp },
+            ...data.score,
+          }
+          sorted.push(entry)
+          // Afficher au fur et à mesure, triés par score décroissant
+          setResults([...sorted].sort((a, b) => b.score - a.score))
+        } catch {}
+        setDone(d => d + 1)
+      }))
+    }
+
+    setPhase('done')
   }
 
-  const ready = !!(selectedOffre && selectedCandidat)
-  const colors = result ? scoreColor(result.score) : null
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0
+  const ready = !!selectedOffre && phase !== 'running'
 
   return (
-    <div className="d-page" style={{ maxWidth: 640 }}>
+    <div className="d-page" style={{ maxWidth: 860 }}>
+
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
           <Sparkles size={22} color="var(--primary)" />
           Matching IA
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
-          Calculez le score de compatibilité entre un candidat et une commande via Claude AI
+        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
+          Sélectionnez une commande — l&apos;IA analyse tous vos candidats et les classe par compatibilité
         </p>
       </div>
 
-      {/* Selector Card */}
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--card-shadow)' }}>
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Commande client
-          </label>
-          <Select value={selectedOffre} onValueChange={setSelectedOffre}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 42 }}>
-              <SelectValue placeholder="Sélectionner une commande..." />
-            </SelectTrigger>
-            <SelectContent>
-              {offres?.length === 0 ? (
-                <SelectItem value="_" disabled>Aucune commande — créez-en une d&apos;abord</SelectItem>
-              ) : (
-                offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.client_nom ? `${o.client_nom} — ` : ''}{o.titre}</SelectItem>)
-              )}
-            </SelectContent>
-          </Select>
+      {/* Sélection commande + bouton */}
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--card-shadow)', marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+              Commande client
+            </label>
+            <Select value={selectedOffre} onValueChange={v => { setSelectedOffre(v); setPhase('idle'); setResults([]) }}>
+              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 44 }}>
+                <SelectValue placeholder="Choisir une commande..." />
+              </SelectTrigger>
+              <SelectContent>
+                {!offres?.length ? (
+                  <SelectItem value="_" disabled>Aucune commande — créez-en une d&apos;abord</SelectItem>
+                ) : (
+                  offres.map(o => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.client_nom ? `${o.client_nom} — ` : ''}{o.titre}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <button
+            onClick={handleSearch}
+            disabled={!ready}
+            style={{
+              height: 44, padding: '0 28px',
+              background: ready ? 'var(--foreground)' : 'var(--secondary)',
+              color: ready ? 'white' : 'var(--muted)',
+              border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
+              fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+              fontFamily: 'var(--font-body)', transition: 'all 0.15s', whiteSpace: 'nowrap',
+            }}
+          >
+            {phase === 'running'
+              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse en cours…</>
+              : <><Sparkles size={16} />Rechercher les meilleurs candidats</>
+            }
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>vs</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-        </div>
+        {/* Infos commande sélectionnée */}
+        {offre && (
+          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.2)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{offre.titre}</span>
+            {offre.client_nom && <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>👤 {offre.client_nom}</span>}
+            {offre.localisation && <span style={{ fontSize: 12, color: 'var(--muted)' }}>📍 {offre.localisation}</span>}
+            {offre.nb_postes > 1 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>👥 {offre.nb_postes} postes</span>}
+            {offre.competences?.length > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>🔧 {offre.competences.slice(0, 4).join(', ')}{offre.competences.length > 4 ? '…' : ''}</span>
+            )}
+          </div>
+        )}
 
-        <div style={{ marginBottom: 24 }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Candidat
-          </label>
-          <Select value={selectedCandidat} onValueChange={setSelectedCandidat}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 42 }}>
-              <SelectValue placeholder="Sélectionner un candidat..." />
-            </SelectTrigger>
-            <SelectContent>
-              {candidats?.length === 0 ? (
-                <SelectItem value="_" disabled>Aucun candidat — importez des CVs d'abord</SelectItem>
-              ) : (
-                candidats?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.prenom} {c.nom} {c.titre_poste ? `— ${c.titre_poste}` : ''}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Barre de progression */}
+        {phase === 'running' && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+                {done} / {total} candidats analysés
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{progress}%</span>
+            </div>
+            <div style={{ height: 6, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${progress}%`, background: 'var(--primary)', borderRadius: 99, transition: 'width 0.3s ease' }} />
+            </div>
+          </div>
+        )}
 
-        <button
-          onClick={handleMatch}
-          disabled={!ready || calculerScore.isPending}
-          style={{
-            width: '100%', height: 44,
-            background: ready && !calculerScore.isPending ? 'var(--foreground)' : 'var(--secondary)',
-            color: ready && !calculerScore.isPending ? 'white' : 'var(--muted)',
-            border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
-            fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            fontFamily: 'var(--font-body)', transition: 'all 0.15s',
-          }}
-        >
-          {calculerScore.isPending ? (
-            <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse Claude en cours...</>
-          ) : (
-            <><Sparkles size={16} />Calculer le score de matching</>
-          )}
-        </button>
+        {/* Résumé final */}
+        {phase === 'done' && results.length > 0 && (
+          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#16A34A', margin: 0 }}>
+              ✅ {results.length} candidat{results.length > 1 ? 's' : ''} analysé{results.length > 1 ? 's' : ''} — classés par score de compatibilité
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Result */}
-      {result && colors && (
-        <div style={{ marginTop: 20, background: 'var(--card)', border: `2px solid ${colors.border}`, borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--card-shadow)' }}>
+      {/* Résultats */}
+      {results.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {results.map((r, idx) => (
+            <CandidatMatchCard key={r.candidat.id} result={r} rank={idx + 1} />
+          ))}
+        </div>
+      )}
 
-          {/* Score principal */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Score global</p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                <span style={{ fontSize: 52, fontWeight: 900, color: colors.text, lineHeight: 1 }}>{result.score}</span>
-                <span style={{ fontSize: 22, color: '#CBD5E1' }}>/100</span>
-              </div>
-            </div>
-            <div style={{
-              width: 80, height: 80, borderRadius: '50%',
-              background: colors.bg, border: `3px solid ${colors.border}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 16, fontWeight: 900, color: colors.text }}>{colors.label}</span>
-            </div>
-          </div>
+      {/* Empty state */}
+      {phase === 'done' && results.length === 0 && (
+        <div className="neo-empty" style={{ padding: '60px 24px', border: '2px dashed #E8E0C8' }}>
+          <div className="neo-empty-icon">🔍</div>
+          <div className="neo-empty-title">Aucun résultat</div>
+          <div className="neo-empty-sub">Importez des CVs pour lancer le matching</div>
+        </div>
+      )}
 
-          {/* Barres */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
-            <ScoreBar label="Compétences" value={result.score_competences} />
-            <ScoreBar label="Expérience" value={result.score_experience} />
-          </div>
-
-          {/* Compétences matchées */}
-          {result.competences_matchees?.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <CheckCircle size={14} />Compétences correspondantes ({result.competences_matchees.length})
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {result.competences_matchees.map((c: string) => (
-                  <span key={c} style={{ fontSize: 12, background: '#F0FDF4', color: '#16A34A', border: '1px solid #86EFAC', padding: '4px 12px', borderRadius: 99, fontWeight: 600 }}>{c}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Compétences manquantes */}
-          {result.competences_manquantes?.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <XCircle size={14} />Compétences manquantes ({result.competences_manquantes.length})
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {result.competences_manquantes.map((c: string) => (
-                  <span key={c} style={{ fontSize: 12, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '4px 12px', borderRadius: 99, fontWeight: 600 }}>{c}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Explication */}
-          {result.explication && (
-            <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>{result.explication}</p>
-            </div>
-          )}
+      {phase === 'idle' && !results.length && (
+        <div className="neo-empty" style={{ padding: '60px 24px', border: '2px dashed #E8E0C8' }}>
+          <div className="neo-empty-icon" style={{ fontSize: 40 }}>✨</div>
+          <div className="neo-empty-title">Prêt à matcher</div>
+          <div className="neo-empty-sub">Sélectionnez une commande et cliquez sur &quot;Rechercher&quot;</div>
         </div>
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
+}
+
+// ─── Carte candidat ───────────────────────────────────────────────────────────
+
+function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number }) {
+  const { candidat, score, score_competences, score_experience, competences_matchees, competences_manquantes, explication } = result
+  const c = scoreColor(score)
+  const initiales = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
+
+  const rankStyle = rank === 1
+    ? { bg: '#FFF9C4', border: '#FDE68A', icon: '🥇' }
+    : rank === 2
+    ? { bg: '#F1F5F9', border: '#CBD5E1', icon: '🥈' }
+    : rank === 3
+    ? { bg: '#FEF3E2', border: '#FDE68A', icon: '🥉' }
+    : null
+
+  return (
+    <div style={{
+      background: rank <= 3 ? rankStyle!.bg : 'var(--card)',
+      border: `1.5px solid ${rank <= 3 ? rankStyle!.border : 'var(--border)'}`,
+      borderRadius: 'var(--radius-lg)',
+      padding: '18px 20px',
+      boxShadow: 'var(--card-shadow)',
+    } as React.CSSProperties}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+
+        {/* Rang + avatar */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div style={{ fontSize: 20, lineHeight: 1 }}>{rank <= 3 ? rankStyle!.icon : <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', width: 28, textAlign: 'center', display: 'block' }}>#{rank}</span>}</div>
+          <div style={{
+            width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+            background: candidat.photo_url ? 'transparent' : 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+          }}>
+            {candidat.photo_url
+              ? <img src={candidat.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : initiales
+            }
+          </div>
+        </div>
+
+        {/* Infos candidat */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
+              {candidat.prenom} {candidat.nom}
+            </span>
+            {candidat.titre_poste && (
+              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{candidat.titre_poste}</span>
+            )}
+            {candidat.localisation && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>
+            )}
+          </div>
+
+          {/* Barres compétences + expérience */}
+          <div style={{ display: 'flex', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
+            <MiniBar label="Compétences" value={score_competences} />
+            <MiniBar label="Expérience" value={score_experience} />
+          </div>
+
+          {/* Tags matchées */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {competences_matchees.slice(0, 5).map(comp => (
+              <span key={comp} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CheckCircle size={10} />{comp}
+              </span>
+            ))}
+            {competences_manquantes.slice(0, 3).map(comp => (
+              <span key={comp} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <XCircle size={10} />{comp}
+              </span>
+            ))}
+          </div>
+
+          {explication && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>{explication}</p>
+          )}
+        </div>
+
+        {/* Score + bouton */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {/* Score circulaire */}
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: c.bg, border: `3px solid ${c.border}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: c.text, lineHeight: 1 }}>{score}</span>
+            <span style={{ fontSize: 10, color: c.text, fontWeight: 700 }}>{c.label}</span>
+          </div>
+
+          <Link href={`/candidats/${candidat.id}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            Voir profil <ArrowRight size={12} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniBar({ label, value }: { label: string; value: number }) {
+  const c = scoreColor(value)
+  return (
+    <div style={{ minWidth: 140 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: c.text }}>{value}%</span>
+      </div>
+      <div style={{ height: 5, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden', width: 140 }}>
+        <div style={{ height: '100%', width: `${value}%`, background: c.bar, borderRadius: 99, transition: 'width 0.6s ease' }} />
+      </div>
     </div>
   )
 }
