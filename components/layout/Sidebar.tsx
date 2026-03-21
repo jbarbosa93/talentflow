@@ -72,7 +72,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     if (pathname === href) return true
     if (!pathname.startsWith(href + '/')) return false
     const allHrefs = [...NAV_ITEMS, ...FOOTER_ITEMS].map(i => i.href)
-    const moreSpecific = allHrefs.some(h => h !== href && h.startsWith(href + '/') && pathname.startsWith(h))
+    const subRoutes = ['/candidats/a-traiter']
+    const moreSpecific = [...allHrefs, ...subRoutes].some(h => h !== href && h.startsWith(href + '/') && pathname.startsWith(h))
     return !moreSpecific
   }
 
