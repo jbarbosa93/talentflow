@@ -1,5 +1,5 @@
 'use client'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronRight } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
@@ -10,7 +10,7 @@ import type { Candidat, PipelineEtape } from '@/types/database'
 const PAGE_TITLES: Record<string, string> = {
   '/':            'Tableau de bord',
   '/candidats':   'Candidats',
-  '/offres':      'Offres d\'emploi',
+  '/offres':      'Commandes',
   '/pipeline':    'Pipeline',
   '/entretiens':  'Entretiens',
   '/messages':    'Messages',
@@ -41,8 +41,10 @@ export function TopBar() {
   const [aiResults, setAiResults]     = useState<Candidat[] | null>(null)
   const [aiLabel, setAiLabel]         = useState('')
   const [focused, setFocused]         = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const wrapRef  = useRef<HTMLDivElement>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const inputRef   = useRef<HTMLInputElement>(null)
+  const wrapRef    = useRef<HTMLDivElement>(null)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   const title = Object.entries(PAGE_TITLES)
     .sort((a, b) => b[0].length - a[0].length)
@@ -138,6 +140,7 @@ export function TopBar() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -147,6 +150,11 @@ export function TopBar() {
     if (query.trim()) setOpen(true)
     else if (!aiResults) setOpen(false)
   }, [query, aiResults])
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
 
   // ── Profil utilisateur ────────────────────────────────────────────────────
 
@@ -271,59 +279,152 @@ export function TopBar() {
           </button>
         )}
 
-        {/* Profil recruteur — cliquable */}
-        <button
-          onClick={() => router.push('/parametres/profil')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: pathname.startsWith('/parametres/profil') ? 'var(--primary-soft)' : 'transparent',
-            border: `1.5px solid ${pathname.startsWith('/parametres/profil') ? 'var(--primary)' : 'var(--border)'}`,
-            borderRadius: 10, padding: '5px 10px 5px 6px',
-            cursor: 'pointer', transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => {
-            if (!pathname.startsWith('/parametres/profil')) {
-              e.currentTarget.style.background = 'var(--background)'
-              e.currentTarget.style.borderColor = 'var(--primary)'
-            }
-          }}
-          onMouseLeave={e => {
-            if (!pathname.startsWith('/parametres/profil')) {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.borderColor = 'var(--border)'
-            }
-          }}
-        >
-          {/* Avatar */}
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-            background: avatarUrl ? 'transparent' : 'var(--primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 12, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
-          }}>
-            {avatarUrl
-              ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initiales
-            }
-          </div>
+        {/* Profil recruteur — dropdown */}
+        <div ref={profileRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setProfileOpen(p => !p)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: profileOpen ? 'var(--background)' : 'transparent',
+              border: `1.5px solid ${profileOpen ? 'var(--primary)' : 'var(--border)'}`,
+              borderRadius: 10, padding: '5px 10px 5px 6px',
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              if (!profileOpen) {
+                e.currentTarget.style.background = 'var(--background)'
+                e.currentTarget.style.borderColor = 'var(--primary)'
+              }
+            }}
+            onMouseLeave={e => {
+              if (!profileOpen) {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.borderColor = 'var(--border)'
+              }
+            }}
+          >
+            {/* Avatar */}
+            <div style={{
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              background: avatarUrl ? 'transparent' : 'var(--primary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+            }}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initiales
+              }
+            </div>
 
-          {/* Nom complet + rôle + entreprise */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
-              {fullName}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap' }}>{role}</span>
-            {entreprise && (
-              <span style={{ fontSize: 10, color: 'var(--primary)', marginTop: 1, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>
-            )}
-          </div>
+            {/* Nom + entreprise */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
+                {fullName}
+              </span>
+              {entreprise && (
+                <span style={{ fontSize: 10, color: 'var(--primary)', marginTop: 2, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>
+              )}
+            </div>
 
-          <ChevronRight size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-        </button>
+            <ChevronDown size={12} style={{ color: 'var(--muted)', flexShrink: 0, transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+          </button>
+
+          {/* Dropdown menu */}
+          {profileOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+              background: 'white', border: '1.5px solid var(--border)',
+              borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
+              zIndex: 999, minWidth: 220, overflow: 'hidden',
+              animation: 'fadeInDown 0.15s ease',
+            }}>
+              {/* User info header */}
+              <div style={{
+                padding: '14px 16px', borderBottom: '1px solid var(--border)',
+                background: 'var(--background)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                    background: avatarUrl ? 'transparent' : 'var(--primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+                  }}>
+                    {avatarUrl
+                      ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : initiales
+                    }
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>{fullName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{role}</div>
+                    {entreprise && (
+                      <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700, marginTop: 1 }}>{entreprise}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <div style={{ padding: '6px' }}>
+                <button
+                  onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', border: 'none', background: 'transparent',
+                    borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s',
+                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <User size={14} style={{ color: 'var(--muted)' }} />
+                  Mon profil
+                </button>
+                <button
+                  onClick={() => { setProfileOpen(false); router.push('/parametres') }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', border: 'none', background: 'transparent',
+                    borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s',
+                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <Settings size={14} style={{ color: 'var(--muted)' }} />
+                  Paramètres
+                </button>
+              </div>
+
+              {/* Separator + Logout */}
+              <div style={{ borderTop: '1px solid var(--border)', padding: '6px' }}>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                    padding: '9px 12px', border: 'none', background: 'transparent',
+                    borderRadius: 8, cursor: 'pointer', transition: 'all 0.12s',
+                    fontSize: 13, fontWeight: 600, color: '#EF4444',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <LogOut size={14} />
+                  Se déconnecter
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </header>
   )

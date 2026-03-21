@@ -95,7 +95,7 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, ...patch } : f))
   }
 
-  const resolveDoublon = async (i: number, action: 'ignorer' | 'remplacer' | 'garder_les_deux') => {
+  const resolveDoublon = async (i: number, action: 'ignorer' | 'remplacer' | 'garder_les_deux' | 'actualiser') => {
     const item = files[i]
     if (action === 'ignorer') {
       updateFile(i, { status: 'skipped', candidatNom: 'Doublon ignoré' })
@@ -107,13 +107,14 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     formData.append('statut', statut)
     if (offreId) formData.append('offre_id', offreId)
     if (action === 'remplacer' && item.candidatExistant) formData.append('replace_id', item.candidatExistant.id)
+    if (action === 'actualiser' && item.candidatExistant) formData.append('update_id', item.candidatExistant.id)
     if (action === 'garder_les_deux') formData.append('force_insert', 'true')
     try {
       const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
       const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
-      const suffix = action === 'remplacer' ? ' (remplacé)' : ''
+      const suffix = action === 'remplacer' ? ' (remplacé)' : data.updated ? ' (actualisé)' : ''
       updateFile(i, { status: 'success', candidatNom: (nom || 'Candidat créé') + suffix })
       if (data.candidat) onSuccess?.(data.candidat)
     } catch {
@@ -319,6 +320,10 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
                     <button onClick={() => resolveDoublon(i, 'remplacer')}
                       style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
                       Remplacer
+                    </button>
+                    <button onClick={() => resolveDoublon(i, 'actualiser')}
+                      style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #10B981', background: '#F0FDF4', color: '#059669', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Actualiser
                     </button>
                     <button onClick={() => resolveDoublon(i, 'garder_les_deux')}
                       style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 10, fontWeight: 700, border: '1px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>

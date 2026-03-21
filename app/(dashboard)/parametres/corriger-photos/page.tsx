@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { ImageIcon, Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, BarChart3 } from 'lucide-react'
+import { Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, BarChart3 } from 'lucide-react'
 
 type Stats = { withPhoto: number; withoutPhoto: number; total: number }
 type Phase = 'idle' | 'running' | 'done' | 'error' | 'stopping'
@@ -48,23 +48,22 @@ export default function CorrigerPhotosPage() {
     setLog([])
     startTimeRef.current = Date.now()
 
-    // Récupérer le total
+    // Récupérer le total (seulement ceux sans photo)
     const statsRes = await fetch('/api/cv/extract-photos')
     const statsData = await statsRes.json()
-    setTotal(statsData.total || 0)
+    setTotal(statsData.withoutPhoto || 0)
     setStats(statsData)
-    addLog(`Démarrage — ${statsData.total} CVs à analyser`)
+    addLog(`Démarrage — ${statsData.withoutPhoto} CVs sans photo à analyser (${statsData.withPhoto} déjà avec photo)`)
 
     let totalProcessed = 0
     let totalFound = 0
-    let currentOffset = 0
 
     while (!stopRef.current) {
       try {
         const res = await fetch('/api/cv/extract-photos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batchSize: 5, force: true, offset: currentOffset }),
+          body: JSON.stringify({ batchSize: 5, force: false }),
         })
 
         if (!res.ok) {
@@ -77,7 +76,6 @@ export default function CorrigerPhotosPage() {
         const batchFound = data.found || 0
         totalProcessed += batchProcessed
         totalFound += batchFound
-        currentOffset = data.nextOffset ?? (currentOffset + batchProcessed)
 
         setProcessed(totalProcessed)
         setFound(totalFound)

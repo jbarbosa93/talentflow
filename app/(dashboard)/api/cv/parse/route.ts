@@ -55,12 +55,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   let categorie: string | null = null
 
+  let updateId: string | null = null
+
   if (ct.includes('application/json')) {
     const body = await request.json()
     storagePathInput = body.storage_path
     statutPipeline   = body.statut || 'nouveau'
     forceInsert      = body.force_insert === true
     replaceId        = body.replace_id || null
+    updateId         = body.update_id || null
     offreId          = body.offre_id || null
     categorie        = body.categorie || null
   } else {
@@ -70,6 +73,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     offreId         = formData.get('offre_id') as string | null
     forceInsert     = formData.get('force_insert') === 'true'
     replaceId       = formData.get('replace_id') as string | null
+    updateId        = formData.get('update_id') as string | null
     storagePathInput = formData.get('storage_path') as string | null
     categorie        = formData.get('categorie') as string | null
   }
@@ -106,7 +110,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 3b. Vérification rapide : fichier déjà importé ? (par nom de fichier)
   //     Évite de consommer l'API Claude pour des CVs déjà en base
-  if (!forceInsert && !replaceId) {
+  if (!forceInsert && !replaceId && !updateId) {
     const { data: existingByFile } = await supabase
       .from('candidats')
       .select('id, prenom, nom, email, titre_poste, created_at')
@@ -179,6 +183,38 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
 
+  // 6a. Fallback : si l'analyse retourne un résultat quasi-vide sur un PDF,
+  // le CV est peut-être à l'envers → essayer avec le PDF retourné à 180°
+  if (isPDF && analyse) {
+    const hasName = analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1
+    const hasAnyInfo = analyse.email || analyse.telephone || (analyse.competences && analyse.competences.length > 0)
+    if (!hasName && !hasAnyInfo) {
+      console.log('[CV Parse] Analyse quasi-vide → tentative avec PDF retourné à 180°...')
+      try {
+        // Retourner le PDF à 180° avec pdf-lib
+        const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
+        const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+        for (let p = 0; p < pdfDoc.getPageCount(); p++) {
+          const page = pdfDoc.getPage(p)
+          const curr = page.getRotation().angle
+          page.setRotation(pdfDegrees((curr + 180) % 360))
+        }
+        const rotatedBuffer = Buffer.from(await pdfDoc.save())
+        const retryAnalyse = await withTimeout(analyserCVDepuisPDF(rotatedBuffer), 55_000, 'analyse PDF 180° fallback')
+        const retryHasName = retryAnalyse.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1
+        const retryHasInfo = retryAnalyse.email || retryAnalyse.telephone || (retryAnalyse.competences && retryAnalyse.competences.length > 0)
+        if (retryHasName || retryHasInfo) {
+          console.log(`[CV Parse] Fallback 180° réussi : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
+          analyse = retryAnalyse
+        } else {
+          console.log('[CV Parse] Fallback 180° aussi quasi-vide')
+        }
+      } catch (fallbackErr) {
+        console.warn('[CV Parse] Fallback 180° échoué:', (fallbackErr as Error).message)
+      }
+    }
+  }
+
   // 6b. Extraction photo candidat (PDFs uniquement)
   let photoUrl: string | null = null
   if (isPDF && analyse) {
@@ -237,15 +273,59 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     await adminClient.from('candidats').delete().eq('id', replaceId)
   }
 
+  // 8a. Actualiser l'existant si "actualiser"
+  if (updateId) {
+    const updateData: Record<string, any> = {}
+    if (analyse.email) updateData.email = analyse.email
+    if (analyse.telephone) updateData.telephone = analyse.telephone
+    if (analyse.localisation) updateData.localisation = analyse.localisation
+    if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
+    if (analyse.competences?.length) updateData.competences = analyse.competences
+    if (analyse.formation) updateData.formation = analyse.formation
+    if (analyse.langues?.length) updateData.langues = analyse.langues
+    if (analyse.linkedin) updateData.linkedin = analyse.linkedin
+    if (analyse.permis_conduire !== undefined) updateData.permis_conduire = analyse.permis_conduire
+    if (analyse.date_naissance) updateData.date_naissance = analyse.date_naissance
+    if (analyse.experiences?.length) updateData.experiences = analyse.experiences
+    if (analyse.formations_details?.length) updateData.formations_details = analyse.formations_details
+    if (analyse.resume) updateData.resume_ia = analyse.resume
+    if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
+    if (cvUrl) updateData.cv_url = cvUrl
+    updateData.cv_nom_fichier = file.name
+    if (photoUrl) updateData.photo_url = photoUrl
+    updateData.updated_at = new Date().toISOString()
+
+    const { data: updated, error: updateError } = await adminClient
+      .from('candidats')
+      .update(updateData)
+      .eq('id', updateId)
+      .select()
+      .single()
+
+    if (updateError) {
+      return NextResponse.json({ error: `Erreur mise à jour : ${updateError.message}` }, { status: 500 })
+    }
+
+    await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim() } })
+    return NextResponse.json({
+      success: true,
+      candidat: updated,
+      analyse,
+      cv_url: cvUrl,
+      message: `Candidat ${analyse.prenom} ${analyse.nom} actualisé`,
+      updated: true,
+    })
+  }
+
   // 8b. Vérifier les doublons (email → téléphone → nom+prénom)
   let candidatExistant: any = null
-  if (!forceInsert && !replaceId && analyse.email) {
+  if (!forceInsert && !replaceId && !updateId && analyse.email) {
     const { data: byEmail } = await adminClient
       .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
       .eq('email', analyse.email).maybeSingle()
     candidatExistant = byEmail
   }
-  if (!forceInsert && !replaceId && !candidatExistant && analyse.telephone) {
+  if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.telephone) {
     // Normaliser le téléphone : garder uniquement les chiffres pour comparaison
     const telNormalise = analyse.telephone.replace(/\D/g, '')
     if (telNormalise.length >= 8) {
@@ -255,7 +335,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       candidatExistant = byPhone
     }
   }
-  if (!forceInsert && !replaceId && !candidatExistant && analyse.nom && analyse.prenom) {
+  if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.nom && analyse.prenom) {
     const { data: byName } = await adminClient
       .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
       .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
@@ -322,6 +402,49 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     console.error('[CV Parse] Erreur BDD:', dbError)
     await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: dbError.message } })
     return NextResponse.json({ error: `Erreur création candidat : ${dbError.message}` }, { status: 500 })
+  }
+
+  // 9b. Post-insert duplicate check (race condition protection)
+  if (candidat && !forceInsert && !replaceId) {
+    let duplicateOf: any = null
+
+    if (candidat.email) {
+      const { data: dupes } = await adminClient
+        .from('candidats')
+        .select('id, created_at')
+        .eq('email', candidat.email)
+        .order('created_at', { ascending: true })
+        .limit(2)
+      if (dupes && dupes.length > 1 && dupes[0].id !== candidat.id) {
+        duplicateOf = dupes[0]
+      }
+    }
+
+    if (!duplicateOf && candidat.nom && candidat.prenom) {
+      const { data: dupes } = await adminClient
+        .from('candidats')
+        .select('id, created_at')
+        .ilike('nom', candidat.nom)
+        .ilike('prenom', candidat.prenom || '')
+        .order('created_at', { ascending: true })
+        .limit(2)
+      if (dupes && dupes.length > 1 && dupes[0].id !== candidat.id) {
+        duplicateOf = dupes[0]
+      }
+    }
+
+    if (duplicateOf) {
+      // This candidate was inserted as a duplicate due to race condition — delete it
+      console.log(`[CV Parse] Race condition doublon détecté — suppression ${candidat.id}`)
+      await adminClient.from('candidats').delete().eq('id', candidat.id)
+      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'race_condition' } })
+      return NextResponse.json({
+        isDuplicate: true,
+        candidatExistant: duplicateOf,
+        analyse,
+        message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
+      })
+    }
   }
 
   // 10. Pipeline si offre spécifiée

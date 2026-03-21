@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
   const kpis = [
     { label: 'Candidats',      value: stats?.totalCandidats ?? '—', emoji: '👤', active: true, href: '/candidats' },
-    { label: 'Offres actives', value: stats?.offresActives  ?? '—', emoji: '📋', href: '/offres' },
+    { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', href: '/offres' },
     { label: 'En entretien',   value: stats?.enEntretien    ?? '—', emoji: '🗣️', href: '/candidats?statut=entretien' },
     { label: 'Placés',         value: stats?.places         ?? '—', emoji: '✅', href: '/candidats?statut=place' },
   ]
@@ -117,7 +117,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { href: '/candidats', label: 'Importer des CVs',          icon: Upload },
-              { href: '/offres',     label: 'Nouvelle offre d\'emploi', icon: Plus },
+              { href: '/offres',     label: 'Nouvelle commande',        icon: Plus },
               { href: '/entretiens', label: 'Planifier un entretien',    icon: Calendar },
               { href: '/pipeline',   label: 'Voir le pipeline',          icon: ArrowRight },
               { href: '/matching',   label: 'Matching IA',               icon: Sparkles },

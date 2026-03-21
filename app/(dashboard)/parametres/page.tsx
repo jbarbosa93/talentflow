@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, User, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera } from 'lucide-react'
+import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,7 +12,6 @@ const labelStyle: React.CSSProperties = {
 }
 
 const SECTIONS = [
-  { id: 'profil',        label: 'Profil',        icon: User },
   { id: 'api',           label: 'Intégrations',  icon: Key },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
@@ -45,7 +44,7 @@ const TOOLS_SECTIONS = [
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
 export default function ParametresPage() {
-  const [section, setSection] = useState('profil')
+  const [section, setSection] = useState('api')
   const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -108,7 +107,6 @@ export default function ParametresPage() {
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {section === 'profil'        && <ProfilSection />}
           {section === 'api'           && <ApiSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
@@ -185,72 +183,6 @@ function SectionCard({ title, description, children, onSave, saving, saved }: {
 }
 
 // ─── Profil ───────────────────────────────────────────────────────────────────
-
-function ProfilSection() {
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving]   = useState(false)
-  const [saved, setSaved]     = useState(false)
-  const [form, setForm] = useState({ prenom: '', nom: '', email: '', role: '', entreprise: '' })
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        const m = user.user_metadata || {}
-        setForm({ prenom: m.prenom || m.first_name || '', nom: m.nom || m.last_name || '',
-          email: user.email || '', role: m.role || 'Consultant', entreprise: m.entreprise || '' })
-      }
-      setLoading(false)
-    })
-  }, [])
-
-  const handleSave = async () => {
-    setSaving(true); setSaved(false)
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({
-      data: { prenom: form.prenom, nom: form.nom, role: form.role, entreprise: form.entreprise,
-        full_name: `${form.prenom} ${form.nom}`.trim() },
-    })
-    setSaving(false)
-    if (error) { toast.error('Erreur : ' + error.message) }
-    else { setSaved(true); toast.success('Profil mis à jour'); setTimeout(() => setSaved(false), 3000) }
-  }
-
-  if (loading) return (
-    <div className="neo-card-soft" style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', height: 192 }}>
-      <Loader2 size={20} className="animate-spin" style={{ color: 'var(--muted)' }} />
-    </div>
-  )
-
-  return (
-    <SectionCard title="Profil utilisateur" description="Informations affichées dans TalentFlow"
-      onSave={handleSave} saving={saving} saved={saved}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div>
-          <label style={labelStyle}>Prénom</label>
-          <input className="neo-input" value={form.prenom} onChange={e => setForm(f => ({ ...f, prenom: e.target.value }))} placeholder="Votre prénom" />
-        </div>
-        <div>
-          <label style={labelStyle}>Nom</label>
-          <input className="neo-input" value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} placeholder="Votre nom" />
-        </div>
-      </div>
-      <div>
-        <label style={labelStyle}>Email</label>
-        <input className="neo-input" type="email" value={form.email} readOnly style={{ opacity: 0.5, cursor: 'not-allowed' }} />
-        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>L'email ne peut pas être modifié ici pour des raisons de sécurité.</p>
-      </div>
-      <div>
-        <label style={labelStyle}>Rôle / Poste</label>
-        <input className="neo-input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} placeholder="Consultant, RH, Manager…" />
-      </div>
-      <div>
-        <label style={labelStyle}>Entreprise / Agence</label>
-        <input className="neo-input" value={form.entreprise} onChange={e => setForm(f => ({ ...f, entreprise: e.target.value }))} placeholder="Nom de votre entreprise" />
-      </div>
-    </SectionCard>
-  )
-}
 
 // ─── API / Intégrations ───────────────────────────────────────────────────────
 
@@ -636,7 +568,7 @@ function PhotosSection() {
           className="neo-btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: extracting ? 0.7 : 1, fontSize: 14, padding: '10px 20px' }}
         >
-          {extracting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <ImageIcon size={16} />}
+          {extracting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
           {extracting ? 'Correction en cours...' : 'Corriger photos candidats'}
         </button>
       </div>

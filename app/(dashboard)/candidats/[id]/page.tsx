@@ -15,6 +15,55 @@ import {
 import type { PipelineEtape } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 
+// Drapeau emoji pour chaque langue
+const LANG_FLAGS: Record<string, string> = {
+  'français': '🇫🇷', 'francais': '🇫🇷', 'french': '🇫🇷',
+  'anglais': '🇬🇧', 'english': '🇬🇧',
+  'allemand': '🇩🇪', 'german': '🇩🇪', 'deutsch': '🇩🇪',
+  'italien': '🇮🇹', 'italian': '🇮🇹', 'italiano': '🇮🇹',
+  'espagnol': '🇪🇸', 'spanish': '🇪🇸', 'español': '🇪🇸',
+  'portugais': '🇵🇹', 'portuguese': '🇵🇹', 'português': '🇵🇹',
+  'néerlandais': '🇳🇱', 'neerlandais': '🇳🇱', 'dutch': '🇳🇱',
+  'russe': '🇷🇺', 'russian': '🇷🇺',
+  'chinois': '🇨🇳', 'chinese': '🇨🇳', 'mandarin': '🇨🇳',
+  'japonais': '🇯🇵', 'japanese': '🇯🇵',
+  'coréen': '🇰🇷', 'korean': '🇰🇷',
+  'arabe': '🇸🇦', 'arabic': '🇸🇦',
+  'turc': '🇹🇷', 'turkish': '🇹🇷',
+  'polonais': '🇵🇱', 'polish': '🇵🇱',
+  'roumain': '🇷🇴', 'romanian': '🇷🇴',
+  'serbe': '🇷🇸', 'serbian': '🇷🇸',
+  'croate': '🇭🇷', 'croatian': '🇭🇷',
+  'bosniaque': '🇧🇦', 'bosnian': '🇧🇦',
+  'albanais': '🇦🇱', 'albanian': '🇦🇱',
+  'grec': '🇬🇷', 'greek': '🇬🇷',
+  'hongrois': '🇭🇺', 'hungarian': '🇭🇺',
+  'tchèque': '🇨🇿', 'czech': '🇨🇿',
+  'slovaque': '🇸🇰', 'slovak': '🇸🇰',
+  'bulgare': '🇧🇬', 'bulgarian': '🇧🇬',
+  'ukrainien': '🇺🇦', 'ukrainian': '🇺🇦',
+  'suédois': '🇸🇪', 'swedish': '🇸🇪',
+  'norvégien': '🇳🇴', 'norwegian': '🇳🇴',
+  'danois': '🇩🇰', 'danish': '🇩🇰',
+  'finnois': '🇫🇮', 'finnish': '🇫🇮',
+  'hindi': '🇮🇳',
+  'tamoul': '🇮🇳', 'tamil': '🇮🇳',
+  'thaï': '🇹🇭', 'thai': '🇹🇭',
+  'vietnamien': '🇻🇳', 'vietnamese': '🇻🇳',
+  'persan': '🇮🇷', 'farsi': '🇮🇷',
+  'hébreu': '🇮🇱', 'hebrew': '🇮🇱',
+  'tigrigna': '🇪🇷', 'tigrinya': '🇪🇷',
+  'amharique': '🇪🇹', 'amharic': '🇪🇹',
+  'swahili': '🇰🇪',
+  'lingala': '🇨🇩',
+  'wolof': '🇸🇳',
+  'kurde': '🇮🇶', 'kurdish': '🇮🇶',
+}
+const getLangFlag = (lang: string) => {
+  const key = lang.toLowerCase().replace(/[\s\-()]+/g, '').replace(/maternel.*|courant.*|b[12]|a[12]|c[12]|natif.*|bilingue.*/i, '').trim()
+  return LANG_FLAGS[key] || '🌐'
+}
+
 // Convertit n'importe quel format de téléphone en numéro WhatsApp international
 // +41 79 123 45 67 → 41791234567 | 0041... → 41... | 079... → 41... | +33 6... → 336...
 const toWaPhone = (tel: string) => {
@@ -99,9 +148,17 @@ export default function CandidatDetailPage() {
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [editModal, setEditModal]         = useState<'formation' | 'competences' | 'langues' | null>(null)
+  const [modalValue, setModalValue]       = useState('')
+  const [cvWidth, setCvWidth]             = useState(() => {
+    if (typeof window === 'undefined') return 620
+    const saved = localStorage.getItem('cv_panel_width')
+    return saved ? parseInt(saved, 10) : 620
+  })
   const photoInputRef   = useRef<HTMLInputElement>(null)
   const cvScrollRef     = useRef<HTMLDivElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
+  const resizeDragRef   = useRef({ active: false, startX: 0, startWidth: 0 })
   const cvDragRef  = useRef({ active: false, startX: 0, startY: 0, sl: 0, st: 0 })
   const imgDragRef = useRef({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
 
@@ -117,6 +174,40 @@ export default function CandidatDetailPage() {
     el.scrollTop  = d.st - (e.clientY - d.startY)
   }
   const cvDragEnd = () => { cvDragRef.current.active = false; if (cvScrollRef.current) cvScrollRef.current.style.cursor = 'grab' }
+
+  const printCV = () => {
+    if (!candidat?.cv_url) return
+    // Ouvrir le PDF dans un nouvel onglet et déclencher l'impression
+    const w = window.open(candidat.cv_url, '_blank')
+    if (w) {
+      w.addEventListener('load', () => {
+        setTimeout(() => w.print(), 800)
+      })
+      // Fallback si l'event load ne se déclenche pas (cross-origin)
+      setTimeout(() => {
+        try { w.print() } catch {}
+      }, 2000)
+    }
+  }
+
+  const downloadCV = async () => {
+    if (!candidat?.cv_url) return
+    try {
+      const res = await fetch(candidat.cv_url)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = candidat.cv_nom_fichier || 'cv'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      // Fallback: open in new tab
+      window.open(candidat.cv_url, '_blank')
+    }
+  }
 
   const { data, isLoading, error } = useCandidat(id)
   const updateCandidat  = useUpdateCandidat()
@@ -336,6 +427,130 @@ export default function CandidatDetailPage() {
     }
   }
 
+  // Photo rotate handler — rotate 90° clockwise using canvas
+  const handlePhotoRotate = async () => {
+    if (!candidat?.photo_url || candidat.photo_url === 'checked') return
+    setPhotoUploading(true)
+    try {
+      // Load image into canvas
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error('Impossible de charger la photo'))
+        img.src = candidat.photo_url
+      })
+
+      // Rotate 90° clockwise
+      const canvas = document.createElement('canvas')
+      canvas.width = img.height
+      canvas.height = img.width
+      const ctx = canvas.getContext('2d')!
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate(Math.PI / 2)
+      ctx.drawImage(img, -img.width / 2, -img.height / 2)
+
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas toBlob failed')), 'image/jpeg', 0.9)
+      })
+
+      // Upload rotated photo
+      const supabase = createClient()
+      const timestamp = Date.now()
+      const photoPath = `photos/${id}_${timestamp}_rotated.jpg`
+
+      // Delete old photo
+      if (candidat.photo_url) {
+        try {
+          const oldPath = candidat.photo_url.split('/cvs/')[1]?.split('?')[0]
+          if (oldPath) await supabase.storage.from('cvs').remove([decodeURIComponent(oldPath)])
+        } catch {}
+      }
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('cvs')
+        .upload(photoPath, blob, { contentType: 'image/jpeg', upsert: true })
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = await supabase.storage
+        .from('cvs')
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365 * 10)
+
+      if (urlData?.signedUrl) {
+        updateCandidat.mutate({ id, data: { photo_url: urlData.signedUrl } })
+      }
+    } catch (err: any) {
+      console.error('Photo rotate error:', err)
+      alert('Erreur rotation photo: ' + err.message)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  // Extraire photo du CV via API
+  const handleExtractPhotoFromCV = async () => {
+    if (!candidat?.cv_url) return
+    setPhotoUploading(true)
+    try {
+      const res = await fetch('/api/cv/extract-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidatId: id }),
+      })
+      const data = await res.json()
+      if (data.found && data.photo_url) {
+        // Update local state via mutate
+        updateCandidat.mutate({ id, data: { photo_url: data.photo_url } })
+      } else {
+        alert(data.message || 'Aucune photo de visage détectée dans ce CV')
+      }
+    } catch (err: any) {
+      console.error('Extract photo error:', err)
+      alert('Erreur lors de l\'extraction de la photo')
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  // Modal edit handlers
+  const openEditModal = (field: 'formation' | 'competences' | 'langues') => {
+    setModalValue(editData[field] || '')
+    setEditModal(field)
+  }
+  const saveEditModal = () => {
+    if (editModal) {
+      set(editModal, modalValue)
+    }
+    setEditModal(null)
+  }
+
+  // Resize panel handlers
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    resizeDragRef.current = { active: true, startX: e.clientX, startWidth: cvWidth }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    let latestWidth = cvWidth
+    const handleMove = (ev: MouseEvent) => {
+      if (!resizeDragRef.current.active) return
+      const delta = resizeDragRef.current.startX - ev.clientX
+      latestWidth = Math.min(900, Math.max(300, resizeDragRef.current.startWidth + delta))
+      setCvWidth(latestWidth)
+    }
+    const handleUp = () => {
+      resizeDragRef.current.active = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      localStorage.setItem('cv_panel_width', latestWidth.toString())
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+    }
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+  }
+
   // CV viewer helpers
   const ext          = (candidat.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
   const cvIsImage    = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
@@ -384,10 +599,10 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: showCV ? '240px 1fr 620px' : '240px 1fr', gap: 16, alignItems: 'start', transition: 'grid-template-columns 0.2s ease', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', paddingBottom: 16 }}>
+        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', paddingBottom: 16 }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
@@ -404,7 +619,8 @@ export default function CandidatDetailPage() {
                     <Loader2 size={20} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
                   </div>
                 )}
-                {/* Photo action buttons */}
+                {/* Photo action buttons — visible uniquement en mode édition */}
+                {isEditing && (
                 <div style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', gap: 3 }}>
                   <button
                     onClick={() => photoInputRef.current?.click()}
@@ -413,16 +629,35 @@ export default function CandidatDetailPage() {
                   >
                     <Camera size={11} color="#0F172A" />
                   </button>
-                  {candidat.photo_url && candidat.photo_url !== 'checked' && (
+                  {candidat.cv_url && (
                     <button
-                      onClick={handlePhotoDelete}
-                      title="Supprimer la photo"
-                      style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      onClick={handleExtractPhotoFromCV}
+                      title="Extraire photo du CV"
+                      style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#F0FDF4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                     >
-                      <X size={11} color="#DC2626" />
+                      <FileText size={11} color="#16A34A" />
                     </button>
                   )}
+                  {candidat.photo_url && candidat.photo_url !== 'checked' && (
+                    <>
+                      <button
+                        onClick={handlePhotoRotate}
+                        title="Tourner la photo 90°"
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#EFF6FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      >
+                        <RotateCw size={11} color="#3B82F6" />
+                      </button>
+                      <button
+                        onClick={handlePhotoDelete}
+                        title="Supprimer la photo"
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      >
+                        <X size={11} color="#DC2626" />
+                      </button>
+                    </>
+                  )}
                 </div>
+                )}
                 <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
               </div>
 
@@ -480,23 +715,36 @@ export default function CandidatDetailPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                 {candidat.email && (
-                  <a href={`mailto:${candidat.email}`} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Mail size={12} style={{ flexShrink: 0, color: 'var(--primary)' }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{candidat.email}</span>
-                  </a>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)', flex: 1 }}>{candidat.email}</span>
+                    <a
+                      href={`mailto:${candidat.email}?subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`}
+                      title="Envoyer un email"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        // Tenter d'ouvrir Outlook d'abord, sinon fallback mailto
+                        const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(candidat.email)}&subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`
+                        const mailtoUrl = `mailto:${candidat.email}?subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`
+                        // Essayer Outlook web/app, fallback sur mailto natif
+                        window.location.href = mailtoUrl
+                      }}
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
+                    >
+                      <Send size={10} color="#3B82F6" />
+                    </a>
+                  </div>
                 )}
                 {candidat.telephone && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <a href={`tel:${candidat.telephone}`} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12, textDecoration: 'none' }}>
-                      <Phone size={12} style={{ flexShrink: 0 }} /><span>{candidat.telephone}</span>
-                    </a>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Phone size={12} style={{ flexShrink: 0, color: 'var(--muted)' }} />
+                    <a href={`tel:${candidat.telephone}`} style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none', flex: 1 }}>{candidat.telephone}</a>
                     <a
                       href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},`)}`}
                       title="Envoyer un message WhatsApp"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, background: '#25D366', color: 'white', textDecoration: 'none', fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-body)', width: 'fit-content' }}
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                      WhatsApp
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                     </a>
                   </div>
                 )}
@@ -547,55 +795,94 @@ export default function CandidatDetailPage() {
             if (!isEditing && !hasCFC) return null
             return (
               <div className="neo-card-soft" style={{ padding: 14 }}>
-                {isEditing ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <label style={labelStyle}>Formation</label>
-                    <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Formation" value={editData.formation} onChange={e => set('formation', e.target.value)} />
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ ...smallMuted, lineHeight: 1.5 }}>{candidat.formation}</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEditing ? 0 : undefined }}>
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>Formation</label>
+                  {isEditing && (
+                    <button onClick={() => openEditModal('formation')} title="Modifier la formation"
+                      style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                      <Pencil size={10} color="var(--muted)" />
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6 }}>
+                  <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ ...smallMuted, lineHeight: 1.5 }}>{isEditing ? (editData.formation || 'Aucune') : candidat.formation}</span>
+                </div>
               </div>
             )
           })()}
 
           {/* Compétences */}
           <div className="neo-card-soft" style={{ padding: 14 }}>
-            <label style={labelStyle}>Compétences</label>
-            {isEditing ? (
-              <div>
-                <textarea className="neo-input" style={{ height: 'auto', minHeight: 68, padding: '6px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12 }} placeholder="React, TypeScript, Node.js..." value={editData.competences} onChange={e => set('competences', e.target.value)} />
-                <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>Séparer par des virgules</p>
-              </div>
-            ) : candidat.competences?.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                {candidat.competences.map((c: string) => <span key={c} className="neo-tag">{c}</span>)}
-              </div>
-            ) : (
-              <p style={{ fontSize: 12, color: 'var(--muted)' }}>Aucune compétence</p>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Compétences</label>
+              {isEditing && (
+                <button onClick={() => openEditModal('competences')} title="Modifier les compétences"
+                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                  <Pencil size={10} color="var(--muted)" />
+                </button>
+              )}
+            </div>
+            {(() => {
+              const comps = isEditing
+                ? (editData.competences || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+                : (candidat.competences || [])
+              return comps.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {comps.map((c: string) => (
+                    <span key={c} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '3px 9px', borderRadius: 6,
+                      fontSize: 11, fontWeight: 600, lineHeight: 1.3,
+                      background: '#F1F5F9', color: '#334155',
+                      border: '1px solid #E2E8F0',
+                    }}>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
+                      {c}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: 'var(--muted)' }}>Aucune compétence</p>
+              )
+            })()}
           </div>
 
           {/* Langues */}
           {(isEditing || candidat.langues?.length > 0) && (
             <div className="neo-card-soft" style={{ padding: 14 }}>
-              {isEditing ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <label style={labelStyle}>Langues</label>
-                  <textarea className="neo-input" style={{ height: 'auto', minHeight: 48, padding: '5px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12 }} placeholder="Français, Anglais..." value={editData.langues} onChange={e => set('langues', e.target.value)} />
-                  <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>Séparer par des virgules</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <Languages size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Langues</label>
+                {isEditing && (
+                  <button onClick={() => openEditModal('langues')} title="Modifier les langues"
+                    style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                    <Pencil size={10} color="var(--muted)" />
+                  </button>
+                )}
+              </div>
+              {(() => {
+                const langs = isEditing
+                  ? (editData.langues || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+                  : (candidat.langues || [])
+                return langs.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {candidat.langues.map((l: string) => <span key={l} className="neo-badge neo-badge-gray">{l}</span>)}
+                    {langs.map((l: string) => (
+                      <span key={l} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '3px 9px', borderRadius: 6,
+                        fontSize: 11, fontWeight: 600, lineHeight: 1.3,
+                        background: '#F8FAFC', color: '#334155',
+                        border: '1px solid #E2E8F0',
+                      }}>
+                        <span style={{ fontSize: 13 }}>{getLangFlag(l)}</span>
+                        {l}
+                      </span>
+                    ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>Aucune langue</p>
+                )
+              })()}
             </div>
           )}
 
@@ -662,7 +949,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 'calc(100vh - 140px)', overflowY: 'auto' }}>
 
           {/* Résumé IA */}
           <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
@@ -870,9 +1157,26 @@ export default function CandidatDetailPage() {
           )}
         </div>
 
+        {/* ══ Resize handle ══ */}
+        {showCV && (
+          <div
+            onMouseDown={handleResizeStart}
+            style={{
+              width: 6, flexShrink: 0, cursor: 'col-resize',
+              background: 'transparent', borderRadius: 3,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary)')}
+            onMouseLeave={e => { if (!resizeDragRef.current.active) e.currentTarget.style.background = 'transparent' }}
+          >
+            <div style={{ width: 2, height: 40, borderRadius: 2, background: 'var(--border)' }} />
+          </div>
+        )}
+
         {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
         {showCV && (
-        <div style={{ position: 'sticky', top: 0, height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
             {/* Header du viewer */}
@@ -881,13 +1185,13 @@ export default function CandidatDetailPage() {
               <span style={{ flex: 1 }} />
               {candidat.cv_url && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <a href={candidat.cv_url} download={candidat.cv_nom_fichier || 'cv'} target="_blank" rel="noopener noreferrer"
-                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: 'var(--muted)', marginRight: 4 }}
+                  <button onClick={downloadCV}
+                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', marginRight: 4 }}
                     title="Télécharger le CV">
                     <Download size={12} />
-                  </a>
+                  </button>
                   <button
-                    onClick={() => { if (candidat.cv_url) { const w = window.open(candidat.cv_url); w?.print() } else window.print() }}
+                    onClick={printCV}
                     title="Imprimer le CV"
                     style={{ background:'none', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'var(--text)', display:'flex', alignItems:'center', gap:4, fontSize:12, marginRight: 4 }}
                   >
@@ -941,7 +1245,13 @@ export default function CandidatDetailPage() {
                 style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none' }}
                 onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd}
               >
-                <div style={{ width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`, height: '250vh', position: 'relative', overflow: cvRotation !== 0 ? 'visible' : 'hidden' }}>
+                <div style={{
+                  width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
+                  height: '100%',
+                  background: '#F1F5F9',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}>
                   {/* Drag overlay — couvre le iframe pour capturer les events souris */}
                   <div style={{ position: 'absolute', inset: 0, zIndex: 6, cursor: 'inherit' }}
                     onMouseDown={cvDragStart} onMouseMove={cvDragMove} onMouseUp={cvDragEnd} onMouseLeave={cvDragEnd} />
@@ -952,8 +1262,17 @@ export default function CandidatDetailPage() {
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
                   </>}
                   <iframe
-                    src={cvIsPDF ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width` : docViewerUrl}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.3s ease' }}
+                    key={`cv-iframe-${cvRotation}`}
+                    src={
+                      cvIsPDF && cvRotation !== 0
+                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&view=FitH`
+                        : cvIsPDF
+                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&view=FitH&zoom=page-width`
+                          : docViewerUrl
+                    }
+                    style={{
+                      width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none',
+                    }}
                     title="CV"
                   />
                 </div>
@@ -980,7 +1299,7 @@ export default function CandidatDetailPage() {
         <button
           onClick={() => setShowCV(true)}
           style={{
-            position: 'fixed', bottom: 28, right: 28, zIndex: 50,
+            position: 'fixed', bottom: 80, right: 28, zIndex: 50,
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 18px', borderRadius: 100,
             background: 'var(--primary)', color: '#000',
@@ -992,11 +1311,116 @@ export default function CandidatDetailPage() {
           onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.18)' }}
         >
           <ChevronLeft size={15} />
-          Voir le CV
+          Voir CV
         </button>
       )}
 
-      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+      {/* ── Modal édition (Formation / Compétences / Langues) ── */}
+      {editModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.15s ease',
+        }}
+        onClick={e => { if (e.target === e.currentTarget) setEditModal(null) }}
+        >
+          <div style={{
+            background: 'white', borderRadius: 16, padding: 0,
+            width: '90%', maxWidth: 520, boxShadow: '0 20px 60px rgba(15,23,42,0.2)',
+            animation: 'slideUp 0.2s ease',
+            overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '16px 20px', borderBottom: '1px solid var(--border)',
+              background: 'var(--background)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {editModal === 'formation' && <GraduationCap size={16} style={{ color: 'var(--primary)' }} />}
+                {editModal === 'competences' && <Star size={16} style={{ color: 'var(--primary)' }} />}
+                {editModal === 'langues' && <Languages size={16} style={{ color: 'var(--primary)' }} />}
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                  {editModal === 'formation' ? 'Modifier la formation' :
+                   editModal === 'competences' ? 'Modifier les compétences' : 'Modifier les langues'}
+                </span>
+              </div>
+              <button onClick={() => setEditModal(null)}
+                style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={14} color="var(--muted)" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 20 }}>
+              {editModal === 'formation' ? (
+                <div>
+                  <label style={labelStyle}>Formation / Diplôme</label>
+                  <input className="neo-input" autoFocus value={modalValue} onChange={e => setModalValue(e.target.value)} placeholder="Ex: CFC de peintre, Bachelor en informatique..." style={{ fontSize: 14 }} />
+                </div>
+              ) : (
+                <div>
+                  <label style={labelStyle}>
+                    {editModal === 'competences' ? 'Compétences (séparées par des virgules)' : 'Langues (séparées par des virgules)'}
+                  </label>
+                  <textarea
+                    className="neo-input"
+                    autoFocus
+                    value={modalValue}
+                    onChange={e => setModalValue(e.target.value)}
+                    placeholder={editModal === 'competences' ? 'React, TypeScript, Node.js, Python...' : 'Français, Anglais, Allemand...'}
+                    style={{ height: 'auto', minHeight: 120, padding: '10px 13px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.6, fontSize: 14 }}
+                  />
+                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>Séparez chaque élément par une virgule</p>
+                </div>
+              )}
+
+              {/* Preview tags */}
+              {editModal !== 'formation' && modalValue.trim() && (
+                <div style={{ marginTop: 14, padding: '10px 12px', background: 'var(--background)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Aperçu</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {modalValue.split(',').map((s: string) => s.trim()).filter(Boolean).map((item: string) => (
+                      <span key={item} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '3px 9px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        background: editModal === 'competences' ? '#F1F5F9' : '#F8FAFC',
+                        color: '#334155',
+                        border: '1px solid #E2E8F0',
+                      }}>
+                        {editModal === 'competences'
+                          ? <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--primary)' }} />
+                          : <span style={{ fontSize: 13 }}>{getLangFlag(item)}</span>
+                        }
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              display: 'flex', justifyContent: 'flex-end', gap: 8,
+              padding: '14px 20px', borderTop: '1px solid var(--border)',
+              background: 'var(--background)',
+            }}>
+              <button onClick={() => setEditModal(null)} className="neo-btn-ghost neo-btn-sm">Annuler</button>
+              <button onClick={saveEditModal} className="neo-btn-yellow neo-btn-sm">
+                <Check size={13} /> Appliquer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+      `}</style>
     </div>
   )
 }

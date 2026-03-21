@@ -14,6 +14,7 @@ export type LogAction =
   | 'microsoft_connecte'
   | 'microsoft_deconnecte'
   | 'pipeline_etape_changee'
+  | 'cv_actualise'
 
 export async function logActivity(params: {
   action: LogAction

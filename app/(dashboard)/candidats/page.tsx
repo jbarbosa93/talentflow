@@ -282,6 +282,7 @@ function CandidatsPageInner() {
   // Alias for readability + pagination
   const candidatesTries = sorted
   const candidatesPagines = perPage === 0 ? candidatesTries : candidatesTries.slice(0, perPage)
+  const hasMore = perPage > 0 && candidatesTries.length > perPage
 
   // Group by métier ou lieu
   const grouped = useMemo(() => {
@@ -829,6 +830,25 @@ function CandidatsPageInner() {
             {candidatesPagines.length} candidat{candidatesPagines.length > 1 ? 's' : ''} affichés
           </div>
           {candidatesPagines.map((c: any) => renderCard(c))}
+
+          {/* Bouton Charger plus */}
+          {hasMore && (
+            <button
+              onClick={() => setPerPage(p => p + 20)}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                width: '100%', padding: '12px 0', marginTop: 8,
+                borderRadius: 10, border: '1.5px solid var(--border)',
+                background: 'var(--bg-card)', color: 'var(--text)',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)' }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
+            >
+              Charger plus ({candidatesTries.length - perPage} restants)
+            </button>
+          )}
         </div>
       )}
 

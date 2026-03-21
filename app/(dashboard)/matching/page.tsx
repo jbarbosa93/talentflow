@@ -58,7 +58,7 @@ export default function MatchingPage() {
           Matching IA
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>
-          Calculez le score de compatibilité entre un candidat et une offre via Claude AI
+          Calculez le score de compatibilité entre un candidat et une commande via Claude AI
         </p>
       </div>
 
@@ -66,17 +66,17 @@ export default function MatchingPage() {
       <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 28, boxShadow: 'var(--card-shadow)' }}>
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Offre d&apos;emploi
+            Commande client
           </label>
           <Select value={selectedOffre} onValueChange={setSelectedOffre}>
             <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 42 }}>
-              <SelectValue placeholder="Sélectionner une offre..." />
+              <SelectValue placeholder="Sélectionner une commande..." />
             </SelectTrigger>
             <SelectContent>
               {offres?.length === 0 ? (
-                <SelectItem value="_" disabled>Aucune offre — créez-en une d'abord</SelectItem>
+                <SelectItem value="_" disabled>Aucune commande — créez-en une d&apos;abord</SelectItem>
               ) : (
-                offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.titre}</SelectItem>)
+                offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.client_nom ? `${o.client_nom} — ` : ''}{o.titre}</SelectItem>)
               )}
             </SelectContent>
           </Select>

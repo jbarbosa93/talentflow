@@ -23,14 +23,29 @@ export function useOffres(includeAll = false) {
 export function useCreateOffre() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (offre: { titre: string; departement?: string; description?: string; competences: string[]; exp_requise: number; localisation?: string; type_contrat?: string; salaire_min?: number; salaire_max?: number }) => {
+    mutationFn: async (offre: {
+      titre: string
+      departement?: string
+      description?: string
+      competences: string[]
+      exp_requise: number
+      localisation?: string
+      type_contrat?: string
+      salaire_min?: number
+      salaire_max?: number
+      client_nom?: string
+      nb_postes?: number
+      date_debut?: string
+      duree_mission?: string
+      notes?: string
+    }) => {
       const { data, error } = await supabase.from('offres').insert(offre).select().single()
       if (error) throw error
       return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offres'] })
-      toast.success('Offre créée')
+      toast.success('Commande créée')
     },
   })
 }
@@ -45,7 +60,7 @@ export function useUpdateOffre() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offres'] })
-      toast.success('Offre mise à jour')
+      toast.success('Commande mise à jour')
     },
   })
 }

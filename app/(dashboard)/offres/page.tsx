@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
-import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info } from 'lucide-react'
+import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -29,7 +29,7 @@ function useDeleteOffre() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offres'] })
-      toast.success('Offre supprimée')
+      toast.success('Commande supprimée')
     },
     onError: () => toast.error('Erreur suppression'),
   })
@@ -57,18 +57,26 @@ export default function OffresPage() {
     display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
   } as React.CSSProperties)
 
+  // Formater la date d'affichage
+  const formatDate = (d: string | null) => {
+    if (!d) return null
+    try {
+      return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    } catch { return d }
+  }
+
   return (
     <div className="d-page">
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title">Offres d&apos;emploi</h1>
-          <p className="d-page-sub">{offres?.length || 0} offre{(offres?.length || 0) > 1 ? 's' : ''}</p>
+          <h1 className="d-page-title">Commandes</h1>
+          <p className="d-page-sub">{offres?.length || 0} commande{(offres?.length || 0) > 1 ? 's' : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Tabs */}
           <div style={{ display: 'flex', background: '#F0EAD8', borderRadius: 10, padding: 4, gap: 2 }}>
             <button style={tabStyle(activeTab === 'offres')} onClick={() => setActiveTab('offres')}>
-              Offres
+              Commandes
             </button>
             <button style={tabStyle(activeTab === 'facebook')} onClick={() => setActiveTab('facebook')}>
               <img src="https://www.job-room.ch/favicon.ico" width={14} height={14} style={{ borderRadius: 2 }} onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
@@ -78,7 +86,7 @@ export default function OffresPage() {
           {activeTab === 'offres' && (
             <button onClick={() => setShowCreate(true)} className="neo-btn">
               <Plus style={{ width: 15, height: 15 }} />
-              Nouvelle offre
+              Nouvelle commande
             </button>
           )}
         </div>
@@ -90,101 +98,166 @@ export default function OffresPage() {
       {isLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {[...Array(3)].map((_, i) => (
-            <div key={i} style={{ height: 200, background: 'white', border: '2px solid #E8E0C8', borderRadius: 16, opacity: 0.5 }} />
+            <div key={i} style={{ height: 240, background: 'white', border: '2px solid #E8E0C8', borderRadius: 16, opacity: 0.5 }} />
           ))}
         </div>
       ) : offres?.length === 0 ? (
         <div className="neo-empty">
           <div className="neo-empty-icon">📋</div>
-          <div className="neo-empty-title">Aucune offre</div>
-          <div className="neo-empty-sub">Créez votre première offre d&apos;emploi</div>
+          <div className="neo-empty-title">Aucune commande</div>
+          <div className="neo-empty-sub">Créez votre première commande client</div>
           <button onClick={() => setShowCreate(true)} className="neo-btn" style={{ marginTop: 20 }}>
-            <Plus style={{ width: 15, height: 15 }} /> Créer une offre
+            <Plus style={{ width: 15, height: 15 }} /> Nouvelle commande
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
           {offres?.map(offre => (
-            <div key={offre.id} className="neo-card-soft" style={{ padding: 24, position: 'relative' }}>
-              {/* Actions top-right */}
-              <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 6, alignItems: 'center' }}>
-                {/* Status dropdown */}
-                <div style={{ position: 'relative' }}>
+            <div key={offre.id} className="neo-card-soft" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
+              {/* Top color bar */}
+              <div style={{
+                height: 4,
+                background: offre.statut === 'active' ? 'linear-gradient(90deg, #10B981, #059669)'
+                  : offre.statut === 'pourvue' ? 'linear-gradient(90deg, #3B82F6, #2563EB)'
+                  : 'linear-gradient(90deg, #94A3B8, #64748B)',
+              }} />
+
+              <div style={{ padding: '18px 20px 20px' }}>
+                {/* Actions top-right */}
+                <div style={{ position: 'absolute', top: 18, right: 14, display: 'flex', gap: 6, alignItems: 'center' }}>
                   <StatusDropdown
                     current={offre.statut}
                     onSelect={(s) => handleStatusChange(offre.id, s)}
                   />
-                </div>
-                {/* Edit */}
-                <button
-                  onClick={() => setEditOffre(offre)}
-                  title="Modifier"
-                  style={{
-                    background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
-                    color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
-                    alignItems: 'center', transition: 'all 0.12s',
-                  }}
-                  onMouseOver={e => { e.currentTarget.style.background = '#F5F0E0'; e.currentTarget.style.color = '#1C1A14' }}
-                  onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060' }}
-                >
-                  <Pencil size={12} />
-                </button>
-                {/* Delete */}
-                {confirmDelete === offre.id ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button
-                      onClick={() => { deleteOffre.mutate(offre.id); setConfirmDelete(null) }}
-                      style={{ fontSize: 10, fontWeight: 700, background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
-                    >Oui</button>
-                    <button
-                      onClick={() => setConfirmDelete(null)}
-                      style={{ fontSize: 10, fontWeight: 700, background: 'none', color: '#7A7060', border: '1px solid #E8E0C8', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
-                    >Non</button>
-                  </div>
-                ) : (
                   <button
-                    onClick={() => setConfirmDelete(offre.id)}
-                    title="Supprimer"
+                    onClick={() => setEditOffre(offre)}
+                    title="Modifier"
                     style={{
                       background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
                       color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
                       alignItems: 'center', transition: 'all 0.12s',
                     }}
-                    onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
-                    onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060'; e.currentTarget.style.borderColor = '#E8E0C8' }}
+                    onMouseOver={e => { e.currentTarget.style.background = '#F5F0E0'; e.currentTarget.style.color = '#1C1A14' }}
+                    onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060' }}
                   >
-                    <Trash2 size={12} />
+                    <Pencil size={12} />
                   </button>
-                )}
-              </div>
-
-              {/* Title */}
-              <div style={{ marginBottom: 16, paddingRight: 110 }}>
-                <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
-                  {offre.titre}
-                </h3>
-              </div>
-
-              {/* Competences */}
-              {offre.competences.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                  {offre.competences.slice(0, 4).map(c => (
-                    <span key={c} className="neo-tag" style={{ fontSize: 10, padding: '3px 10px' }}>{c}</span>
-                  ))}
-                  {offre.competences.length > 4 && (
-                    <span style={{ fontSize: 11, color: 'var(--ink2)', padding: '4px 0' }}>+{offre.competences.length - 4}</span>
+                  {confirmDelete === offre.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <button
+                        onClick={() => { deleteOffre.mutate(offre.id); setConfirmDelete(null) }}
+                        style={{ fontSize: 10, fontWeight: 700, background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
+                      >Oui</button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        style={{ fontSize: 10, fontWeight: 700, background: 'none', color: '#7A7060', border: '1px solid #E8E0C8', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
+                      >Non</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(offre.id)}
+                      title="Supprimer"
+                      style={{
+                        background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
+                        color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
+                        alignItems: 'center', transition: 'all 0.12s',
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
+                      onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060'; e.currentTarget.style.borderColor = '#E8E0C8' }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   )}
                 </div>
-              )}
 
-              {/* Infos */}
-              {offre.localisation && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <MapPin style={{ width: 11, height: 11 }} />{offre.localisation}
-                  </span>
+                {/* Client name */}
+                {offre.client_nom && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <Building2 size={12} style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {offre.client_nom}
+                    </span>
+                  </div>
+                )}
+
+                {/* Title */}
+                <div style={{ marginBottom: 14, paddingRight: 100 }}>
+                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
+                    {offre.titre}
+                  </h3>
                 </div>
-              )}
+
+                {/* Key info grid */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+                  {(offre.nb_postes || 0) > 0 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                      background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8,
+                      fontSize: 12, fontWeight: 700, color: '#166534',
+                    }}>
+                      <Users size={12} />
+                      {offre.nb_postes} poste{(offre.nb_postes || 0) > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {offre.date_debut && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                      background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8,
+                      fontSize: 12, fontWeight: 600, color: '#1D4ED8',
+                    }}>
+                      <Calendar size={12} />
+                      {formatDate(offre.date_debut)}
+                    </div>
+                  )}
+                  {offre.duree_mission && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+                      background: '#FEF9C3', border: '1px solid #FDE68A', borderRadius: 8,
+                      fontSize: 12, fontWeight: 600, color: '#92400E',
+                    }}>
+                      <Clock size={12} />
+                      {offre.duree_mission}
+                    </div>
+                  )}
+                </div>
+
+                {/* Competences */}
+                {offre.competences.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                    {offre.competences.slice(0, 4).map(c => (
+                      <span key={c} className="neo-tag" style={{ fontSize: 10, padding: '3px 10px' }}>{c}</span>
+                    ))}
+                    {offre.competences.length > 4 && (
+                      <span style={{ fontSize: 11, color: 'var(--ink2)', padding: '4px 0' }}>+{offre.competences.length - 4}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Location + Notes */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>
+                  {offre.localisation && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <MapPin style={{ width: 11, height: 11 }} />{offre.localisation}
+                    </span>
+                  )}
+                </div>
+
+                {/* Notes preview */}
+                {offre.notes && (
+                  <div style={{
+                    marginTop: 12, padding: '8px 12px',
+                    background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                      <FileText size={10} style={{ color: '#64748B' }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#475569', margin: 0, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      {offre.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -196,9 +269,9 @@ export default function OffresPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Nouvelle offre d&apos;emploi</DialogTitle>
+            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Nouvelle commande</DialogTitle>
           </DialogHeader>
-          <OffreForm onSuccess={() => setShowCreate(false)} />
+          <CommandeForm onSuccess={() => setShowCreate(false)} />
         </DialogContent>
       </Dialog>
 
@@ -206,10 +279,10 @@ export default function OffresPage() {
       <Dialog open={!!editOffre} onOpenChange={v => { if (!v) setEditOffre(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Modifier l&apos;offre</DialogTitle>
+            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Modifier la commande</DialogTitle>
           </DialogHeader>
           {editOffre && (
-            <OffreForm
+            <CommandeForm
               initial={editOffre}
               onSuccess={() => setEditOffre(null)}
             />
@@ -264,13 +337,18 @@ function StatusDropdown({ current, onSelect }: { current: OffreStatut; onSelect:
   )
 }
 
-// ─── Create / Edit Form ───────────────────────────────────────────────────────
+// ─── Create / Edit Commande Form ─────────────────────────────────────────────
 
-function OffreForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => void }) {
-  const [titre, setTitre]             = useState(initial?.titre || '')
-  const [description, setDescription] = useState(initial?.description || '')
-  const [competences, setCompetences] = useState(initial?.competences?.join(', ') || '')
+function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => void }) {
+  const [clientNom, setClientNom]       = useState(initial?.client_nom || '')
+  const [titre, setTitre]               = useState(initial?.titre || '')
+  const [nbPostes, setNbPostes]         = useState(initial?.nb_postes || 1)
+  const [dateDebut, setDateDebut]       = useState(initial?.date_debut || '')
+  const [dureeMission, setDureeMission] = useState(initial?.duree_mission || '')
+  const [competences, setCompetences]   = useState(initial?.competences?.join(', ') || '')
   const [localisation, setLocalisation] = useState(initial?.localisation || '')
+  const [notes, setNotes]               = useState(initial?.notes || '')
+  const [description, setDescription]   = useState(initial?.description || '')
 
   const createOffre = useCreateOffre()
   const updateOffre = useUpdateOffre()
@@ -282,9 +360,14 @@ function OffreForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => v
     e.preventDefault()
     const payload = {
       titre,
+      client_nom: clientNom || undefined,
+      nb_postes: nbPostes || 1,
+      date_debut: dateDebut || undefined,
+      duree_mission: dureeMission || undefined,
       description: description || undefined,
       competences: competences.split(',').map(c => c.trim()).filter(Boolean),
       localisation: localisation || undefined,
+      notes: notes || undefined,
       exp_requise: 0,
     }
 
@@ -309,24 +392,48 @@ function OffreForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () => v
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div>
-        <label style={labelStyle}>Titre du poste *</label>
-        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Électricien CFC" required />
+        <label style={labelStyle}><Building2 size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Nom du client</label>
+        <input style={inputStyle} value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="ex: Bouygues Construction" />
       </div>
       <div>
-        <label style={labelStyle}>Localisation</label>
-        <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève, Lausanne..." />
+        <label style={labelStyle}>Poste recherché *</label>
+        <input style={inputStyle} value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Maçon CFC, Électricien..." required />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}><Users size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Nombre de postes</label>
+          <input style={inputStyle} type="number" min={1} value={nbPostes} onChange={e => setNbPostes(parseInt(e.target.value) || 1)} />
+        </div>
+        <div>
+          <label style={labelStyle}><Calendar size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Date de début</label>
+          <input style={inputStyle} type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}><Clock size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Durée de la mission</label>
+          <input style={inputStyle} value={dureeMission} onChange={e => setDureeMission(e.target.value)} placeholder="ex: 3 mois, 6 semaines, CDI..." />
+        </div>
+        <div>
+          <label style={labelStyle}><MapPin size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Localisation</label>
+          <input style={inputStyle} value={localisation} onChange={e => setLocalisation(e.target.value)} placeholder="Genève, Lausanne..." />
+        </div>
       </div>
       <div>
-        <label style={labelStyle}>Compétences (séparées par virgule)</label>
-        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="Électricité, CFC, AutoCAD..." />
+        <label style={labelStyle}>Compétences requises (séparées par virgule)</label>
+        <input style={inputStyle} value={competences} onChange={e => setCompetences(e.target.value)} placeholder="Maçonnerie, Coffrage, CFC..." />
       </div>
       <div>
-        <label style={labelStyle}>Description</label>
-        <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Description du poste..." />
+        <label style={labelStyle}>Description du poste</label>
+        <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Description détaillée du poste..." />
+      </div>
+      <div>
+        <label style={labelStyle}><FileText size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Notes internes</label>
+        <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)..." />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
         <button type="submit" disabled={!titre || isPending} className="neo-btn">
-          {isPending ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : "Créer l'offre"}
+          {isPending ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : 'Créer la commande'}
         </button>
       </div>
     </form>
@@ -454,7 +561,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         {offres.length > 0 && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <select value={selectedOffre} onChange={e => setSelectedOffre(e.target.value)} style={{ ...iStyle, flex: 1 }}>
-              <option value="">Importer depuis une offre TalentFlow...</option>
+              <option value="">Importer depuis une commande TalentFlow...</option>
               {offres.map(o => <option key={o.id} value={o.id}>{o.titre}</option>)}
             </select>
             <button onClick={fillFromOffre} disabled={!selectedOffre} className="neo-btn" style={{ gap: 6, opacity: selectedOffre ? 1 : 0.5 }}>

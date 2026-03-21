@@ -55,6 +55,11 @@ export type Offre = {
   statut: OffreStatut
   notes: string | null
   date_limite: string | null
+  // Champs Commandes (client)
+  client_nom: string | null
+  nb_postes: number
+  date_debut: string | null
+  duree_mission: string | null
   created_at: string
   updated_at: string
 }
@@ -246,6 +251,10 @@ export type Database = {
           statut?: OffreStatut
           notes?: string | null
           date_limite?: string | null
+          client_nom?: string | null
+          nb_postes?: number
+          date_debut?: string | null
+          duree_mission?: string | null
         }
         Update: {
           titre?: string
@@ -260,6 +269,10 @@ export type Database = {
           statut?: OffreStatut
           notes?: string | null
           date_limite?: string | null
+          client_nom?: string | null
+          nb_postes?: number
+          date_debut?: string | null
+          duree_mission?: string | null
         }
         Relationships: []
       }

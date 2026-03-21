@@ -1,9 +1,9 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Camera, Save, Lock, Mail, Phone, User, Briefcase,
   LogOut, Check, Loader2, AlertCircle, Calendar, MapPin,
-  ShieldCheck, ShieldOff, QrCode,
+  ShieldCheck, ShieldOff, QrCode, ZoomIn, ZoomOut, Move,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +26,167 @@ const sectionTitle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8,
 }
 
+// ─── Image Crop Modal ─────────────────────────────────────────────────────────
+
+function ImageCropModal({ src, onSave, onCancel }: { src: string; onSave: (blob: Blob) => void; onCancel: () => void }) {
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const imgRef     = useRef<HTMLImageElement | null>(null)
+  const [scale, setScale]   = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
+  const dragStart = useRef({ x: 0, y: 0 })
+  const offsetStart = useRef({ x: 0, y: 0 })
+
+  const CROP_SIZE = 280
+
+  // Load image
+  useEffect(() => {
+    const img = new Image()
+    img.onload = () => {
+      imgRef.current = img
+      // Auto-fit: scale so the smaller dimension fills the crop area
+      const fitScale = Math.max(CROP_SIZE / img.width, CROP_SIZE / img.height)
+      setScale(fitScale)
+      setOffset({ x: 0, y: 0 })
+    }
+    img.src = src
+  }, [src])
+
+  // Draw
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const img = imgRef.current
+    if (!canvas || !img) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    canvas.width  = CROP_SIZE
+    canvas.height = CROP_SIZE
+
+    ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE)
+    ctx.fillStyle = '#E2E8F0'
+    ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE)
+
+    const w = img.width * scale
+    const h = img.height * scale
+    const x = (CROP_SIZE - w) / 2 + offset.x
+    const y = (CROP_SIZE - h) / 2 + offset.y
+
+    ctx.drawImage(img, x, y, w, h)
+  }, [scale, offset])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setDragging(true)
+    dragStart.current = { x: e.clientX, y: e.clientY }
+    offsetStart.current = { ...offset }
+  }
+
+  useEffect(() => {
+    if (!dragging) return
+    const handleMove = (e: MouseEvent) => {
+      setOffset({
+        x: offsetStart.current.x + (e.clientX - dragStart.current.x),
+        y: offsetStart.current.y + (e.clientY - dragStart.current.y),
+      })
+    }
+    const handleUp = () => setDragging(false)
+    document.addEventListener('mousemove', handleMove)
+    document.addEventListener('mouseup', handleUp)
+    return () => { document.removeEventListener('mousemove', handleMove); document.removeEventListener('mouseup', handleUp) }
+  }, [dragging])
+
+  const handleSave = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.toBlob((blob) => {
+      if (blob) onSave(blob)
+    }, 'image/jpeg', 0.92)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onCancel}>
+      <div style={{
+        background: 'white', borderRadius: 16, padding: 28, maxWidth: 400,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+        animation: 'slideUp 0.2s ease',
+      }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', marginBottom: 16, textAlign: 'center' }}>
+          Recadrer la photo
+        </h3>
+
+        {/* Canvas area */}
+        <div style={{
+          width: CROP_SIZE, height: CROP_SIZE, margin: '0 auto 16px',
+          borderRadius: 12, overflow: 'hidden', cursor: dragging ? 'grabbing' : 'grab',
+          border: '2px solid var(--border)', position: 'relative',
+        }}>
+          <canvas
+            ref={canvasRef}
+            width={CROP_SIZE}
+            height={CROP_SIZE}
+            style={{ display: 'block', width: CROP_SIZE, height: CROP_SIZE }}
+            onMouseDown={handleMouseDown}
+          />
+          {/* Move hint */}
+          <div style={{
+            position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '3px 10px',
+            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 10, color: 'white', fontWeight: 600, pointerEvents: 'none',
+          }}>
+            <Move size={10} /> Déplacer
+          </div>
+        </div>
+
+        {/* Zoom slider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '0 8px' }}>
+          <ZoomOut size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+          <input
+            type="range"
+            min="0.2" max="3" step="0.05"
+            value={scale}
+            onChange={e => setScale(parseFloat(e.target.value))}
+            style={{ flex: 1, accentColor: 'var(--primary)' }}
+          />
+          <ZoomIn size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: '9px 18px', borderRadius: 8,
+              border: '1.5px solid var(--border)', background: 'white',
+              fontSize: 13, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '9px 22px', borderRadius: 8,
+              border: 'none', background: 'var(--foreground)',
+              fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer',
+              fontFamily: 'var(--font-body)',
+              display: 'flex', alignItems: 'center', gap: 7,
+            }}
+          >
+            <Check size={14} /> Sauvegarder
+          </button>
+        </div>
+      </div>
+      <style>{`@keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+    </div>
+  )
+}
+
 export default function ProfilPage() {
   const router       = useRouter()
   const supabase     = createClient()
@@ -46,6 +207,9 @@ export default function ProfilPage() {
   const [savingEmail, setSavingEmail]     = useState(false)
   const [savingPwd, setSavingPwd]         = useState(false)
   const [savingAvatar, setSavingAvatar]   = useState(false)
+
+  // Crop modal
+  const [cropSrc, setCropSrc]             = useState<string | null>(null)
 
   // ── Charger le user ───────────────────────────────────────────────────────
   const { data: user, isLoading } = useQuery({
@@ -74,13 +238,45 @@ export default function ProfilPage() {
     if (m.avatar_url) setAvatarPreview(m.avatar_url)
   }, [user])
 
-  // ── Avatar ────────────────────────────────────────────────────────────────
+  // ── Avatar — ouvre le crop modal ──────────────────────────────────────────
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { toast.error('Photo trop lourde (max 5 Mo)'); return }
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
+    // Open crop modal with the selected file
+    const objectUrl = URL.createObjectURL(file)
+    setCropSrc(objectUrl)
+    // Reset file input so the same file can be re-selected
+    e.target.value = ''
+  }
+
+  // After crop, upload immediately
+  const handleCropSave = async (blob: Blob) => {
+    setCropSrc(null)
+    if (!user) return
+
+    setSavingAvatar(true)
+    try {
+      const path = `${user.id}/avatar.jpg`
+      const { error } = await supabase.storage.from('avatars').upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
+      if (error) { toast.error('Erreur upload photo'); return }
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      const avatarUrl = data.publicUrl + '?t=' + Date.now()
+
+      // Update user metadata with new avatar
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { ...user.user_metadata, avatar_url: avatarUrl },
+      })
+      if (updateError) throw updateError
+
+      setAvatarPreview(avatarUrl)
+      queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      toast.success('Photo de profil mise à jour ✓')
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur lors de la sauvegarde de la photo')
+    } finally {
+      setSavingAvatar(false)
+    }
   }
 
   const uploadAvatar = async (): Promise<string | null> => {
@@ -182,7 +378,7 @@ export default function ProfilPage() {
         {/* Avatar avec upload */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div style={{
-            width: 88, height: 88, borderRadius: '50%',
+            width: 88, height: 88, borderRadius: 14,
             background: avatarPreview ? 'transparent' : 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 30, fontWeight: 800, color: '#0F172A',
@@ -195,12 +391,14 @@ export default function ProfilPage() {
           </div>
           <button
             onClick={() => avatarRef.current?.click()}
+            disabled={savingAvatar}
             style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 28, height: 28, borderRadius: '50%',
+              position: 'absolute', bottom: -2, right: -2,
+              width: 28, height: 28, borderRadius: 8,
               background: 'var(--foreground)', border: '2px solid white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
+              cursor: savingAvatar ? 'default' : 'pointer',
+              opacity: savingAvatar ? 0.7 : 1,
             }}
           >
             {savingAvatar
@@ -221,11 +419,6 @@ export default function ProfilPage() {
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1, fontWeight: 600 }}>{form.entreprise}</p>
           )}
           <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{user?.email}</p>
-          {avatarFile && (
-            <p style={{ fontSize: 11, color: 'var(--primary)', marginTop: 6, fontWeight: 600 }}>
-              📸 Nouvelle photo sélectionnée — sauvegardez pour l&apos;appliquer
-            </p>
-          )}
         </div>
 
         {/* Déconnexion */}
@@ -442,6 +635,15 @@ export default function ProfilPage() {
           </button>
         </div>
       </div>
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          onSave={handleCropSave}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>

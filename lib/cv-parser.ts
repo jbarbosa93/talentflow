@@ -40,6 +40,37 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
       }
 
       const content = await page.getTextContent()
+
+      // Détecter texte rendu à l'envers (transform matrix avec scale vertical négatif)
+      // Certains PDFs sont visuellement inversés sans utiliser le flag rotation
+      const itemsWithTransform = (content.items as any[]).filter((item: any) => item.transform && item.str?.trim())
+      if (itemsWithTransform.length > 0) {
+        const invertedCount = itemsWithTransform.filter((item: any) => item.transform[3] < 0).length
+        const invertedRatio = invertedCount / itemsWithTransform.length
+        if (invertedRatio > 0.5) {
+          console.log(`[CV Parser] Page ${i}: ${Math.round(invertedRatio * 100)}% du texte inversé (transform négatif) → forcer Claude Vision`)
+          return '' // Force le fallback Claude Vision
+        }
+      }
+
+      // Détecter texte en ordre inversé (dernier mot en haut de page = PDF à l'envers)
+      // Vérifier si les positions Y sont en ordre décroissant (normal) ou croissant (inversé)
+      if (itemsWithTransform.length >= 5) {
+        const yPositions = itemsWithTransform.slice(0, 20).map((item: any) => item.transform[5])
+        let ascending = 0
+        let descending = 0
+        for (let j = 1; j < yPositions.length; j++) {
+          if (yPositions[j] > yPositions[j - 1]) ascending++
+          else if (yPositions[j] < yPositions[j - 1]) descending++
+        }
+        // Dans un PDF normal, le texte va de haut (Y élevé) vers le bas (Y faible) → descending domine
+        // Si ascending domine, le contenu est probablement à l'envers
+        if (ascending > descending * 2 && ascending > 5) {
+          console.log(`[CV Parser] Page ${i}: ordre du texte inversé (${ascending} asc vs ${descending} desc) → forcer Claude Vision`)
+          return '' // Force le fallback Claude Vision
+        }
+      }
+
       const pageText = (content.items as any[])
         .map((item: any) => item.str ?? '')
         .join(' ')

@@ -9,6 +9,7 @@ interface ImageCandidate {
   ratio: number       // height/width
   area: number        // width * height
   compressedSize: number // JPEG size in bytes (proxy for photo complexity)
+  uniqueColors: number  // nombre de couleurs uniques (binned) — icônes < 15, photos > 50
   pageIndex: number
   source: string      // debug label
 }
@@ -23,9 +24,15 @@ interface ImageCandidate {
 function scoreHeadshot(img: ImageCandidate): number {
   let score = 0
 
-  // --- RATIO is the most important discriminator ---
+  // --- COLOR DIVERSITY is the strongest discriminator ---
+  // Real photos: 50+ unique color bins, icons/logos: < 15
+  if (img.uniqueColors <= 10) score -= 80    // Icon/logo with flat colors — instant reject
+  else if (img.uniqueColors <= 20) score -= 40
+  else if (img.uniqueColors >= 80) score += 25  // Very diverse colors = real photo
+  else if (img.uniqueColors >= 40) score += 15
+
+  // --- RATIO is the second most important discriminator ---
   // Headshots: tall portrait (1.15 - 1.6), sometimes slightly taller
-  // Decorative/product: usually square (0.85-1.1) or landscape
   if (img.ratio >= 1.2 && img.ratio <= 1.55) score += 50   // Perfect ID/passport portrait
   else if (img.ratio >= 1.1 && img.ratio <= 1.7) score += 25  // Acceptable portrait
   else if (img.ratio >= 0.9 && img.ratio < 1.1) score -= 20  // Square — likely product/portfolio photo
@@ -33,27 +40,26 @@ function scoreHeadshot(img: ImageCandidate): number {
   else score -= 60  // Very wide or very tall — not a headshot
 
   // --- Dimension scoring ---
-  // Ideal headshot: 100-450px wide, 130-600px tall
-  if (img.width >= 100 && img.width <= 450) score += 20
-  else if (img.width >= 60 && img.width <= 600) score += 5
-  else if (img.width > 600) score -= 15  // Too wide — likely a banner or full-width image
+  // Accept both small embedded and high-res headshots (100-1500px wide)
+  if (img.width >= 100 && img.width <= 600) score += 20
+  else if (img.width >= 60 && img.width <= 1500) score += 5
+  else if (img.width > 1500) score -= 15
   else score -= 10
 
-  if (img.height >= 130 && img.height <= 600) score += 15
-  else if (img.height >= 80 && img.height <= 800) score += 5
+  if (img.height >= 130 && img.height <= 800) score += 15
+  else if (img.height >= 80 && img.height <= 2000) score += 5
   else score -= 10
 
   // --- Area scoring ---
-  // Headshots are medium-sized: 15,000 - 250,000 pixels
+  // Accept both medium and high-res: 15,000 - 3,000,000 pixels
   if (img.area >= 15000 && img.area <= 250000) score += 15
-  else if (img.area >= 8000 && img.area <= 500000) score += 5
+  else if (img.area >= 8000 && img.area <= 3000000) score += 5
   else if (img.area < 5000) score -= 25   // Icon/logo
-  else if (img.area > 600000) score -= 15 // Full page scan
+  else if (img.area > 3000000) score -= 15 // Full page scan
 
   // --- JPEG complexity (compressed size after resize to 300x400) ---
   // Real face photos have lots of color variation → larger JPEG
   // Simple graphics/logos/icons → very small JPEG (< 3KB)
-  // Product photos can also be large, but caught by ratio filter above
   if (img.compressedSize >= 6000 && img.compressedSize <= 400000) score += 20
   else if (img.compressedSize >= 3000) score += 8
   else if (img.compressedSize < 2000) score -= 25  // Too simple = not a face photo
@@ -67,6 +73,36 @@ function scoreHeadshot(img: ImageCandidate): number {
 
 // Minimum score threshold — images below this are not headshots
 const MIN_HEADSHOT_SCORE = 50
+
+/**
+ * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.
+ * Icons/logos: < 15, real photos: > 50
+ */
+async function countUniqueColors(imageBuffer: Buffer, isRaw: boolean, rawOpts?: { width: number; height: number; channels: 1 | 3 | 4 }): Promise<number> {
+  try {
+    const sharpMod = (await import('sharp')).default
+    const pipeline = isRaw && rawOpts
+      ? sharpMod(imageBuffer, { raw: rawOpts })
+      : sharpMod(imageBuffer)
+
+    const { data, info } = await pipeline
+      .resize({ width: 40, height: 40, fit: 'fill' })
+      .toColorspace('srgb')
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const colors = new Set<string>()
+    const ch = info.channels
+    for (let i = 0; i + 2 < data.length; i += ch) {
+      colors.add(`${data[i] >> 4},${data[i + 1] >> 4},${data[i + 2] >> 4}`)
+    }
+    return colors.size
+  } catch (e) {
+    console.warn('[CV Photo] countUniqueColors failed:', (e as Error).message)
+    return 999 // If analysis fails, assume it's a real photo
+  }
+}
 
 export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | null> {
   try {
@@ -88,7 +124,7 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
 
     for (const img of candidates) {
       const s = scoreHeadshot(img)
-      console.log(`[CV Photo] Candidate: ${img.source} ${img.width}x${img.height} ratio=${img.ratio.toFixed(2)} compressed=${img.compressedSize}B score=${s}`)
+      console.log(`[CV Photo] Candidate: ${img.source} ${img.width}x${img.height} ratio=${img.ratio.toFixed(2)} compressed=${img.compressedSize}B colors=${img.uniqueColors} score=${s}`)
       if (s > bestScore) {
         bestScore = s
         bestCandidate = img
@@ -170,7 +206,7 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
 
           // Basic pre-filter: skip tiny icons and huge full-page scans
           if (width < 60 || height < 60) continue
-          if (width > 1200 || height > 1600) continue
+          if (width > 2000 || height > 2500) continue
           const ratio = height / width
           // Skip extreme ratios (banners, thin lines, etc.)
           if (ratio < 0.5 || ratio > 3.0) continue
@@ -241,6 +277,8 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
           }
 
           if (resizedBuffer) {
+            // Count unique colors to distinguish real photos from icons
+            const uc = await countUniqueColors(resizedBuffer, false)
             candidates.push({
               buffer: resizedBuffer,
               width,
@@ -248,6 +286,7 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
               ratio,
               area: width * height,
               compressedSize: resizedBuffer.length,
+              uniqueColors: uc,
               pageIndex: pageIdx,
               source: `pdf-lib:${filterName}:p${pageIdx + 1}:${key.toString()}`,
             })
@@ -313,7 +352,7 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
 
           // Basic pre-filter
           if (width < 60 || height < 60) continue
-          if (width > 1200 || height > 1600) continue
+          if (width > 2000 || height > 2500) continue
           const ratio = height / width
           if (ratio < 0.5 || ratio > 3.0) continue
 
@@ -327,6 +366,7 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
               .jpeg({ quality: 85 })
               .toBuffer()
 
+            const uc = await countUniqueColors(jpegBuffer, false)
             candidates.push({
               buffer: jpegBuffer,
               width,
@@ -334,6 +374,7 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
               ratio,
               area: width * height,
               compressedSize: jpegBuffer.length,
+              uniqueColors: uc,
               pageIndex: pageNum - 1,
               source: `pdfjs:p${pageNum}:${imgName}`,
             })
