@@ -17,12 +17,19 @@ export async function GET(request: Request) {
     }
 
     const buffer = await res.arrayBuffer()
-    const contentType = res.headers.get('content-type') || 'application/pdf'
+
+    // Détecter le type depuis l'URL (pas depuis les headers Supabase qui peuvent être faux)
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase()
+    const contentType = ext === 'pdf' ? 'application/pdf'
+      : ext === 'doc' || ext === 'docx' ? 'application/msword'
+      : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+      : ext === 'png' ? 'image/png'
+      : 'application/pdf'
 
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': 'inline',
+        'Content-Disposition': `inline; filename="cv.${ext || 'pdf'}"`,
         'Cache-Control': 'private, max-age=300',
       },
     })

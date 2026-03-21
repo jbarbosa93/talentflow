@@ -180,12 +180,8 @@ export default function CandidatDetailPage() {
 
   const printCV = () => {
     if (!candidat?.cv_url) return
-    if (cvIsImage) {
-      window.open(candidat.cv_url, '_blank')
-    } else {
-      // Google Docs Viewer — affiche PDF/Word dans le browser, compatible partout
-      window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
-    }
+    // Proxy same-origin avec Content-Type forcé → ouvre le PDF viewer natif du navigateur
+    window.open(`/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
   }
 
   const downloadCV = async () => {
