@@ -3,59 +3,99 @@ import { useState } from 'react'
 import { APP_VERSION, APP_ENV, CHANGELOG } from '@/lib/version'
 import { X } from 'lucide-react'
 
-export default function BetaBadge() {
+export default function BetaBadge({ inline }: { inline?: boolean }) {
   const [showChangelog, setShowChangelog] = useState(false)
+
+  const envBadge = (
+    <span style={{
+      display: 'inline-block',
+      padding: '1px 6px',
+      borderRadius: 8,
+      background: APP_ENV === 'beta' ? 'rgba(245,167,35,0.25)' : 'rgba(16,185,129,0.25)',
+      color: APP_ENV === 'beta' ? '#F5A723' : '#10B981',
+      fontSize: 9,
+      fontWeight: 800,
+      textTransform: 'uppercase' as const,
+      letterSpacing: '0.08em',
+    }}>
+      {APP_ENV}
+    </span>
+  )
 
   return (
     <>
-      {/* Floating badge */}
-      <button
-        onClick={() => setShowChangelog(true)}
-        style={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          zIndex: 9998,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '5px 12px',
-          borderRadius: 20,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: 11,
-          fontWeight: 600,
-          fontFamily: 'inherit',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          letterSpacing: '0.02em',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(15, 23, 42, 0.9)'
-          e.currentTarget.style.color = 'rgba(255,255,255,0.95)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)'
-          e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
-        }}
-      >
-        <span style={{
-          display: 'inline-block',
-          padding: '1px 6px',
-          borderRadius: 8,
-          background: APP_ENV === 'beta' ? 'rgba(245,167,35,0.25)' : 'rgba(16,185,129,0.25)',
-          color: APP_ENV === 'beta' ? '#F5A723' : '#10B981',
-          fontSize: 9,
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-        }}>
-          {APP_ENV}
-        </span>
-        {APP_VERSION}
-      </button>
+      {inline ? (
+        /* ── Sidebar inline version ── */
+        <button
+          onClick={() => setShowChangelog(true)}
+          style={{
+            margin: '6px 10px 0',
+            padding: '7px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'rgba(255,255,255,0.04)',
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            width: 'calc(100% - 20px)',
+            transition: 'all 0.15s',
+            letterSpacing: '0.01em',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+          }}
+        >
+          {envBadge}
+          {APP_VERSION}
+        </button>
+      ) : (
+        /* ── Floating fixed version (legacy, not used) ── */
+        <button
+          onClick={() => setShowChangelog(true)}
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 9998,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '5px 12px',
+            borderRadius: 20,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            letterSpacing: '0.02em',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(15, 23, 42, 0.9)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.95)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+          }}
+        >
+          {envBadge}
+          {APP_VERSION}
+        </button>
+      )}
 
       {/* Changelog modal */}
       {showChangelog && (

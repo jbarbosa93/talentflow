@@ -5,11 +5,12 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2,
+  Upload, Loader2, X,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useImport } from '@/contexts/ImportContext'
 import { useMatching } from '@/contexts/MatchingContext'
+import BetaBadge from '@/components/BetaBadge'
 
 const NAV_ITEMS = [
   { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -30,7 +31,7 @@ const FOOTER_ITEMS = [
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const importCtx = useImport()
   const matchingCtx = useMatching()
@@ -65,8 +66,8 @@ export function Sidebar() {
   const showMatchingBadge = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && !isMatchingPage && matchingCtx.total > 0
 
   return (
-    <aside className="d-sidebar">
-      {/* Logo */}
+    <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}`}>
+      {/* Logo + mobile close */}
       <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="d-sidebar-dot" />
@@ -212,6 +213,9 @@ export function Sidebar() {
         })}
 
       </div>
+
+      {/* Beta badge inline */}
+      <BetaBadge inline />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </aside>

@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
   let processed = 0
   let found = 0
   const foundCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string }[] = []
+  const processedCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; hadPhoto: boolean; photo_url?: string }[] = []
 
   for (const cand of candidates) {
     try {
@@ -128,15 +129,24 @@ export async function POST(request: NextRequest) {
         if (!cand.photo_url || cand.photo_url === 'checked' || force) {
           await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         }
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
         processed++
         continue
       }
 
-      if (!cand.cv_url) { processed++; continue }
+      if (!cand.cv_url) {
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processed++
+        continue
+      }
 
       // Download the CV
       const cvRes = await fetch(cand.cv_url)
-      if (!cvRes.ok) { processed++; continue }
+      if (!cvRes.ok) {
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processed++
+        continue
+      }
       const buffer = Buffer.from(await cvRes.arrayBuffer())
 
       const photoBuffer = await extractPhotoFromPDF(buffer)
@@ -170,6 +180,7 @@ export async function POST(request: NextRequest) {
             await supabase.from('candidats').update({ photo_url: urlData.signedUrl }).eq('id', cand.id)
             found++
             foundCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, photo_url: urlData.signedUrl })
+            processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: true, photo_url: urlData.signedUrl })
           }
         }
       } else {
@@ -183,6 +194,7 @@ export async function POST(request: NextRequest) {
           } catch {}
         }
         await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
       }
       processed++
     } catch (e) {
@@ -217,6 +229,7 @@ export async function POST(request: NextRequest) {
     remaining,
     nextOffset: force ? offset + processed : undefined,
     foundCandidats,
+    processedCandidats,
   })
 }
 

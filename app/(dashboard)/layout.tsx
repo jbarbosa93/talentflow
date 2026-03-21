@@ -6,9 +6,7 @@ import { Toaster } from "sonner"
 import ReactQueryProvider from "@/components/providers/ReactQueryProvider"
 import { ImportProvider } from "@/contexts/ImportContext"
 import { MatchingProvider } from "@/contexts/MatchingContext"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
-import BetaBadge from "@/components/BetaBadge"
+import DashboardShell from "@/components/layout/DashboardShell"
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
 
 const jakarta = Plus_Jakarta_Sans({
@@ -32,18 +30,11 @@ export default function DashboardRootLayout({
         <ReactQueryProvider>
           <ImportProvider>
             <MatchingProvider>
-              <div className="d-layout">
-                <Sidebar />
-                <div className="d-main">
-                  <TopBar />
-                  <main className="d-content">
-                    {children}
-                  </main>
-                </div>
-              </div>
+              <DashboardShell>
+                {children}
+              </DashboardShell>
               <SessionTimeoutModal />
               <Toaster richColors position="top-right" />
-              <BetaBadge />
             </MatchingProvider>
           </ImportProvider>
         </ReactQueryProvider>

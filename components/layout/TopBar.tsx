@@ -1,5 +1,5 @@
 'use client'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
@@ -30,7 +30,7 @@ const ETAPE_LABELS: Record<PipelineEtape, string> = {
   nouveau: 'Nouveau', contacte: 'Contacté', entretien: 'Entretien', place: 'Placé', refuse: 'Refusé',
 }
 
-export function TopBar() {
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname()
   const router   = useRouter()
   const sync     = useSyncMicrosoft()
@@ -173,6 +173,13 @@ export function TopBar() {
 
   return (
     <header className="d-topbar">
+      {/* ── Hamburger mobile ── */}
+      {onMenuClick && (
+        <button className="d-topbar-hamburger" onClick={onMenuClick} aria-label="Menu">
+          <Menu size={20} />
+        </button>
+      )}
+
       {/* ── Barre de recherche ── */}
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginRight: 20 }}>
         <div style={{
