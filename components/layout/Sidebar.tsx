@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useImport } from '@/contexts/ImportContext'
+import { useMatching } from '@/contexts/MatchingContext'
 
 const NAV_ITEMS = [
   { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -32,6 +33,7 @@ const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 export function Sidebar() {
   const pathname = usePathname()
   const importCtx = useImport()
+  const matchingCtx = useMatching()
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -57,6 +59,10 @@ export function Sidebar() {
   // Show import progress only when NOT on the import page
   const isImportPage = pathname === '/parametres/import-masse'
   const showImportBadge = importCtx.running && !isImportPage && importCtx.total > 0
+
+  // Show matching progress only when NOT on /matching
+  const isMatchingPage = pathname === '/matching'
+  const showMatchingBadge = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && !isMatchingPage && matchingCtx.total > 0
 
   return (
     <aside className="d-sidebar">
@@ -107,20 +113,69 @@ export function Sidebar() {
         </Link>
       )}
 
+      {/* Matching progress badge — visible when analysis runs in background */}
+      {showMatchingBadge && (
+        <Link href="/matching" style={{ textDecoration: 'none' }}>
+          <div style={{
+            margin: '0 12px 8px',
+            background: 'rgba(99,102,241,0.12)',
+            border: `1.5px solid ${matchingCtx.phase === 'paused' ? 'rgba(99,102,241,0.25)' : 'rgba(99,102,241,0.4)'}`,
+            borderRadius: 10,
+            padding: '10px 12px',
+            cursor: 'pointer',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              {matchingCtx.phase === 'paused'
+                ? <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8' }}>⏸ Matching en pause</span>
+                : <><Loader2 size={13} color="#818CF8" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                   <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8' }}>Matching IA</span></>
+              }
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                {matchingCtx.progress}%
+              </span>
+            </div>
+            <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${matchingCtx.progress}%`,
+                background: matchingCtx.phase === 'paused'
+                  ? 'linear-gradient(90deg, #818CF8, #6366F1)'
+                  : 'linear-gradient(90deg, #6366F1, #8B5CF6)',
+                borderRadius: 99,
+                transition: 'width 0.5s ease',
+              }} />
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+              {matchingCtx.doneCount}/{matchingCtx.total} candidats · {matchingCtx.offreName}
+            </div>
+          </div>
+        </Link>
+      )}
+
       {/* Main nav */}
       <nav className="d-sidebar-nav">
         <span className="d-sidebar-section">Menu</span>
         {NAV_ITEMS.map(item => {
           const Icon = item.icon
           const active = isActive(item.href, item.exact)
+          const isMatchingNav = item.href === '/matching'
+          const showMatchingDot = (matchingCtx.phase === 'running' || matchingCtx.phase === 'paused') && isMatchingNav && !active
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`d-nav-link${active ? ' active' : ''}`}
+              style={isMatchingNav ? { position: 'relative' } : undefined}
             >
               <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
               {item.label}
+              {showMatchingDot && (
+                <span style={{
+                  marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
+                  background: matchingCtx.phase === 'paused' ? '#818CF8' : '#6366F1', flexShrink: 0,
+                  animation: matchingCtx.phase === 'running' ? 'pulse 2s infinite' : 'none',
+                }} />
+              )}
             </Link>
           )
         })}
@@ -135,6 +190,7 @@ export function Sidebar() {
           // Show import icon on Paramètres item when running
           const isParams = item.href === '/parametres'
           const showDot = importCtx.running && isParams
+
           return (
             <Link
               key={item.href}

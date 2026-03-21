@@ -1,30 +1,10 @@
 'use client'
-import { useState, useRef } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, User, ArrowRight, Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOffres } from '@/hooks/useOffres'
+import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
 import Link from 'next/link'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type MatchResult = {
-  candidat: {
-    id: string
-    nom: string
-    prenom: string | null
-    titre_poste: string | null
-    localisation: string | null
-    photo_url: string | null
-    annees_exp: number
-  }
-  score: number
-  score_competences: number
-  score_experience: number
-  competences_matchees: string[]
-  competences_manquantes: string[]
-  explication: string
-  recommandation: 'fort' | 'moyen' | 'faible'
-}
 
 // ─── Couleurs par score ───────────────────────────────────────────────────────
 
@@ -38,63 +18,26 @@ function scoreColor(score: number) {
 
 export default function MatchingPage() {
   const [selectedOffre, setSelectedOffre] = useState('')
-  const [phase, setPhase] = useState<'idle' | 'running' | 'done'>('idle')
-  const [results, setResults] = useState<MatchResult[]>([])
-  const [total, setTotal] = useState(0)
-  const [done, setDone] = useState(0)
-  const abortRef = useRef(false)
-
   const { data: offres } = useOffres(true)
+  const matching = useMatching()
+
   const offre = offres?.find(o => o.id === selectedOffre)
+  // When context already has a running analysis, show its offre
+  const activeOffre = offres?.find(o => o.id === matching.offreId)
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!selectedOffre) return
-    abortRef.current = false
-    setPhase('running')
-    setResults([])
-    setDone(0)
-
-    // 1. Charger tous les candidats
-    const res = await fetch('/api/candidats?limit=500')
-    const { candidats } = await res.json()
-    if (!candidats?.length) { setPhase('done'); return }
-
-    setTotal(candidats.length)
-
-    // 2. Analyser par batch de 3 en parallèle
-    const BATCH = 3
-    const sorted: MatchResult[] = []
-
-    for (let i = 0; i < candidats.length; i += BATCH) {
-      if (abortRef.current) break
-      const batch = candidats.slice(i, i + BATCH)
-
-      await Promise.all(batch.map(async (c: any) => {
-        try {
-          const r = await fetch('/api/matching', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ candidat_id: c.id, offre_id: selectedOffre }),
-          })
-          if (!r.ok) return
-          const data = await r.json()
-          const entry: MatchResult = {
-            candidat: { id: c.id, nom: c.nom, prenom: c.prenom, titre_poste: c.titre_poste, localisation: c.localisation, photo_url: c.photo_url, annees_exp: c.annees_exp },
-            ...data.score,
-          }
-          sorted.push(entry)
-          // Afficher au fur et à mesure, triés par score décroissant
-          setResults([...sorted].sort((a, b) => b.score - a.score))
-        } catch {}
-        setDone(d => d + 1)
-      }))
-    }
-
-    setPhase('done')
+    const name = offre ? (offre.client_nom ? `${offre.client_nom} — ${offre.titre}` : offre.titre) : ''
+    matching.startAnalysis(selectedOffre, name)
   }
 
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0
-  const ready = !!selectedOffre && phase !== 'running'
+  const isRunning = matching.phase === 'running'
+  const isPaused  = matching.phase === 'paused'
+  const isDone    = matching.phase === 'done'
+  const isIdle    = matching.phase === 'idle'
+  const isActive  = isRunning || isPaused
+
+  const ready = !!selectedOffre && isIdle
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -110,14 +53,18 @@ export default function MatchingPage() {
         </p>
       </div>
 
-      {/* Sélection commande + bouton */}
+      {/* Sélection commande + boutons */}
       <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--card-shadow)', marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 260 }}>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
               Commande client
             </label>
-            <Select value={selectedOffre} onValueChange={v => { setSelectedOffre(v); setPhase('idle'); setResults([]) }}>
+            <Select
+              value={isActive ? matching.offreId : selectedOffre}
+              onValueChange={v => { if (isIdle || isDone) { setSelectedOffre(v); matching.reset() } }}
+              disabled={isActive}
+            >
               <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 44 }}>
                 <SelectValue placeholder="Choisir une commande..." />
               </SelectTrigger>
@@ -135,74 +82,157 @@ export default function MatchingPage() {
             </Select>
           </div>
 
-          <button
-            onClick={handleSearch}
-            disabled={!ready}
-            style={{
-              height: 44, padding: '0 28px',
-              background: ready ? 'var(--foreground)' : 'var(--secondary)',
-              color: ready ? 'white' : 'var(--muted)',
-              border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
-              fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
-              fontFamily: 'var(--font-body)', transition: 'all 0.15s', whiteSpace: 'nowrap',
-            }}
-          >
-            {phase === 'running'
-              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse en cours…</>
-              : <><Sparkles size={16} />Rechercher les meilleurs candidats</>
-            }
-          </button>
+          {/* Bouton principal */}
+          {isIdle && (
+            <button
+              onClick={handleSearch}
+              disabled={!ready}
+              style={{
+                height: 44, padding: '0 28px',
+                background: ready ? 'var(--foreground)' : 'var(--secondary)',
+                color: ready ? 'white' : 'var(--muted)',
+                border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
+                fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+                fontFamily: 'var(--font-body)', transition: 'all 0.15s', whiteSpace: 'nowrap',
+              }}
+            >
+              <Sparkles size={16} />Rechercher les meilleurs candidats
+            </button>
+          )}
+
+          {/* Contrôles Pause/Resume + Stop quand analyse en cours */}
+          {isActive && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              {isRunning ? (
+                <button
+                  onClick={matching.pause}
+                  style={{
+                    height: 44, padding: '0 20px',
+                    background: 'rgba(99,102,241,0.1)', color: '#6366F1',
+                    border: '1.5px solid rgba(99,102,241,0.3)', borderRadius: 'var(--radius)',
+                    cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Pause size={15} />Pause
+                </button>
+              ) : (
+                <button
+                  onClick={matching.resume}
+                  style={{
+                    height: 44, padding: '0 20px',
+                    background: 'rgba(99,102,241,0.1)', color: '#6366F1',
+                    border: '1.5px solid rgba(99,102,241,0.3)', borderRadius: 'var(--radius)',
+                    cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Play size={15} />Reprendre
+                </button>
+              )}
+              <button
+                onClick={matching.stop}
+                style={{
+                  height: 44, padding: '0 20px',
+                  background: 'rgba(220,38,38,0.08)', color: '#DC2626',
+                  border: '1.5px solid rgba(220,38,38,0.25)', borderRadius: 'var(--radius)',
+                  cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+                }}
+              >
+                <Square size={14} fill="#DC2626" />Arrêter
+              </button>
+            </div>
+          )}
+
+          {/* Bouton nouvelle analyse quand terminé */}
+          {isDone && (
+            <button
+              onClick={() => { matching.reset(); setSelectedOffre('') }}
+              style={{
+                height: 44, padding: '0 20px',
+                background: 'var(--secondary)', color: 'var(--foreground)',
+                border: '1.5px solid var(--border)', borderRadius: 'var(--radius)',
+                cursor: 'pointer', fontSize: 14, fontWeight: 700,
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontFamily: 'var(--font-body)', whiteSpace: 'nowrap',
+              }}
+            >
+              Nouvelle analyse
+            </button>
+          )}
         </div>
 
         {/* Infos commande sélectionnée */}
-        {offre && (
+        {(offre || activeOffre) && (
           <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.2)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{offre.titre}</span>
-            {offre.client_nom && <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>👤 {offre.client_nom}</span>}
-            {offre.localisation && <span style={{ fontSize: 12, color: 'var(--muted)' }}>📍 {offre.localisation}</span>}
-            {offre.nb_postes > 1 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>👥 {offre.nb_postes} postes</span>}
-            {offre.competences?.length > 0 && (
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>🔧 {offre.competences.slice(0, 4).join(', ')}{offre.competences.length > 4 ? '…' : ''}</span>
-            )}
+            {(() => {
+              const o = activeOffre || offre!
+              return <>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{o.titre}</span>
+                {o.client_nom && <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>👤 {o.client_nom}</span>}
+                {o.localisation && <span style={{ fontSize: 12, color: 'var(--muted)' }}>📍 {o.localisation}</span>}
+                {o.nb_postes > 1 && <span style={{ fontSize: 12, color: 'var(--muted)' }}>👥 {o.nb_postes} postes</span>}
+                {o.competences?.length > 0 && (
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>🔧 {o.competences.slice(0, 4).join(', ')}{o.competences.length > 4 ? '…' : ''}</span>
+                )}
+              </>
+            })()}
           </div>
         )}
 
         {/* Barre de progression */}
-        {phase === 'running' && (
+        {isActive && (
           <div style={{ marginTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                {done} / {total} candidats analysés
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isRunning
+                  ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: '#6366F1' }} />
+                  : <span style={{ fontSize: 14 }}>⏸</span>
+                }
+                {matching.doneCount} / {matching.total} candidats analysés
+                {isPaused && <span style={{ fontSize: 12, color: '#818CF8', fontWeight: 700 }}>— En pause</span>}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{progress}%</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#6366F1' }}>{matching.progress}%</span>
             </div>
             <div style={{ height: 6, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${progress}%`, background: 'var(--primary)', borderRadius: 99, transition: 'width 0.3s ease' }} />
+              <div style={{
+                height: '100%',
+                width: `${matching.progress}%`,
+                background: isPaused
+                  ? 'linear-gradient(90deg, #818CF8, #6366F1)'
+                  : 'linear-gradient(90deg, #6366F1, #8B5CF6)',
+                borderRadius: 99,
+                transition: 'width 0.3s ease',
+              }} />
             </div>
           </div>
         )}
 
         {/* Résumé final */}
-        {phase === 'done' && results.length > 0 && (
+        {isDone && matching.results.length > 0 && (
           <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#16A34A', margin: 0 }}>
-              ✅ {results.length} candidat{results.length > 1 ? 's' : ''} analysé{results.length > 1 ? 's' : ''} — classés par score de compatibilité
+              ✅ {matching.results.length} candidat{matching.results.length > 1 ? 's' : ''} analysé{matching.results.length > 1 ? 's' : ''} — classés par score de compatibilité
             </p>
           </div>
         )}
       </div>
 
-      {/* Résultats */}
-      {results.length > 0 && (
+      {/* Résultats (mis à jour en temps réel) */}
+      {matching.results.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {results.map((r, idx) => (
+          {matching.results.map((r, idx) => (
             <CandidatMatchCard key={r.candidat.id} result={r} rank={idx + 1} />
           ))}
         </div>
       )}
 
-      {/* Empty state */}
-      {phase === 'done' && results.length === 0 && (
+      {/* Empty states */}
+      {isDone && matching.results.length === 0 && (
         <div className="neo-empty" style={{ padding: '60px 24px', border: '2px dashed #E8E0C8' }}>
           <div className="neo-empty-icon">🔍</div>
           <div className="neo-empty-title">Aucun résultat</div>
@@ -210,7 +240,7 @@ export default function MatchingPage() {
         </div>
       )}
 
-      {phase === 'idle' && !results.length && (
+      {isIdle && !matching.results.length && (
         <div className="neo-empty" style={{ padding: '60px 24px', border: '2px dashed #E8E0C8' }}>
           <div className="neo-empty-icon" style={{ fontSize: 40 }}>✨</div>
           <div className="neo-empty-title">Prêt à matcher</div>
@@ -226,6 +256,7 @@ export default function MatchingPage() {
 // ─── Carte candidat ───────────────────────────────────────────────────────────
 
 function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number }) {
+  const [photoError, setPhotoError] = useState(false)
   const { candidat, score, score_competences, score_experience, competences_matchees, competences_manquantes, explication } = result
   const c = scoreColor(score)
   const initiales = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
@@ -237,6 +268,8 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
     : rank === 3
     ? { bg: '#FEF3E2', border: '#FDE68A', icon: '🥉' }
     : null
+
+  const showPhoto = !!candidat.photo_url && !photoError
 
   return (
     <div style={{
@@ -250,15 +283,25 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
 
         {/* Rang + avatar */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <div style={{ fontSize: 20, lineHeight: 1 }}>{rank <= 3 ? rankStyle!.icon : <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', width: 28, textAlign: 'center', display: 'block' }}>#{rank}</span>}</div>
+          <div style={{ fontSize: 20, lineHeight: 1 }}>
+            {rank <= 3
+              ? rankStyle!.icon
+              : <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', width: 28, textAlign: 'center', display: 'block' }}>#{rank}</span>
+            }
+          </div>
           <div style={{
             width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-            background: candidat.photo_url ? 'transparent' : 'var(--primary)',
+            background: showPhoto ? 'transparent' : 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 15, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
           }}>
-            {candidat.photo_url
-              ? <img src={candidat.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {showPhoto
+              ? <img
+                  src={candidat.photo_url!}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={() => setPhotoError(true)}
+                />
               : initiales
             }
           </div>
@@ -284,7 +327,7 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
             <MiniBar label="Expérience" value={score_experience} />
           </div>
 
-          {/* Tags matchées */}
+          {/* Tags matchées / manquantes */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
             {competences_matchees.slice(0, 5).map(comp => (
               <span key={comp} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -315,8 +358,10 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
             <span style={{ fontSize: 10, color: c.text, fontWeight: 700 }}>{c.label}</span>
           </div>
 
-          <Link href={`/candidats/${candidat.id}`}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+          <Link
+            href={`/candidats/${candidat.id}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
             Voir profil <ArrowRight size={12} />
           </Link>
         </div>

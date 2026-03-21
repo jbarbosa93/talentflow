@@ -5,6 +5,7 @@ import "./dashboard.css"
 import { Toaster } from "sonner"
 import ReactQueryProvider from "@/components/providers/ReactQueryProvider"
 import { ImportProvider } from "@/contexts/ImportContext"
+import { MatchingProvider } from "@/contexts/MatchingContext"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import BetaBadge from "@/components/BetaBadge"
@@ -29,17 +30,19 @@ export default function DashboardRootLayout({
       <body className={jakarta.variable}>
         <ReactQueryProvider>
           <ImportProvider>
-            <div className="d-layout">
-              <Sidebar />
-              <div className="d-main">
-                <TopBar />
-                <main className="d-content">
-                  {children}
-                </main>
+            <MatchingProvider>
+              <div className="d-layout">
+                <Sidebar />
+                <div className="d-main">
+                  <TopBar />
+                  <main className="d-content">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
-            <Toaster richColors position="top-right" />
-            <BetaBadge />
+              <Toaster richColors position="top-right" />
+              <BetaBadge />
+            </MatchingProvider>
           </ImportProvider>
         </ReactQueryProvider>
       </body>
