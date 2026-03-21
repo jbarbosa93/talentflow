@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useCandidats'
 import type { PipelineEtape } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
+import PhotoCropModal from '@/components/PhotoCropModal'
 
 // Drapeau emoji pour chaque langue
 const LANG_FLAGS: Record<string, string> = {
@@ -148,6 +149,7 @@ export default function CandidatDetailPage() {
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [showCropModal, setShowCropModal] = useState(false)
   const [editModal, setEditModal]         = useState<'formation' | 'competences' | 'langues' | null>(null)
   const [modalValue, setModalValue]       = useState('')
   const [cvWidth, setCvWidth]             = useState(() => {
@@ -513,6 +515,27 @@ export default function CandidatDetailPage() {
     }
   }
 
+  // Upload blob from crop modal
+  const handleCropConfirm = async (blob: Blob) => {
+    if (!candidat?.id) return
+    setShowCropModal(false)
+    setPhotoUploading(true)
+    try {
+      const supabase = createClient()
+      const ext = 'jpg'
+      const path = `photos/${candidat.id}_${Date.now()}_crop.${ext}`
+      const { error: upErr } = await supabase.storage.from('cvs').upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+      if (upErr) throw upErr
+      const { data: signed } = await supabase.storage.from('cvs').createSignedUrl(path, 60 * 60 * 24 * 365 * 10)
+      if (!signed?.signedUrl) throw new Error('Signed URL failed')
+      updateCandidat.mutate({ id, data: { photo_url: signed.signedUrl } })
+    } catch (err: any) {
+      alert('Erreur lors de l\'enregistrement de la photo : ' + err.message)
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   // Modal edit handlers
   const openEditModal = (field: 'formation' | 'competences' | 'langues') => {
     setModalValue(editData[field] || '')
@@ -630,13 +653,22 @@ export default function CandidatDetailPage() {
                     <Camera size={11} color="#0F172A" />
                   </button>
                   {candidat.cv_url && (
-                    <button
-                      onClick={handleExtractPhotoFromCV}
-                      title="Extraire photo du CV"
-                      style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#F0FDF4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                    >
-                      <FileText size={11} color="#16A34A" />
-                    </button>
+                    <>
+                      <button
+                        onClick={handleExtractPhotoFromCV}
+                        title="Extraire photo du CV automatiquement"
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#F0FDF4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                      >
+                        <FileText size={11} color="#16A34A" />
+                      </button>
+                      <button
+                        onClick={() => setShowCropModal(true)}
+                        title="Sélectionner manuellement une zone du CV"
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}
+                      >
+                        ✂️
+                      </button>
+                    </>
                   )}
                   {candidat.photo_url && candidat.photo_url !== 'checked' && (
                     <>
@@ -659,6 +691,13 @@ export default function CandidatDetailPage() {
                 </div>
                 )}
                 <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                {showCropModal && candidat.cv_url && (
+                  <PhotoCropModal
+                    cvUrl={candidat.cv_url}
+                    onConfirm={handleCropConfirm}
+                    onClose={() => setShowCropModal(false)}
+                  />
+                )}
               </div>
 
               {/* Nom / Edit fields */}
