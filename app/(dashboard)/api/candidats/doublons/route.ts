@@ -102,25 +102,62 @@ async function handleMerge(keep_id: string, delete_id: string) {
     return NextResponse.json({ error: 'Candidat introuvable' }, { status: 404 })
   }
 
-  // Fusionner les champs: garder keep, combler les trous avec del
+  // Fusionner les champs: prendre la valeur la plus complète de chaque champ
   const merged: Record<string, any> = {}
+  const k = keep as Record<string, any>
+  const d = del as Record<string, any>
+
+  // Champs texte: garder la valeur la plus longue/complète (pas juste keep en priorité)
   const textFields = ['email', 'telephone', 'localisation', 'titre_poste', 'formation',
-    'resume_ia', 'cv_texte_brut', 'cv_url', 'cv_nom_fichier', 'photo_url', 'source',
-    'linkedin', 'notes', 'date_naissance']
+    'resume_ia', 'cv_texte_brut', 'source', 'linkedin', 'notes', 'date_naissance']
   for (const f of textFields) {
-    merged[f] = (keep as any)[f] || (del as any)[f] || null
+    const vKeep = k[f] || ''
+    const vDel = d[f] || ''
+    // Prendre la plus longue (plus d'info) — sauf si vide
+    merged[f] = (vKeep.length >= vDel.length ? vKeep : vDel) || null
   }
 
-  merged.annees_exp = Math.max((keep as any).annees_exp || 0, (del as any).annees_exp || 0)
-  merged.competences = [...new Set([...((keep as any).competences || []), ...((del as any).competences || [])])]
-  merged.tags = [...new Set([...((keep as any).tags || []), ...((del as any).tags || [])])]
-  merged.permis_conduire = (keep as any).permis_conduire || (del as any).permis_conduire || false
+  // CV: garder le plus récent (par date d'ajout)
+  if (k.cv_url && d.cv_url) {
+    const keepDate = new Date(k.created_at).getTime()
+    const delDate = new Date(d.created_at).getTime()
+    if (delDate > keepDate) {
+      merged.cv_url = d.cv_url
+      merged.cv_nom_fichier = d.cv_nom_fichier
+    } else {
+      merged.cv_url = k.cv_url
+      merged.cv_nom_fichier = k.cv_nom_fichier
+    }
+  } else {
+    merged.cv_url = k.cv_url || d.cv_url || null
+    merged.cv_nom_fichier = k.cv_nom_fichier || d.cv_nom_fichier || null
+  }
+
+  // Photo: garder la vraie photo (pas 'checked')
+  const photoKeep = k.photo_url && k.photo_url !== 'checked' ? k.photo_url : null
+  const photoDel = d.photo_url && d.photo_url !== 'checked' ? d.photo_url : null
+  merged.photo_url = photoKeep || photoDel || k.photo_url || d.photo_url || null
+
+  // Numériques: prendre le max
+  merged.annees_exp = Math.max(k.annees_exp || 0, d.annees_exp || 0)
+  merged.permis_conduire = k.permis_conduire || d.permis_conduire || false
+
+  // Listes: union sans doublons
+  merged.competences = [...new Set([...(k.competences || []), ...(d.competences || [])])]
+  merged.tags = [...new Set([...(k.tags || []), ...(d.tags || [])])]
+  merged.langues = [...new Set([...(k.langues || []), ...(d.langues || [])])]
 
   // Expériences: union (garder les uniques par entreprise+poste)
-  const expA: any[] = (keep as any).experiences || []
-  const expB: any[] = (del as any).experiences || []
+  const expA: any[] = k.experiences || []
+  const expB: any[] = d.experiences || []
   const expKeys = new Set(expA.map((e: any) => `${e.poste}|${e.entreprise}`))
   merged.experiences = [...expA, ...expB.filter((e: any) => !expKeys.has(`${e.poste}|${e.entreprise}`))]
+
+  // Formations: union (garder les uniques par diplôme+établissement)
+  const formA: any[] = k.formations_details || []
+  const formB: any[] = d.formations_details || []
+  const formKeys = new Set(formA.map((f: any) => `${f.diplome}|${f.etablissement}`))
+  merged.formations_details = [...formA, ...formB.filter((f: any) => !formKeys.has(`${f.diplome}|${f.etablissement}`))]
 
   // Mettre à jour le candidat à garder
   await admin.from('candidats').update(merged).eq('id', keep_id)
