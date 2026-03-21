@@ -7,6 +7,7 @@ import ReactQueryProvider from "@/components/providers/ReactQueryProvider"
 import { ImportProvider } from "@/contexts/ImportContext"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
+import BetaBadge from "@/components/BetaBadge"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -38,6 +39,7 @@ export default function DashboardRootLayout({
               </div>
             </div>
             <Toaster richColors position="top-right" />
+            <BetaBadge />
           </ImportProvider>
         </ReactQueryProvider>
       </body>
