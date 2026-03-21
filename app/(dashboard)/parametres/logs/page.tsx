@@ -376,12 +376,12 @@ function LogGroupedView({ logs }: { logs: LogEntry[] }) {
                             <FolderOpen size={10} /> {dossier}
                           </div>
                         )}
-                        {isError && d.erreur && (
+                        {isError && !!d.erreur && (
                           <div style={{ fontSize: 11, color: '#DC2626', marginTop: 2, lineHeight: 1.4, wordBreak: 'break-word' }}>
                             {String(d.erreur)}
                           </div>
                         )}
-                        {!isError && !isDoublon && d.candidat && (
+                        {!isError && !isDoublon && !!d.candidat && (
                           <div style={{ fontSize: 11, color: '#16A34A', marginTop: 1 }}>→ {String(d.candidat)}</div>
                         )}
                         {isDoublon && (
