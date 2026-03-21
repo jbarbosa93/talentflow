@@ -71,11 +71,17 @@ export default function AdminPage() {
     queryFn: async () => {
       const res = await fetch('/api/admin/users')
       if (!res.ok) {
-        const body = await res.json()
-        throw new Error(body.error || 'Erreur serveur')
+        const ct = res.headers.get('content-type') || ''
+        if (ct.includes('application/json')) {
+          const body = await res.json()
+          throw new Error(body.error || 'Erreur serveur')
+        }
+        throw new Error(res.status === 401 || res.status === 403 ? 'Session expirée — rechargez la page' : `Erreur ${res.status}`)
       }
       return res.json()
     },
+    retry: 1,
+    staleTime: 60_000,
   })
 
   const deleteMutation = useMutation({
