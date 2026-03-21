@@ -117,8 +117,8 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
             onClick={e => e.stopPropagation()}
             style={{
               width: '100%',
-              maxWidth: 580,
-              maxHeight: '80vh',
+              maxWidth: 680,
+              maxHeight: '85vh',
               background: 'white',
               borderRadius: 16,
               boxShadow: '0 25px 50px rgba(0,0,0,0.25)',

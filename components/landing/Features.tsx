@@ -2,12 +2,18 @@ import { MagicCard } from "@/components/magicui/magic-card"
 import BlurFade from "@/components/magicui/blur-fade"
 
 const features = [
-  { emoji: "🤖", title: "IA qui comprend vos candidats",   desc: "Analyse les CVs, résume les profils, suggère les meilleurs matchs — l'IA s'adapte à votre façon de recruter." },
-  { emoji: "📋", title: "Pipeline visuel en Kanban",        desc: "Glissez, déposez, avancez. Suivez chaque candidat à chaque étape d'un simple coup d'œil." },
-  { emoji: "📬", title: "Hub de communication",            desc: "Emails, rappels et messages au même endroit. Fini les onglets partout." },
-  { emoji: "🔗", title: "Intégrations natives",             desc: "Microsoft 365, Google Drive, Slack — connecté en 5 minutes, aucune ligne de code." },
-  { emoji: "🔔", title: "Rappels intelligents",             desc: "L'IA anticipe ce que vous risquez d'oublier et vous notifie exactement au bon moment." },
-  { emoji: "🔒", title: "Hébergé en Suisse",                desc: "Données chiffrées, conformes RGPD, sur des serveurs suisses. Vos données restent vôtres." },
+  { emoji: "🤖", title: "Parsing CV par IA",                desc: "Claude AI analyse chaque CV : nom, compétences, expériences, formations, langues. PDF, Word, images — tout est extrait automatiquement." },
+  { emoji: "📦", title: "Import en masse",                  desc: "Importez des centaines de CVs d'un coup. Traitement en arrière-plan avec détection de doublons et retry automatique." },
+  { emoji: "🔍", title: "Détection de doublons IA",         desc: "L'IA compare vos candidats et détecte les profils en double. Fusion intelligente qui combine le maximum d'informations." },
+  { emoji: "✅", title: "Workflow de traitement",            desc: "Chaque CV importé passe par une étape de vérification avant d'entrer dans la base active. Rien ne vous échappe." },
+  { emoji: "🎯", title: "Matching IA candidat/offre",       desc: "Score de matching détaillé entre candidats et commandes. Analyse continue en arrière-plan avec pause/reprise." },
+  { emoji: "📋", title: "Pipeline Kanban",                  desc: "Suivez chaque candidat étape par étape : Nouveau, Contacté, Entretien, Placé. Glissez-déposez pour avancer." },
+  { emoji: "📧", title: "Emails & WhatsApp",                desc: "Envoyez emails et messages WhatsApp directement depuis la fiche candidat. Templates personnalisables." },
+  { emoji: "📅", title: "Gestion des entretiens",           desc: "Planifiez visio, présentiel ou téléphone. Suivi des statuts et rappels intégrés." },
+  { emoji: "🔗", title: "Microsoft 365 & SharePoint",       desc: "Synchronisez vos emails Outlook, importez des CVs depuis SharePoint. Connexion en un clic." },
+  { emoji: "📸", title: "Extraction photos automatique",    desc: "L'IA détecte et extrait les photos de portrait depuis les CVs PDF. Validation manuelle avant ajout." },
+  { emoji: "📊", title: "Logs & historique complet",         desc: "Traçabilité de toutes les actions : imports, erreurs, fusions, modifications. Groupé par session." },
+  { emoji: "🔒", title: "Hébergé en Suisse",                desc: "Données chiffrées, conformes RGPD, sur des serveurs suisses. Authentification 2FA sécurisée." },
 ]
 
 export default function Features() {
