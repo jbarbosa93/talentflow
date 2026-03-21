@@ -15,7 +15,15 @@ type MergedHistoryItem = {
   mergedAt: string
 }
 
+type IgnoredHistoryItem = {
+  keyId: string
+  nomA: string; prenomA: string | null
+  nomB: string; prenomB: string | null
+  ignoredAt: string
+}
+
 const LS_IGNORED = 'doublons-ignored-keys'
+const LS_IGNORED_HISTORY = 'doublons-ignored-history'
 const LS_MERGED  = 'doublons-merged-history'
 
 function loadIgnoredKeys(): Set<string> {
@@ -23,6 +31,12 @@ function loadIgnoredKeys(): Set<string> {
 }
 function saveIgnoredKeys(keys: Set<string>) {
   try { localStorage.setItem(LS_IGNORED, JSON.stringify([...keys])) } catch {}
+}
+function loadIgnoredHistory(): IgnoredHistoryItem[] {
+  try { return JSON.parse(localStorage.getItem(LS_IGNORED_HISTORY) || '[]') } catch { return [] }
+}
+function saveIgnoredHistory(items: IgnoredHistoryItem[]) {
+  try { localStorage.setItem(LS_IGNORED_HISTORY, JSON.stringify(items.slice(-500))) } catch {}
 }
 function loadMergedHistory(): MergedHistoryItem[] {
   try { return JSON.parse(localStorage.getItem(LS_MERGED) || '[]') } catch { return [] }
@@ -105,6 +119,7 @@ export default function DoublonsPage() {
   const doublonsCtx = useDoublons()
   const [mergedHistory, setMergedHistory] = useState<MergedHistoryItem[]>([])
   const [ignoredKeys, setIgnoredKeys] = useState<Set<string>>(new Set())
+  const [ignoredHistory, setIgnoredHistory] = useState<IgnoredHistoryItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [showPersistentHistory, setShowPersistentHistory] = useState(false)
   const [confirmModal, setConfirmModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string } | null>(null)
@@ -112,6 +127,7 @@ export default function DoublonsPage() {
 
   useEffect(() => {
     setIgnoredKeys(loadIgnoredKeys())
+    setIgnoredHistory(loadIgnoredHistory())
     setMergedHistory(loadMergedHistory())
   }, [])
 
@@ -127,6 +143,18 @@ export default function DoublonsPage() {
         const next = new Set(keys)
         next.add(k)
         saveIgnoredKeys(next)
+        return next
+      })
+      // Sauvegarder les noms dans l'historique ignoré
+      setIgnoredHistory(prev => {
+        const item: IgnoredHistoryItem = {
+          keyId: k,
+          nomA: pair.candidat_a.nom, prenomA: pair.candidat_a.prenom,
+          nomB: pair.candidat_b.nom, prenomB: pair.candidat_b.prenom,
+          ignoredAt: new Date().toISOString(),
+        }
+        const next = [...prev, item]
+        saveIgnoredHistory(next)
         return next
       })
     }
@@ -494,19 +522,47 @@ export default function DoublonsPage() {
               ))}
 
               {totalIgnoredPersisted > 0 && (
-                <div style={{ marginTop: 6, padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', fontSize: 12, color: 'var(--muted)' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{totalIgnoredPersisted} paire{totalIgnoredPersisted > 1 ? 's' : ''} ignorée{totalIgnoredPersisted > 1 ? 's' : ''}</span>
-                  {' '}— ces paires ne réapparaîtront plus lors des prochaines analyses.
-                  <button
-                    onClick={() => {
-                      if (!confirm('Réinitialiser les paires ignorées ?')) return
-                      saveIgnoredKeys(new Set())
-                      setIgnoredKeys(new Set())
-                    }}
-                    style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#DC2626' }}
-                  >
-                    <Trash2 size={10} style={{ display: 'inline', marginRight: 3 }} />Réinitialiser
-                  </button>
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: '#F8FAFC', border: '1px solid var(--border)', borderBottom: ignoredHistory.length > 0 ? 'none' : undefined, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>
+                      <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{totalIgnoredPersisted} paire{totalIgnoredPersisted > 1 ? 's' : ''} — personnes différentes</span>
+                      {' '}— ne réapparaîtront plus
+                    </span>
+                    <button
+                      onClick={() => {
+                        if (!confirm('Réinitialiser ? Les paires pourront réapparaître.')) return
+                        saveIgnoredKeys(new Set())
+                        saveIgnoredHistory([])
+                        setIgnoredKeys(new Set())
+                        setIgnoredHistory([])
+                      }}
+                      style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#DC2626' }}
+                    >
+                      <Trash2 size={10} style={{ display: 'inline', marginRight: 3 }} />Réinitialiser
+                    </button>
+                  </div>
+                  {ignoredHistory.length > 0 && (
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
+                      {ignoredHistory.slice().reverse().map(item => (
+                        <div key={item.keyId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                          <XCircle size={12} color="#9CA3AF" />
+                          <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
+                            {item.prenomA} {item.nomA}
+                          </span>
+                          <span style={{ color: 'var(--muted)' }}>·</span>
+                          <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
+                            {item.prenomB} {item.nomB}
+                          </span>
+                          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+                            {new Date(item.ignoredAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          </span>
+                          <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 700 }}>
+                            Différents
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
