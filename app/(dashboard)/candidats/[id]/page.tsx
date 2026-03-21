@@ -6,7 +6,7 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -144,6 +144,12 @@ export default function CandidatDetailPage() {
   const [cvLightbox, setCvLightbox]       = useState(false)
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
+  const [showMenu, setShowMenu]           = useState(false)
+  const [showMergeSearch, setShowMergeSearch] = useState(false)
+  const [mergeSearch, setMergeSearch]     = useState('')
+  const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
+  const [merging, setMerging]             = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [cvZoom, setCvZoom]               = useState(1.0)
   const [cvRotation, setCvRotation]       = useState(() => {
     if (typeof window === 'undefined') return 0
@@ -219,6 +225,16 @@ export default function CandidatDetailPage() {
   const deleteCandidat  = useDeleteCandidat()
 
   const candidat = data as any
+
+  // Fermer menu 3 points quand clic dehors
+  useEffect(() => {
+    if (!showMenu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMenu])
 
   // Distance depuis Monthey, Suisse (46.2548, 6.9567)
   const [distanceKm, setDistanceKm] = useState<number | null>(null)
@@ -627,17 +643,50 @@ export default function CandidatDetailPage() {
               </button>
             </>
           )}
-          {!showDeleteConfirm ? (
-            <button onClick={() => setShowDeleteConfirm(true)} className="neo-btn-ghost neo-btn-sm" style={{ borderColor: '#FECACA', color: '#DC2626' }}>
-              <Trash2 size={13} /> Supprimer
+          {/* Menu 3 points */}
+          <div style={{ position: 'relative' }} ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(v => !v)}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ padding: '6px 8px', minWidth: 0 }}
+            >
+              <MoreVertical size={16} />
             </button>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEE2E2', border: '1px solid #FECACA', padding: '6px 12px', borderRadius: 100 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>Confirmer ?</span>
-              <button onClick={handleDelete} disabled={deleteCandidat.isPending} className="neo-btn neo-btn-sm" style={{ background: '#DC2626', boxShadow: 'none', padding: '4px 10px', fontSize: 11 }}>Supprimer</button>
-              <button onClick={() => setShowDeleteConfirm(false)} className="neo-btn-ghost neo-btn-sm" style={{ padding: '4px 10px', fontSize: 11 }}>Annuler</button>
-            </div>
-          )}
+            {showMenu && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 100,
+                background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.12)', minWidth: 200, overflow: 'hidden',
+              }}>
+                <button onClick={() => { setShowNotes(v => !v); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <MessageSquare size={14} color="var(--muted)" /> Notes
+                </button>
+                <button onClick={() => { setShowInfo(v => !v); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <Info size={14} color="var(--muted)" /> Informations
+                </button>
+                <button onClick={() => { setShowMergeSearch(true); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <Merge size={14} color="var(--muted)" /> Fusionner avec...
+                </button>
+                {!showDeleteConfirm ? (
+                  <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
+                    <Trash2 size={14} /> Supprimer
+                  </button>
+                ) : (
+                  <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>Confirmer ?</span>
+                    <button onClick={handleDelete} disabled={deleteCandidat.isPending}
+                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}>Oui</button>
+                    <button onClick={() => setShowDeleteConfirm(false)}
+                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>Non</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1523,6 +1572,77 @@ export default function CandidatDetailPage() {
                 title="CV plein écran"
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Fusionner avec ── */}
+      {showMergeSearch && (
+        <div onClick={() => { setShowMergeSearch(false); setMergeSearch(''); setMergeResults([]) }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, width: 480, maxHeight: '80vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px', color: 'var(--foreground)' }}>Fusionner avec un autre candidat</h3>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px' }}>Recherchez le candidat doublon pour fusionner les fiches</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFC', border: '1.5px solid var(--border)', borderRadius: 10, padding: '8px 12px' }}>
+                <Search size={14} color="var(--muted)" />
+                <input
+                  autoFocus
+                  value={mergeSearch}
+                  onChange={async e => {
+                    const q = e.target.value
+                    setMergeSearch(q)
+                    if (q.trim().length < 2) { setMergeResults([]); return }
+                    try {
+                      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&limit=10`)
+                      const data = await res.json()
+                      setMergeResults((data.candidats || []).filter((c: any) => c.id !== candidat.id).slice(0, 8))
+                    } catch { setMergeResults([]) }
+                  }}
+                  placeholder="Nom, email, téléphone..."
+                  style={{ flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, color: 'var(--foreground)', fontFamily: 'inherit' }}
+                />
+              </div>
+            </div>
+            <div style={{ maxHeight: 400, overflowY: 'auto', padding: '8px 0' }}>
+              {mergeResults.length === 0 && mergeSearch.length >= 2 && (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</div>
+              )}
+              {mergeResults.map((c: any) => (
+                <button
+                  key={c.id}
+                  onClick={async () => {
+                    if (!confirm(`Fusionner ${candidat.prenom} ${candidat.nom} avec ${c.prenom} ${c.nom} ?\n\nLe profil actuel sera conservé et l'autre sera supprimé.`)) return
+                    setMerging(true)
+                    try {
+                      await fetch('/api/candidats/doublons', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'merge', keep_id: candidat.id, delete_id: c.id }),
+                      })
+                      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                      queryClient.invalidateQueries({ queryKey: ['candidat', candidat.id] })
+                      toast.success(`Fusionné avec ${c.prenom} ${c.nom}`)
+                      setShowMergeSearch(false); setMergeSearch(''); setMergeResults([])
+                    } catch { toast.error('Erreur lors de la fusion') }
+                    setMerging(false)
+                  }}
+                  disabled={merging}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}
+                >
+                  <div className="neo-avatar" style={{ width: 36, height: 36, fontSize: 13, flexShrink: 0 }}>
+                    {(c.prenom?.[0] || '').toUpperCase()}{(c.nom?.[0] || '').toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'left' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {c.titre_poste || ''}{c.email ? ` · ${c.email}` : ''}
+                    </div>
+                  </div>
+                  <Merge size={14} color="var(--primary)" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
