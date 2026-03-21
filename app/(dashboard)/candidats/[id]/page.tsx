@@ -148,8 +148,10 @@ export default function CandidatDetailPage() {
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [mergeSearch, setMergeSearch]     = useState('')
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
+  const [mergeLoading, setMergeLoading]   = useState(false)
   const [merging, setMerging]             = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const mergeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [cvZoom, setCvZoom]               = useState(1.0)
   const [cvRotation, setCvRotation]       = useState(() => {
     if (typeof window === 'undefined') return 0
@@ -994,49 +996,7 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Métadonnées (expandable) */}
-          {showInfo && (
-            <div className="neo-card-soft" style={{ padding: 14 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {[
-                  { label: 'Source',  value: candidat.source || '—' },
-                  { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR') },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.value}>{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Notes (expandable in-place) */}
-          {showNotes && (
-            <div className="neo-card-soft" style={{ padding: 14 }}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: candidat.notes_candidat?.length > 0 ? 10 : 0 }}>
-                <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée)" value={note} onChange={e => setNote(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendNote() }}
-                  style={{ height: 'auto', minHeight: 56, padding: '7px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 12, flex: 1 }} />
-                <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '8px 10px' }}>
-                  <Send size={12} />
-                </button>
-              </div>
-              {candidat.notes_candidat?.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 250, overflowY: 'auto' }}>
-                  {[...candidat.notes_candidat].reverse().map((n: any) => (
-                    <div key={n.id} style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
-                        <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                      </div>
-                      <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{n.contenu}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Notes et Infos sont maintenant en panneau slide-in (voir en bas du composant) */}
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
@@ -1559,6 +1519,75 @@ export default function CandidatDetailPage() {
         </div>
       )}
 
+      {/* ── Panneau Notes (slide-in) ── */}
+      {showNotes && (
+        <div onClick={() => setShowNotes(false)} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 380, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><MessageSquare size={16} color="var(--primary)" /> Notes</h3>
+              <button onClick={() => setShowNotes(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="var(--muted)" /></button>
+            </div>
+            <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée)" value={note} onChange={e => setNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendNote() }}
+                  style={{ height: 'auto', minHeight: 70, padding: '10px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13, flex: 1 }} />
+                <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '10px 12px' }}>
+                  <Send size={13} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+              {(!candidat.notes_candidat || candidat.notes_candidat.length === 0) ? (
+                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: 40 }}>Aucune note pour le moment</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[...candidat.notes_candidat].reverse().map((n: any) => (
+                    <div key={n.id} style={{ background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>{n.contenu}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Panneau Infos (slide-in) ── */}
+      {showInfo && (
+        <div onClick={() => setShowInfo(false)} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 340, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Info size={16} color="var(--primary)" /> Informations</h3>
+              <button onClick={() => setShowInfo(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="var(--muted)" /></button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  { label: 'Source', value: candidat.source || '—' },
+                  { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
+                  { label: 'Modifié le', value: new Date(candidat.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
+                  { label: 'Statut pipeline', value: candidat.statut_pipeline },
+                  { label: 'Statut import', value: candidat.import_status === 'a_traiter' ? 'À traiter' : candidat.import_status === 'traite' ? 'Traité' : candidat.import_status || '—' },
+                  { label: 'CV', value: candidat.cv_nom_fichier || '—' },
+                  { label: 'LinkedIn', value: candidat.linkedin || '—' },
+                ].map(item => (
+                  <div key={item.label}>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', wordBreak: 'break-word' }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modal Fusionner avec ── */}
       {showMergeSearch && (
         <div onClick={() => { setShowMergeSearch(false); setMergeSearch(''); setMergeResults([]) }}
@@ -1572,15 +1601,21 @@ export default function CandidatDetailPage() {
                 <input
                   autoFocus
                   value={mergeSearch}
-                  onChange={async e => {
+                  onChange={e => {
                     const q = e.target.value
                     setMergeSearch(q)
-                    if (q.trim().length < 2) { setMergeResults([]); return }
-                    try {
-                      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&limit=10`)
-                      const data = await res.json()
-                      setMergeResults((data.candidats || []).filter((c: any) => c.id !== candidat.id).slice(0, 8))
-                    } catch { setMergeResults([]) }
+                    if (q.trim().length < 2) { setMergeResults([]); setMergeLoading(false); return }
+                    setMergeLoading(true)
+                    if (mergeTimerRef.current) clearTimeout(mergeTimerRef.current)
+                    mergeTimerRef.current = setTimeout(async () => {
+                      try {
+                        const res = await fetch(`/api/candidats?search=${encodeURIComponent(q.trim())}`)
+                        if (!res.ok) { setMergeResults([]); setMergeLoading(false); return }
+                        const data = await res.json()
+                        setMergeResults((data.candidats || []).filter((c: any) => c.id !== candidat.id).slice(0, 8))
+                      } catch { setMergeResults([]) }
+                      setMergeLoading(false)
+                    }, 500)
                   }}
                   placeholder="Nom, email, téléphone..."
                   style={{ flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, color: 'var(--foreground)', fontFamily: 'inherit' }}
@@ -1588,7 +1623,12 @@ export default function CandidatDetailPage() {
               </div>
             </div>
             <div style={{ maxHeight: 400, overflowY: 'auto', padding: '8px 0' }}>
-              {mergeResults.length === 0 && mergeSearch.length >= 2 && (
+              {mergeLoading && (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Recherche...
+                </div>
+              )}
+              {!mergeLoading && mergeResults.length === 0 && mergeSearch.length >= 2 && (
                 <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun résultat</div>
               )}
               {mergeResults.map((c: any) => (
@@ -1634,6 +1674,7 @@ export default function CandidatDetailPage() {
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideInRight { from{transform:translateX(100%)} to{transform:translateX(0)} }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>

@@ -44,7 +44,7 @@ type Candidat = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Analyse le contenu réel d'un profil pour déterminer lequel est le meilleur
-function profileScore(c: Candidat): number {
+function profileScore(c: Record<string, any>): number {
   let score = 0
   if (c.email) score += 1
   if (c.telephone) score += 1
@@ -62,7 +62,7 @@ function profileScore(c: Candidat): number {
 }
 
 // Trouve l'expérience la plus récente dans un profil (année la plus élevée)
-function latestExpYear(c: Candidat): number {
+function latestExpYear(c: Record<string, any>): number {
   let max = 0
   for (const exp of c.experiences || []) {
     const match = exp.periode?.match(/(\d{4})/)
@@ -75,7 +75,7 @@ function latestExpYear(c: Candidat): number {
   return max
 }
 
-function getBestProfileId(a: Candidat, b: Candidat): { id: string; reason: string } {
+function getBestProfileId(a: Record<string, any>, b: Record<string, any>): { id: string; reason: string } {
   const scoreA = profileScore(a)
   const scoreB = profileScore(b)
   const yearA = latestExpYear(a)
