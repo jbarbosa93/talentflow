@@ -584,7 +584,7 @@ export default function CandidatDetailPage() {
     : ''
 
   return (
-    <div className="d-page" style={{ paddingBottom: 0, height: 'calc(100vh - 64px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -622,10 +622,10 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', paddingBottom: 16 }}>
+        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
@@ -988,7 +988,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Résumé IA */}
           <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
