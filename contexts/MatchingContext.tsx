@@ -329,6 +329,23 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
   const stop = useCallback(() => {
     _abortFlag = true
     _pauseFlag = false
+    // Sauvegarder dans l'historique si des résultats existent (analyse arrêtée manuellement)
+    if (_results.length > 0) {
+      historySave({
+        id: `${_offreId}-${Date.now()}`,
+        date: new Date().toISOString(),
+        offreId: _offreId,
+        offreName: _offreName,
+        totalBase: _totalBase,
+        totalAnalyzed: _doneCount,
+        keywords: _keywords,
+        results: _results.slice(0, MAX_RESULTS_IN_HISTORY).map(r => ({
+          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url },
+          score: r.score,
+          recommandation: r.recommandation,
+        })),
+      })
+    }
     _phase     = 'idle'
     _results   = []
     _total     = 0
@@ -341,7 +358,21 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] })
   }, [])
 
-  const reset = useCallback(() => { stop() }, [stop])
+  // reset = vider sans sauvegarder (nouvelle recherche, vider résultats)
+  const reset = useCallback(() => {
+    _abortFlag = true
+    _pauseFlag = false
+    _phase     = 'idle'
+    _results   = []
+    _total     = 0
+    _doneCount = 0
+    _offreId   = ''
+    _offreName = ''
+    _totalBase = 0
+    _keywords  = []
+    lsClear()
+    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] })
+  }, [])
 
   const progress = state.total > 0 ? Math.round((state.doneCount / state.total) * 100) : 0
 
