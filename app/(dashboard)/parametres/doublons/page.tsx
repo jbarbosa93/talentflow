@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2, Pause, Play, RotateCcw } from 'lucide-react'
+import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2, Pause, Play, RotateCcw, Square } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useDoublons } from '@/contexts/DoublonsContext'
@@ -43,21 +43,54 @@ type Candidat = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function extractDateFromFilename(filename: string | null): Date | null {
-  if (!filename) return null
-  const match = filename.match(/(\d{2})[.\-\/](\d{2})[.\-\/](\d{4})/)
-  if (match) {
-    const d = new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]))
-    if (!isNaN(d.getTime())) return d
-  }
-  return null
+// Analyse le contenu réel d'un profil pour déterminer lequel est le meilleur
+function profileScore(c: Candidat): number {
+  let score = 0
+  if (c.email) score += 1
+  if (c.telephone) score += 1
+  if (c.localisation) score += 1
+  if (c.titre_poste) score += 1
+  if (c.formation) score += 1
+  score += (c.competences?.length || 0) * 0.5
+  score += (c.langues?.length || 0) * 0.3
+  score += (c.experiences?.length || 0) * 2
+  score += (c.formations_details?.length || 0) * 1
+  if (c.resume_ia) score += 1
+  if (c.linkedin) score += 0.5
+  if (c.date_naissance) score += 0.5
+  return score
 }
 
-function getRecentId(a: Candidat, b: Candidat): string {
-  const da = extractDateFromFilename(a.cv_nom_fichier)
-  const db = extractDateFromFilename(b.cv_nom_fichier)
-  if (da && db) return da >= db ? a.id : b.id
-  return a.created_at >= b.created_at ? a.id : b.id
+// Trouve l'expérience la plus récente dans un profil (année la plus élevée)
+function latestExpYear(c: Candidat): number {
+  let max = 0
+  for (const exp of c.experiences || []) {
+    const match = exp.periode?.match(/(\d{4})/)
+    if (match) max = Math.max(max, parseInt(match[1]))
+  }
+  for (const f of c.formations_details || []) {
+    const y = parseInt(f.annee)
+    if (y > 0) max = Math.max(max, y)
+  }
+  return max
+}
+
+function getBestProfileId(a: Candidat, b: Candidat): { id: string; reason: string } {
+  const scoreA = profileScore(a)
+  const scoreB = profileScore(b)
+  const yearA = latestExpYear(a)
+  const yearB = latestExpYear(b)
+
+  // Si un profil a des expériences plus récentes → priorité
+  if (yearA > yearB && yearA >= 2020) return { id: a.id, reason: `Expériences plus récentes (${yearA})` }
+  if (yearB > yearA && yearB >= 2020) return { id: b.id, reason: `Expériences plus récentes (${yearB})` }
+
+  // Sinon, le profil le plus complet
+  if (scoreA > scoreB + 1) return { id: a.id, reason: 'Profil plus complet' }
+  if (scoreB > scoreA + 1) return { id: b.id, reason: 'Profil plus complet' }
+
+  // Sinon, pareil
+  return { id: a.id, reason: '' }
 }
 
 function scoreColor(score: number) {
@@ -115,7 +148,7 @@ export default function DoublonsPage() {
   }
 
   const handleFusionnerClick = (pair: DoublonPair) => {
-    const keepId = getRecentId(pair.candidat_a as Candidat, pair.candidat_b as Candidat)
+    const keepId = getBestProfileId(pair.candidat_a as Candidat, pair.candidat_b as Candidat).id
     const deleteId = keepId === pair.candidat_a.id ? pair.candidat_b.id : pair.candidat_a.id
     setConfirmModal({ pair, keepId, deleteId })
   }
@@ -222,10 +255,16 @@ export default function DoublonsPage() {
               </button>
             )}
             {(phase === 'analysing' || phase === 'paused') && (
-              <button onClick={() => doublonsCtx.start()}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <RotateCcw size={14} /> Recommencer
-              </button>
+              <>
+                <button onClick={() => doublonsCtx.start()}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <RotateCcw size={14} /> Recommencer
+                </button>
+                <button onClick={() => { doublonsCtx.pause(); setTimeout(() => { window.location.reload() }, 100) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <Square size={14} fill="#DC2626" /> Arrêter
+                </button>
+              </>
             )}
             {phase === 'analysing' && (
               <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -505,7 +544,7 @@ export default function DoublonsPage() {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         }}>
-          <div style={{ background: 'var(--card)', borderRadius: 16, padding: '24px', maxWidth: 640, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: '20px', maxWidth: 520, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <AlertTriangle size={22} color="#D97706" />
               <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Choisir le profil à garder</h3>
@@ -517,12 +556,12 @@ export default function DoublonsPage() {
             {(() => {
               const a = confirmModal.pair.candidat_a as Candidat
               const b = confirmModal.pair.candidat_b as Candidat
-              const recentId = getRecentId(a, b)
+              const best = getBestProfileId(a, b)
               return (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
                   {[a, b].map((candidat) => {
                     const isSelected = confirmModal.keepId === candidat.id
-                    const isRecent = candidat.id === recentId
+                    const isBest = candidat.id === best.id && !!best.reason
                     return (
                       <div
                         key={candidat.id}
@@ -564,15 +603,11 @@ export default function DoublonsPage() {
                             <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                               🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
-                            {isRecent && (() => {
-                              const da = extractDateFromFilename(a.cv_nom_fichier)
-                              const db = extractDateFromFilename(b.cv_nom_fichier)
-                              return (
-                                <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
-                                  🕐 {(da && db) ? 'CV le plus récent' : 'Ajouté en premier'}
-                                </span>
-                              )
-                            })()}
+                            {isBest && (
+                              <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                                ⭐ {best.reason}
+                              </span>
+                            )}
                           </div>
                           {candidat.cv_nom_fichier && (
                             <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', maxWidth: '100%' }} title={candidat.cv_nom_fichier}>
