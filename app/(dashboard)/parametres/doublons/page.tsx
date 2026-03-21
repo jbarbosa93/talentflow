@@ -242,23 +242,97 @@ export default function DoublonsPage() {
         )}
       </div>
 
-      {/* Liste des doublons à traiter */}
-      {pendingDoublons.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={16} color="var(--primary)" />
-            À traiter ({pendingDoublons.length})
-          </h2>
-          {pendingDoublons.map(pair => (
-            <DoublonCard
-              key={pair.id}
-              pair={pair}
-              onIgnorer={handleIgnorer}
-              onFusionner={handleFusionnerClick}
-            />
-          ))}
-        </div>
-      )}
+      {/* Liste des doublons à traiter — groupés par candidat */}
+      {pendingDoublons.length > 0 && (() => {
+        // Grouper les paires qui partagent un candidat commun (clusters)
+        const clusters: DoublonPair[][] = []
+        const assigned = new Set<string>()
+        for (const pair of pendingDoublons) {
+          if (assigned.has(pair.id)) continue
+          // Trouver toutes les paires liées par des candidats communs
+          const cluster = [pair]
+          assigned.add(pair.id)
+          const candidatIds = new Set([pair.candidat_a.id, pair.candidat_b.id])
+          let changed = true
+          while (changed) {
+            changed = false
+            for (const other of pendingDoublons) {
+              if (assigned.has(other.id)) continue
+              if (candidatIds.has(other.candidat_a.id) || candidatIds.has(other.candidat_b.id)) {
+                cluster.push(other)
+                assigned.add(other.id)
+                candidatIds.add(other.candidat_a.id)
+                candidatIds.add(other.candidat_b.id)
+                changed = true
+              }
+            }
+          }
+          clusters.push(cluster)
+        }
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Users size={16} color="var(--primary)" />
+              À traiter ({pendingDoublons.length} paire{pendingDoublons.length > 1 ? 's' : ''} · {clusters.length} groupe{clusters.length > 1 ? 's' : ''})
+            </h2>
+            {clusters.map((cluster, ci) => {
+              // Extraire les candidats uniques du cluster
+              const candidatMap = new Map<string, typeof cluster[0]['candidat_a']>()
+              for (const p of cluster) {
+                candidatMap.set(p.candidat_a.id, p.candidat_a)
+                candidatMap.set(p.candidat_b.id, p.candidat_b)
+              }
+              const uniqueCandidats = Array.from(candidatMap.values())
+              const maxScore = Math.max(...cluster.map(p => p.result.score))
+
+              if (cluster.length === 1) {
+                // Cluster simple (1 paire) → affichage classique
+                return (
+                  <DoublonCard
+                    key={cluster[0].id}
+                    pair={cluster[0]}
+                    onIgnorer={handleIgnorer}
+                    onFusionner={handleFusionnerClick}
+                  />
+                )
+              }
+
+              // Cluster multiple → affichage groupé
+              return (
+                <div key={`cluster-${ci}`} style={{ background: 'var(--card)', border: '2px solid #FDE68A', borderRadius: 14, overflow: 'hidden' }}>
+                  {/* En-tête du groupe */}
+                  <div style={{ padding: '12px 18px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#92400E' }}>
+                      {uniqueCandidats.length} profils identiques détectés
+                    </span>
+                    <span style={{ fontSize: 11, color: '#B45309' }}>
+                      Score max : {maxScore}%
+                    </span>
+                    <div style={{ flex: 1 }} />
+                    <button
+                      onClick={() => cluster.forEach(p => handleIgnorer(p.id))}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 7, border: '1.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--muted)', fontFamily: 'inherit' }}
+                    >
+                      <XCircle size={12} />Tous différents
+                    </button>
+                  </div>
+                  {/* Paires du cluster */}
+                  {cluster.map(pair => (
+                    <DoublonCard
+                      key={pair.id}
+                      pair={pair}
+                      onIgnorer={handleIgnorer}
+                      onFusionner={handleFusionnerClick}
+                      compact
+                    />
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* Historique de session (ignorés + fusionnés cette session) */}
       {(ignoredDoublons.length > 0 || mergedCount > 0) && (
@@ -522,19 +596,23 @@ function StatBadge({ label, value, color }: { label: string; value: string | num
   )
 }
 
-function DoublonCard({ pair, onIgnorer, onFusionner }: {
+function DoublonCard({ pair, onIgnorer, onFusionner, compact }: {
   pair: DoublonPair
   onIgnorer: (id: string) => void
   onFusionner: (pair: DoublonPair) => void
+  compact?: boolean
 }) {
   const c = scoreColor(pair.result.score)
   const isMerged = pair.status === 'merged'
 
   return (
     <div style={{
-      background: 'var(--card)', border: `1.5px solid ${isMerged ? '#BBF7D0' : c.border}`,
-      borderRadius: 14, padding: 20, opacity: isMerged ? 0.6 : 1,
-      boxShadow: 'var(--card-shadow)',
+      background: 'var(--card)',
+      border: compact ? 'none' : `1.5px solid ${isMerged ? '#BBF7D0' : c.border}`,
+      borderBottom: compact ? '1px solid var(--border)' : undefined,
+      borderRadius: compact ? 0 : 14, padding: compact ? '14px 18px' : 20,
+      opacity: isMerged ? 0.6 : 1,
+      boxShadow: compact ? 'none' : 'var(--card-shadow)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
