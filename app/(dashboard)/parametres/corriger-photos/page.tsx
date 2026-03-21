@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ImageIcon, Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, BarChart3 } from 'lucide-react'
 
 type Stats = { withPhoto: number; withoutPhoto: number; total: number }
-type Phase = 'idle' | 'running' | 'paused' | 'done' | 'error'
+type Phase = 'idle' | 'running' | 'done' | 'error' | 'stopping'
 
 export default function CorrigerPhotosPage() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -210,7 +210,6 @@ export default function CorrigerPhotosPage() {
           ) : (
             <button
               onClick={handleStart}
-              disabled={phase === 'running'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '11px 24px', borderRadius: 10, fontSize: 14, fontWeight: 700,

@@ -30,6 +30,15 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 
     for (let i = 1; i <= maxPages; i++) {
       const page = await pdf.getPage(i)
+
+      // Détecter rotation de la page (0, 90, 180, 270)
+      // Si la page est tournée, le texte extrait sera illisible → forcer Claude Vision
+      const rotation = page.rotate ?? 0
+      if (rotation !== 0) {
+        console.log(`[CV Parser] Page ${i} tournée à ${rotation}° → retour vide pour forcer Claude Vision`)
+        return '' // Force le fallback Claude Vision dans la route
+      }
+
       const content = await page.getTextContent()
       const pageText = (content.items as any[])
         .map((item: any) => item.str ?? '')

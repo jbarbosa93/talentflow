@@ -16,43 +16,51 @@ interface ImageCandidate {
 /**
  * Score an image candidate on how likely it is to be a real headshot photo.
  * Higher score = more likely a headshot.
+ *
+ * Key insight: headshots have a PORTRAIT ratio (height > width, typically 1.15-1.6).
+ * Square or landscape images (furniture, product photos, logos) must be rejected.
  */
 function scoreHeadshot(img: ImageCandidate): number {
   let score = 0
 
+  // --- RATIO is the most important discriminator ---
+  // Headshots: tall portrait (1.15 - 1.6), sometimes slightly taller
+  // Decorative/product: usually square (0.85-1.1) or landscape
+  if (img.ratio >= 1.2 && img.ratio <= 1.55) score += 50   // Perfect ID/passport portrait
+  else if (img.ratio >= 1.1 && img.ratio <= 1.7) score += 25  // Acceptable portrait
+  else if (img.ratio >= 0.9 && img.ratio < 1.1) score -= 20  // Square — likely product/portfolio photo
+  else if (img.ratio >= 0.75 && img.ratio < 0.9) score -= 40  // Landscape — almost certainly not headshot
+  else score -= 60  // Very wide or very tall — not a headshot
+
   // --- Dimension scoring ---
-  // Ideal headshot: 150-500px wide, 200-600px tall
-  if (img.width >= 150 && img.width <= 500) score += 20
-  else if (img.width >= 100 && img.width <= 700) score += 10
+  // Ideal headshot: 100-450px wide, 130-600px tall
+  if (img.width >= 100 && img.width <= 450) score += 20
+  else if (img.width >= 60 && img.width <= 600) score += 5
+  else if (img.width > 600) score -= 15  // Too wide — likely a banner or full-width image
   else score -= 10
 
-  if (img.height >= 180 && img.height <= 600) score += 20
-  else if (img.height >= 130 && img.height <= 800) score += 10
+  if (img.height >= 130 && img.height <= 600) score += 15
+  else if (img.height >= 80 && img.height <= 800) score += 5
   else score -= 10
 
-  // --- Aspect ratio scoring ---
-  // Ideal passport/ID photo ratio: 1.2-1.5 (4:3 to 3:2 portrait)
-  if (img.ratio >= 1.15 && img.ratio <= 1.55) score += 30  // Perfect portrait
-  else if (img.ratio >= 1.0 && img.ratio <= 1.7) score += 15 // Acceptable portrait
-  else if (img.ratio >= 0.85 && img.ratio <= 1.0) score += 5  // Near-square (sometimes headshots)
-  else score -= 20 // Too wide or too tall — not a headshot
+  // --- Area scoring ---
+  // Headshots are medium-sized: 15,000 - 250,000 pixels
+  if (img.area >= 15000 && img.area <= 250000) score += 15
+  else if (img.area >= 8000 && img.area <= 500000) score += 5
+  else if (img.area < 5000) score -= 25   // Icon/logo
+  else if (img.area > 600000) score -= 15 // Full page scan
 
-  // --- Area scoring (prefer medium-sized images) ---
-  if (img.area >= 20000 && img.area <= 200000) score += 15 // Sweet spot for headshots
-  else if (img.area >= 10000 && img.area <= 400000) score += 5
-  else if (img.area < 5000) score -= 20 // Too small — icon/logo
-  else if (img.area > 500000) score -= 10 // Too large — full page image
+  // --- JPEG complexity (compressed size after resize to 300x400) ---
+  // Real face photos have lots of color variation → larger JPEG
+  // Simple graphics/logos/icons → very small JPEG (< 3KB)
+  // Product photos can also be large, but caught by ratio filter above
+  if (img.compressedSize >= 6000 && img.compressedSize <= 400000) score += 20
+  else if (img.compressedSize >= 3000) score += 8
+  else if (img.compressedSize < 2000) score -= 25  // Too simple = not a face photo
 
-  // --- Compressed size scoring (real photos have high JPEG complexity) ---
-  // Real photos: typically 5KB-200KB when resized to 300x400
-  // Logos/simple graphics: typically < 3KB
-  if (img.compressedSize >= 5000 && img.compressedSize <= 300000) score += 25
-  else if (img.compressedSize >= 2000 && img.compressedSize <= 500000) score += 10
-  else if (img.compressedSize < 1500) score -= 30 // Very small = simple graphic, not photo
-
-  // --- Page preference ---
-  if (img.pageIndex === 0) score += 10 // Headshots are usually on page 1
-  else score += 2
+  // --- Page preference (headshot almost always on page 1) ---
+  if (img.pageIndex === 0) score += 12
+  else score -= 5
 
   return score
 }
