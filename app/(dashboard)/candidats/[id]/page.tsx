@@ -180,12 +180,9 @@ export default function CandidatDetailPage() {
 
   const printCV = () => {
     if (!candidat?.cv_url) return
-    // window.open sur proxy same-origin → Chrome PDF viewer visible → print() fonctionne
-    // (iframe caché = Chrome télécharge au lieu de rendre)
-    const proxyUrl = `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`
-    const popup = window.open(proxyUrl, '_blank', 'width=900,height=700')
-    if (!popup) return
-    setTimeout(() => { try { popup.print() } catch {} }, 1500)
+    // Ouvre le CV dans un nouvel onglet via proxy (Content-Disposition: inline)
+    // Compatible tous navigateurs — l'utilisateur imprime depuis le viewer natif (Ctrl+P)
+    window.open(`/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}`, '_blank')
   }
 
   const downloadCV = async () => {

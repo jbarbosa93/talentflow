@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { Play, Pause, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw } from 'lucide-react'
 import { usePhotos } from '@/contexts/PhotosContext'
 import type { ProcessedLogItem } from '@/contexts/PhotosContext'
 
@@ -127,6 +127,12 @@ export default function CorrigerPhotosPage() {
     photos.start()
   }
 
+  function handleRestart(force = false) {
+    setApproved(0)
+    setRejected(0)
+    photos.restart(force)
+  }
+
   const current = photos.reviewQueue[0] ?? null
   const pendingCount = photos.reviewQueue.length
   const remainingCount = stats ? stats.withoutPhoto : 0
@@ -163,11 +169,16 @@ export default function CorrigerPhotosPage() {
 
       {/* Progress + controls */}
       <div className="neo-card-soft" style={{ padding: 20, marginBottom: 20 }}>
-        {(photos.phase === 'running' || photos.phase === 'done') && (
+        {(photos.phase === 'running' || photos.phase === 'paused' || photos.phase === 'done') && photos.total > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
-                {photos.phase === 'done' ? '✓ Analyse terminée' : `${photos.progress}% — ${photos.processed} / ${photos.total} CVs`}
+                {photos.phase === 'done'
+                  ? `✓ Analyse terminée${photos.forceMode ? ' (complète)' : ''}`
+                  : photos.phase === 'paused'
+                    ? `⏸ En pause — ${photos.progress}% — ${photos.processed} / ${photos.total} CVs`
+                    : `${photos.progress}% — ${photos.processed} / ${photos.total} CVs${photos.forceMode ? ' (ré-analyse complète)' : ''}`
+                }
               </span>
               <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--muted)' }}>
                 <span style={{ color: '#10B981', fontWeight: 700 }}>📸 {photos.found} trouvé{photos.found > 1 ? 's' : ''}</span>
@@ -180,7 +191,9 @@ export default function CorrigerPhotosPage() {
                 height: '100%', width: `${photos.progress}%`, borderRadius: 99,
                 background: photos.phase === 'done'
                   ? 'linear-gradient(90deg, #10B981, #059669)'
-                  : 'linear-gradient(90deg, var(--primary), #F59E0B)',
+                  : photos.phase === 'paused'
+                    ? 'linear-gradient(90deg, #F59E0B, #D97706)'
+                    : 'linear-gradient(90deg, var(--primary), #F59E0B)',
                 transition: 'width 0.4s ease',
               }} />
             </div>
@@ -189,23 +202,41 @@ export default function CorrigerPhotosPage() {
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {photos.phase === 'running' ? (
-            <button onClick={photos.stop} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #EF4444', background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Square size={14} fill="#DC2626" /> Arrêter
+            <button onClick={photos.pause} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <Pause size={14} fill="#D97706" /> Pause
+            </button>
+          ) : photos.phase === 'paused' ? (
+            <button onClick={photos.resume} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
+              <Play size={14} fill="#0F172A" /> Continuer
             </button>
           ) : (
             <button onClick={handleStart} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
-              {photos.phase === 'done'
-                ? <><RefreshCw size={14} /> Relancer</>
-                : remainingCount > 0
-                  ? <><Play size={14} fill="#0F172A" /> Continuer l&apos;analyse ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
-                  : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>
+              {remainingCount > 0
+                ? <><Play size={14} fill="#0F172A" /> Analyser ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
+                : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>
               }
             </button>
           )}
+
+          {/* Ré-analyser tout */}
+          {photos.phase !== 'running' && (
+            <button
+              onClick={() => { if (confirm('Ré-analyser tous les CVs depuis le début (même ceux déjà traités) ?')) handleRestart(true) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <RotateCcw size={14} /> Ré-analyser tout
+            </button>
+          )}
+
           {photos.phase === 'running' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
               <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
               Analyse en cours… (continue en arrière-plan si vous naviguez)
+            </div>
+          )}
+          {photos.phase === 'paused' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#D97706', fontWeight: 600 }}>
+              ⏸ En pause — cliquez &quot;Continuer&quot; pour reprendre
             </div>
           )}
           {photos.phase === 'idle' && remainingCount === 0 && stats && (

@@ -23,11 +23,12 @@ export type ProcessedLogItem = {
 }
 
 interface PhotosState {
-  phase: 'idle' | 'running' | 'done'
+  phase: 'idle' | 'running' | 'paused' | 'done'
   processed: number
   found: number
   total: number
   remaining: number
+  forceMode: boolean
   reviewQueue: ReviewItem[]
   processedLog: ProcessedLogItem[]
 }
@@ -35,19 +36,23 @@ interface PhotosState {
 interface PhotosContextType extends PhotosState {
   progress: number
   start: () => void
+  pause: () => void
+  resume: () => void
+  restart: (force?: boolean) => void
   stop: () => void
   approvePhoto: (id: string) => void
   rejectPhoto: (id: string) => Promise<void>
 }
 
 // ─── Module-level persistent state ────────────────────────────────────────────
-// Survives soft navigation between pages
 
 let _phase: PhotosState['phase'] = 'idle'
 let _processed = 0
 let _found = 0
 let _total = 0
 let _remaining = 0
+let _forceMode = false
+let _forceOffset = 0
 let _reviewQueue: ReviewItem[] = []
 let _processedLog: ProcessedLogItem[] = []
 let _abortFlag = false
@@ -55,41 +60,49 @@ let _onUpdate: ((patch: Partial<PhotosState>) => void) | null = null
 
 // ─── Background loop ───────────────────────────────────────────────────────────
 
-async function runPhotosLoop() {
-  // Get initial count of CVs without photo
+async function runPhotosLoop(force = false) {
+  // Get initial count
   try {
     const r = await fetch('/api/cv/extract-photos')
     const data = await r.json()
-    _total = data.withoutPhoto || 0
-    _remaining = _total
+    const total = force ? (data.total || 0) : (data.withoutPhoto || 0)
+    _total = total
+    _remaining = force ? Math.max(0, total - _forceOffset) : total
     _onUpdate?.({ total: _total, remaining: _remaining })
   } catch {
-    _phase = 'done'
-    _onUpdate?.({ phase: 'done' })
+    _phase = 'paused'
+    _onUpdate?.({ phase: 'paused' })
     return
   }
 
   while (!_abortFlag) {
     try {
+      const body: Record<string, unknown> = { batchSize: 3, force }
+      if (force) body.offset = _forceOffset
+
       const res = await fetch('/api/cv/extract-photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batchSize: 3, force: false }),
+        body: JSON.stringify(body),
       })
-      if (!res.ok) break
+
+      if (!res.ok) {
+        _phase = 'paused'
+        _onUpdate?.({ phase: 'paused' })
+        return
+      }
 
       const data = await res.json()
-      _processed += data.processed || 0
+      const batchProcessed = data.processed || 0
+      _processed += batchProcessed
       _found += data.found || 0
       _remaining = data.remaining || 0
+      if (force) _forceOffset += batchProcessed
 
-      // Accumulate photos found for user review
       if (data.foundCandidats?.length > 0) {
         _reviewQueue = [..._reviewQueue, ...data.foundCandidats]
         _onUpdate?.({ reviewQueue: [..._reviewQueue] })
       }
-
-      // Accumulate all processed candidates for history tracking
       if (data.processedCandidats?.length > 0) {
         _processedLog = [..._processedLog, ...data.processedCandidats]
         _onUpdate?.({ processedLog: [..._processedLog] })
@@ -97,7 +110,7 @@ async function runPhotosLoop() {
 
       _onUpdate?.({ processed: _processed, found: _found, remaining: _remaining })
 
-      if (data.done || _remaining === 0 || data.processed === 0) {
+      if (data.done || _remaining === 0 || batchProcessed === 0) {
         _phase = 'done'
         _onUpdate?.({ phase: 'done' })
         return
@@ -105,15 +118,16 @@ async function runPhotosLoop() {
 
       await new Promise(r => setTimeout(r, 300))
     } catch {
-      _phase = 'done'
-      _onUpdate?.({ phase: 'done' })
+      // On error → paused so user can resume/retry
+      _phase = 'paused'
+      _onUpdate?.({ phase: 'paused' })
       return
     }
   }
 
   if (_abortFlag) {
-    _phase = 'idle'
-    _onUpdate?.({ phase: 'idle' })
+    _phase = 'paused'
+    _onUpdate?.({ phase: 'paused' })
   }
 }
 
@@ -136,6 +150,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     found: _found,
     total: _total,
     remaining: _remaining,
+    forceMode: _forceMode,
     reviewQueue: _reviewQueue,
     processedLog: _processedLog,
   })
@@ -143,12 +158,10 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  // Register the update callback so the background loop can push state into React
   useEffect(() => {
     _onUpdate = (patch) => {
       setState(prev => {
         const next = { ...prev, ...patch }
-        // Sync module-level
         if (patch.phase !== undefined) _phase = patch.phase
         if (patch.processed !== undefined) _processed = patch.processed
         if (patch.found !== undefined) _found = patch.found
@@ -158,12 +171,10 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
         return next
       })
     }
-    // Sync with current module state on mount (handles navigation back to provider)
-    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, reviewQueue: _reviewQueue, processedLog: _processedLog })
+    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, forceMode: _forceMode, reviewQueue: _reviewQueue, processedLog: _processedLog })
     return () => { _onUpdate = null }
   }, [])
 
-  // Toast notification when done and not on the page
   useEffect(() => {
     if (state.phase !== 'done') return
     if (pathname === '/parametres/corriger-photos') return
@@ -176,22 +187,55 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase])
 
+  // Start fresh — normal mode (only unprocessed CVs)
   const start = useCallback(() => {
     if (_phase === 'running') return
     _abortFlag = false
     _phase = 'running'
+    _forceMode = false
+    _forceOffset = 0
     _processed = 0
     _found = 0
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, reviewQueue: [], processedLog: [] })
-    runPhotosLoop()
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, reviewQueue: [], processedLog: [] })
+    runPhotosLoop(false)
   }, [])
 
+  // Pause — stops the loop, preserves progress
+  const pause = useCallback(() => {
+    _abortFlag = true
+    // Loop will set phase to 'paused' when it detects the flag
+  }, [])
+
+  // Resume — continues from where it stopped
+  const resume = useCallback(() => {
+    if (_phase !== 'paused') return
+    _abortFlag = false
+    _phase = 'running'
+    setState(prev => ({ ...prev, phase: 'running' }))
+    runPhotosLoop(_forceMode)
+  }, [])
+
+  // Restart — resets all counters and restarts (optionally force=true for all CVs)
+  const restart = useCallback((force = false) => {
+    _abortFlag = false
+    _phase = 'running'
+    _forceMode = force
+    _forceOffset = 0
+    _processed = 0
+    _found = 0
+    _remaining = 0
+    _reviewQueue = []
+    _processedLog = []
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, reviewQueue: [], processedLog: [] })
+    runPhotosLoop(force)
+  }, [])
+
+  // Stop completely — alias for pause (kept for backward compat)
   const stop = useCallback(() => {
     _abortFlag = true
-    // Phase updated async by the loop when it detects abortFlag
   }, [])
 
   const approvePhoto = useCallback((id: string) => {
@@ -214,7 +258,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   const progress = state.total > 0 ? Math.min(100, Math.round((state.processed / state.total) * 100)) : 0
 
   return (
-    <PhotosContext.Provider value={{ ...state, progress, start, stop, approvePhoto, rejectPhoto }}>
+    <PhotosContext.Provider value={{ ...state, progress, start, pause, resume, restart, stop, approvePhoto, rejectPhoto }}>
       {children}
     </PhotosContext.Provider>
   )

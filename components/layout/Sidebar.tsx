@@ -71,7 +71,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   // Show photos progress only when NOT on corriger-photos page
   const isPhotosPage = pathname === '/parametres/corriger-photos'
-  const showPhotosBadge = photosCtx.phase === 'running' && !isPhotosPage && photosCtx.total > 0
+  const showPhotosBadge = (photosCtx.phase === 'running' || photosCtx.phase === 'paused') && !isPhotosPage && photosCtx.total > 0
 
   // Show doublons progress only when NOT on doublons page
   const isDoublonsPage = pathname === '/parametres/doublons'
@@ -177,8 +177,11 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             cursor: 'pointer',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <Loader2 size={13} color="#10B981" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Analyse photos</span>
+              {photosCtx.phase === 'paused'
+                ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>⏸ Photos en pause</span>
+                : <><Loader2 size={13} color="#10B981" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                   <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Analyse photos</span></>
+              }
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
                 {photosCtx.progress}%
               </span>
@@ -276,7 +279,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           const active = isActive(item.href, (item as any).exact)
           // Show import icon on Paramètres item when running
           const isParams = item.href === '/parametres'
-          const showDot = isParams && (importCtx.running || photosCtx.phase === 'running' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
+          const showDot = isParams && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
 
           return (
             <Link
