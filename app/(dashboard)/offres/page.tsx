@@ -79,7 +79,7 @@ export default function OffresPage() {
               Commandes
             </button>
             <button style={tabStyle(activeTab === 'facebook')} onClick={() => setActiveTab('facebook')}>
-              <img src="https://www.job-room.ch/favicon.ico" width={14} height={14} style={{ borderRadius: 2 }} onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+              <span style={{ fontSize: 13 }}>🌐</span>
               job-room.ch
             </button>
           </div>
@@ -113,10 +113,11 @@ export default function OffresPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
           {offres?.map(offre => (
-            <div key={offre.id} className="neo-card-soft" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
-              {/* Top color bar */}
+            <div key={offre.id} className="neo-card-soft" style={{ padding: 0, position: 'relative' }}>
+              {/* Top color bar — borderRadius pour ne pas avoir besoin de overflow:hidden */}
               <div style={{
                 height: 4,
+                borderRadius: '14px 14px 0 0',
                 background: offre.statut === 'active' ? 'linear-gradient(90deg, #10B981, #059669)'
                   : offre.statut === 'pourvue' ? 'linear-gradient(90deg, #3B82F6, #2563EB)'
                   : 'linear-gradient(90deg, #94A3B8, #64748B)',
