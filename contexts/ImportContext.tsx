@@ -21,6 +21,7 @@ export interface FileJob {
   duration?: number
   categorie?: string
   relativePath?: string
+  addedAt?: string
   candidatExistant?: CandidatExistant
   analyseNouv?: { prenom?: string; nom?: string; email?: string; titre_poste?: string }
 }
@@ -243,7 +244,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
             if (parts.length >= 3) categorie = parts[parts.length - 2]
             else if (parts.length === 2) categorie = parts[0]
           }
-          return { id: `${file.name}-${file.size}-${Math.random()}`, file, status: 'pending' as FileStatus, categorie, relativePath: rel || undefined }
+          return { id: `${file.name}-${file.size}-${Math.random()}`, file, status: 'pending' as FileStatus, categorie, relativePath: rel || undefined, addedAt: new Date().toISOString() }
         })
       if (toAdd.length < valid.length) toast.info(`${valid.length - toAdd.length} doublon(s) de fichiers ignoré(s)`)
       return [...prev, ...toAdd]

@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from 'react'
 import {
   Upload, FolderOpen, Play, Pause, RotateCcw, Download,
   CheckCircle, XCircle, Loader2, FileText, AlertTriangle,
-  Zap, Clock, X, Tag, Copy, CheckSquare, Square,
+  Zap, Clock, X, Tag, Copy, CheckSquare, Square, HardDriveDownload,
 } from 'lucide-react'
 import { useImport, getCatColor, type FileJob } from '@/contexts/ImportContext'
 
@@ -554,98 +554,150 @@ export default function ImportMassePage() {
             </div>
           )}
 
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-            {filteredJobs.map((job: FileJob) => {
-              const catColor = job.categorie ? getCatColor(job.categorie) : undefined
-              return (
-                <div key={job.id} style={{
-                  borderBottom: '1px solid var(--border)',
-                  background: job.status === 'success'    ? '#F0FDF4'
-                    : job.status === 'error'      ? '#FEF2F2'
-                    : job.status === 'skipped'    ? '#F9FAFB'
-                    : job.status === 'doublon'    ? '#FFFBEB'
-                    : job.status === 'processing' ? '#FFFBEB'
-                    : 'transparent',
-                }}>
-                  {/* Ligne principale */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
-                    {/* Checkbox pour doublons en mode filtre */}
-                    {doubFilter && job.status === 'doublon' && (
-                      <button onClick={() => toggleDoublon(job.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, color: selectedDoublons.has(job.id) ? '#D97706' : 'var(--muted)' }}>
-                        {selectedDoublons.has(job.id) ? <CheckSquare size={14} /> : <Square size={14} />}
-                      </button>
-                    )}
-                    {!(doubFilter && job.status === 'doublon') && (
-                    <div style={{ flexShrink: 0 }}>
-                      {job.status === 'pending'    && <FileText size={14} color="var(--muted)" />}
-                      {job.status === 'processing' && <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
-                      {job.status === 'success'    && <CheckCircle size={14} color="#16A34A" />}
-                      {job.status === 'error'      && <XCircle size={14} color="#DC2626" />}
-                      {job.status === 'skipped'    && <CheckCircle size={14} color="#9CA3AF" />}
-                      {job.status === 'doublon'    && <Copy size={14} color="#F59E0B" />}
-                    </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {job.file.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : job.status === 'skipped' ? '#9CA3AF' : job.status === 'doublon' ? '#D97706' : 'var(--muted)' }}>
-                        {job.status === 'success'    && job.candidatNom}
-                        {job.status === 'error'      && job.error}
-                        {job.status === 'skipped'    && job.candidatNom}
-                        {job.status === 'pending'    && formatSize(job.file.size)}
-                        {job.status === 'processing' && (job.error || 'Analyse IA en cours...')}
-                        {job.status === 'doublon'    && `Doublon — existe déjà : ${job.candidatExistant?.prenom} ${job.candidatExistant?.nom}`}
-                      </div>
-                    </div>
-                    {job.categorie && (
-                      <span style={{ flexShrink: 0, padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700, background: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}>
-                        {job.categorie}
-                      </span>
-                    )}
-                    {job.duration && (
-                      <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
-                        {formatDuration(job.duration)}
-                      </span>
-                    )}
-                  </div>
+          <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            {(() => {
+              // Grouper par session d'import (même minute = même session)
+              const groups: { label: string; key: string; jobs: FileJob[] }[] = []
+              const groupMap = new Map<string, FileJob[]>()
+              for (const job of filteredJobs) {
+                const d = job.addedAt ? new Date(job.addedAt) : null
+                const key = d ? `${d.toLocaleDateString('fr-FR')} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Import'
+                if (!groupMap.has(key)) groupMap.set(key, [])
+                groupMap.get(key)!.push(job)
+              }
+              groupMap.forEach((gJobs, key) => groups.push({ label: key, key, jobs: gJobs }))
 
-                  {/* Panneau résolution doublon */}
-                  {job.status === 'doublon' && job.candidatExistant && (
-                    <div style={{ margin: '0 20px 12px', background: 'white', border: '1.5px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-                        <div style={{ flex: 1, fontSize: 11 }}>
-                          <div style={{ fontWeight: 700, color: '#92400E', marginBottom: 3 }}>Existant dans la base</div>
-                          <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.candidatExistant.prenom} {job.candidatExistant.nom}</div>
-                          {job.candidatExistant.email && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.email}</div>}
-                          {job.candidatExistant.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.titre_poste}</div>}
-                          <div style={{ color: 'var(--muted)', marginTop: 2 }}>Ajouté le {new Date(job.candidatExistant.created_at).toLocaleDateString('fr-FR')}</div>
-                        </div>
-                        <div style={{ flex: 1, fontSize: 11 }}>
-                          <div style={{ fontWeight: 700, color: '#1D4ED8', marginBottom: 3 }}>Nouveau fichier</div>
-                          <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.analyseNouv?.prenom} {job.analyseNouv?.nom}</div>
-                          {job.analyseNouv?.email && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.email}</div>}
-                          {job.analyseNouv?.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.titre_poste}</div>}
-                          <div style={{ color: 'var(--muted)', marginTop: 2 }}>{job.file.name}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Garder l&apos;existant
-                        </button>
-                        <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Remplacer par le nouveau
-                        </button>
-                        <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Garder les deux
-                        </button>
+              return groups.map(group => {
+                const gSucceeded = group.jobs.filter(j => j.status === 'success').length
+                const gFailed = group.jobs.filter(j => j.status === 'error').length
+                const gDoublons = group.jobs.filter(j => j.status === 'doublon').length
+                return (
+                  <div key={group.key}>
+                    {/* En-tête de session */}
+                    <div style={{ padding: '8px 20px', background: '#F8FAFC', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, position: 'sticky', top: 0, zIndex: 1 }}>
+                      <Clock size={12} color="var(--muted)" />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{group.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>— {group.jobs.length} fichier{group.jobs.length > 1 ? 's' : ''}</span>
+                      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, fontSize: 10, fontWeight: 700 }}>
+                        {gSucceeded > 0 && <span style={{ color: '#16A34A' }}>✓ {gSucceeded}</span>}
+                        {gFailed > 0 && <span style={{ color: '#DC2626' }}>✗ {gFailed}</span>}
+                        {gDoublons > 0 && <span style={{ color: '#D97706' }}>⚠ {gDoublons}</span>}
                       </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+                    {/* Jobs de la session */}
+                    {group.jobs.map((job: FileJob) => {
+                      const catColor = job.categorie ? getCatColor(job.categorie) : undefined
+                      const ext = job.file.name.split('.').pop()?.toUpperCase() || '?'
+                      return (
+                        <div key={job.id} style={{
+                          borderBottom: '1px solid var(--border)',
+                          background: job.status === 'success' ? '#F0FDF4'
+                            : job.status === 'error' ? '#FEF2F2'
+                            : job.status === 'skipped' ? '#F9FAFB'
+                            : job.status === 'doublon' ? '#FFFBEB'
+                            : job.status === 'processing' ? '#FFFBEB'
+                            : 'transparent',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px' }}>
+                            {doubFilter && job.status === 'doublon' && (
+                              <button onClick={() => toggleDoublon(job.id)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0, color: selectedDoublons.has(job.id) ? '#D97706' : 'var(--muted)' }}>
+                                {selectedDoublons.has(job.id) ? <CheckSquare size={14} /> : <Square size={14} />}
+                              </button>
+                            )}
+                            {!(doubFilter && job.status === 'doublon') && (
+                              <div style={{ flexShrink: 0 }}>
+                                {job.status === 'pending' && <FileText size={14} color="var(--muted)" />}
+                                {job.status === 'processing' && <Loader2 size={14} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
+                                {job.status === 'success' && <CheckCircle size={14} color="#16A34A" />}
+                                {job.status === 'error' && <XCircle size={14} color="#DC2626" />}
+                                {job.status === 'skipped' && <CheckCircle size={14} color="#9CA3AF" />}
+                                {job.status === 'doublon' && <Copy size={14} color="#F59E0B" />}
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {job.file.name}
+                                <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400, marginLeft: 6 }}>
+                                  {ext} · {formatSize(job.file.size)}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 11, color: job.status === 'success' ? '#16A34A' : job.status === 'error' ? '#DC2626' : job.status === 'skipped' ? '#9CA3AF' : job.status === 'doublon' ? '#D97706' : 'var(--muted)' }}>
+                                {job.status === 'success' && job.candidatNom}
+                                {job.status === 'error' && (job.error || 'Erreur inconnue')}
+                                {job.status === 'skipped' && job.candidatNom}
+                                {job.status === 'pending' && 'En attente'}
+                                {job.status === 'processing' && (job.error || 'Analyse IA en cours...')}
+                                {job.status === 'doublon' && `Doublon — existe déjà : ${job.candidatExistant?.prenom} ${job.candidatExistant?.nom}`}
+                              </div>
+                            </div>
+                            {job.categorie && (
+                              <span style={{ flexShrink: 0, padding: '2px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700, background: `${catColor}18`, color: catColor, border: `1px solid ${catColor}40` }}>
+                                {job.categorie}
+                              </span>
+                            )}
+                            {/* Bouton télécharger fichier en erreur */}
+                            {job.status === 'error' && (
+                              <button
+                                onClick={() => {
+                                  const url = URL.createObjectURL(job.file)
+                                  const a = document.createElement('a')
+                                  a.href = url; a.download = job.file.name
+                                  document.body.appendChild(a); a.click()
+                                  document.body.removeChild(a); URL.revokeObjectURL(url)
+                                }}
+                                title="Télécharger le fichier"
+                                style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 6, border: '1px solid #FECACA', background: '#FEF2F2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                              >
+                                <HardDriveDownload size={13} color="#DC2626" />
+                              </button>
+                            )}
+                            {job.duration && (
+                              <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
+                                {formatDuration(job.duration)}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Panneau résolution doublon */}
+                          {job.status === 'doublon' && job.candidatExistant && (
+                            <div style={{ margin: '0 20px 12px', background: 'white', border: '1.5px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                                <div style={{ flex: 1, fontSize: 11 }}>
+                                  <div style={{ fontWeight: 700, color: '#92400E', marginBottom: 3 }}>Existant dans la base</div>
+                                  <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.candidatExistant.prenom} {job.candidatExistant.nom}</div>
+                                  {job.candidatExistant.email && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.email}</div>}
+                                  {job.candidatExistant.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.candidatExistant.titre_poste}</div>}
+                                  <div style={{ color: 'var(--muted)', marginTop: 2 }}>Ajouté le {new Date(job.candidatExistant.created_at).toLocaleDateString('fr-FR')}</div>
+                                </div>
+                                <div style={{ flex: 1, fontSize: 11 }}>
+                                  <div style={{ fontWeight: 700, color: '#1D4ED8', marginBottom: 3 }}>Nouveau fichier</div>
+                                  <div style={{ color: 'var(--foreground)', fontWeight: 600 }}>{job.analyseNouv?.prenom} {job.analyseNouv?.nom}</div>
+                                  {job.analyseNouv?.email && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.email}</div>}
+                                  {job.analyseNouv?.titre_poste && <div style={{ color: 'var(--muted)' }}>{job.analyseNouv.titre_poste}</div>}
+                                  <div style={{ color: 'var(--muted)', marginTop: 2 }}>{job.file.name}</div>
+                                </div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 6 }}>
+                                <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                  Garder l&apos;existant
+                                </button>
+                                <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                  Remplacer par le nouveau
+                                </button>
+                                <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '6px 0', borderRadius: 7, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                  Garder les deux
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })
+            })()}
           </div>
         </div>
       )}
