@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2 } from 'lucide-react'
+import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Trash2, Pause, Play, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useDoublons } from '@/contexts/DoublonsContext'
@@ -192,21 +192,49 @@ export default function DoublonsPage() {
             <StatBadge label="À traiter" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#D97706' : 'var(--foreground)'} />
             <StatBadge label="Fusionnés" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
-          <button
-            onClick={handleLancer}
-            disabled={phase === 'loading' || phase === 'analysing'}
-            className="neo-btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 22px', fontSize: 14, opacity: phase === 'loading' || phase === 'analysing' ? 0.7 : 1 }}
-          >
-            {phase === 'loading' || phase === 'analysing'
-              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse en cours...</>
-              : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer l\'analyse' : 'Lancer l\'analyse'}</>
-            }
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {phase === 'analysing' ? (
+              <button onClick={() => doublonsCtx.pause()}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <Pause size={14} fill="#D97706" /> Pause
+              </button>
+            ) : phase === 'paused' ? (
+              <button onClick={() => doublonsCtx.resume()}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
+                <Play size={14} fill="#0F172A" /> Continuer
+              </button>
+            ) : (
+              <button onClick={handleLancer}
+                className="neo-btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 22px', fontSize: 14 }}>
+                {phase === 'loading'
+                  ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Chargement...</>
+                  : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer' : 'Lancer l\'analyse'}</>
+                }
+              </button>
+            )}
+            {(phase === 'analysing' || phase === 'paused') && (
+              <button onClick={() => doublonsCtx.start()}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <RotateCcw size={14} /> Recommencer
+              </button>
+            )}
+            {phase === 'analysing' && (
+              <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                Analyse en cours...
+              </span>
+            )}
+            {phase === 'paused' && (
+              <span style={{ fontSize: 12, color: '#D97706', fontWeight: 600 }}>
+                ⏸ En pause — {checkedPairs}/{totalPairs} paires
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Barre de progression */}
-        {(phase === 'loading' || phase === 'analysing') && (
+        {(phase === 'loading' || phase === 'analysing' || phase === 'paused') && (
           <div style={{ marginTop: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>

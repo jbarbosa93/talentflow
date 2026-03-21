@@ -21,7 +21,7 @@ export type DoublonPair = {
 }
 
 interface DoublonsState {
-  phase: 'idle' | 'loading' | 'analysing' | 'done'
+  phase: 'idle' | 'loading' | 'analysing' | 'paused' | 'done'
   totalPairs: number
   checkedPairs: number
   doublons: DoublonPair[]
@@ -30,6 +30,8 @@ interface DoublonsState {
 interface DoublonsContextType extends DoublonsState {
   progress: number
   start: () => void
+  pause: () => void
+  resume: () => void
   stop: () => void
   markIgnored: (pairId: string) => void
   markMerged: (pairId: string) => void
@@ -117,64 +119,72 @@ function getPairsToCheck(candidats: Candidat[]): Array<[Candidat, Candidat]> {
 }
 
 // ─── Module-level persistent state ────────────────────────────────────────────
-// Survives soft navigation between pages
 
 let _phase: DoublonsState['phase'] = 'idle'
 let _totalPairs = 0
 let _checkedPairs = 0
 let _doublons: DoublonPair[] = []
 let _abortFlag = false
+let _pairs: Array<[Candidat, Candidat]> = []
+let _pairIndex = 0
 let _onUpdate: ((patch: Partial<DoublonsState>) => void) | null = null
 
 // ─── Background loop ───────────────────────────────────────────────────────────
 
-async function runDoublonsLoop() {
-  _phase = 'loading'
-  _onUpdate?.({ phase: 'loading' })
+async function runDoublonsLoop(fromResume = false) {
+  if (!fromResume) {
+    _phase = 'loading'
+    _onUpdate?.({ phase: 'loading' })
 
-  let allCandidats: Candidat[] = []
-  try {
-    const res = await fetch('/api/candidats?limit=1000')
-    const data = await res.json()
-    allCandidats = data.candidats || []
-  } catch {
-    _phase = 'idle'
-    _onUpdate?.({ phase: 'idle' })
-    return
-  }
-
-  if (allCandidats.length < 2) {
-    _phase = 'done'
-    _onUpdate?.({ phase: 'done' })
-    return
-  }
-
-  const ignoredKeys = loadIgnoredKeys()
-  const mergedKeys = loadMergedKeys()
-  const pairs = getPairsToCheck(allCandidats).filter(([a, b]) => {
-    const k = pairKey(a.id, b.id)
-    return !ignoredKeys.has(k) && !mergedKeys.has(k)
-  })
-
-  _totalPairs = pairs.length
-  _checkedPairs = 0
-  _phase = 'analysing'
-  _onUpdate?.({ phase: 'analysing', totalPairs: _totalPairs, checkedPairs: 0 })
-
-  if (pairs.length === 0) {
-    _phase = 'done'
-    _onUpdate?.({ phase: 'done' })
-    return
-  }
-
-  for (let i = 0; i < pairs.length; i++) {
-    if (_abortFlag) {
-      _phase = 'idle'
-      _onUpdate?.({ phase: 'idle' })
+    let allCandidats: Candidat[] = []
+    try {
+      const res = await fetch('/api/candidats?limit=1000')
+      const data = await res.json()
+      allCandidats = data.candidats || []
+    } catch {
+      _phase = 'paused'
+      _onUpdate?.({ phase: 'paused' })
       return
     }
 
-    const [a, b] = pairs[i]
+    if (allCandidats.length < 2) {
+      _phase = 'done'
+      _onUpdate?.({ phase: 'done' })
+      return
+    }
+
+    const ignoredKeys = loadIgnoredKeys()
+    const mergedKeys = loadMergedKeys()
+    _pairs = getPairsToCheck(allCandidats).filter(([a, b]) => {
+      const k = pairKey(a.id, b.id)
+      return !ignoredKeys.has(k) && !mergedKeys.has(k)
+    })
+
+    _totalPairs = _pairs.length
+    _checkedPairs = 0
+    _pairIndex = 0
+    _phase = 'analysing'
+    _onUpdate?.({ phase: 'analysing', totalPairs: _totalPairs, checkedPairs: 0 })
+
+    if (_pairs.length === 0) {
+      _phase = 'done'
+      _onUpdate?.({ phase: 'done' })
+      return
+    }
+  } else {
+    _phase = 'analysing'
+    _onUpdate?.({ phase: 'analysing' })
+  }
+
+  for (let i = _pairIndex; i < _pairs.length; i++) {
+    if (_abortFlag) {
+      _pairIndex = i
+      _phase = 'paused'
+      _onUpdate?.({ phase: 'paused' })
+      return
+    }
+
+    const [a, b] = _pairs[i]
     try {
       const res = await fetch('/api/candidats/doublons', {
         method: 'POST',
@@ -195,9 +205,15 @@ async function runDoublonsLoop() {
           _onUpdate?.({ doublons: [..._doublons] })
         }
       }
-    } catch {}
+    } catch {
+      _pairIndex = i
+      _phase = 'paused'
+      _onUpdate?.({ phase: 'paused' })
+      return
+    }
 
     _checkedPairs = i + 1
+    _pairIndex = i + 1
     _onUpdate?.({ checkedPairs: _checkedPairs })
   }
 
@@ -264,8 +280,22 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
     _totalPairs = 0
     _checkedPairs = 0
     _doublons = []
+    _pairs = []
+    _pairIndex = 0
     setState({ phase: 'loading', totalPairs: 0, checkedPairs: 0, doublons: [] })
-    runDoublonsLoop()
+    runDoublonsLoop(false)
+  }, [])
+
+  const pause = useCallback(() => {
+    _abortFlag = true
+  }, [])
+
+  const resume = useCallback(() => {
+    if (_phase !== 'paused') return
+    _abortFlag = false
+    _phase = 'analysing'
+    setState(prev => ({ ...prev, phase: 'analysing' }))
+    runDoublonsLoop(true)
   }, [])
 
   const stop = useCallback(() => {
@@ -290,7 +320,7 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
   const progress = state.totalPairs > 0 ? Math.min(100, Math.round((state.checkedPairs / state.totalPairs) * 100)) : 0
 
   return (
-    <DoublonsContext.Provider value={{ ...state, progress, start, stop, markIgnored, markMerged, markPending }}>
+    <DoublonsContext.Provider value={{ ...state, progress, start, pause, resume, stop, markIgnored, markMerged, markPending }}>
       {children}
     </DoublonsContext.Provider>
   )
