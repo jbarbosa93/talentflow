@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, BarChart3 } from 'lucide-react'
+import { Play, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw } from 'lucide-react'
 
 type Stats = { withPhoto: number; withoutPhoto: number; total: number }
 type Phase = 'idle' | 'running' | 'done' | 'error' | 'stopping'
@@ -13,20 +13,13 @@ export default function CorrigerPhotosPage() {
   const [total, setTotal] = useState(0)
   const [speed, setSpeed] = useState(0)   // CVs/min
   const [eta, setEta] = useState<number | null>(null)
-  const [log, setLog] = useState<string[]>([])
   const stopRef = useRef(false)
   const startTimeRef = useRef<number>(0)
-  const logEndRef = useRef<HTMLDivElement>(null)
 
   // Charger les stats initiales
   useEffect(() => {
     fetchStats()
   }, [])
-
-  // Auto-scroll log
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [log])
 
   async function fetchStats() {
     try {
@@ -36,16 +29,11 @@ export default function CorrigerPhotosPage() {
     } catch {}
   }
 
-  function addLog(msg: string) {
-    setLog(prev => [...prev.slice(-199), `[${new Date().toLocaleTimeString('fr-FR')}] ${msg}`])
-  }
-
   async function handleStart() {
     stopRef.current = false
     setPhase('running')
     setProcessed(0)
     setFound(0)
-    setLog([])
     startTimeRef.current = Date.now()
 
     // Récupérer le total (seulement ceux sans photo)
@@ -53,7 +41,6 @@ export default function CorrigerPhotosPage() {
     const statsData = await statsRes.json()
     setTotal(statsData.withoutPhoto || 0)
     setStats(statsData)
-    addLog(`Démarrage — ${statsData.withoutPhoto} CVs sans photo à analyser (${statsData.withPhoto} déjà avec photo)`)
 
     let totalProcessed = 0
     let totalFound = 0
@@ -66,10 +53,7 @@ export default function CorrigerPhotosPage() {
           body: JSON.stringify({ batchSize: 5, force: false }),
         })
 
-        if (!res.ok) {
-          addLog(`Erreur serveur: ${res.status}`)
-          break
-        }
+        if (!res.ok) break
 
         const data = await res.json()
         const batchProcessed = data.processed || 0
@@ -88,29 +72,20 @@ export default function CorrigerPhotosPage() {
         if (spd > 0) setEta(Math.round((remaining / spd) * 60)) // secondes
         else setEta(null)
 
-        if (batchFound > 0) {
-          addLog(`Lot +${batchProcessed} traités, +${batchFound} photo${batchFound > 1 ? 's' : ''} trouvée${batchFound > 1 ? 's' : ''} — ${remaining} restants`)
-        } else if (batchProcessed > 0 && totalProcessed % 25 === 0) {
-          addLog(`${totalProcessed} CVs analysés — ${remaining} restants`)
-        }
-
         if (data.done || remaining === 0 || batchProcessed === 0) {
-          addLog(`✓ Terminé — ${totalProcessed} CVs analysés, ${totalFound} photos extraites`)
           setPhase('done')
           fetchStats()
           return
         }
 
         await new Promise(r => setTimeout(r, 200))
-      } catch (e: any) {
-        addLog(`Erreur: ${e.message}`)
+      } catch {
         setPhase('error')
         return
       }
     }
 
     if (stopRef.current) {
-      addLog(`⏹ Arrêté manuellement — ${totalProcessed} CVs traités`)
       setPhase('idle')
     }
   }
@@ -249,38 +224,6 @@ export default function CorrigerPhotosPage() {
         </div>
       </div>
 
-      {/* Log console */}
-      {log.length > 0 && (
-        <div className="neo-card-soft" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{
-            padding: '10px 16px', borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: '#0F172A', borderRadius: '12px 12px 0 0',
-          }}>
-            <BarChart3 size={13} style={{ color: '#64748B' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Journal d&apos;activité
-            </span>
-            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#475569' }}>{log.length} lignes</span>
-          </div>
-          <div style={{
-            background: '#0F172A', padding: '12px 16px',
-            maxHeight: 260, overflowY: 'auto',
-            fontFamily: 'monospace', fontSize: 12,
-            borderRadius: '0 0 12px 12px',
-          }}>
-            {log.map((line, i) => (
-              <div key={i} style={{
-                color: line.includes('✓') ? '#10B981' : line.includes('Erreur') ? '#EF4444' : line.includes('photo') ? '#F5A723' : '#94A3B8',
-                lineHeight: 1.7,
-              }}>
-                {line}
-              </div>
-            ))}
-            <div ref={logEndRef} />
-          </div>
-        </div>
-      )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>

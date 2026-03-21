@@ -134,6 +134,8 @@ export default function DoublonsPage() {
   const [totalPairs, setTotalPairs] = useState(0)
   const [checkedPairs, setCheckedPairs] = useState(0)
   const [doublons, setDoublons] = useState<DoublonPair[]>([])
+  const [ignoredPairs, setIgnoredPairs] = useState<DoublonPair[]>([])
+  const [showHistory, setShowHistory] = useState(false)
   const [confirmModal, setConfirmModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string } | null>(null)
   const [merging, setMerging] = useState(false)
 
@@ -207,12 +209,24 @@ export default function DoublonsPage() {
   }, [])
 
   const handleIgnorer = (pairId: string) => {
-    setDoublons(prev => prev.map(p => p.id === pairId ? { ...p, status: 'ignored' } : p))
+    setDoublons(prev => {
+      const pair = prev.find(p => p.id === pairId)
+      if (pair) setIgnoredPairs(ign => [...ign, { ...pair, status: 'ignored' }])
+      return prev.filter(p => p.id !== pairId)
+    })
+  }
+
+  const handleRestorer = (pairId: string) => {
+    setIgnoredPairs(prev => {
+      const pair = prev.find(p => p.id === pairId)
+      if (pair) setDoublons(d => [...d, { ...pair, status: 'pending' }])
+      return prev.filter(p => p.id !== pairId)
+    })
   }
 
   const handleFusionnerClick = (pair: DoublonPair) => {
-    // Par défaut : garder le plus ancien (créé en premier)
-    const keepId = pair.candidat_a.created_at <= pair.candidat_b.created_at
+    // Par défaut : garder le plus récent (CV probablement plus à jour)
+    const keepId = pair.candidat_a.created_at >= pair.candidat_b.created_at
       ? pair.candidat_a.id : pair.candidat_b.id
     const deleteId = keepId === pair.candidat_a.id ? pair.candidat_b.id : pair.candidat_a.id
     setConfirmModal({ pair, keepId, deleteId })
@@ -238,8 +252,9 @@ export default function DoublonsPage() {
   }
 
   const progress = totalPairs > 0 ? Math.round((checkedPairs / totalPairs) * 100) : 0
-  const activePairs = doublons.filter(p => p.status === 'pending')
-  const doneCount = doublons.filter(p => p.status !== 'pending').length
+  const mergedCount = doublons.filter(p => p.status === 'merged').length
+  const doublonCandidatIds = new Set(doublons.flatMap(p => [p.candidat_a.id, p.candidat_b.id]))
+  const cleanCount = phase === 'done' && candidats.length > 0 ? candidats.length - doublonCandidatIds.size : 0
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -265,8 +280,9 @@ export default function DoublonsPage() {
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <StatBadge label="Candidats" value={candidats.length || '—'} color="var(--foreground)" />
             <StatBadge label="Paires vérifiées" value={checkedPairs > 0 ? `${checkedPairs}/${totalPairs}` : '—'} color="#2563EB" />
-            <StatBadge label="Doublons trouvés" value={doublons.length || '—'} color={doublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
-            <StatBadge label="Traités" value={doneCount > 0 ? doneCount : '—'} color="#16A34A" />
+            <StatBadge label="Doublons" value={doublons.length || '—'} color={doublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
+            <StatBadge label="Sans doublon" value={cleanCount > 0 ? cleanCount : '—'} color="#16A34A" />
+            <StatBadge label="Fusionnés" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
           <button
             onClick={handleLancer}
@@ -319,14 +335,14 @@ export default function DoublonsPage() {
       </div>
 
       {/* Liste des doublons */}
-      {doublons.length > 0 && (
+      {doublons.filter(p => p.status === 'pending').length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Users size={16} color="var(--primary)" />
-            Doublons détectés ({doublons.length})
+            À traiter ({doublons.filter(p => p.status === 'pending').length})
           </h2>
 
-          {doublons.map(pair => (
+          {doublons.filter(p => p.status === 'pending').map(pair => (
             <DoublonCard
               key={pair.id}
               pair={pair}
@@ -334,6 +350,58 @@ export default function DoublonsPage() {
               onFusionner={handleFusionnerClick}
             />
           ))}
+        </div>
+      )}
+
+      {/* Historique des actions (ignorés + fusionnés) */}
+      {(ignoredPairs.length > 0 || mergedCount > 0) && (
+        <div style={{ marginTop: 24 }}>
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}
+          >
+            <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
+            Historique des actions ({ignoredPairs.length + mergedCount})
+            {ignoredPairs.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{ignoredPairs.length} ignoré{ignoredPairs.length > 1 ? 's' : ''}</span>}
+            {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', fontWeight: 600 }}>{mergedCount} fusionné{mergedCount > 1 ? 's' : ''}</span>}
+          </button>
+
+          {showHistory && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Pairs ignorées — restaurables */}
+              {ignoredPairs.map(pair => (
+                <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10, opacity: 0.8 }}>
+                  <XCircle size={14} color="var(--muted)" />
+                  <div style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
+                    <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
+                    <span style={{ margin: '0 6px' }}>·</span>
+                    <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>— Ignoré</span>
+                  </div>
+                  <button
+                    onClick={() => handleRestorer(pair.id)}
+                    style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--foreground)', whiteSpace: 'nowrap' }}
+                  >
+                    ↩ Restaurer
+                  </button>
+                </div>
+              ))}
+
+              {/* Pairs fusionnées — informatif seulement */}
+              {doublons.filter(p => p.status === 'merged').map(pair => (
+                <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 10, opacity: 0.8 }}>
+                  <CheckCircle size={14} color="#16A34A" />
+                  <div style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
+                    <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
+                    <span style={{ margin: '0 6px' }}>·</span>
+                    <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: '#16A34A', fontWeight: 600 }}>— Fusionné</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, whiteSpace: 'nowrap' }}>✓ Irréversible</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -352,35 +420,112 @@ export default function DoublonsPage() {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         }}>
-          <div style={{ background: 'white', borderRadius: 16, padding: 32, maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ background: 'var(--card)', borderRadius: 16, padding: 32, maxWidth: 540, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <AlertTriangle size={22} color="#D97706" />
-              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Confirmer la fusion</h3>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Choisir le profil à garder</h3>
             </div>
-            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
-              Cette action est <strong>irréversible</strong>. Le candidat en doublon sera <strong>supprimé définitivement</strong> et ses données seront fusionnées dans le profil principal.
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
+              Cliquez sur le profil que vous souhaitez <strong>conserver</strong>. L&apos;autre sera supprimé et ses données fusionnées dans le profil principal.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-              <MiniCandidatCard
-                candidat={confirmModal.keepId === confirmModal.pair.candidat_a.id ? confirmModal.pair.candidat_a : confirmModal.pair.candidat_b}
-                label="✅ Profil gardé"
-                color="#F0FDF4"
-                border="#BBF7D0"
-              />
-              <MiniCandidatCard
-                candidat={confirmModal.keepId === confirmModal.pair.candidat_a.id ? confirmModal.pair.candidat_b : confirmModal.pair.candidat_a}
-                label="🗑 Profil supprimé"
-                color="#FEF2F2"
-                border="#FECACA"
-              />
+            {/* Sélection interactive du profil à garder */}
+            {(() => {
+              const a = confirmModal.pair.candidat_a
+              const b = confirmModal.pair.candidat_b
+              const recentId = a.created_at >= b.created_at ? a.id : b.id
+              return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              {[a, b].map((candidat) => {
+                const isSelected = confirmModal.keepId === candidat.id
+                const isRecent = candidat.id === recentId
+                return (
+                  <div
+                    key={candidat.id}
+                    onClick={() => !merging && setConfirmModal({
+                      ...confirmModal,
+                      keepId: candidat.id,
+                      deleteId: candidat.id === confirmModal.pair.candidat_a.id
+                        ? confirmModal.pair.candidat_b.id
+                        : confirmModal.pair.candidat_a.id,
+                    })}
+                    style={{
+                      border: `2px solid ${isSelected ? '#16A34A' : 'var(--border)'}`,
+                      borderRadius: 12,
+                      padding: '14px 16px',
+                      cursor: merging ? 'default' : 'pointer',
+                      background: isSelected ? '#F0FDF4' : 'var(--secondary)',
+                      transition: 'all 0.15s',
+                      position: 'relative',
+                    }}
+                  >
+                    {/* Badge sélection */}
+                    <div style={{
+                      position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                      background: isSelected ? '#16A34A' : 'var(--border)',
+                      color: isSelected ? 'white' : 'var(--muted)',
+                      fontSize: 11, fontWeight: 800, padding: '2px 10px', borderRadius: 99,
+                      whiteSpace: 'nowrap', transition: 'all 0.15s',
+                    }}>
+                      {isSelected ? '✅ Garder ce profil' : 'Cliquer pour garder'}
+                    </div>
+
+                    <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--foreground)', marginBottom: 4, marginTop: 4 }}>
+                      {candidat.prenom} {candidat.nom}
+                    </div>
+                    {candidat.titre_poste && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>{candidat.titre_poste}</div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {candidat.email && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📧 {candidat.email}</span>}
+                      {candidat.telephone && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📞 {candidat.telephone}</span>}
+                      {candidat.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>}
+
+                      {/* Date d'ajout avec badge "plus récent" */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          🗓 Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                        {isRecent && (
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE', whiteSpace: 'nowrap' }}>
+                            🕐 CV plus récent
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Nom du fichier CV */}
+                      {candidat.cv_nom_fichier && (
+                        <span style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={candidat.cv_nom_fichier}>
+                          📄 {candidat.cv_nom_fichier}
+                        </span>
+                      )}
+
+                      {candidat.competences?.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {candidat.competences.slice(0, 3).map(c => (
+                            <span key={c} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: isSelected ? '#DCFCE7' : 'var(--border)', color: isSelected ? '#166534' : 'var(--muted)', fontWeight: 600 }}>{c}</span>
+                          ))}
+                          {candidat.competences.length > 3 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{candidat.competences.length - 3}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              </div>
+              )
+            })()}
             </div>
+
+            <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
+              ⚠️ Cette action est <strong>irréversible</strong> — le profil non sélectionné sera définitivement supprimé.
+            </p>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setConfirmModal(null)}
                 disabled={merging}
-                style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit', color: 'var(--foreground)' }}
               >
                 Annuler
               </button>
@@ -394,7 +539,10 @@ export default function DoublonsPage() {
                   opacity: merging ? 0.7 : 1,
                 }}
               >
-                {merging ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />Fusion...</> : <><Merge size={14} />Confirmer la fusion</>}
+                {merging
+                  ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />Fusion...</>
+                  : <><Merge size={14} />Fusionner</>
+                }
               </button>
             </div>
           </div>
@@ -423,13 +571,12 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
   onFusionner: (pair: DoublonPair) => void
 }) {
   const c = scoreColor(pair.result.score)
-  const isIgnored = pair.status === 'ignored'
   const isMerged = pair.status === 'merged'
 
   return (
     <div style={{
-      background: 'var(--card)', border: `1.5px solid ${isMerged ? '#BBF7D0' : isIgnored ? 'var(--border)' : c.border}`,
-      borderRadius: 14, padding: 20, opacity: (isIgnored || isMerged) ? 0.6 : 1,
+      background: 'var(--card)', border: `1.5px solid ${isMerged ? '#BBF7D0' : c.border}`,
+      borderRadius: 14, padding: 20, opacity: isMerged ? 0.6 : 1,
       boxShadow: 'var(--card-shadow)',
     }}>
       {/* Header */}
@@ -443,7 +590,6 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
           ))}
         </div>
         {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={14} />Fusionné</span>}
-        {isIgnored && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}><XCircle size={14} />Ignoré</span>}
       </div>
 
       {/* Deux candidats côte à côte */}
@@ -463,7 +609,7 @@ function DoublonCard({ pair, onIgnorer, onFusionner }: {
       )}
 
       {/* Actions */}
-      {pair.status === 'pending' && (
+      {!isMerged && (
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <Link href={`/candidats/${pair.candidat_a.id}`} target="_blank"
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none' }}>
