@@ -23,25 +23,22 @@ export type MatchResult = {
 
 const LS_KEY = 'tf_matching_state'
 
-function lsSave(data: {
+type LsData = {
   phase: 'idle' | 'running' | 'paused' | 'done'
   results: MatchResult[]
   total: number
   doneCount: number
   offreId: string
   offreName: string
-}) {
+  totalBase: number
+  keywords: string[]
+}
+
+function lsSave(data: LsData) {
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)) } catch {}
 }
 
-function lsLoad(): {
-  phase: 'idle' | 'running' | 'paused' | 'done'
-  results: MatchResult[]
-  total: number
-  doneCount: number
-  offreId: string
-  offreName: string
-} | null {
+function lsLoad(): LsData | null {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return null
@@ -77,6 +74,8 @@ interface MatchingState {
   doneCount: number
   offreId: string
   offreName: string
+  totalBase: number      // nb total de candidats dans la base
+  keywords: string[]     // mots-clés extraits de l'offre
 }
 
 interface MatchingContextType extends MatchingState {
@@ -88,6 +87,10 @@ interface MatchingContextType extends MatchingState {
   reset: () => void
 }
 
+// Extra module-level fields for new state props
+let _totalBase = 0
+let _keywords: string[] = []
+
 const MatchingContext = createContext<MatchingContextType | null>(null)
 
 export function useMatching() {
@@ -98,14 +101,28 @@ export function useMatching() {
 
 // ─── Analysis loop (module-level — survives soft navigation) ──────────────────
 
+function lsSnap() {
+  lsSave({ phase: _phase, results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName, totalBase: _totalBase, keywords: _keywords })
+}
+
 async function runAnalysisLoop(offreId: string) {
   try {
-    const res = await fetch('/api/candidats?limit=500')
-    const { candidats } = await res.json()
+    // ── Étape 1 : pré-sélection rapide (pas de Claude) ───────────────────────
+    const preRes = await fetch('/api/matching/preselect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ offre_id: offreId }),
+    })
+    const preData = await preRes.json()
+    const candidats = preData.candidats || []
 
-    if (!candidats?.length) {
+    _totalBase = preData.total_base || 0
+    _keywords  = preData.keywords || []
+    _onUpdate?.({ totalBase: _totalBase, keywords: _keywords })
+
+    if (!candidats.length) {
       _phase = 'done'
-      lsSave({ phase: 'done', results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName })
+      lsSnap()
       _onUpdate?.({ phase: 'done' })
       return
     }
@@ -151,16 +168,14 @@ async function runAnalysisLoop(offreId: string) {
 
         _doneCount++
         _onUpdate?.({ doneCount: _doneCount })
-
-        // Persist results to localStorage regularly
-        lsSave({ phase: _phase, results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName })
+        lsSnap()
       }))
     }
   } catch { /* top-level error */ }
 
   if (!_abortFlag) {
     _phase = 'done'
-    lsSave({ phase: 'done', results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName })
+    lsSnap()
     _onUpdate?.({ phase: 'done' })
   }
 }
@@ -173,8 +188,6 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     // (handles page reload — the module state is already reset)
     const saved = lsLoad()
     if (saved) {
-      // If it was running/paused when the page was reloaded, show as done
-      // since the loop can't be resumed across a hard reload
       const restoredPhase = (saved.phase === 'running' || saved.phase === 'paused') ? 'done' : saved.phase
       _phase     = restoredPhase
       _results   = saved.results
@@ -182,12 +195,12 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
       _doneCount = saved.doneCount
       _offreId   = saved.offreId
       _offreName = saved.offreName
-      if (restoredPhase !== saved.phase) {
-        lsSave({ ...saved, phase: restoredPhase })
-      }
-      return { phase: restoredPhase, results: saved.results, total: saved.total, doneCount: saved.doneCount, offreId: saved.offreId, offreName: saved.offreName }
+      _totalBase = saved.totalBase || 0
+      _keywords  = saved.keywords || []
+      if (restoredPhase !== saved.phase) lsSave({ ...saved, phase: restoredPhase })
+      return { phase: restoredPhase, results: saved.results, total: saved.total, doneCount: saved.doneCount, offreId: saved.offreId, offreName: saved.offreName, totalBase: _totalBase, keywords: _keywords }
     }
-    return { phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '' }
+    return { phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] }
   })
 
   const pathname = usePathname()
@@ -201,16 +214,18 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     if (patch.results !== undefined) _results = patch.results
     if (patch.total !== undefined) _total = patch.total
     if (patch.doneCount !== undefined) _doneCount = patch.doneCount
+    if (patch.totalBase !== undefined) _totalBase = patch.totalBase
+    if (patch.keywords !== undefined) _keywords = patch.keywords
     setState(prev => ({ ...prev, ...patch }))
   }, [])
 
   // Register callback; re-sync module → React on every mount
   useEffect(() => {
     _onUpdate = update
-    // Re-sync in case module state changed while provider was unmounted
     setState({
       phase: _phase, results: _results, total: _total,
       doneCount: _doneCount, offreId: _offreId, offreName: _offreName,
+      totalBase: _totalBase, keywords: _keywords,
     })
     return () => { if (_onUpdate === update) _onUpdate = null }
   }, [update])
@@ -239,22 +254,24 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     _doneCount = 0
     _offreId   = offreId
     _offreName = offreName
-    lsSave({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName })
-    setState({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName })
+    _totalBase = 0
+    _keywords  = []
+    lsSave({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [] })
+    setState({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [] })
     runAnalysisLoop(offreId)
   }, [])
 
   const pause = useCallback(() => {
     _pauseFlag = true
     _phase = 'paused'
-    lsSave({ phase: 'paused', results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName })
+    lsSnap()
     setState(prev => ({ ...prev, phase: 'paused' }))
   }, [])
 
   const resume = useCallback(() => {
     _pauseFlag = false
     _phase = 'running'
-    lsSave({ phase: 'running', results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName })
+    lsSnap()
     setState(prev => ({ ...prev, phase: 'running' }))
   }, [])
 
@@ -267,8 +284,10 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     _doneCount = 0
     _offreId   = ''
     _offreName = ''
+    _totalBase = 0
+    _keywords  = []
     lsClear()
-    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '' })
+    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] })
   }, [])
 
   const reset = useCallback(() => { stop() }, [stop])

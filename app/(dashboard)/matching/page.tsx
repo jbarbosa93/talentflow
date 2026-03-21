@@ -187,13 +187,33 @@ export default function MatchingPage() {
         {/* Barre de progression */}
         {isActive && (
           <div style={{ marginTop: 16 }}>
+            {/* Mots-clés pré-sélection */}
+            {matching.total === 0 && (
+              <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: '#6366F1', flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Pré-sélection des candidats en cours…</span>
+              </div>
+            )}
+            {matching.total > 0 && matching.keywords.length > 0 && (
+              <div style={{ marginBottom: 10, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Mots-clés :</span>
+                {matching.keywords.slice(0, 8).map(kw => (
+                  <span key={kw} style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', color: '#6366F1', fontWeight: 600 }}>{kw}</span>
+                ))}
+                {matching.totalBase > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>
+                    → {matching.total} candidats pré-sélectionnés sur {matching.totalBase}
+                  </span>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {isRunning
                   ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: '#6366F1' }} />
                   : <span style={{ fontSize: 14 }}>⏸</span>
                 }
-                {matching.doneCount} / {matching.total} candidats analysés
+                {matching.doneCount} / {matching.total} candidats analysés par l&apos;IA
                 {isPaused && <span style={{ fontSize: 12, color: '#818CF8', fontWeight: 700 }}>— En pause</span>}
               </span>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#6366F1' }}>{matching.progress}%</span>
@@ -214,10 +234,19 @@ export default function MatchingPage() {
 
         {/* Résumé final */}
         {isDone && matching.results.length > 0 && (
-          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#16A34A', margin: 0 }}>
-              ✅ {matching.results.length} candidat{matching.results.length > 1 ? 's' : ''} analysé{matching.results.length > 1 ? 's' : ''} — classés par score de compatibilité
+              ✅ {matching.results.length} candidat{matching.results.length > 1 ? 's' : ''} analysé{matching.results.length > 1 ? 's' : ''}
+              {matching.totalBase > 0 && (
+                <span style={{ fontWeight: 400, color: '#166534' }}> sur {matching.totalBase} dans la base (pré-sélection IA)</span>
+              )}
             </p>
+            <button
+              onClick={() => matching.reset()}
+              style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: 'transparent', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}
+            >
+              Vider les résultats
+            </button>
           </div>
         )}
       </div>
