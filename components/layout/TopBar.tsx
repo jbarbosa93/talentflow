@@ -287,7 +287,7 @@ export function TopBar() {
               display: 'flex', alignItems: 'center', gap: 10,
               background: profileOpen ? 'var(--background)' : 'transparent',
               border: `1.5px solid ${profileOpen ? 'var(--primary)' : 'var(--border)'}`,
-              borderRadius: 10, padding: '5px 10px 5px 6px',
+              borderRadius: 10, padding: '6px 12px 6px 6px',
               cursor: 'pointer', transition: 'all 0.15s',
             }}
             onMouseEnter={e => {
@@ -305,10 +305,10 @@ export function TopBar() {
           >
             {/* Avatar */}
             <div style={{
-              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
               background: avatarUrl ? 'transparent' : 'var(--primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+              fontSize: 14, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
             }}>
               {avatarUrl
                 ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -318,11 +318,11 @@ export function TopBar() {
 
             {/* Nom + entreprise */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>
                 {fullName}
               </span>
               {entreprise && (
-                <span style={{ fontSize: 10, color: 'var(--primary)', marginTop: 2, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>
+                <span style={{ fontSize: 11, color: 'var(--primary)', marginTop: 2, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>
               )}
             </div>
 

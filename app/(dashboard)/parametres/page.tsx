@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera } from 'lucide-react'
+import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -39,6 +39,7 @@ const ADMIN_SECTIONS = [
 const TOOLS_SECTIONS = [
   { href: '/parametres/import-masse',    label: 'Import en masse',        icon: FolderInput },
   { href: '/parametres/corriger-photos', label: 'Corriger photos',        icon: Camera },
+  { href: '/parametres/doublons',        label: 'Analyser Doublons',      icon: Copy },
 ]
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'

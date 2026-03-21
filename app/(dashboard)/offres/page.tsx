@@ -360,14 +360,16 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
     e.preventDefault()
     const payload = {
       titre,
-      client_nom: clientNom || undefined,
+      type_contrat: 'Mission',
+      statut: 'active' as const,
+      client_nom: clientNom || null,
       nb_postes: nbPostes || 1,
-      date_debut: dateDebut || undefined,
-      duree_mission: dureeMission || undefined,
-      description: description || undefined,
+      date_debut: dateDebut || null,
+      duree_mission: dureeMission || null,
+      description: description || null,
       competences: competences.split(',').map(c => c.trim()).filter(Boolean),
-      localisation: localisation || undefined,
-      notes: notes || undefined,
+      localisation: localisation || null,
+      notes: notes || null,
       exp_requise: 0,
     }
 

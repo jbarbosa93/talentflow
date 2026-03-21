@@ -47,6 +47,7 @@ export function useCreateOffre() {
       queryClient.invalidateQueries({ queryKey: ['offres'] })
       toast.success('Commande créée')
     },
+    onError: (error: Error) => toast.error('Erreur création commande : ' + error.message),
   })
 }
 
@@ -62,5 +63,6 @@ export function useUpdateOffre() {
       queryClient.invalidateQueries({ queryKey: ['offres'] })
       toast.success('Commande mise à jour')
     },
+    onError: (error: Error) => toast.error('Erreur mise à jour : ' + error.message),
   })
 }
