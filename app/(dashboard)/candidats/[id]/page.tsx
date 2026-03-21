@@ -12,6 +12,8 @@ import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
 } from '@/hooks/useCandidats'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import type { PipelineEtape } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import PhotoCropModal from '@/components/PhotoCropModal'
@@ -133,6 +135,7 @@ const smallMuted: React.CSSProperties = { color: 'var(--muted)', fontSize: 12 }
 export default function CandidatDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [note, setNote]                   = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isEditing, setIsEditing]         = useState(false)
@@ -590,6 +593,25 @@ export default function CandidatDetailPage() {
           <ArrowLeft size={14} /> Retour aux candidats
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {candidat.import_status === 'a_traiter' && !isEditing && (
+            <button
+              onClick={async () => {
+                await fetch(`/api/candidats/${candidat.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ import_status: 'traite' }),
+                })
+                queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                queryClient.invalidateQueries({ queryKey: ['candidat', candidat.id] })
+                queryClient.invalidateQueries({ queryKey: ['candidats-a-traiter-count'] })
+                toast.success('Candidat validé')
+              }}
+              className="neo-btn neo-btn-sm"
+              style={{ background: '#059669', boxShadow: 'none', color: 'white' }}
+            >
+              <Check size={13} /> Valider
+            </button>
+          )}
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
               <Pencil size={13} /> Modifier
