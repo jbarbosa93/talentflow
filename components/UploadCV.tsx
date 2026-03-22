@@ -57,6 +57,11 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
   const [done, setDone] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const filesRef = useRef<FileItem[]>([])
+  const cancelledRef = useRef(false)
+
+  // Keep ref in sync with state
+  filesRef.current = files
 
   // Derived counts
   const completed = files.filter(f =>
@@ -124,7 +129,8 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
   // ------- Process a single file -------
 
   const processOneFile = async (idx: number, storagePath?: string): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean }> => {
-    const item = files[idx]
+    if (cancelledRef.current) return { success: false }
+    const item = filesRef.current[idx]
     if (!item) return { success: false }
 
     updateFile(idx, { status: 'uploading' })
@@ -203,13 +209,14 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
   // ------- Two-pass processing -------
 
   const handleUpload = async () => {
-    const pendingIndices = files
+    const pendingIndices = filesRef.current
       .map((f, i) => ({ f, i }))
       .filter(({ f }) => f.status === 'pending')
       .map(({ i }) => i)
 
     if (pendingIndices.length === 0) return
 
+    cancelledRef.current = false
     setUploading(true)
     setDone(false)
     setStartTime(Date.now())
@@ -218,32 +225,47 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
 
     // ── Pass 1 : traiter tous les fichiers ──
     for (const idx of pendingIndices) {
+      if (cancelledRef.current) break
       const result = await processOneFile(idx)
       if (result.candidat) lastSuccessCandidat = result.candidat
     }
 
     // ── Pass 2 : retry les documents non-CV qui n'avaient pas trouvé de candidat ──
-    const retryIndices = files
-      .map((f, i) => ({ f, i }))
-      .filter(({ f }) => f.needsRetry && f.storagePath)
-      .map(({ i }) => i)
+    if (!cancelledRef.current) {
+      const retryIndices = filesRef.current
+        .map((f, i) => ({ f, i }))
+        .filter(({ f }) => f.needsRetry && f.storagePath)
+        .map(({ i }) => i)
 
-    if (retryIndices.length > 0) {
-      console.log(`[Import] Pass 2 : retry de ${retryIndices.length} documents non-CV`)
-      for (const idx of retryIndices) {
-        const item = files[idx]
-        const result = await processOneFile(idx, item.storagePath)
-        if (result.candidat) lastSuccessCandidat = result.candidat
-        // Si toujours en échec après retry, marquer en erreur
-        if (result.needsRetry) {
-          updateFile(idx, { status: 'error', error: 'Aucun candidat correspondant trouvé — importez le CV en premier', needsRetry: false })
+      if (retryIndices.length > 0) {
+        console.log(`[Import] Pass 2 : retry de ${retryIndices.length} documents non-CV`)
+        for (const idx of retryIndices) {
+          if (cancelledRef.current) break
+          const item = filesRef.current[idx]
+          const result = await processOneFile(idx, item?.storagePath)
+          if (result.candidat) lastSuccessCandidat = result.candidat
+          if (result.needsRetry) {
+            updateFile(idx, { status: 'error', error: 'Aucun candidat correspondant trouvé — importez le CV en premier', needsRetry: false })
+          }
         }
       }
+    }
+
+    // Marquer les fichiers encore en attente comme annulés
+    if (cancelledRef.current) {
+      setFiles(prev => prev.map(f => f.status === 'pending' || f.status === 'uploading' || f.status === 'parsing'
+        ? { ...f, status: 'error' as FileStatus, error: 'Import annulé' }
+        : f
+      ))
     }
 
     setUploading(false)
     setDone(true)
     if (lastSuccessCandidat) onSuccess?.(lastSuccessCandidat)
+  }
+
+  const handleCancel = () => {
+    cancelledRef.current = true
   }
 
   const reset = () => {
@@ -502,14 +524,26 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
           </>
         )}
         {uploading && (
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 8, padding: '10px 0',
-          }}>
-            <Loader2 size={15} style={{ color: '#3B82F6', animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>
-              Import en cours...
-            </span>
+          <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 8, padding: '10px 0',
+            }}>
+              <Loader2 size={15} style={{ color: '#3B82F6', animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>
+                Import en cours...
+              </span>
+            </div>
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                border: '1px solid #FECACA', background: '#FEF2F2',
+                color: '#DC2626', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Arrêter
+            </button>
           </div>
         )}
         {done && (
