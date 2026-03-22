@@ -390,45 +390,32 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 variants={navItemVariants}
                 style={{ position: 'relative' }}
               >
-                {active && (
-                  <motion.div
-                    layoutId="sidebar-active"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'var(--primary)',
-                      borderRadius: 8,
-                      zIndex: 0,
-                    }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                  />
-                )}
                 <Link
-                  href={item.href}
-                  className={`d-nav-link${active ? ' active' : ''}`}
-                  style={{ position: 'relative', zIndex: 1 }}
-                >
-                  <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
-                  {item.label}
-                  {/* Badge demandes d'accès sur Administration */}
-                  {isAdmin && typeof demandesCount === 'number' && demandesCount > 0 && (
-                    <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: 'white',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0,
-                    }}>
-                      {demandesCount}
-                    </span>
-                  )}
-                  {showDot && (
-                    <span style={{
-                      marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
-                      background: '#F5A623', flexShrink: 0,
-                      animation: 'pulse 2s infinite',
-                    }} />
-                  )}
-                </Link>
+                    href={item.href}
+                    className={`d-nav-link${active ? ' active' : ''}`}
+                    style={{ position: 'relative', zIndex: 1, borderRadius: 8, background: active ? 'var(--primary)' : undefined }}
+                  >
+                    <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
+                    {item.label}
+                    {/* Badge demandes d'accès sur Administration */}
+                    {isAdmin && typeof demandesCount === 'number' && demandesCount > 0 && (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                        padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: '#EF4444', color: 'white',
+                        fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        {demandesCount}
+                      </span>
+                    )}
+                    {showDot && (
+                      <span style={{
+                        marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
+                        background: '#F5A623', flexShrink: 0,
+                        animation: 'pulse 2s infinite',
+                      }} />
+                    )}
+                  </Link>
                 {/* Sous-menu Administration : Demandes d'accès */}
                 {isAdmin && active && (
                   <Link

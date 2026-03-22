@@ -256,20 +256,12 @@ export default function AdminPage() {
                         borderBottom: isLast ? 'none' : '1px solid var(--border)',
                         transition: 'background 0.1s',
                       }}
-                      onMouseOver={e => (e.currentTarget.style.background = '#F8FAFC')}
+                      onMouseOver={e => (e.currentTarget.style.background = 'var(--secondary)')}
                       onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
                     >
                       {/* Avatar + Nom + Email */}
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{
-                            width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                            background: '#F7C948', border: '2px solid var(--foreground)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 13, fontWeight: 900, color: 'var(--foreground)',
-                          }}>
-                            {initiales}
-                          </div>
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3 }}>
                               {fullName}

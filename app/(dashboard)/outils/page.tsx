@@ -34,9 +34,9 @@ const OUTILS = [
 ]
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 16, scale: 0.98 },
+  hidden: { opacity: 0, y: 16 },
   show: (i: number) => ({
-    opacity: 1, y: 0, scale: 1,
+    opacity: 1, y: 0,
     transition: { delay: i * 0.08, type: 'spring' as const, stiffness: 300, damping: 26 },
   }),
 }
@@ -70,6 +70,7 @@ export default function OutilsPage() {
               variants={cardVariants}
               initial="hidden"
               animate="show"
+              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
               whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}
               transition={{ type: 'spring', stiffness: 300, damping: 24 }}
             >

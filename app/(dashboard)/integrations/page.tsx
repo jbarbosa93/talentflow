@@ -85,7 +85,7 @@ function IntegrationsContent() {
                 {/* Microsoft logo */}
                 <div style={{
                   width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                  border: '2px solid var(--border)', background: 'white',
+                  border: '2px solid var(--border)', background: 'var(--surface)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: '2px 2px 0 var(--border)',
                 }}>
@@ -192,7 +192,7 @@ function IntegrationsContent() {
 
           {/* ── Guide de configuration ── */}
           {!isConnected && (
-            <div className="neo-card" style={{ padding: 24, marginBottom: 16, borderColor: 'var(--primary)', background: '#FFFBEB' }}>
+            <div className="neo-card" style={{ padding: 24, marginBottom: 16, borderColor: 'var(--primary)', background: 'var(--primary-soft)' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <AlertCircle size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 1 }} />
                 <div style={{ flex: 1 }}>
@@ -225,7 +225,7 @@ function IntegrationsContent() {
                             </a>
                           )}
                           {(step as any).code && (
-                            <code style={{ display: 'block', marginTop: 4, padding: '4px 8px', background: 'white', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 11, color: '#7C3AED', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                            <code style={{ display: 'block', marginTop: 4, padding: '4px 8px', background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 11, color: '#7C3AED', fontFamily: 'monospace', wordBreak: 'break-all' }}>
                               {(step as any).code}
                             </code>
                           )}
@@ -234,7 +234,7 @@ function IntegrationsContent() {
                     ))}
                   </div>
 
-                  <div style={{ marginTop: 16, padding: '12px 14px', background: 'white', borderRadius: 8, border: '1.5px solid var(--border)' }}>
+                  <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface)', borderRadius: 8, border: '1.5px solid var(--border)' }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
                       Ajoutez dans Vercel → Settings → Environment Variables :
                     </p>
@@ -254,7 +254,7 @@ MICROSOFT_TENANT_ID      = common`}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
                 width: 52, height: 52, borderRadius: 12, flexShrink: 0,
-                border: '2px solid var(--border)', background: 'white',
+                border: '2px solid var(--border)', background: 'var(--surface)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <svg viewBox="0 0 24 24" style={{ width: 26, height: 26 }}>
