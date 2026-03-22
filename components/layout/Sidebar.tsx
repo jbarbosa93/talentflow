@@ -72,6 +72,12 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     if (exact) return pathname === href
     if (pathname === href) return true
     if (!pathname.startsWith(href + '/')) return false
+    // Fiche candidat (/candidats/UUID) → vérifier d'où on vient
+    if (href === '/candidats' && pathname.match(/^\/candidats\/[a-f0-9-]{36}$/)) {
+      // Si on venait de "À traiter", garder "À traiter" actif
+      const lastList = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('candidats_last_list') : null
+      return lastList !== 'a_traiter'
+    }
     const allHrefs = [...NAV_ITEMS, ...FOOTER_ITEMS].map(i => i.href)
     const subRoutes = ['/candidats/a-traiter']
     const moreSpecific = [...allHrefs, ...subRoutes].some(h => h !== href && h.startsWith(href + '/') && pathname.startsWith(h))
@@ -286,15 +292,18 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   }} />
                 )}
               </Link>
-              {showATraiterBadge && (
+              {showATraiterBadge && (() => {
+                const isOnFicheFromATraiter = pathname.match(/^\/candidats\/[a-f0-9-]{36}$/) && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('candidats_last_list') === 'a_traiter'
+                const aTraiterActive = pathname === '/candidats/a-traiter' || isOnFicheFromATraiter
+                return (
                 <Link
                   href="/candidats/a-traiter"
                   className="d-nav-link"
                   style={{
                     paddingLeft: 36, fontSize: 12,
-                    background: pathname === '/candidats/a-traiter' ? 'rgba(245,166,35,0.15)' : undefined,
-                    color: pathname === '/candidats/a-traiter' ? 'var(--primary)' : undefined,
-                    fontWeight: pathname === '/candidats/a-traiter' ? 700 : undefined,
+                    background: aTraiterActive ? 'rgba(245,166,35,0.15)' : undefined,
+                    color: aTraiterActive ? 'var(--primary)' : undefined,
+                    fontWeight: aTraiterActive ? 700 : undefined,
                   }}
                 >
                   <span style={{
@@ -307,7 +316,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   </span>
                   À traiter
                 </Link>
-              )}
+                )
+              })()}
             </div>
           )
         })}

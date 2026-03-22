@@ -445,7 +445,10 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
 
   const handleCardClick = (id: string) => {
     if (selectedIds.size > 0) toggleSelect(id)
-    else router.push(`/candidats/${id}`)
+    else {
+      sessionStorage.setItem('candidats_last_list', mode === 'a_traiter' ? 'a_traiter' : 'all')
+      router.push(`/candidats/${id}`)
+    }
   }
 
   const initiales = (c: any) => {
