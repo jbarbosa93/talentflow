@@ -60,24 +60,35 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
     }
   }
 
-  function loadImage() {
+  async function loadImage() {
     setLoading(true)
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      const canvas = canvasRef.current!
-      const scale = Math.min(1, 900 / img.width)
-      canvas.width = img.width * scale
-      canvas.height = img.height * scale
-      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+    try {
+      // Télécharger via fetch pour éviter les problèmes CORS
+      const res = await fetch(cvUrl)
+      if (!res.ok) throw new Error('Téléchargement échoué')
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
 
-      const overlay = overlayRef.current!
-      overlay.width = canvas.width
-      overlay.height = canvas.height
+      const img = new Image()
+      img.onload = () => {
+        const canvas = canvasRef.current!
+        const scale = Math.min(1, 900 / img.width)
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+        const overlay = overlayRef.current!
+        overlay.width = canvas.width
+        overlay.height = canvas.height
+        setLoading(false)
+        URL.revokeObjectURL(blobUrl)
+      }
+      img.onerror = () => { setError('Impossible de charger l\'image'); setLoading(false); URL.revokeObjectURL(blobUrl) }
+      img.src = blobUrl
+    } catch {
+      setError('Impossible de charger l\'image')
       setLoading(false)
     }
-    img.onerror = () => { setError('Impossible de charger l\'image'); setLoading(false) }
-    img.src = cvUrl
   }
 
   const getPos = (e: React.MouseEvent<HTMLCanvasElement>) => {
