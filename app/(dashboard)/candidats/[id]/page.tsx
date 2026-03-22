@@ -6,7 +6,7 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import PhotoCropModal from '@/components/PhotoCropModal'
-import DocumentsSection from '@/components/DocumentsSection'
+import DocumentsPanel from '@/components/DocumentsSection'
 
 // Drapeau emoji pour chaque langue
 const LANG_FLAGS: Record<string, string> = {
@@ -146,6 +146,7 @@ export default function CandidatDetailPage() {
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
   const [showMenu, setShowMenu]           = useState(false)
+  const [showDocuments, setShowDocuments] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [mergeSearch, setMergeSearch]     = useState('')
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
@@ -1080,14 +1081,30 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Documents */}
-          <DocumentsSection
-            candidatId={candidat.id}
-            documents={(candidat.documents as CandidatDocument[]) || []}
-            onUpdate={(docs) => {
-              updateCandidat.mutate({ id, data: { documents: docs } as any })
+          {/* Documents — ouvre le panneau latéral */}
+          <button
+            onClick={() => setShowDocuments(true)}
+            className="neo-card-soft"
+            style={{
+              padding: 14, width: '100%', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8,
+              border: '1px solid var(--border)', background: 'var(--card)',
+              fontFamily: 'inherit', textAlign: 'left',
+              transition: 'border-color 0.15s, box-shadow 0.15s',
             }}
-          />
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+          >
+            <FolderOpen size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>Documents</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, color: 'var(--muted)',
+              background: 'var(--border)', borderRadius: 10, padding: '2px 7px',
+            }}>
+              {((candidat.documents as CandidatDocument[]) || []).length + (candidat.cv_url ? 1 : 0)}
+            </span>
+            <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
+          </button>
 
           {/* Notes et Infos sont maintenant en panneau slide-in (voir en bas du composant) */}
         </div>
@@ -1680,6 +1697,19 @@ export default function CandidatDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ── Panneau Documents (slide-in) ── */}
+      <DocumentsPanel
+        open={showDocuments}
+        onClose={() => setShowDocuments(false)}
+        candidatId={candidat.id}
+        documents={(candidat.documents as CandidatDocument[]) || []}
+        cvUrl={candidat.cv_url}
+        cvFileName={candidat.cv_nom_fichier}
+        onUpdate={(docs) => {
+          updateCandidat.mutate({ id, data: { documents: docs } as any })
+        }}
+      />
 
       {/* ── Modal Fusionner avec ── */}
       {showMergeSearch && (
