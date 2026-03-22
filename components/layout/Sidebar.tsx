@@ -28,7 +28,6 @@ const NAV_ITEMS = [
 const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug },
   { href: '/outils',                     label: 'Outils',            icon: Wrench },
-  { href: '/parametres/demandes-acces',  label: 'Demandes d\'accès', icon: UserCheck, adminOnly: true },
   { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
   { href: '/parametres',                 label: 'Paramètres',        icon: Settings },
 ]
@@ -84,12 +83,38 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
+  // Compteur demandes d'accès en attente
+  const { data: demandesCount } = useQuery({
+    queryKey: ['demandes-acces-count'],
+    queryFn: async () => {
+      try {
+        const supabase = createClient()
+        const { count } = await supabase
+          .from('demandes_acces')
+          .select('*', { count: 'exact', head: true })
+          .eq('statut', 'en_attente')
+        return count || 0
+      } catch { return 0 }
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    placeholderData: 0,
+  })
+
   const OUTILS_PATHS = ['/parametres/import-masse', '/parametres/corriger-photos', '/parametres/doublons']
+
+  const ADMIN_PATHS = ['/parametres/admin', '/parametres/demandes-acces']
 
   const isActive = (href: string, exact?: boolean) => {
     // Sur les pages outils, seul /outils est actif — pas /parametres
     if (OUTILS_PATHS.includes(pathname)) {
       if (href === '/outils') return true
+      if (href === '/parametres') return false
+      return pathname === href
+    }
+    // Sur les pages admin, seul Administration est actif — pas Paramètres
+    if (ADMIN_PATHS.includes(pathname)) {
+      if (href === '/parametres/admin') return true
       if (href === '/parametres') return false
       return pathname === href
     }
@@ -356,6 +381,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             const Icon = item.icon
             const active = isActive(item.href, (item as any).exact)
             const isParams = item.href === '/parametres'
+            const isAdmin = item.href === '/parametres/admin'
             const showDot = isParams && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
             return (
               <motion.div
@@ -384,6 +410,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
+                  {/* Badge demandes d'accès sur Administration */}
+                  {isAdmin && typeof demandesCount === 'number' && demandesCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#EF4444', color: 'white',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {demandesCount}
+                    </span>
+                  )}
                   {showDot && (
                     <span style={{
                       marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
@@ -392,6 +429,33 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                     }} />
                   )}
                 </Link>
+                {/* Sous-menu Administration : Demandes d'accès */}
+                {isAdmin && active && (
+                  <Link
+                    href="/parametres/demandes-acces"
+                    className="d-nav-link"
+                    style={{
+                      position: 'relative', zIndex: 1,
+                      paddingLeft: 36, fontSize: 12,
+                      background: pathname === '/parametres/demandes-acces' ? 'rgba(245,166,35,0.15)' : undefined,
+                      color: pathname === '/parametres/demandes-acces' ? 'var(--primary)' : undefined,
+                      fontWeight: pathname === '/parametres/demandes-acces' ? 700 : undefined,
+                    }}
+                  >
+                    <UserCheck size={14} strokeWidth={1.5} style={{ opacity: 0.7 }} />
+                    Demandes d&apos;accès
+                    {typeof demandesCount === 'number' && demandesCount > 0 && (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 16, height: 16, borderRadius: 99,
+                        padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: '#EF4444', color: 'white',
+                        fontSize: 9, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        {demandesCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
               </motion.div>
             )
           })}
