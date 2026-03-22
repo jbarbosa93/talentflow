@@ -230,10 +230,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
   let photoUrl: string | null = null
   const docType = analyse?.document_type || 'cv'
+  console.log(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
   if (isPDF && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+      console.log('[CV Parse] Extraction photo en cours...')
       const photoBuffer = await extractPhotoFromPDF(buffer)
+      console.log(`[CV Parse] Photo buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
       if (photoBuffer) {
         const photoTimestamp = Date.now()
         const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`

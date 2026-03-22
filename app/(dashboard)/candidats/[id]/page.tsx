@@ -1743,7 +1743,11 @@ export default function CandidatDetailPage() {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
         }}
         onCvChange={async (url, fileName) => {
-          // 0. Sauvegarder l'ancien CV dans les documents (catégorie CV, marqué ancien)
+          // 0. Une seule mutation : sauvegarder ancien CV + mettre à jour le nouveau
+          const updatePayload: Record<string, any> = {
+            cv_url: url,
+            cv_nom_fichier: fileName,
+          }
           if (candidat.cv_url) {
             const ancienName = candidat.cv_nom_fichier || 'CV précédent'
             const oldDoc = {
@@ -1753,16 +1757,20 @@ export default function CandidatDetailPage() {
               uploaded_at: new Date().toISOString(),
             }
             const currentDocs = (candidat.documents as any[]) || []
-            updateCandidat.mutate({ id, data: { documents: [...currentDocs, oldDoc] } as any })
+            updatePayload.documents = [...currentDocs, oldDoc]
           }
-          // 1. Mettre à jour le CV principal
-          updateCandidat.mutate({ id, data: { cv_url: url, cv_nom_fichier: fileName } as any })
-          // 2. Re-parser le CV pour mettre à jour expériences/formations
+          await new Promise<void>((resolve) => {
+            updateCandidat.mutate({ id, data: updatePayload as any }, { onSettled: () => resolve() })
+          })
+
+          // 1. Re-parser le CV pour photo + expériences/formations
           toast.info('Analyse IA du nouveau CV en cours...')
           try {
             const res = await fetch(url)
             const blob = await res.blob()
-            const file = new File([blob], fileName, { type: blob.type })
+            const ext = fileName.split('.').pop()?.toLowerCase() || 'pdf'
+            const mimeType = ext === 'pdf' ? 'application/pdf' : blob.type
+            const file = new File([blob], fileName, { type: mimeType })
             const formData = new FormData()
             formData.append('cv', file)
             formData.append('update_id', id)
@@ -1771,9 +1779,13 @@ export default function CandidatDetailPage() {
             if (parseRes.ok) {
               queryClient.invalidateQueries({ queryKey: ['candidat', id] })
               toast.success('CV mis à jour et ré-analysé')
+            } else {
+              const errData = await parseRes.json().catch(() => ({}))
+              console.error('[CV Change] Parse error:', errData)
+              toast.error('CV chargé mais analyse IA échouée')
             }
-          } catch {
-            // Le CV est quand même mis à jour, juste le parsing a échoué
+          } catch (err) {
+            console.error('[CV Change] Error:', err)
           }
         }}
       />
