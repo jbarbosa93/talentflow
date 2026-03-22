@@ -1408,37 +1408,49 @@ export default function CandidatDetailPage() {
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
-                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', position: 'relative' }}
+                style={{
+                  flex: 1, overflow: 'auto', background: '#F1F5F9', position: 'relative',
+                  cursor: cvZoom > 1 ? 'grab' : 'default',
+                }}
                 onMouseDown={cvZoom > 1 ? cvDragStart : undefined}
                 onMouseMove={cvZoom > 1 ? cvDragMove : undefined}
                 onMouseUp={cvZoom > 1 ? cvDragEnd : undefined}
                 onMouseLeave={cvZoom > 1 ? cvDragEnd : undefined}
-                onWheel={cvZoom > 1 ? (e) => {
-                  const el = cvScrollRef.current; if (!el) return
-                  el.scrollTop += e.deltaY
-                  el.scrollLeft += e.deltaX
-                } : undefined}
+                onWheel={(e) => {
+                  if (cvZoom > 1) {
+                    const el = cvScrollRef.current; if (!el) return
+                    el.scrollTop += e.deltaY
+                    el.scrollLeft += e.deltaX
+                  }
+                }}
               >
+                {/* Outer spacer = taille agrandie pour le scroll */}
                 <div style={{
-                  width: '100%',
-                  height: '100%',
-                  background: '#F1F5F9',
+                  width: `${cvZoom * 100}%`,
+                  height: `${cvZoom * 100}%`,
+                  minWidth: '100%',
+                  minHeight: '100%',
                   position: 'relative',
                 }}>
+                  {/* Inner = taille réelle, agrandie visuellement par transform:scale */}
                   <div style={{
-                    width: '100%', height: '100%',
+                    position: 'absolute', top: 0, left: 0,
+                    width: `${100 / cvZoom}%`,
+                    height: `${100 / cvZoom}%`,
+                    transform: `scale(${cvZoom})`,
+                    transformOrigin: 'top left',
                   }}>
                     {cvIsWord && <>
                       <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
                     </>}
                     <iframe
-                      key={`cv-iframe-${cvRotation}-${cvZoom}`}
+                      key={`cv-iframe-${cvRotation}`}
                       src={
                         cvIsPDF && cvRotation !== 0
-                          ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                          ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
                           : cvIsPDF
-                            ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                            ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=page-width`
                             : docViewerUrl
                       }
                       style={{
