@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Loader2, Image, FileText,
@@ -72,6 +72,12 @@ export default function AnalyserCandidatsPage() {
   // Unified analysis state
   const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>('idle')
   const [overallProgress, setOverallProgress] = useState<OverallProgress>({ current: 0, total: 0, phase: '' })
+
+  // Fix-all "Candidat" state
+  const [fixAllRunning, setFixAllRunning] = useState(false)
+  const fixAllCancelRef = useRef(false)
+  const [fixAllProgress, setFixAllProgress] = useState({ current: 0, total: 0 })
+  const [fixAllResults, setFixAllResults] = useState<Record<string, { success: boolean; nouveau_nom?: string; error?: string }>>({})
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -256,6 +262,43 @@ export default function AnalyserCandidatsPage() {
       })
     }
   }
+
+  // Compute candidates with nom='Candidat' from fiches_incompletes
+  const candidatsNomCandidat = result?.fiches_incompletes.filter(
+    f => f.nom === 'Candidat' && f.missing_fields.includes('nom')
+  ) ?? []
+
+  const fixAllCandidats = useCallback(async () => {
+    if (candidatsNomCandidat.length === 0) return
+    fixAllCancelRef.current = false
+    setFixAllRunning(true)
+    setFixAllProgress({ current: 0, total: candidatsNomCandidat.length })
+    setFixAllResults({})
+
+    for (let i = 0; i < candidatsNomCandidat.length; i++) {
+      if (fixAllCancelRef.current) break
+      const c = candidatsNomCandidat[i]
+      setFixAllProgress({ current: i + 1, total: candidatsNomCandidat.length })
+
+      try {
+        const res = await fetch('/api/candidats/audit/fix-candidat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidatId: c.id }),
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          setFixAllResults(prev => ({ ...prev, [c.id]: { success: true, nouveau_nom: data.nouveau_nom } }))
+        } else {
+          setFixAllResults(prev => ({ ...prev, [c.id]: { success: false, error: data.error || 'Erreur' } }))
+        }
+      } catch {
+        setFixAllResults(prev => ({ ...prev, [c.id]: { success: false, error: 'Erreur réseau' } }))
+      }
+    }
+
+    setFixAllRunning(false)
+  }, [candidatsNomCandidat])
 
   const isRunning = analysisPhase !== 'idle' && analysisPhase !== 'done'
   const s = result?.summary
@@ -446,6 +489,106 @@ export default function AnalyserCandidatsPage() {
             <KpiCard icon={<ClipboardList size={20} />} label="Fiches incompletes" value={s.fiches_incompletes} color="#3B82F6" />
             <KpiCard icon={<Paperclip size={20} />} label="Sans CV" value={s.sans_cv} color="#64748B" />
           </div>
+
+          {/* Fix all "Candidat" section */}
+          {candidatsNomCandidat.length > 0 && (
+            <div className="neo-card-soft" style={{
+              padding: 20, marginBottom: 24,
+              border: '1.5px solid #F59E0B40',
+              background: 'linear-gradient(135deg, #FFFBEB, var(--card))',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <AlertTriangle size={18} color="#F59E0B" />
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+                  {candidatsNomCandidat.length} candidat{candidatsNomCandidat.length > 1 ? 's' : ''} avec le nom &laquo; Candidat &raquo; — parsing initial echoue
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Ces candidats ont un CV mais le parsing initial n&apos;a pas reussi a extraire leur nom. Le re-parsing va relire chaque CV et corriger les informations.
+              </p>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {!fixAllRunning ? (
+                  <button
+                    onClick={fixAllCandidats}
+                    disabled={isRunning}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                      border: 'none', cursor: isRunning ? 'not-allowed' : 'pointer',
+                      background: 'linear-gradient(135deg, #F59E0B, #D97706)',
+                      color: '#fff', fontFamily: 'inherit',
+                      boxShadow: '0 2px 8px rgba(245,158,11,0.3)',
+                      opacity: isRunning ? 0.5 : 1,
+                    }}
+                  >
+                    <Wrench size={14} /> Re-analyser tous
+                  </button>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#D97706' }}>
+                      <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                      Correction en cours... {fixAllProgress.current}/{fixAllProgress.total}
+                    </span>
+                    <button
+                      onClick={() => { fixAllCancelRef.current = true }}
+                      style={{
+                        padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      Arreter
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Results list */}
+              {Object.keys(fixAllResults).length > 0 && (
+                <div style={{ marginTop: 14, maxHeight: 300, overflowY: 'auto' }}>
+                  {candidatsNomCandidat.map(c => {
+                    const r = fixAllResults[c.id]
+                    if (!r) return null
+                    return (
+                      <div key={`fix-${c.id}`} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '6px 0', borderBottom: '1px solid var(--border)',
+                        fontSize: 12,
+                      }}>
+                        {r.success ? (
+                          <CheckCircle size={14} color="#10B981" style={{ flexShrink: 0 }} />
+                        ) : (
+                          <XCircle size={14} color="#EF4444" style={{ flexShrink: 0 }} />
+                        )}
+                        <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
+                          {c.prenom} {c.nom}
+                        </span>
+                        {r.success && r.nouveau_nom && (
+                          <span style={{ color: '#10B981', fontWeight: 600 }}>
+                            → {r.nouveau_nom}
+                          </span>
+                        )}
+                        {!r.success && r.error && (
+                          <span style={{ color: '#EF4444' }}>
+                            — {r.error}
+                          </span>
+                        )}
+                        <a
+                          href={`/candidats/${c.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ marginLeft: 'auto', color: 'var(--muted)', textDecoration: 'none' }}
+                        >
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Detail sections */}
 
