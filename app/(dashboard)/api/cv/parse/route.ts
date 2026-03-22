@@ -290,9 +290,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (analyse.formations_details?.length) updateData.formations_details = analyse.formations_details
     if (analyse.resume) updateData.resume_ia = analyse.resume
     if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
-    if (cvUrl) updateData.cv_url = cvUrl
-    updateData.cv_nom_fichier = file.name
-    if (photoUrl) updateData.photo_url = photoUrl
+    // Ne PAS mettre à jour photo, nom, prénom, cv_url lors d'un re-parsing
+    // Le CV et la photo sont gérés séparément
     updateData.updated_at = new Date().toISOString()
 
     const { data: updated, error: updateError } = await adminClient
