@@ -63,19 +63,20 @@ export async function GET(request: NextRequest) {
         // Construire un OR de .in() n'est pas possible, utiliser la première batch pour la requête paginée
         // et retourner le total réel
         const totalFound = ids.length
+        const totalPages = Math.ceil(totalFound / perPage)
         const startIdx = (page - 1) * perPage
         const pageIds = ids.slice(startIdx, startIdx + perPage)
         if (pageIds.length === 0) {
-          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage })
+          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
         }
         query = query.in('id', pageIds)
         // Désactiver le filtre import_status/statut car déjà filtré par la RPC
         // et désactiver la pagination Supabase car on pagine manuellement
         const { data, error } = await query
         if (error) throw error
-        return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage })
+        return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
       } else if (!searchError && searchIds && searchIds.length === 0) {
-        return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage })
+        return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage, total_pages: 0 })
       } else {
         // Fallback si la RPC n'existe pas — recherche basique
         for (const word of words) {
