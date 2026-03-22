@@ -170,28 +170,36 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
         const data = ct.includes('application/json') ? await res.json() : {}
         if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
 
-        // 3. Auto-update if duplicate
+        // 3. Doublon détecté
         if (data.isDuplicate && data.candidatExistant?.id) {
-          updateFile(idx, { status: 'parsing' })
+          // Si le serveur a déjà auto-ajouté le document (non-CV)
+          if (data.updated) {
+            const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
+            updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'Document ajouté' })
+            lastSuccessCandidat = data.candidat || data.candidatExistant
+          } else {
+            // CV doublon → auto-actualiser
+            updateFile(idx, { status: 'parsing' })
 
-          const updateBody: Record<string, any> = {
-            storage_path: storagePath,
-            statut: 'nouveau',
-            update_id: data.candidatExistant.id,
+            const updateBody: Record<string, any> = {
+              storage_path: storagePath,
+              statut: 'nouveau',
+              update_id: data.candidatExistant.id,
+            }
+            if (offreId) updateBody.offre_id = offreId
+
+            const res2 = await fetch('/api/cv/parse', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updateBody),
+            })
+            const data2 = await res2.json()
+            if (!res2.ok) throw new Error(data2.error || `Erreur ${res2.status}`)
+
+            const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
+            updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
+            lastSuccessCandidat = data2.candidat
           }
-          if (offreId) updateBody.offre_id = offreId
-
-          const res2 = await fetch('/api/cv/parse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateBody),
-          })
-          const data2 = await res2.json()
-          if (!res2.ok) throw new Error(data2.error || `Erreur ${res2.status}`)
-
-          const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
-          updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'Candidat actualisé' })
-          lastSuccessCandidat = data2.candidat
         } else {
           const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
           updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé' })

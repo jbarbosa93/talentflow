@@ -413,8 +413,33 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
     candidatExistant = byName
   }
+  // Classification document
+  const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
+
+  // 8c. Doublon trouvé
   if (candidatExistant) {
     console.log(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+
+    // Pour les documents non-CV, auto-ajouter au candidat existant (pas demander)
+    if (isNotCV && cvUrl) {
+      const mappedType = mapDocumentType(analyse.document_type)
+      const { data: existDoc } = await adminClient.from('candidats').select('documents').eq('id', candidatExistant.id).single()
+      const docs = (existDoc?.documents as any[]) || []
+      docs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
+      await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
+      console.log(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
+      return NextResponse.json({
+        isDuplicate: true,
+        candidatExistant,
+        analyse,
+        updated: true,
+        candidat: candidatExistant,
+        message: `Document ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`,
+      })
+    }
+
+    // Pour les CVs, retourner le doublon pour auto-actualisation côté client
     await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'candidat_existant' } })
     return NextResponse.json({
       isDuplicate: true,
@@ -424,15 +449,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     })
   }
 
-  // 9. Créer le candidat en base
-  console.log('[CV Parse] Insertion en base...')
-
-  // Document classification for new candidates
-  const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
+  // 8d. Document non-CV sans candidat existant → ne PAS créer de nouveau candidat
   if (isNotCV) {
-    console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
+    console.log(`[CV Parse] Document ${analyse.document_type} sans candidat existant — ignoré`)
+    return NextResponse.json({
+      error: `Document classifié comme "${analyse.document_type}" mais aucun candidat correspondant trouvé. Importez d'abord le CV du candidat.`,
+      document_type: analyse.document_type,
+    }, { status: 422 })
   }
-  const mappedTypeForInsert = isNotCV ? mapDocumentType(analyse.document_type) : null
+
+  // 9. Créer le candidat en base (CV uniquement)
+  console.log('[CV Parse] Insertion en base...')
 
   const nouveauCandidat: CandidatInsert = {
     nom: analyse.nom || 'Candidat',
@@ -444,8 +471,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     annees_exp: analyse.annees_exp || 0,
     competences: analyse.competences || [],
     formation: analyse.formation || null,
-    cv_url: isNotCV ? null : cvUrl,
-    cv_nom_fichier: isNotCV ? null : file.name,
+    cv_url: cvUrl,
+    cv_nom_fichier: file.name,
     photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: texteCV.slice(0, 10000),
@@ -460,7 +487,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter',
-    ...(isNotCV && cvUrl ? { documents: [{ name: file.name, url: cvUrl, type: mappedTypeForInsert || 'autre' as DocumentType, uploaded_at: new Date().toISOString() }] } : {}),
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient
