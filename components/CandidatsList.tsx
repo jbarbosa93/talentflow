@@ -1103,7 +1103,7 @@ export default function CandidatsList() {
                 </div>
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: previewZoom === 1 ? '100%' : `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                   <iframe
                     key={`preview-${previewZoom}`}
                     src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&zoom=page-width` : `${hoveredCv.url}#toolbar=0&navpanes=0&zoom=page-width`}
@@ -1112,7 +1112,7 @@ export default function CandidatsList() {
                   />
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: previewZoom === 1 ? '100%' : `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                   <iframe
                     key={`preview-doc-${previewZoom}`}
                     src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
