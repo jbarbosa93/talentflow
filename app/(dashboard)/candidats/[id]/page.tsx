@@ -1386,14 +1386,34 @@ export default function CandidatDetailPage() {
               </div>
             ) : cvIsImage ? (
               <div ref={imgContainerRef}
-                style={{ flex: 1, overflow: 'auto', background: '#F1F5F9', cursor: 'grab', userSelect: 'none', display: 'flex', justifyContent: 'center', padding: 16 }}
-                onMouseDown={e => { const el = imgContainerRef.current; if (!el) return; imgDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }; el.style.cursor = 'grabbing' }}
+                style={{
+                  flex: 1, overflow: 'auto', background: '#F1F5F9',
+                  cursor: cvZoom > 1 ? 'grab' : 'default', userSelect: 'none',
+                  padding: 16,
+                }}
+                onMouseDown={e => { if (cvZoom <= 1) return; const el = imgContainerRef.current; if (!el) return; imgDragRef.current = { active: true, startX: e.clientX, startY: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop }; el.style.cursor = 'grabbing' }}
                 onMouseMove={e => { const d = imgDragRef.current; const el = imgContainerRef.current; if (!d.active || !el) return; el.scrollLeft = d.scrollLeft - (e.clientX - d.startX); el.scrollTop = d.scrollTop - (e.clientY - d.startY) }}
-                onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
-                onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = 'grab' }}
+                onMouseUp={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = cvZoom > 1 ? 'grab' : 'default' }}
+                onMouseLeave={() => { imgDragRef.current.active = false; if (imgContainerRef.current) imgContainerRef.current.style.cursor = cvZoom > 1 ? 'grab' : 'default' }}
+                onWheel={cvZoom > 1 ? (e) => {
+                  const el = imgContainerRef.current; if (!el) return
+                  el.scrollTop += e.deltaY
+                  el.scrollLeft += e.deltaX
+                } : undefined}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', overflow: cvRotation !== 0 ? 'visible' : 'hidden' }}>
-                  <img src={candidat.cv_url} alt="CV" style={{ width: (cvRotation === 90 || cvRotation === 270) ? `${cvZoom * 100}vh` : `${cvZoom * 100}%`, maxWidth: 'none', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', pointerEvents: 'none', transform: `rotate(${cvRotation}deg)`, transformOrigin: 'center center', transition: 'transform 0.3s ease' }} />
+                <div style={{
+                  width: `${cvZoom * 100}%`,
+                  minWidth: '100%',
+                  display: 'flex', justifyContent: 'center',
+                }}>
+                  <img src={candidat.cv_url} alt="CV" style={{
+                    width: '100%', maxWidth: 'none',
+                    borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                    pointerEvents: 'none',
+                    transform: cvRotation ? `rotate(${cvRotation}deg)` : undefined,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.3s ease',
+                  }} />
                 </div>
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
