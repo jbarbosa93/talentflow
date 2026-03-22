@@ -33,11 +33,16 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
   async function loadPdf() {
     try {
       setLoading(true)
+
+      // Télécharger via fetch pour éviter les problèmes CORS
+      const fetchRes = await fetch(cvUrl)
+      if (!fetchRes.ok) throw new Error('Téléchargement échoué')
+      const arrayBuffer = await fetchRes.arrayBuffer()
+
       const pdfjsLib = await import('pdfjs-dist')
-      // Use unpkg CDN for the worker (avoids Next.js bundling issues)
       pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
-      const pdf = await pdfjsLib.getDocument({ url: cvUrl, withCredentials: false }).promise
+      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) }).promise
       const page = await pdf.getPage(1)
       const scale = Math.min(2, 900 / page.getViewport({ scale: 1 }).width)
       const viewport = page.getViewport({ scale })
