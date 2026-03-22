@@ -61,12 +61,26 @@ const calculerAge = (dateNaissance: string | null): number | null => {
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
-export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
+const IMPORT_STATUS_OPTS = [
+  { value: 'a_traiter', label: 'À traiter' },
+  { value: 'traite',    label: 'Actif' },
+  { value: 'archive',   label: 'Archivé' },
+]
+
+export default function CandidatsList() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
-  const sessionStorageKey = mode === 'all' ? 'candidats_search' : 'candidats_atraiter_search'
+  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('candidats_import_status')
+      if (saved) return saved
+    }
+    return 'a_traiter'
+  })
+
+  const sessionStorageKey = 'candidats_search'
 
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const [filtreMetier, setFiltreMetier]   = useState('')
@@ -158,9 +172,14 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
     } catch {}
   }, [])
 
+  // Persist import status filter
+  useEffect(() => {
+    sessionStorage.setItem('candidats_import_status', importStatusFilter)
+  }, [importStatusFilter])
+
   const { data: candidatsData, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
-    import_status: mode === 'all' ? 'traite' : 'a_traiter',
+    import_status: importStatusFilter as ImportStatus,
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
@@ -446,7 +465,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
   const handleCardClick = (id: string) => {
     if (selectedIds.size > 0) toggleSelect(id)
     else {
-      sessionStorage.setItem('candidats_last_list', mode === 'a_traiter' ? 'a_traiter' : 'all')
+      sessionStorage.setItem('candidats_last_list', importStatusFilter === 'a_traiter' ? 'a_traiter' : 'all')
       router.push(`/candidats/${id}`)
     }
   }
@@ -606,7 +625,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
         )}
 
         {/* Quick validate button (a_traiter mode only) */}
-        {mode === 'a_traiter' && (
+        {importStatusFilter === 'a_traiter' && (
           <button
             onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
             title="Valider ce candidat"
@@ -638,9 +657,9 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
       {/* Header */}
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title">{mode === 'all' ? 'Candidats' : 'Candidats à traiter'}</h1>
+          <h1 className="d-page-title">Candidats</h1>
           <p className="d-page-sub">
-            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''}${mode === 'all' ? ' au total' : ' à traiter'}`}
+            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''}`}
             {aiResults !== null && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}&middot; Résultats IA
@@ -676,7 +695,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
           <button onClick={deselectAll} className="neo-btn-ghost neo-btn-sm">
             <X size={13} /> Désélectionner
           </button>
-          {mode === 'a_traiter' && (
+          {importStatusFilter === 'a_traiter' && (
             <>
               <button
                 onClick={handleBulkValidate}
@@ -696,7 +715,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
               </button>
             </>
           )}
-          {mode === 'all' && (
+          {importStatusFilter === 'traite' && (
             <button
               onClick={() => setShowMessage(true)}
               className="neo-btn neo-btn-sm"
@@ -752,6 +771,20 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
             {agenceMetiers.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         )}
+
+        {/* Statut import filter */}
+        <select
+          value={importStatusFilter}
+          onChange={e => setImportStatusFilter(e.target.value)}
+          className="neo-input-soft"
+          style={{ width: 'auto', cursor: 'pointer', fontSize: 13, paddingRight: 8, fontWeight: 700,
+            color: importStatusFilter === 'a_traiter' ? '#D97706' : importStatusFilter === 'archive' ? '#6B7280' : '#059669',
+            borderColor: importStatusFilter === 'a_traiter' ? '#FDE68A' : importStatusFilter === 'archive' ? '#E5E7EB' : '#BBF7D0',
+            background: importStatusFilter === 'a_traiter' ? '#FFFBEB' : importStatusFilter === 'archive' ? '#F9FAFB' : '#F0FDF4',
+          }}
+        >
+          {IMPORT_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
 
         {/* Sort */}
         <div style={{ position: 'relative' }}>
@@ -891,8 +924,8 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
       ) : sorted.length === 0 ? (
         <div className="neo-empty">
           <div className="neo-empty-icon">{'\uD83D\uDD0D'}</div>
-          <div className="neo-empty-title">{mode === 'all' ? 'Aucun candidat trouvé' : 'Aucun candidat à traiter'}</div>
-          <div className="neo-empty-sub">{mode === 'all' ? 'Validez des candidats depuis "À traiter" ou importez-en' : 'Tous les candidats importés ont été traités'}</div>
+          <div className="neo-empty-title">Aucun candidat trouvé</div>
+          <div className="neo-empty-sub">Modifiez vos filtres ou importez de nouveaux candidats</div>
           <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
             <Upload size={15} /> Importer Candidat/s
           </button>
@@ -1127,7 +1160,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
       )}
 
       {/* Modal Message (all mode only) */}
-      {mode === 'all' && showMessage && (() => {
+      {importStatusFilter === 'traite' && showMessage && (() => {
         const selected = sorted.filter((c: any) => selectedIds.has(c.id))
         const avecTel   = selected.filter((c: any) => c.telephone)
         const sansTel   = selected.filter((c: any) => !c.telephone)
@@ -1283,7 +1316,7 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
       })()}
 
       {/* Pipeline dropdown (fixed position — bypass overflow clipping) — all mode only */}
-      {mode === 'all' && openPipelineId && pipelinePos && (() => {
+      {importStatusFilter === 'traite' && openPipelineId && pipelinePos && (() => {
         const cand = allCandidats.find((x: any) => x.id === openPipelineId)
         if (!cand) return null
         return (

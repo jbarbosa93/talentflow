@@ -292,32 +292,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   }} />
                 )}
               </Link>
-              {showATraiterBadge && (() => {
-                const isOnFicheFromATraiter = pathname.match(/^\/candidats\/[a-f0-9-]{36}$/) && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('candidats_last_list') === 'a_traiter'
-                const aTraiterActive = pathname === '/candidats/a-traiter' || isOnFicheFromATraiter
-                return (
-                <Link
-                  href="/candidats/a-traiter"
-                  className="d-nav-link"
-                  style={{
-                    paddingLeft: 36, fontSize: 12,
-                    background: aTraiterActive ? 'rgba(245,166,35,0.15)' : undefined,
-                    color: aTraiterActive ? 'var(--primary)' : undefined,
-                    fontWeight: aTraiterActive ? 700 : undefined,
-                  }}
-                >
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    minWidth: 20, height: 20, borderRadius: 99, padding: '0 6px',
-                    background: 'rgba(245,166,35,0.25)', color: '#F5A623',
-                    fontSize: 10, fontWeight: 800, marginRight: 6,
-                  }}>
-                    {aTraiterCount}
-                  </span>
-                  À traiter
-                </Link>
-                )
-              })()}
+              {/* Badge à traiter supprimé — filtre intégré dans la page candidats */}
             </div>
           )
         })}

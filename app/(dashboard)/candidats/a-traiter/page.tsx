@@ -1,7 +1,12 @@
 'use client'
-import { Suspense } from 'react'
-import CandidatsList from '@/components/CandidatsList'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default function CandidatsATraiterPage() {
-  return <Suspense fallback={null}><CandidatsList mode="a_traiter" /></Suspense>
+export default function CandidatsATraiterRedirect() {
+  const router = useRouter()
+  useEffect(() => {
+    sessionStorage.setItem('candidats_import_status', 'a_traiter')
+    router.replace('/candidats')
+  }, [router])
+  return null
 }
