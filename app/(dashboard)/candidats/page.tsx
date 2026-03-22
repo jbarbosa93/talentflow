@@ -67,7 +67,13 @@ function CandidatsPageInner() {
 
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const [filtreMetier, setFiltreMetier]   = useState('')
-  const [search, setSearch]               = useState(() => searchParams.get('q') || '')
+  const [search, setSearch]               = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('candidats_search')
+      if (saved) return saved
+    }
+    return ''
+  })
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
     const s = searchParams.get('statut')
     return (s && ['nouveau','contacte','entretien','place','refuse'].includes(s) ? s : 'tous') as PipelineEtape | 'tous'
@@ -115,14 +121,17 @@ function CandidatsPageInner() {
   }, [hoveredCv])
 
 
-  // Persist search in URL
+  // Persist search in URL via sessionStorage (survives navigation)
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (search) params.set('q', search)
-    else params.delete('q')
-    const newUrl = `${window.location.pathname}?${params.toString()}`
-    window.history.replaceState({}, '', newUrl)
-  }, [search, searchParams])
+    if (search) sessionStorage.setItem('candidats_search', search)
+    else sessionStorage.removeItem('candidats_search')
+  }, [search])
+  // Restore search from sessionStorage on mount
+  useEffect(() => {
+    const saved = sessionStorage.getItem('candidats_search')
+    if (saved && !search) setSearch(saved)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
