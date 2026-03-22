@@ -5,6 +5,12 @@
 
 /* ── Design Tokens ── */
 html, :root {
+  /* Aliases rétrocompatibilité */
+  --ink:    var(--foreground);
+  --ink2:   var(--muted);
+  --bg:     var(--background);
+  --bg-card: var(--surface);
+  --text:   var(--foreground);
   --background:           #F8FAFC;
   --surface:              #FFFFFF;
   --sidebar-bg:           #0F172A;
@@ -708,6 +714,118 @@ body {
 
 /* shadcn dark override reset */
 .dark { color-scheme: light; }
+
+/* ══════════════════════════════════════
+   DARK MODE — data-theme="dark"
+   ══════════════════════════════════════ */
+[data-theme="dark"] {
+  --background:           #0D1117;
+  --surface:              #161B22;
+  --sidebar-bg:           #010409;
+  --sidebar-border:       rgba(255,255,255,0.08);
+  --foreground:           #E6EDF3;
+  --muted:                #8B949E;
+  --border:               #30363D;
+  --card-shadow:          0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --card-shadow-hover:    0 8px 25px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3);
+  --primary-soft:         rgba(245,166,35,0.14);
+  --secondary:            #21262D;
+  --secondary-foreground: #E6EDF3;
+  --accent:               rgba(245,166,35,0.14);
+  --accent-foreground:    #E6EDF3;
+  --card:                 #161B22;
+  --card-foreground:      #E6EDF3;
+  --input:                #21262D;
+  color-scheme: dark;
+}
+
+/* Dark: surfaces blanches → surface var */
+[data-theme="dark"] .neo-card,
+[data-theme="dark"] .neo-card-soft,
+[data-theme="dark"] .neo-card-cream,
+[data-theme="dark"] .neo-table-wrap,
+[data-theme="dark"] .neo-empty,
+[data-theme="dark"] .neo-candidate-card,
+[data-theme="dark"] .neo-kanban-card,
+[data-theme="dark"] .neo-input,
+[data-theme="dark"] .neo-input-soft {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+[data-theme="dark"] .neo-table th {
+  background: var(--background);
+  color: var(--muted);
+}
+[data-theme="dark"] .neo-table tr:hover td {
+  background: rgba(245,167,35,0.05);
+}
+[data-theme="dark"] .neo-badge-gray {
+  background: #21262D;
+  color: #8B949E;
+}
+[data-theme="dark"] .d-topbar,
+[data-theme="dark"] .d-search-input {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+[data-theme="dark"] .d-icon-btn {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+}
+[data-theme="dark"] .d-search-input:focus {
+  background: var(--background);
+}
+
+/* ══════════════════════════════════════
+   MOTION — transitions page
+   ══════════════════════════════════════ */
+.page-motion {
+  will-change: opacity, transform;
+}
+
+/* ══════════════════════════════════════
+   KPI CARDS — couleur accent par type
+   ══════════════════════════════════════ */
+.neo-kpi.kpi-blue::before  { background: #3B82F6; }
+.neo-kpi.kpi-green::before { background: #10B981; }
+.neo-kpi.kpi-violet::before { background: #8B5CF6; }
+.neo-kpi.kpi-yellow::before { background: var(--primary); }
+
+.neo-kpi.kpi-blue  .neo-kpi-icon { background: #EFF6FF; border-color: #BFDBFE; color: #3B82F6; }
+.neo-kpi.kpi-green .neo-kpi-icon { background: #F0FDF4; border-color: #BBF7D0; color: #10B981; }
+.neo-kpi.kpi-violet .neo-kpi-icon { background: #F5F3FF; border-color: #DDD6FE; color: #8B5CF6; }
+
+[data-theme="dark"] .neo-kpi.kpi-blue  .neo-kpi-icon { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3); }
+[data-theme="dark"] .neo-kpi.kpi-green .neo-kpi-icon { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); }
+[data-theme="dark"] .neo-kpi.kpi-violet .neo-kpi-icon { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.3); }
+
+/* ══════════════════════════════════════
+   SHIMMER — loading skeleton
+   ══════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--border) 25%, var(--secondary) 50%, var(--border) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ══════════════════════════════════════
+   NAV LINK — hover glow
+   ══════════════════════════════════════ */
+.d-nav-link:hover {
+  color: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.08);
+  box-shadow: inset 2px 0 0 rgba(245,167,35,0.5);
+}
+.d-nav-link.active {
+  box-shadow: none;
+}
 
 /* ══════════════════════════════════════
    MOBILE HAMBURGER BUTTON

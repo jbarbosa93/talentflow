@@ -231,8 +231,8 @@ export default function DoublonsPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <Link href="/parametres" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}>
-            <ArrowLeft size={14} /> Paramètres
+          <Link href="/outils" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}>
+            <ArrowLeft size={14} /> Outils
           </Link>
         </div>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
@@ -579,18 +579,7 @@ export default function DoublonsPage() {
         <div style={{ padding: '60px 24px', border: '2px dashed #E8E0C8', borderRadius: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
           <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', marginBottom: 6 }}>Prêt à analyser</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>L&apos;IA va comparer les candidats pour détecter les doublons</div>
-          <button
-            onClick={handleLancer}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10, padding: '14px 28px', fontSize: 15, fontWeight: 700,
-              borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-              background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A',
-              boxShadow: '0 4px 14px rgba(245,167,35,0.35)',
-            }}
-          >
-            <RefreshCw size={17} /> Lancer l&apos;analyse
-          </button>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>L&apos;IA va comparer les candidats pour détecter les doublons</div>
         </div>
       )}
 

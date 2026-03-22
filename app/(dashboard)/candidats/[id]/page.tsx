@@ -984,7 +984,7 @@ export default function CandidatDetailPage() {
                   <label style={{ ...labelStyle, marginBottom: 0 }}>Formation</label>
                   {isEditing && (
                     <button onClick={() => openEditModal('formation')} title="Modifier la formation"
-                      style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                      style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
                       <Pencil size={10} color="var(--muted)" />
                     </button>
                   )}
@@ -1003,7 +1003,7 @@ export default function CandidatDetailPage() {
               <label style={{ ...labelStyle, marginBottom: 0 }}>Compétences</label>
               {isEditing && (
                 <button onClick={() => openEditModal('competences')} title="Modifier les compétences"
-                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
                   <Pencil size={10} color="var(--muted)" />
                 </button>
               )}
@@ -1017,12 +1017,13 @@ export default function CandidatDetailPage() {
                   {comps.map((c: string) => (
                     <span key={c} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
-                      padding: '3px 9px', borderRadius: 6,
+                      padding: '4px 10px', borderRadius: 8,
                       fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-                      background: '#F1F5F9', color: '#334155',
-                      border: '1px solid #E2E8F0',
+                      background: 'var(--primary-soft)',
+                      color: 'var(--foreground)',
+                      border: '1px solid rgba(245,167,35,0.3)',
                     }}>
-                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
                       {c}
                     </span>
                   ))}
@@ -1040,7 +1041,7 @@ export default function CandidatDetailPage() {
                 <label style={{ ...labelStyle, marginBottom: 0 }}>Langues</label>
                 {isEditing && (
                   <button onClick={() => openEditModal('langues')} title="Modifier les langues"
-                    style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
+                    style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
                     <Pencil size={10} color="var(--muted)" />
                   </button>
                 )}
@@ -1054,10 +1055,11 @@ export default function CandidatDetailPage() {
                     {langs.map((l: string) => (
                       <span key={l} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '3px 9px', borderRadius: 6,
+                        padding: '4px 10px', borderRadius: 8,
                         fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-                        background: '#F8FAFC', color: '#334155',
-                        border: '1px solid #E2E8F0',
+                        background: 'rgba(59,130,246,0.1)',
+                        color: 'var(--foreground)',
+                        border: '1px solid rgba(59,130,246,0.25)',
                       }}>
                         <span style={{ fontSize: 13 }}>{getLangFlag(l)}</span>
                         {l}
@@ -1103,7 +1105,7 @@ export default function CandidatDetailPage() {
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Résumé IA */}
-          <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', background: '#FFFBF0', order: sectionsOrder.indexOf('resume') }}>
+          <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', order: sectionsOrder.indexOf('resume') }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Star size={13} style={{ color: 'var(--primary)' }} />
@@ -1111,8 +1113,8 @@ export default function CandidatDetailPage() {
               <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Résumé IA</h2>
               {isEditing && (
                 <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
-                  <button type="button" onClick={() => moveSection('resume', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                  <button type="button" onClick={() => moveSection('resume', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                  <button type="button" onClick={() => moveSection('resume', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                  <button type="button" onClick={() => moveSection('resume', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
                 </div>
               )}
             </div>
@@ -1144,8 +1146,8 @@ export default function CandidatDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {isEditing && (
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <button type="button" onClick={() => moveSection('experiences', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                      <button type="button" onClick={() => moveSection('experiences', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                      <button type="button" onClick={() => moveSection('experiences', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                      <button type="button" onClick={() => moveSection('experiences', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
                     </div>
                   )}
                   {isEditing && <button onClick={addExp} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
@@ -1211,8 +1213,8 @@ export default function CandidatDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {isEditing && (
                     <div style={{ display: 'flex', gap: 2 }}>
-                      <button type="button" onClick={() => moveSection('formations', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                      <button type="button" onClick={() => moveSection('formations', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                      <button type="button" onClick={() => moveSection('formations', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                      <button type="button" onClick={() => moveSection('formations', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
                     </div>
                   )}
                   {isEditing && <button onClick={addForm} className="neo-btn-ghost neo-btn-sm" style={{ fontSize: 11 }}>+ Ajouter</button>}
@@ -1266,8 +1268,8 @@ export default function CandidatDetailPage() {
                 <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Candidatures ({candidat.pipeline.length})</h2>
                 {isEditing && (
                   <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
-                    <button type="button" onClick={() => moveSection('candidatures', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                    <button type="button" onClick={() => moveSection('candidatures', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                    <button type="button" onClick={() => moveSection('candidatures', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                    <button type="button" onClick={() => moveSection('candidatures', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
                   </div>
                 )}
               </div>
@@ -1328,7 +1330,7 @@ export default function CandidatDetailPage() {
         {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
         {showCV && (
         <div style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
             {/* Header du viewer */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)' }}>
@@ -1337,40 +1339,38 @@ export default function CandidatDetailPage() {
               {candidat.cv_url && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <button onClick={() => setCvLightbox(true)}
-                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', marginRight: 4 }}
+                    className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}
                     title="Voir en plein écran">
-                    <Eye size={12} />
+                    <Eye size={13} />
                   </button>
                   <button onClick={downloadCV}
-                    style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', marginRight: 4 }}
+                    className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}
                     title="Télécharger le CV">
-                    <Download size={12} />
+                    <Download size={13} />
                   </button>
-                  <button
-                    onClick={printCV}
-                    title="Imprimer le CV"
-                    style={{ background:'none', border:'1px solid var(--border)', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'var(--text)', display:'flex', alignItems:'center', gap:4, fontSize:12, marginRight: 4 }}
-                  >
-                    <Printer size={14} />
+                  <button onClick={printCV}
+                    className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}
+                    title="Imprimer le CV">
+                    <Printer size={13} />
                   </button>
-                  <button onClick={() => { const r = (cvRotation - 90 + 360) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation gauche" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-                    <RotateCcw size={14} />
+                  <button onClick={() => { const r = (cvRotation - 90 + 360) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation gauche" className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}>
+                    <RotateCcw size={13} />
                   </button>
-                  <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
-                    <RotateCw size={14} />
+                  <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}>
+                    <RotateCw size={13} />
                   </button>
                   {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
                     { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
                     { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
                   ].map(btn => (
-                    <button key={btn.label} onClick={btn.action} style={{ minWidth: btn.label.includes('%') ? 38 : 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                    <button key={btn.label} onClick={btn.action} className="d-icon-btn" style={{ minWidth: btn.label.includes('%') ? 42 : 28, height: 28, borderRadius: 7, fontSize: 12, fontWeight: 700 }}>
                       {btn.label}
                     </button>
                   ))}
                 </div>
               )}
               <button onClick={() => setShowCV(false)} title="Masquer le CV"
-                style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}>
                 <ChevronRight size={12} />
               </button>
             </div>
@@ -1514,7 +1514,7 @@ export default function CandidatDetailPage() {
                 </span>
               </div>
               <button onClick={() => setEditModal(null)}
-                style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X size={14} color="var(--muted)" />
               </button>
             </div>

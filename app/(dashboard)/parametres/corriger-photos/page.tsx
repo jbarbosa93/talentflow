@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Play, Pause, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw } from 'lucide-react'
+import Link from 'next/link'
+import { Play, Pause, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw, ArrowLeft } from 'lucide-react'
 import { usePhotos } from '@/contexts/PhotosContext'
 import type { ProcessedLogItem } from '@/contexts/PhotosContext'
 
@@ -146,6 +147,13 @@ export default function CorrigerPhotosPage() {
 
   return (
     <div className="d-page" style={{ maxWidth: 860, paddingBottom: 60 }}>
+      {/* Back */}
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}>
+          <ArrowLeft size={14} /> Outils
+        </Link>
+      </div>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -160,10 +168,10 @@ export default function CorrigerPhotosPage() {
       {/* Stats */}
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
-          <StatCard label="Avec photo" value={stats.withPhoto} color="#10B981" bg="#F0FDF4" border="#BBF7D0" icon="📸" />
-          <StatCard label="À analyser" value={stats.withoutPhoto} color="#F59E0B" bg="#FEF9C3" border="#FDE68A" icon="📄" />
-          <StatCard label="Total CVs" value={stats.total} color="#64748B" bg="#F8FAFC" border="#E2E8F0" icon="📁" />
-          <StatCard label="Historique" value={history.length} color="#6366F1" bg="#EEF2FF" border="#C7D2FE" icon="📋" />
+          <StatCard label="Avec photo" value={stats.withPhoto} color="#10B981" icon="📸" />
+          <StatCard label="À analyser" value={stats.withoutPhoto} color="#F59E0B" icon="📄" />
+          <StatCard label="Total CVs" value={stats.total} color="#64748B" icon="📁" />
+          <StatCard label="Historique" value={history.length} color="#6366F1" icon="📋" />
         </div>
       )}
 
@@ -451,14 +459,16 @@ function StatusBadge({ status }: { status: HistoryItem['status'] }) {
   )
 }
 
-function StatCard({ label, value, color, bg, border, icon }: {
-  label: string; value: number; color: string; bg: string; border: string; icon: string
+function StatCard({ label, value, color, icon }: {
+  label: string; value: number; color: string; bg?: string; border?: string; icon: string
 }) {
   return (
-    <div style={{ padding: '16px 20px', borderRadius: 12, background: bg, border: `1.5px solid ${border}`, textAlign: 'center' }}>
-      <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontSize: 26, fontWeight: 900, color, lineHeight: 1 }}>{value.toLocaleString('fr-FR')}</div>
-      <div style={{ fontSize: 12, fontWeight: 700, color, opacity: 0.75, marginTop: 4 }}>{label}</div>
+    <div className="neo-kpi" style={{ padding: '20px 20px 16px', borderRadius: 16, textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      {/* top accent */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '16px 16px 0 0', opacity: 0.7 }} />
+      <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
+      <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, fontFamily: 'var(--font-heading)' }}>{value.toLocaleString('fr-FR')}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
     </div>
   )
 }

@@ -40,6 +40,6 @@ export default function NumberTicker({
   [springValue, decimalPlaces]);
 
   return (
-    <span className={cn("inline-block tabular-nums", className)} ref={ref} />
+    <span className={cn("inline-block tabular-nums", className)} ref={ref}>0</span>
   );
 }

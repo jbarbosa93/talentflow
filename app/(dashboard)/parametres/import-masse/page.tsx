@@ -119,6 +119,13 @@ export default function ImportMassePage() {
   return (
     <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
 
+      {/* Bouton retour */}
+      <a href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none', marginBottom: 20, transition: 'color 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'var(--foreground)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}>
+        ← Outils
+      </a>
+
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
