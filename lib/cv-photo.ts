@@ -72,7 +72,8 @@ function scoreHeadshot(img: ImageCandidate): number {
 }
 
 // Minimum score threshold — images below this are not headshots
-const MIN_HEADSHOT_SCORE = 50
+// Baissé de 50 à 25 pour trouver plus de photos (certaines photos dans des CVs colorés ont un score bas)
+const MIN_HEADSHOT_SCORE = 25
 
 /**
  * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.
