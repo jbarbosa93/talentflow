@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         search_query: words.join(' '),
         filter_import_status: importStatus || null,
         filter_statut: statut || null,
-        result_limit: 500,
+        result_limit: 10000,
       })
       const searchIds = rpcResult.data as { id: string }[] | null
       const searchError = rpcResult.error
