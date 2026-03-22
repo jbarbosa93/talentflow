@@ -6,19 +6,37 @@ import { toast } from 'sonner'
 
 const supabase = createClient()
 
-export function useCandidats(filters?: { statut?: PipelineEtape; import_status?: ImportStatus }) {
+export function useCandidats(filters?: {
+  statut?: PipelineEtape
+  import_status?: ImportStatus
+  search?: string
+  page?: number
+  per_page?: number
+  sort?: string
+}) {
   return useQuery({
-    queryKey: ['candidats', { statut: filters?.statut, import_status: filters?.import_status }],
+    queryKey: ['candidats', filters],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filters?.statut) params.set('statut', filters.statut)
       if (filters?.import_status) params.set('import_status', filters.import_status)
+      if (filters?.search) params.set('search', filters.search)
+      if (filters?.page) params.set('page', String(filters.page))
+      if (filters?.per_page) params.set('per_page', String(filters.per_page))
+      if (filters?.sort) params.set('sort', filters.sort)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
-      const { candidats, total } = await res.json()
-      return { candidats: (candidats || []) as Candidat[], total: (total ?? candidats?.length ?? 0) as number }
+      const data = await res.json()
+      return {
+        candidats: (data.candidats || []) as Candidat[],
+        total: (data.total ?? 0) as number,
+        page: data.page || 1,
+        per_page: data.per_page || 20,
+        total_pages: data.total_pages || 1,
+      }
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
+    placeholderData: (prev: any) => prev, // Keep previous data while loading
   })
 }
 

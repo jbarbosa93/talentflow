@@ -1,6 +1,6 @@
 // app/(dashboard)/api/candidats/route.ts
 // Lecture / suppression en masse des candidats via admin client (bypasse RLS)
-// GET  /api/candidats?search=xxx&statut=nouveau&sort=date_desc
+// GET  /api/candidats?search=xxx&statut=nouveau&import_status=a_traiter&page=1&per_page=20&sort=date_desc
 // DELETE /api/candidats  body: { ids: string[] }
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,7 +16,7 @@ const LIST_COLUMNS = [
   'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'linkedin', 'permis_conduire', 'date_naissance',
-  'experiences', 'formations_details', 'import_status',
+  'experiences', 'formations_details', 'import_status', 'rating',
   'created_at', 'updated_at',
 ].join(', ')
 
@@ -27,58 +27,64 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const statut = searchParams.get('statut') || ''
     const importStatus = searchParams.get('import_status') || ''
+    const page = parseInt(searchParams.get('page') || '1')
+    const perPage = Math.min(parseInt(searchParams.get('per_page') || '20'), 500)
+    const sort = searchParams.get('sort') || 'date_desc'
 
-    // ── Fetch ALL rows via pagination loop ───────────────────────────────────
-    // PostgREST caps at 1000 rows per request regardless of .range() — loop to bypass
-    const PAGE_SIZE = 1000
-    const allData: any[] = []
-    let offset = 0
+    // Construire la requête de base
+    let query = supabase
+      .from('candidats')
+      .select(LIST_COLUMNS, { count: 'exact' })
 
-    while (true) {
-      let query = supabase
-        .from('candidats')
-        .select(LIST_COLUMNS)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1)
+    // Filtres
+    if (statut) query = query.eq('statut_pipeline', statut as any)
+    if (importStatus) query = query.eq('import_status', importStatus as any)
 
-      if (statut) query = query.eq('statut_pipeline', statut as any)
-      if (importStatus) query = query.eq('import_status', importStatus as any)
-
-      const { data, error } = await query
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-
-      if (!data || data.length === 0) break
-
-      allData.push(...data)
-
-      if (data.length < PAGE_SIZE) break  // last page
-      offset += PAGE_SIZE
-    }
-
-    // ── Filtrage client-side (recherche texte) ───────────────────────────────
-    let candidats = allData
-
+    // Recherche serveur — utilise ilike sur les champs principaux
     if (search) {
-      const q = search.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-
-      candidats = candidats.filter((c: any) =>
-        norm(c.nom || '').includes(q) ||
-        norm(c.prenom || '').includes(q) ||
-        norm(c.titre_poste || '').includes(q) ||
-        norm(c.email || '').includes(q) ||
-        norm(c.formation || '').includes(q) ||
-        norm(c.localisation || '').includes(q) ||
-        norm(c.resume_ia || '').includes(q) ||
-        (c.competences || []).some((s: string) => norm(s).includes(q)) ||
-        (c.langues || []).some((s: string) => norm(s).includes(q))
-      )
+      const words = search.trim().split(/\s+/).filter(Boolean)
+      // Pour chaque mot, on filtre avec OR sur nom, prenom, titre_poste, email, localisation
+      for (const word of words) {
+        const pattern = `%${word}%`
+        query = query.or(
+          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern}`
+        )
+      }
     }
 
-    return NextResponse.json({ candidats, total: allData.length })
+    // Tri
+    switch (sort) {
+      case 'date_asc':
+        query = query.order('created_at', { ascending: true })
+        break
+      case 'nom_az':
+        query = query.order('prenom', { ascending: true }).order('nom', { ascending: true })
+        break
+      case 'titre_az':
+        query = query.order('titre_poste', { ascending: true })
+        break
+      default: // date_desc
+        query = query.order('created_at', { ascending: false })
+    }
+
+    // Pagination
+    const from = (page - 1) * perPage
+    const to = from + perPage - 1
+    query = query.range(from, to)
+
+    const { data, error, count } = await query
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      candidats: data || [],
+      total: count || 0,
+      page,
+      per_page: perPage,
+      total_pages: Math.ceil((count || 0) / perPage),
+    })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur serveur' },

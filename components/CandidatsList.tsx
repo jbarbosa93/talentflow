@@ -178,9 +178,32 @@ export default function CandidatsList() {
     sessionStorage.setItem('candidats_import_status', importStatusFilter)
   }, [importStatusFilter])
 
-  const { data: candidatsData, isLoading } = useCandidats({
+  // Debounced search pour ne pas spammer l'API
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const [page, setPage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('candidats_page')
+      if (saved) return parseInt(saved, 10)
+    }
+    return 1
+  })
+  // Persist page
+  useEffect(() => { sessionStorage.setItem('candidats_page', String(page)) }, [page])
+  // Reset page quand les filtres changent
+  useEffect(() => { setPage(1) }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage])
+
+  const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
     import_status: importStatusFilter as ImportStatus,
+    search: debouncedSearch || undefined,
+    page,
+    per_page: perPage,
+    sort: sortBy,
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
@@ -234,45 +257,20 @@ export default function CandidatsList() {
     return () => document.removeEventListener('click', close)
   }, [])
 
-  // Filtrage client-side instantané
+  // Filtrage — la recherche et le tri sont côté serveur maintenant
+  // Seuls les filtres avancés restent côté client
   const candidatsFiltres = useMemo(() => {
     const base = aiResults !== null ? aiResults : (allCandidats || [])
     let filtered: any[] = base as any[]
 
-    if (search && aiResults === null) {
-      const words = normalize(search).split(/\s+/).filter(Boolean)
-      filtered = filtered.filter((c: any) => {
-        // Construire un texte complet du candidat pour la recherche
-        const fullText = normalize([
-          c.prenom, c.nom,
-          `${c.prenom || ''} ${c.nom || ''}`,  // nom complet
-          `${c.nom || ''} ${c.prenom || ''}`,  // nom inversé
-          c.titre_poste, c.email, c.telephone,
-          c.formation, c.localisation,
-          c.resume_ia, c.notes,
-          ...(c.competences || []),
-          ...(c.langues || []),
-          ...(c.tags || []),
-          ...(c.experiences || []).flatMap((e: any) => [e.poste, e.entreprise, e.description]),
-          JSON.stringify(c.formations_details || []),
-        ].filter(Boolean).join(' '))
-        // Chaque mot de la recherche doit être trouvé quelque part
-        return words.every(w => fullText.includes(w))
-      })
-    }
-
+    // Filtres avancés côté client (pas supportés par Supabase facilement)
     if (filtreLocalisation.trim()) {
       const loc = normalize(filtreLocalisation)
-      filtered = filtered.filter((c: any) =>
-        normalize(c.localisation || '').includes(loc)
-      )
+      filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
     }
-
     if (filtreMetier) {
       filtered = filtered.filter((c: any) => (c.tags || []).includes(filtreMetier))
     }
-
-    // Advanced filters
     filtered = filtered
       .filter(c => !filterMetier || normalize(c.titre_poste || '').includes(normalize(filterMetier)))
       .filter(c => !filterLieu || normalize(c.localisation || '').includes(normalize(filterLieu)))
@@ -289,7 +287,7 @@ export default function CandidatsList() {
       .filter(c => filterExpMin === '' || (c.annees_exp || 0) >= filterExpMin)
 
     return filtered
-  }, [allCandidats, search, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin])
 
   const activeFiltersCount = [
     filterMetier !== '',
@@ -300,35 +298,23 @@ export default function CandidatsList() {
     filterPermis !== null,
   ].filter(Boolean).length
 
-  // Client-side sort
+  // Tri côté serveur — seul le tri par distance reste côté client
   const sorted = useMemo(() => {
-    const arr = [...candidatsFiltres]
-    switch (sortBy) {
-      case 'date_asc':
-        return arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-      case 'nom_az':
-        return arr.sort((a, b) => {
-          const nameA = `${a.prenom || ''} ${a.nom || ''}`.trim()
-          const nameB = `${b.prenom || ''} ${b.nom || ''}`.trim()
-          return nameA.localeCompare(nameB, 'fr')
-        })
-      case 'titre_az':
-        return arr.sort((a, b) => (a.titre_poste || 'ZZZZ').localeCompare(b.titre_poste || 'ZZZZ', 'fr'))
-      case 'distance':
-        return arr.sort((a, b) => {
-          const da = distances[a.localisation] ?? 99999
-          const db = distances[b.localisation] ?? 99999
-          return da - db
-        })
-      default:
-        return arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    if (sortBy === 'distance') {
+      return [...candidatsFiltres].sort((a, b) => {
+        const da = distances[a.localisation] ?? 99999
+        const db = distances[b.localisation] ?? 99999
+        return da - db
+      })
     }
+    return candidatsFiltres // Déjà trié par le serveur
   }, [candidatsFiltres, sortBy, distances])
 
-  // Alias for readability + pagination
+  // Pas de pagination client — le serveur pagine déjà
   const candidatesTries = sorted
-  const candidatesPagines = perPage === 0 ? candidatesTries : candidatesTries.slice(0, perPage)
-  const hasMore = perPage > 0 && candidatesTries.length > perPage
+  const candidatesPagines = candidatesTries
+  const totalPages = candidatsData?.total_pages || 1
+  const hasMore = page < totalPages
 
   // Group by métier ou lieu
   const grouped = useMemo(() => {
@@ -991,23 +977,35 @@ export default function CandidatsList() {
           </div>
           {candidatesPagines.map((c: any) => renderCard(c))}
 
-          {/* Bouton Charger plus */}
-          {hasMore && (
-            <button
-              onClick={() => setPerPage(p => p + 20)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                width: '100%', padding: '12px 0', marginTop: 8,
-                borderRadius: 10, border: '1.5px solid var(--border)',
-                background: 'var(--bg-card)', color: 'var(--text)',
-                fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                fontFamily: 'inherit', transition: 'all 0.15s',
-              }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)' }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
-            >
-              Charger plus ({candidatesTries.length - perPage} restants)
-            </button>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--bg-card)', color: page <= 1 ? 'var(--border)' : 'var(--foreground)',
+                  fontSize: 13, fontWeight: 600, cursor: page <= 1 ? 'default' : 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                ← Précédent
+              </button>
+              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                Page {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                style={{
+                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'var(--bg-card)', color: page >= totalPages ? 'var(--border)' : 'var(--foreground)',
+                  fontSize: 13, fontWeight: 600, cursor: page >= totalPages ? 'default' : 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Suivant →
+              </button>
+            </div>
           )}
         </div>
       )}
