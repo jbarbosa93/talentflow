@@ -275,23 +275,53 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8a. Actualiser l'existant si "actualiser"
   if (updateId) {
+    // Récupérer le candidat existant pour fusionner (ajouter, pas remplacer)
+    const { data: existing } = await adminClient
+      .from('candidats')
+      .select('email, telephone, localisation, competences, langues, experiences, formations_details')
+      .eq('id', updateId)
+      .single()
+
     const updateData: Record<string, any> = {}
-    if (analyse.email) updateData.email = analyse.email
-    if (analyse.telephone) updateData.telephone = analyse.telephone
-    if (analyse.localisation) updateData.localisation = analyse.localisation
+    // Champs simples : ne mettre à jour que si vide actuellement
+    if (analyse.email && !existing?.email) updateData.email = analyse.email
+    if (analyse.telephone && !existing?.telephone) updateData.telephone = analyse.telephone
+    if (analyse.localisation && !existing?.localisation) updateData.localisation = analyse.localisation
+    // Titre poste : toujours mettre à jour (peut évoluer)
     if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
-    if (analyse.competences?.length) updateData.competences = analyse.competences
+    // Compétences : fusionner (ajouter les nouvelles)
+    if (analyse.competences?.length) {
+      const existingComp = (existing?.competences as string[]) || []
+      const merged = [...new Set([...existingComp, ...analyse.competences])]
+      updateData.competences = merged
+    }
     if (analyse.formation) updateData.formation = analyse.formation
-    if (analyse.langues?.length) updateData.langues = analyse.langues
+    // Langues : fusionner
+    if (analyse.langues?.length) {
+      const existingLang = (existing?.langues as string[]) || []
+      const merged = [...new Set([...existingLang, ...analyse.langues])]
+      updateData.langues = merged
+    }
     if (analyse.linkedin) updateData.linkedin = analyse.linkedin
     if (analyse.permis_conduire !== undefined) updateData.permis_conduire = analyse.permis_conduire
     if (analyse.date_naissance) updateData.date_naissance = analyse.date_naissance
-    if (analyse.experiences?.length) updateData.experiences = analyse.experiences
-    if (analyse.formations_details?.length) updateData.formations_details = analyse.formations_details
+    // Expériences : fusionner (ajouter celles qui n'existent pas encore)
+    if (analyse.experiences?.length) {
+      const existingExp = (existing?.experiences as any[]) || []
+      const existingKeys = new Set(existingExp.map((e: any) => `${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
+      const newExp = analyse.experiences.filter((e: any) => !existingKeys.has(`${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
+      if (newExp.length > 0) updateData.experiences = [...existingExp, ...newExp]
+    }
+    // Formations : fusionner
+    if (analyse.formations_details?.length) {
+      const existingForm = (existing?.formations_details as any[]) || []
+      const existingKeys = new Set(existingForm.map((f: any) => `${f.titre || ''}_${f.etablissement || ''}`))
+      const newForm = analyse.formations_details.filter((f: any) => !existingKeys.has(`${f.titre || ''}_${f.etablissement || ''}`))
+      if (newForm.length > 0) updateData.formations_details = [...existingForm, ...newForm]
+    }
     if (analyse.resume) updateData.resume_ia = analyse.resume
     if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
     // Ne PAS mettre à jour photo, nom, prénom, cv_url lors d'un re-parsing
-    // Le CV et la photo sont gérés séparément
     updateData.updated_at = new Date().toISOString()
 
     const { data: updated, error: updateError } = await adminClient

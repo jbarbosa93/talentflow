@@ -1420,33 +1420,34 @@ export default function CandidatDetailPage() {
                 } : undefined}
               >
                 <div style={{
-                  width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
-                  height: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,
+                  width: '100%',
+                  height: '100%',
                   background: '#F1F5F9',
                   position: 'relative',
-                  cursor: cvZoom > 1 ? 'grab' : 'default',
                 }}>
-                  {cvIsWord && <>
-                    {/* Masque bouton [↗] Google Docs (haut droite) */}
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
-                    {/* Masque zoom +/- Google Docs (bas) */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
-                  </>}
-                  <iframe
-                    key={`cv-iframe-${cvRotation}`}
-                    src={
-                      cvIsPDF && cvRotation !== 0
-                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
-                        : cvIsPDF
-                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=page-width`
-                          : docViewerUrl
-                    }
-                    style={{
-                      width: '100%', height: '100%', border: 'none', display: 'block',
-                      pointerEvents: cvZoom > 1 ? 'none' : 'auto',
-                    }}
-                    title="CV"
-                  />
+                  <div style={{
+                    width: '100%', height: '100%',
+                  }}>
+                    {cvIsWord && <>
+                      <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
+                    </>}
+                    <iframe
+                      key={`cv-iframe-${cvRotation}-${cvZoom}`}
+                      src={
+                        cvIsPDF && cvRotation !== 0
+                          ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                          : cvIsPDF
+                            ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                            : docViewerUrl
+                      }
+                      style={{
+                        width: '100%', height: '100%', border: 'none', display: 'block',
+                        pointerEvents: cvZoom > 1 ? 'none' : 'auto',
+                      }}
+                      title="CV"
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1715,7 +1716,18 @@ export default function CandidatDetailPage() {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
         }}
         onCvChange={async (url, fileName) => {
-          // 1. Mettre à jour le CV
+          // 0. Sauvegarder l'ancien CV dans les documents
+          if (candidat.cv_url) {
+            const oldDoc = {
+              name: candidat.cv_nom_fichier || 'CV précédent',
+              url: candidat.cv_url,
+              type: 'certificat' as const,
+              uploaded_at: new Date().toISOString(),
+            }
+            const currentDocs = (candidat.documents as any[]) || []
+            updateCandidat.mutate({ id, data: { documents: [...currentDocs, { ...oldDoc, type: 'autre' }] } as any })
+          }
+          // 1. Mettre à jour le CV principal
           updateCandidat.mutate({ id, data: { cv_url: url, cv_nom_fichier: fileName } as any })
           // 2. Re-parser le CV pour mettre à jour expériences/formations
           try {
