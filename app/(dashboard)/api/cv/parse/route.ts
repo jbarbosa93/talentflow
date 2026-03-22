@@ -294,11 +294,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // Récupérer le candidat existant pour fusionner (ajouter, pas remplacer)
     const { data: existing } = await adminClient
       .from('candidats')
-      .select('email, telephone, localisation, competences, langues, experiences, formations_details')
+      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url')
       .eq('id', updateId)
       .single()
 
     const updateData: Record<string, any> = {}
+    // Nom/prénom : mettre à jour seulement si le nom actuel est "Candidat" ou vide
+    if (analyse.nom && (!existing?.nom || existing.nom === 'Candidat')) {
+      updateData.nom = analyse.nom
+    }
+    if (analyse.prenom && !existing?.prenom) {
+      updateData.prenom = analyse.prenom
+    }
     // Email, téléphone, lieu : toujours remplacer
     if (analyse.email) updateData.email = analyse.email
     if (analyse.telephone) updateData.telephone = analyse.telephone
