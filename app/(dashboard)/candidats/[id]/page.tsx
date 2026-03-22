@@ -1743,12 +1743,13 @@ export default function CandidatDetailPage() {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
         }}
         onCvChange={async (url, fileName) => {
-          // 0. Une seule mutation : sauvegarder ancien CV + mettre à jour le nouveau
+          // 0. Mise à jour du CV (ou suppression si URL vide)
           const updatePayload: Record<string, any> = {
-            cv_url: url,
-            cv_nom_fichier: fileName,
+            cv_url: url || null,
+            cv_nom_fichier: fileName || null,
           }
-          if (candidat.cv_url) {
+          // Si on remplace un CV existant par un nouveau, sauvegarder l'ancien
+          if (url && candidat.cv_url && url !== candidat.cv_url) {
             const ancienName = candidat.cv_nom_fichier || 'CV précédent'
             const oldDoc = {
               name: `[Ancien] ${ancienName}`,
@@ -1763,7 +1764,11 @@ export default function CandidatDetailPage() {
             updateCandidat.mutate({ id, data: updatePayload as any }, { onSettled: () => resolve() })
           })
 
-          // 1. Re-parser le CV pour photo + expériences/formations
+          // 1. Re-parser seulement si on a un nouveau CV (pas une suppression)
+          if (!url) {
+            queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+            return
+          }
           toast.info('Analyse IA du nouveau CV en cours...')
           try {
             const res = await fetch(url)

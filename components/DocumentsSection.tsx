@@ -639,51 +639,49 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               'Télécharger',
                               '#6B7280',
                             )}
-                            {/* Changer catégorie — tous les documents */}
+                            {/* Changer catégorie — dropdown select */}
                             {(() => {
                               const typeKey = isCvCategory && localIdx === 0 && cvUrl ? -999 : realIdx
-                              if (changingTypeIdx === typeKey) {
-                                return (
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-                                    {/* Option CV */}
-                                    {!(isCvCategory && localIdx === 0) && onCvChange && (
-                                      <button onClick={() => {
+                              const isCvPrincipal = isCvCategory && localIdx === 0 && cvUrl
+                              return (
+                                <div style={{ position: 'relative' }}>
+                                  <select
+                                    value=""
+                                    onChange={e => {
+                                      const val = e.target.value
+                                      if (!val) return
+                                      if (val === '__cv__') {
                                         handleSetAsCv(realIdx)
-                                        setChangingTypeIdx(null)
-                                      }} style={{
-                                        padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 700,
-                                        border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#0F172A',
-                                        cursor: 'pointer', fontFamily: 'inherit',
-                                      }}>CV</button>
-                                    )}
-                                    {/* Autres catégories */}
+                                      } else if (isCvPrincipal && onCvChange) {
+                                        const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: val as any, uploaded_at: new Date().toISOString() }
+                                        onUpdate([...documents, movedDoc])
+                                        onCvChange('', '')
+                                        toast.success('CV déplacé')
+                                      } else {
+                                        handleChangeType(realIdx, val)
+                                      }
+                                    }}
+                                    title="Changer catégorie"
+                                    style={{
+                                      width: 28, height: 28, borderRadius: 6,
+                                      border: '1px solid var(--border)', background: 'white',
+                                      cursor: 'pointer', fontSize: 0, padding: 0,
+                                      appearance: 'none', WebkitAppearance: 'none',
+                                      backgroundImage: 'none',
+                                    }}
+                                  >
+                                    <option value="">↕</option>
+                                    {!isCvPrincipal && onCvChange && <option value="__cv__">→ CV principal</option>}
                                     {UPLOAD_TYPES.map(t => (
-                                      <button key={t.value} onClick={() => {
-                                        if (isCvCategory && localIdx === 0 && cvUrl && onCvChange) {
-                                          // Déplacer CV principal vers cette catégorie
-                                          const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
-                                          onUpdate([...documents, movedDoc])
-                                          onCvChange('', '')
-                                        } else {
-                                          handleChangeType(realIdx, t.value)
-                                        }
-                                        setChangingTypeIdx(null)
-                                      }} style={{
-                                        padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 600,
-                                        border: `1px solid ${t.border}`, background: t.bg, color: t.color,
-                                        cursor: 'pointer', fontFamily: 'inherit',
-                                      }}>{t.label}</button>
+                                      <option key={t.value} value={t.value}>→ {t.label}</option>
                                     ))}
-                                    <button onClick={() => setChangingTypeIdx(null)}
-                                      style={{ padding: '1px 3px', borderRadius: 4, fontSize: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>✕</button>
-                                  </div>
-                                )
-                              }
-                              return actionBtn(
-                                () => setChangingTypeIdx(typeKey),
-                                <ChevronDown size={12} style={{ color: '#D97706' }} />,
-                                'Changer catégorie',
-                                '#D97706',
+                                  </select>
+                                  <ChevronDown size={10} style={{
+                                    position: 'absolute', top: '50%', left: '50%',
+                                    transform: 'translate(-50%, -50%)', pointerEvents: 'none',
+                                    color: '#D97706',
+                                  }} />
+                                </div>
                               )
                             })()}
                             {/* Renommer */}
