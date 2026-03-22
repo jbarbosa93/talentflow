@@ -43,11 +43,11 @@ export async function GET(request: NextRequest) {
     // Recherche serveur — utilise ilike sur les champs principaux
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
-      // Pour chaque mot, on filtre avec OR sur nom, prenom, titre_poste, email, localisation
+      // Pour chaque mot, on filtre avec OR sur nom, prenom, titre_poste, email, localisation, notes
       for (const word of words) {
         const pattern = `%${word}%`
         query = query.or(
-          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern}`
+          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
         )
       }
     }
