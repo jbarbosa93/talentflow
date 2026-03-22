@@ -1067,24 +1067,22 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
                 </div>
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(4000 * previewZoom)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: `${100 / previewZoom}%`, height: '4000px', transform: `scale(${previewZoom})`, transformOrigin: 'top left' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: previewZoom === 1 ? '100%' : `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                   <iframe
-                    src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0` : `${hoveredCv.url}#toolbar=0&navpanes=0`}
+                    key={`preview-${previewZoom}`}
+                    src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&zoom=page-width` : `${hoveredCv.url}#toolbar=0&navpanes=0&zoom=page-width`}
                     style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                     title="Aperçu CV"
                   />
-                </div>
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(4000 * previewZoom)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: `${100 / previewZoom}%`, height: '4000px', transform: `scale(${previewZoom})`, transformOrigin: 'top left' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: previewZoom === 1 ? '100%' : `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                   <iframe
+                    key={`preview-doc-${previewZoom}`}
                     src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
                     style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                     title="Aperçu CV"
                   />
-                </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
