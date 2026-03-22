@@ -239,26 +239,25 @@ export default function CandidatsList() {
     let filtered: any[] = base as any[]
 
     if (search && aiResults === null) {
-      const q = normalize(search)
-      filtered = filtered.filter((c: any) =>
-        normalize(c.nom || '').includes(q) ||
-        normalize(c.prenom || '').includes(q) ||
-        normalize(c.titre_poste || '').includes(q) ||
-        normalize(c.email || '').includes(q) ||
-        normalize(c.formation || '').includes(q) ||
-        normalize(c.localisation || '').includes(q) ||
-        normalize(c.resume_ia || '').includes(q) ||
-        normalize(c.notes || '').includes(q) ||
-        (c.competences || []).some((s: string) => normalize(s).includes(q)) ||
-        (c.langues || []).some((s: string) => normalize(s).includes(q)) ||
-        (c.tags || []).some((s: string) => normalize(s).includes(q)) ||
-        (c.experiences || []).some((e: any) =>
-          normalize(e.poste || '').includes(q) ||
-          normalize(e.entreprise || '').includes(q) ||
-          normalize(e.description || '').includes(q)
-        ) ||
-        normalize(JSON.stringify(c.formations_details || [])).includes(q)
-      )
+      const words = normalize(search).split(/\s+/).filter(Boolean)
+      filtered = filtered.filter((c: any) => {
+        // Construire un texte complet du candidat pour la recherche
+        const fullText = normalize([
+          c.prenom, c.nom,
+          `${c.prenom || ''} ${c.nom || ''}`,  // nom complet
+          `${c.nom || ''} ${c.prenom || ''}`,  // nom inversé
+          c.titre_poste, c.email, c.telephone,
+          c.formation, c.localisation,
+          c.resume_ia, c.notes,
+          ...(c.competences || []),
+          ...(c.langues || []),
+          ...(c.tags || []),
+          ...(c.experiences || []).flatMap((e: any) => [e.poste, e.entreprise, e.description]),
+          JSON.stringify(c.formations_details || []),
+        ].filter(Boolean).join(' '))
+        // Chaque mot de la recherche doit être trouvé quelque part
+        return words.every(w => fullText.includes(w))
+      })
     }
 
     if (filtreLocalisation.trim()) {
