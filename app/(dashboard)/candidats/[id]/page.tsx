@@ -1427,7 +1427,7 @@ export default function CandidatDetailPage() {
                 {/* Container agrandi — iframe rendue en HD par Chrome PDF viewer */}
                 <div style={{
                   width: `${cvZoom * 100}%`,
-                  height: `${cvZoom * 100}%`,
+                  height: cvZoom === 1 ? '100%' : `${Math.round(cvZoom * 5000)}px`,
                   minWidth: '100%',
                   minHeight: '100%',
                   position: 'relative',
