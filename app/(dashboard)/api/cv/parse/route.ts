@@ -227,6 +227,28 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // 6a-bis. Fallback Vision : si le nom est "Candidat" mais il y a des infos,
+  // le nom est probablement dans un bandeau graphique → envoyer à Claude Vision
+  if (isPDF && analyse && (!analyse.nom || analyse.nom === 'Candidat') &&
+      (analyse.competences?.length > 0 || analyse.experiences?.length > 0)) {
+    console.log('[CV Parse] Nom "Candidat" avec infos → fallback Claude Vision pour trouver le nom...')
+    try {
+      const visionResult = await withTimeout(analyserCVDepuisPDF(buffer), 50_000, 'vision nom fallback')
+      if (visionResult.nom && visionResult.nom !== 'Candidat' && visionResult.nom.length > 1) {
+        console.log(`[CV Parse] Vision a trouvé le nom : ${visionResult.prenom} ${visionResult.nom}`)
+        analyse.nom = visionResult.nom
+        analyse.prenom = visionResult.prenom || analyse.prenom
+        // Aussi récupérer email/tel si manquants
+        if (!analyse.email && visionResult.email) analyse.email = visionResult.email
+        if (!analyse.telephone && visionResult.telephone) analyse.telephone = visionResult.telephone
+      } else {
+        console.log('[CV Parse] Vision n\'a pas trouvé le nom non plus')
+      }
+    } catch (visionErr) {
+      console.warn('[CV Parse] Fallback Vision échoué:', (visionErr as Error).message)
+    }
+  }
+
   // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
   let photoUrl: string | null = null
   const docType = analyse?.document_type || 'cv'
