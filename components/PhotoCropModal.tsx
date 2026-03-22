@@ -20,11 +20,23 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
   const startPt = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
-    const isPdf = /\.pdf($|\?)/i.test(cvUrl) || cvUrl.includes('%2F') && cvUrl.includes('pdf')
+    // Déterminer le type de fichier
+    const urlLower = cvUrl.toLowerCase()
+    const isDoc = /\.(doc|docx)($|\?)/i.test(urlLower) ||
+      urlLower.includes('_doc_') || urlLower.includes('.doc_') ||
+      urlLower.includes('docx_') || urlLower.includes('.docx')
+    const isPdf = !isDoc && (/\.pdf($|\?)/i.test(urlLower) || urlLower.includes('.pdf'))
+    const isImage = /\.(jpg|jpeg|png|webp)($|\?)/i.test(urlLower)
 
-    if (isPdf) {
+    if (isDoc) {
+      setError('Le crop photo n\'est pas disponible pour les fichiers Word (.doc/.docx). Utilisez le bouton upload photo (📷) pour ajouter une photo manuellement.')
+      setLoading(false)
+    } else if (isPdf) {
       loadPdf()
+    } else if (isImage) {
+      loadImage()
     } else {
+      // Essayer comme image par défaut
       loadImage()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
