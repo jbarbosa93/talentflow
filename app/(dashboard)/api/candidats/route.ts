@@ -40,15 +40,28 @@ export async function GET(request: NextRequest) {
     if (statut) query = query.eq('statut_pipeline', statut as any)
     if (importStatus) query = query.eq('import_status', importStatus as any)
 
-    // Recherche serveur — utilise ilike sur les champs principaux
+    // Recherche serveur — cherche dans tous les champs pertinents
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
-      // Pour chaque mot, on filtre avec OR sur nom, prenom, titre_poste, email, localisation, notes
-      for (const word of words) {
-        const pattern = `%${word}%`
-        query = query.or(
-          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
-        )
+      // Utiliser une RPC pour recherche full-text (inclut compétences, expériences, formations, CV texte brut)
+      const rpcResult = await (supabase.rpc as any)('search_candidats', { search_query: words.join(' ') })
+      const searchIds = rpcResult.data as { id: string }[] | null
+      const searchError = rpcResult.error
+
+      if (!searchError && searchIds && searchIds.length > 0) {
+        const ids = searchIds.map((r: { id: string }) => r.id)
+        query = query.in('id', ids)
+      } else if (!searchError && searchIds && searchIds.length === 0) {
+        // Aucun résultat — retourner vide
+        return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage })
+      } else {
+        // Fallback si la RPC n'existe pas — recherche basique
+        for (const word of words) {
+          const pattern = `%${word}%`
+          query = query.or(
+            `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
+          )
+        }
       }
     }
 
