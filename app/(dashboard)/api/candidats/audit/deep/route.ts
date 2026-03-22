@@ -230,13 +230,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ scanned: (candidats || []).length, total: count || 0, offset, problems: photoProblems })
     }
 
-    // Mode CV (par défaut)
-    // Récupérer les candidats avec cv_url
+    // Mode CV (par défaut) — analyse complète : document + photo + lien
     const { data: candidats, error, count } = await supabase
       .from('candidats')
-      .select('id, nom, prenom, cv_url, cv_nom_fichier', { count: 'exact' })
-      .not('cv_url', 'is', null)
-      .not('cv_url', 'eq', '')
+      .select('id, nom, prenom, cv_url, cv_nom_fichier, photo_url', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -254,12 +251,36 @@ export async function POST(request: NextRequest) {
       reason: string
     }> = []
 
+    const photoResults: Array<{
+      id: string; nom: string; prenom: string | null; photo_url: string; reason: string
+    }> = []
+
+    const brokenLinks: Array<{
+      id: string; nom: string; prenom: string | null; type: 'cv' | 'photo'; url: string
+    }> = []
+
     // Claude Vision pour classifier chaque document
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
     for (const c of (candidats || [])) {
       try {
+        // 0. Vérifier lien photo cassé
+        if (c.photo_url) {
+          try {
+            const photoRes = await fetch(c.photo_url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+            if (!photoRes.ok) {
+              brokenLinks.push({ id: c.id, nom: c.nom, prenom: c.prenom, type: 'photo', url: c.photo_url })
+            }
+          } catch {
+            brokenLinks.push({ id: c.id, nom: c.nom, prenom: c.prenom, type: 'photo', url: c.photo_url! })
+          }
+        }
+
+        // Si pas de cv_url → pas de document à analyser
+        if (!c.cv_url) continue
+
+        // 1. Vérifier lien CV cassé
         // Télécharger le fichier
         const res = await fetch(c.cv_url!, { signal: AbortSignal.timeout(15000) })
         if (!res.ok) {
@@ -340,6 +361,37 @@ export async function POST(request: NextRequest) {
         } catch {
           results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur analyse IA' })
         }
+        // Vérifier la photo avec Claude Vision (si elle existe et pas déjà cassée)
+        if (c.photo_url && !brokenLinks.some(b => b.id === c.id && b.type === 'photo')) {
+          try {
+            const photoRes = await fetch(c.photo_url, { signal: AbortSignal.timeout(5000) })
+            if (photoRes.ok) {
+              const photoBuf = Buffer.from(await photoRes.arrayBuffer())
+              const photoB64 = photoBuf.toString('base64')
+              const pType = c.photo_url.includes('.png') ? 'image/png' as const : 'image/jpeg' as const
+
+              const photoCheck = await claude.messages.create({
+                model: 'claude-haiku-4-20250514',
+                max_tokens: 30,
+                messages: [{
+                  role: 'user',
+                  content: [
+                    { type: 'image', source: { type: 'base64', media_type: pType, data: photoB64 } },
+                    { type: 'text', text: 'Cette image est-elle un portrait/visage humain ? Réponds UNIQUEMENT OUI ou NON' },
+                  ],
+                }],
+              })
+
+              const photoAnswer = ((photoCheck.content[0] as any).text || '').trim().toUpperCase()
+              if (photoAnswer.includes('NON')) {
+                photoResults.push({ id: c.id, nom: c.nom, prenom: c.prenom, photo_url: c.photo_url, reason: 'Pas un visage humain (IA)' })
+              }
+            }
+          } catch {
+            // Skip photo check errors
+          }
+        }
+
       } catch {
         results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur de traitement' })
       }
@@ -354,6 +406,8 @@ export async function POST(request: NextRequest) {
       total: count || 0,
       offset,
       problems,
+      photo_problems: photoResults,
+      broken_links: brokenLinks,
       all_results: results,
     })
   } catch (err) {

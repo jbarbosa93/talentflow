@@ -167,7 +167,7 @@ export default function AnalyserCandidatsPage() {
                 suspected_type: p.reason,
               })
             }
-            // Mise à jour progressive des résultats
+            // Mise à jour progressive CVs
             const existIds = new Set(auditData.cvs_mal_classes.map(c => c.id))
             const newProbs = deepCvProblems.filter(p => !existIds.has(p.id))
             const merged = [...auditData.cvs_mal_classes, ...newProbs]
@@ -176,6 +176,16 @@ export default function AnalyserCandidatsPage() {
               cvs_mal_classes: merged,
               summary: { ...prev.summary, cvs_mal_classes: merged.length },
             } : prev)
+          }
+          // Mise à jour progressive photos suspectes (Claude Vision)
+          if (data.photo_problems?.length) {
+            setResult(prev => {
+              if (!prev) return prev
+              const existPhotoIds = new Set(prev.photos_suspectes.map(x => x.id))
+              const newPhotos = data.photo_problems.filter((x: any) => !existPhotoIds.has(x.id))
+              const mergedPhotos = [...prev.photos_suspectes, ...newPhotos]
+              return { ...prev, photos_suspectes: mergedPhotos, summary: { ...prev.summary, photos_suspectes: mergedPhotos.length } }
+            })
           }
 
           cvOffset += cvBatchSize
