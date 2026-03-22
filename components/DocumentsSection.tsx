@@ -18,6 +18,7 @@ interface DocumentsPanelProps {
   cvUrl: string | null
   cvFileName: string | null
   onUpdate: (documents: CandidatDocument[]) => void
+  onCvChange?: (url: string, fileName: string) => void
 }
 
 type CategoryKey = 'cv' | DocumentType
@@ -32,7 +33,8 @@ const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: stri
   { key: 'autre',             label: 'Autre',                 color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: File },
 ]
 
-const UPLOAD_TYPES: { value: DocumentType; label: string; color: string; bg: string; border: string }[] = [
+const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; bg: string; border: string }[] = [
+  { value: 'cv' as any,         label: 'CV',                    color: '#0F172A', bg: '#F8FAFC', border: '#E2E8F0' },
   { value: 'certificat',        label: 'Certificat',            color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
   { value: 'diplome',           label: 'Dipl\u00f4me',         color: '#059669', bg: '#F0FDF4', border: '#BBF7D0' },
   { value: 'lettre_motivation', label: 'Lettre de motivation',  color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
@@ -45,11 +47,12 @@ const ACCEPTED_FORMATS = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt'
 
 const getCat = (key: CategoryKey) => DOC_CATEGORIES.find(c => c.key === key) || DOC_CATEGORIES[6]
 
-export default function DocumentsPanel({ open, onClose, candidatId, documents, cvUrl, cvFileName, onUpdate }: DocumentsPanelProps) {
+export default function DocumentsPanel({ open, onClose, candidatId, documents, cvUrl, cvFileName, onUpdate, onCvChange }: DocumentsPanelProps) {
+  const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deletingIdx, setDeletingIdx] = useState<number | null>(null)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
-  const [selectedType, setSelectedType] = useState<DocumentType>('autre')
+  const [selectedType, setSelectedType] = useState<DocumentType | 'cv'>('autre')
   const [showUpload, setShowUpload] = useState(false)
   const [pendingFile, setPendingFile] = useState<{ file: globalThis.File; name: string } | null>(null)
   const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null)
@@ -134,16 +137,22 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
 
       if (!urlData?.signedUrl) throw new Error('Impossible de g\u00e9n\u00e9rer l\'URL du document')
 
-      const newDoc: CandidatDocument = {
-        name: finalName,
-        url: urlData.signedUrl,
-        type: selectedType,
-        uploaded_at: new Date().toISOString(),
+      if ((selectedType as string) === 'cv') {
+        if (onCvChange) {
+          onCvChange(urlData.signedUrl, finalName)
+          toast.success('CV mis \u00e0 jour')
+        }
+      } else {
+        const newDoc: CandidatDocument = {
+          name: finalName,
+          url: urlData.signedUrl,
+          type: selectedType as DocumentType,
+          uploaded_at: new Date().toISOString(),
+        }
+        const updated = [...documents, newDoc]
+        onUpdate(updated)
+        toast.success('Document ajout\u00e9')
       }
-
-      const updated = [...documents, newDoc]
-      onUpdate(updated)
-      toast.success('Document ajout\u00e9')
       setShowUpload(false)
       setSelectedType('autre')
       setPendingFile(null)
@@ -296,23 +305,38 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
           </button>
         </div>
 
-        {/* Upload button */}
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
+        {/* Upload button / drop zone */}
+        <div
+          style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => {
+            e.preventDefault(); setDragOver(false)
+            const file = e.dataTransfer.files?.[0]
+            if (file) {
+              const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+              setPendingFile({ file, name: nameWithoutExt })
+              setShowUpload(true)
+            }
+          }}
+        >
           {!showUpload ? (
             <button
               onClick={() => setShowUpload(true)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                border: '1.5px dashed var(--border)', background: 'var(--secondary)',
-                color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
+                padding: dragOver ? '20px 0' : '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
+                background: dragOver ? 'rgba(234,179,8,0.08)' : 'var(--secondary)',
+                color: dragOver ? 'var(--primary)' : 'var(--foreground)',
+                cursor: 'pointer', fontFamily: 'inherit',
                 transition: 'all 0.15s',
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary)' }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--foreground)' }}
             >
               <Upload size={14} />
-              Ajouter un document
+              {dragOver ? 'Déposer le fichier ici' : 'Ajouter un document'}
             </button>
           ) : (
             <div style={{

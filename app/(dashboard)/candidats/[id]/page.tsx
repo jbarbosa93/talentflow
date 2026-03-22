@@ -1369,9 +1369,34 @@ export default function CandidatDetailPage() {
                   <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
                     <RotateCw size={14} />
                   </button>
-                  {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
-                    { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
-                    { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
+                  {[{ label: '−', action: () => {
+                    setCvZoom(z => {
+                      const nz = Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))
+                      // Center scroll after zoom
+                      setTimeout(() => {
+                        const el = cvScrollRef.current; if (!el) return
+                        const sw = el.scrollWidth - el.clientWidth
+                        const sh = el.scrollHeight - el.clientHeight
+                        if (nz <= 1) { el.scrollLeft = 0; el.scrollTop = 0 }
+                        else { el.scrollLeft = sw / 2; el.scrollTop = sh / 2 }
+                      }, 10)
+                      return nz
+                    })
+                  }},
+                    { label: Math.round(cvZoom * 100) + '%', action: () => { setCvZoom(1.0); setTimeout(() => { const el = cvScrollRef.current; if (el) { el.scrollLeft = 0; el.scrollTop = 0 } }, 10) } },
+                    { label: '+', action: () => {
+                    setCvZoom(z => {
+                      const nz = Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))
+                      setTimeout(() => {
+                        const el = cvScrollRef.current; if (!el) return
+                        const sw = el.scrollWidth - el.clientWidth
+                        const sh = el.scrollHeight - el.clientHeight
+                        el.scrollLeft = sw / 2
+                        el.scrollTop = sh / 2
+                      }, 10)
+                      return nz
+                    })
+                  }}
                   ].map(btn => (
                     <button key={btn.label} onClick={btn.action} style={{ minWidth: btn.label.includes('%') ? 38 : 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                       {btn.label}
@@ -1713,6 +1738,9 @@ export default function CandidatDetailPage() {
         cvFileName={candidat.cv_nom_fichier}
         onUpdate={(docs) => {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
+        }}
+        onCvChange={(url, fileName) => {
+          updateCandidat.mutate({ id, data: { cv_url: url, cv_nom_fichier: fileName } as any })
         }}
       />
 
