@@ -92,10 +92,6 @@ export default function ParametresPage() {
             })}
           </NavGroup>
 
-          <NavGroup label="Outils">
-            {TOOLS_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
-          </NavGroup>
-
           <NavGroup label="Sécurité">
             {LINK_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
           </NavGroup>
