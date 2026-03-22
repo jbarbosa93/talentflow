@@ -1366,7 +1366,6 @@ export default function CandidatsList() {
               <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer Candidat/s</DialogTitle>
             </DialogHeader>
             <UploadCV onSuccess={() => {
-              setShowUpload(false)
               queryClient.invalidateQueries({ queryKey: ['candidats'] })
             }} />
           </DialogContent>
