@@ -157,7 +157,6 @@ function CandidatsPageInner() {
 
   const { data: candidatsData, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
-    import_status: 'traite',
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
