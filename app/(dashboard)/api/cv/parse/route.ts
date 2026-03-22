@@ -341,10 +341,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // Classification du document
     const isCV = !analyse.document_type || analyse.document_type === 'cv'
     if (isCV) {
-      // C'est un CV → mettre à jour cv_url, cv_nom_fichier, photo
+      // C'est un CV → mettre à jour cv_url, cv_nom_fichier
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
-      if (photoUrl) updateData.photo_url = photoUrl
+      // Photo : seulement si le candidat n'en a PAS déjà une
+      if (photoUrl) {
+        const { data: photoCheck } = await adminClient.from('candidats').select('photo_url').eq('id', updateId).single()
+        if (!photoCheck?.photo_url) {
+          updateData.photo_url = photoUrl
+          console.log('[CV Parse] Photo ajoutée (candidat sans photo)')
+        } else {
+          console.log('[CV Parse] Photo existante conservée')
+        }
+      }
       console.log(`[CV Parse] Actualisation CV: ${file.name}`)
     } else {
       // Ce n'est PAS un CV → ajouter aux documents avec la bonne catégorie
