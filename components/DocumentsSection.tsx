@@ -94,9 +94,10 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
 
   // Find the real index of a document in the flat documents array
   const getRealIndex = (cat: CategoryKey, localIdx: number): number => {
-    if (cat === 'cv') return -1 // CV is virtual, not in documents array
-    const doc = grouped[cat][localIdx]
-    return documents.indexOf(doc)
+    const doc = grouped[cat]?.[localIdx]
+    if (!doc) return -1
+    const idx = documents.indexOf(doc)
+    return idx // -1 if not found (CV principal virtuel)
   }
 
   const toggleCollapse = (key: string) => {
@@ -531,10 +532,14 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                 {!isCollapsed && (
                   <div style={{ padding: '2px 20px 6px 20px' }}>
                     {docs.map((doc, localIdx) => {
-                      const realIdx = isCvCategory ? -1 : getRealIndex(cat.key, localIdx)
-                      const isEditingThis = !isCvCategory && editingNameIdx === realIdx
-                      const isDeleting = !isCvCategory && deletingIdx === realIdx
-                      const isConfirmingDelete = !isCvCategory && confirmDeleteIdx === realIdx
+                      // CV principal (virtuel, pas dans documents[]) → realIdx = -1
+                      // Anciens CVs (dans documents[] avec type 'cv') → vrai index
+                      const isCvPrincipalItem = isCvCategory && localIdx === 0 && cvUrl && doc.url === cvUrl
+                      const realIdx = isCvPrincipalItem ? -1 : getRealIndex(cat.key, isCvCategory ? localIdx - (cvUrl ? 1 : 0) : localIdx)
+                      const isRealDoc = realIdx >= 0 // Document réel dans documents[] (pas CV principal virtuel)
+                      const isEditingThis = isRealDoc && editingNameIdx === realIdx
+                      const isDeleting = isRealDoc && deletingIdx === realIdx
+                      const isConfirmingDelete = isRealDoc && confirmDeleteIdx === realIdx
 
                       return (
                         <div
@@ -585,7 +590,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 {doc.name}
                               </p>
                             )}
-                            {!isCvCategory && changingTypeIdx === realIdx ? (
+                            {isRealDoc && changingTypeIdx === realIdx ? (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
                                 {UPLOAD_TYPES.map(t => (
                                   <button key={t.value} onClick={() => handleChangeType(realIdx, t.value)}
@@ -598,7 +603,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 <button onClick={() => setChangingTypeIdx(null)}
                                   style={{ padding: '1px 4px', borderRadius: 4, fontSize: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>✕</button>
                               </div>
-                            ) : !isCvCategory ? (
+                            ) : isRealDoc ? (
                               <button onClick={() => setChangingTypeIdx(realIdx)}
                                 style={{
                                   fontSize: 10, fontWeight: 600, color: cat.color,
@@ -687,7 +692,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               )
                             })()}
                             {/* Renommer */}
-                            {!isCvCategory && (
+                            {isRealDoc && (
                               actionBtn(
                                 () => { setEditingNameIdx(realIdx); setEditNameValue(doc.name.replace(/\.[^.]+$/, '')) },
                                 <Pencil size={12} style={{ color: '#6B7280' }} />,
@@ -703,7 +708,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 'Supprimer',
                                 '#DC2626',
                               )
-                            ) : !isCvCategory && (
+                            ) : isRealDoc && (
                               <>
                                 {isConfirmingDelete ? (
                                   <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
