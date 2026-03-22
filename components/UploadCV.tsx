@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2, X, Plus, Copy } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 
 type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
 
@@ -95,6 +96,20 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     setFiles(prev => prev.map((f, idx) => idx === i ? { ...f, ...patch } : f))
   }
 
+  // Upload fichier vers Supabase Storage d'abord (évite 413 pour gros fichiers)
+  const uploadToStorage = async (file: File): Promise<string | null> => {
+    const supabase = createClient()
+    const timestamp = Date.now()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `temp_import/${timestamp}_${safeName}`
+    const { data, error } = await supabase.storage.from('cvs').upload(path, file, {
+      contentType: file.type || 'application/octet-stream',
+      upsert: true,
+    })
+    if (error) throw new Error(`Upload storage: ${error.message}`)
+    return data.path
+  }
+
   const resolveDoublon = async (i: number, action: 'ignorer' | 'remplacer' | 'garder_les_deux' | 'actualiser') => {
     const item = files[i]
     if (action === 'ignorer') {
@@ -102,23 +117,31 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
       return
     }
     updateFile(i, { status: 'processing' })
-    const formData = new FormData()
-    formData.append('cv', item.file)
-    formData.append('statut', statut)
-    if (offreId) formData.append('offre_id', offreId)
-    if (action === 'remplacer' && item.candidatExistant) formData.append('replace_id', item.candidatExistant.id)
-    if (action === 'actualiser' && item.candidatExistant) formData.append('update_id', item.candidatExistant.id)
-    if (action === 'garder_les_deux') formData.append('force_insert', 'true')
     try {
-      const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+      // Upload vers storage d'abord
+      const storagePath = await uploadToStorage(item.file)
+      const body: Record<string, any> = {
+        storage_path: storagePath,
+        statut: statut,
+      }
+      if (offreId) body.offre_id = offreId
+      if (action === 'remplacer' && item.candidatExistant) body.replace_id = item.candidatExistant.id
+      if (action === 'actualiser' && item.candidatExistant) body.update_id = item.candidatExistant.id
+      if (action === 'garder_les_deux') body.force_insert = true
+
+      const res = await fetch('/api/cv/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
       const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
       const suffix = action === 'remplacer' ? ' (remplacé)' : data.updated ? ' (actualisé)' : ''
       updateFile(i, { status: 'success', candidatNom: (nom || 'Candidat créé') + suffix })
       if (data.candidat) onSuccess?.(data.candidat)
-    } catch {
-      updateFile(i, { status: 'error', error: 'Erreur résolution doublon' })
+    } catch (err: any) {
+      updateFile(i, { status: 'error', error: err.message || 'Erreur résolution doublon' })
     }
   }
 
@@ -140,16 +163,18 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     const processOne = async (idx: number) => {
       updateFile(idx, { status: 'processing' })
 
-      const formData = new FormData()
-      formData.append('cv', files[idx].file)
-      formData.append('statut', statut)
-      if (offreId) formData.append('offre_id', offreId)
-
       const controller = new AbortController()
       const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
 
       try {
-        const res = await fetch('/api/cv/parse', { method: 'POST', body: formData, signal: controller.signal })
+        // Upload vers Supabase Storage d'abord (évite 413)
+        const storagePath = await uploadToStorage(files[idx].file)
+        const res = await fetch('/api/cv/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storage_path: storagePath, statut, offre_id: offreId }),
+          signal: controller.signal,
+        })
         clearTimeout(timeoutId)
         const ct   = res.headers.get('content-type') || ''
         const data = ct.includes('application/json') ? await res.json() : {}
