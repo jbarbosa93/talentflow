@@ -4,23 +4,21 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { DocumentType } from '@/types/database'
 
 export const runtime = 'nodejs'
 
 type FixAction = 'move_cv_to_documents' | 'remove_photo'
 
 // Guess document type from filename
-function guessDocumentType(filename: string): string {
+function guessDocumentType(filename: string): DocumentType {
   const f = (filename || '').toLowerCase()
-  if (f.includes('certificat')) return 'Certificat'
-  if (f.includes('attestation')) return 'Attestation'
-  if (f.includes('diplome') || f.includes('diplôme')) return 'Diplome'
-  if (f.includes('formation')) return 'Formation'
-  if (f.includes('lettre')) return 'Lettre'
-  if (f.includes('motivation')) return 'Lettre de motivation'
-  if (f.includes('recommandation')) return 'Recommandation'
-  if (f.includes('permis')) return 'Permis'
-  return 'Document'
+  if (f.includes('certificat') || f.includes('attestation')) return 'certificat'
+  if (f.includes('diplome') || f.includes('diplôme')) return 'diplome'
+  if (f.includes('formation')) return 'formation'
+  if (f.includes('lettre') || f.includes('motivation')) return 'lettre_motivation'
+  if (f.includes('permis')) return 'permis'
+  return 'autre'
 }
 
 export async function POST(request: NextRequest) {
@@ -58,10 +56,10 @@ export async function POST(request: NextRequest) {
       const existingDocs = Array.isArray(candidat.documents) ? candidat.documents : []
 
       const newDoc = {
+        name: candidat.cv_nom_fichier || 'Document',
         url: candidat.cv_url,
-        nom: candidat.cv_nom_fichier || 'Document',
         type: docType,
-        date_ajout: new Date().toISOString(),
+        uploaded_at: new Date().toISOString(),
       }
 
       const { error: updateError } = await supabase

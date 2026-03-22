@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -29,6 +29,15 @@ const OUTILS = [
     description: 'Identifiez et fusionnez les profils candidats en doublon pour garder une base de données propre.',
     color: '#10B981',
     colorSoft: 'rgba(16,185,129,0.12)',
+    badge: null,
+  },
+  {
+    href: '/outils/analyser-candidats',
+    icon: SearchCheck,
+    title: 'Analyser les candidats',
+    description: 'Auditez la qualité de votre base candidats : photos, CVs, fiches incomplètes.',
+    color: '#8B5CF6',
+    colorSoft: 'rgba(139,92,246,0.12)',
     badge: null,
   },
 ]
