@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -67,7 +67,7 @@ function CandidatsPageInner() {
 
   const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
   const [filtreMetier, setFiltreMetier]   = useState('')
-  const [search, setSearch]               = useState('')
+  const [search, setSearch]               = useState(() => searchParams.get('q') || '')
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
     const s = searchParams.get('statut')
     return (s && ['nouveau','contacte','entretien','place','refuse'].includes(s) ? s : 'tous') as PipelineEtape | 'tous'
@@ -114,6 +114,15 @@ function CandidatsPageInner() {
     if (!hoveredCv) prevHoveredCvUrl.current = null
   }, [hoveredCv])
 
+
+  // Persist search in URL
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (search) params.set('q', search)
+    else params.delete('q')
+    const newUrl = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState({}, '', newUrl)
+  }, [search, searchParams])
 
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
@@ -917,6 +926,19 @@ function CandidatsPageInner() {
                 style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)', fontWeight: 700 }}
                 title="Zoomer"
               >+</button>
+              <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 2px' }} />
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => {
+                  e.stopPropagation()
+                  const r = ((hoveredCv.rotation || 0) + 90) % 360
+                  setHoveredCv({ ...hoveredCv, rotation: r })
+                }}
+                style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Rotation 90°"
+              >
+                <RotateCw size={12} style={{ color: 'var(--foreground)' }} />
+              </button>
             </div>
           </div>
           {/* Content */}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Paperclip, Upload, Trash2, Download, Loader2, FileText, Award, GraduationCap, Heart, BookOpen, Car, File } from 'lucide-react'
+import { Paperclip, Upload, Trash2, Download, Loader2, FileText, Award, GraduationCap, Heart, BookOpen, Car, File, Eye, Pencil, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { CandidatDocument, DocumentType } from '@/types/database'
@@ -30,18 +30,30 @@ export default function DocumentsSection({ candidatId, documents, onUpdate }: Do
   const [deletingIdx, setDeletingIdx] = useState<number | null>(null)
   const [selectedType, setSelectedType] = useState<DocumentType>('autre')
   const [showTypeSelect, setShowTypeSelect] = useState(false)
+  const [pendingFile, setPendingFile] = useState<{ file: globalThis.File; name: string } | null>(null)
+  const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null)
+  const [editNameValue, setEditNameValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+    setPendingFile({ file, name: nameWithoutExt })
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const handleConfirmUpload = async () => {
+    if (!pendingFile) return
+    const file = pendingFile.file
+    const ext = file.name.split('.').pop() || 'pdf'
+    const finalName = `${pendingFile.name}.${ext}`
 
     setUploading(true)
     try {
       const supabase = createClient()
       const timestamp = Date.now()
-      const ext = file.name.split('.').pop() || 'pdf'
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const safeName = finalName.replace(/[^a-zA-Z0-9._-]/g, '_')
       const storagePath = `documents/${candidatId}_${timestamp}_${safeName}`
 
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -57,7 +69,7 @@ export default function DocumentsSection({ candidatId, documents, onUpdate }: Do
       if (!urlData?.signedUrl) throw new Error('Impossible de generer l\'URL du document')
 
       const newDoc: CandidatDocument = {
-        name: file.name,
+        name: finalName,
         url: urlData.signedUrl,
         type: selectedType,
         uploaded_at: new Date().toISOString(),
@@ -65,16 +77,40 @@ export default function DocumentsSection({ candidatId, documents, onUpdate }: Do
 
       const updated = [...documents, newDoc]
       onUpdate(updated)
-      toast.success('Document ajoute')
+      toast.success('Document ajouté')
       setShowTypeSelect(false)
       setSelectedType('autre')
+      setPendingFile(null)
     } catch (err: any) {
       console.error('Document upload error:', err)
       toast.error('Erreur upload : ' + (err.message || 'Erreur inconnue'))
     } finally {
       setUploading(false)
-      if (inputRef.current) inputRef.current.value = ''
     }
+  }
+
+  const handleViewDoc = (doc: CandidatDocument) => {
+    const ext = doc.name.split('.').pop()?.toLowerCase() || ''
+    if (['pdf'].includes(ext)) {
+      window.open(doc.url, '_blank')
+    } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+      window.open(doc.url, '_blank')
+    } else if (['doc', 'docx'].includes(ext)) {
+      window.open(`https://docs.google.com/viewer?url=${encodeURIComponent(doc.url)}&embedded=false`, '_blank')
+    } else {
+      window.open(doc.url, '_blank')
+    }
+  }
+
+  const handleRenameDoc = (idx: number, newName: string) => {
+    if (!newName.trim()) return
+    const doc = documents[idx]
+    const ext = doc.name.split('.').pop() || ''
+    const finalName = newName.includes('.') ? newName : `${newName}.${ext}`
+    const updated = documents.map((d, i) => i === idx ? { ...d, name: finalName } : d)
+    onUpdate(updated)
+    setEditingNameIdx(null)
+    toast.success('Document renommé')
   }
 
   const handleDelete = async (idx: number) => {
@@ -177,35 +213,76 @@ export default function DocumentsSection({ candidatId, documents, onUpdate }: Do
               </button>
             ))}
           </div>
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              padding: '6px 0', borderRadius: 6, fontSize: 11, fontWeight: 700,
-              border: '1px solid var(--border)', background: 'white',
-              color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
-              opacity: uploading ? 0.5 : 1,
-            }}
-          >
-            {uploading ? (
-              <>
-                <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
-                Upload en cours...
-              </>
-            ) : (
-              <>
-                <Upload size={12} />
-                Choisir un fichier
-              </>
-            )}
-          </button>
+          {pendingFile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)' }}>Nom du fichier :</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  type="text"
+                  value={pendingFile.name}
+                  onChange={e => setPendingFile({ ...pendingFile, name: e.target.value })}
+                  style={{
+                    flex: 1, padding: '5px 8px', borderRadius: 6, fontSize: 11,
+                    border: '1px solid var(--border)', fontFamily: 'inherit',
+                    outline: 'none',
+                  }}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') handleConfirmUpload() }}
+                />
+                <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center' }}>
+                  .{pendingFile.file.name.split('.').pop()}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  onClick={handleConfirmUpload}
+                  disabled={uploading || !pendingFile.name.trim()}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '6px 0', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    border: 'none', background: 'var(--primary)', color: '#0F172A',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    opacity: uploading || !pendingFile.name.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {uploading ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={12} />}
+                  {uploading ? 'Upload...' : 'Uploader'}
+                </button>
+                <button
+                  onClick={() => setPendingFile(null)}
+                  disabled={uploading}
+                  style={{
+                    padding: '6px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    border: '1px solid var(--border)', background: 'white',
+                    color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '6px 0', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                border: '1px solid var(--border)', background: 'white',
+                color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
+                opacity: uploading ? 0.5 : 1,
+              }}
+            >
+              <Upload size={12} />
+              Choisir un fichier
+            </button>
+          )}
           <input
             ref={inputRef}
             type="file"
             accept={ACCEPTED_FORMATS}
             style={{ display: 'none' }}
-            onChange={handleUpload}
+            onChange={handleFileSelect}
           />
         </div>
       )}
@@ -227,21 +304,68 @@ export default function DocumentsSection({ candidatId, documents, onUpdate }: Do
               >
                 <IconComp size={12} style={{ color: dt.color, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{
-                    fontSize: 11, fontWeight: 600, color: 'var(--foreground)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    margin: 0, lineHeight: 1.3,
-                  }}>
-                    {doc.name}
-                  </p>
+                  {editingNameIdx === i ? (
+                    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={editNameValue}
+                        onChange={e => setEditNameValue(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleRenameDoc(i, editNameValue); if (e.key === 'Escape') setEditingNameIdx(null) }}
+                        autoFocus
+                        style={{
+                          flex: 1, fontSize: 11, padding: '2px 5px', borderRadius: 4,
+                          border: '1px solid var(--border)', fontFamily: 'inherit', outline: 'none',
+                          minWidth: 0,
+                        }}
+                      />
+                      <button onClick={() => handleRenameDoc(i, editNameValue)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}>
+                        <Check size={11} style={{ color: '#059669' }} />
+                      </button>
+                      <button onClick={() => setEditingNameIdx(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}>
+                        <X size={11} style={{ color: '#DC2626' }} />
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={{
+                      fontSize: 11, fontWeight: 600, color: 'var(--foreground)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      margin: 0, lineHeight: 1.3,
+                    }}>
+                      {doc.name}
+                    </p>
+                  )}
                   <p style={{ fontSize: 9, color: dt.color, margin: 0, fontWeight: 600 }}>
                     {dt.label}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                   <button
+                    onClick={() => handleViewDoc(doc)}
+                    title="Visualiser"
+                    style={{
+                      width: 22, height: 22, borderRadius: 5,
+                      border: 'none', background: 'rgba(255,255,255,0.7)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: 0,
+                    }}
+                  >
+                    <Eye size={11} style={{ color: '#3B82F6' }} />
+                  </button>
+                  <button
+                    onClick={() => { setEditingNameIdx(i); setEditNameValue(doc.name.replace(/\.[^.]+$/, '')) }}
+                    title="Renommer"
+                    style={{
+                      width: 22, height: 22, borderRadius: 5,
+                      border: 'none', background: 'rgba(255,255,255,0.7)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: 0,
+                    }}
+                  >
+                    <Pencil size={11} style={{ color: '#6B7280' }} />
+                  </button>
+                  <button
                     onClick={() => handleDownload(doc)}
-                    title="Telecharger"
+                    title="Télécharger"
                     style={{
                       width: 22, height: 22, borderRadius: 5,
                       border: 'none', background: 'rgba(255,255,255,0.7)',
