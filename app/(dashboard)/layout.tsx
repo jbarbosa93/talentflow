@@ -8,8 +8,10 @@ import { ImportProvider } from "@/contexts/ImportContext"
 import { MatchingProvider } from "@/contexts/MatchingContext"
 import { PhotosProvider } from "@/contexts/PhotosContext"
 import { DoublonsProvider } from "@/contexts/DoublonsContext"
+import { UploadProvider } from "@/contexts/UploadContext"
 import DashboardShell from "@/components/layout/DashboardShell"
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
+import GlobalUploadPanel from "@/components/GlobalUploadPanel"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -34,11 +36,14 @@ export default function DashboardRootLayout({
             <MatchingProvider>
               <PhotosProvider>
                 <DoublonsProvider>
-                  <DashboardShell>
-                    {children}
-                  </DashboardShell>
-                  <SessionTimeoutModal />
-                  <Toaster richColors position="top-right" />
+                  <UploadProvider>
+                    <DashboardShell>
+                      {children}
+                    </DashboardShell>
+                    <GlobalUploadPanel />
+                    <SessionTimeoutModal />
+                    <Toaster richColors position="top-right" />
+                  </UploadProvider>
                 </DoublonsProvider>
               </PhotosProvider>
             </MatchingProvider>

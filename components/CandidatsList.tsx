@@ -8,7 +8,7 @@ import {
   CheckCircle, Archive,
 } from 'lucide-react'
 
-import UploadCV from '@/components/UploadCV'
+import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
@@ -71,6 +71,7 @@ export default function CandidatsList() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const { openUpload } = useUpload()
 
   const [importStatusFilter, setImportStatusFilter] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -101,7 +102,7 @@ export default function CandidatsList() {
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
-  const [showUpload, setShowUpload]       = useState(false)
+  // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [messageText, setMessageText]     = useState('')
@@ -672,7 +673,7 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setShowUpload(true)} className="neo-btn">
+          <button onClick={() => openUpload()} className="neo-btn">
             <Upload size={15} /> Importer Candidat/s
           </button>
         </div>
@@ -925,7 +926,7 @@ export default function CandidatsList() {
           <div className="neo-empty-icon">{'\uD83D\uDD0D'}</div>
           <div className="neo-empty-title">Aucun candidat trouvé</div>
           <div className="neo-empty-sub">Modifiez vos filtres ou importez de nouveaux candidats</div>
-          <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
+          <button onClick={() => openUpload()} className="neo-btn" style={{ marginTop: 20 }}>
             <Upload size={15} /> Importer Candidat/s
           </button>
         </div>
@@ -1357,15 +1358,7 @@ export default function CandidatsList() {
         )
       })()}
 
-      {/* Upload panel — persiste même quand minimisé */}
-      {showUpload && (
-        <UploadCV
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['candidats'] })
-          }}
-          onClose={() => setShowUpload(false)}
-        />
-      )}
+      {/* Upload géré globalement via UploadContext + GlobalUploadPanel */}
     </div>
   )
 }
