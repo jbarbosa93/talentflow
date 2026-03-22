@@ -194,8 +194,12 @@ export default function CandidatsList() {
   })
   // Persist page
   useEffect(() => { sessionStorage.setItem('candidats_page', String(page)) }, [page])
-  // Reset page quand les filtres changent
-  useEffect(() => { setPage(1) }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage])
+  // Reset page quand les filtres changent (skip au premier render)
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return }
+    setPage(1)
+  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage])
 
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
