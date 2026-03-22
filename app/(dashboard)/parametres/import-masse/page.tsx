@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import {
   Upload, FolderOpen, Play, Pause, RotateCcw, Download,
   CheckCircle, XCircle, Loader2, FileText, AlertTriangle,
@@ -120,11 +121,9 @@ export default function ImportMassePage() {
     <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Bouton retour */}
-      <a href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--muted)', textDecoration: 'none', marginBottom: 20, transition: 'color 0.15s' }}
-        onMouseEnter={e => (e.currentTarget.style.color = 'var(--foreground)')}
-        onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}>
+      <Link href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600, marginBottom: 20 }}>
         ← Outils
-      </a>
+      </Link>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
@@ -134,7 +133,7 @@ export default function ImportMassePage() {
               Import en masse
             </h1>
             <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
-              Chargez des milliers de CVs depuis vos dossiers — traitement automatique par IA
+              Importez et traitez des centaines de CVs en lot — traitement automatique par IA
             </p>
           </div>
           {jobs.length > 0 && (
@@ -396,10 +395,10 @@ export default function ImportMassePage() {
             </p>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => inputRef.current?.click()} className="neo-btn" style={{ gap: 6 }}>
+              <button onClick={() => inputRef.current?.click()} className="neo-btn-yellow" style={{ gap: 6 }}>
                 <FileText size={15} /> Sélectionner des fichiers
               </button>
-              <button onClick={() => folderRef.current?.click()} className="neo-btn-ghost" style={{ gap: 6 }}>
+              <button onClick={() => folderRef.current?.click()} className="neo-btn-yellow" style={{ gap: 6 }}>
                 <FolderOpen size={15} /> Ajouter un dossier
                 {categories.length > 0 && (
                   <span style={{ background: 'var(--primary)', color: 'white', borderRadius: 100, fontSize: 10, fontWeight: 800, padding: '1px 6px', marginLeft: 2 }}>

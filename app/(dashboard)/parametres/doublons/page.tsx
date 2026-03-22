@@ -574,14 +574,6 @@ export default function DoublonsPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {phase === 'idle' && (
-        <div style={{ padding: '60px 24px', border: '2px dashed #E8E0C8', borderRadius: 16, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', marginBottom: 6 }}>Prêt à analyser</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>L&apos;IA va comparer les candidats pour détecter les doublons</div>
-        </div>
-      )}
 
       {/* Modal de confirmation fusion */}
       {confirmModal && (

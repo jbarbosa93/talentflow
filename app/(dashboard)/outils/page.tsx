@@ -8,7 +8,7 @@ const OUTILS = [
     href: '/parametres/import-masse',
     icon: FolderInput,
     title: 'Import en masse',
-    description: 'Importez et traitez des dizaines de CVs en lot. Analysez automatiquement les CVs via IA et ajoutez-les à votre base candidats.',
+    description: 'Importez et traitez des centaines de CVs en lot. Analysez automatiquement les CVs via IA et ajoutez-les à votre base candidats.',
     color: '#3B82F6',
     colorSoft: 'rgba(59,130,246,0.12)',
     badge: 'IA',
