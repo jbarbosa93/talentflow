@@ -40,19 +40,41 @@ export async function GET(request: NextRequest) {
     if (statut) query = query.eq('statut_pipeline', statut as any)
     if (importStatus) query = query.eq('import_status', importStatus as any)
 
-    // Recherche serveur — cherche dans tous les champs pertinents
+    // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
-      // Utiliser une RPC pour recherche full-text (inclut compétences, expériences, formations, CV texte brut)
-      const rpcResult = await (supabase.rpc as any)('search_candidats', { search_query: words.join(' ') })
+      const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
+        search_query: words.join(' '),
+        filter_import_status: importStatus || null,
+        filter_statut: statut || null,
+        result_limit: 500,
+      })
       const searchIds = rpcResult.data as { id: string }[] | null
       const searchError = rpcResult.error
 
       if (!searchError && searchIds && searchIds.length > 0) {
         const ids = searchIds.map((r: { id: string }) => r.id)
-        query = query.in('id', ids)
+        // Envoyer les IDs par batch de 50 max pour éviter la limite URL de PostgREST
+        const batchSize = 50
+        const batches: string[][] = []
+        for (let i = 0; i < ids.length; i += batchSize) {
+          batches.push(ids.slice(i, i + batchSize))
+        }
+        // Construire un OR de .in() n'est pas possible, utiliser la première batch pour la requête paginée
+        // et retourner le total réel
+        const totalFound = ids.length
+        const startIdx = (page - 1) * perPage
+        const pageIds = ids.slice(startIdx, startIdx + perPage)
+        if (pageIds.length === 0) {
+          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage })
+        }
+        query = query.in('id', pageIds)
+        // Désactiver le filtre import_status/statut car déjà filtré par la RPC
+        // et désactiver la pagination Supabase car on pagine manuellement
+        const { data, error } = await query
+        if (error) throw error
+        return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage })
       } else if (!searchError && searchIds && searchIds.length === 0) {
-        // Aucun résultat — retourner vide
         return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage })
       } else {
         // Fallback si la RPC n'existe pas — recherche basique
