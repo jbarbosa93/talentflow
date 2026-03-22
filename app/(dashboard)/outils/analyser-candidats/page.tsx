@@ -38,6 +38,14 @@ interface AuditResult {
   sans_cv: SansCv[]
 }
 
+type AnalysisPhase = 'idle' | 'scanning' | 'analysing_cvs' | 'analysing_photos' | 'done'
+
+interface OverallProgress {
+  current: number
+  total: number
+  phase: string
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function healthColor(score: number): string {
@@ -56,27 +64,13 @@ function healthLabel(score: number): string {
 
 export default function AnalyserCandidatsPage() {
   const [result, setResult] = useState<AuditResult | null>(null)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   const [fixedIds, setFixedIds] = useState<Set<string>>(new Set())
 
-  // Deep analysis state — CVs
-  const [deepRunning, setDeepRunning] = useState(false)
-  const [deepProgress, setDeepProgress] = useState({ scanned: 0, total: 0 })
-  const [deepProblems, setDeepProblems] = useState<Array<{
-    id: string; nom: string; prenom: string | null; cv_nom_fichier: string | null
-    isCV: boolean; confidence: number; reason: string
-  }>>([])
-  const [deepDone, setDeepDone] = useState(false)
-
-  // Deep analysis state — Photos
-  const [photoRunning, setPhotoRunning] = useState(false)
-  const [photoProgress, setPhotoProgress] = useState({ scanned: 0, total: 0 })
-  const [photoProblems, setPhotoProblems] = useState<Array<{
-    id: string; nom: string; prenom: string | null; photo_url: string; reason: string
-  }>>([])
-  const [photoDone, setPhotoDone] = useState(false)
+  // Unified analysis state
+  const [analysisPhase, setAnalysisPhase] = useState<AnalysisPhase>('idle')
+  const [overallProgress, setOverallProgress] = useState<OverallProgress>({ current: 0, total: 0, phase: '' })
 
   // Collapsible sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -90,92 +84,200 @@ export default function AnalyserCandidatsPage() {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function runDeepAnalysis() {
-    setDeepRunning(true)
-    setDeepProblems([])
-    setDeepDone(false)
-    setDeepProgress({ scanned: 0, total: 0 })
-
-    let offset = 0
-    const batchSize = 10
-    const allProblems: typeof deepProblems = []
-
-    try {
-      while (true) {
-        const res = await fetch('/api/candidats/audit/deep', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ offset, limit: batchSize }),
-        })
-        const data = await res.json()
-        if (!res.ok) break
-
-        setDeepProgress({ scanned: offset + data.scanned, total: data.total })
-        if (data.problems?.length) {
-          allProblems.push(...data.problems)
-          setDeepProblems([...allProblems])
-        }
-
-        offset += batchSize
-        if (offset >= data.total) break
-      }
-    } catch {}
-
-    setDeepRunning(false)
-    setDeepDone(true)
-  }
-
-  async function runPhotoAnalysis() {
-    setPhotoRunning(true)
-    setPhotoProblems([])
-    setPhotoDone(false)
-    setPhotoProgress({ scanned: 0, total: 0 })
-
-    let offset = 0
-    const batchSize = 15
-    const allProblems: typeof photoProblems = []
-
-    try {
-      while (true) {
-        const res = await fetch('/api/candidats/audit/deep', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ offset, limit: batchSize, mode: 'photo' }),
-        })
-        const data = await res.json()
-        if (!res.ok) break
-
-        setPhotoProgress({ scanned: offset + data.scanned, total: data.total })
-        if (data.problems?.length) {
-          allProblems.push(...data.problems)
-          setPhotoProblems([...allProblems])
-        }
-
-        offset += batchSize
-        if (offset >= data.total) break
-      }
-    } catch {}
-
-    setPhotoRunning(false)
-    setPhotoDone(true)
-  }
-
-  async function runAudit() {
-    setLoading(true)
+  async function runFullAnalysis() {
     setError(null)
     setResult(null)
     setFixedIds(new Set())
+
+    // ── Step 1: Quick scan ──
+    setAnalysisPhase('scanning')
+    setOverallProgress({ current: 0, total: 1, phase: 'Etape 1/3 : Scan rapide...' })
+
+    let auditData: AuditResult | null = null
     try {
       const res = await fetch('/api/candidats/audit')
       if (!res.ok) throw new Error('Erreur serveur')
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setResult(data)
+      auditData = data as AuditResult
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur inconnue')
-    } finally {
-      setLoading(false)
+      setAnalysisPhase('idle')
+      return
     }
+
+    // Show quick scan results immediately (will be enriched)
+    setResult({ ...auditData })
+    setOverallProgress({ current: 1, total: 1, phase: 'Etape 1/3 : Scan rapide...' })
+
+    // ── Step 2: Deep CV analysis ──
+    setAnalysisPhase('analysing_cvs')
+    const deepCvProblems: CvMalClasse[] = []
+    let cvOffset = 0
+    const cvBatchSize = 10
+
+    try {
+      // First call to get total
+      const firstRes = await fetch('/api/candidats/audit/deep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offset: 0, limit: cvBatchSize, mode: 'cv' }),
+      })
+      const firstData = await firstRes.json()
+      if (firstRes.ok) {
+        const cvTotal = firstData.total || 0
+        setOverallProgress({ current: firstData.scanned, total: cvTotal, phase: `Etape 2/3 : Analyse des CVs... (${firstData.scanned}/${cvTotal})` })
+
+        if (firstData.problems?.length) {
+          for (const p of firstData.problems) {
+            deepCvProblems.push({
+              id: p.id,
+              nom: p.nom,
+              prenom: p.prenom,
+              cv_url: '',
+              cv_nom_fichier: p.cv_nom_fichier || '',
+              suspected_type: p.reason,
+            })
+          }
+        }
+
+        cvOffset = cvBatchSize
+        while (cvOffset < cvTotal) {
+          const res = await fetch('/api/candidats/audit/deep', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ offset: cvOffset, limit: cvBatchSize, mode: 'cv' }),
+          })
+          const data = await res.json()
+          if (!res.ok) break
+
+          const scannedSoFar = cvOffset + data.scanned
+          setOverallProgress({ current: scannedSoFar, total: cvTotal, phase: `Etape 2/3 : Analyse des CVs... (${scannedSoFar}/${cvTotal})` })
+
+          if (data.problems?.length) {
+            for (const p of data.problems) {
+              deepCvProblems.push({
+                id: p.id,
+                nom: p.nom,
+                prenom: p.prenom,
+                cv_url: '',
+                cv_nom_fichier: p.cv_nom_fichier || '',
+                suspected_type: p.reason,
+              })
+            }
+          }
+
+          cvOffset += cvBatchSize
+        }
+      }
+    } catch {
+      // Continue with what we have
+    }
+
+    // Merge deep CV problems into audit result (avoid duplicates by id)
+    const existingCvIds = new Set(auditData.cvs_mal_classes.map(c => c.id))
+    const newCvProblems = deepCvProblems.filter(p => !existingCvIds.has(p.id))
+    const mergedCvs = [...auditData.cvs_mal_classes, ...newCvProblems]
+
+    const updatedAfterCv: AuditResult = {
+      ...auditData,
+      cvs_mal_classes: mergedCvs,
+      summary: {
+        ...auditData.summary,
+        cvs_mal_classes: mergedCvs.length,
+      },
+    }
+    setResult({ ...updatedAfterCv })
+
+    // ── Step 3: Deep photo analysis ──
+    setAnalysisPhase('analysing_photos')
+    const deepPhotoProblems: PhotoSuspecte[] = []
+    let photoOffset = 0
+    const photoBatchSize = 15
+
+    try {
+      const firstRes = await fetch('/api/candidats/audit/deep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offset: 0, limit: photoBatchSize, mode: 'photo' }),
+      })
+      const firstData = await firstRes.json()
+      if (firstRes.ok) {
+        const photoTotal = firstData.total || 0
+        setOverallProgress({ current: firstData.scanned, total: photoTotal, phase: `Etape 3/3 : Verification des photos... (${firstData.scanned}/${photoTotal})` })
+
+        if (firstData.problems?.length) {
+          for (const p of firstData.problems) {
+            deepPhotoProblems.push({
+              id: p.id,
+              nom: p.nom,
+              prenom: p.prenom,
+              photo_url: p.photo_url,
+              reason: p.reason,
+            })
+          }
+        }
+
+        photoOffset = photoBatchSize
+        while (photoOffset < photoTotal) {
+          const res = await fetch('/api/candidats/audit/deep', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ offset: photoOffset, limit: photoBatchSize, mode: 'photo' }),
+          })
+          const data = await res.json()
+          if (!res.ok) break
+
+          const scannedSoFar = photoOffset + data.scanned
+          setOverallProgress({ current: scannedSoFar, total: photoTotal, phase: `Etape 3/3 : Verification des photos... (${scannedSoFar}/${photoTotal})` })
+
+          if (data.problems?.length) {
+            for (const p of data.problems) {
+              deepPhotoProblems.push({
+                id: p.id,
+                nom: p.nom,
+                prenom: p.prenom,
+                photo_url: p.photo_url,
+                reason: p.reason,
+              })
+            }
+          }
+
+          photoOffset += photoBatchSize
+        }
+      }
+    } catch {
+      // Continue with what we have
+    }
+
+    // Merge deep photo problems into audit result (avoid duplicates by id)
+    const existingPhotoIds = new Set(updatedAfterCv.photos_suspectes.map(p => p.id))
+    const newPhotoProblems = deepPhotoProblems.filter(p => !existingPhotoIds.has(p.id))
+    const mergedPhotos = [...updatedAfterCv.photos_suspectes, ...newPhotoProblems]
+
+    // Recompute health score with merged results
+    const allIssueIds = new Set([
+      ...mergedPhotos.map(p => p.id),
+      ...mergedCvs.map(c => c.id),
+      ...updatedAfterCv.fiches_incompletes.map(f => f.id),
+      ...updatedAfterCv.sans_cv.map(sc => sc.id),
+    ])
+    const totalCandidats = updatedAfterCv.summary.total_candidats
+    const healthyCount = totalCandidats - allIssueIds.size
+    const scoreSante = totalCandidats > 0 ? Math.round((healthyCount / totalCandidats) * 100) : 100
+
+    const finalResult: AuditResult = {
+      ...updatedAfterCv,
+      photos_suspectes: mergedPhotos,
+      summary: {
+        ...updatedAfterCv.summary,
+        photos_suspectes: mergedPhotos.length,
+        cvs_mal_classes: mergedCvs.length,
+        score_sante: scoreSante,
+      },
+    }
+    setResult(finalResult)
+    setAnalysisPhase('done')
   }
 
   async function fixCandidat(candidatId: string, action: 'move_cv_to_documents' | 'remove_photo') {
@@ -202,7 +304,9 @@ export default function AnalyserCandidatsPage() {
     }
   }
 
+  const isRunning = analysisPhase !== 'idle' && analysisPhase !== 'done'
   const s = result?.summary
+  const progressPct = overallProgress.total > 0 ? Math.round((overallProgress.current / overallProgress.total) * 100) : 0
 
   return (
     <div className="d-page" style={{ maxWidth: 920, paddingBottom: 60 }}>
@@ -233,22 +337,22 @@ export default function AnalyserCandidatsPage() {
         </div>
 
         <button
-          onClick={runAudit}
-          disabled={loading}
+          onClick={runFullAnalysis}
+          disabled={isRunning}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 800,
-            border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+            padding: '14px 28px', borderRadius: 12, fontSize: 15, fontWeight: 800,
+            border: 'none', cursor: isRunning ? 'not-allowed' : 'pointer',
             background: 'linear-gradient(135deg, var(--primary), #E8940A)',
             color: '#0F172A', fontFamily: 'inherit',
             boxShadow: '0 2px 12px rgba(245,167,35,0.3)',
-            opacity: loading ? 0.7 : 1,
+            opacity: isRunning ? 0.7 : 1,
           }}
         >
-          {loading ? (
+          {isRunning ? (
             <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Analyse en cours...</>
           ) : (
-            <><Search size={16} /> Lancer l&apos;analyse</>
+            <><Search size={16} /> Lancer l&apos;analyse complete</>
           )}
         </button>
       </div>
@@ -266,7 +370,7 @@ export default function AnalyserCandidatsPage() {
       )}
 
       {/* Empty state */}
-      {!loading && !result && !error && (
+      {analysisPhase === 'idle' && !result && !error && (
         <div style={{
           textAlign: 'center', padding: '80px 20px',
           color: 'var(--muted)',
@@ -281,23 +385,54 @@ export default function AnalyserCandidatsPage() {
           </div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Pret pour l&apos;audit</div>
           <div style={{ fontSize: 13, maxWidth: 360, margin: '0 auto', lineHeight: 1.6 }}>
-            Cliquez sur &laquo; Lancer l&apos;analyse &raquo; pour scanner votre base candidats et detecter les anomalies.
+            Cliquez sur &laquo; Lancer l&apos;analyse complete &raquo; pour scanner votre base candidats et detecter les anomalies.
           </div>
         </div>
       )}
 
-      {/* Loading state */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-          <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: 16, color: '#8B5CF6' }} />
-          <div style={{ fontSize: 15, fontWeight: 700 }}>Analyse en cours...</div>
-          <div style={{ fontSize: 13, marginTop: 6 }}>Scan de tous les candidats</div>
+      {/* Progress bar during analysis */}
+      {isRunning && (
+        <div style={{
+          borderRadius: 16, border: '1.5px solid #C4B5FD', background: 'var(--card)',
+          padding: 24, marginBottom: 24,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: '#8B5CF6' }} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+              {overallProgress.phase}
+            </span>
+          </div>
+          {analysisPhase !== 'scanning' && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+                <span>{overallProgress.current} / {overallProgress.total}</span>
+                <span>{progressPct}%</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${progressPct}%`,
+                  background: 'linear-gradient(90deg, #8B5CF6, #F59E0B)', borderRadius: 99, transition: 'width 0.3s',
+                }} />
+              </div>
+            </>
+          )}
+          {analysisPhase === 'scanning' && (
+            <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', width: '100%',
+                background: 'linear-gradient(90deg, #8B5CF6, #F59E0B, #8B5CF6)',
+                backgroundSize: '200% 100%',
+                borderRadius: 99,
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }} />
+            </div>
+          )}
         </div>
       )}
 
       {/* Results */}
       {result && s && (
-        <div style={{ animation: 'fadeInAudit 0.4s ease' }}>
+        <div style={{ animation: analysisPhase === 'done' ? 'fadeInAudit 0.4s ease' : 'none' }}>
           {/* Health score */}
           <div className="neo-card-soft" style={{
             padding: 32, marginBottom: 24, textAlign: 'center',
@@ -335,6 +470,9 @@ export default function AnalyserCandidatsPage() {
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
               {s.total_candidats} candidats analyses
+              {analysisPhase !== 'done' && analysisPhase !== 'idle' && (
+                <span style={{ marginLeft: 6, color: '#8B5CF6', fontWeight: 600 }}>(analyse en cours...)</span>
+              )}
             </div>
           </div>
 
@@ -359,7 +497,7 @@ export default function AnalyserCandidatsPage() {
               onToggle={() => toggleSection('photos')}
             >
               {result.photos_suspectes.map(p => (
-                <div key={p.id} style={rowStyle}>
+                <div key={`photo-${p.id}-${p.reason}`} style={rowStyle}>
                   <img
                     src={p.photo_url}
                     alt=""
@@ -397,7 +535,7 @@ export default function AnalyserCandidatsPage() {
               onToggle={() => toggleSection('cvs')}
             >
               {result.cvs_mal_classes.map(c => (
-                <div key={c.id} style={rowStyle}>
+                <div key={`cv-${c.id}-${c.suspected_type}`} style={rowStyle}>
                   <div style={avatarStyle}>
                     <FileText size={18} color="#EF4444" />
                   </div>
@@ -405,7 +543,7 @@ export default function AnalyserCandidatsPage() {
                     <div style={nameStyle}>{c.prenom} {c.nom}</div>
                     <div style={issueStyle}>
                       <AlertTriangle size={11} style={{ flexShrink: 0 }} />
-                      CV = &quot;{c.cv_nom_fichier}&quot; — type detecte : {c.suspected_type}
+                      CV = &quot;{c.cv_nom_fichier}&quot; — {c.suspected_type}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -477,199 +615,8 @@ export default function AnalyserCandidatsPage() {
             </AuditSection>
           )}
 
-          {/* ── Analyse approfondie (contenu PDF) ── */}
-          <div style={{
-            borderRadius: 16, border: '1.5px solid #C4B5FD', background: 'var(--card)',
-            padding: 20, marginTop: 8,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: deepDone || deepRunning ? 16 : 0 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Search size={16} color="#8B5CF6" />
-                  Analyse approfondie des CVs
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                  Vérifie le contenu réel des PDFs pour détecter les certificats/attestations classés comme CV
-                </p>
-              </div>
-              {!deepRunning && (
-                <button onClick={runDeepAnalysis} style={{
-                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                  border: 'none', background: '#8B5CF6', color: 'white',
-                  cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                }}>
-                  {deepDone ? 'Relancer' : 'Lancer'}
-                </button>
-              )}
-            </div>
-
-            {/* Progress */}
-            {deepRunning && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
-                  <span>{deepProgress.scanned} / {deepProgress.total} candidats analysés</span>
-                  <span>{deepProgress.total > 0 ? Math.round((deepProgress.scanned / deepProgress.total) * 100) : 0}%</span>
-                </div>
-                <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: `${deepProgress.total > 0 ? (deepProgress.scanned / deepProgress.total) * 100 : 0}%`,
-                    background: 'linear-gradient(90deg, #8B5CF6, #A78BFA)', borderRadius: 99, transition: 'width 0.3s',
-                  }} />
-                </div>
-                {deepProblems.length > 0 && (
-                  <p style={{ margin: '8px 0 0', fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
-                    🚨 {deepProblems.length} document{deepProblems.length > 1 ? 's' : ''} mal classé{deepProblems.length > 1 ? 's' : ''} trouvé{deepProblems.length > 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Results */}
-            {deepDone && deepProblems.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '16px 0', color: '#10B981', fontSize: 13, fontWeight: 600 }}>
-                ✅ Tous les CVs sont correctement classés
-              </div>
-            )}
-            {deepDone && deepProblems.length > 0 && (
-              <div>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#DC2626' }}>
-                  {deepProblems.length} document{deepProblems.length > 1 ? 's' : ''} mal classé{deepProblems.length > 1 ? 's' : ''} :
-                </p>
-                {deepProblems.map(p => (
-                  <div key={p.id} style={{ ...rowStyle, borderColor: '#FECACA' }}>
-                    <div style={{ ...avatarStyle, background: '#FEF2F2', borderColor: '#FECACA' }}>
-                      <AlertTriangle size={18} color="#DC2626" />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={nameStyle}>{p.prenom} {p.nom}</div>
-                      <div style={{ fontSize: 11, color: '#DC2626', marginTop: 2 }}>
-                        {p.cv_nom_fichier}
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
-                        {p.reason} ({p.confidence}% confiance)
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <FixButton
-                        label="Corriger"
-                        loading={fixingIds.has(p.id)}
-                        done={fixedIds.has(p.id)}
-                        color="#DC2626"
-                        onClick={async () => {
-                          setFixingIds(prev => new Set(prev).add(p.id))
-                          try {
-                            await fetch('/api/candidats/audit/fix', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ candidatId: p.id, action: 'move_cv_to_documents' }),
-                            })
-                            setFixedIds(prev => new Set(prev).add(p.id))
-                          } catch {}
-                          setFixingIds(prev => { const n = new Set(prev); n.delete(p.id); return n })
-                        }}
-                      />
-                      <ViewButton id={p.id} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ── Analyse approfondie Photos ── */}
-          <div style={{
-            borderRadius: 16, border: '1.5px solid #FDE68A', background: 'var(--card)',
-            padding: 20, marginTop: 8,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: photoDone || photoRunning ? 16 : 0 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Image size={16} color="#F59E0B" />
-                  Analyse approfondie des Photos
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                  Vérifie les dimensions et le ratio de chaque photo (logos, documents scannés, icônes)
-                </p>
-              </div>
-              {!photoRunning && (
-                <button onClick={runPhotoAnalysis} style={{
-                  padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                  border: 'none', background: '#F59E0B', color: '#0F172A',
-                  cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                }}>
-                  {photoDone ? 'Relancer' : 'Lancer'}
-                </button>
-              )}
-            </div>
-
-            {photoRunning && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
-                  <span>{photoProgress.scanned} / {photoProgress.total} photos analysées</span>
-                  <span>{photoProgress.total > 0 ? Math.round((photoProgress.scanned / photoProgress.total) * 100) : 0}%</span>
-                </div>
-                <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: `${photoProgress.total > 0 ? (photoProgress.scanned / photoProgress.total) * 100 : 0}%`,
-                    background: 'linear-gradient(90deg, #F59E0B, #EAB308)', borderRadius: 99, transition: 'width 0.3s',
-                  }} />
-                </div>
-                {photoProblems.length > 0 && (
-                  <p style={{ margin: '8px 0 0', fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
-                    🚨 {photoProblems.length} photo{photoProblems.length > 1 ? 's' : ''} suspecte{photoProblems.length > 1 ? 's' : ''}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {photoDone && photoProblems.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '16px 0', color: '#10B981', fontSize: 13, fontWeight: 600 }}>
-                ✅ Toutes les photos semblent correctes
-              </div>
-            )}
-            {photoDone && photoProblems.length > 0 && (
-              <div>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>
-                  {photoProblems.length} photo{photoProblems.length > 1 ? 's' : ''} suspecte{photoProblems.length > 1 ? 's' : ''} :
-                </p>
-                {photoProblems.map(p => (
-                  <div key={p.id} style={{ ...rowStyle, borderColor: '#FDE68A' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '2px solid #FDE68A' }}>
-                      <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={nameStyle}>{p.prenom} {p.nom}</div>
-                      <div style={{ fontSize: 10, color: '#D97706', marginTop: 2 }}>{p.reason}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <FixButton
-                        label="Supprimer"
-                        loading={fixingIds.has(p.id)}
-                        done={fixedIds.has(p.id)}
-                        color="#DC2626"
-                        onClick={async () => {
-                          setFixingIds(prev => new Set(prev).add(p.id))
-                          try {
-                            await fetch('/api/candidats/audit/fix', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ candidatId: p.id, action: 'remove_photo' }),
-                            })
-                            setFixedIds(prev => new Set(prev).add(p.id))
-                          } catch {}
-                          setFixingIds(prev => { const n = new Set(prev); n.delete(p.id); return n })
-                        }}
-                      />
-                      <ViewButton id={p.id} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* All clean */}
-          {s.photos_suspectes === 0 && s.cvs_mal_classes === 0 && s.fiches_incompletes === 0 && s.sans_cv === 0 && (
+          {analysisPhase === 'done' && s.photos_suspectes === 0 && s.cvs_mal_classes === 0 && s.fiches_incompletes === 0 && s.sans_cv === 0 && (
             <div style={{
               textAlign: 'center', padding: '40px 20px',
               borderRadius: 16, background: '#F0FDF4', border: '1.5px solid #BBF7D0',
@@ -685,6 +632,7 @@ export default function AnalyserCandidatsPage() {
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         @keyframes fadeInAudit { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
       `}</style>
     </div>
   )

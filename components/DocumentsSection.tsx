@@ -651,13 +651,15 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                       const val = e.target.value
                                       if (!val) return
                                       if (val === '__cv__') {
+                                        // Déjà gère le toast dans handleSetAsCv
                                         handleSetAsCv(realIdx)
                                       } else if (isCvPrincipal && onCvChange) {
                                         const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: val as any, uploaded_at: new Date().toISOString() }
                                         onUpdate([...documents, movedDoc])
                                         onCvChange('', '')
-                                        toast.success('CV déplacé')
+                                        toast.success('Document déplacé')
                                       } else {
+                                        // Déjà gère le toast dans handleChangeType
                                         handleChangeType(realIdx, val)
                                       }
                                     }}
