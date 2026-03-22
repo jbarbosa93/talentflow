@@ -386,9 +386,9 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           }).map((item, i) => {
             const Icon = item.icon
             const active = isActive(item.href, (item as any).exact)
-            const isParams = item.href === '/parametres'
+            const isOutils = item.href === '/outils'
             const isAdmin = item.href === '/parametres/admin'
-            const showDot = isParams && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
+            const showDot = isOutils && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
             return (
               <motion.div
                 key={item.href}

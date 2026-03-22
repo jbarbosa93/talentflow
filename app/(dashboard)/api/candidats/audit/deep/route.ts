@@ -265,33 +265,72 @@ export async function POST(request: NextRequest) {
 
         const buffer = Buffer.from(await res.arrayBuffer())
         const ext = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
+        let text = ''
 
-        // Extraire le texte seulement pour les PDFs
+        // 1. PDFs — extraire texte, OCR si scanné
         if (ext === 'pdf') {
           try {
             const { extractTextFromPDF } = await import('@/lib/cv-parser')
-            const text = await extractTextFromPDF(buffer)
+            text = await extractTextFromPDF(buffer)
 
+            // Si pas de texte → PDF scanné → OCR via mupdf + tesseract
             if (!text || text.trim().length < 30) {
-              // PDF scanné — impossible d'extraire le texte
-              results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'PDF scanné — texte non extractible' })
-              continue
-            }
+              try {
+                const mupdf = await import('mupdf')
+                const doc = mupdf.Document.openDocument(buffer, 'application/pdf')
+                const page = doc.loadPage(0)
+                const pixmap = page.toPixmap([2, 0, 0, 2, 0, 0], mupdf.ColorSpace.DeviceRGB)
+                const pngBuffer = pixmap.asPNG()
 
-            const classification = classifyDocument(text)
-            results.push({
-              id: c.id,
-              nom: c.nom,
-              prenom: c.prenom,
-              cv_nom_fichier: c.cv_nom_fichier,
-              ...classification,
-            })
+                const Tesseract = await import('tesseract.js')
+                const { data: { text: ocrText } } = await Tesseract.recognize(
+                  Buffer.from(pngBuffer),
+                  'fra+eng',
+                  { logger: () => {} }
+                )
+                text = ocrText || ''
+              } catch {
+                // OCR failed — skip
+              }
+            }
           } catch {
-            results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur extraction texte' })
+            // PDF extraction failed
           }
+        }
+        // 2. Images (jpg, jpeg, png) → OCR directement
+        else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          try {
+            const Tesseract = await import('tesseract.js')
+            const { data: { text: ocrText } } = await Tesseract.recognize(
+              buffer,
+              'fra+eng',
+              { logger: () => {} }
+            )
+            text = ocrText || ''
+          } catch {
+            // OCR failed
+          }
+        }
+        // 3. Word docs → extraire texte
+        else if (['doc', 'docx'].includes(ext)) {
+          try {
+            const { extractTextFromCV } = await import('@/lib/cv-parser')
+            text = await extractTextFromCV(buffer, c.cv_nom_fichier || `file.${ext}`)
+          } catch {
+            // Extraction failed
+          }
+        }
+
+        // Classifier le document
+        if (text && text.trim().length >= 30) {
+          const classification = classifyDocument(text)
+          results.push({
+            id: c.id, nom: c.nom, prenom: c.prenom,
+            cv_nom_fichier: c.cv_nom_fichier,
+            ...classification,
+          })
         } else {
-          // Pas un PDF — Word, image, etc. → on ne peut pas classifier facilement
-          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: `Format .${ext} — classification non supportée` })
+          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Texte non extractible' })
         }
       } catch {
         results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur de traitement' })

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Loader2, Image, FileText,
@@ -65,6 +65,7 @@ function healthLabel(score: number): string {
 export default function AnalyserCandidatsPage() {
   const [result, setResult] = useState<AuditResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const cancelRef = useRef(false)
   const [fixingIds, setFixingIds] = useState<Set<string>>(new Set())
   const [fixedIds, setFixedIds] = useState<Set<string>>(new Set())
 
@@ -85,13 +86,14 @@ export default function AnalyserCandidatsPage() {
   }
 
   async function runFullAnalysis() {
+    cancelRef.current = false
     setError(null)
     setResult(null)
     setFixedIds(new Set())
 
     // ── Step 1: Quick scan ──
     setAnalysisPhase('scanning')
-    setOverallProgress({ current: 0, total: 1, phase: 'Etape 1/3 : Scan rapide...' })
+    setOverallProgress({ current: 0, total: 1, phase: 'Etape 1/2 : Scan rapide...' })
 
     let auditData: AuditResult | null = null
     try {
@@ -108,7 +110,7 @@ export default function AnalyserCandidatsPage() {
 
     // Show quick scan results immediately (will be enriched)
     setResult({ ...auditData })
-    setOverallProgress({ current: 1, total: 1, phase: 'Etape 1/3 : Scan rapide...' })
+    setOverallProgress({ current: 1, total: 1, phase: 'Etape 1/2 : Scan rapide...' })
 
     // ── Step 2: Deep CV analysis ──
     setAnalysisPhase('analysing_cvs')
@@ -126,7 +128,7 @@ export default function AnalyserCandidatsPage() {
       const firstData = await firstRes.json()
       if (firstRes.ok) {
         const cvTotal = firstData.total || 0
-        setOverallProgress({ current: firstData.scanned, total: cvTotal, phase: `Etape 2/3 : Analyse des CVs... (${firstData.scanned}/${cvTotal})` })
+        setOverallProgress({ current: firstData.scanned, total: cvTotal, phase: `Etape 2/2 : Analyse des CVs... (${firstData.scanned}/${cvTotal})` })
 
         if (firstData.problems?.length) {
           for (const p of firstData.problems) {
@@ -142,7 +144,7 @@ export default function AnalyserCandidatsPage() {
         }
 
         cvOffset = cvBatchSize
-        while (cvOffset < cvTotal) {
+        while (cvOffset < cvTotal && !cancelRef.current) {
           const res = await fetch('/api/candidats/audit/deep', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -152,7 +154,7 @@ export default function AnalyserCandidatsPage() {
           if (!res.ok) break
 
           const scannedSoFar = cvOffset + data.scanned
-          setOverallProgress({ current: scannedSoFar, total: cvTotal, phase: `Etape 2/3 : Analyse des CVs... (${scannedSoFar}/${cvTotal})` })
+          setOverallProgress({ current: scannedSoFar, total: cvTotal, phase: `Etape 2/2 : Analyse des CVs... (${scannedSoFar}/${cvTotal})` })
 
           if (data.problems?.length) {
             for (const p of data.problems) {
@@ -198,83 +200,9 @@ export default function AnalyserCandidatsPage() {
     }
     setResult({ ...updatedAfterCv })
 
-    // ── Step 3: Deep photo analysis ──
-    setAnalysisPhase('analysing_photos')
-    const deepPhotoProblems: PhotoSuspecte[] = []
-    let photoOffset = 0
-    const photoBatchSize = 15
-
-    try {
-      const firstRes = await fetch('/api/candidats/audit/deep', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ offset: 0, limit: photoBatchSize, mode: 'photo' }),
-      })
-      const firstData = await firstRes.json()
-      if (firstRes.ok) {
-        const photoTotal = firstData.total || 0
-        setOverallProgress({ current: firstData.scanned, total: photoTotal, phase: `Etape 3/3 : Verification des photos... (${firstData.scanned}/${photoTotal})` })
-
-        if (firstData.problems?.length) {
-          for (const p of firstData.problems) {
-            deepPhotoProblems.push({
-              id: p.id,
-              nom: p.nom,
-              prenom: p.prenom,
-              photo_url: p.photo_url,
-              reason: p.reason,
-            })
-          }
-        }
-
-        photoOffset = photoBatchSize
-        while (photoOffset < photoTotal) {
-          const res = await fetch('/api/candidats/audit/deep', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ offset: photoOffset, limit: photoBatchSize, mode: 'photo' }),
-          })
-          const data = await res.json()
-          if (!res.ok) break
-
-          const scannedSoFar = photoOffset + data.scanned
-          setOverallProgress({ current: scannedSoFar, total: photoTotal, phase: `Etape 3/3 : Verification des photos... (${scannedSoFar}/${photoTotal})` })
-
-          if (data.problems?.length) {
-            for (const p of data.problems) {
-              deepPhotoProblems.push({
-                id: p.id,
-                nom: p.nom,
-                prenom: p.prenom,
-                photo_url: p.photo_url,
-                reason: p.reason,
-              })
-            }
-            // Mise à jour progressive des photos
-            setResult(prev => {
-              if (!prev) return prev
-              const existIds = new Set(prev.photos_suspectes.map(x => x.id))
-              const newP = deepPhotoProblems.filter(x => !existIds.has(x.id))
-              const merged = [...prev.photos_suspectes, ...newP]
-              return { ...prev, photos_suspectes: merged, summary: { ...prev.summary, photos_suspectes: merged.length } }
-            })
-          }
-
-          photoOffset += photoBatchSize
-        }
-      }
-    } catch {
-      // Continue with what we have
-    }
-
-    // Merge deep photo problems into audit result (avoid duplicates by id)
-    const existingPhotoIds = new Set(updatedAfterCv.photos_suspectes.map(p => p.id))
-    const newPhotoProblems = deepPhotoProblems.filter(p => !existingPhotoIds.has(p.id))
-    const mergedPhotos = [...updatedAfterCv.photos_suspectes, ...newPhotoProblems]
-
-    // Recompute health score with merged results
+    // Recompute health score with merged CV results
     const allIssueIds = new Set([
-      ...mergedPhotos.map(p => p.id),
+      ...updatedAfterCv.photos_suspectes.map(p => p.id),
       ...mergedCvs.map(c => c.id),
       ...updatedAfterCv.fiches_incompletes.map(f => f.id),
       ...updatedAfterCv.sans_cv.map(sc => sc.id),
@@ -285,10 +213,8 @@ export default function AnalyserCandidatsPage() {
 
     const finalResult: AuditResult = {
       ...updatedAfterCv,
-      photos_suspectes: mergedPhotos,
       summary: {
         ...updatedAfterCv.summary,
-        photos_suspectes: mergedPhotos.length,
         cvs_mal_classes: mergedCvs.length,
         score_sante: scoreSante,
       },
@@ -372,6 +298,16 @@ export default function AnalyserCandidatsPage() {
             <><Search size={16} /> Lancer l&apos;analyse complete</>
           )}
         </button>
+        {isRunning && (
+          <button onClick={() => { cancelRef.current = true; setAnalysisPhase('done') }}
+            style={{
+              padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+              border: '1px solid #FECACA', background: '#FEF2F2', color: '#DC2626',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            Arrêter
+          </button>
+        )}
       </div>
 
       {/* Error */}
