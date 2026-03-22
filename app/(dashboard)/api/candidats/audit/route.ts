@@ -128,15 +128,19 @@ function detectCvMalClasse(c: any): CvMalClasse | null {
   if (!c.cv_url || !c.cv_nom_fichier) return null
 
   const filename = normalise(c.cv_nom_fichier)
+  const nameOnly = (filename.split('/').pop() || filename).replace(/[_\-\.]/g, ' ')
 
-  // Ignore if filename clearly starts with "cv" — it's a real CV
-  if (filename.startsWith('cv') || filename.startsWith('curriculum')) return null
-
-  // Only flag if the filename STARTS with a suspect keyword or the keyword
-  // is the main part of the name (not just a folder path substring)
-  const nameOnly = filename.split('/').pop() || filename
+  // Check if any suspect keyword appears as a word in the filename
   for (const pattern of CV_SUSPECT_PATTERNS) {
-    if (nameOnly.startsWith(pattern) || nameOnly.includes(`_${pattern}`) || nameOnly.includes(`-${pattern}`)) {
+    // Match as whole word or at start of name
+    const regex = new RegExp(`(^|\\s|_|-)${pattern}`, 'i')
+    if (regex.test(nameOnly)) {
+      // But if filename ALSO contains "cv" as a word, it might still be a CV
+      // Only skip if "cv" appears AND no suspect keyword appears before it
+      const cvPos = nameOnly.indexOf('cv')
+      const patternPos = nameOnly.indexOf(pattern)
+      if (cvPos >= 0 && cvPos < patternPos) continue // "cv" appears first → probably a CV
+
       return {
         id: c.id,
         nom: c.nom,
@@ -171,15 +175,38 @@ function detectFicheIncomplete(c: any): FicheIncomplete | null {
 }
 
 function detectSansCv(c: any): SansCv | null {
-  if (c.cv_url) return null
-
-  const docs = c.documents || []
-  return {
-    id: c.id,
-    nom: c.nom,
-    prenom: c.prenom,
-    has_documents: Array.isArray(docs) && docs.length > 0,
+  // Pas de cv_url du tout
+  if (!c.cv_url) {
+    const docs = c.documents || []
+    return {
+      id: c.id,
+      nom: c.nom,
+      prenom: c.prenom,
+      has_documents: Array.isArray(docs) && docs.length > 0,
+    }
   }
+
+  // A un cv_url mais c'est peut-être pas un vrai CV — vérifier via le nom du fichier
+  if (c.cv_nom_fichier) {
+    const nameOnly = normalise(c.cv_nom_fichier).split('/').pop() || ''
+    // Si le nom ne contient PAS "cv" ou "curriculum" mais contient un mot suspect → pas un vrai CV
+    const hasCvWord = nameOnly.includes('cv') || nameOnly.includes('curriculum') || nameOnly.includes('resume')
+    if (!hasCvWord) {
+      for (const pattern of CV_SUSPECT_PATTERNS) {
+        const regex = new RegExp(`(^|\\s|_|-)${pattern}`, 'i')
+        if (regex.test(nameOnly)) {
+          return {
+            id: c.id,
+            nom: c.nom,
+            prenom: c.prenom,
+            has_documents: true,
+          }
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 export async function GET() {

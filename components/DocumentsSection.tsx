@@ -648,14 +648,46 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 '#059669',
                               )
                             )}
-                            {/* Supprimer CV principal */}
+                            {/* Actions CV principal : déplacer vers catégorie ou supprimer */}
                             {isCvCategory && localIdx === 0 && cvUrl && onCvChange && (
-                              actionBtn(
-                                () => handleRemoveCv(),
-                                <Trash2 size={12} style={{ color: '#DC2626' }} />,
-                                'Supprimer le CV',
-                                '#DC2626',
-                              )
+                              <>
+                                {changingTypeIdx === -999 ? (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                                    {UPLOAD_TYPES.map(t => (
+                                      <button key={t.value} onClick={() => {
+                                        // Déplacer le CV principal vers cette catégorie
+                                        const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
+                                        onUpdate([...documents, movedDoc])
+                                        onCvChange('', '')
+                                        setChangingTypeIdx(null)
+                                        toast.success(`CV déplacé vers ${t.label}`)
+                                      }}
+                                        style={{
+                                          padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 600,
+                                          border: `1px solid ${t.border}`, background: t.bg, color: t.color,
+                                          cursor: 'pointer', fontFamily: 'inherit',
+                                        }}>{t.label}</button>
+                                    ))}
+                                    <button onClick={() => setChangingTypeIdx(null)}
+                                      style={{ padding: '1px 3px', borderRadius: 4, fontSize: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>✕</button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {actionBtn(
+                                      () => setChangingTypeIdx(-999),
+                                      <ChevronDown size={12} style={{ color: '#D97706' }} />,
+                                      'Déplacer vers...',
+                                      '#D97706',
+                                    )}
+                                    {actionBtn(
+                                      () => handleRemoveCv(),
+                                      <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                      'Supprimer le CV',
+                                      '#DC2626',
+                                    )}
+                                  </>
+                                )}
+                              </>
                             )}
                             {!isCvCategory && (
                               <>
