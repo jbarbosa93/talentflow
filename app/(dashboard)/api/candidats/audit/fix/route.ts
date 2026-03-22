@@ -60,14 +60,14 @@ export async function POST(request: NextRequest) {
         url: candidat.cv_url,
         type: docType,
         uploaded_at: new Date().toISOString(),
-      } as Record<string, unknown>
+      }
 
       const { error: updateError } = await supabase
         .from('candidats')
         .update({
           cv_url: null,
           cv_nom_fichier: null,
-          documents: [...existingDocs, newDoc],
+          documents: [...existingDocs, newDoc] as any,
         })
         .eq('id', candidatId)
 
