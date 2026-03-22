@@ -67,7 +67,7 @@ function detectSuspectPhoto(c: any): PhotoSuspecte | null {
 
   const photoUrl = normalise(c.photo_url)
 
-  // Check filename patterns
+  // Check filename patterns in photo URL
   for (const pattern of PHOTO_SUSPECT_PATTERNS) {
     if (photoUrl.includes(pattern)) {
       return {
@@ -76,6 +76,36 @@ function detectSuspectPhoto(c: any): PhotoSuspecte | null {
         prenom: c.prenom,
         photo_url: c.photo_url,
         reason: `Le nom du fichier contient "${pattern}"`,
+      }
+    }
+  }
+
+  // Check if photo URL contains the CV filename (photo extracted from a non-CV document)
+  if (c.cv_nom_fichier) {
+    const cvName = normalise(c.cv_nom_fichier)
+    for (const pattern of CV_SUSPECT_PATTERNS) {
+      if (cvName.startsWith(pattern)) {
+        return {
+          id: c.id,
+          nom: c.nom,
+          prenom: c.prenom,
+          photo_url: c.photo_url,
+          reason: `Photo extraite d'un document "${c.cv_nom_fichier}" (probablement pas un CV)`,
+        }
+      }
+    }
+  }
+
+  // Photo URL contains "photos/" but also contains suspect patterns from original filename
+  const photoFileName = photoUrl.split('/').pop() || ''
+  for (const pattern of [...PHOTO_SUSPECT_PATTERNS, 'candidature', 'recue', 'recu', 'dossier']) {
+    if (photoFileName.includes(pattern)) {
+      return {
+        id: c.id,
+        nom: c.nom,
+        prenom: c.prenom,
+        photo_url: c.photo_url,
+        reason: `Fichier photo suspect : "${pattern}" dans le nom`,
       }
     }
   }
@@ -99,8 +129,14 @@ function detectCvMalClasse(c: any): CvMalClasse | null {
 
   const filename = normalise(c.cv_nom_fichier)
 
+  // Ignore if filename clearly starts with "cv" — it's a real CV
+  if (filename.startsWith('cv') || filename.startsWith('curriculum')) return null
+
+  // Only flag if the filename STARTS with a suspect keyword or the keyword
+  // is the main part of the name (not just a folder path substring)
+  const nameOnly = filename.split('/').pop() || filename
   for (const pattern of CV_SUSPECT_PATTERNS) {
-    if (filename.includes(pattern)) {
+    if (nameOnly.startsWith(pattern) || nameOnly.includes(`_${pattern}`) || nameOnly.includes(`-${pattern}`)) {
       return {
         id: c.id,
         nom: c.nom,

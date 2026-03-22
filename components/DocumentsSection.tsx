@@ -50,6 +50,7 @@ const getCat = (key: CategoryKey) => DOC_CATEGORIES.find(c => c.key === key) || 
 export default function DocumentsPanel({ open, onClose, candidatId, documents, cvUrl, cvFileName, onUpdate, onCvChange }: DocumentsPanelProps) {
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [changingTypeIdx, setChangingTypeIdx] = useState<number | null>(null)
   const [deletingIdx, setDeletingIdx] = useState<number | null>(null)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
   const [selectedType, setSelectedType] = useState<DocumentType | 'cv'>('autre')
@@ -214,6 +215,42 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     onUpdate(updated)
     setEditingNameIdx(null)
     toast.success('Document renomm\u00e9')
+  }
+
+  const handleChangeType = (realIdx: number, newType: string) => {
+    if (realIdx < 0) return
+    const updated = documents.map((d, i) => i === realIdx ? { ...d, type: newType as any } : d)
+    onUpdate(updated)
+    setChangingTypeIdx(null)
+    toast.success('Catégorie modifiée')
+  }
+
+  const handleSetAsCv = (realIdx: number) => {
+    if (realIdx < 0) return
+    const doc = documents[realIdx]
+    if (!doc || !onCvChange) return
+    // Set this document as CV principal
+    onCvChange(doc.url, doc.name)
+    // Remove from documents array
+    const updated = documents.filter((_, i) => i !== realIdx)
+    onUpdate(updated)
+    toast.success('Défini comme CV principal')
+  }
+
+  const handleRemoveCv = () => {
+    if (!onCvChange) return
+    // Move current CV to documents as "autre"
+    if (cvUrl) {
+      const oldDoc = {
+        name: cvFileName || 'CV',
+        url: cvUrl,
+        type: 'autre' as any,
+        uploaded_at: new Date().toISOString(),
+      }
+      onUpdate([...documents, oldDoc])
+    }
+    onCvChange('', '')
+    toast.success('CV principal supprimé')
   }
 
   const handleDelete = async (realIdx: number) => {
@@ -548,17 +585,36 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 {doc.name}
                               </p>
                             )}
-                            {!isCvCategory && (
-                              <span style={{
-                                fontSize: 10, fontWeight: 600, color: cat.color,
-                                display: 'inline-block', marginTop: 1,
-                              }}>
+                            {!isCvCategory && changingTypeIdx === realIdx ? (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 3 }}>
+                                {UPLOAD_TYPES.map(t => (
+                                  <button key={t.value} onClick={() => handleChangeType(realIdx, t.value)}
+                                    style={{
+                                      padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600,
+                                      border: `1px solid ${t.border}`, background: t.bg, color: t.color,
+                                      cursor: 'pointer', fontFamily: 'inherit',
+                                    }}>{t.label}</button>
+                                ))}
+                                <button onClick={() => setChangingTypeIdx(null)}
+                                  style={{ padding: '1px 4px', borderRadius: 4, fontSize: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>✕</button>
+                              </div>
+                            ) : !isCvCategory ? (
+                              <button onClick={() => setChangingTypeIdx(realIdx)}
+                                style={{
+                                  fontSize: 10, fontWeight: 600, color: cat.color,
+                                  display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 1,
+                                  background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit',
+                                }}>
                                 {getCat(doc.type as CategoryKey).label}
-                              </span>
-                            )}
-                            {isCvCategory && (
+                                <ChevronDown size={8} />
+                              </button>
+                            ) : isCvCategory && localIdx === 0 && cvUrl ? (
                               <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'inline-block', marginTop: 1 }}>
                                 CV principal
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'inline-block', marginTop: 1 }}>
+                                Ancien CV
                               </span>
                             )}
                           </div>
@@ -582,6 +638,24 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               <Download size={12} style={{ color: '#6B7280' }} />,
                               'T\u00e9l\u00e9charger',
                               '#6B7280',
+                            )}
+                            {/* Définir comme CV (documents non-CV uniquement) */}
+                            {!isCvCategory && onCvChange && (
+                              actionBtn(
+                                () => handleSetAsCv(realIdx),
+                                <FileText size={12} style={{ color: '#059669' }} />,
+                                'Définir comme CV',
+                                '#059669',
+                              )
+                            )}
+                            {/* Supprimer CV principal */}
+                            {isCvCategory && localIdx === 0 && cvUrl && onCvChange && (
+                              actionBtn(
+                                () => handleRemoveCv(),
+                                <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                'Supprimer le CV',
+                                '#DC2626',
+                              )
                             )}
                             {!isCvCategory && (
                               <>
