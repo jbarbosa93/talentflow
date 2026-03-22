@@ -1413,6 +1413,11 @@ export default function CandidatDetailPage() {
                 onMouseMove={cvZoom > 1 ? cvDragMove : undefined}
                 onMouseUp={cvZoom > 1 ? cvDragEnd : undefined}
                 onMouseLeave={cvZoom > 1 ? cvDragEnd : undefined}
+                onWheel={cvZoom > 1 ? (e) => {
+                  const el = cvScrollRef.current; if (!el) return
+                  el.scrollTop += e.deltaY
+                  el.scrollLeft += e.deltaX
+                } : undefined}
               >
                 <div style={{
                   width: cvZoom === 1 ? '100%' : `${cvZoom * 100}%`,

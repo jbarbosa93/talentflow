@@ -157,6 +157,7 @@ function CandidatsPageInner() {
 
   const { data: candidatsData, isLoading } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
+    import_status: 'traite',
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
@@ -952,7 +953,7 @@ function CandidatsPageInner() {
           {/* Content */}
           <div
             ref={previewScrollRef}
-            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', cursor: 'grab' }}
+            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', cursor: 'grab' }}
             onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
