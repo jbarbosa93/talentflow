@@ -7,7 +7,7 @@ import {
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
   CheckCircle, Archive,
 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+
 import UploadCV from '@/components/UploadCV'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
@@ -1357,18 +1357,14 @@ export default function CandidatsList() {
         )
       })()}
 
-      {/* Upload dialog */}
-      {(
-        <Dialog open={showUpload} onOpenChange={setShowUpload}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer Candidat/s</DialogTitle>
-            </DialogHeader>
-            <UploadCV onSuccess={() => {
-              queryClient.invalidateQueries({ queryKey: ['candidats'] })
-            }} />
-          </DialogContent>
-        </Dialog>
+      {/* Upload panel — persiste même quand minimisé */}
+      {showUpload && (
+        <UploadCV
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['candidats'] })
+          }}
+          onClose={() => setShowUpload(false)}
+        />
       )}
     </div>
   )

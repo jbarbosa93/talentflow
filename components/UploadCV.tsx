@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/client'
 interface UploadCVProps {
   offreId?: string
   onSuccess?: (candidat: any) => void
+  onClose?: () => void
 }
 
 type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'error'
@@ -50,11 +51,12 @@ function formatSize(bytes: number) {
 // Component
 // ---------------------------------------------------------------------------
 
-export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
+export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps) {
   const [files, setFiles] = useState<FileItem[]>([])
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [done, setDone] = useState(false)
+  const [minimized, setMinimized] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<FileItem[]>([])
@@ -333,10 +335,85 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     }
   }
 
+  // ------- Handle close -------
+  const handleClose = () => {
+    if (uploading) {
+      // Si import en cours, minimiser au lieu de fermer
+      setMinimized(true)
+      return
+    }
+    onClose?.()
+  }
+
   // ------- Render -------
 
+  // Mode minimisé — petite barre en bas à droite
+  if (minimized) {
+    return (
+      <div style={{
+        position: 'fixed', bottom: 20, right: 20, zIndex: 9000,
+        background: 'white', borderRadius: 12, padding: '10px 16px',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB',
+        display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+        minWidth: 280,
+      }} onClick={() => setMinimized(false)}>
+        {uploading ? (
+          <Loader2 size={16} style={{ color: '#3B82F6', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+        ) : (
+          <CheckCircle size={16} style={{ color: '#16A34A', flexShrink: 0 }} />
+        )}
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
+            {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${succeeded + doublonsUpdated} traités`}
+          </p>
+          {uploading && (
+            <div style={{ height: 3, background: '#E5E7EB', borderRadius: 10, marginTop: 4 }}>
+              <div style={{ height: '100%', width: `${progress}%`, background: '#3B82F6', borderRadius: 10, transition: 'width 0.3s' }} />
+            </div>
+          )}
+        </div>
+        <span style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600, flexShrink: 0 }}>Ouvrir</span>
+        <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '4px 0' }}>
+    <>
+    {/* Backdrop */}
+    <div onClick={handleClose} style={{
+      position: 'fixed', inset: 0, zIndex: 8500,
+      background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease',
+    }} />
+    {/* Panel */}
+    <div style={{
+      position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+      zIndex: 8501, background: 'white', borderRadius: 16,
+      boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+      width: 440, maxHeight: '85vh', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+    }}>
+    {/* Header */}
+    <div style={{ padding: '18px 22px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Importer Candidat/s</h2>
+      <div style={{ display: 'flex', gap: 4 }}>
+        {uploading && (
+          <button onClick={() => setMinimized(true)} title="Minimiser" style={{
+            width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
+            background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 16, lineHeight: 1, color: '#6B7280' }}>—</span>
+          </button>
+        )}
+        <button onClick={handleClose} title="Fermer" style={{
+          width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
+          background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <X size={14} style={{ color: '#6B7280' }} />
+        </button>
+      </div>
+    </div>
+    <div style={{ padding: '16px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* Subtitle */}
       {files.length > 0 && !uploading && !done && (
@@ -564,7 +641,10 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
         )}
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }`}</style>
     </div>
+    </div>
+    </>
   )
 }
