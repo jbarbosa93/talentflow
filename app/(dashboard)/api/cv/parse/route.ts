@@ -334,10 +334,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
     if (analyse.resume) updateData.resume_ia = analyse.resume
     if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
-    // Ne PAS mettre à jour photo, nom, prénom, cv_url lors d'un re-parsing
 
-    // Document classification: if not a CV, add to documents array instead of updating cv_url
-    if (analyse.document_type && analyse.document_type !== 'cv') {
+    // Classification du document
+    const isCV = !analyse.document_type || analyse.document_type === 'cv'
+    if (isCV) {
+      // C'est un CV → mettre à jour cv_url, cv_nom_fichier, photo
+      if (cvUrl) updateData.cv_url = cvUrl
+      updateData.cv_nom_fichier = file.name
+      if (photoUrl) updateData.photo_url = photoUrl
+      console.log(`[CV Parse] Actualisation CV: ${file.name}`)
+    } else {
+      // Ce n'est PAS un CV → ajouter aux documents avec la bonne catégorie
       console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
       const mappedType = mapDocumentType(analyse.document_type)
       const { data: existingCandidat } = await adminClient.from('candidats').select('documents').eq('id', updateId).single()
