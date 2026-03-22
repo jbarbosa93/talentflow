@@ -37,19 +37,17 @@ function getInitiales(prenom: string, nom: string, email: string) {
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const isAdmin = role === 'Admin'
+  const cfg =
+    role === 'Admin'      ? { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A', label: 'Administrateur' } :
+    role === 'Secrétaire' ? { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0', label: 'Secrétaire' } :
+                            { bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE', label: 'Consultant' }
   return (
     <span style={{
-      fontSize: 11,
-      fontWeight: 700,
-      padding: '2px 8px',
-      borderRadius: 100,
-      background: isAdmin ? '#FEF3C7' : '#EFF6FF',
-      color: isAdmin ? '#92400E' : '#1E40AF',
-      border: `1px solid ${isAdmin ? '#FDE68A' : '#BFDBFE'}`,
+      fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}`,
       whiteSpace: 'nowrap',
     }}>
-      {role}
+      {cfg.label}
     </span>
   )
 }
@@ -439,7 +437,8 @@ export default function AdminPage() {
                   }}
                 >
                   <option value="Consultant">Consultant</option>
-                  <option value="Admin">Admin</option>
+                  <option value="Secrétaire">Secrétaire</option>
+                  <option value="Admin">Administrateur</option>
                 </select>
               </div>
               <div>

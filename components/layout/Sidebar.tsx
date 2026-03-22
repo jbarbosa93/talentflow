@@ -67,6 +67,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   })
 
   const entreprise = user?.user_metadata?.entreprise || ''
+  const userRole: string = user?.user_metadata?.role || 'Consultant'
+  const isSecretaire = userRole === 'Secrétaire'
 
   const { data: aTraiterCount } = useQuery({
     queryKey: ['candidats-a-traiter-count'],
@@ -377,7 +379,11 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           animate="show"
           style={{ display: 'flex', flexDirection: 'column' }}
         >
-          {FOOTER_ITEMS.filter(item => !item.adminOnly || user?.email === ADMIN_EMAIL).map((item, i) => {
+          {FOOTER_ITEMS.filter(item => {
+            if (item.adminOnly && user?.email !== ADMIN_EMAIL) return false
+            if (item.href === '/outils' && isSecretaire) return false
+            return true
+          }).map((item, i) => {
             const Icon = item.icon
             const active = isActive(item.href, (item as any).exact)
             const isParams = item.href === '/parametres'
