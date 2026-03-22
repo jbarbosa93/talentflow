@@ -202,7 +202,7 @@ function getImageDimensions(buffer: Buffer): { width: number; height: number } |
 
 export async function POST(request: NextRequest) {
   try {
-    const { offset = 0, limit = 10, mode = 'cv' } = await request.json()
+    const { offset = 0, limit = 5, mode = 'cv' } = await request.json()
     const supabase = createAdminClient()
 
     // Mode photo : vérifier les photos
@@ -254,54 +254,91 @@ export async function POST(request: NextRequest) {
       reason: string
     }> = []
 
+    // Claude Vision pour classifier chaque document
+    const Anthropic = (await import('@anthropic-ai/sdk')).default
+    const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
+
     for (const c of (candidats || [])) {
       try {
-        // Télécharger le PDF
-        const res = await fetch(c.cv_url!, { signal: AbortSignal.timeout(10000) })
+        // Télécharger le fichier
+        const res = await fetch(c.cv_url!, { signal: AbortSignal.timeout(15000) })
         if (!res.ok) {
-          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Impossible de télécharger le fichier' })
+          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Téléchargement échoué' })
           continue
         }
 
         const buffer = Buffer.from(await res.arrayBuffer())
         const ext = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-        let text = ''
+        let imageBase64 = ''
+        let mediaType: 'image/jpeg' | 'image/png' | 'image/webp' = 'image/jpeg'
 
-        // 1. PDFs — extraire texte, OCR si scanné
+        // Convertir en image pour Claude Vision
         if (ext === 'pdf') {
           try {
-            const { extractTextFromPDF } = await import('@/lib/cv-parser')
-            text = await extractTextFromPDF(buffer)
-
-            // Si pas de texte → PDF scanné → on ne peut pas classifier sans IA
+            const mupdf = await import('mupdf')
+            const doc = mupdf.Document.openDocument(buffer, 'application/pdf')
+            const page = doc.loadPage(0)
+            // Résolution basse pour économiser les tokens (1x scale)
+            const pixmap = page.toPixmap([1, 0, 0, 1, 0, 0], mupdf.ColorSpace.DeviceRGB)
+            const pngBuf = pixmap.asPNG()
+            imageBase64 = Buffer.from(pngBuf).toString('base64')
+            mediaType = 'image/png'
           } catch {
-            // PDF extraction failed
+            results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Conversion PDF échouée' })
+            continue
           }
-        }
-        // 2. Images (jpg, jpeg, png) → pas de classification possible sans OCR
-        else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-          // Skip — images cannot be classified without OCR/AI
-        }
-        // 3. Word docs → extraire texte
-        else if (['doc', 'docx'].includes(ext)) {
+        } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          imageBase64 = buffer.toString('base64')
+          mediaType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg'
+        } else {
+          // Word docs → essayer extraction texte + mots-clés (pas d'image)
           try {
             const { extractTextFromCV } = await import('@/lib/cv-parser')
-            text = await extractTextFromCV(buffer, c.cv_nom_fichier || `file.${ext}`)
+            const text = await extractTextFromCV(buffer, c.cv_nom_fichier || `file.${ext}`)
+            if (text && text.trim().length >= 30) {
+              const classification = classifyDocument(text)
+              results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, ...classification })
+            } else {
+              results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Texte non extractible' })
+            }
+            continue
           } catch {
-            // Extraction failed
+            results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Format non supporté' })
+            continue
           }
         }
 
-        // Classifier le document
-        if (text && text.trim().length >= 30) {
-          const classification = classifyDocument(text)
-          results.push({
-            id: c.id, nom: c.nom, prenom: c.prenom,
-            cv_nom_fichier: c.cv_nom_fichier,
-            ...classification,
+        // Envoyer à Claude Vision
+        try {
+          const response = await claude.messages.create({
+            model: 'claude-haiku-4-20250514',
+            max_tokens: 50,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+                { type: 'text', text: 'Quel type de document est-ce ? Réponds UNIQUEMENT par un seul mot parmi : CV, CERTIFICAT, DIPLOME, ATTESTATION, FORMATION, LETTRE, PERMIS, AUTRE' },
+              ],
+            }],
           })
-        } else {
-          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Texte non extractible' })
+
+          const answer = ((response.content[0] as any).text || '').trim().toUpperCase()
+          const isCV = answer === 'CV' || answer.includes('CURRICULUM')
+          const typeMap: Record<string, string> = {
+            'CV': 'CV', 'CERTIFICAT': 'Certificat de travail', 'DIPLOME': 'Diplôme',
+            'ATTESTATION': 'Attestation', 'FORMATION': 'Certificat de formation',
+            'LETTRE': 'Lettre de recommandation', 'PERMIS': 'Permis', 'AUTRE': 'Autre',
+          }
+          const docType = typeMap[answer] || answer
+
+          results.push({
+            id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier,
+            isCV,
+            confidence: 90,
+            reason: isCV ? `CV confirmé par IA` : `${docType} (classifié par IA)`,
+          })
+        } catch {
+          results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur analyse IA' })
         }
       } catch {
         results.push({ id: c.id, nom: c.nom, prenom: c.prenom, cv_nom_fichier: c.cv_nom_fichier, isCV: true, confidence: 0, reason: 'Erreur de traitement' })

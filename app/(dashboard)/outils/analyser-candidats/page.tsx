@@ -116,7 +116,7 @@ export default function AnalyserCandidatsPage() {
     setAnalysisPhase('analysing_cvs')
     const deepCvProblems: CvMalClasse[] = []
     let cvOffset = 0
-    const cvBatchSize = 10
+    const cvBatchSize = 5
 
     try {
       // First call to get total
