@@ -81,7 +81,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
 
   // Group real documents by type
   documents.forEach(doc => {
-    const key = doc.type as CategoryKey
+    const key = ((doc.type as string) === 'cv' ? 'cv' : doc.type) as CategoryKey
     if (grouped[key]) {
       grouped[key].push(doc)
     } else {

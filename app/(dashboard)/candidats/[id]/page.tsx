@@ -1424,7 +1424,7 @@ export default function CandidatDetailPage() {
                   }
                 }}
               >
-                {/* Outer spacer = taille agrandie pour le scroll */}
+                {/* L'iframe est rendue à sa taille réelle agrandie pour garder la qualité */}
                 <div style={{
                   width: `${cvZoom * 100}%`,
                   height: `${cvZoom * 100}%`,
@@ -1432,14 +1432,6 @@ export default function CandidatDetailPage() {
                   minHeight: '100%',
                   position: 'relative',
                 }}>
-                  {/* Inner = taille réelle, agrandie visuellement par transform:scale */}
-                  <div style={{
-                    position: 'absolute', top: 0, left: 0,
-                    width: `${100 / cvZoom}%`,
-                    height: `${100 / cvZoom}%`,
-                    transform: `scale(${cvZoom})`,
-                    transformOrigin: 'top left',
-                  }}>
                     {cvIsWord && <>
                       <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
                       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
@@ -1459,7 +1451,6 @@ export default function CandidatDetailPage() {
                       }}
                       title="CV"
                     />
-                  </div>
                 </div>
               </div>
             ) : (
@@ -1728,26 +1719,28 @@ export default function CandidatDetailPage() {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
         }}
         onCvChange={async (url, fileName) => {
-          // 0. Sauvegarder l'ancien CV dans les documents
+          // 0. Sauvegarder l'ancien CV dans les documents (catégorie CV, marqué ancien)
           if (candidat.cv_url) {
+            const ancienName = candidat.cv_nom_fichier || 'CV précédent'
             const oldDoc = {
-              name: candidat.cv_nom_fichier || 'CV précédent',
+              name: `[Ancien] ${ancienName}`,
               url: candidat.cv_url,
-              type: 'certificat' as const,
+              type: 'cv' as any,
               uploaded_at: new Date().toISOString(),
             }
             const currentDocs = (candidat.documents as any[]) || []
-            updateCandidat.mutate({ id, data: { documents: [...currentDocs, { ...oldDoc, type: 'autre' }] } as any })
+            updateCandidat.mutate({ id, data: { documents: [...currentDocs, oldDoc] } as any })
           }
           // 1. Mettre à jour le CV principal
           updateCandidat.mutate({ id, data: { cv_url: url, cv_nom_fichier: fileName } as any })
           // 2. Re-parser le CV pour mettre à jour expériences/formations
+          toast.info('Analyse IA du nouveau CV en cours...')
           try {
             const res = await fetch(url)
             const blob = await res.blob()
             const file = new File([blob], fileName, { type: blob.type })
             const formData = new FormData()
-            formData.append('file', file)
+            formData.append('cv', file)
             formData.append('update_id', id)
             formData.append('force_insert', 'true')
             const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData })
