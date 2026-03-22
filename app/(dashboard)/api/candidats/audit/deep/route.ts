@@ -273,43 +273,14 @@ export async function POST(request: NextRequest) {
             const { extractTextFromPDF } = await import('@/lib/cv-parser')
             text = await extractTextFromPDF(buffer)
 
-            // Si pas de texte → PDF scanné → OCR via mupdf + tesseract
-            if (!text || text.trim().length < 30) {
-              try {
-                const mupdf = await import('mupdf')
-                const doc = mupdf.Document.openDocument(buffer, 'application/pdf')
-                const page = doc.loadPage(0)
-                const pixmap = page.toPixmap([2, 0, 0, 2, 0, 0], mupdf.ColorSpace.DeviceRGB)
-                const pngBuffer = pixmap.asPNG()
-
-                const Tesseract = await import('tesseract.js')
-                const { data: { text: ocrText } } = await Tesseract.recognize(
-                  Buffer.from(pngBuffer),
-                  'fra+eng',
-                  { logger: () => {} }
-                )
-                text = ocrText || ''
-              } catch {
-                // OCR failed — skip
-              }
-            }
+            // Si pas de texte → PDF scanné → on ne peut pas classifier sans IA
           } catch {
             // PDF extraction failed
           }
         }
-        // 2. Images (jpg, jpeg, png) → OCR directement
+        // 2. Images (jpg, jpeg, png) → pas de classification possible sans OCR
         else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-          try {
-            const Tesseract = await import('tesseract.js')
-            const { data: { text: ocrText } } = await Tesseract.recognize(
-              buffer,
-              'fra+eng',
-              { logger: () => {} }
-            )
-            text = ocrText || ''
-          } catch {
-            // OCR failed
-          }
+          // Skip — images cannot be classified without OCR/AI
         }
         // 3. Word docs → extraire texte
         else if (['doc', 'docx'].includes(ext)) {
