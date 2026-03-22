@@ -63,51 +63,82 @@ function normalise(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
+// Phrases très spécifiques qui prouvent que c'est PAS un CV (un seul suffit)
+const STRONG_NON_CV = [
+  'certifions que', 'certifie que', 'nous certifions',
+  'attestons que', 'atteste que', 'nous attestons',
+  'a qui de droit',
+  'par la presente',
+  'certificat de travail',
+  'attestation de travail',
+  'libre de tout engagement',
+  'quitte notre entreprise', 'quitte notre societe',
+  'lettre de recommandation', 'lettre de reference',
+  'je soussigne', 'nous soussignes',
+  'delivre a', 'delivree a',
+  'a suivi avec succes',
+  'attestation de participation',
+  'attestation de formation',
+  'certificat de formation',
+  'attestation de reussite',
+  'brevet federal',
+]
+
 function classifyDocument(text: string): { isCV: boolean; confidence: number; reason: string } {
   const normText = normalise(text)
-
-  // Compter les mots-clés trouvés
-  let cvScore = 0
-  let nonCvScore = 0
-  const cvMatches: string[] = []
-  const nonCvMatches: string[] = []
-
-  for (const kw of CV_KEYWORDS) {
-    if (normText.includes(normalise(kw))) {
-      cvScore++
-      cvMatches.push(kw)
-    }
-  }
-
-  for (const kw of NON_CV_KEYWORDS) {
-    if (normText.includes(normalise(kw))) {
-      nonCvScore += 2 // Les mots non-CV ont plus de poids (plus spécifiques)
-      nonCvMatches.push(kw)
-    }
-  }
 
   // Si aucun texte extrait → on ne peut pas classifier
   if (normText.length < 50) {
     return { isCV: true, confidence: 0, reason: 'Texte trop court pour classifier' }
   }
 
-  // Décision
-  if (nonCvScore > 0 && nonCvScore >= cvScore) {
-    const confidence = Math.min(100, Math.round((nonCvScore / (cvScore + nonCvScore)) * 100))
-    return {
-      isCV: false,
-      confidence,
-      reason: `Mots-clés non-CV trouvés : ${nonCvMatches.slice(0, 3).join(', ')}`
+  // 1. Chercher les phrases FORTES non-CV — un seul match suffit
+  const strongMatches: string[] = []
+  for (const phrase of STRONG_NON_CV) {
+    if (normText.includes(normalise(phrase))) {
+      strongMatches.push(phrase)
     }
   }
 
-  if (cvScore >= 3) {
-    const confidence = Math.min(100, Math.round((cvScore / (cvScore + nonCvScore + 1)) * 100))
-    return { isCV: true, confidence, reason: `CV confirmé (${cvScore} mots-clés CV)` }
+  if (strongMatches.length > 0) {
+    return {
+      isCV: false,
+      confidence: Math.min(95, 60 + strongMatches.length * 10),
+      reason: `${strongMatches.slice(0, 2).join(', ')}`
+    }
   }
 
-  // Pas assez d'indices → considérer comme CV par défaut
-  return { isCV: true, confidence: 30, reason: 'Classification incertaine — considéré comme CV' }
+  // 2. Compter les mots-clés CV
+  let cvScore = 0
+  for (const kw of CV_KEYWORDS) {
+    if (normText.includes(normalise(kw))) cvScore++
+  }
+
+  // 3. Compter les mots-clés non-CV généraux
+  let nonCvScore = 0
+  const nonCvMatches: string[] = []
+  for (const kw of NON_CV_KEYWORDS) {
+    if (normText.includes(normalise(kw))) {
+      nonCvScore++
+      nonCvMatches.push(kw)
+    }
+  }
+
+  // Si beaucoup de mots non-CV et peu de mots CV → probablement pas un CV
+  if (nonCvScore >= 2 && cvScore <= 2) {
+    return {
+      isCV: false,
+      confidence: Math.min(80, 40 + nonCvScore * 10),
+      reason: `${nonCvMatches.slice(0, 2).join(', ')}`
+    }
+  }
+
+  // CV confirmé ou incertain → considérer comme CV
+  if (cvScore >= 3) {
+    return { isCV: true, confidence: Math.min(90, 40 + cvScore * 8), reason: `CV (${cvScore} mots-clés)` }
+  }
+
+  return { isCV: true, confidence: 30, reason: 'Classification incertaine' }
 }
 
 // Vérifie si une image est probablement un visage (ratio, taille)

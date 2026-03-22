@@ -165,6 +165,15 @@ export default function AnalyserCandidatsPage() {
                 suspected_type: p.reason,
               })
             }
+            // Mise à jour progressive des résultats
+            const existIds = new Set(auditData.cvs_mal_classes.map(c => c.id))
+            const newProbs = deepCvProblems.filter(p => !existIds.has(p.id))
+            const merged = [...auditData.cvs_mal_classes, ...newProbs]
+            setResult(prev => prev ? {
+              ...prev,
+              cvs_mal_classes: merged,
+              summary: { ...prev.summary, cvs_mal_classes: merged.length },
+            } : prev)
           }
 
           cvOffset += cvBatchSize
@@ -241,6 +250,14 @@ export default function AnalyserCandidatsPage() {
                 reason: p.reason,
               })
             }
+            // Mise à jour progressive des photos
+            setResult(prev => {
+              if (!prev) return prev
+              const existIds = new Set(prev.photos_suspectes.map(x => x.id))
+              const newP = deepPhotoProblems.filter(x => !existIds.has(x.id))
+              const merged = [...prev.photos_suspectes, ...newP]
+              return { ...prev, photos_suspectes: merged, summary: { ...prev.summary, photos_suspectes: merged.length } }
+            })
           }
 
           photoOffset += photoBatchSize
