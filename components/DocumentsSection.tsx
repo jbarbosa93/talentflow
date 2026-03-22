@@ -619,8 +619,8 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                             )}
                           </div>
 
-                          {/* Actions */}
-                          <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                          {/* Actions — mêmes pour tous les documents */}
+                          <div style={{ display: 'flex', gap: 3, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             {actionBtn(
                               () => handleViewDoc(doc),
                               <Eye size={12} style={{ color: '#3B82F6' }} />,
@@ -636,67 +636,75 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                             {actionBtn(
                               () => handleDownload(doc),
                               <Download size={12} style={{ color: '#6B7280' }} />,
-                              'T\u00e9l\u00e9charger',
+                              'Télécharger',
                               '#6B7280',
                             )}
-                            {/* Définir comme CV (documents non-CV uniquement) */}
-                            {!isCvCategory && onCvChange && (
-                              actionBtn(
-                                () => handleSetAsCv(realIdx),
-                                <FileText size={12} style={{ color: '#059669' }} />,
-                                'Définir comme CV',
-                                '#059669',
-                              )
-                            )}
-                            {/* Actions CV principal : déplacer vers catégorie ou supprimer */}
-                            {isCvCategory && localIdx === 0 && cvUrl && onCvChange && (
-                              <>
-                                {changingTypeIdx === -999 ? (
+                            {/* Changer catégorie — tous les documents */}
+                            {(() => {
+                              const typeKey = isCvCategory && localIdx === 0 && cvUrl ? -999 : realIdx
+                              if (changingTypeIdx === typeKey) {
+                                return (
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                                    {/* Option CV */}
+                                    {!(isCvCategory && localIdx === 0) && onCvChange && (
+                                      <button onClick={() => {
+                                        handleSetAsCv(realIdx)
+                                        setChangingTypeIdx(null)
+                                      }} style={{
+                                        padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 700,
+                                        border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#0F172A',
+                                        cursor: 'pointer', fontFamily: 'inherit',
+                                      }}>CV</button>
+                                    )}
+                                    {/* Autres catégories */}
                                     {UPLOAD_TYPES.map(t => (
                                       <button key={t.value} onClick={() => {
-                                        // Déplacer le CV principal vers cette catégorie
-                                        const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
-                                        onUpdate([...documents, movedDoc])
-                                        onCvChange('', '')
+                                        if (isCvCategory && localIdx === 0 && cvUrl && onCvChange) {
+                                          // Déplacer CV principal vers cette catégorie
+                                          const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
+                                          onUpdate([...documents, movedDoc])
+                                          onCvChange('', '')
+                                        } else {
+                                          handleChangeType(realIdx, t.value)
+                                        }
                                         setChangingTypeIdx(null)
-                                        toast.success(`CV déplacé vers ${t.label}`)
-                                      }}
-                                        style={{
-                                          padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 600,
-                                          border: `1px solid ${t.border}`, background: t.bg, color: t.color,
-                                          cursor: 'pointer', fontFamily: 'inherit',
-                                        }}>{t.label}</button>
+                                      }} style={{
+                                        padding: '2px 5px', borderRadius: 4, fontSize: 8, fontWeight: 600,
+                                        border: `1px solid ${t.border}`, background: t.bg, color: t.color,
+                                        cursor: 'pointer', fontFamily: 'inherit',
+                                      }}>{t.label}</button>
                                     ))}
                                     <button onClick={() => setChangingTypeIdx(null)}
                                       style={{ padding: '1px 3px', borderRadius: 4, fontSize: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>✕</button>
                                   </div>
-                                ) : (
-                                  <>
-                                    {actionBtn(
-                                      () => setChangingTypeIdx(-999),
-                                      <ChevronDown size={12} style={{ color: '#D97706' }} />,
-                                      'Déplacer vers...',
-                                      '#D97706',
-                                    )}
-                                    {actionBtn(
-                                      () => handleRemoveCv(),
-                                      <Trash2 size={12} style={{ color: '#DC2626' }} />,
-                                      'Supprimer le CV',
-                                      '#DC2626',
-                                    )}
-                                  </>
-                                )}
-                              </>
-                            )}
+                                )
+                              }
+                              return actionBtn(
+                                () => setChangingTypeIdx(typeKey),
+                                <ChevronDown size={12} style={{ color: '#D97706' }} />,
+                                'Changer catégorie',
+                                '#D97706',
+                              )
+                            })()}
+                            {/* Renommer */}
                             {!isCvCategory && (
+                              actionBtn(
+                                () => { setEditingNameIdx(realIdx); setEditNameValue(doc.name.replace(/\.[^.]+$/, '')) },
+                                <Pencil size={12} style={{ color: '#6B7280' }} />,
+                                'Renommer',
+                                '#6B7280',
+                              )
+                            )}
+                            {/* Supprimer */}
+                            {isCvCategory && localIdx === 0 && cvUrl && onCvChange ? (
+                              actionBtn(
+                                () => handleRemoveCv(),
+                                <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                'Supprimer',
+                                '#DC2626',
+                              )
+                            ) : !isCvCategory && (
                               <>
-                                {actionBtn(
-                                  () => { setEditingNameIdx(realIdx); setEditNameValue(doc.name.replace(/\.[^.]+$/, '')) },
-                                  <Pencil size={12} style={{ color: '#6B7280' }} />,
-                                  'Renommer',
-                                  '#6B7280',
-                                )}
                                 {isConfirmingDelete ? (
                                   <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                                     <button
