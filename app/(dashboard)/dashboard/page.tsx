@@ -3,9 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload } from 'lucide-react'
 import Link from 'next/link'
-import NumberTicker from '@/components/magicui/number-ticker'
-import BlurFade from '@/components/magicui/blur-fade'
+import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
+import NumberTicker from '@/components/magicui/number-ticker'
 
 const CandidatsMap = dynamic(() => import('@/components/CandidatsMap'), { ssr: false, loading: () => (
   <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
@@ -22,6 +22,22 @@ const ETAPE_BADGE: Record<string, string> = {
 }
 const ETAPE_LABELS: Record<string, string> = {
   nouveau: 'Nouveau', contacte: 'Contacté', entretien: 'Entretien', place: 'Placé', refuse: 'Refusé',
+}
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 18 },
+  show: (i: number) => ({
+    opacity: 1, y: 0,
+    transition: { delay: i * 0.07, type: 'spring' as const, stiffness: 280, damping: 24 },
+  }),
+}
+
+const kpiVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.97 },
+  show: (i: number) => ({
+    opacity: 1, y: 0, scale: 1,
+    transition: { delay: 0.1 + i * 0.06, type: 'spring' as const, stiffness: 300, damping: 26 },
+  }),
 }
 
 export default function DashboardPage() {
@@ -64,10 +80,10 @@ export default function DashboardPage() {
   })
 
   const kpis = [
-    { label: 'Candidats',      value: stats?.totalCandidats ?? '—', emoji: '👤', active: true, href: '/candidats' },
+    { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', active: true, href: '/candidats' },
     { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', href: '/offres' },
-    { label: 'En entretien',   value: stats?.enEntretien    ?? '—', emoji: '🗣️', href: '/candidats?statut=entretien' },
-    { label: 'Placés',         value: stats?.places         ?? '—', emoji: '✅', href: '/candidats?statut=place' },
+    { label: 'En entretien',      value: stats?.enEntretien    ?? '—', emoji: '🗣️', href: '/candidats?statut=entretien' },
+    { label: 'Placés',            value: stats?.places         ?? '—', emoji: '✅', href: '/candidats?statut=place' },
   ]
 
   const initiales = (c: any) => {
@@ -79,56 +95,82 @@ export default function DashboardPage() {
     <div className="d-page">
 
       {/* ── Header ── */}
-      <BlurFade delay={0} inView>
-        <div className="d-page-header">
-          <div>
-            <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
-            <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
-          </div>
+      <motion.div
+        className="d-page-header"
+        custom={0}
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+      >
+        <div>
+          <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
+          <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
         </div>
-      </BlurFade>
+      </motion.div>
 
       {/* ── KPI row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {kpis.map((kpi, i) => (
-          <BlurFade key={i} delay={0.1 + i * 0.05} inView>
+          <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
             <Link href={kpi.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div className={`neo-kpi${kpi.active ? ' active' : ''}`} style={{ cursor: 'pointer' }}>
-                <span style={{ fontSize: 28 }}>{kpi.emoji}</span>
+              <motion.div
+                className={`neo-kpi${kpi.active ? ' active' : ''}`}
+                style={{ cursor: 'pointer' }}
+                whileHover={{ y: -3, boxShadow: kpi.active ? '0 8px 24px rgba(245,167,35,0.4)' : '0 8px 24px rgba(0,0,0,0.10)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+              >
+                <motion.span
+                  style={{ fontSize: 28, display: 'inline-block' }}
+                  animate={{ rotate: [0, -8, 8, 0] }}
+                  transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: 'easeInOut' }}
+                >
+                  {kpi.emoji}
+                </motion.span>
                 <div className="neo-kpi-value">
                   {typeof kpi.value === 'number'
-                    ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.05} />
+                    ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
                     : kpi.value}
                 </div>
                 <div className="neo-kpi-label">{kpi.label}</div>
-              </div>
+              </motion.div>
             </Link>
-          </BlurFade>
+          </motion.div>
         ))}
       </div>
 
       {/* ── Two column: quick actions + recent candidates ── */}
-      <BlurFade delay={0.45} inView>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}>
-
+      <motion.div
+        custom={1}
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}
+      >
         {/* Quick actions */}
         <div className="neo-card-soft" style={{ padding: 24 }}>
           <h2 className="neo-section-title">Actions rapides</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { href: '/candidats/a-traiter', label: 'Importer Candidat/s', icon: Upload },
-              { href: '/offres',     label: 'Nouvelle commande',        icon: Plus },
-              { href: '/matching',   label: 'Matching IA',               icon: Sparkles },
-            ].map(a => {
+              { href: '/offres',              label: 'Nouvelle commande',   icon: Plus },
+              { href: '/matching',            label: 'Matching IA',         icon: Sparkles },
+            ].map((a, i) => {
               const Icon = a.icon
               return (
-                <Link key={a.href} href={a.href} className="neo-candidate-card" style={{ padding: '12px 16px', borderRadius: 10, justifyContent: 'space-between' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Icon style={{ width: 15, height: 15, color: 'var(--ink2)' }} />
-                    {a.label}
-                  </span>
-                  <ArrowRight style={{ width: 13, height: 13, color: 'var(--ink2)' }} />
-                </Link>
+                <motion.div
+                  key={a.href}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + i * 0.07, type: 'spring', stiffness: 300, damping: 24 }}
+                >
+                  <Link href={a.href} className="neo-candidate-card" style={{ padding: '12px 16px', borderRadius: 10, justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Icon style={{ width: 15, height: 15, color: 'var(--muted)' }} />
+                      {a.label}
+                    </span>
+                    <ArrowRight style={{ width: 13, height: 13, color: 'var(--muted)' }} />
+                  </Link>
+                </motion.div>
               )
             })}
           </div>
@@ -138,45 +180,57 @@ export default function DashboardPage() {
         <div className="neo-card-soft" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h2 className="neo-section-title" style={{ marginBottom: 0 }}>Candidats récents</h2>
-            <Link href="/candidats" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink2)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Link href="/candidats" style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
               Voir tous <ArrowRight style={{ width: 13, height: 13 }} />
             </Link>
           </div>
           {stats?.recentCandidats?.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {stats.recentCandidats.map((c: any) => (
-                <Link key={c.id} href={`/candidats/${c.id}`} className="neo-candidate-card">
-                  <div className="neo-avatar">{initiales(c)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)', lineHeight: 1 }}>
-                      {c.prenom} {c.nom}
-                    </div>
-                    {c.titre_poste && (
-                      <div style={{ fontSize: 12, color: 'var(--ink2)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {c.titre_poste}
+              {stats.recentCandidats.map((c: any, i: number) => (
+                <motion.div
+                  key={c.id}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + i * 0.06, type: 'spring', stiffness: 300, damping: 24 }}
+                >
+                  <Link href={`/candidats/${c.id}`} className="neo-candidate-card">
+                    <div className="neo-avatar">{initiales(c)}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1 }}>
+                        {c.prenom} {c.nom}
                       </div>
-                    )}
-                  </div>
-                  <span className={ETAPE_BADGE[c.statut_pipeline] || 'neo-badge neo-badge-gray'}>
-                    {ETAPE_LABELS[c.statut_pipeline] || c.statut_pipeline}
-                  </span>
-                </Link>
+                      {c.titre_poste && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.titre_poste}
+                        </div>
+                      )}
+                    </div>
+                    <span className={ETAPE_BADGE[c.statut_pipeline] || 'neo-badge neo-badge-gray'}>
+                      {ETAPE_LABELS[c.statut_pipeline] || c.statut_pipeline}
+                    </span>
+                  </Link>
+                </motion.div>
               ))}
             </div>
           ) : (
-            <div className="neo-empty" style={{ padding: '40px 24px', border: '2px dashed #E8E0C8' }}>
+            <div className="neo-empty" style={{ padding: '40px 24px', border: '2px dashed var(--border)' }}>
               <div className="neo-empty-icon">🎯</div>
               <div className="neo-empty-title">Aucun candidat</div>
               <div className="neo-empty-sub">Importez un CV pour commencer</div>
             </div>
           )}
         </div>
-      </div>
-      </BlurFade>
+      </motion.div>
 
       {/* ── Carte des candidats ── */}
-      <BlurFade delay={0.55} inView>
-      <div className="neo-card-soft" style={{ padding: 24, marginTop: 20 }}>
+      <motion.div
+        custom={2}
+        variants={fadeUp}
+        initial="hidden"
+        animate="show"
+        className="neo-card-soft"
+        style={{ padding: 24, marginTop: 20 }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 className="neo-section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <MapPin style={{ width: 16, height: 16, color: 'var(--primary)' }} />
@@ -189,8 +243,7 @@ export default function DashboardPage() {
         <div style={{ height: 380, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
           <CandidatsMap />
         </div>
-      </div>
-      </BlurFade>
+      </motion.div>
 
     </div>
   )

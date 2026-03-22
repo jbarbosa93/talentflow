@@ -710,6 +710,77 @@ body {
 .dark { color-scheme: light; }
 
 /* ══════════════════════════════════════
+   DARK MODE — data-theme="dark"
+   ══════════════════════════════════════ */
+[data-theme="dark"] {
+  --background:           #0D1117;
+  --surface:              #161B22;
+  --sidebar-bg:           #010409;
+  --sidebar-border:       rgba(255,255,255,0.08);
+  --foreground:           #E6EDF3;
+  --muted:                #8B949E;
+  --border:               #30363D;
+  --card-shadow:          0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --card-shadow-hover:    0 8px 25px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3);
+  --primary-soft:         rgba(245,166,35,0.14);
+  --secondary:            #21262D;
+  --secondary-foreground: #E6EDF3;
+  --accent:               rgba(245,166,35,0.14);
+  --accent-foreground:    #E6EDF3;
+  --card:                 #161B22;
+  --card-foreground:      #E6EDF3;
+  --input:                #21262D;
+  color-scheme: dark;
+}
+
+/* Dark: surfaces blanches → surface var */
+[data-theme="dark"] .neo-card,
+[data-theme="dark"] .neo-card-soft,
+[data-theme="dark"] .neo-card-cream,
+[data-theme="dark"] .neo-table-wrap,
+[data-theme="dark"] .neo-empty,
+[data-theme="dark"] .neo-candidate-card,
+[data-theme="dark"] .neo-kanban-card,
+[data-theme="dark"] .neo-input,
+[data-theme="dark"] .neo-input-soft {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+[data-theme="dark"] .neo-table th {
+  background: var(--background);
+  color: var(--muted);
+}
+[data-theme="dark"] .neo-table tr:hover td {
+  background: rgba(245,167,35,0.05);
+}
+[data-theme="dark"] .neo-badge-gray {
+  background: #21262D;
+  color: #8B949E;
+}
+[data-theme="dark"] .d-topbar,
+[data-theme="dark"] .d-search-input {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+[data-theme="dark"] .d-icon-btn {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--muted);
+}
+[data-theme="dark"] .d-search-input:focus {
+  background: var(--background);
+}
+
+/* ══════════════════════════════════════
+   MOTION — transitions page
+   ══════════════════════════════════════ */
+.page-motion {
+  will-change: opacity, transform;
+}
+
+/* ══════════════════════════════════════
    MOBILE HAMBURGER BUTTON
    (hidden on desktop, shown on mobile)
    ══════════════════════════════════════ */

@@ -1,10 +1,12 @@
 'use client'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useTheme } from '@/contexts/ThemeContext'
 import type { Candidat, PipelineEtape } from '@/types/database'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -30,10 +32,26 @@ const ETAPE_LABELS: Record<PipelineEtape, string> = {
   nouveau: 'Nouveau', contacte: 'Contacté', entretien: 'Entretien', place: 'Placé', refuse: 'Refusé',
 }
 
+const dropdownVariants = {
+  hidden: { opacity: 0, y: -8, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 400, damping: 28 } },
+  exit: { opacity: 0, y: -6, scale: 0.97, transition: { duration: 0.15 } },
+}
+
+const resultItemVariants = {
+  hidden: { opacity: 0, x: -6 },
+  show: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { delay: i * 0.03, type: 'spring' as const, stiffness: 400, damping: 28 },
+  }),
+}
+
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname()
   const router   = useRouter()
   const sync     = useSyncMicrosoft()
+  const { theme, toggle, isDark } = useTheme()
 
   const [query, setQuery]             = useState('')
   const [open, setOpen]               = useState(false)
@@ -50,8 +68,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     .sort((a, b) => b[0].length - a[0].length)
     .find(([key]) => pathname === key || pathname.startsWith(key + '/'))
     ?.[1] ?? 'TalentFlow'
-
-  // ── Données ───────────────────────────────────────────────────────────────
 
   const { data: intData } = useQuery({
     queryKey: ['integrations'],
@@ -82,8 +98,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   })
   const allCandidats = _candidatsRaw?.candidats
 
-  // ── Filtrage client-side ──────────────────────────────────────────────────
-
   const filtered = useMemo(() => {
     if (aiResults !== null) return aiResults
     if (!query.trim() || !allCandidats) return []
@@ -105,8 +119,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
       )
     ).slice(0, 8)
   }, [allCandidats, query, aiResults])
-
-  // ── Recherche IA ──────────────────────────────────────────────────────────
 
   const handleAiSearch = useCallback(async () => {
     if (!query.trim()) return
@@ -156,8 +168,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     window.location.href = '/login'
   }
 
-  // ── Profil utilisateur ────────────────────────────────────────────────────
-
   const prenom      = user?.user_metadata?.prenom     || ''
   const nom         = user?.user_metadata?.nom        || ''
   const role        = user?.user_metadata?.role       || 'Consultant'
@@ -172,7 +182,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   if (isOnCandidats) return null
 
   return (
-    <header className="d-topbar">
+    <motion.header
+      className="d-topbar"
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+    >
       {/* ── Hamburger mobile ── */}
       {onMenuClick && (
         <button className="d-topbar-hamburger" onClick={onMenuClick} aria-label="Menu">
@@ -182,16 +197,22 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
 
       {/* ── Barre de recherche ── */}
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginRight: 20 }}>
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          background: focused ? 'white' : 'var(--background)',
-          border: `1.5px solid ${focused ? 'var(--primary)' : 'var(--border)'}`,
-          borderRadius: 10, overflow: 'hidden',
-          boxShadow: focused ? '0 0 0 3px rgba(245,167,35,0.12)' : 'none',
-          transition: 'all 0.15s ease',
-        }}>
+        <motion.div
+          style={{
+            display: 'flex', alignItems: 'center',
+            borderRadius: 10, overflow: 'hidden',
+            border: '1.5px solid var(--border)',
+            background: 'var(--background)',
+          }}
+          animate={{
+            borderColor: focused ? 'var(--primary)' : 'var(--border)',
+            background: focused ? 'var(--surface)' : 'var(--background)',
+            boxShadow: focused ? '0 0 0 3px rgba(245,167,35,0.12)' : '0 0 0 0px rgba(245,167,35,0)',
+          }}
+          transition={{ duration: 0.15 }}
+        >
           <div style={{ padding: '0 10px 0 12px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Search size={14} style={{ color: focused ? 'var(--primary)' : 'var(--muted)' }} />
+            <Search size={14} style={{ color: focused ? 'var(--primary)' : 'var(--muted)', transition: 'color 0.15s' }} />
           </div>
           <input
             ref={inputRef}
@@ -207,88 +228,148 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
             placeholder="Rechercher un candidat, compétence, métier..."
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--foreground)', padding: '9px 0', fontFamily: 'var(--font-body)' }}
           />
-          {aiSearching && (
-            <div style={{ padding: '0 10px', display: 'flex', alignItems: 'center' }}>
-              <Loader2 size={13} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-            </div>
-          )}
-          {query && !aiSearching && (
-            <button onMouseDown={e => { e.preventDefault(); clearSearch() }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 10px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}>
-              <X size={13} />
-            </button>
-          )}
-        </div>
+          <AnimatePresence mode="wait">
+            {aiSearching && (
+              <motion.div
+                key="loader"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                style={{ padding: '0 10px', display: 'flex', alignItems: 'center' }}
+              >
+                <Loader2 size={13} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+              </motion.div>
+            )}
+            {query && !aiSearching && (
+              <motion.button
+                key="clear"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                onMouseDown={e => { e.preventDefault(); clearSearch() }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 10px', display: 'flex', alignItems: 'center', color: 'var(--muted)' }}
+              >
+                <X size={13} />
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Dropdown */}
-        {showDropdown && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: 'white', border: '1.5px solid var(--border)', borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)', zIndex: 999, overflow: 'hidden' }}>
-            {aiResults !== null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--primary-soft)', borderBottom: '1px solid rgba(245,167,35,0.2)' }}>
-                <Sparkles size={12} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>{aiResults.length} résultat{aiResults.length !== 1 ? 's' : ''} IA</span>
-                {aiLabel && <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>« {aiLabel} »</span>}
-              </div>
-            )}
-            {aiSearching && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px' }}>
-                <Loader2 size={14} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>Analyse des CVs en cours...</span>
-              </div>
-            )}
-            {!aiSearching && filtered.map((c: any) => (
-              <div key={c.id} onMouseDown={e => { e.preventDefault(); goTo(c.id) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'white')}
-              >
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
-                  {`${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'}
+        <AnimatePresence>
+          {showDropdown && (
+            <motion.div
+              variants={dropdownVariants}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                background: 'var(--surface)', border: '1.5px solid var(--border)',
+                borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
+                zIndex: 999, overflow: 'hidden',
+              }}
+            >
+              {aiResults !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--primary-soft)', borderBottom: '1px solid rgba(245,167,35,0.2)' }}>
+                  <Sparkles size={12} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>{aiResults.length} résultat{aiResults.length !== 1 ? 's' : ''} IA</span>
+                  {aiLabel && <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>« {aiLabel} »</span>}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', lineHeight: 1.2 }}>{c.prenom} {c.nom}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
-                    {c.titre_poste && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Briefcase size={10} /> {c.titre_poste}</span>}
-                    {c.localisation && <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={10} /> {c.localisation}</span>}
-                    {c.competences?.slice(0, 2).map((comp: string) => (
-                      <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 100, background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 700 }}>{comp}</span>
-                    ))}
+              )}
+              {aiSearching && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 14px' }}>
+                  <Loader2 size={14} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>Analyse des CVs en cours...</span>
+                </div>
+              )}
+              {!aiSearching && filtered.map((c: any, i: number) => (
+                <motion.div
+                  key={c.id}
+                  custom={i}
+                  variants={resultItemVariants}
+                  initial="hidden"
+                  animate="show"
+                  onMouseDown={e => { e.preventDefault(); goTo(c.id) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.1s', background: 'var(--surface)' }}
+                  whileHover={{ background: 'var(--background)' }}
+                >
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+                    {`${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'}
                   </div>
-                </div>
-                {c.statut_pipeline && (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0, background: `${ETAPE_COLORS[c.statut_pipeline as PipelineEtape]}18`, color: ETAPE_COLORS[c.statut_pipeline as PipelineEtape] }}>
-                    {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
-                  </span>
-                )}
-              </div>
-            ))}
-            {!aiSearching && filtered.length === 0 && aiResults !== null && (
-              <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun candidat correspondant</div>
-            )}
-            {!aiSearching && filtered.length > 0 && (
-              <div onMouseDown={e => { e.preventDefault(); goToCandidats() }}
-                style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', background: 'var(--background)', borderTop: '1px solid var(--border)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-soft)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'var(--background)')}
-              >
-                Voir tous les candidats →
-              </div>
-            )}
-          </div>
-        )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', lineHeight: 1.2 }}>{c.prenom} {c.nom}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                      {c.titre_poste && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}><Briefcase size={10} /> {c.titre_poste}</span>}
+                      {c.localisation && <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 3 }}><MapPin size={10} /> {c.localisation}</span>}
+                      {c.competences?.slice(0, 2).map((comp: string) => (
+                        <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 100, background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 700 }}>{comp}</span>
+                      ))}
+                    </div>
+                  </div>
+                  {c.statut_pipeline && (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0, background: `${ETAPE_COLORS[c.statut_pipeline as PipelineEtape]}18`, color: ETAPE_COLORS[c.statut_pipeline as PipelineEtape] }}>
+                      {ETAPE_LABELS[c.statut_pipeline as PipelineEtape] || c.statut_pipeline}
+                    </span>
+                  )}
+                </motion.div>
+              ))}
+              {!aiSearching && filtered.length === 0 && aiResults !== null && (
+                <div style={{ padding: '20px 14px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun candidat correspondant</div>
+              )}
+              {!aiSearching && filtered.length > 0 && (
+                <motion.div
+                  onMouseDown={e => { e.preventDefault(); goToCandidats() }}
+                  style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', background: 'var(--background)', borderTop: '1px solid var(--border)' }}
+                  whileHover={{ background: 'var(--primary-soft)' }}
+                >
+                  Voir tous les candidats →
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Actions droite ── */}
       <div className="d-topbar-actions">
         {isMsConnected && (
-          <button onClick={() => sync.mutate()} disabled={sync.isPending} className="d-icon-btn" title="Synchroniser Microsoft">
+          <motion.button
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            className="d-icon-btn"
+            title="Synchroniser Microsoft"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
             <RefreshCw style={{ width: 14, height: 14 }} className={sync.isPending ? 'animate-spin' : ''} />
-          </button>
+          </motion.button>
         )}
+
+        {/* Toggle thème */}
+        <motion.button
+          onClick={toggle}
+          className="d-icon-btn"
+          title={isDark ? 'Mode clair' : 'Mode sombre'}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <AnimatePresence mode="wait">
+            {isDark ? (
+              <motion.span key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                <Sun size={14} />
+              </motion.span>
+            ) : (
+              <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}>
+                <Moon size={14} />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
 
         {/* Profil recruteur — dropdown */}
         <div ref={profileRef} style={{ position: 'relative' }}>
-          <button
+          <motion.button
             onClick={() => setProfileOpen(p => !p)}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
@@ -297,18 +378,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               borderRadius: 10, padding: '6px 12px 6px 6px',
               cursor: 'pointer', transition: 'all 0.15s',
             }}
-            onMouseEnter={e => {
-              if (!profileOpen) {
-                e.currentTarget.style.background = 'var(--background)'
-                e.currentTarget.style.borderColor = 'var(--primary)'
-              }
-            }}
-            onMouseLeave={e => {
-              if (!profileOpen) {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.borderColor = 'var(--border)'
-              }
-            }}
+            whileHover={{ borderColor: 'var(--primary)', background: 'var(--background)' }}
           >
             {/* Avatar */}
             <div style={{
@@ -333,79 +403,85 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               )}
             </div>
 
-            <ChevronDown size={12} style={{ color: 'var(--muted)', flexShrink: 0, transition: 'transform 0.2s', transform: profileOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-          </button>
+            <motion.span
+              animate={{ rotate: profileOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ChevronDown size={12} style={{ color: 'var(--muted)' }} />
+            </motion.span>
+          </motion.button>
 
           {/* Dropdown menu */}
-          {profileOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-              background: 'white', border: '1.5px solid var(--border)',
-              borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
-              zIndex: 999, minWidth: 220, overflow: 'hidden',
-              animation: 'fadeInDown 0.15s ease',
-            }}>
-              {/* Menu items */}
-              <div style={{ padding: '6px' }}>
-                <button
-                  onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '9px 12px', border: 'none', background: 'transparent',
-                    borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s',
-                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <User size={14} style={{ color: 'var(--muted)' }} />
-                  Mon profil
-                </button>
-                <button
-                  onClick={() => { setProfileOpen(false); router.push('/parametres') }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '9px 12px', border: 'none', background: 'transparent',
-                    borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s',
-                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--background)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <Settings size={14} style={{ color: 'var(--muted)' }} />
-                  Paramètres
-                </button>
-              </div>
+          <AnimatePresence>
+            {profileOpen && (
+              <motion.div
+                variants={dropdownVariants}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                  background: 'var(--surface)', border: '1.5px solid var(--border)',
+                  borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
+                  zIndex: 999, minWidth: 220, overflow: 'hidden',
+                }}
+              >
+                <div style={{ padding: '6px' }}>
+                  <motion.button
+                    onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 12px', border: 'none', background: 'transparent',
+                      borderRadius: 8, cursor: 'pointer',
+                      fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                    whileHover={{ background: 'var(--background)' }}
+                  >
+                    <User size={14} style={{ color: 'var(--muted)' }} />
+                    Mon profil
+                  </motion.button>
+                  <motion.button
+                    onClick={() => { setProfileOpen(false); router.push('/parametres') }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 12px', border: 'none', background: 'transparent',
+                      borderRadius: 8, cursor: 'pointer',
+                      fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                    whileHover={{ background: 'var(--background)' }}
+                  >
+                    <Settings size={14} style={{ color: 'var(--muted)' }} />
+                    Paramètres
+                  </motion.button>
+                </div>
 
-              {/* Separator + Logout */}
-              <div style={{ borderTop: '1px solid var(--border)', padding: '6px' }}>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                    padding: '9px 12px', border: 'none', background: 'transparent',
-                    borderRadius: 8, cursor: 'pointer', transition: 'all 0.12s',
-                    fontSize: 13, fontWeight: 600, color: '#EF4444',
-                    fontFamily: 'var(--font-body)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#FEF2F2')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  <LogOut size={14} />
-                  Se déconnecter
-                </button>
-              </div>
-            </div>
-          )}
+                <div style={{ borderTop: '1px solid var(--border)', padding: '6px' }}>
+                  <motion.button
+                    onClick={handleLogout}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                      padding: '9px 12px', border: 'none', background: 'transparent',
+                      borderRadius: 8, cursor: 'pointer',
+                      fontSize: 13, fontWeight: 600, color: '#EF4444',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                    whileHover={{ background: '#FEF2F2' }}
+                  >
+                    <LogOut size={14} />
+                    Se déconnecter
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-    </header>
+    </motion.header>
   )
 }
