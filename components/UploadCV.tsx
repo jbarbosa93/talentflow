@@ -24,6 +24,8 @@ interface FileItem {
   status: FileStatus
   error?: string
   candidatNom?: string
+  storagePath?: string        // Sauvegardé après upload pour retry
+  needsRetry?: boolean        // Document non-CV qui n'a pas trouvé de candidat
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +121,86 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
     return data.path
   }
 
-  // ------- Sequential processing -------
+  // ------- Process a single file -------
+
+  const processOneFile = async (idx: number, storagePath?: string): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean }> => {
+    const item = files[idx]
+    if (!item) return { success: false }
+
+    updateFile(idx, { status: 'uploading' })
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+
+    try {
+      // 1. Upload to Supabase Storage (skip if already uploaded — retry case)
+      const path = storagePath || await uploadToStorage(item.file)
+      updateFile(idx, { status: 'parsing', storagePath: path })
+
+      // 2. Call parse API
+      const body: Record<string, any> = { storage_path: path, statut: 'nouveau' }
+      if (offreId) body.offre_id = offreId
+
+      const res = await fetch('/api/cv/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+
+      const ct = res.headers.get('content-type') || ''
+      const data = ct.includes('application/json') ? await res.json() : {}
+
+      // 3. Document non-CV sans candidat → marquer pour retry
+      if (!res.ok && res.status === 422 && data.document_type) {
+        updateFile(idx, { status: 'pending', error: undefined, storagePath: path, needsRetry: true })
+        return { success: false, needsRetry: true }
+      }
+
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+
+      // 4. Doublon détecté
+      if (data.isDuplicate && data.candidatExistant?.id) {
+        if (data.updated) {
+          // Document non-CV auto-ajouté
+          const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
+          updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'Document ajouté' })
+          return { success: true, candidat: data.candidat || data.candidatExistant }
+        } else {
+          // CV doublon → auto-actualiser
+          updateFile(idx, { status: 'parsing' })
+          const updateBody: Record<string, any> = { storage_path: path, statut: 'nouveau', update_id: data.candidatExistant.id }
+          if (offreId) updateBody.offre_id = offreId
+
+          const res2 = await fetch('/api/cv/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updateBody),
+          })
+          const data2 = await res2.json()
+          if (!res2.ok) throw new Error(data2.error || `Erreur ${res2.status}`)
+
+          const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
+          updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
+          return { success: true, candidat: data2.candidat }
+        }
+      }
+
+      // 5. Nouveau candidat créé
+      const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+      updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé' })
+      return { success: true, candidat: data.candidat }
+
+    } catch (err: any) {
+      clearTimeout(timeoutId)
+      const msg = err.name === 'AbortError' ? 'Timeout — réessayez' : (err.message || 'Erreur inconnue')
+      updateFile(idx, { status: 'error', error: msg })
+      return { success: false }
+    }
+  }
+
+  // ------- Two-pass processing -------
 
   const handleUpload = async () => {
     const pendingIndices = files
@@ -135,82 +216,28 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
 
     let lastSuccessCandidat: any = null
 
+    // ── Pass 1 : traiter tous les fichiers ──
     for (const idx of pendingIndices) {
-      // Read the file from the current state snapshot
-      const item = files[idx]
-      if (!item) continue
+      const result = await processOneFile(idx)
+      if (result.candidat) lastSuccessCandidat = result.candidat
+    }
 
-      updateFile(idx, { status: 'uploading' })
+    // ── Pass 2 : retry les documents non-CV qui n'avaient pas trouvé de candidat ──
+    const retryIndices = files
+      .map((f, i) => ({ f, i }))
+      .filter(({ f }) => f.needsRetry && f.storagePath)
+      .map(({ i }) => i)
 
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
-
-      try {
-        // 1. Upload to Supabase Storage
-        const storagePath = await uploadToStorage(item.file)
-
-        updateFile(idx, { status: 'parsing' })
-
-        // 2. Call parse API
-        const body: Record<string, any> = {
-          storage_path: storagePath,
-          statut: 'nouveau',
+    if (retryIndices.length > 0) {
+      console.log(`[Import] Pass 2 : retry de ${retryIndices.length} documents non-CV`)
+      for (const idx of retryIndices) {
+        const item = files[idx]
+        const result = await processOneFile(idx, item.storagePath)
+        if (result.candidat) lastSuccessCandidat = result.candidat
+        // Si toujours en échec après retry, marquer en erreur
+        if (result.needsRetry) {
+          updateFile(idx, { status: 'error', error: 'Aucun candidat correspondant trouvé — importez le CV en premier', needsRetry: false })
         }
-        if (offreId) body.offre_id = offreId
-
-        const res = await fetch('/api/cv/parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        })
-        clearTimeout(timeoutId)
-
-        const ct = res.headers.get('content-type') || ''
-        const data = ct.includes('application/json') ? await res.json() : {}
-        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
-
-        // 3. Doublon détecté
-        if (data.isDuplicate && data.candidatExistant?.id) {
-          // Si le serveur a déjà auto-ajouté le document (non-CV)
-          if (data.updated) {
-            const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
-            updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'Document ajouté' })
-            lastSuccessCandidat = data.candidat || data.candidatExistant
-          } else {
-            // CV doublon → auto-actualiser
-            updateFile(idx, { status: 'parsing' })
-
-            const updateBody: Record<string, any> = {
-              storage_path: storagePath,
-              statut: 'nouveau',
-              update_id: data.candidatExistant.id,
-            }
-            if (offreId) updateBody.offre_id = offreId
-
-            const res2 = await fetch('/api/cv/parse', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updateBody),
-            })
-            const data2 = await res2.json()
-            if (!res2.ok) throw new Error(data2.error || `Erreur ${res2.status}`)
-
-            const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
-            updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
-            lastSuccessCandidat = data2.candidat
-          }
-        } else {
-          const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
-          updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé' })
-          lastSuccessCandidat = data.candidat
-        }
-      } catch (err: any) {
-        clearTimeout(timeoutId)
-        const msg = err.name === 'AbortError'
-          ? 'Timeout — réessayez'
-          : (err.message || 'Erreur inconnue')
-        updateFile(idx, { status: 'error', error: msg })
       }
     }
 
