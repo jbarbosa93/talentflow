@@ -508,7 +508,7 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
               }}
             >
               <Upload size={14} />
-              Importer {pendingCount} CV{pendingCount > 1 ? 's' : ''}
+              Importer {pendingCount} fichier{pendingCount > 1 ? 's' : ''}
             </button>
             <button
               onClick={() => inputRef.current?.click()}
