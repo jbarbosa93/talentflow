@@ -18,7 +18,7 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'error'
+type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'doc_added' | 'error'
 
 interface FileItem {
   file: File
@@ -67,10 +67,11 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   // Derived counts
   const completed = files.filter(f =>
-    f.status === 'success' || f.status === 'error' || f.status === 'doublon_updated'
+    f.status === 'success' || f.status === 'error' || f.status === 'doublon_updated' || f.status === 'doc_added'
   ).length
   const succeeded = files.filter(f => f.status === 'success').length
   const doublonsUpdated = files.filter(f => f.status === 'doublon_updated').length
+  const docsAdded = files.filter(f => f.status === 'doc_added').length
   const failed = files.filter(f => f.status === 'error').length
   const pendingCount = files.filter(f => f.status === 'pending').length
   const progress = files.length > 0 ? Math.round((completed / files.length) * 100) : 0
@@ -173,7 +174,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         if (data.updated) {
           // Document non-CV auto-ajouté
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
-          updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'Document ajouté' })
+          updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
           return { success: true, candidat: data.candidat || data.candidatExistant }
         } else {
           // CV doublon → auto-actualiser
@@ -288,6 +289,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         return <Loader2 size={14} style={{ color: '#3B82F6', flexShrink: 0, animation: 'spin 1s linear infinite' }} />
       case 'success':
         return <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
+      case 'doc_added':
+        return <CheckCircle size={14} style={{ color: '#3B82F6', flexShrink: 0 }} />
       case 'doublon_updated':
         return <RefreshCw size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
       case 'error':
@@ -301,7 +304,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'uploading': return 'Upload en cours...'
       case 'parsing': return 'Analyse IA en cours...'
       case 'success': return `Importé — ${item.candidatNom}`
-      case 'doublon_updated': return `Doublon actualisé — ${item.candidatNom}`
+      case 'doc_added': return `Document ajouté — ${item.candidatNom}`
+      case 'doublon_updated': return `CV actualisé — ${item.candidatNom}`
       case 'error': return `Erreur — ${item.error}`
     }
   }
@@ -312,6 +316,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'uploading':
       case 'parsing': return '#3B82F6'
       case 'success': return '#16A34A'
+      case 'doc_added': return '#3B82F6'
       case 'doublon_updated': return '#F59E0B'
       case 'error': return '#DC2626'
     }
@@ -320,6 +325,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const rowBg = (s: FileStatus) => {
     switch (s) {
       case 'success': return '#F0FDF4'
+      case 'doc_added': return '#EFF6FF'
       case 'doublon_updated': return '#FFFBEB'
       case 'error': return '#FEF2F2'
       default: return '#FFFFFF'
@@ -329,6 +335,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const rowBorder = (s: FileStatus) => {
     switch (s) {
       case 'success': return '#BBF7D0'
+      case 'doc_added': return '#BFDBFE'
       case 'doublon_updated': return '#FDE68A'
       case 'error': return '#FECACA'
       default: return '#E5E7EB'
@@ -364,7 +371,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         )}
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
-            {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${succeeded + doublonsUpdated} traités`}
+            {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${succeeded + doublonsUpdated + docsAdded} traités`}
           </p>
           {uploading && (
             <div style={{ height: 3, background: '#E5E7EB', borderRadius: 10, marginTop: 4 }}>
@@ -497,13 +504,22 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               <p style={{ margin: 0, fontSize: 11, color: '#16A34A', fontWeight: 500 }}>importé{succeeded > 1 ? 's' : ''}</p>
             </div>
           )}
+          {docsAdded > 0 && (
+            <div style={{
+              flex: 1, padding: '10px 12px', borderRadius: 8,
+              background: '#EFF6FF', border: '1px solid #BFDBFE', textAlign: 'center',
+            }}>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#3B82F6' }}>{docsAdded}</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#2563EB', fontWeight: 500 }}>doc{docsAdded > 1 ? 's' : ''} ajouté{docsAdded > 1 ? 's' : ''}</p>
+            </div>
+          )}
           {doublonsUpdated > 0 && (
             <div style={{
               flex: 1, padding: '10px 12px', borderRadius: 8,
               background: '#FFFBEB', border: '1px solid #FDE68A', textAlign: 'center',
             }}>
               <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#F59E0B' }}>{doublonsUpdated}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#D97706', fontWeight: 500 }}>doublon{doublonsUpdated > 1 ? 's' : ''} actualisé{doublonsUpdated > 1 ? 's' : ''}</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#D97706', fontWeight: 500 }}>CV{doublonsUpdated > 1 ? 's' : ''} actualisé{doublonsUpdated > 1 ? 's' : ''}</p>
             </div>
           )}
           {failed > 0 && (
