@@ -38,6 +38,7 @@ const ALLOWED_COLS = new Set([
   'nom','prenom','email','telephone','localisation','titre_poste','annees_exp',
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
   'langues','linkedin','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating',
+  'cv_url','cv_nom_fichier',
 ])
 
 export async function PATCH(

@@ -1369,34 +1369,9 @@ export default function CandidatDetailPage() {
                   <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" style={{ minWidth: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginRight: 4 }}>
                     <RotateCw size={14} />
                   </button>
-                  {[{ label: '−', action: () => {
-                    setCvZoom(z => {
-                      const nz = Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))
-                      // Center scroll after zoom
-                      setTimeout(() => {
-                        const el = cvScrollRef.current; if (!el) return
-                        const sw = el.scrollWidth - el.clientWidth
-                        const sh = el.scrollHeight - el.clientHeight
-                        if (nz <= 1) { el.scrollLeft = 0; el.scrollTop = 0 }
-                        else { el.scrollLeft = sw / 2; el.scrollTop = sh / 2 }
-                      }, 10)
-                      return nz
-                    })
-                  }},
-                    { label: Math.round(cvZoom * 100) + '%', action: () => { setCvZoom(1.0); setTimeout(() => { const el = cvScrollRef.current; if (el) { el.scrollLeft = 0; el.scrollTop = 0 } }, 10) } },
-                    { label: '+', action: () => {
-                    setCvZoom(z => {
-                      const nz = Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))
-                      setTimeout(() => {
-                        const el = cvScrollRef.current; if (!el) return
-                        const sw = el.scrollWidth - el.clientWidth
-                        const sh = el.scrollHeight - el.clientHeight
-                        el.scrollLeft = sw / 2
-                        el.scrollTop = sh / 2
-                      }, 10)
-                      return nz
-                    })
-                  }}
+                  {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
+                    { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
+                    { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
                   ].map(btn => (
                     <button key={btn.label} onClick={btn.action} style={{ minWidth: btn.label.includes('%') ? 38 : 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                       {btn.label}
@@ -1739,8 +1714,26 @@ export default function CandidatDetailPage() {
         onUpdate={(docs) => {
           updateCandidat.mutate({ id, data: { documents: docs } as any })
         }}
-        onCvChange={(url, fileName) => {
+        onCvChange={async (url, fileName) => {
+          // 1. Mettre à jour le CV
           updateCandidat.mutate({ id, data: { cv_url: url, cv_nom_fichier: fileName } as any })
+          // 2. Re-parser le CV pour mettre à jour expériences/formations
+          try {
+            const res = await fetch(url)
+            const blob = await res.blob()
+            const file = new File([blob], fileName, { type: blob.type })
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('update_id', id)
+            formData.append('force_insert', 'true')
+            const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+            if (parseRes.ok) {
+              queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+              toast.success('CV mis à jour et ré-analysé')
+            }
+          } catch {
+            // Le CV est quand même mis à jour, juste le parsing a échoué
+          }
         }}
       />
 

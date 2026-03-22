@@ -273,6 +273,17 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     >
       <div
         onClick={e => e.stopPropagation()}
+        onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
+        onDragLeave={e => { if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
+        onDrop={e => {
+          e.preventDefault(); e.stopPropagation(); setDragOver(false)
+          const file = e.dataTransfer.files?.[0]
+          if (file) {
+            const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
+            setPendingFile({ file, name: nameWithoutExt })
+            setShowUpload(true)
+          }
+        }}
         style={{
           position: 'absolute', top: 0, right: 0,
           width: 480, height: '100%',
@@ -308,17 +319,6 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
         {/* Upload button / drop zone */}
         <div
           style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}
-          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={e => {
-            e.preventDefault(); setDragOver(false)
-            const file = e.dataTransfer.files?.[0]
-            if (file) {
-              const nameWithoutExt = file.name.replace(/\.[^.]+$/, '')
-              setPendingFile({ file, name: nameWithoutExt })
-              setShowUpload(true)
-            }
-          }}
         >
           {!showUpload ? (
             <button
