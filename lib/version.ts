@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.13.0'
+export const APP_VERSION = 'v0.14.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.14.0',
+    date: '2026-03-22',
+    label: 'Recherche full-text & Audit IA',
+    features: [
+      'Recherche full-text dans TOUT : competences, experiences, formations, CV brut, notes, resume IA',
+      'Recherche sans accents : "beton" trouve "beton", "macon" trouve "macon"',
+      'Recherche multi-mots flexible et rapide (RPC PostgreSQL)',
+      'Outil Analyser Candidats : audit qualite de la base (photos, CVs, fiches incompletes)',
+      'Analyse approfondie IA avec Claude Vision (classification documents, verification photos)',
+      'Bouton Corriger tous les "Candidat" : re-parsing en masse avec vision',
+      'Demandes d\'acces sous Administration avec badge compteur',
+      'Notification email lors d\'une nouvelle demande d\'acces',
+      'Documents : changer categorie (dropdown), definir comme CV principal, supprimer',
+      'Pagination serveur (20/50/100 candidats) au lieu de tout charger',
+      'Page memorisee : retour a la meme page apres consultation d\'une fiche',
+      'Boutons Valider/Archiver/A traiter disponibles sur tous les statuts',
+      'Crop photo manuel depuis le CV (selection de zone)',
+    ],
+  },
   {
     version: 'v0.13.0',
     date: '2026-03-22',
