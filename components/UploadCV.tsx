@@ -236,31 +236,6 @@ export default function UploadCV({ offreId, onSuccess }: UploadCVProps) {
         </div>
       )}
 
-      {/* Statut pipeline */}
-      {files.length > 0 && !uploading && !done && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Statut pipeline :</span>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {ETAPES.map(e => (
-              <button
-                key={e.value}
-                onClick={() => setStatut(e.value)}
-                style={{
-                  padding: '4px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                  border: '1.5px solid',
-                  borderColor: statut === e.value ? 'var(--foreground)' : 'var(--border)',
-                  background: statut === e.value ? 'var(--foreground)' : 'white',
-                  color: statut === e.value ? 'white' : 'var(--muted)',
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
-                }}
-              >
-                {e.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* File list */}
       {files.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>

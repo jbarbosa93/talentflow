@@ -6,7 +6,7 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles,
 } from 'lucide-react'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
@@ -14,9 +14,10 @@ import {
 } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import type { PipelineEtape } from '@/types/database'
+import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import PhotoCropModal from '@/components/PhotoCropModal'
+import DocumentsSection from '@/components/DocumentsSection'
 
 // Drapeau emoji pour chaque langue
 const LANG_FLAGS: Record<string, string> = {
@@ -150,6 +151,7 @@ export default function CandidatDetailPage() {
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
   const [mergeLoading, setMergeLoading]   = useState(false)
   const [merging, setMerging]             = useState(false)
+  const [reanalyseLoading, setReanalyseLoading] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const mergeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [cvZoom, setCvZoom]               = useState(1.0)
@@ -295,6 +297,7 @@ export default function CandidatDetailPage() {
       experiences:     JSON.parse(JSON.stringify(candidat.experiences || [])),
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),
       metiers: candidat.tags || [],
+      rating: candidat.rating ?? 0,
     })
     setIsEditing(true)
   }
@@ -331,8 +334,43 @@ export default function CandidatDetailPage() {
       experiences:        rest.experiences        || [],
       formations_details: rest.formations_details || [],
       tags:               metiers || [],
+      rating:             rest.rating > 0 ? rest.rating : null,
     }
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
+  }
+
+  const reanalyseIA = async () => {
+    if (!candidat?.cv_url) return
+    setReanalyseLoading(true)
+    try {
+      // Fetch the CV file from storage
+      const cvRes = await fetch(candidat.cv_url)
+      if (!cvRes.ok) throw new Error('Impossible de télécharger le CV')
+      const cvBlob = await cvRes.blob()
+      const fileName = candidat.cv_nom_fichier || 'cv.pdf'
+      const cvFile = new File([cvBlob], fileName, { type: cvBlob.type })
+
+      // Send to parse API with update_id to update the existing candidate
+      const formData = new FormData()
+      formData.append('cv', cvFile)
+      formData.append('update_id', candidat.id)
+      formData.append('force_insert', 'true')
+
+      const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData })
+      const parseData = await parseRes.json()
+
+      if (!parseRes.ok) throw new Error(parseData.error || 'Erreur lors de l\'analyse IA')
+
+      // Refresh candidate data
+      queryClient.invalidateQueries({ queryKey: ['candidat', candidat.id] })
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      toast.success('Profil mis à jour avec l\'analyse IA')
+    } catch (err: any) {
+      console.error('[Ré-analyse IA]', err)
+      toast.error(err.message || 'Erreur lors de la ré-analyse IA')
+    } finally {
+      setReanalyseLoading(false)
+    }
   }
 
   const moveSection = (key: string, dir: -1 | 1) => {
@@ -630,6 +668,22 @@ export default function CandidatDetailPage() {
               <Check size={13} /> Valider
             </button>
           )}
+          {!isEditing && candidat.cv_url && (
+            <button
+              onClick={reanalyseIA}
+              disabled={reanalyseLoading}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{
+                color: reanalyseLoading ? 'var(--muted)' : '#d97706',
+                borderColor: reanalyseLoading ? 'var(--border)' : '#fbbf2433',
+                background: reanalyseLoading ? 'transparent' : '#fbbf2410',
+              }}
+              title="Ré-analyser le CV avec l'IA pour mettre à jour le profil"
+            >
+              {reanalyseLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
+              {reanalyseLoading ? 'Analyse en cours...' : 'Ré-analyser IA'}
+            </button>
+          )}
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
               <Pencil size={13} /> Modifier
@@ -778,6 +832,24 @@ export default function CandidatDetailPage() {
                     <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Prénom" value={editData.prenom} onChange={e => set('prenom', e.target.value)} />
                     <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Nom" value={editData.nom} onChange={e => set('nom', e.target.value)} />
                     <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Titre / Poste" value={editData.titre_poste} onChange={e => set('titre_poste', e.target.value)} />
+                    {/* Star rating edit */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 4 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => set('rating', editData.rating === star ? 0 : star)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}
+                          title={`${star} étoile${star > 1 ? 's' : ''}`}
+                        >
+                          <Star
+                            size={18}
+                            color="#EAB308"
+                            fill={star <= (editData.rating || 0) ? '#EAB308' : 'none'}
+                          />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -785,6 +857,18 @@ export default function CandidatDetailPage() {
                       {candidat.prenom} {candidat.nom}
                     </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
+                    {candidat.rating > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 1, marginTop: 4 }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star
+                            key={star}
+                            size={14}
+                            color="#EAB308"
+                            fill={star <= candidat.rating ? '#EAB308' : 'none'}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -995,6 +1079,15 @@ export default function CandidatDetailPage() {
               })()}
             </div>
           )}
+
+          {/* Documents */}
+          <DocumentsSection
+            candidatId={candidat.id}
+            documents={(candidat.documents as CandidatDocument[]) || []}
+            onUpdate={(docs) => {
+              updateCandidat.mutate({ id, data: { documents: docs } as any })
+            }}
+          />
 
           {/* Notes et Infos sont maintenant en panneau slide-in (voir en bas du composant) */}
         </div>

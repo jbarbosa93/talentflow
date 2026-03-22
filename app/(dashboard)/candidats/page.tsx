@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal,
+  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import UploadCV from '@/components/UploadCV'
@@ -100,7 +100,7 @@ function CandidatsPageInner() {
   const [filterExpMin, setFilterExpMin] = useState<number | ''>('')
 
   // CV hover preview
-  const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number } | null>(null)
+  const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
@@ -493,6 +493,20 @@ function CandidatsPageInner() {
           </span>
         )}
 
+        {/* Star rating */}
+        {c.rating > 0 && (
+          <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+            {[1, 2, 3, 4, 5].map(star => (
+              <Star
+                key={star}
+                size={13}
+                color="#EAB308"
+                fill={star <= c.rating ? '#EAB308' : 'none'}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Bouton CV hover preview */}
         {hasCv && (
           <div
@@ -501,7 +515,9 @@ function CandidatsPageInner() {
               if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
               hoveredCvTimeout.current = setTimeout(() => {
-                setHoveredCv({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top })
+                const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
+                const rotation = savedRot ? parseInt(savedRot, 10) : 0
+                setHoveredCv({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation })
               }, 250)
             }}
             onMouseLeave={() => {
@@ -555,7 +571,7 @@ function CandidatsPageInner() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setShowUpload(true)} className="neo-btn">
-            <Upload size={15} /> Importer un CV
+            <Upload size={15} /> Importer CV
           </button>
         </div>
       </div>
@@ -772,7 +788,7 @@ function CandidatsPageInner() {
           <div className="neo-empty-title">Aucun candidat trouvé</div>
           <div className="neo-empty-sub">Modifiez vos filtres ou importez un nouveau CV</div>
           <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
-            <Upload size={15} /> Importer un CV
+            <Upload size={15} /> Importer CV
           </button>
         </div>
       ) : grouped ? (
@@ -934,7 +950,7 @@ function CandidatsPageInner() {
                     alt="CV"
                     draggable={false}
                     onDragStart={e => e.preventDefault()}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', pointerEvents: 'none' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', pointerEvents: 'none', transform: hoveredCv.rotation ? `rotate(${hoveredCv.rotation}deg)` : undefined, transformOrigin: 'center center' }}
                   />
                 </div>
               </div>
@@ -942,7 +958,7 @@ function CandidatsPageInner() {
               <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(4000 * previewZoom)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, width: `${100 / previewZoom}%`, height: '4000px', transform: `scale(${previewZoom})`, transformOrigin: 'top left' }}>
                   <iframe
-                    src={`${hoveredCv.url}#toolbar=0&navpanes=0`}
+                    src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0` : `${hoveredCv.url}#toolbar=0&navpanes=0`}
                     style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                     title="Aperçu CV"
                   />
@@ -1200,7 +1216,7 @@ function CandidatsPageInner() {
       <Dialog open={showUpload} onOpenChange={setShowUpload}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer un CV</DialogTitle>
+            <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer CV</DialogTitle>
           </DialogHeader>
           <UploadCV onSuccess={() => {
             setShowUpload(false)
