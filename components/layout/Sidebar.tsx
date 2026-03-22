@@ -71,17 +71,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href
     if (pathname === href) return true
-    if (!pathname.startsWith(href + '/')) return false
-    // Fiche candidat (/candidats/UUID) → vérifier d'où on vient
-    if (href === '/candidats' && pathname.match(/^\/candidats\/[a-f0-9-]{36}$/)) {
-      // Si on venait de "À traiter", garder "À traiter" actif
-      const lastList = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('candidats_last_list') : null
-      return lastList !== 'a_traiter'
-    }
-    const allHrefs = [...NAV_ITEMS, ...FOOTER_ITEMS].map(i => i.href)
-    const subRoutes = ['/candidats/a-traiter']
-    const moreSpecific = [...allHrefs, ...subRoutes].some(h => h !== href && h.startsWith(href + '/') && pathname.startsWith(h))
-    return !moreSpecific
+    if (pathname.startsWith(href + '/')) return true
+    return false
   }
 
   // Show import progress only when NOT on the import page
