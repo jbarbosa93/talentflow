@@ -650,13 +650,11 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
             )}
           </p>
         </div>
-        {mode === 'all' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => setShowUpload(true)} className="neo-btn">
-              <Upload size={15} /> Importer CV
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setShowUpload(true)} className="neo-btn">
+            <Upload size={15} /> Importer Candidat/s
+          </button>
+        </div>
       </div>
 
       {/* Selection action bar */}
@@ -891,12 +889,10 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
         <div className="neo-empty">
           <div className="neo-empty-icon">{'\uD83D\uDD0D'}</div>
           <div className="neo-empty-title">{mode === 'all' ? 'Aucun candidat trouvé' : 'Aucun candidat à traiter'}</div>
-          <div className="neo-empty-sub">{mode === 'all' ? 'Modifiez vos filtres ou importez un nouveau CV' : 'Tous les candidats importés ont été traités'}</div>
-          {mode === 'all' && (
-            <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
-              <Upload size={15} /> Importer CV
-            </button>
-          )}
+          <div className="neo-empty-sub">{mode === 'all' ? 'Validez des candidats depuis "À traiter" ou importez-en' : 'Tous les candidats importés ont été traités'}</div>
+          <button onClick={() => setShowUpload(true)} className="neo-btn" style={{ marginTop: 20 }}>
+            <Upload size={15} /> Importer Candidat/s
+          </button>
         </div>
       ) : grouped ? (
         /* Grouped */
@@ -1328,12 +1324,12 @@ export default function CandidatsList({ mode }: { mode: 'all' | 'a_traiter' }) {
         )
       })()}
 
-      {/* Upload dialog (all mode only) */}
-      {mode === 'all' && (
+      {/* Upload dialog */}
+      {(
         <Dialog open={showUpload} onOpenChange={setShowUpload}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer CV</DialogTitle>
+              <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Importer Candidat/s</DialogTitle>
             </DialogHeader>
             <UploadCV onSuccess={() => {
               setShowUpload(false)

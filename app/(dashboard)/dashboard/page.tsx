@@ -116,10 +116,8 @@ export default function DashboardPage() {
           <h2 className="neo-section-title">Actions rapides</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              { href: '/candidats', label: 'Importer des CVs',          icon: Upload },
+              { href: '/candidats/a-traiter', label: 'Importer Candidat/s', icon: Upload },
               { href: '/offres',     label: 'Nouvelle commande',        icon: Plus },
-              { href: '/entretiens', label: 'Planifier un entretien',    icon: Calendar },
-              { href: '/pipeline',   label: 'Voir le pipeline',          icon: ArrowRight },
               { href: '/matching',   label: 'Matching IA',               icon: Sparkles },
             ].map(a => {
               const Icon = a.icon
