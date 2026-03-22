@@ -227,9 +227,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 6b. Extraction photo candidat (PDFs uniquement)
+  // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
   let photoUrl: string | null = null
-  if (isPDF && analyse) {
+  const docType = analyse?.document_type || 'cv'
+  if (isPDF && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
       const photoBuffer = await extractPhotoFromPDF(buffer)
