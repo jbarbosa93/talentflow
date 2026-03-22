@@ -69,6 +69,7 @@ export interface CVAnalyse {
   date_naissance: string  // format "DD/MM/YYYY" ou "" si absent
   experiences: CVExperience[]
   formations_details: CVFormationDetail[]
+  document_type: 'cv' | 'certificat' | 'diplome' | 'lettre_motivation' | 'formation' | 'permis' | 'attestation' | 'autre'
 }
 
 export interface MatchingResult {
@@ -115,7 +116,8 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
       "etablissement": "Nom de l'école / université",
       "annee": "2019"
     }
-  ]
+  ],
+  "document_type": "cv"
 }
 
 Règles :
@@ -127,6 +129,7 @@ Règles :
 - experiences : toutes les expériences professionnelles dans l'ordre chronologique inverse (plus récente en premier)
 - formations_details : toutes les formations/diplômes dans l'ordre chronologique inverse
 - Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens, [] pour les tableaux)
+- document_type : Identifier le type de document. "cv" si c'est un curriculum vitae ou un résumé professionnel. "certificat" pour certificats de travail. "diplome" pour diplômes. "lettre_motivation" pour lettres de motivation. "formation" pour attestations de formation. "permis" pour permis de travail/séjour. "attestation" pour attestations diverses. "autre" si le type ne correspond à aucune catégorie. Un CV contient typiquement : données personnelles, expériences professionnelles, formations, compétences. Si le document est clairement PAS un CV (ex: attestation, certificat), le classifier correctement.
 - Ne rien inventer, extraire uniquement ce qui est dans le CV`
 
 // ─── Parser JSON robuste ─────────────────────────────────────────────────────
@@ -180,6 +183,7 @@ function parseCV(text: string): CVAnalyse {
   if (!result.date_naissance) result.date_naissance = ''
   if (!Array.isArray(result.experiences)) result.experiences = []
   if (!Array.isArray(result.formations_details)) result.formations_details = []
+  result.document_type = result.document_type || 'cv'
   return result as CVAnalyse
 }
 

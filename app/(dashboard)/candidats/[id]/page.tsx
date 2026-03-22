@@ -1389,9 +1389,9 @@ export default function CandidatDetailPage() {
             {!candidat.cv_url ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
                 <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
-                  <FileText size={40} style={{ opacity: 0.25, margin: '0 auto 12px' }} />
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>Aucun CV disponible</p>
-                  <p style={{ fontSize: 12 }}>Le fichier CV n&apos;a pas été importé</p>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>📄❌</div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Pas de CV dans les documents</p>
+                  <p style={{ fontSize: 12, color: 'var(--muted)' }}>Ajoutez un CV depuis l&apos;onglet Documents</p>
                 </div>
               </div>
             ) : cvIsImage ? (

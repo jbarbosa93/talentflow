@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractTextFromCV, validateCVFile } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
-import type { CandidatInsert } from '@/types/database'
+import type { CandidatInsert, DocumentType } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
@@ -23,6 +23,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
       setTimeout(() => reject(new Error(`Timeout ${label} (${ms / 1000}s)`)), ms)
     ),
   ])
+}
+
+function mapDocumentType(type: string): DocumentType {
+  const mapping: Record<string, DocumentType> = {
+    'certificat': 'certificat',
+    'diplome': 'diplome',
+    'lettre_motivation': 'lettre_motivation',
+    'formation': 'formation',
+    'permis': 'permis',
+    'attestation': 'certificat', // attestation → certificat category
+  }
+  return mapping[type] || 'autre'
 }
 
 export async function POST(request: NextRequest) {
@@ -322,6 +334,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (analyse.resume) updateData.resume_ia = analyse.resume
     if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
     // Ne PAS mettre à jour photo, nom, prénom, cv_url lors d'un re-parsing
+
+    // Document classification: if not a CV, add to documents array instead of updating cv_url
+    if (analyse.document_type && analyse.document_type !== 'cv') {
+      console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
+      const mappedType = mapDocumentType(analyse.document_type)
+      const { data: existingCandidat } = await adminClient.from('candidats').select('documents').eq('id', updateId).single()
+      const existingDocs = (existingCandidat?.documents as any[]) || []
+      existingDocs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
+      updateData.documents = existingDocs
+    }
+
     updateData.updated_at = new Date().toISOString()
 
     const { data: updated, error: updateError } = await adminClient
@@ -383,6 +406,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 9. Créer le candidat en base
   console.log('[CV Parse] Insertion en base...')
+
+  // Document classification for new candidates
+  const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
+  if (isNotCV) {
+    console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
+  }
+  const mappedTypeForInsert = isNotCV ? mapDocumentType(analyse.document_type) : null
+
   const nouveauCandidat: CandidatInsert = {
     nom: analyse.nom || 'Candidat',
     prenom: analyse.prenom || null,
@@ -393,8 +424,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     annees_exp: analyse.annees_exp || 0,
     competences: analyse.competences || [],
     formation: analyse.formation || null,
-    cv_url: cvUrl,
-    cv_nom_fichier: file.name,
+    cv_url: isNotCV ? null : cvUrl,
+    cv_nom_fichier: isNotCV ? null : file.name,
     photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: texteCV.slice(0, 10000),
@@ -409,6 +440,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter',
+    ...(isNotCV && cvUrl ? { documents: [{ name: file.name, url: cvUrl, type: mappedTypeForInsert || 'autre' as DocumentType, uploaded_at: new Date().toISOString() }] } : {}),
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient
