@@ -283,10 +283,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .single()
 
     const updateData: Record<string, any> = {}
-    // Champs simples : ne mettre à jour que si vide actuellement
-    if (analyse.email && !existing?.email) updateData.email = analyse.email
-    if (analyse.telephone && !existing?.telephone) updateData.telephone = analyse.telephone
-    if (analyse.localisation && !existing?.localisation) updateData.localisation = analyse.localisation
+    // Email, téléphone, lieu : toujours remplacer
+    if (analyse.email) updateData.email = analyse.email
+    if (analyse.telephone) updateData.telephone = analyse.telephone
+    if (analyse.localisation) updateData.localisation = analyse.localisation
     // Titre poste : toujours mettre à jour (peut évoluer)
     if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
     // Compétences : fusionner (ajouter les nouvelles)
