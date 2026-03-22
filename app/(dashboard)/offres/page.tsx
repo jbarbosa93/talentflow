@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
@@ -51,9 +52,9 @@ export default function OffresPage() {
   const tabStyle = (active: boolean) => ({
     padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
     border: 'none', borderRadius: 8, fontFamily: 'inherit',
-    color: active ? 'var(--ink)' : 'var(--ink2)',
-    background: active ? 'white' : 'transparent',
-    boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+    color: active ? 'var(--foreground)' : 'var(--muted)',
+    background: active ? 'var(--surface)' : 'transparent',
+    boxShadow: active ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
     display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
   } as React.CSSProperties)
 
@@ -65,16 +66,29 @@ export default function OffresPage() {
     } catch { return d }
   }
 
+  const cardVariants = {
+    hidden: { opacity: 0, y: 16, scale: 0.98 },
+    show: (i: number) => ({
+      opacity: 1, y: 0, scale: 1,
+      transition: { delay: i * 0.06, type: 'spring' as const, stiffness: 300, damping: 26 },
+    }),
+  }
+
   return (
     <div className="d-page">
-      <div className="d-page-header">
+      <motion.div
+        className="d-page-header"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+      >
         <div>
           <h1 className="d-page-title">Commandes</h1>
           <p className="d-page-sub">{offres?.length || 0} commande{(offres?.length || 0) > 1 ? 's' : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Tabs */}
-          <div style={{ display: 'flex', background: '#F0EAD8', borderRadius: 10, padding: 4, gap: 2 }}>
+          <div style={{ display: 'flex', background: 'var(--secondary)', borderRadius: 10, padding: 4, gap: 2 }}>
             <button style={tabStyle(activeTab === 'offres')} onClick={() => setActiveTab('offres')}>
               Commandes
             </button>
@@ -84,13 +98,13 @@ export default function OffresPage() {
             </button>
           </div>
           {activeTab === 'offres' && (
-            <button onClick={() => setShowCreate(true)} className="neo-btn">
+            <button onClick={() => setShowCreate(true)} className="neo-btn-yellow">
               <Plus style={{ width: 15, height: 15 }} />
               Nouvelle commande
             </button>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {activeTab === 'facebook' && <JobRoomComposer offres={offres || []} />}
       {activeTab === 'offres' && (<>
@@ -98,22 +112,35 @@ export default function OffresPage() {
       {isLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {[...Array(3)].map((_, i) => (
-            <div key={i} style={{ height: 240, background: 'white', border: '2px solid #E8E0C8', borderRadius: 16, opacity: 0.5 }} />
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 0.5, y: 0 }}
+              transition={{ delay: i * 0.07, duration: 0.3 }}
+              style={{ height: 240, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}
+            />
           ))}
         </div>
       ) : offres?.length === 0 ? (
         <div className="neo-empty">
           <div className="neo-empty-icon">📋</div>
           <div className="neo-empty-title">Aucune commande</div>
-          <div className="neo-empty-sub">Créez votre première commande client</div>
-          <button onClick={() => setShowCreate(true)} className="neo-btn" style={{ marginTop: 20 }}>
-            <Plus style={{ width: 15, height: 15 }} /> Nouvelle commande
-          </button>
+          <div className="neo-empty-sub">Créez votre première commande via le bouton en haut à droite</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
-          {offres?.map(offre => (
-            <div key={offre.id} className="neo-card-soft" style={{ padding: 0, position: 'relative' }}>
+          {offres?.map((offre, i) => (
+            <motion.div
+              key={offre.id}
+              custom={i}
+              variants={cardVariants}
+              initial="hidden"
+              animate="show"
+              whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+              className="neo-card-soft"
+              style={{ padding: 0, position: 'relative' }}
+            >
               {/* Top color bar — borderRadius pour ne pas avoir besoin de overflow:hidden */}
               <div style={{
                 height: 4,
@@ -133,13 +160,8 @@ export default function OffresPage() {
                   <button
                     onClick={() => setEditOffre(offre)}
                     title="Modifier"
-                    style={{
-                      background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
-                      color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
-                      alignItems: 'center', transition: 'all 0.12s',
-                    }}
-                    onMouseOver={e => { e.currentTarget.style.background = '#F5F0E0'; e.currentTarget.style.color = '#1C1A14' }}
-                    onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060' }}
+                    className="d-icon-btn"
+                    style={{ width: 28, height: 28, borderRadius: 7 }}
                   >
                     <Pencil size={12} />
                   </button>
@@ -151,20 +173,17 @@ export default function OffresPage() {
                       >Oui</button>
                       <button
                         onClick={() => setConfirmDelete(null)}
-                        style={{ fontSize: 10, fontWeight: 700, background: 'none', color: '#7A7060', border: '1px solid #E8E0C8', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
+                        style={{ fontSize: 10, fontWeight: 700, background: 'none', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
                       >Non</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmDelete(offre.id)}
                       title="Supprimer"
-                      style={{
-                        background: 'none', border: '1.5px solid #E8E0C8', cursor: 'pointer',
-                        color: '#7A7060', padding: '4px 7px', borderRadius: 7, display: 'flex',
-                        alignItems: 'center', transition: 'all 0.12s',
-                      }}
+                      className="d-icon-btn"
+                      style={{ width: 28, height: 28, borderRadius: 7 }}
                       onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
-                      onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#7A7060'; e.currentTarget.style.borderColor = '#E8E0C8' }}
+                      onMouseOut={e => { (e.currentTarget as HTMLElement).removeAttribute('style') }}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -183,7 +202,7 @@ export default function OffresPage() {
 
                 {/* Title */}
                 <div style={{ marginBottom: 14, paddingRight: 100 }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
+                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
                     {offre.titre}
                   </h3>
                 </div>
@@ -191,34 +210,22 @@ export default function OffresPage() {
                 {/* Key info grid */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
                   {(offre.nb_postes || 0) > 0 && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-                      background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8,
-                      fontSize: 12, fontWeight: 700, color: '#166534',
-                    }}>
+                    <span className="neo-badge neo-badge-green" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
                       <Users size={12} />
                       {offre.nb_postes} poste{(offre.nb_postes || 0) > 1 ? 's' : ''}
-                    </div>
+                    </span>
                   )}
                   {offre.date_debut && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-                      background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8,
-                      fontSize: 12, fontWeight: 600, color: '#1D4ED8',
-                    }}>
+                    <span className="neo-badge neo-badge-blue" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
                       <Calendar size={12} />
                       {formatDate(offre.date_debut)}
-                    </div>
+                    </span>
                   )}
                   {offre.duree_mission && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px',
-                      background: '#FEF9C3', border: '1px solid #FDE68A', borderRadius: 8,
-                      fontSize: 12, fontWeight: 600, color: '#92400E',
-                    }}>
+                    <span className="neo-badge neo-badge-yellow" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
                       <Clock size={12} />
                       {offre.duree_mission}
-                    </div>
+                    </span>
                   )}
                 </div>
 
@@ -229,13 +236,13 @@ export default function OffresPage() {
                       <span key={c} className="neo-tag" style={{ fontSize: 10, padding: '3px 10px' }}>{c}</span>
                     ))}
                     {offre.competences.length > 4 && (
-                      <span style={{ fontSize: 11, color: 'var(--ink2)', padding: '4px 0' }}>+{offre.competences.length - 4}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 0' }}>+{offre.competences.length - 4}</span>
                     )}
                   </div>
                 )}
 
                 {/* Location + Notes */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--ink2)', fontWeight: 600 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
                   {offre.localisation && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <MapPin style={{ width: 11, height: 11 }} />{offre.localisation}
@@ -247,19 +254,19 @@ export default function OffresPage() {
                 {offre.notes && (
                   <div style={{
                     marginTop: 12, padding: '8px 12px',
-                    background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0',
+                    background: 'var(--background)', borderRadius: 8, border: '1px solid var(--border)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                      <FileText size={10} style={{ color: '#64748B' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
+                      <FileText size={10} style={{ color: 'var(--muted)' }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
                     </div>
-                    <p style={{ fontSize: 12, color: '#475569', margin: 0, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                       {offre.notes}
                     </p>
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -311,7 +318,7 @@ function StatusDropdown({ current, onSelect }: { current: OffreStatut; onSelect:
       {open && (
         <div style={{
           position: 'absolute', top: '110%', left: 0, zIndex: 50,
-          background: 'white', border: '1.5px solid #E8E0C8', borderRadius: 8,
+          background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8,
           boxShadow: '0 4px 16px rgba(0,0,0,0.08)', minWidth: 110, overflow: 'hidden',
         }}>
           {STATUTS.map(s => (
@@ -321,10 +328,10 @@ function StatusDropdown({ current, onSelect }: { current: OffreStatut; onSelect:
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 12, fontWeight: 600, color: 'var(--ink)', fontFamily: 'inherit',
-                borderBottom: s !== 'archivee' ? '1px solid #F0EAD8' : 'none',
+                fontSize: 12, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit',
+                borderBottom: s !== 'archivee' ? '1px solid var(--border)' : 'none',
               }}
-              onMouseOver={e => e.currentTarget.style.background = '#F9F5E8'}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--background)'}
               onMouseOut={e => e.currentTarget.style.background = 'none'}
             >
               {STATUT_LABELS[s]}
@@ -382,13 +389,13 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
   }
 
   const inputStyle = {
-    width: '100%', padding: '9px 12px', border: '1.5px solid #E8E0C8',
+    width: '100%', padding: '9px 12px', border: '1.5px solid var(--border)',
     borderRadius: 8, fontSize: 14, fontFamily: 'var(--font-body)',
-    color: 'var(--ink)', background: 'white', outline: 'none',
+    color: 'var(--foreground)', background: 'var(--surface)', outline: 'none',
     boxSizing: 'border-box' as const,
   }
   const labelStyle = {
-    display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--ink2)',
+    display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--muted)',
     marginBottom: 6, textTransform: 'uppercase' as const, letterSpacing: '0.05em',
   }
 
@@ -435,7 +442,7 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
         <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)..." />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
-        <button type="submit" disabled={!titre || isPending} className="neo-btn">
+        <button type="submit" disabled={!titre || isPending} className="neo-btn-yellow">
           {isPending ? 'Sauvegarde...' : isEdit ? 'Enregistrer les modifications' : 'Créer la commande'}
         </button>
       </div>
@@ -515,13 +522,13 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
   }
 
   const iStyle = {
-    width: '100%', padding: '8px 10px', border: '1.5px solid #E8E0C8', borderRadius: 8,
-    fontSize: 13, color: 'var(--ink)', background: 'white', fontFamily: 'inherit',
+    width: '100%', padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: 8,
+    fontSize: 13, color: 'var(--foreground)', background: 'var(--surface)', fontFamily: 'inherit',
     outline: 'none', boxSizing: 'border-box' as const,
   }
-  const lStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--ink2)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }
-  const sStyle: React.CSSProperties = { background: '#F8F5ED', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }
-  const sTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }
+  const lStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }
+  const sStyle: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 20px', marginBottom: 16 }
+  const sTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }
   const grid2: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }
 
   const handleSubmit = async () => {
@@ -567,7 +574,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
               <option value="">Importer depuis une commande TalentFlow...</option>
               {offres.map(o => <option key={o.id} value={o.id}>{o.titre}</option>)}
             </select>
-            <button onClick={fillFromOffre} disabled={!selectedOffre} className="neo-btn" style={{ gap: 6, opacity: selectedOffre ? 1 : 0.5 }}>
+            <button onClick={fillFromOffre} disabled={!selectedOffre} className="neo-btn-yellow" style={{ gap: 6, opacity: selectedOffre ? 1 : 0.5 }}>
               <Sparkles size={13} /> Importer
             </button>
           </div>
@@ -795,7 +802,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: 8 }}>
-          <button onClick={handleSubmit} disabled={publishing} className="neo-btn" style={{ gap: 8, padding: '10px 24px', fontSize: 14 }}>
+          <button onClick={handleSubmit} disabled={publishing} className="neo-btn-yellow" style={{ gap: 8, padding: '10px 24px', fontSize: 14 }}>
             <Send size={14} />
             {publishing ? 'Publication en cours...' : 'Publier sur job-room.ch'}
           </button>
@@ -804,11 +811,11 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
 
       {/* Sidebar info */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 80 }}>
-        <div style={{ background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#166534', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
             <Info size={13} /> job-room.ch
           </p>
-          <p style={{ fontSize: 11, color: '#15803D', margin: '0 0 10px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.6 }}>
             Portail officiel de la Confédération (SECO). Gratuit. Satisfait l&apos;obligation légale de déclaration des postes.
           </p>
           <a href="https://www.job-room.ch" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#16A34A', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
@@ -816,27 +823,27 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
           </a>
         </div>
 
-        <div style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', margin: '0 0 8px' }}>⚙️ Accès API requis</p>
-          <p style={{ fontSize: 11, color: '#78350F', margin: '0 0 8px', lineHeight: 1.6 }}>
+        <div style={{ background: 'var(--surface)', border: '1.5px solid rgba(245,167,35,0.35)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', margin: '0 0 8px' }}>⚙️ Accès API requis</p>
+          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
             Envoyez un email à :<br/>
-            <strong>jobroom-api@seco.admin.ch</strong><br/>
-            Objet : "Job-Room API access"<br/>
+            <strong style={{ color: 'var(--foreground)' }}>jobroom-api@seco.admin.ch</strong><br/>
+            Objet : &quot;Job-Room API access&quot;<br/>
             Contenu : nom entreprise, adresse, contact technique, volume mensuel estimé.
           </p>
-          <p style={{ fontSize: 11, color: '#78350F', margin: 0 }}>
-            Puis ajoutez dans <code>.env.local</code> :<br/>
-            <code style={{ fontSize: 10 }}>JOBROOM_USERNAME=...</code><br/>
-            <code style={{ fontSize: 10 }}>JOBROOM_PASSWORD=...</code>
+          <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>
+            Puis ajoutez dans <code style={{ background: 'var(--background)', padding: '0 4px', borderRadius: 4 }}>.env.local</code> :<br/>
+            <code style={{ fontSize: 10, color: 'var(--primary)' }}>JOBROOM_USERNAME=...</code><br/>
+            <code style={{ fontSize: 10, color: 'var(--primary)' }}>JOBROOM_PASSWORD=...</code>
           </p>
         </div>
 
-        <div style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', margin: '0 0 8px' }}>📌 Statuts de publication</p>
-          <div style={{ fontSize: 11, color: '#1E40AF', lineHeight: 1.9 }}>
-            <div><span style={{ fontWeight: 700 }}>INSPECTING</span> — En validation AVAM</div>
-            <div><span style={{ fontWeight: 700 }}>PUBLISHED_RESTRICTED</span> — 5j réservé aux inscrits</div>
-            <div><span style={{ fontWeight: 700 }}>PUBLISHED_PUBLIC</span> — Visible publiquement</div>
+        <div style={{ background: 'var(--surface)', border: '1.5px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#818CF8', margin: '0 0 8px' }}>📌 Statuts de publication</p>
+          <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.9 }}>
+            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>INSPECTING</span> — En validation AVAM</div>
+            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>PUBLISHED_RESTRICTED</span> — 5j réservé aux inscrits</div>
+            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>PUBLISHED_PUBLIC</span> — Visible publiquement</div>
           </div>
         </div>
       </div>

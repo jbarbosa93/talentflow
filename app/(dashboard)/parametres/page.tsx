@@ -212,7 +212,7 @@ function ApiSection() {
           <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>Utilisée pour l'analyse IA des CVs. Configurée via variable d'environnement.</p>
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="neo-input" type={showKey ? 'text' : 'password'} defaultValue="sk-ant-api03-••••••••••••••••" readOnly style={{ fontFamily: 'monospace', fontSize: 12, opacity: 0.6, cursor: 'not-allowed' }} />
-            <button className="neo-btn" onClick={() => setShowKey(!showKey)} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '0 12px' }}>
+            <button className="neo-btn-yellow" onClick={() => setShowKey(!showKey)} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '0 12px' }}>
               {showKey ? <><EyeOff size={13} />Masquer</> : <><Eye size={13} />Afficher</>}
             </button>
           </div>
@@ -635,7 +635,7 @@ function MetiersSection() {
           onChange={e => setNewMetier(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') add() }}
         />
-        <button onClick={add} disabled={!newMetier.trim()} className="neo-btn" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+        <button onClick={add} disabled={!newMetier.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
           Ajouter
         </button>
       </div>

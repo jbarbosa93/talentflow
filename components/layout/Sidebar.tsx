@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2, X,
+  Upload, Loader2, X, Wrench,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -27,6 +27,7 @@ const NAV_ITEMS = [
 
 const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug },
+  { href: '/outils',                     label: 'Outils',            icon: Wrench },
   { href: '/parametres/demandes-acces',  label: 'Demandes d\'accès', icon: UserCheck, adminOnly: true },
   { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
   { href: '/parametres',                 label: 'Paramètres',        icon: Settings },
@@ -83,7 +84,15 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
+  const OUTILS_PATHS = ['/parametres/import-masse', '/parametres/corriger-photos', '/parametres/doublons']
+
   const isActive = (href: string, exact?: boolean) => {
+    // Sur les pages outils, seul /outils est actif — pas /parametres
+    if (OUTILS_PATHS.includes(pathname)) {
+      if (href === '/outils') return true
+      if (href === '/parametres') return false
+      return pathname === href
+    }
     if (exact) return pathname === href
     if (pathname === href) return true
     if (pathname.startsWith(href + '/')) return true

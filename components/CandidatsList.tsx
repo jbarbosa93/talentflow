@@ -515,7 +515,7 @@ export default function CandidatsList() {
         onClick={() => handleCardClick(c.id)}
         style={{
           display: 'flex', alignItems: 'center', gap: 14,
-          background: selected ? 'var(--primary-soft)' : 'white',
+          background: selected ? 'var(--primary-soft)' : 'var(--surface)',
           border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
           borderRadius: 14, padding: '16px 18px',
           cursor: 'pointer', transition: 'all 0.15s ease',
@@ -529,7 +529,7 @@ export default function CandidatsList() {
           style={{
             width: 20, height: 20, borderRadius: 6, flexShrink: 0,
             border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-            background: selected ? 'var(--primary)' : 'white',
+            background: selected ? 'var(--primary)' : 'var(--surface)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', transition: 'all 0.15s',
           }}
@@ -573,7 +573,7 @@ export default function CandidatsList() {
 
         {/* Âge (calculé depuis date_naissance) */}
         {age !== null && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--bg-muted, #F1F5F9)', padding: '4px 10px', borderRadius: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
             {age} ans
           </span>
         )}
@@ -612,10 +612,10 @@ export default function CandidatsList() {
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '4px 9px', borderRadius: 7,
-              border: '1px solid var(--border)',
-              background: 'var(--background)',
-              cursor: 'default', fontSize: 11, fontWeight: 600,
-              color: 'var(--muted)', flexShrink: 0,
+              border: '1px solid rgba(245,167,35,0.35)',
+              background: 'var(--primary-soft)',
+              cursor: 'default', fontSize: 11, fontWeight: 700,
+              color: 'var(--primary)', flexShrink: 0,
               transition: 'all 0.15s',
             }}
             title="Survoler pour prévisualiser le CV"
@@ -631,14 +631,14 @@ export default function CandidatsList() {
             title="Valider ce candidat"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30, borderRadius: 8, border: '1px solid #BBF7D0',
-              background: '#F0FDF4', cursor: 'pointer', flexShrink: 0,
+              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #16A34A',
+              background: '#16A34A', cursor: 'pointer', flexShrink: 0,
               transition: 'all 0.15s',
             }}
-            onMouseOver={e => { e.currentTarget.style.background = '#DCFCE7'; e.currentTarget.style.borderColor = '#86EFAC' }}
-            onMouseOut={e => { e.currentTarget.style.background = '#F0FDF4'; e.currentTarget.style.borderColor = '#BBF7D0' }}
+            onMouseOver={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.borderColor = '#15803D' }}
+            onMouseOut={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.borderColor = '#16A34A' }}
           >
-            <CheckCircle size={15} color="#16A34A" />
+            <CheckCircle size={15} color="white" />
           </button>
         )}
 
@@ -673,7 +673,7 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => openUpload()} className="neo-btn">
+          <button onClick={() => openUpload()} className="neo-btn-yellow">
             <Upload size={15} /> Importer Candidat/s
           </button>
         </div>
@@ -918,7 +918,7 @@ export default function CandidatsList() {
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[...Array(5)].map((_, i) => (
-            <div key={i} style={{ height: 68, background: 'white', border: '1px solid var(--border)', borderRadius: 12, opacity: 0.6 }} />
+            <div key={i} style={{ height: 68, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, opacity: 0.6 }} />
           ))}
         </div>
       ) : sorted.length === 0 ? (
@@ -926,7 +926,7 @@ export default function CandidatsList() {
           <div className="neo-empty-icon">{'\uD83D\uDD0D'}</div>
           <div className="neo-empty-title">Aucun candidat trouvé</div>
           <div className="neo-empty-sub">Modifiez vos filtres ou importez de nouveaux candidats</div>
-          <button onClick={() => openUpload()} className="neo-btn" style={{ marginTop: 20 }}>
+          <button onClick={() => openUpload()} className="neo-btn-yellow" style={{ marginTop: 20 }}>
             <Upload size={15} /> Importer Candidat/s
           </button>
         </div>
@@ -948,7 +948,7 @@ export default function CandidatsList() {
                     style={{
                       width: 18, height: 18, borderRadius: 5, flexShrink: 0,
                       border: `2px solid ${someSel ? 'var(--primary)' : 'var(--border)'}`,
-                      background: allSel ? 'var(--primary)' : someSel ? 'var(--primary-soft)' : 'white',
+                      background: allSel ? 'var(--primary)' : someSel ? 'var(--primary-soft)' : 'var(--surface)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                     }}
                   >
@@ -1029,7 +1029,7 @@ export default function CandidatsList() {
               ? { right: (typeof window !== 'undefined' ? window.innerWidth : 1400) - hoveredCv.x + 12 }
               : { left: hoveredCv.x + 12 }),
             width: 640,
-            background: 'white',
+            background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 14,
             boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
@@ -1213,7 +1213,7 @@ export default function CandidatsList() {
                         padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700,
                         border: '1.5px solid',
                         borderColor: numCopied ? '#16A34A' : 'var(--border)',
-                        background: numCopied ? '#F0FDF4' : 'white',
+                        background: numCopied ? '#F0FDF4' : 'var(--surface)',
                         color: numCopied ? '#16A34A' : 'var(--foreground)',
                         cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
                       }}
@@ -1326,7 +1326,7 @@ export default function CandidatsList() {
               onClick={e => e.stopPropagation()}
               style={{
                 position: 'fixed', top: pipelinePos.top, left: pipelinePos.left, zIndex: 999,
-                background: 'white', border: '1px solid var(--border)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
                 borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
                 padding: 4, minWidth: 145,
               }}

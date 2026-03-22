@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { Clock } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import NumberTicker from '@/components/magicui/number-ticker'
 
@@ -80,10 +81,9 @@ export default function DashboardPage() {
   })
 
   const kpis = [
-    { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', active: true, href: '/candidats' },
-    { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', href: '/offres' },
-    { label: 'En entretien',      value: stats?.enEntretien    ?? '—', emoji: '🗣️', href: '/candidats?statut=entretien' },
-    { label: 'Placés',            value: stats?.places         ?? '—', emoji: '✅', href: '/candidats?statut=place' },
+    { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', kpiClass: 'kpi-yellow',  href: '/candidats' },
+    { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', kpiClass: 'kpi-blue',   href: '/offres' },
+    { label: 'En entretien',      value: stats?.enEntretien    ?? '—', emoji: '🗣️', kpiClass: 'kpi-violet', href: '/candidats?statut=entretien' },
   ]
 
   const initiales = (c: any) => {
@@ -109,23 +109,23 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* ── KPI row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
         {kpis.map((kpi, i) => (
           <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
             <Link href={kpi.href} style={{ textDecoration: 'none', display: 'block' }}>
               <motion.div
-                className={`neo-kpi${kpi.active ? ' active' : ''}`}
+                className={`neo-kpi ${kpi.kpiClass || ''}`}
                 style={{ cursor: 'pointer' }}
-                whileHover={{ y: -3, boxShadow: kpi.active ? '0 8px 24px rgba(245,167,35,0.4)' : '0 8px 24px rgba(0,0,0,0.10)' }}
+                whileHover={{ y: -4, boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}
                 transition={{ type: 'spring', stiffness: 300, damping: 22 }}
               >
-                <motion.span
-                  style={{ fontSize: 28, display: 'inline-block' }}
-                  animate={{ rotate: [0, -8, 8, 0] }}
-                  transition={{ delay: 0.5 + i * 0.1, duration: 0.5, ease: 'easeInOut' }}
+                <motion.div
+                  className="neo-kpi-icon"
+                  whileHover={{ scale: 1.12, rotate: 8 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                 >
-                  {kpi.emoji}
-                </motion.span>
+                  <span style={{ fontSize: 17 }}>{kpi.emoji}</span>
+                </motion.div>
                 <div className="neo-kpi-value">
                   {typeof kpi.value === 'number'
                     ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
@@ -200,8 +200,16 @@ export default function DashboardPage() {
                         {c.prenom} {c.nom}
                       </div>
                       {c.titre_poste && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.titre_poste}
+                        </div>
+                      )}
+                      {c.created_at && (
+                        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, opacity: 0.7 }}>
+                          <Clock size={9} />
+                          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          {' '}
+                          {new Date(c.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       )}
                     </div>
