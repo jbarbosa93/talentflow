@@ -307,7 +307,11 @@ export default function CandidatsList() {
       case 'date_asc':
         return arr.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       case 'nom_az':
-        return arr.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'))
+        return arr.sort((a, b) => {
+          const nameA = `${a.prenom || ''} ${a.nom || ''}`.trim()
+          const nameB = `${b.prenom || ''} ${b.nom || ''}`.trim()
+          return nameA.localeCompare(nameB, 'fr')
+        })
       case 'titre_az':
         return arr.sort((a, b) => (a.titre_poste || 'ZZZZ').localeCompare(b.titre_poste || 'ZZZZ', 'fr'))
       case 'distance':
