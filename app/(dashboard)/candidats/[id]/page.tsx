@@ -727,20 +727,10 @@ export default function CandidatDetailPage() {
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Merge size={14} color="var(--muted)" /> Fusionner avec...
                 </button>
-                {!showDeleteConfirm ? (
-                  <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
-                    <Trash2 size={14} /> Supprimer
-                  </button>
-                ) : (
-                  <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#DC2626' }}>Confirmer ?</span>
-                    <button onClick={handleDelete} disabled={deleteCandidat.isPending}
-                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}>Oui</button>
-                    <button onClick={() => setShowDeleteConfirm(false)}
-                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>Non</button>
-                  </div>
-                )}
+                <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
+                  <Trash2 size={14} /> Supprimer
+                </button>
               </div>
             )}
           </div>
@@ -1702,6 +1692,40 @@ export default function CandidatDetailPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Suppression candidat ── */}
+      {showDeleteConfirm && (
+        <div onClick={() => setShowDeleteConfirm(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 9000,
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.15s ease',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'white', borderRadius: 16, padding: '28px 32px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            maxWidth: 400, width: '90%', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#DC2626', marginBottom: 8 }}>
+              Supprimer ce candidat ?
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.5 }}>
+              Cette action est <strong>irréversible</strong>. Le candidat, son CV et tous ses documents seront définitivement supprimés.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setShowDeleteConfirm(false)}
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Annuler
+              </button>
+              <button onClick={handleDelete} disabled={deleteCandidat.isPending}
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: deleteCandidat.isPending ? 0.5 : 1 }}>
+                {deleteCandidat.isPending ? 'Suppression...' : 'Oui, supprimer'}
+              </button>
             </div>
           </div>
         </div>
