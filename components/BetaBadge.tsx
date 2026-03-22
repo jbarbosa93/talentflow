@@ -2,10 +2,39 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { APP_VERSION, APP_ENV, CHANGELOG } from '@/lib/version'
-import { X } from 'lucide-react'
+import { X, Bug } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function BetaBadge({ inline }: { inline?: boolean }) {
   const [showChangelog, setShowChangelog] = useState(false)
+  const [showBugReport, setShowBugReport] = useState(false)
+  const [bugText, setBugText] = useState('')
+  const [bugSending, setBugSending] = useState(false)
+
+  const handleBugSubmit = async () => {
+    if (!bugText.trim()) return
+    setBugSending(true)
+    try {
+      // Sauvegarder le bug dans localStorage pour l'instant
+      const bugs = JSON.parse(localStorage.getItem('talentflow_bugs') || '[]')
+      bugs.push({
+        id: Date.now(),
+        text: bugText.trim(),
+        date: new Date().toISOString(),
+        version: APP_VERSION,
+        page: window.location.pathname,
+        userAgent: navigator.userAgent,
+      })
+      localStorage.setItem('talentflow_bugs', JSON.stringify(bugs))
+      toast.success('Bug signalé — merci !')
+      setBugText('')
+      setShowBugReport(false)
+    } catch {
+      toast.error('Erreur lors de l\'envoi')
+    } finally {
+      setBugSending(false)
+    }
+  }
 
   const envBadge = (
     <span style={{
@@ -25,8 +54,8 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
 
   return (
     <>
-      {inline ? (
-        /* ── Sidebar inline version ── */
+      {inline ? (<>
+        {/* ── Sidebar inline version ── */}
         <button
           onClick={() => setShowChangelog(true)}
           style={{
@@ -59,7 +88,36 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
           {envBadge}
           {APP_VERSION}
         </button>
-      ) : (
+        <button
+          onClick={() => setShowBugReport(true)}
+          style={{
+            margin: '2px 10px 0',
+            padding: '5px 12px',
+            borderRadius: 8,
+            border: 'none',
+            background: 'transparent',
+            color: 'rgba(255,255,255,0.2)',
+            fontSize: 10,
+            fontWeight: 500,
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            width: 'calc(100% - 20px)',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = 'rgba(255,255,255,0.5)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = 'rgba(255,255,255,0.2)'
+          }}
+        >
+          <Bug size={10} />
+          Signaler un bug
+        </button>
+      </>) : (
         /* ── Floating fixed version (legacy, not used) ── */
         <button
           onClick={() => setShowChangelog(true)}
@@ -232,6 +290,90 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Bug report modal */}
+      {showBugReport && typeof document !== 'undefined' && createPortal(
+        <div
+          onClick={() => setShowBugReport(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 99999,
+            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 440, background: 'white',
+              borderRadius: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              padding: '18px 22px', borderBottom: '1px solid #E2E8F0',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bug size={16} color="#DC2626" />
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>Signaler un bug</h3>
+              </div>
+              <button onClick={() => setShowBugReport(false)} style={{
+                width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
+                background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <X size={14} color="#64748B" />
+              </button>
+            </div>
+            <div style={{ padding: '18px 22px' }}>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B' }}>
+                Décrivez le problème rencontré. La page et la version sont enregistrées automatiquement.
+              </p>
+              <textarea
+                value={bugText}
+                onChange={e => setBugText(e.target.value)}
+                placeholder="Exemple : Quand je clique sur zoom +, le CV se décale à droite..."
+                autoFocus
+                style={{
+                  width: '100%', minHeight: 120, padding: 12, borderRadius: 10,
+                  border: '1.5px solid #E2E8F0', fontSize: 13, fontFamily: 'inherit',
+                  resize: 'vertical', outline: 'none', lineHeight: 1.5,
+                }}
+                onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#3B82F6' }}
+                onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = '#E2E8F0' }}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <span style={{ fontSize: 10, color: '#94A3B8', flex: 1 }}>
+                  📍 {typeof window !== 'undefined' ? window.location.pathname : ''} · {APP_VERSION}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                <button
+                  onClick={() => setShowBugReport(false)}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    border: '1px solid #E2E8F0', background: 'white', color: '#374151',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleBugSubmit}
+                  disabled={bugSending || !bugText.trim()}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                    border: 'none', background: bugText.trim() ? '#DC2626' : '#E5E7EB',
+                    color: 'white', cursor: bugText.trim() ? 'pointer' : 'default',
+                    fontFamily: 'inherit', opacity: bugSending ? 0.5 : 1,
+                  }}
+                >
+                  {bugSending ? 'Envoi...' : '🐛 Envoyer'}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

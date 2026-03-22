@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.10.0'
+export const APP_VERSION = 'v0.12.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,46 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.12.0',
+    date: '2026-03-22',
+    label: 'Import intelligent & Documents',
+    features: [
+      'Classification IA des documents (CV, certificat, diplome, formation, attestation, permis)',
+      'Import 2 passes : CVs traites en premier, documents rattaches ensuite automatiquement',
+      'Auto-actualisation des doublons (plus de confirmation manuelle)',
+      'Import en arriere-plan avec barre minimisee visible sur toutes les pages',
+      'Bouton Arreter pour annuler un import en cours',
+      'Panel Documents complet avec categories depliables et drag & drop',
+      'Upload de nouveau CV depuis Documents (ancien sauvegarde automatiquement)',
+      'Choix du CV principal a afficher dans le preview',
+      'Re-parsing CV additif : fusionne experiences/competences au lieu de remplacer',
+      'Photo extraite uniquement des CVs (pas des certificats/logos)',
+      'Photo jamais remplacee si deja presente',
+      'Affichage "Pas de CV" avec emoji quand pas de CV disponible',
+    ],
+  },
+  {
+    version: 'v0.11.0',
+    date: '2026-03-22',
+    label: 'Zoom HD & Etoiles',
+    features: [
+      'Zoom CV qualite HD (iframe agrandie, pas transform:scale)',
+      'Scroll molette + drag main sur CV zoome et preview',
+      'Preview CV multi-pages scrollable dans la liste candidats',
+      'Score etoiles 0-5 sur les candidats (liste + fiche)',
+      'Bouton Re-analyser IA pour relancer le parsing CV',
+      'Section Documents dans la fiche candidat',
+      'Dropdown statut (A traiter / Actif / Archive) remplace sous-menu sidebar',
+      'Recherche multi-mots flexible (accents ignores, ordre libre)',
+      'Recherche persistante via sessionStorage',
+      'Rotation CV dans le preview liste candidats',
+      'Sidebar reste orange sur toutes les sous-pages',
+      'Modal suppression candidat centre (au lieu du menu 3 points)',
+      'Bouton "Importer Candidat/s" au lieu de "Importer CV"',
+      'Pipeline supprime de l\'import',
+    ],
+  },
   {
     version: 'v0.10.0',
     date: '2026-03-21',
