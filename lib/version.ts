@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.12.0'
+export const APP_VERSION = 'v0.13.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.13.0',
+    date: '2026-03-22',
+    label: 'UI Polish & Outils',
+    features: [
+      'Nouveau hub Outils dans la sidebar (Import en masse, Corriger photos, Analyser doublons)',
+      'Mode sombre : tous les fonds blancs corriges (candidats, dialogs, CV, tags)',
+      'Dashboard : carte Candidats sans surbrillance, animation NumberTicker toujours visible',
+      'TopBar visible sur la liste candidats (toggle theme + profil)',
+      'Boutons uniformises en jaune sur toute l\'application',
+      'Fiche candidat : icones toolbar CV avec bouton Imprimer, tags competences et langues colores',
+      'Resume IA : fond adaptatif clair/sombre',
+      'Navigation retour vers Outils sur les 3 pages outils',
+      'Import en masse : boutons jaunes, texte mis a jour',
+      'Doublons : suppression du rectangle vide en etat initial',
+      'Corriger photos : cartes statistiques style KPI dashboard',
+    ],
+  },
   {
     version: 'v0.12.0',
     date: '2026-03-22',
