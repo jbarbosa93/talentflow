@@ -23,6 +23,10 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "TalentFlow ATS",
   description: "Système de gestion du recrutement",
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function DashboardRootLayout({

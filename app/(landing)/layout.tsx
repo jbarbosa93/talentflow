@@ -13,6 +13,10 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: 'TalentFlow — ATS pour les agences de recrutement',
   description: 'Gérez vos candidats, offres et entretiens. Analyse IA des CVs et matching automatique.',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {

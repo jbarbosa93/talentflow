@@ -4,7 +4,16 @@ export default function Navbar() {
   return (
     <nav className="l-nav">
       <div className="l-logo">
-        <span className="l-logo-dot" />
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: 8,
+          background: '#F7C948', border: '2px solid #1C1A14',
+          boxShadow: '2px 2px 0 #1C1A14', flexShrink: 0,
+        }}>
+          <svg width="17" height="17" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M295 60L140 295h135l-58 157L452 220H305z" fill="#1C1A14"/>
+          </svg>
+        </span>
         TalentFlow
       </div>
 

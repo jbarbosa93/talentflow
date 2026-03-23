@@ -148,11 +148,15 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       >
         <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <motion.span
-              className="d-sidebar-dot"
-              animate={{ boxShadow: ['0 0 0 3px rgba(245,167,35,0.2)', '0 0 0 6px rgba(245,167,35,0.08)', '0 0 0 3px rgba(245,167,35,0.2)'] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
-            />
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 8,
+              background: '#F7C948', flexShrink: 0,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M295 60L140 295h135l-58 157L452 220H305z" fill="#1C1A14"/>
+              </svg>
+            </span>
             TalentFlow
           </div>
           {entreprise && (
