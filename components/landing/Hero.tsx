@@ -1,7 +1,49 @@
 "use client";
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import BlurFade from "@/components/magicui/blur-fade"
 import NumberTicker from "@/components/magicui/number-ticker"
+
+function InstallButton() {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [installed, setInstalled] = useState(false)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', () => setInstalled(true))
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) setInstalled(true)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  if (installed) return null
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') setInstalled(true)
+      setDeferredPrompt(null)
+    }
+  }
+
+  // Si le prompt est dispo → bouton natif, sinon on masque
+  if (!deferredPrompt) return null
+
+  return (
+    <button onClick={handleInstall} className="l-btn-ghost" style={{ cursor: 'pointer', background: 'none', border: 'none' }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
+        <path d="M12 16l-5-5h3V4h4v7h3l-5 5z" fill="#5C5640"/>
+        <path d="M5 18h14v2H5z" fill="#5C5640"/>
+      </svg>
+      Installer l&apos;application
+    </button>
+  )
+}
 
 const candidates = [
   { letter: "M", name: "Marc Dupont",    tag: "En cours",  tagStyle: { background: "#FFF3C4", color: "#7A5F00" }, bg: "#F7C948" },
@@ -34,6 +76,14 @@ export default function Hero() {
           </p>
         </BlurFade>
 
+        <BlurFade delay={0.3} inView>
+          <div className="l-actions">
+            <Link href="/login" className="l-btn-main">
+              Commencer gratuitement →
+            </Link>
+            <InstallButton />
+          </div>
+        </BlurFade>
 
       </div>
 
