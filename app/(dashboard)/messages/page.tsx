@@ -293,13 +293,6 @@ function EmailTab() {
     setCandidatIds(ids)
   }
 
-  // Ajouter manuellement les emails des candidats sélectionnés
-  const addCandidatEmails = () => {
-    const emails = candidatIds
-      .map(id => candidats?.find(c => c.id === id)?.email)
-      .filter((e): e is string => !!e)
-    setDestinataires(prev => [...new Set([...prev, ...emails])])
-  }
 
   const handleTemplateChange = (id: string) => {
     setTemplateId(id)
@@ -413,7 +406,7 @@ function EmailTab() {
         <div>
           <label style={labelStyle}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Users size={11} /> Candidats
+              <Users size={11} /> Candidats (dossiers à joindre)
             </span>
           </label>
           <MultiCandidatSearch
@@ -422,18 +415,9 @@ function EmailTab() {
             onChange={handleCandidatChange}
             placeholder="Rechercher des candidats à joindre..."
           />
-          {/* Boutons actions quand candidat sélectionné */}
+          {/* Boutons Personnaliser CV par candidat */}
           {candidatIds.length > 0 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button onClick={addCandidatEmails} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 8,
-                background: 'var(--primary-soft)', border: '1.5px solid var(--primary)',
-                fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
-                cursor: 'pointer',
-              }}>
-                <Mail size={12} /> Ajouter leurs emails en CCI
-              </button>
               {candidatIds.map(id => {
                 const c = (candidats as any)?.find((cc: any) => cc.id === id)
                 if (!c) return null
@@ -471,7 +455,7 @@ function EmailTab() {
         {/* Destinataires multi-email */}
         <div>
           <label style={labelStyle}>
-            Destinataires (CCI) *
+            Destinataires clients (CCI) *
             {destinataires.length > 1 && (
               <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
                 {destinataires.length} destinataires — envoi en copie cachée
