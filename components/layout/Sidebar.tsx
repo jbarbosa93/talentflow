@@ -21,7 +21,7 @@ const NAV_ITEMS = [
   { href: '/offres',     label: 'Commandes',         icon: Briefcase },
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
   { href: '/entretiens', label: 'Entretiens',        icon: Calendar },
-  { href: '/messages',   label: 'Mailing',            icon: Mail },
+  { href: '/messages',   label: 'Envois',              icon: Mail },
   { href: '/matching',   label: 'Matching IA',       icon: Sparkles },
 ]
 
