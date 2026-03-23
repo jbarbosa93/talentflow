@@ -634,23 +634,15 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                 </p>
                 {(item.status === 'multiple_matches' || (item.status === 'error' && item.storagePath)) && (
                   <div style={{ marginTop: 4 }}>
-                    {/* Aperçu document */}
+                    {/* Bouton œil → lightbox plein écran */}
                     {item.cvUrl && (
                       <button
-                        onClick={() => setPreviewUrl(previewUrl === item.cvUrl ? null : (item.cvUrl || null))}
+                        onClick={() => setPreviewUrl(item.cvUrl || null)}
                         style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#6B7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
+                        title="Voir le document"
                       >
-                        <Eye size={10} /> Aperçu
+                        <Eye size={10} /> Voir
                       </button>
-                    )}
-                    {previewUrl === item.cvUrl && item.cvUrl && (
-                      <div style={{ marginBottom: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid #E5E7EB', height: 150 }}>
-                        {item.file.type.startsWith('image/') ? (
-                          <img src={item.cvUrl} alt="Aperçu" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#F9FAFB' }} />
-                        ) : (
-                          <iframe src={`${item.cvUrl}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none' }} title="Aperçu" />
-                        )}
-                      </div>
                     )}
                     {/* Candidats matchés automatiquement */}
                     {item.multipleMatches && item.multipleMatches.length > 0 && (
@@ -811,6 +803,44 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }`}</style>
     </div>
     </div>
+
+    {/* Lightbox aperçu document */}
+    {previewUrl && (
+      <div
+        onClick={() => setPreviewUrl(null)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)',
+          display: 'flex', flexDirection: 'column',
+          animation: 'fadeIn 0.2s ease',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 16px', flexShrink: 0 }}>
+          <button
+            onClick={() => setPreviewUrl(null)}
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        <div onClick={e => e.stopPropagation()} style={{ flex: 1, padding: '0 24px 24px', minHeight: 0 }}>
+          {/\.(jpg|jpeg|png|gif|webp)/i.test(previewUrl) ? (
+            <img src={previewUrl} alt="Document" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: '0 auto', display: 'block', borderRadius: 8 }} />
+          ) : (
+            <iframe
+              src={`${previewUrl}#toolbar=1&view=FitH`}
+              style={{ width: '100%', height: '100%', border: 'none', borderRadius: 8 }}
+              title="Aperçu document"
+            />
+          )}
+        </div>
+      </div>
+    )}
+
     </>
   )
 }
