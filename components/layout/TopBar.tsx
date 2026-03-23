@@ -164,6 +164,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   }, [query, aiResults])
 
   async function handleLogout() {
+    sessionStorage.clear()
     await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
   }
