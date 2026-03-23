@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { X, Download, Eye, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages } from 'lucide-react'
 import { toast } from 'sonner'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 
 interface Candidat {
   id: string
@@ -70,18 +70,16 @@ export default function CVCustomizerModal({
 
   // Récupérer les infos du recruteur connecté
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        const meta = user.user_metadata || {}
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {}
+        console.log('[CVCustomizer] user_metadata:', meta)
         setRecruiterInfo({
           prenom: meta.prenom || '',
           nom: meta.nom || '',
-          email: user.email || '',
-          telephone: meta.telephone || meta.phone || '',
+          email: session.user.email || '',
+          telephone: meta.telephone || meta.phone || meta.mobile || '',
           entreprise: meta.entreprise || 'L-Agence SA',
         })
       }
