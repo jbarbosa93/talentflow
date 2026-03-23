@@ -1178,11 +1178,10 @@ export default function CandidatDetailPage() {
                     {candidat.experiences.map((exp: any, i: number) => (
                       <div key={i} style={{ position: 'relative' }}>
                         <div style={{ position: 'absolute', left: -16, top: 4, width: 8, height: 8, borderRadius: '50%', background: '#7C3AED', border: '2px solid white', boxShadow: '0 0 0 1px #7C3AED' }} />
+                        {exp.periode && <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, marginBottom: 2 }}>{exp.periode}</p>}
                         <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3 }}>{exp.poste}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, marginBottom: exp.description ? 5 : 0 }}>
                           {exp.entreprise && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{exp.entreprise}</span>}
-                          {exp.entreprise && exp.periode && <span style={{ fontSize: 11, color: 'var(--border)', fontWeight: 700 }}>·</span>}
-                          {exp.periode && <span style={{ fontSize: 11, color: 'var(--muted)' }}>{exp.periode}</span>}
                         </div>
                         {exp.description && <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, fontStyle: 'italic' }}>{exp.description}</p>}
                       </div>
