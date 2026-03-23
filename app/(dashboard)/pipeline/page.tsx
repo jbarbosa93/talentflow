@@ -292,14 +292,27 @@ export default function PipelinePage() {
     queryKey: ['pipeline-candidats', offreFilter],
     queryFn: async () => {
       if (offreFilter === 'tous') {
-        // Ne charge QUE les candidats qui sont dans la pipeline (pas "nouveau")
-        const { data, error } = await supabase
-          .from('candidats')
-          .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
-          .in('statut_pipeline', ['nouveau', 'contacte', 'entretien', 'place', 'refuse'])
-          .neq('import_status', 'a_traiter')
-          .order('updated_at', { ascending: false })
-          .limit(500)
+        // Candidats dans la pipeline :
+        // - "nouveau" : seulement ceux importés APRÈS le 23.03.2026 (pipeline vide avant)
+        // - contacté/entretien/placé/refusé : tous (placés manuellement)
+        const cutoffDate = '2026-03-23T23:59:59'
+        const [nouveaux, autres] = await Promise.all([
+          supabase
+            .from('candidats')
+            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+            .eq('statut_pipeline', 'nouveau')
+            .gt('created_at', cutoffDate)
+            .order('created_at', { ascending: false })
+            .limit(100),
+          supabase
+            .from('candidats')
+            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+            .in('statut_pipeline', ['contacte', 'entretien', 'place', 'refuse'])
+            .order('updated_at', { ascending: false })
+            .limit(500),
+        ])
+        const data = [...(nouveaux.data || []), ...(autres.data || [])]
+        const error = nouveaux.error || autres.error
         if (error) throw error
         return data || []
       } else {
@@ -405,32 +418,7 @@ export default function PipelinePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Search */}
-            <div style={{
-              position: 'relative', width: 240,
-            }}>
-              <Search size={14} style={{
-                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                color: 'var(--muted-foreground)',
-              }} />
-              <input
-                type="text"
-                placeholder="Rechercher un candidat..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%', padding: '9px 12px 9px 34px',
-                  background: 'var(--secondary)', border: '2px solid var(--border)',
-                  borderRadius: 10, color: 'var(--foreground)', fontSize: 13,
-                  outline: 'none', fontFamily: 'inherit',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              />
-            </div>
-
-            {/* Ajouter un candidat */}
+            {/* Ajouter un candidat à la pipeline */}
             <div style={{ position: 'relative', width: 280 }}>
               <UserPlus size={14} style={{
                 position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
