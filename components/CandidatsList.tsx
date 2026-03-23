@@ -749,15 +749,15 @@ export default function CandidatsList() {
             <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
             <input
               className="neo-input-soft"
-              style={{ paddingLeft: 38, paddingRight: aiResults !== null ? 32 : 12, width: '100%' }}
+              style={{ paddingLeft: 38, paddingRight: (search || aiResults !== null) ? 32 : 12, width: '100%' }}
               placeholder="Nom, métier, compétence, contenu du CV..."
               value={search}
               onChange={e => { setSearch(e.target.value); if (aiResults !== null) clearAiSearch() }}
               onKeyDown={e => { if (e.key === 'Enter' && search.trim()) handleAiSearch() }}
             />
-            {aiResults !== null && (
+            {(search || aiResults !== null) && (
               <button
-                onClick={() => { clearAiSearch(); setSearch('') }}
+                onClick={() => { clearAiSearch(); setSearch(''); sessionStorage.removeItem(sessionStorageKey) }}
                 style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
               >
                 <X size={13} />
