@@ -373,9 +373,11 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   className={`d-nav-link${active ? ' active' : ''}`}
                   style={{ position: 'relative', zIndex: 1 }}
                   onClick={() => {
-                    // Mark section as seen
+                    // Badge disparaît après 5s sur la page (pas au clic)
                     const badgeKey = BADGE_SECTION_MAP[item.href]
-                    if (badgeKey) markSeen(badgeKey)
+                    if (badgeKey) {
+                      setTimeout(() => markSeen(badgeKey), 5000)
+                    }
                     if (!item.href.startsWith('/candidats')) {
                       sessionStorage.removeItem('candidats_search')
                       sessionStorage.removeItem('candidats_page')
@@ -389,7 +391,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   {(() => {
                     const badgeKey = BADGE_SECTION_MAP[item.href]
                     const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
-                    if (!count || active) return null
+                    if (!count) return null
                     return (
                       <span style={{
                         marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 100,
@@ -398,6 +400,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         padding: '0 5px', flexShrink: 0,
                         animation: 'pulse 2s infinite',
+                        border: active ? '2px solid var(--foreground)' : 'none',
+                        boxShadow: active ? '0 0 0 1px rgba(0,0,0,0.3)' : 'none',
                       }}>
                         {count > 99 ? '99+' : count}
                       </span>
