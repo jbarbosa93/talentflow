@@ -15,18 +15,25 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
     if (!bugText.trim()) return
     setBugSending(true)
     try {
-      // Sauvegarder le bug dans localStorage pour l'instant
-      const bugs = JSON.parse(localStorage.getItem('talentflow_bugs') || '[]')
-      bugs.push({
-        id: Date.now(),
+      // Envoyer le bug par email
+      const bugData = {
         text: bugText.trim(),
         date: new Date().toISOString(),
         version: APP_VERSION,
         page: window.location.pathname,
         userAgent: navigator.userAgent,
+      }
+      const res = await fetch('/api/bug-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bugData),
       })
+      if (!res.ok) throw new Error('Erreur envoi')
+      // Aussi sauvegarder en local
+      const bugs = JSON.parse(localStorage.getItem('talentflow_bugs') || '[]')
+      bugs.push({ id: Date.now(), ...bugData })
       localStorage.setItem('talentflow_bugs', JSON.stringify(bugs))
-      toast.success('Bug signalé — merci !')
+      toast.success('Bug signalé — email envoyé !')
       setBugText('')
       setShowBugReport(false)
     } catch {
