@@ -28,11 +28,16 @@ function InstallButton() {
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') setInstalled(true)
       setDeferredPrompt(null)
+    } else {
+      // Safari/Firefox : instructions manuelles
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      if (isSafari) {
+        alert('Safari : Fichier → Ajouter au Dock\nou utilisez le menu Partager → Ajouter à l\'écran d\'accueil')
+      } else {
+        alert('Utilisez Chrome ou Edge pour installer l\'application, ou ajoutez ce site en favori.')
+      }
     }
   }
-
-  // Si le prompt est dispo → bouton natif, sinon on masque
-  if (!deferredPrompt) return null
 
   return (
     <button onClick={handleInstall} className="l-btn-main" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
