@@ -6,7 +6,7 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, FileText,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen,
 } from 'lucide-react'
 import CVCustomizerModal from '@/components/CVCustomizer'
 import {
