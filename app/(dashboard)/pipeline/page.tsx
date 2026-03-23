@@ -24,7 +24,6 @@ const ETAPES: {
   borderColor: string
   icon: string
 }[] = [
-  { id: 'nouveau',   label: 'Nouveau',   color: '#3B82F6', bgSoft: 'rgba(59,130,246,0.08)',  borderColor: 'rgba(59,130,246,0.2)',  icon: '+" ' },
   { id: 'contacte',  label: 'Contacté',  color: '#F59E0B', bgSoft: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)', icon: '' },
   { id: 'entretien', label: 'Entretien', color: '#8B5CF6', bgSoft: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.2)', icon: '' },
   { id: 'place',     label: 'Placé',     color: '#10B981', bgSoft: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)', icon: '' },
@@ -253,26 +252,54 @@ export default function PipelinePage() {
     },
   })
 
+  // Barre de recherche pour ajouter un candidat à la pipeline
+  const [addSearch, setAddSearch] = useState('')
+  const [addResults, setAddResults] = useState<any[]>([])
+  const [addLoading, setAddLoading] = useState(false)
+  const [showAddDropdown, setShowAddDropdown] = useState(false)
+
+  const searchCandidatToAdd = useCallback(async (q: string) => {
+    setAddSearch(q)
+    if (q.length < 2) { setAddResults([]); setShowAddDropdown(false); return }
+    setAddLoading(true)
+    const { data } = await supabase
+      .from('candidats')
+      .select('id, nom, prenom, titre_poste, localisation, statut_pipeline')
+      .or(`nom.ilike.%${q}%,prenom.ilike.%${q}%,titre_poste.ilike.%${q}%`)
+      .limit(15)
+    setAddResults(data || [])
+    setShowAddDropdown(true)
+    setAddLoading(false)
+  }, [])
+
+  const addCandidatToPipeline = useCallback(async (candidat: any, etape: PipelineEtape) => {
+    await supabase.from('candidats').update({ statut_pipeline: etape }).eq('id', candidat.id)
+    queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+    toast.success(`${candidat.prenom || ''} ${candidat.nom} ajouté à ${ETAPES.find(e => e.id === etape)?.label}`)
+    setAddSearch('')
+    setAddResults([])
+    setShowAddDropdown(false)
+    logActivity({
+      type: 'statut_change',
+      titre: `${candidat.prenom || ''} ${candidat.nom} ajouté au pipeline — ${ETAPES.find(e => e.id === etape)?.label}`,
+      candidat_id: candidat.id,
+      candidat_nom: `${candidat.prenom || ''} ${candidat.nom}`,
+    })
+  }, [queryClient])
+
   const { data: candidats, isLoading } = useQuery({
     queryKey: ['pipeline-candidats', offreFilter],
     queryFn: async () => {
       if (offreFilter === 'tous') {
-        // Fetch all candidates (Supabase default limit is 1000, so paginate)
-        const allData: any[] = []
-        let from = 0
-        const batchSize = 1000
-        while (true) {
-          const { data, error } = await supabase
-            .from('candidats')
-            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
-            .order('created_at', { ascending: false })
-            .range(from, from + batchSize - 1)
-          if (error) throw error
-          allData.push(...(data || []))
-          if (!data || data.length < batchSize) break
-          from += batchSize
-        }
-        return allData
+        // Ne charge QUE les candidats qui sont dans la pipeline (pas "nouveau")
+        const { data, error } = await supabase
+          .from('candidats')
+          .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+          .in('statut_pipeline', ['contacte', 'entretien', 'place', 'refuse'])
+          .order('updated_at', { ascending: false })
+          .limit(500)
+        if (error) throw error
+        return data || []
       } else {
         const { data: pipelineData, error } = await supabase
           .from('pipeline')
@@ -399,6 +426,70 @@ export default function PipelinePage() {
                 onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
               />
+            </div>
+
+            {/* Ajouter un candidat */}
+            <div style={{ position: 'relative', width: 280 }}>
+              <UserPlus size={14} style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                color: addSearch ? 'var(--primary)' : 'var(--muted-foreground)',
+              }} />
+              <input
+                type="text"
+                placeholder="Ajouter un candidat..."
+                value={addSearch}
+                onChange={e => searchCandidatToAdd(e.target.value)}
+                onFocus={() => { if (addResults.length) setShowAddDropdown(true) }}
+                onBlur={() => setTimeout(() => setShowAddDropdown(false), 200)}
+                style={{
+                  width: '100%', padding: '9px 12px 9px 34px',
+                  background: 'var(--card)', border: '2px solid var(--primary)',
+                  borderRadius: 10, color: 'var(--foreground)', fontSize: 13,
+                  outline: 'none', fontFamily: 'inherit',
+                }}
+              />
+              {showAddDropdown && addResults.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                  background: 'var(--card)', border: '2px solid var(--border)',
+                  borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
+                  maxHeight: 320, overflowY: 'auto', zIndex: 100,
+                }}>
+                  {addResults.map((c: any) => (
+                    <div key={c.id} style={{
+                      padding: '10px 14px', borderBottom: '1px solid var(--border)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                            {c.prenom} {c.nom}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
+                            {c.titre_poste || ''}{c.localisation ? ` · ${c.localisation}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          {ETAPES.map(e => (
+                            <button
+                              key={e.id}
+                              onClick={() => addCandidatToPipeline(c, e.id)}
+                              title={e.label}
+                              style={{
+                                width: 24, height: 24, borderRadius: 6,
+                                background: e.bgSoft, border: `1.5px solid ${e.borderColor}`,
+                                color: e.color, fontSize: 9, fontWeight: 800,
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                            >
+                              {e.label[0]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Offre filter */}
