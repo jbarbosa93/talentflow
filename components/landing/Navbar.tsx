@@ -10,8 +10,8 @@ export default function Navbar() {
           background: '#F7C948', border: '2px solid #1C1A14',
           boxShadow: '2px 2px 0 #1C1A14', flexShrink: 0,
         }}>
-          <svg width="17" height="17" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M295 60L140 295h135l-58 157L452 220H305z" fill="#1C1A14"/>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
           </svg>
         </span>
         TalentFlow
