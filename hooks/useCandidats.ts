@@ -22,7 +22,7 @@ export function useCandidats(filters?: {
       if (filters?.import_status) params.set('import_status', filters.import_status)
       if (filters?.search) params.set('search', filters.search)
       if (filters?.page) params.set('page', String(filters.page))
-      if (filters?.per_page) params.set('per_page', String(filters.per_page))
+      if (filters?.per_page !== undefined) params.set('per_page', String(filters.per_page))
       if (filters?.sort) params.set('sort', filters.sort)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')

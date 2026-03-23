@@ -34,7 +34,7 @@ export function useClients(filters?: {
       if (filters?.statut) params.set('statut', filters.statut)
       if (filters?.canton) params.set('canton', filters.canton)
       if (filters?.page) params.set('page', String(filters.page))
-      if (filters?.per_page) params.set('per_page', String(filters.per_page))
+      if (filters?.per_page !== undefined) params.set('per_page', String(filters.per_page))
       const res = await fetch(`/api/clients?${params}`)
       if (!res.ok) throw new Error('Erreur chargement clients')
       const data = await res.json()
