@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Clock } from 'lucide-react'
@@ -62,8 +62,9 @@ export default function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const [candidats, offres, entretiens, places, recent] = await Promise.all([
+      const [candidats, clients, offres, entretiens, places, recent] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
+        (supabase as any).from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active'),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'entretien' as any),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any),
@@ -71,6 +72,7 @@ export default function DashboardPage() {
       ])
       return {
         totalCandidats: candidats.count ?? 0,
+        totalClients:   clients.count ?? 0,
         offresActives:  offres.count ?? 0,
         enEntretien:    entretiens.count ?? 0,
         places:         places.count ?? 0,
@@ -82,6 +84,7 @@ export default function DashboardPage() {
 
   const kpis = [
     { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', kpiClass: 'kpi-yellow',  href: '/candidats' },
+    { label: 'Clients',           value: stats?.totalClients   ?? '—', emoji: '🏢', kpiClass: 'kpi-green',  href: '/clients' },
     { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', kpiClass: 'kpi-blue',   href: '/offres' },
     { label: 'En entretien',      value: stats?.enEntretien    ?? '—', emoji: '🗣️', kpiClass: 'kpi-violet', href: '/candidats?statut=entretien' },
   ]
@@ -109,7 +112,7 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* ── KPI row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {kpis.map((kpi, i) => (
           <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
             <Link href={kpi.href} style={{ textDecoration: 'none', display: 'block' }}>
@@ -152,6 +155,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { href: '/candidats/a-traiter', label: 'Importer Candidat/s', icon: Upload },
+              { href: '/clients',             label: 'Ajouter un client',   icon: Building2 },
               { href: '/offres',              label: 'Nouvelle commande',   icon: Plus },
               { href: '/matching',            label: 'Matching IA',         icon: Sparkles },
             ].map((a, i) => {
