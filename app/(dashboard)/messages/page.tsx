@@ -244,8 +244,8 @@ function EmailTab() {
   const [smtpSaving, setSmtpSaving] = useState(false)
   const [smtpError, setSmtpError] = useState('')
 
-  const { data: _candidatsData } = useCandidats()
-  const candidats = _candidatsData?.candidats
+  const { data: _candidatsData } = useCandidats({ per_page: 500 })
+  const candidats = (_candidatsData?.candidats || []).filter((c: any) => c.import_status !== 'archive')
   const { data: templates } = useEmailTemplates()
 
   // SMTP send hook (direct, pas Microsoft)

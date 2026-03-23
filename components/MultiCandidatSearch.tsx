@@ -55,7 +55,7 @@ export default function MultiCandidatSearch({
       normalize(c.titre_poste || '').includes(q) ||
       c.telephone?.includes(q)
     )
-  }).slice(0, 50)
+  }).slice(0, query.trim() ? 50 : 20)
 
   function toggle(id: string) {
     onChange(
