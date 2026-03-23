@@ -263,12 +263,21 @@ export default function PipelinePage() {
     setAddSearch(q)
     if (q.length < 2) { setAddResults([]); setShowAddDropdown(false); return }
     setAddLoading(true)
+    // Normaliser accents pour recherche flexible
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const qNorm = normalize(q)
+    // Fetch plus de résultats et filtrer côté client (accent-insensitive)
     const { data } = await supabase
       .from('candidats')
       .select('id, nom, prenom, titre_poste, localisation, statut_pipeline')
-      .or(`nom.ilike.%${q}%,prenom.ilike.%${q}%,titre_poste.ilike.%${q}%`)
-      .limit(15)
-    setAddResults(data || [])
+      .or(`nom.ilike.%${q}%,prenom.ilike.%${q}%,titre_poste.ilike.%${q}%,localisation.ilike.%${q}%`)
+      .limit(50)
+    // Filtre accent-insensitive côté client
+    const filtered = (data || []).filter((c: any) => {
+      const haystack = normalize(`${c.prenom || ''} ${c.nom || ''} ${c.titre_poste || ''} ${c.localisation || ''}`)
+      return haystack.includes(qNorm)
+    }).slice(0, 15)
+    setAddResults(filtered)
     setShowAddDropdown(true)
     setAddLoading(false)
   }, [])

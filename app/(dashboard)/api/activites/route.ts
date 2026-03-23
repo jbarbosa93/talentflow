@@ -95,15 +95,39 @@ export async function GET(request: NextRequest) {
       query = query.lte('created_at', dateTo)
     }
 
-    if (search) {
-      const pattern = `%${search}%`
-      query = query.or(
-        `titre.ilike.${pattern},description.ilike.${pattern},candidat_nom.ilike.${pattern},client_nom.ilike.${pattern},notes.ilike.${pattern}`
-      )
-    }
-
     query = query.order('created_at', { ascending: false })
 
+    // Si recherche, on fetch plus pour filtrer côté serveur (accent-insensitive)
+    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+    if (search) {
+      // Fetch plus de résultats pour filtrer après
+      query = query.range(0, 499)
+      const { data: rawData, error } = await query
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      const q = normalize(search)
+      const filtered = (rawData || []).filter((a: any) => {
+        const haystack = normalize(
+          `${a.titre || ''} ${a.description || ''} ${a.candidat_nom || ''} ${a.client_nom || ''} ${a.user_name || ''} ${a.notes || ''}`
+        )
+        return haystack.includes(q)
+      })
+
+      const total = filtered.length
+      const from = (page - 1) * perPage
+      const paged = filtered.slice(from, from + perPage)
+
+      return NextResponse.json({
+        activites: paged,
+        total,
+        page,
+        per_page: perPage,
+        total_pages: Math.ceil(total / perPage),
+      })
+    }
+
+    // Sans recherche : pagination normale
     const from = (page - 1) * perPage
     const to = from + perPage - 1
     query = query.range(from, to)
