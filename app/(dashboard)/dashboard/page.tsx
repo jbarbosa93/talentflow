@@ -87,9 +87,8 @@ export default function DashboardPage() {
   const { data: chartData } = useQuery({
     queryKey: ['dashboard-chart', chartPeriod],
     queryFn: async () => {
-      // Fetch created_at for all candidats in the last 90 days
-      const since = new Date()
-      since.setDate(since.getDate() - 90)
+      // Candidatures à partir du 24 mars 2026 (reset — prochains imports uniquement)
+      const since = new Date('2026-03-24T00:00:00')
       const { data } = await supabase
         .from('candidats')
         .select('created_at')
