@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateBrandedCV } from '@/lib/cv-generator'
+import type { Candidat } from '@/types/database'
 
 export const runtime = 'nodejs'
 
@@ -19,15 +20,17 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient()
 
     // Fetch candidate with all fields
-    const { data: candidat, error } = await supabase
+    const { data, error } = await supabase
       .from('candidats')
       .select('*')
       .eq('id', candidat_id)
       .single()
 
-    if (error || !candidat) {
+    if (error || !data) {
       return NextResponse.json({ error: 'Candidat introuvable' }, { status: 404 })
     }
+
+    const candidat = data as unknown as Candidat
 
     const pdfBytes = await generateBrandedCV(candidat, {
       recruiterInfo: recruiter_info,
@@ -65,15 +68,17 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient()
-  const { data: candidat, error } = await supabase
+  const { data, error } = await supabase
     .from('candidats')
     .select('*')
     .eq('id', candidat_id)
     .single()
 
-  if (error || !candidat) {
+  if (error || !data) {
     return NextResponse.json({ error: 'Candidat introuvable' }, { status: 404 })
   }
+
+  const candidat = data as unknown as Candidat
 
   const pdfBytes = await generateBrandedCV(candidat)
 
