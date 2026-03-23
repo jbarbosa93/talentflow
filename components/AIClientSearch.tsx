@@ -103,7 +103,14 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
         throw new Error(data.error || 'Erreur creation')
       }
 
-      toast.success(`${result.nom_entreprise} ajoute avec succes !`)
+      toast.success(`${result.nom_entreprise} ajouté avec succès !`)
+
+      // Mettre à jour le lastSeen clients pour éviter faux badge rouge
+      try {
+        const lastSeenData = JSON.parse(localStorage.getItem('talentflow_last_seen') || '{}')
+        lastSeenData.clients = new Date().toISOString()
+        localStorage.setItem('talentflow_last_seen', JSON.stringify(lastSeenData))
+      } catch {}
 
       // Marquer comme ajoute
       setResults(prev => prev.map((r, i) =>
