@@ -4,9 +4,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Clock } from 'lucide-react'
+import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import NumberTicker from '@/components/magicui/number-ticker'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const CandidatsMap = dynamic(() => import('@/components/CandidatsMap'), { ssr: false, loading: () => (
   <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
@@ -59,16 +60,17 @@ export default function DashboardPage() {
     ? [prenom, nom].filter(Boolean).join(' ')
     : 'Consultant'
 
+  const [chartPeriod, setChartPeriod] = useState<'jour' | 'semaine' | 'mois'>('jour')
+
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const [candidats, clients, offres, entretiens, places, recent] = await Promise.all([
+      const [candidats, clients, offres, entretiens, places] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
         (supabase as any).from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active'),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'entretien' as any),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any),
-        supabase.from('candidats').select('id, nom, prenom, titre_poste, statut_pipeline, created_at').order('created_at', { ascending: false }).limit(5),
       ])
       return {
         totalCandidats: candidats.count ?? 0,
@@ -76,10 +78,50 @@ export default function DashboardPage() {
         offresActives:  offres.count ?? 0,
         enEntretien:    entretiens.count ?? 0,
         places:         places.count ?? 0,
-        recentCandidats: (recent.data || []) as any[],
       }
     },
     staleTime: 30_000,
+  })
+
+  // Chart data — candidatures par jour/semaine/mois
+  const { data: chartData } = useQuery({
+    queryKey: ['dashboard-chart', chartPeriod],
+    queryFn: async () => {
+      // Fetch created_at for all candidats in the last 90 days
+      const since = new Date()
+      since.setDate(since.getDate() - 90)
+      const { data } = await supabase
+        .from('candidats')
+        .select('created_at')
+        .gte('created_at', since.toISOString())
+        .order('created_at', { ascending: true })
+
+      const rows = (data || []) as { created_at: string }[]
+      const counts: Record<string, number> = {}
+
+      for (const r of rows) {
+        const d = new Date(r.created_at)
+        let key = ''
+        if (chartPeriod === 'jour') {
+          key = d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })
+        } else if (chartPeriod === 'semaine') {
+          // Get ISO week start (Monday)
+          const day = d.getDay() || 7
+          const mon = new Date(d)
+          mon.setDate(d.getDate() - day + 1)
+          key = 'S' + mon.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })
+        } else {
+          key = d.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' })
+        }
+        counts[key] = (counts[key] || 0) + 1
+      }
+
+      // Keep last N entries
+      const entries = Object.entries(counts)
+      const limit = chartPeriod === 'jour' ? 30 : chartPeriod === 'semaine' ? 12 : 6
+      return entries.slice(-limit).map(([label, candidatures]) => ({ label, candidatures }))
+    },
+    staleTime: 60_000,
   })
 
   const kpis = [
@@ -180,55 +222,78 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent candidates */}
+        {/* Graphique candidatures */}
         <div className="neo-card-soft" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 className="neo-section-title" style={{ marginBottom: 0 }}>Candidats récents</h2>
-            <Link href="/candidats" style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-              Voir tous <ArrowRight style={{ width: 13, height: 13 }} />
-            </Link>
-          </div>
-          {stats?.recentCandidats?.length ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {stats.recentCandidats.map((c: any, i: number) => (
-                <motion.div
-                  key={c.id}
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.06, type: 'spring', stiffness: 300, damping: 24 }}
-                >
-                  <Link href={`/candidats/${c.id}`} className="neo-candidate-card">
-                    <div className="neo-avatar">{initiales(c)}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1 }}>
-                        {c.prenom} {c.nom}
-                      </div>
-                      {c.titre_poste && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {c.titre_poste}
-                        </div>
-                      )}
-                      {c.created_at && (
-                        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, opacity: 0.7 }}>
-                          <Clock size={9} />
-                          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                          {' '}
-                          {new Date(c.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      )}
-                    </div>
-                    <span className={ETAPE_BADGE[c.statut_pipeline] || 'neo-badge neo-badge-gray'}>
-                      {ETAPE_LABELS[c.statut_pipeline] || c.statut_pipeline}
-                    </span>
-                  </Link>
-                </motion.div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h2 className="neo-section-title" style={{ marginBottom: 0 }}>Candidatures reçues</h2>
+            <div style={{
+              display: 'flex', gap: 0, border: '2px solid var(--border)',
+              borderRadius: 8, overflow: 'hidden', background: 'var(--card)',
+            }}>
+              {([
+                { key: 'jour', label: 'Jour' },
+                { key: 'semaine', label: 'Semaine' },
+                { key: 'mois', label: 'Mois' },
+              ] as const).map(p => (
+                <button key={p.key} onClick={() => setChartPeriod(p.key)} style={{
+                  padding: '6px 14px', border: 'none',
+                  borderRight: '1px solid var(--border)',
+                  background: chartPeriod === p.key ? 'var(--primary)' : 'transparent',
+                  color: chartPeriod === p.key ? 'var(--ink, #1C1A14)' : 'var(--muted)',
+                  fontSize: 12, fontWeight: chartPeriod === p.key ? 700 : 500,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}>
+                  {p.label}
+                </button>
               ))}
             </div>
+          </div>
+          {chartData && chartData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCandidatures" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F7C948" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F7C948" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  axisLine={{ stroke: 'var(--border)' }}
+                  tickLine={false}
+                  interval={chartPeriod === 'jour' ? 4 : 0}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: 'var(--card)', border: '2px solid var(--border)',
+                    borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                  }}
+                  labelStyle={{ fontWeight: 700, color: 'var(--foreground)' }}
+                  formatter={(value: any) => [`${value} candidature${value > 1 ? 's' : ''}`, '']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="candidatures"
+                  stroke="#F7C948"
+                  strokeWidth={2.5}
+                  fill="url(#colorCandidatures)"
+                  dot={{ r: 3, fill: '#F7C948', stroke: '#fff', strokeWidth: 2 }}
+                  activeDot={{ r: 5, fill: '#F7C948', stroke: '#fff', strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           ) : (
-            <div className="neo-empty" style={{ padding: '40px 24px', border: '2px dashed var(--border)' }}>
-              <div className="neo-empty-icon">🎯</div>
-              <div className="neo-empty-title">Aucun candidat</div>
-              <div className="neo-empty-sub">Importez un CV pour commencer</div>
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 13 }}>
+              Chargement du graphique...
             </div>
           )}
         </div>
