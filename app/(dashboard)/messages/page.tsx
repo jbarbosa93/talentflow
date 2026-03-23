@@ -232,6 +232,7 @@ function CandidatSearch({
 function EmailTab() {
   const [candidatIds, setCandidatIds] = useState<string[]>([])
   const [cvCandidatId, setCvCandidatId] = useState<string | null>(null)
+  const [cvAttached, setCvAttached] = useState<Record<string, any>>({})
   const [templateId, setTemplateId] = useState('')
   const [destinataires, setDestinataires] = useState<string[]>([])
   const [sujet, setSujet] = useState('')
@@ -310,7 +311,8 @@ function EmailTab() {
     if (destinataires.length === 0 || !sujet || !corps) return
     sendEmail.mutate({
       candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
-      attach_cvs: candidatIds.length > 0,
+      attach_cvs: Object.keys(cvAttached).length > 0,
+      cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
       destinataires,
       sujet,
       corps,
@@ -422,15 +424,19 @@ function EmailTab() {
               {candidatIds.map(id => {
                 const c = (candidats as any)?.find((cc: any) => cc.id === id)
                 if (!c) return null
+                const isAttached = !!cvAttached[id]
                 return (
                   <button key={id} onClick={() => setCvCandidatId(id)} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 6,
                     padding: '6px 12px', borderRadius: 8,
-                    background: 'var(--secondary)', border: '1.5px solid var(--border)',
-                    fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
-                    cursor: 'pointer',
+                    background: isAttached ? '#D1FAE5' : 'var(--secondary)',
+                    border: isAttached ? '1.5px solid #10B981' : '1.5px solid var(--border)',
+                    fontSize: 12, fontWeight: 600,
+                    color: isAttached ? '#065F46' : 'var(--foreground)',
+                    cursor: 'pointer', transition: 'all 0.2s',
                   }}>
-                    <Paperclip size={12} /> Personnaliser CV — {c.prenom} {c.nom}
+                    {isAttached ? <Check size={12} /> : <Paperclip size={12} />}
+                    {isAttached ? `CV joint — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
                   </button>
                 )
               })}
@@ -492,9 +498,9 @@ function EmailTab() {
             <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
               <Mail size={12} />{smtpConfig?.configured ? `Envoi depuis ${smtpConfig.email}` : 'Email non configuré'} {destinataires.length > 1 ? '(CCI)' : ''}
             </p>
-            {candidatIds.length > 0 && (
-              <p style={{ fontSize: 11, color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', gap: 4, margin: 0 }}>
-                <Paperclip size={11} /> {candidatIds.length} CV personnalisé{candidatIds.length > 1 ? 's' : ''} en pièce jointe
+            {Object.keys(cvAttached).length > 0 && (
+              <p style={{ fontSize: 11, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>
+                <Paperclip size={11} /> {Object.keys(cvAttached).length} CV{Object.keys(cvAttached).length > 1 ? 's' : ''} joint{Object.keys(cvAttached).length > 1 ? 's' : ''} au mail
               </p>
             )}
           </div>
@@ -514,7 +520,14 @@ function EmailTab() {
         return cvCandidat ? (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: '95vw', maxWidth: 1200, height: '90vh', background: 'white', borderRadius: 16, overflow: 'hidden' }}>
-              <CVCustomizer candidat={cvCandidat} onClose={() => setCvCandidatId(null)} />
+              <CVCustomizer
+                candidat={cvCandidat}
+                onClose={() => setCvCandidatId(null)}
+                mode="mailing"
+                onAttach={(id, opts) => {
+                  setCvAttached(prev => ({ ...prev, [id]: opts }))
+                }}
+              />
             </div>
           </div>
         ) : null

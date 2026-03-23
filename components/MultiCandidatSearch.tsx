@@ -42,17 +42,20 @@ export default function MultiCandidatSearch({
 
   const selected = (candidats || []).filter(c => selectedIds.includes(c.id))
 
+  // Supprimer les accents pour recherche flexible
+  const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
   const filtered = (candidats || []).filter(c => {
     if (!query.trim()) return true
-    const q = query.toLowerCase()
+    const q = normalize(query)
     return (
-      c.nom?.toLowerCase().includes(q) ||
-      c.prenom?.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.titre_poste?.toLowerCase().includes(q) ||
+      normalize(c.nom || '').includes(q) ||
+      normalize(c.prenom || '').includes(q) ||
+      normalize(c.email || '').includes(q) ||
+      normalize(c.titre_poste || '').includes(q) ||
       c.telephone?.includes(q)
     )
-  }).slice(0, 25)
+  }).slice(0, 50)
 
   function toggle(id: string) {
     onChange(

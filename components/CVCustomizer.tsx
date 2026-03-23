@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
-import { X, Download, Eye, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages } from 'lucide-react'
+import { X, Download, Eye, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -46,9 +46,13 @@ const inputStyle = {
 export default function CVCustomizerModal({
   candidat,
   onClose,
+  mode = 'download',
+  onAttach,
 }: {
   candidat: Candidat
   onClose: () => void
+  mode?: 'download' | 'mailing'
+  onAttach?: (candidatId: string, options: any) => void
 }) {
   const [sections, setSections] = useState<Record<string, boolean>>({
     resume: true,
@@ -128,6 +132,8 @@ export default function CVCustomizerModal({
 
   useEffect(() => { generatePreview() }, [])
 
+  const [attached, setAttached] = useState(false)
+
   const handleDownload = async () => {
     setDownloading(true)
     try {
@@ -148,6 +154,16 @@ export default function CVCustomizerModal({
       toast.error('Erreur téléchargement')
     }
     setDownloading(false)
+  }
+
+  const handleAttach = () => {
+    const payload = buildPayload()
+    onAttach?.(candidat.id, {
+      includedSections: payload.included_sections,
+      customContent: payload.custom_content,
+    })
+    setAttached(true)
+    toast.success(`CV de ${candidat.prenom} ${candidat.nom} joint au mail`)
   }
 
   const Checkbox = ({ checked, onClick, size = 20 }: { checked: boolean; onClick: () => void; size?: number }) => (
@@ -204,11 +220,24 @@ export default function CVCustomizerModal({
               {loading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Eye size={14} />}
               Actualiser
             </button>
-            <button onClick={handleDownload} disabled={downloading}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
-              Télécharger PDF
-            </button>
+            {mode === 'mailing' ? (
+              <button onClick={attached ? () => setAttached(false) : handleAttach}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none',
+                  background: attached ? '#10B981' : 'var(--primary)',
+                  color: attached ? '#fff' : 'var(--ink, #1C1A14)',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'all 0.2s',
+                }}>
+                {attached ? <><Check size={14} /> Joint au mail</> : <><Paperclip size={14} /> Joindre au mail</>}
+              </button>
+            ) : (
+              <button onClick={handleDownload} disabled={downloading}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
+                Télécharger PDF
+              </button>
+            )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 6 }}>
               <X size={18} />
             </button>

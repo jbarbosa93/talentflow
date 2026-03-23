@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         .in('id', candidat_ids)
 
       if (candidatsData && candidatsData.length > 0) {
-        for (const candidat of candidatsData) {
+        for (const candidat of candidatsData as any[]) {
           try {
             const opts = cvOptions[candidat.id] || {}
             const pdfBytes = await generateBrandedCV(candidat, {
