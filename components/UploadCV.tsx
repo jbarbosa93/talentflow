@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import {
   Upload, CheckCircle, AlertCircle, Loader2, X,
-  Clock, RefreshCw, Plus,
+  Clock, RefreshCw, Plus, Search, Eye, UserPlus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -61,9 +61,15 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const [done, setDone] = useState(false)
   const [minimized, setMinimized] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [manualSearchIdx, setManualSearchIdx] = useState<number | null>(null)
+  const [manualSearchQuery, setManualSearchQuery] = useState('')
+  const [manualSearchResults, setManualSearchResults] = useState<any[]>([])
+  const [manualSearching, setManualSearching] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<FileItem[]>([])
   const cancelledRef = useRef(false)
+  const searchTimerRef = useRef<any>(null)
 
   // Keep ref in sync with state
   filesRef.current = files
@@ -167,7 +173,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
       // 3. Document non-CV sans candidat → marquer pour retry
       if (!res.ok && res.status === 422 && data.document_type) {
-        updateFile(idx, { status: 'pending', error: undefined, storagePath: path, needsRetry: true })
+        updateFile(idx, { status: 'pending', error: undefined, storagePath: path, cvUrl: data.cv_url, needsRetry: true })
         return { success: false, needsRetry: true }
       }
 
@@ -265,7 +271,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           const result = await processOneFile(idx, item?.storagePath)
           if (result.candidat) lastSuccessCandidat = result.candidat
           if (result.needsRetry) {
-            updateFile(idx, { status: 'error', error: 'Aucun candidat correspondant trouvé — importez le CV en premier', needsRetry: false })
+            // Garder storagePath pour permettre la recherche manuelle
+            updateFile(idx, { status: 'error', error: 'Aucun candidat correspondant — cherchez manuellement', needsRetry: false })
           }
         }
       }
@@ -328,9 +335,28 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
       const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
       updateFile(fileIdx, { status: 'doc_added', candidatNom: nom || 'Document ajouté', multipleMatches: undefined })
+      setManualSearchIdx(null)
+      setManualSearchQuery('')
+      setManualSearchResults([])
     } catch (err: any) {
       updateFile(fileIdx, { status: 'error', error: err.message || 'Erreur', multipleMatches: undefined })
     }
+  }
+
+  const handleManualSearch = (query: string) => {
+    setManualSearchQuery(query)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!query.trim()) { setManualSearchResults([]); return }
+    searchTimerRef.current = setTimeout(async () => {
+      setManualSearching(true)
+      try {
+        const res = await fetch(`/api/candidats?search=${encodeURIComponent(query)}&per_page=6&import_status=all`)
+        if (res.ok) {
+          const { candidats } = await res.json()
+          setManualSearchResults(candidats || [])
+        }
+      } catch {} finally { setManualSearching(false) }
+    }, 300)
   }
 
   const statusText = (item: FileItem) => {
@@ -606,35 +632,89 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                 }}>
                   {statusText(item)}
                 </p>
-                {item.status === 'multiple_matches' && item.multipleMatches && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {item.multipleMatches.map((c: any) => (
+                {(item.status === 'multiple_matches' || (item.status === 'error' && item.storagePath)) && (
+                  <div style={{ marginTop: 4 }}>
+                    {/* Aperçu document */}
+                    {item.cvUrl && (
                       <button
-                        key={c.id}
-                        onClick={() => handleSelectMatch(i, c.id)}
-                        style={{
-                          fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                          border: '1px solid #C4B5FD', background: 'white',
-                          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-                          color: '#7C3AED', transition: 'all 0.15s',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#8B5CF6'; e.currentTarget.style.color = 'white' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#7C3AED' }}
+                        onClick={() => setPreviewUrl(previewUrl === item.cvUrl ? null : (item.cvUrl || null))}
+                        style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#6B7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
                       >
-                        {c.prenom} {c.nom} {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
+                        <Eye size={10} /> Aperçu
                       </button>
-                    ))}
-                    <button
-                      onClick={() => updateFile(i, { status: 'error', error: 'Ignoré — aucun candidat sélectionné', multipleMatches: undefined })}
-                      style={{
-                        fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                        border: '1px solid #E5E7EB', background: 'white',
-                        cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
-                        color: '#9CA3AF',
-                      }}
-                    >
-                      Ignorer
-                    </button>
+                    )}
+                    {previewUrl === item.cvUrl && item.cvUrl && (
+                      <div style={{ marginBottom: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid #E5E7EB', height: 150 }}>
+                        {item.file.type.startsWith('image/') ? (
+                          <img src={item.cvUrl} alt="Aperçu" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#F9FAFB' }} />
+                        ) : (
+                          <iframe src={`${item.cvUrl}#toolbar=0&navpanes=0`} style={{ width: '100%', height: '100%', border: 'none' }} title="Aperçu" />
+                        )}
+                      </div>
+                    )}
+                    {/* Candidats matchés automatiquement */}
+                    {item.multipleMatches && item.multipleMatches.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                        {item.multipleMatches.map((c: any) => (
+                          <button
+                            key={c.id}
+                            onClick={() => handleSelectMatch(i, c.id)}
+                            style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid #C4B5FD', background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, color: '#7C3AED', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#8B5CF6'; e.currentTarget.style.color = 'white' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#7C3AED' }}
+                          >
+                            {c.prenom} {c.nom} {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {/* Recherche manuelle */}
+                    {manualSearchIdx === i ? (
+                      <div style={{ marginTop: 2 }}>
+                        <div style={{ position: 'relative' }}>
+                          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+                          <input
+                            autoFocus
+                            placeholder="Rechercher un candidat..."
+                            value={manualSearchQuery}
+                            onChange={e => handleManualSearch(e.target.value)}
+                            style={{ width: '100%', fontSize: 11, padding: '5px 8px 5px 26px', borderRadius: 6, border: '1px solid #D1D5DB', fontFamily: 'inherit', outline: 'none' }}
+                          />
+                          {manualSearching && <Loader2 size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', animation: 'spin 1s linear infinite' }} />}
+                        </div>
+                        {manualSearchResults.length > 0 && (
+                          <div style={{ marginTop: 3, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 120, overflowY: 'auto' }}>
+                            {manualSearchResults.map((c: any) => (
+                              <button
+                                key={c.id}
+                                onClick={() => handleSelectMatch(i, c.id)}
+                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, color: 'var(--foreground)', textAlign: 'left', transition: 'all 0.12s' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+                              >
+                                <strong>{c.prenom} {c.nom}</strong> {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <button onClick={() => { setManualSearchIdx(null); setManualSearchQuery(''); setManualSearchResults([]) }} style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, fontFamily: 'inherit' }}>Fermer</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          onClick={() => { setManualSearchIdx(i); setManualSearchQuery(''); setManualSearchResults([]) }}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #C4B5FD', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 3 }}
+                        >
+                          <UserPlus size={10} /> Autre candidat
+                        </button>
+                        <button
+                          onClick={() => updateFile(i, { status: 'error', error: 'Ignoré', multipleMatches: undefined, storagePath: undefined })}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#9CA3AF' }}
+                        >
+                          Ignorer
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
