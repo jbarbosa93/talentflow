@@ -307,8 +307,9 @@ function EmailTab() {
     }
   }
 
-  const handleSend = () => {
-    if (destinataires.length === 0 || !sujet || !corps) return
+  const [doublonAlert, setDoublonAlert] = useState<{ doublons: any[]; onConfirm: () => void } | null>(null)
+
+  const doSend = () => {
     sendEmail.mutate({
       candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
       attach_cvs: Object.keys(cvAttached).length > 0,
@@ -320,11 +321,36 @@ function EmailTab() {
     }, {
       onSuccess: () => {
         setSent(true)
+        setDoublonAlert(null)
         setTimeout(() => setSent(false), 3000)
         setCorps('')
         setSujet('')
       }
     })
+  }
+
+  const handleSend = async () => {
+    if (destinataires.length === 0 || !sujet || !corps) return
+
+    // Vérifier les doublons si candidats sélectionnés
+    if (candidatIds.length > 0 && destinataires.length > 0) {
+      try {
+        const params = new URLSearchParams({
+          candidat_ids: candidatIds.join(','),
+          destinataires: destinataires.join(','),
+        })
+        const res = await fetch(`/api/activites/check-doublon?${params}`)
+        const data = await res.json()
+        if (data.doublons && data.doublons.length > 0) {
+          // Montrer l'alerte
+          setDoublonAlert({ doublons: data.doublons, onConfirm: doSend })
+          return
+        }
+      } catch {
+        // En cas d'erreur de vérification, envoyer quand même
+      }
+    }
+    doSend()
   }
 
   const labelStyle = { display: 'block' as const, fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6 }
@@ -532,6 +558,68 @@ function EmailTab() {
           </Button>
         </div>
       </div>
+
+      {/* Alerte doublon envoi */}
+      {doublonAlert && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setDoublonAlert(null)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'white', borderRadius: 16, padding: 28,
+            width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 12, margin: '0 auto 16px',
+              background: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ fontSize: 24 }}>⚠️</span>
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1F2937', margin: '0 0 8px', textAlign: 'center' }}>
+              Envoi déjà effectué
+            </h3>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 16px', textAlign: 'center', lineHeight: 1.5 }}>
+              {doublonAlert.doublons.length === 1 ? 'Ce candidat a déjà été envoyé à ce destinataire' : `${doublonAlert.doublons.length} envois similaires détectés`} :
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
+              {doublonAlert.doublons.map((d: any, i: number) => (
+                <div key={i} style={{
+                  background: '#FFF7ED', border: '1.5px solid #FED7AA', borderRadius: 10,
+                  padding: '10px 14px', fontSize: 13,
+                }}>
+                  <div style={{ fontWeight: 700, color: '#92400E' }}>
+                    {d.candidat_nom || 'Candidat'} → {d.destinataire}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
+                    Envoyé le {new Date(d.date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} à {new Date(d.date).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}
+                    {d.user_name ? ` par ${d.user_name}` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setDoublonAlert(null)} style={{
+                height: 42, padding: '0 20px', borderRadius: 8,
+                border: '1.5px solid #E5E7EB', background: '#F9FAFB',
+                color: '#1F2937', fontSize: 14, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                Annuler
+              </button>
+              <button onClick={() => { doublonAlert.onConfirm(); setDoublonAlert(null) }} style={{
+                height: 42, padding: '0 20px', borderRadius: 8,
+                border: '2px solid #92400E', background: '#F59E0B',
+                color: '#1F2937', fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                Envoyer quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modale Personnaliser CV */}
       {cvCandidatId && (() => {

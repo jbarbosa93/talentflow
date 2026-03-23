@@ -2,6 +2,7 @@
 // Supporte pièces jointes CV personnalisés automatiquement
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import nodemailer from 'nodemailer'
 import { generateBrandedCV } from '@/lib/cv-generator'
 
@@ -114,6 +115,22 @@ export async function POST(request: NextRequest) {
       statut: 'envoye' as const,
     }))
     await supabase.from('emails_envoyes').insert(logs)
+
+    // Log activité équipe
+    try {
+      const routeUser = await getRouteUser()
+      const cvNames = attachments.map((a: any) => a.filename).filter(Boolean)
+      const descParts = [`Sujet: ${sujet}`]
+      if (cvNames.length > 0) descParts.push(`CV joints: ${cvNames.join(', ')}`)
+      await logActivityServer({
+        ...routeUser,
+        type: 'email_envoye',
+        titre: `Email envoyé à ${destinataires.length} destinataire(s)`,
+        description: descParts.join(' — '),
+        candidat_id: candidat_ids[0] || undefined,
+        metadata: { destinataires, candidat_ids, attachments_count: attachments.length },
+      })
+    } catch {}
 
     return NextResponse.json({
       success: true,

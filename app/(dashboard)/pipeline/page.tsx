@@ -11,6 +11,7 @@ import {
   TrendingUp, Filter, LayoutGrid
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { logActivity } from '@/hooks/useActivites'
 import type { PipelineEtape } from '@/types/database'
 
 const supabase = createClient()
@@ -339,6 +340,15 @@ export default function PipelinePage() {
       const etapeLabel = ETAPES.find(e => e.id === newEtape)?.label
       toast.success(`${candidat.prenom || ''} ${candidat.nom} \u2192 ${etapeLabel}`)
       queryClient.invalidateQueries({ queryKey: ['candidats'] })
+
+      // Log activité équipe
+      const candidatNom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
+      logActivity({
+        type: 'statut_change',
+        titre: `${candidatNom} déplacé vers ${etapeLabel}`,
+        candidat_id: draggableId,
+        candidat_nom: candidatNom,
+      })
     }
   }, [candidats, offreFilter, queryClient])
 

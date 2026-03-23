@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export const runtime = 'nodejs'
 
@@ -71,6 +72,31 @@ export async function PATCH(
       console.error('[PATCH candidat] update error:', error.message, error.details)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Log activité équipe pour les changements significatifs
+    try {
+      const candidatNom = `${(data as any)?.prenom || ''} ${(data as any)?.nom || ''}`.trim()
+      if (body.import_status) {
+        const routeUser = await getRouteUser()
+        const statusLabel = body.import_status === 'traite' ? 'validé' : body.import_status === 'archive' ? 'archivé' : body.import_status
+        await logActivityServer({
+          ...routeUser,
+          type: 'candidat_modifie',
+          titre: `Candidat ${statusLabel} — ${candidatNom}`,
+          candidat_id: id,
+          candidat_nom: candidatNom,
+        })
+      } else if (body.statut_pipeline) {
+        const routeUser = await getRouteUser()
+        await logActivityServer({
+          ...routeUser,
+          type: 'statut_change',
+          titre: `${candidatNom} — pipeline changé vers ${body.statut_pipeline}`,
+          candidat_id: id,
+          candidat_nom: candidatNom,
+        })
+      }
+    } catch {}
 
     return NextResponse.json({ candidat: data })
   } catch (error) {

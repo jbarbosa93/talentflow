@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -110,6 +111,18 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Log activité équipe
+    try {
+      const routeUser = await getRouteUser()
+      await logActivityServer({
+        ...routeUser,
+        type: 'client_contacte',
+        titre: `Nouveau client ajouté — ${filtered.nom_entreprise}`,
+        client_id: data.id,
+        client_nom: filtered.nom_entreprise,
+      })
+    } catch {}
 
     return NextResponse.json({ client: data }, { status: 201 })
   } catch (error) {

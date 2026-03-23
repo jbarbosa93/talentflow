@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import type { CandidatInsert, DocumentType } from '@/types/database'
@@ -323,6 +324,20 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[CV Bulk] Terminé : ${traites} succès, ${erreurs} erreurs`)
+
+    // Log activité équipe
+    if (traites > 0) {
+      try {
+        const routeUser = await getRouteUser()
+        await logActivityServer({
+          ...routeUser,
+          type: 'candidat_importe',
+          titre: `Import en masse — ${traites} candidat(s)`,
+          description: `${traites} importé(s), ${erreurs} erreur(s) sur ${fichiersCVs.length} fichier(s)`,
+          metadata: { total: fichiersCVs.length, traites, erreurs, zip: zipFile.name },
+        })
+      } catch {}
+    }
 
     return NextResponse.json({
       success: true,

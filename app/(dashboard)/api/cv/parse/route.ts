@@ -8,6 +8,7 @@ import { extractTextFromCV, validateCVFile } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import type { CandidatInsert, DocumentType } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
@@ -695,6 +696,20 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
   await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), email: analyse.email || '—' } })
+
+  // Log activité équipe
+  try {
+    const routeUser = await getRouteUser()
+    const candidatNom = `${analyse.prenom || ''} ${analyse.nom}`.trim()
+    await logActivityServer({
+      ...routeUser,
+      type: 'candidat_importe',
+      titre: `Import CV — ${candidatNom}`,
+      description: `${analyse.titre_poste || 'Sans poste'} — importé depuis upload`,
+      candidat_id: candidat?.id,
+      candidat_nom: candidatNom,
+    })
+  } catch {}
 
   return NextResponse.json({
     success: true,

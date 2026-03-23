@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export async function GET() {
   const supabase = createAdminClient()
@@ -21,6 +22,25 @@ export async function POST(request: NextRequest) {
       .select('*, candidats(nom, prenom, email), offres(titre)')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Log activité équipe
+    try {
+      const routeUser = await getRouteUser()
+      const d = data as any
+      const candidatNom = d?.candidats
+        ? `${d.candidats.prenom || ''} ${d.candidats.nom}`.trim()
+        : undefined
+      await logActivityServer({
+        ...routeUser,
+        type: 'entretien_planifie',
+        titre: `Entretien planifié — ${body.titre || 'Sans titre'}`,
+        description: candidatNom ? `Candidat: ${candidatNom}` : undefined,
+        candidat_id: body.candidat_id || undefined,
+        candidat_nom: candidatNom,
+        offre_id: body.offre_id || undefined,
+      })
+    } catch {}
+
     return NextResponse.json({ entretien: data })
   } catch (err) {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
