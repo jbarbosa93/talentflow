@@ -214,11 +214,11 @@ export default function CorrigerPhotosPage() {
               <Pause size={14} fill="#D97706" /> Pause
             </button>
           ) : photos.phase === 'paused' ? (
-            <button onClick={photos.resume} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
+            <button onClick={photos.resume} className="neo-btn-yellow">
               <Play size={14} fill="#0F172A" /> Continuer
             </button>
           ) : (
-            <button onClick={handleStart} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
+            <button onClick={handleStart} className="neo-btn-yellow">
               {remainingCount > 0
                 ? <><Play size={14} fill="#0F172A" /> Analyser ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
                 : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>

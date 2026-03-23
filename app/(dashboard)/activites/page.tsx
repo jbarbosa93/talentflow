@@ -142,17 +142,13 @@ function NoteEditor({ activite, onClose }: { activite: Activite; onClose: () => 
           <button
             onClick={handleSave}
             disabled={updateNotes.isPending}
+            className="neo-btn-yellow neo-btn-sm"
             style={{
-              padding: '6px 14px', borderRadius: 8, border: '2px solid var(--foreground)',
-              background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 12, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
               opacity: updateNotes.isPending ? 0.6 : 1,
             }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Check size={13} />
-              {updateNotes.isPending ? 'Enregistrement...' : 'Enregistrer'}
-            </span>
+            <Check size={13} />
+            {updateNotes.isPending ? 'Enregistrement...' : 'Enregistrer'}
           </button>
         </div>
       </div>

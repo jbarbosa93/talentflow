@@ -335,13 +335,10 @@ export default function AnalyserCandidatsPage() {
         <button
           onClick={runFullAnalysis}
           disabled={isRunning}
+          className="neo-btn-yellow"
           style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '14px 28px', borderRadius: 12, fontSize: 15, fontWeight: 800,
-            border: 'none', cursor: isRunning ? 'not-allowed' : 'pointer',
-            background: 'linear-gradient(135deg, var(--primary), #E8940A)',
-            color: '#0F172A', fontFamily: 'inherit',
-            boxShadow: '0 2px 12px rgba(245,167,35,0.3)',
+            padding: '0 28px',
+            cursor: isRunning ? 'not-allowed' : 'pointer',
             opacity: isRunning ? 0.7 : 1,
           }}
         >

@@ -230,7 +230,12 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
           <button
             onClick={handleConfirm}
             disabled={!hasSelection}
-            style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: hasSelection ? 'var(--primary)' : '#E2E8F0', color: hasSelection ? '#0F172A' : '#94A3B8', cursor: hasSelection ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}
+            className="neo-btn-yellow neo-btn-sm"
+            style={{
+              background: hasSelection ? undefined : '#E2E8F0',
+              color: hasSelection ? undefined : '#94A3B8',
+              cursor: hasSelection ? 'pointer' : 'not-allowed',
+            }}
           >
             <Check size={14} />Utiliser cette zone
           </button>

@@ -61,11 +61,9 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
               }}
             />
           )}
-          <button onClick={() => { onSave(field, draft); setEditing(false) }} style={{
-            width: 34, height: 34, borderRadius: 8, border: '1.5px solid var(--primary)',
-            background: 'var(--primary)', color: 'var(--ink)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
+          <button onClick={() => { onSave(field, draft); setEditing(false) }}
+            className="neo-btn-yellow"
+            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}>
             <Check size={14} strokeWidth={3} />
           </button>
           <button onClick={() => { setDraft(value || ''); setEditing(false) }} style={{

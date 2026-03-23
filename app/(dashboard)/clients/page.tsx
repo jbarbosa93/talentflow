@@ -310,14 +310,11 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
               onClose()
             }}
             disabled={!form.nom_entreprise.trim()}
+            className="neo-btn-yellow"
             style={{
-              height: 40, padding: '0 20px', borderRadius: 8,
-              border: '2px solid var(--foreground)', background: 'var(--primary)',
-              color: 'var(--ink)', fontSize: 14, fontWeight: 700,
+              height: 40,
               cursor: form.nom_entreprise.trim() ? 'pointer' : 'not-allowed',
-              fontFamily: 'var(--font-body)',
               opacity: form.nom_entreprise.trim() ? 1 : 0.5,
-              boxShadow: '3px 3px 0 var(--foreground)',
             }}
           >
             Creer le client

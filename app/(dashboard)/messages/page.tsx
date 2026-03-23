@@ -382,7 +382,8 @@ function EmailTab() {
             </p>
           </div>
           <button onClick={() => setShowSmtpSetup(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: '#F7C948', color: '#1C1A14', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            className="neo-btn-yellow neo-btn-sm"
+            style={{ whiteSpace: 'nowrap' }}>
             Connecter
           </button>
         </div>
@@ -608,12 +609,8 @@ function EmailTab() {
               }}>
                 Annuler
               </button>
-              <button onClick={() => { doublonAlert.onConfirm(); setDoublonAlert(null) }} style={{
-                height: 42, padding: '0 20px', borderRadius: 8,
-                border: '2px solid #92400E', background: '#F59E0B',
-                color: '#1F2937', fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
+              <button onClick={() => { doublonAlert.onConfirm(); setDoublonAlert(null) }}
+                className="neo-btn-yellow">
                 Envoyer quand même
               </button>
             </div>

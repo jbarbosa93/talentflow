@@ -465,6 +465,27 @@ body {
   box-shadow: 1px 1px 0 var(--foreground);
 }
 .neo-btn-sm { padding: 7px 14px; font-size: 12.5px; }
+.neo-btn-yellow-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  background: transparent;
+  color: var(--foreground);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.neo-btn-yellow-outline:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+}
 .neo-btn-ghost {
   display: inline-flex;
   align-items: center;

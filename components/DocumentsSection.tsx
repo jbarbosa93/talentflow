@@ -435,11 +435,9 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                     <button
                       onClick={handleConfirmUpload}
                       disabled={uploading || !pendingFile.name.trim()}
+                      className="neo-btn-yellow neo-btn-sm"
                       style={{
-                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        padding: '8px 0', borderRadius: 7, fontSize: 12, fontWeight: 700,
-                        border: 'none', background: 'var(--primary)', color: '#0F172A',
-                        cursor: 'pointer', fontFamily: 'inherit',
+                        flex: 1, justifyContent: 'center',
                         opacity: uploading || !pendingFile.name.trim() ? 0.5 : 1,
                       }}
                     >

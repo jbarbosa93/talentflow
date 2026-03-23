@@ -261,20 +261,13 @@ export default function DoublonsPage() {
               </button>
             ) : phase === 'paused' ? (
               <button onClick={() => doublonsCtx.resume()}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none', background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(245,167,35,0.3)' }}>
+                className="neo-btn-yellow">
                 <Play size={14} fill="#0F172A" /> Continuer
               </button>
             ) : (
               <button onClick={handleLancer}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 24px', fontSize: 14, fontWeight: 700,
-                  borderRadius: 12, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  background: 'linear-gradient(135deg, var(--primary), #E8940A)', color: '#0F172A',
-                  boxShadow: '0 4px 14px rgba(245,167,35,0.35)',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(245,167,35,0.4)' }}
-                onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(245,167,35,0.35)' }}
+                className="neo-btn-yellow"
+                style={{ padding: '0 24px' }}
               >
                 {phase === 'loading'
                   ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Chargement...</>

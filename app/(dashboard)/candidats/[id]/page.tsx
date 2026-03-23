@@ -1502,17 +1502,12 @@ export default function CandidatDetailPage() {
       {!showCV && candidat.cv_url && (
         <button
           onClick={() => setShowCV(true)}
+          className="neo-btn-yellow"
           style={{
             position: 'fixed', bottom: 80, right: 28, zIndex: 50,
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 18px', borderRadius: 100,
-            background: 'var(--primary)', color: '#000',
-            fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer',
+            borderRadius: 100,
             boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-            transition: 'transform 0.15s, box-shadow 0.15s',
           }}
-          onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.24)' }}
-          onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.18)' }}
         >
           <ChevronLeft size={15} />
           Voir CV

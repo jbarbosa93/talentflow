@@ -222,18 +222,16 @@ export default function CVCustomizerModal({
             </button>
             {mode === 'mailing' ? (
               <button onClick={attached ? () => setAttached(false) : handleAttach}
+                className="neo-btn-yellow neo-btn-sm"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none',
-                  background: attached ? '#10B981' : 'var(--primary)',
-                  color: attached ? '#fff' : 'var(--ink, #1C1A14)',
-                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                  transition: 'all 0.2s',
+                  background: attached ? '#10B981' : undefined,
+                  color: attached ? '#fff' : undefined,
                 }}>
                 {attached ? <><Check size={14} /> Joint au mail</> : <><Paperclip size={14} /> Joindre au mail</>}
               </button>
             ) : (
               <button onClick={handleDownload} disabled={downloading}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                className="neo-btn-yellow neo-btn-sm">
                 {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
                 Télécharger PDF
               </button>

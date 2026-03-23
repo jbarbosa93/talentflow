@@ -183,33 +183,12 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
           <button
             onClick={handleSearch}
             disabled={loading || !query.trim()}
+            className="neo-btn-yellow"
             style={{
-              height: 48, padding: '0 24px', borderRadius: 12,
-              border: '2px solid var(--foreground)',
-              background: '#F7C948',
-              color: 'var(--ink, #1C1A14)',
-              fontSize: 14, fontWeight: 700,
+              height: 48,
               cursor: loading || !query.trim() ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-body)',
-              display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: '3px 3px 0 var(--foreground)',
               opacity: loading || !query.trim() ? 0.6 : 1,
-              transition: 'transform 0.1s, box-shadow 0.1s',
               whiteSpace: 'nowrap',
-            }}
-            onMouseDown={e => {
-              if (!loading && query.trim()) {
-                e.currentTarget.style.transform = 'translate(2px, 2px)'
-                e.currentTarget.style.boxShadow = '1px 1px 0 var(--foreground)'
-              }
-            }}
-            onMouseUp={e => {
-              e.currentTarget.style.transform = ''
-              e.currentTarget.style.boxShadow = '3px 3px 0 var(--foreground)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = ''
-              e.currentTarget.style.boxShadow = '3px 3px 0 var(--foreground)'
             }}
           >
             {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Search size={16} />}
@@ -425,13 +404,8 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
                       }}>
                         <X size={13} /> Annuler
                       </button>
-                      <button onClick={saveEdit} style={{
-                        height: 34, padding: '0 14px', borderRadius: 8,
-                        border: '2px solid var(--foreground)', background: '#F7C948',
-                        color: 'var(--ink, #1C1A14)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                        fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5,
-                        boxShadow: '2px 2px 0 var(--foreground)',
-                      }}>
+                      <button onClick={saveEdit}
+                        className="neo-btn-yellow neo-btn-sm">
                         <Check size={13} /> Valider
                       </button>
                     </div>
