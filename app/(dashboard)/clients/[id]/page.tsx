@@ -172,14 +172,14 @@ export default function ClientDetailPage() {
         onClick={() => router.push('/clients')}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'var(--primary-soft, #FFF3C4)', border: '1.5px solid var(--primary)',
+          background: 'var(--secondary)', border: '1.5px solid var(--border)',
           borderRadius: 100, padding: '8px 18px',
-          color: 'var(--primary-dark, #E6B800)', fontSize: 13, fontWeight: 600,
+          color: 'var(--muted)', fontSize: 13, fontWeight: 600,
           cursor: 'pointer', fontFamily: 'var(--font-body)',
           marginBottom: 20, transition: 'all 0.15s',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'var(--ink, #1C1A14)' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'var(--primary-soft, #FFF3C4)'; e.currentTarget.style.color = 'var(--primary-dark, #E6B800)' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--ink, #1C1A14)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
       >
         <ArrowLeft size={14} />
         Retour aux clients
