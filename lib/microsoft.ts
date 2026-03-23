@@ -12,7 +12,8 @@ function getRedirectUri() {
   return `${(process.env.NEXT_PUBLIC_APP_URL || '').trim()}/api/microsoft/callback`
 }
 
-const SCOPES = 'Mail.Read Mail.Send Calendars.ReadWrite offline_access User.Read Sites.Read.All Files.Read.All'
+// Permissions minimales pour la lecture des emails/CVs et fichiers OneDrive — évite l'obligation de consentement admin
+const SCOPES = 'Mail.Read Files.Read offline_access User.Read'
 
 export function getMicrosoftAuthUrl(): string {
   const params = new URLSearchParams({

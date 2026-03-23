@@ -13,6 +13,7 @@ export type LogAction =
   | 'microsoft_sync'
   | 'microsoft_connecte'
   | 'microsoft_deconnecte'
+  | 'onedrive_sync'
   | 'pipeline_etape_changee'
   | 'cv_actualise'
 

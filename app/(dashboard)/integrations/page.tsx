@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle,
   Plug, Clock, User, ExternalLink, Loader2, FolderOpen,
-  ChevronDown, Zap, ZapOff,
+  ChevronDown, Zap, ZapOff, CloudUpload, FileText,
 } from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ function IntegrationsContent() {
   const sync          = useSyncMicrosoft()
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
+  const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
 
   useEffect(() => {
     const success = searchParams.get('success')
@@ -96,6 +97,77 @@ function IntegrationsContent() {
     },
   })
 
+  // ── OneDrive queries & mutations ──────────────────────────────────────────
+
+  const { data: onedriveFoldersData, isLoading: loadingOneDriveFolders } = useQuery({
+    queryKey: ['onedrive-folders'],
+    queryFn: async () => {
+      const res = await fetch('/api/onedrive/folders')
+      return res.json()
+    },
+    staleTime: 60_000,
+    enabled: showOneDriveFolderPicker,
+  })
+
+  const { data: onedriveFilesData } = useQuery({
+    queryKey: ['onedrive-fichiers'],
+    queryFn: async () => {
+      const res = await fetch('/api/onedrive/sync')
+      return res.json()
+    },
+    staleTime: 30_000,
+    enabled: !!integrationsData?.integrations?.find((i: any) => i.type === 'microsoft'),
+  })
+
+  const selectOneDriveFolderMutation = useMutation({
+    mutationFn: async ({ folder_id, folder_name }: { folder_id: string, folder_name: string }) => {
+      const res = await fetch('/api/onedrive/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_id, folder_name }),
+      })
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      queryClient.invalidateQueries({ queryKey: ['onedrive-folders'] })
+      setShowOneDriveFolderPicker(false)
+      toast.success(`Dossier OneDrive "${data.folder_name}" configuré.`)
+    },
+    onError: () => toast.error('Erreur lors de la configuration OneDrive'),
+  })
+
+  const syncOneDriveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/onedrive/sync', { method: 'POST' })
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
+      if (data.error) {
+        toast.error(data.error)
+      } else {
+        toast.success(`OneDrive sync: ${data.processed} créé(s), ${data.duplicates} doublon(s)`)
+      }
+    },
+    onError: () => toast.error('Erreur lors de la sync OneDrive'),
+  })
+
+  const toggleOneDriveAutoSyncMutation = useMutation({
+    mutationFn: async ({ autoSync }: { autoSync: boolean }) => {
+      const res = await fetch('/api/onedrive/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toggle_auto_sync: !autoSync }),
+      })
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+    },
+  })
+
   const msIntegration = integrationsData?.integrations?.find((i: any) => i.type === 'microsoft')
   const isConnected   = !!msIntegration
   const emails        = emailsData?.emails || []
@@ -104,6 +176,14 @@ function IntegrationsContent() {
   const configuredFolder = foldersData?.configured || meta?.email_folder_name || 'CV à traiter'
   const lastSync      = meta?.last_sync ? new Date(meta.last_sync) : null
   const autoSyncEnabled = meta?.auto_sync !== false // true par défaut
+
+  // OneDrive dérivés
+  const onedriveFolderName   = meta?.onedrive_folder_name || null
+  const onedriveFolderId     = meta?.onedrive_folder_id || null
+  const onedriveLastSync     = meta?.onedrive_last_sync ? new Date(meta.onedrive_last_sync) : null
+  const onedriveAutoSync     = meta?.onedrive_auto_sync !== false // true par défaut
+  const onedriveFichiers     = onedriveFilesData?.fichiers || []
+  const onedriveImported     = onedriveFichiers.filter((f: any) => f.candidat_id && !f.erreur)
 
   return (
     <div className="d-page" style={{ maxWidth: 860, paddingBottom: 60 }}>
@@ -454,6 +534,304 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
               </div>
             </div>
           )}
+
+          {/* ── OneDrive Card ── */}
+          <div className="neo-card" style={{
+            padding: 24, marginBottom: 16,
+            borderColor: isConnected && onedriveFolderId ? 'var(--primary)' : undefined,
+            boxShadow: isConnected && onedriveFolderId ? '4px 4px 0 var(--primary)' : undefined,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+              {/* Left */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {/* OneDrive logo */}
+                <div style={{
+                  width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+                  border: '2px solid var(--border)', background: 'var(--surface)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '2px 2px 0 var(--border)',
+                }}>
+                  <svg viewBox="0 0 24 24" style={{ width: 30, height: 30 }} fill="none">
+                    <path d="M6.5 20C4 20 2 18 2 15.5c0-2.1 1.4-3.9 3.3-4.4C5.1 10.4 5 9.7 5 9c0-3.3 2.7-6 6-6 2.6 0 4.8 1.6 5.6 3.9.3-.1.7-.1 1-.1 2.5 0 4.4 2 4.4 4.4 0 .2 0 .4-.1.6C23 12.4 24 13.9 24 15.5c0 2.5-2 4.5-4.5 4.5H6.5z" fill="#0078D4"/>
+                  </svg>
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>OneDrive</h2>
+                    {isConnected ? (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: '#D1FAE5', color: '#065F46',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                      }}>
+                        <CheckCircle2 size={10} /> Connecté
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: 'var(--background)', color: 'var(--muted)',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        border: '1.5px solid var(--border)',
+                      }}>
+                        <XCircle size={10} /> Non connecté
+                      </span>
+                    )}
+                    {isConnected && onedriveFolderId && onedriveAutoSync && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: '#EFF6FF', color: '#1D4ED8',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        border: '1.5px solid #BFDBFE',
+                      }}>
+                        <Zap size={10} /> Sync auto
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                    {isConnected
+                      ? 'Importation automatique des CVs déposés dans un dossier OneDrive'
+                      : 'Connectez Microsoft pour activer la sync OneDrive'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              {isConnected && (
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                  <button
+                    onClick={() => syncOneDriveMutation.mutate()}
+                    disabled={syncOneDriveMutation.isPending || !onedriveFolderId}
+                    className="neo-btn"
+                    style={{ fontSize: 12, padding: '7px 14px' }}
+                    title={!onedriveFolderId ? 'Configurez un dossier d\'abord' : undefined}
+                  >
+                    <RefreshCw size={13} className={syncOneDriveMutation.isPending ? 'animate-spin' : ''} />
+                    {syncOneDriveMutation.isPending ? 'Sync...' : 'Synchroniser'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Config dossier + stats si connecté */}
+            {isConnected && (
+              <>
+                {/* Dossier OneDrive surveillé */}
+                <div style={{
+                  marginTop: 20, paddingTop: 16, borderTop: '2px solid var(--border)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <FolderOpen size={16} style={{ color: '#0078D4', flexShrink: 0 }} />
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1 }}>
+                          Dossier OneDrive surveillé
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                          Déposez vos CVs dans ce dossier pour qu&apos;ils soient automatiquement importés
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {onedriveFolderName ? (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '6px 12px', borderRadius: 8,
+                          background: '#EFF6FF', border: '2px solid #BFDBFE',
+                          fontWeight: 700, fontSize: 13, color: 'var(--foreground)',
+                        }}>
+                          <FolderOpen size={13} style={{ color: '#0078D4' }} />
+                          {onedriveFolderName}
+                        </div>
+                      ) : (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '6px 12px', borderRadius: 8,
+                          background: 'var(--background)', border: '1.5px dashed var(--border)',
+                          fontWeight: 600, fontSize: 12, color: 'var(--muted)',
+                        }}>
+                          <FolderOpen size={12} />
+                          Aucun dossier configuré
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setShowOneDriveFolderPicker(!showOneDriveFolderPicker)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '6px 10px', borderRadius: 8,
+                          background: 'var(--surface)', border: '1.5px solid var(--border)',
+                          fontSize: 12, fontWeight: 700, color: 'var(--muted)',
+                          cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        }}
+                      >
+                        {onedriveFolderName ? 'Changer' : 'Choisir'} <ChevronDown size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sélecteur de dossier OneDrive */}
+                  {showOneDriveFolderPicker && (
+                    <div style={{
+                      marginTop: 12, padding: 16, borderRadius: 10,
+                      background: 'var(--background)', border: '1.5px solid var(--border)',
+                    }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>
+                        Choisir le dossier OneDrive à surveiller :
+                      </p>
+                      {loadingOneDriveFolders ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+                          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                          Chargement des dossiers OneDrive...
+                        </div>
+                      ) : onedriveFoldersData?.folders?.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {onedriveFoldersData.folders.map((folder: any) => (
+                            <button
+                              key={folder.id}
+                              onClick={() => selectOneDriveFolderMutation.mutate({ folder_id: folder.id, folder_name: folder.name })}
+                              disabled={selectOneDriveFolderMutation.isPending}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                padding: '6px 12px', borderRadius: 8,
+                                background: folder.id === onedriveFolderId ? '#EFF6FF' : 'var(--surface)',
+                                border: `1.5px solid ${folder.id === onedriveFolderId ? '#0078D4' : 'var(--border)'}`,
+                                fontSize: 12, fontWeight: 600,
+                                color: folder.id === onedriveFolderId ? '#1D4ED8' : 'var(--muted)',
+                                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                              }}
+                            >
+                              <FolderOpen size={11} />
+                              {folder.path}
+                            </button>
+                          ))}
+                        </div>
+                      ) : onedriveFoldersData?.error ? (
+                        <p style={{ fontSize: 12, color: '#DC2626' }}>
+                          {onedriveFoldersData.error}
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          Aucun dossier trouvé dans OneDrive. Créez un dossier dans votre OneDrive et réessayez.
+                        </p>
+                      )}
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic' }}>
+                        Astuce : créez un dossier &quot;CVs TalentFlow&quot; dans votre OneDrive et déposez-y vos CVs.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Infos sync + toggle auto-sync */}
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => toggleOneDriveAutoSyncMutation.mutate({ autoSync: onedriveAutoSync })}
+                      disabled={toggleOneDriveAutoSyncMutation.isPending}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 10px', borderRadius: 8,
+                        background: onedriveAutoSync ? '#EFF6FF' : 'var(--surface)',
+                        border: `1.5px solid ${onedriveAutoSync ? '#0078D4' : 'var(--border)'}`,
+                        fontSize: 11, fontWeight: 700,
+                        color: onedriveAutoSync ? '#1D4ED8' : 'var(--muted)',
+                        cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      {onedriveAutoSync ? <Zap size={11} /> : <ZapOff size={11} />}
+                      Sync automatique {onedriveAutoSync ? 'activée' : 'désactivée'}
+                    </button>
+                    {onedriveLastSync && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={11} />
+                        Dernier sync : {onedriveLastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Note informationnelle */}
+                <div style={{
+                  marginTop: 14, padding: '10px 14px', borderRadius: 8,
+                  background: '#F0F9FF', border: '1.5px solid #BAE6FD',
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                }}>
+                  <CloudUpload size={14} style={{ color: '#0369A1', flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 12, color: '#075985', lineHeight: 1.5 }}>
+                    Déposez vos CVs dans ce dossier OneDrive pour qu&apos;ils soient automatiquement importés et analysés dans TalentFlow.
+                  </p>
+                </div>
+
+                {/* Stats OneDrive */}
+                <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveFichiers.length}</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analysés</p>
+                  </div>
+                  <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveImported.length}</p>
+                    <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                  </div>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>
+                      {onedriveFichiers.filter((f: any) => f.erreur && f.erreur !== 'Doublon — candidat déjà existant').length}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Erreurs</p>
+                  </div>
+                </div>
+
+                {/* Historique fichiers OneDrive */}
+                {onedriveFichiers.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
+                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                      Derniers fichiers importés
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {onedriveFichiers.slice(0, 5).map((f: any) => (
+                        <div key={f.id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                          padding: '8px 12px', borderRadius: 8,
+                          background: 'var(--background)', border: '1.5px solid var(--border)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <FileText size={13} style={{ color: '#0078D4', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
+                              {f.nom_fichier || '—'}
+                            </span>
+                          </div>
+                          {f.candidat_id && !f.erreur ? (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
+                              {f.candidats?.prenom} {f.candidats?.nom}
+                            </span>
+                          ) : f.erreur?.includes('Doublon') ? (
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
+                              Doublon
+                            </span>
+                          ) : f.erreur ? (
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>
+                              Erreur
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Migration needed notice */}
+            {isConnected && onedriveFilesData?.migration_needed && (
+              <div style={{
+                marginTop: 14, padding: '10px 14px', borderRadius: 8,
+                background: '#FEF3C7', border: '1.5px solid #FDE68A',
+                display: 'flex', alignItems: 'flex-start', gap: 8,
+              }}>
+                <AlertCircle size={14} style={{ color: '#D97706', flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+                  Migration SQL requise — exécutez <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.08)', padding: '1px 4px', borderRadius: 3 }}>supabase/migrations/20260323_onedrive_fichiers.sql</code> dans votre dashboard Supabase.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* ── Google (bientôt) ── */}
           <div className="neo-card" style={{ padding: 24, marginBottom: 16, opacity: 0.5 }}>
