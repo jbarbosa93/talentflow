@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion } from 'framer-motion'
 import {
   Star, GripVertical, MapPin, Search, Calendar, MessageSquare,
-  ChevronDown, Clock, Eye, UserPlus, Briefcase,
+  ChevronDown, Clock, Eye, UserPlus, Briefcase, X,
   TrendingUp, Filter, LayoutGrid
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -110,7 +110,7 @@ function DroppableColumn({ id, children, isActive }: { id: string; children: Rea
 }
 
 /* ─────── Draggable Card ─────── */
-function DraggableCard({ item, etapeColor }: { item: any; etapeColor: string }) {
+function DraggableCard({ item, etapeColor, onRemove }: { item: any; etapeColor: string; onRemove: () => void }) {
   const {
     attributes,
     listeners,
@@ -136,6 +136,7 @@ function DraggableCard({ item, etapeColor }: { item: any; etapeColor: string }) 
         : '0 1px 3px rgba(0,0,0,0.1)',
     userSelect: 'none',
     opacity: isDragging ? 0.5 : 1,
+    position: 'relative',
   }
 
   return (
@@ -147,6 +148,25 @@ function DraggableCard({ item, etapeColor }: { item: any; etapeColor: string }) 
       onMouseLeave={() => setHovered(false)}
       style={style}
     >
+      {/* Remove button */}
+      <button
+        onPointerDown={e => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onRemove() }}
+        title="Retirer du pipeline"
+        style={{
+          position: 'absolute', top: 8, right: 8,
+          width: 20, height: 20, borderRadius: 6,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(239,68,68,0.12)', border: '1.5px solid rgba(239,68,68,0.3)',
+          color: '#EF4444', cursor: 'pointer', padding: 0,
+          opacity: hovered ? 1 : 0,
+          transition: 'opacity 0.15s',
+          zIndex: 2,
+        }}
+      >
+        <X size={11} strokeWidth={3} />
+      </button>
+
       {/* Top row: avatar + name + grip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         {/* Avatar */}
@@ -541,6 +561,22 @@ export default function PipelinePage() {
     setOverColumnId(null)
   }, [])
 
+  const handleRemoveFromPipeline = useCallback(async (candidatId: string) => {
+    queryClient.setQueryData(['pipeline-candidats', offreFilter], (old: any[] | undefined) =>
+      old?.filter(c => c.id !== candidatId)
+    )
+    const { error } = await supabase
+      .from('candidats')
+      .update({ statut_pipeline: null })
+      .eq('id', candidatId)
+    if (error) {
+      toast.error('Erreur lors du retrait')
+      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+    } else {
+      toast.success('Candidat retiré du pipeline')
+    }
+  }, [offreFilter, queryClient])
+
   return (
     <div style={{ padding: '20px 24px', height: '100vh', maxHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* ─── Header ─── */}
@@ -779,6 +815,7 @@ export default function PipelinePage() {
                         key={item.id}
                         item={item}
                         etapeColor={etape.color}
+                        onRemove={() => handleRemoveFromPipeline(item.id)}
                       />
                     ))}
                   </SortableContext>

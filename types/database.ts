@@ -210,7 +210,7 @@ export type Database = {
           photo_url?: string | null
           resume_ia?: string | null
           cv_texte_brut?: string | null
-          statut_pipeline?: PipelineEtape
+          statut_pipeline?: PipelineEtape | null
           tags?: string[]
           notes?: string | null
           source?: string | null
@@ -239,7 +239,7 @@ export type Database = {
           photo_url?: string | null
           resume_ia?: string | null
           cv_texte_brut?: string | null
-          statut_pipeline?: PipelineEtape
+          statut_pipeline?: PipelineEtape | null
           tags?: string[]
           notes?: string | null
           source?: string | null
