@@ -771,13 +771,6 @@ export default function CandidatDetailPage() {
                   {candidat.cv_url && (
                     <>
                       <button
-                        onClick={handleExtractPhotoFromCV}
-                        title="Extraire photo du CV automatiquement"
-                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#F0FDF4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                      >
-                        <FileText size={11} color="#16A34A" />
-                      </button>
-                      <button
                         onClick={() => setShowCropModal(true)}
                         title="Sélectionner manuellement une zone du CV"
                         style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}
