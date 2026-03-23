@@ -1,5 +1,5 @@
 // app/api/microsoft/send/route.ts
-// Envoie un email via Microsoft Graph API
+// Envoie un email via Microsoft Graph API — support BCC multi-destinataires
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -10,11 +10,20 @@ export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
   try {
-    const { candidat_id, destinataire, sujet, corps } = await request.json()
+    const body = await request.json()
 
-    if (!destinataire || !sujet || !corps) {
+    // Support ancien format (destinataire string) ET nouveau (destinataires array)
+    const destinataires: string[] = body.destinataires
+      ? body.destinataires
+      : body.destinataire
+        ? [body.destinataire]
+        : []
+    const { candidat_ids, sujet, corps, use_bcc = false } = body
+    const candidat_id = body.candidat_id || (candidat_ids?.[0]) || null
+
+    if (destinataires.length === 0 || !sujet || !corps) {
       return NextResponse.json(
-        { error: 'destinataire, sujet et corps sont requis' },
+        { error: 'destinataire(s), sujet et corps sont requis' },
         { status: 400 }
       )
     }
@@ -42,38 +51,48 @@ export async function POST(request: NextRequest) {
 
     const accessToken = await getValidAccessToken(integration.id)
 
+    // Build recipients
+    const recipients = destinataires.map((email: string) => ({
+      emailAddress: { address: email },
+    }))
+
+    // Build message — BCC si plusieurs destinataires ou demandé explicitement
+    const useBcc = use_bcc || destinataires.length > 1
+    const message: any = {
+      subject: sujet,
+      body: {
+        contentType: 'HTML',
+        content: corps.replace(/\n/g, '<br>'),
+      },
+      from: {
+        emailAddress: { address: integration.email, name: integration.nom_compte },
+      },
+    }
+
+    if (useBcc) {
+      message.bccRecipients = recipients
+    } else {
+      message.toRecipients = recipients
+    }
+
     // Send via Graph API
     await callGraph(accessToken, '/me/sendMail', {
       method: 'POST',
-      body: JSON.stringify({
-        message: {
-          subject: sujet,
-          body: {
-            contentType: 'HTML',
-            content: corps.replace(/\n/g, '<br>'),
-          },
-          toRecipients: [
-            { emailAddress: { address: destinataire } },
-          ],
-          from: {
-            emailAddress: { address: integration.email, name: integration.nom_compte },
-          },
-        },
-        saveToSentItems: true,
-      }),
+      body: JSON.stringify({ message, saveToSentItems: true }),
     })
 
-    // Log sent email
-    await supabase.from('emails_envoyes').insert({
-      candidat_id: candidat_id || null,
+    // Log sent emails — un log par destinataire
+    const logs = destinataires.map((dest: string) => ({
+      candidat_id,
       integration_id: integration.id,
       sujet,
       corps,
-      destinataire,
+      destinataire: dest,
       statut: 'envoye',
-    })
+    }))
+    await supabase.from('emails_envoyes').insert(logs)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, count: destinataires.length })
 
   } catch (error) {
     console.error('[MS Send] Error:', error)

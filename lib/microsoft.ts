@@ -13,7 +13,7 @@ function getRedirectUri() {
 }
 
 // Permissions minimales pour la lecture des emails/CVs et fichiers OneDrive — évite l'obligation de consentement admin
-const SCOPES = 'Mail.Read Files.Read offline_access User.Read'
+const SCOPES = 'Mail.Read Mail.Send Files.Read offline_access User.Read'
 
 export function getMicrosoftAuthUrl(): string {
   const params = new URLSearchParams({

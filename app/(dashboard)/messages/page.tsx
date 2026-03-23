@@ -1,6 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users } from 'lucide-react'
+import EmailChipInput from '@/components/EmailChipInput'
+import MultiCandidatSearch from '@/components/MultiCandidatSearch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -226,9 +228,9 @@ function CandidatSearch({
 // ─── Email Tab ────────────────────────────────────────────────────────────────
 
 function EmailTab() {
-  const [candidatId, setCandidatId] = useState('')
+  const [candidatIds, setCandidatIds] = useState<string[]>([])
   const [templateId, setTemplateId] = useState('')
-  const [destinataire, setDestinataire] = useState('')
+  const [destinataires, setDestinataires] = useState<string[]>([])
   const [sujet, setSujet] = useState('')
   const [corps, setCorps] = useState('')
   const [sent, setSent] = useState(false)
@@ -238,28 +240,40 @@ function EmailTab() {
   const { data: templates } = useEmailTemplates()
   const sendEmail = useSendEmail()
 
-  const selectedCandidat = candidats?.find(c => c.id === candidatId)
-
-  const handleCandidatChange = (id: string) => {
-    setCandidatId(id)
-    const c = candidats?.find(c => c.id === id)
-    if (c?.email) setDestinataire(c.email)
+  // Quand on sélectionne des candidats, ajouter leurs emails aux destinataires
+  const handleCandidatChange = (ids: string[]) => {
+    setCandidatIds(ids)
+    const emails = ids
+      .map(id => candidats?.find(c => c.id === id)?.email)
+      .filter((e): e is string => !!e)
+    // Ajouter les nouveaux emails sans supprimer ceux ajoutés manuellement
+    setDestinataires(prev => {
+      const set = new Set([...prev, ...emails])
+      return [...set]
+    })
   }
 
   const handleTemplateChange = (id: string) => {
     setTemplateId(id)
     const t = templates?.find((t: any) => t.id === id)
     if (t) {
-      const prenom = selectedCandidat?.prenom || '{{prenom}}'
-      const nom = selectedCandidat?.nom || '{{nom}}'
+      const firstCandidat = candidats?.find(c => candidatIds.includes(c.id))
+      const prenom = firstCandidat?.prenom || '{{prenom}}'
+      const nom = firstCandidat?.nom || '{{nom}}'
       setSujet(t.sujet.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
       setCorps(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
     }
   }
 
   const handleSend = () => {
-    if (!destinataire || !sujet || !corps) return
-    sendEmail.mutate({ candidat_id: candidatId || undefined, destinataire, sujet, corps }, {
+    if (destinataires.length === 0 || !sujet || !corps) return
+    sendEmail.mutate({
+      candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
+      destinataires,
+      sujet,
+      corps,
+      use_bcc: true,
+    }, {
       onSuccess: () => {
         setSent(true)
         setTimeout(() => setSent(false), 3000)
@@ -268,6 +282,8 @@ function EmailTab() {
       }
     })
   }
+
+  const labelStyle = { display: 'block' as const, fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 6 }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -288,47 +304,60 @@ function EmailTab() {
       </div>
 
       <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat (optionnel)</label>
-            <Select value={candidatId} onValueChange={handleCandidatChange}>
-              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-                <SelectValue placeholder="Sélectionner..." />
-              </SelectTrigger>
-              <SelectContent>
-                {candidats?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.prenom} {c.nom} {c.email ? `(${c.email})` : '(sans email)'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
-            <Select value={templateId} onValueChange={handleTemplateChange}>
-              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-                <SelectValue placeholder="Charger un template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates?.map((t: any) => (
-                  <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Candidats multi-select */}
+        <div>
+          <label style={labelStyle}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Users size={11} /> Candidats (optionnel)
+            </span>
+          </label>
+          <MultiCandidatSearch
+            candidats={candidats as any}
+            selectedIds={candidatIds}
+            onChange={handleCandidatChange}
+            placeholder="Rechercher des candidats à joindre..."
+          />
+        </div>
+
+        {/* Template */}
+        <div>
+          <label style={labelStyle}>Template (optionnel)</label>
+          <Select value={templateId} onValueChange={handleTemplateChange}>
+            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
+              <SelectValue placeholder="Charger un template..." />
+            </SelectTrigger>
+            <SelectContent>
+              {templates?.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Destinataires multi-email */}
+        <div>
+          <label style={labelStyle}>
+            Destinataires (CCI) *
+            {destinataires.length > 1 && (
+              <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
+                {destinataires.length} destinataires — envoi en copie cachée
+              </span>
+            )}
+          </label>
+          <EmailChipInput
+            value={destinataires}
+            onChange={setDestinataires}
+            placeholder="Ajouter un email (appuyez Entrée)..."
+          />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Destinataire *</label>
-          <Input value={destinataire} onChange={e => setDestinataire(e.target.value)} placeholder="email@exemple.com" type="email" required />
-        </div>
-
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet *</label>
+          <label style={labelStyle}>Sujet *</label>
           <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." required />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message *</label>
+          <label style={labelStyle}>Message *</label>
           <Textarea
             value={corps}
             onChange={e => setCorps(e.target.value)}
@@ -341,13 +370,13 @@ function EmailTab() {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
           <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Mail size={12} />Envoi via Microsoft 365
+            <Mail size={12} />Envoi via Microsoft 365 {destinataires.length > 1 ? '(CCI)' : ''}
           </p>
-          <Button onClick={handleSend} disabled={!destinataire || !sujet || !corps || sendEmail.isPending || sent}>
+          <Button onClick={handleSend} disabled={destinataires.length === 0 || !sujet || !corps || sendEmail.isPending || sent}>
             {sent ? (
               <><Check className="w-3.5 h-3.5 mr-2" />Envoyé</>
             ) : (
-              <><Send className="w-3.5 h-3.5 mr-2" />{sendEmail.isPending ? 'Envoi...' : 'Envoyer'}</>
+              <><Send className="w-3.5 h-3.5 mr-2" />{sendEmail.isPending ? 'Envoi...' : `Envoyer${destinataires.length > 1 ? ` (${destinataires.length})` : ''}`}</>
             )}
           </Button>
         </div>

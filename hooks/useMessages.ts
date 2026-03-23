@@ -37,7 +37,15 @@ export function useCreateTemplate() {
 
 export function useSendEmail() {
   return useMutation({
-    mutationFn: async (body: { candidat_id?: string; destinataire: string; sujet: string; corps: string }) => {
+    mutationFn: async (body: {
+      candidat_id?: string
+      candidat_ids?: string[]
+      destinataire?: string
+      destinataires?: string[]
+      sujet: string
+      corps: string
+      use_bcc?: boolean
+    }) => {
       const res = await fetch('/api/microsoft/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,7 +55,7 @@ export function useSendEmail() {
       if (!res.ok) throw new Error(data.error)
       return data
     },
-    onSuccess: () => toast.success('Email envoyé'),
+    onSuccess: (data) => toast.success(data.count > 1 ? `Email envoyé à ${data.count} destinataires (CCI)` : 'Email envoyé'),
     onError: (e: Error) => toast.error(`Erreur : ${e.message}`),
   })
 }
