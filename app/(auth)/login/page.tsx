@@ -197,7 +197,14 @@ function LoginForm() {
       {/* Panel gauche */}
       <div className="auth-left">
         <Link href="/" className="auth-logo">
-          <div className="auth-logo-dot" />
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, borderRadius: 9, background: '#F7C948', flexShrink: 0,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+            </svg>
+          </span>
           <span className="auth-logo-text">TalentFlow</span>
         </Link>
 
@@ -212,9 +219,12 @@ function LoginForm() {
 
           <div className="auth-features">
             {[
-              { icon: '🤖', text: 'Analyse IA des CVs en secondes' },
-              { icon: '📊', text: 'Pipeline Kanban visuel' },
-              { icon: '📧', text: 'Sync Microsoft 365 automatique' },
+              { icon: '⚡', text: 'Import CVs automatique — email, OneDrive, scanner' },
+              { icon: '🤖', text: 'Extraction IA du profil complet en 3 secondes' },
+              { icon: '🎯', text: 'Score de matching candidat × offre en temps réel' },
+              { icon: '📊', text: 'Pipeline visuel avec statuts personnalisables' },
+              { icon: '📱', text: 'App mobile — recherche & appel depuis votre iPhone' },
+              { icon: '🔍', text: 'Détection automatique des doublons' },
             ].map((f, i) => (
               <div key={i} className="auth-feature">
                 <div className="auth-feature-icon">{f.icon}</div>
