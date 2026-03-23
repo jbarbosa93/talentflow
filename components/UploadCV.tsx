@@ -18,15 +18,18 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'doc_added' | 'error'
+type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'doc_added' | 'multiple_matches' | 'error'
 
 interface FileItem {
   file: File
   status: FileStatus
   error?: string
+  multipleMatches?: any[]
+  cvUrl?: string
+  analyse?: any
   candidatNom?: string
-  storagePath?: string        // Sauvegardé après upload pour retry
-  needsRetry?: boolean        // Document non-CV qui n'a pas trouvé de candidat
+  storagePath?: string
+  needsRetry?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +70,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   // Derived counts
   const completed = files.filter(f =>
-    f.status === 'success' || f.status === 'error' || f.status === 'doublon_updated' || f.status === 'doc_added'
+    f.status === 'success' || f.status === 'error' || f.status === 'doublon_updated' || f.status === 'doc_added' || f.status === 'multiple_matches'
   ).length
   const succeeded = files.filter(f => f.status === 'success').length
   const doublonsUpdated = files.filter(f => f.status === 'doublon_updated').length
@@ -132,7 +135,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   // ------- Process a single file -------
 
-  const processOneFile = async (idx: number, storagePath?: string): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean }> => {
+  const processOneFile = async (idx: number, storagePath?: string): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean; needsSelection?: boolean }> => {
     if (cancelledRef.current) return { success: false }
     const item = filesRef.current[idx]
     if (!item) return { success: false }
@@ -170,7 +173,20 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
 
-      // 4. Doublon détecté
+      // 4a. Plusieurs candidats matchent → demander à l'utilisateur
+      if (data.isDuplicate && data.multipleMatches && data.candidatsMatches) {
+        updateFile(idx, {
+          status: 'multiple_matches' as any,
+          candidatNom: `${data.candidatsMatches.length} candidats trouvés`,
+          multipleMatches: data.candidatsMatches,
+          cvUrl: data.cv_url,
+          analyse: data.analyse,
+          storagePath: path,
+        })
+        return { success: false, needsSelection: true }
+      }
+
+      // 4b. Doublon détecté (un seul match)
       if (data.isDuplicate && data.candidatExistant?.id) {
         if (data.updated) {
           // Document non-CV auto-ajouté
@@ -294,8 +310,26 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         return <CheckCircle size={14} style={{ color: '#3B82F6', flexShrink: 0 }} />
       case 'doublon_updated':
         return <RefreshCw size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+      case 'multiple_matches':
+        return <AlertCircle size={14} style={{ color: '#8B5CF6', flexShrink: 0 }} />
       case 'error':
         return <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0 }} />
+    }
+  }
+
+  const handleSelectMatch = async (fileIdx: number, candidatId: string) => {
+    const f = filesRef.current[fileIdx]
+    if (!f || !f.storagePath) return
+    updateFile(fileIdx, { status: 'parsing' })
+    try {
+      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', update_id: candidatId }
+      const res = await fetch('/api/cv/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+      const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+      updateFile(fileIdx, { status: 'doc_added', candidatNom: nom || 'Document ajouté', multipleMatches: undefined })
+    } catch (err: any) {
+      updateFile(fileIdx, { status: 'error', error: err.message || 'Erreur', multipleMatches: undefined })
     }
   }
 
@@ -307,6 +341,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return `Importé — ${item.candidatNom}`
       case 'doc_added': return `Document ajouté — ${item.candidatNom}`
       case 'doublon_updated': return `CV actualisé — ${item.candidatNom}`
+      case 'multiple_matches': return 'Choisissez le candidat :'
       case 'error': return `Erreur — ${item.error}`
     }
   }
@@ -319,6 +354,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return '#16A34A'
       case 'doc_added': return '#3B82F6'
       case 'doublon_updated': return '#F59E0B'
+      case 'multiple_matches': return '#8B5CF6'
       case 'error': return '#DC2626'
     }
   }
@@ -328,6 +364,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return '#F0FDF4'
       case 'doc_added': return '#EFF6FF'
       case 'doublon_updated': return '#FFFBEB'
+      case 'multiple_matches': return '#F5F3FF'
       case 'error': return '#FEF2F2'
       default: return '#FFFFFF'
     }
@@ -338,6 +375,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return '#BBF7D0'
       case 'doc_added': return '#BFDBFE'
       case 'doublon_updated': return '#FDE68A'
+      case 'multiple_matches': return '#C4B5FD'
       case 'error': return '#FECACA'
       default: return '#E5E7EB'
     }
@@ -568,6 +606,37 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                 }}>
                   {statusText(item)}
                 </p>
+                {item.status === 'multiple_matches' && item.multipleMatches && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                    {item.multipleMatches.map((c: any) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleSelectMatch(i, c.id)}
+                        style={{
+                          fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                          border: '1px solid #C4B5FD', background: 'white',
+                          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                          color: '#7C3AED', transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#8B5CF6'; e.currentTarget.style.color = 'white' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#7C3AED' }}
+                      >
+                        {c.prenom} {c.nom} {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => updateFile(i, { status: 'error', error: 'Ignoré — aucun candidat sélectionné', multipleMatches: undefined })}
+                      style={{
+                        fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                        border: '1px solid #E5E7EB', background: 'white',
+                        cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
+                        color: '#9CA3AF',
+                      }}
+                    >
+                      Ignorer
+                    </button>
+                  </div>
+                )}
               </div>
               {item.status === 'pending' && !uploading && (
                 <button
