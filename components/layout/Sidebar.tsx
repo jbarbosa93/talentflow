@@ -148,27 +148,25 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-          {/* Company logo — configurable per tenant */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, width: '100%' }}>
-            <img
-              src="/logo-agence-white.svg"
-              alt={entreprise || 'L-Agence'}
-              style={{ height: 32, width: 'auto', objectFit: 'contain' }}
-            />
-          </div>
+        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 10, padding: '4px 0' }}>
+          {/* Company logo */}
+          <img
+            src="/logo-agence-white.svg"
+            alt={entreprise || 'L-Agence'}
+            style={{ height: 48, width: 'auto', objectFit: 'contain' }}
+          />
           {/* Powered by TalentFlow */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 16, height: 16, borderRadius: 4,
+              width: 22, height: 22, borderRadius: 6,
               background: '#F7C948', flexShrink: 0,
             }}>
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                 <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
               </svg>
             </span>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 600, letterSpacing: '0.02em' }}>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.01em' }}>
               TalentFlow
             </span>
           </div>
