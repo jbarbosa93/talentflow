@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
-  Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw,
+  Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw, Sparkles,
 } from 'lucide-react'
 import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
+import AIClientSearch from '@/components/AIClientSearch'
 
 const STATUT_TABS = [
   { value: 'all', label: 'Tous' },
@@ -32,15 +33,17 @@ function getCantonColor(canton: string | null) {
 }
 
 // Modal creation client
-function CreateClientModal({ open, onClose, onCreate }: {
+function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
   open: boolean
   onClose: () => void
   onCreate: (data: Partial<Client>) => void
+  onClientAdded?: () => void
 }) {
   const [form, setForm] = useState({
     nom_entreprise: '', adresse: '', npa: '', ville: '', canton: '',
     telephone: '', email: '', secteur: '', site_web: '', notes: '',
   })
+  const [activeTab, setActiveTab] = useState<'ia' | 'manual'>('ia')
 
   if (!open) return null
 
@@ -52,10 +55,10 @@ function CreateClientModal({ open, onClose, onCreate }: {
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 16,
-        padding: 32, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto',
+        padding: 32, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
             Nouveau client
           </h2>
@@ -66,6 +69,49 @@ function CreateClientModal({ open, onClose, onCreate }: {
             <X size={20} />
           </button>
         </div>
+
+        {/* Tabs: IA / Manuel */}
+        <div style={{
+          display: 'flex', gap: 0, marginBottom: 20,
+          border: '2px solid var(--border)', borderRadius: 10, overflow: 'hidden',
+          background: 'var(--secondary)',
+        }}>
+          <button
+            onClick={() => setActiveTab('ia')}
+            style={{
+              flex: 1, height: 40, border: 'none',
+              background: activeTab === 'ia' ? '#F7C948' : 'transparent',
+              color: activeTab === 'ia' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              fontSize: 13, fontWeight: activeTab === 'ia' ? 700 : 500,
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              borderRight: '1px solid var(--border)',
+            }}
+          >
+            <Sparkles size={14} /> Recherche IA
+          </button>
+          <button
+            onClick={() => setActiveTab('manual')}
+            style={{
+              flex: 1, height: 40, border: 'none',
+              background: activeTab === 'manual' ? '#F7C948' : 'transparent',
+              color: activeTab === 'manual' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              fontSize: 13, fontWeight: activeTab === 'manual' ? 700 : 500,
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <Plus size={14} /> Saisie manuelle
+          </button>
+        </div>
+
+        {activeTab === 'ia' ? (
+          <AIClientSearch
+            compact
+            onClientAdded={() => { onClientAdded?.(); onClose() }}
+          />
+        ) : (
+          <div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
           {/* Nom entreprise */}
@@ -268,6 +314,8 @@ function CreateClientModal({ open, onClose, onCreate }: {
             Creer le client
           </button>
         </div>
+        </div>
+        )}
       </div>
     </div>
   )
@@ -299,6 +347,7 @@ export default function ClientsPage() {
     return ''
   })
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showAISearch, setShowAISearch] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [filterSecteur, setFilterSecteur] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_secteur') || ''
@@ -373,9 +422,23 @@ export default function ClientsPage() {
             {total.toLocaleString('fr-CH')} entreprise{total !== 1 ? 's' : ''} trouvée{total !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
-          <Plus size={15} /> Ajouter un client
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button onClick={() => setShowAISearch(true)} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            height: 42, padding: '0 18px', borderRadius: 8,
+            border: '2px solid var(--foreground)',
+            background: 'linear-gradient(135deg, #F7C948 0%, #F5B731 100%)',
+            color: 'var(--ink, #1C1A14)', fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'var(--font-body)',
+            boxShadow: '3px 3px 0 var(--foreground)',
+            transition: 'transform 0.1s, box-shadow 0.1s',
+          }}>
+            <Sparkles size={15} /> Recherche IA
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
+            <Plus size={15} /> Ajouter un client
+          </button>
+        </div>
       </div>
 
       {/* Search + Filters bar */}
@@ -758,7 +821,51 @@ export default function ClientsPage() {
         open={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onCreate={(data) => createClient.mutate(data as any)}
+        onClientAdded={() => createClient.reset()}
       />
+
+      {/* AI Search modal */}
+      {showAISearch && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => setShowAISearch(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 16,
+            padding: 32, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'linear-gradient(135deg, #F7C948 0%, #F5B731 100%)',
+                  border: '2px solid var(--foreground)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Sparkles size={18} color="var(--ink, #1C1A14)" />
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
+                  Recherche IA de client
+                </h2>
+              </div>
+              <button onClick={() => setShowAISearch(false)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--muted)', padding: 4,
+              }}>
+                <X size={20} />
+              </button>
+            </div>
+            <AIClientSearch
+              onClientAdded={() => {
+                createClient.reset()
+              }}
+              onClose={() => setShowAISearch(false)}
+            />
+          </div>
+        </div>
+      )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
