@@ -148,28 +148,23 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0, padding: '0' }}>
-          {/* Company logo — full width */}
-          <img
-            src="/logo-agence-white.svg"
-            alt={entreprise || 'L-Agence'}
-            style={{ width: '100%', maxWidth: 180, height: 'auto', objectFit: 'contain', marginBottom: 8 }}
-          />
-          {/* Powered by TalentFlow — subtle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 18, height: 18, borderRadius: 5,
+              width: 28, height: 28, borderRadius: 8,
               background: '#F7C948', flexShrink: 0,
             }}>
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
               </svg>
             </span>
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.02em' }}>
-              TalentFlow
-            </span>
+            TalentFlow
           </div>
+          {entreprise && (
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 36, marginTop: 1 }}>
+              {entreprise}
+            </span>
           {false && entreprise && (
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 20, marginTop: 1 }}>
               {entreprise}
