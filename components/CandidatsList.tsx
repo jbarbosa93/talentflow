@@ -691,21 +691,31 @@ export default function CandidatsList() {
           </button>
           {importStatusFilter === 'a_traiter' && (
             <>
-              <button
-                onClick={handleBulkValidate}
-                disabled={updateImportStatus.isPending}
-                className="neo-btn neo-btn-sm"
-                style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}
-              >
+              <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}>
                 <CheckCircle size={13} /> Valider ({selCount})
               </button>
-              <button
-                onClick={handleBulkArchive}
-                disabled={updateImportStatus.isPending}
-                className="neo-btn neo-btn-sm"
-                style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}
-              >
+              <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}>
                 <Archive size={13} /> Archiver ({selCount})
+              </button>
+            </>
+          )}
+          {importStatusFilter === 'traite' && (
+            <>
+              <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}>
+                <RotateCw size={13} /> À traiter ({selCount})
+              </button>
+              <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}>
+                <Archive size={13} /> Archiver ({selCount})
+              </button>
+            </>
+          )}
+          {importStatusFilter === 'archive' && (
+            <>
+              <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}>
+                <CheckCircle size={13} /> Activer ({selCount})
+              </button>
+              <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}>
+                <RotateCw size={13} /> À traiter ({selCount})
               </button>
             </>
           )}
