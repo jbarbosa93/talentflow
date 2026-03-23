@@ -174,9 +174,9 @@ export async function generateBrandedCV(
     page.drawText(recName, { x: rightX - helveticaBold.widthOfTextAtSize(recName, 11), y: logoY, font: helveticaBold, size: 11, color: DARK })
     const recRole = 'Consultant'
     page.drawText(recRole, { x: rightX - helvetica.widthOfTextAtSize(recRole, 9), y: logoY - 14, font: helvetica, size: 9, color: GRAY })
-    if (recruiterInfo.telephone) {
-      page.drawText(recruiterInfo.telephone, { x: rightX - helvetica.widthOfTextAtSize(recruiterInfo.telephone, 8), y: logoY - 26, font: helvetica, size: 8, color: GRAY })
-    }
+    // Numéro bureau L-Agence
+    const bureauTel = '+41 24 552 18 70'
+    page.drawText(bureauTel, { x: rightX - helvetica.widthOfTextAtSize(bureauTel, 8), y: logoY - 26, font: helvetica, size: 8, color: GRAY })
     if (recruiterInfo.email) {
       page.drawText(recruiterInfo.email, { x: rightX - helvetica.widthOfTextAtSize(recruiterInfo.email, 8), y: logoY - 38, font: helvetica, size: 8, color: GRAY })
     }
