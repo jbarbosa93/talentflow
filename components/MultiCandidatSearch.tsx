@@ -79,7 +79,7 @@ export default function MultiCandidatSearch({
               fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
               whiteSpace: 'nowrap',
             }}>
-              {c.prenom} {c.nom}
+              {c.prenom} {c.nom}{c.titre_poste ? <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 4 }}>— {c.titre_poste}</span> : null}
               <button
                 onClick={() => remove(c.id)}
                 style={{

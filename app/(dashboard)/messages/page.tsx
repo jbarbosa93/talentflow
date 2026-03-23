@@ -1,6 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip } from 'lucide-react'
+import dynamic from 'next/dynamic'
+const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
 import MultiCandidatSearch from '@/components/MultiCandidatSearch'
 import { Button } from '@/components/ui/button'
@@ -229,6 +231,7 @@ function CandidatSearch({
 
 function EmailTab() {
   const [candidatIds, setCandidatIds] = useState<string[]>([])
+  const [cvCandidatId, setCvCandidatId] = useState<string | null>(null)
   const [templateId, setTemplateId] = useState('')
   const [destinataires, setDestinataires] = useState<string[]>([])
   const [sujet, setSujet] = useState('')
@@ -285,17 +288,17 @@ function EmailTab() {
     setSmtpSaving(false)
   }
 
-  // Quand on sélectionne des candidats, ajouter leurs emails aux destinataires
+  // Quand on sélectionne des candidats (pas d'auto-ajout email)
   const handleCandidatChange = (ids: string[]) => {
     setCandidatIds(ids)
-    const emails = ids
+  }
+
+  // Ajouter manuellement les emails des candidats sélectionnés
+  const addCandidatEmails = () => {
+    const emails = candidatIds
       .map(id => candidats?.find(c => c.id === id)?.email)
       .filter((e): e is string => !!e)
-    // Ajouter les nouveaux emails sans supprimer ceux ajoutés manuellement
-    setDestinataires(prev => {
-      const set = new Set([...prev, ...emails])
-      return [...set]
-    })
+    setDestinataires(prev => [...new Set([...prev, ...emails])])
   }
 
   const handleTemplateChange = (id: string) => {
@@ -410,7 +413,7 @@ function EmailTab() {
         <div>
           <label style={labelStyle}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Users size={11} /> Candidats (optionnel)
+              <Users size={11} /> Candidats
             </span>
           </label>
           <MultiCandidatSearch
@@ -419,6 +422,35 @@ function EmailTab() {
             onChange={handleCandidatChange}
             placeholder="Rechercher des candidats à joindre..."
           />
+          {/* Boutons actions quand candidat sélectionné */}
+          {candidatIds.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button onClick={addCandidatEmails} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', borderRadius: 8,
+                background: 'var(--primary-soft)', border: '1.5px solid var(--primary)',
+                fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
+                cursor: 'pointer',
+              }}>
+                <Mail size={12} /> Ajouter leurs emails en CCI
+              </button>
+              {candidatIds.map(id => {
+                const c = (candidats as any)?.find((cc: any) => cc.id === id)
+                if (!c) return null
+                return (
+                  <button key={id} onClick={() => setCvCandidatId(id)} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: 8,
+                    background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                    fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
+                    cursor: 'pointer',
+                  }}>
+                    <Paperclip size={12} /> Personnaliser CV — {c.prenom} {c.nom}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* Template */}
@@ -483,6 +515,18 @@ function EmailTab() {
           </Button>
         </div>
       </div>
+
+      {/* Modale Personnaliser CV */}
+      {cvCandidatId && (() => {
+        const cvCandidat = (candidats as any)?.find((cc: any) => cc.id === cvCandidatId)
+        return cvCandidat ? (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '95vw', maxWidth: 1200, height: '90vh', background: 'white', borderRadius: 16, overflow: 'hidden' }}>
+              <CVCustomizer candidat={cvCandidat} onClose={() => setCvCandidatId(null)} />
+            </div>
+          </div>
+        ) : null
+      })()}
     </div>
   )
 }
