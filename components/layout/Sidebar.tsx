@@ -14,6 +14,7 @@ import { useMatching } from '@/contexts/MatchingContext'
 import { usePhotos } from '@/contexts/PhotosContext'
 import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
+import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/useNewItemsBadges'
 
 const NAV_ITEMS = [
   { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -36,6 +37,15 @@ const FOOTER_ITEMS = [
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
+// Mapping href → badge section key
+const BADGE_SECTION_MAP: Record<string, string> = {
+  '/candidats': 'candidats',
+  '/clients': 'clients',
+  '/offres': 'offres',
+  '/entretiens': 'entretiens',
+  '/activites': 'activites',
+}
+
 const navItemVariants = {
   hidden: { opacity: 0, x: -12 },
   show: (i: number) => ({
@@ -56,6 +66,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const importCtx = useImport()
   const matchingCtx = useMatching()
   const photosCtx = usePhotos()
+  const { data: newBadges } = useNewItemsBadges()
+  const markSeen = useMarkSectionSeen()
   const doublonsCtx = useDoublons()
 
   const { data: user } = useQuery({
@@ -361,6 +373,9 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   className={`d-nav-link${active ? ' active' : ''}`}
                   style={{ position: 'relative', zIndex: 1 }}
                   onClick={() => {
+                    // Mark section as seen
+                    const badgeKey = BADGE_SECTION_MAP[item.href]
+                    if (badgeKey) markSeen(badgeKey)
                     if (!item.href.startsWith('/candidats')) {
                       sessionStorage.removeItem('candidats_search')
                       sessionStorage.removeItem('candidats_page')
@@ -370,6 +385,24 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
+                  {/* Badge nouveaux éléments */}
+                  {(() => {
+                    const badgeKey = BADGE_SECTION_MAP[item.href]
+                    const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
+                    if (!count || active) return null
+                    return (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 100,
+                        background: '#EF4444', color: '#fff',
+                        fontSize: 10, fontWeight: 800,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '0 5px', flexShrink: 0,
+                        animation: 'pulse 2s infinite',
+                      }}>
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )
+                  })()}
                   {showMatchingDot && (
                     <span style={{
                       marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
