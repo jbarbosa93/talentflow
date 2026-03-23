@@ -210,7 +210,7 @@ export async function generateBrandedCV(
   // Info line : localisation · âge
   const infoParts: string[] = []
   if (candidat.localisation) infoParts.push(candidat.localisation)
-  const age = calculerAge(candidat.date_naissance)
+  const age = calculerAge(candidat.date_naissance ?? null)
   if (age) infoParts.push(`${age} ans`)
   if (candidat.permis_conduire) infoParts.push('Permis B')
   if (infoParts.length > 0) {
@@ -246,7 +246,7 @@ export async function generateBrandedCV(
       }
       newPageIfNeeded(24)
       // Tag background
-      page.drawRectangle({ x: xPos, y: y - 4, width: w, height: 18, color: rgb(255 / 255, 243 / 255, 196 / 255), borderRadius: 4 })
+      page.drawRectangle({ x: xPos, y: y - 4, width: w, height: 18, color: rgb(255 / 255, 243 / 255, 196 / 255) })
       page.drawText(comp, { x: xPos + 8, y: y, font: helvetica, size: 9, color: DARK })
       xPos += w + 6
     }

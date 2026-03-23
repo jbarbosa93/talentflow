@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       sujet,
       corps,
       destinataire: dest,
-      statut: 'envoye',
+      statut: 'envoye' as const,
     }))
     await supabase.from('emails_envoyes').insert(logs)
 
