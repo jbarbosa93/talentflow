@@ -297,9 +297,19 @@ export default function ClientsPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Build combined search: merge text search + advanced filters
+  const buildSearch = () => {
+    const parts = [debouncedSearch]
+    if (filterSecteur) parts.push(filterSecteur)
+    if (filterVille) parts.push(filterVille)
+    if (filterNPA) parts.push(filterNPA)
+    return parts.filter(Boolean).join(' ')
+  }
+
   const { data, isLoading, isFetching } = useClients({
-    search: debouncedSearch,
+    search: buildSearch(),
     statut: statutFilter,
+    canton: cantonFilter,
     page,
     per_page: 20,
   })
@@ -322,7 +332,7 @@ export default function ClientsPage() {
             Clients
           </h1>
           <p style={{ fontSize: 14, color: 'var(--muted)', margin: '4px 0 0', fontWeight: 500 }}>
-            {total.toLocaleString('fr-CH')} entreprise{total !== 1 ? 's' : ''} enregistree{total !== 1 ? 's' : ''}
+            {total.toLocaleString('fr-CH')} entreprise{total !== 1 ? 's' : ''} trouvée{total !== 1 ? 's' : ''}
           </p>
         </div>
         <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
@@ -515,22 +525,7 @@ export default function ClientsPage() {
           <Loader2 size={24} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
           <span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 600 }}>Chargement des clients...</span>
         </div>
-      ) : (() => {
-        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        let filteredClients = clients
-        if (cantonFilter) filteredClients = filteredClients.filter(c => c.canton?.toUpperCase().trim() === cantonFilter)
-        if (filterSecteur) filteredClients = filteredClients.filter(c => normalize(c.secteur || '').includes(normalize(filterSecteur)))
-        if (filterVille) filteredClients = filteredClients.filter(c => normalize(c.ville || '').includes(normalize(filterVille)))
-        if (filterNPA) filteredClients = filteredClients.filter(c => (c.npa || '').includes(filterNPA))
-        if (filterAvecContacts === 'avec') filteredClients = filteredClients.filter(c => {
-          const contacts = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : (c.contacts || [])
-          return contacts.length > 0
-        })
-        if (filterAvecContacts === 'sans') filteredClients = filteredClients.filter(c => {
-          const contacts = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : (c.contacts || [])
-          return contacts.length === 0
-        })
-        return filteredClients.length === 0 ? (
+      ) : clients.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '80px 20px',
           background: 'var(--card)', borderRadius: 16, border: '2px solid var(--border)',
@@ -550,7 +545,7 @@ export default function ClientsPage() {
           flexDirection: viewMode === 'list' ? 'column' : undefined,
           gap: viewMode === 'grid' ? 16 : 8,
         }}>
-          {filteredClients.map(client => (
+          {clients.map(client => (
             <div
               key={client.id}
               onClick={() => router.push(`/clients/${client.id}`)}
@@ -677,7 +672,7 @@ export default function ClientsPage() {
             </div>
           ))}
         </div>
-      )})()}
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
     const statut = searchParams.get('statut') || ''
+    const canton = searchParams.get('canton') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const perPage = Math.min(parseInt(searchParams.get('per_page') || '20'), 500)
 
@@ -30,6 +31,11 @@ export async function GET(request: NextRequest) {
     // Filtre statut
     if (statut && statut !== 'all') {
       query = query.eq('statut', statut)
+    }
+
+    // Filtre canton
+    if (canton) {
+      query = query.ilike('canton', canton)
     }
 
     // Recherche textuelle

@@ -22,6 +22,7 @@ export interface Client {
 export function useClients(filters?: {
   search?: string
   statut?: string
+  canton?: string
   page?: number
   per_page?: number
 }) {
@@ -31,6 +32,7 @@ export function useClients(filters?: {
       const params = new URLSearchParams()
       if (filters?.search) params.set('search', filters.search)
       if (filters?.statut) params.set('statut', filters.statut)
+      if (filters?.canton) params.set('canton', filters.canton)
       if (filters?.page) params.set('page', String(filters.page))
       if (filters?.per_page) params.set('per_page', String(filters.per_page))
       const res = await fetch(`/api/clients?${params}`)
