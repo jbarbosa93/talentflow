@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
     const statut = searchParams.get('statut') || ''
     const canton = searchParams.get('canton') || ''
     const page = parseInt(searchParams.get('page') || '1')
-    const perPage = Math.min(parseInt(searchParams.get('per_page') || '20'), 500)
+    const rawPerPage = parseInt(searchParams.get('per_page') || '20')
+    const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
 
     let query = supabase
       .from('clients')

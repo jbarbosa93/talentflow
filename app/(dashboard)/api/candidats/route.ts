@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
     const statut = searchParams.get('statut') || ''
     const importStatus = searchParams.get('import_status') || ''
     const page = parseInt(searchParams.get('page') || '1')
-    const perPage = Math.min(parseInt(searchParams.get('per_page') || '20'), 500)
+    const rawPerPage = parseInt(searchParams.get('per_page') || '20')
+    const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
     const sort = searchParams.get('sort') || 'date_desc'
 
     // Construire la requête de base

@@ -212,11 +212,12 @@ export default function CandidatsList() {
   })
   // Persist page
   useEffect(() => { sessionStorage.setItem('candidats_page', String(page)) }, [page])
-  // Reset page quand les filtres changent (skip au premier render)
+  // Reset page + sélection quand les filtres changent (skip au premier render)
   const isFirstRender = useRef(true)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     setPage(1)
+    setSelectedIds(new Set())
   }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage])
 
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
@@ -711,8 +712,16 @@ export default function CandidatsList() {
           <button onClick={selectAll} className="neo-btn-ghost neo-btn-sm">
             Tout sélectionner ({sorted.length})
           </button>
-          <button onClick={deselectAll} className="neo-btn-ghost neo-btn-sm">
-            <X size={13} /> Désélectionner
+          <button onClick={deselectAll} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
+            background: '#1F2937', color: '#fff', border: 'none',
+            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#000', border: '2px solid #fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={8} color="#fff" />
+            </span>
+            Tout désélectionner
           </button>
           {importStatusFilter === 'a_traiter' && (
             <>
