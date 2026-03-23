@@ -913,10 +913,10 @@ function TemplatesTab() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4 mr-2" />
+        <button className="neo-btn-yellow" onClick={() => setShowCreate(true)}>
+          <Plus size={15} />
           Nouveau template
-        </Button>
+        </button>
       </div>
 
       {isLoading ? (
@@ -999,33 +999,52 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nom du template *</label>
-          <Input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required />
+          <input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required style={{
+            width: '100%', height: 42, padding: '0 14px', background: 'var(--card)', border: '2px solid var(--border)',
+            borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+          }} />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Catégorie</label>
-          <Select value={categorie} onValueChange={setCategorie}>
-            <SelectTrigger style={{ height: 38 }}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(CAT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <select
+            value={categorie}
+            onChange={e => setCategorie(e.target.value)}
+            style={{
+              width: '100%', height: 42, padding: '0 14px',
+              background: 'var(--card)', border: '2px solid var(--border)',
+              borderRadius: 8, color: 'var(--foreground)',
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)',
+              cursor: 'pointer',
+            }}
+          >
+            {Object.entries(CAT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
         </div>
       </div>
       <div>
         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet (email)</label>
-        <Input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." />
+        <input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." style={{
+          width: '100%', height: 42, padding: '0 14px', background: 'var(--card)', border: '2px solid var(--border)',
+          borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+        }} />
       </div>
       <div>
         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Corps du message *</label>
-        <Textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {{prenom}},..." rows={6} required style={{ resize: 'none', fontFamily: 'monospace', fontSize: 13 }} />
+        <textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {{prenom}},..." rows={6} required style={{
+          width: '100%', padding: '12px 14px', background: 'var(--card)', border: '2px solid var(--border)',
+          borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'monospace', outline: 'none', resize: 'none',
+        }} />
         <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Variables : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button type="submit" disabled={!nom || !corps || createTemplate.isPending}>
+        <button
+          type="submit"
+          className="neo-btn-yellow"
+          disabled={!nom || !corps || createTemplate.isPending}
+          style={{ opacity: (!nom || !corps || createTemplate.isPending) ? 0.5 : 1 }}
+        >
           {createTemplate.isPending ? 'Création...' : 'Créer le template'}
-        </Button>
+        </button>
       </div>
     </form>
   )
