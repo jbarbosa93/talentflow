@@ -9,6 +9,15 @@ import {
 import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
 import AIClientSearch from '@/components/AIClientSearch'
 
+const LAST_SEEN_KEY = 'talentflow_last_seen'
+function getClientLastSeen(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const data = JSON.parse(localStorage.getItem(LAST_SEEN_KEY) || '{}')
+    return data.clients || null
+  } catch { return null }
+}
+
 const STATUT_TABS = [
   { value: 'all', label: 'Tous' },
   { value: 'actif', label: 'Actifs' },
@@ -346,8 +355,10 @@ export default function ClientsPage() {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_canton') || ''
     return ''
   })
+  const [sortOrder, setSortOrder] = useState<'recent' | 'az' | 'za'>('recent')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const clientsLastSeen = getClientLastSeen()
   const [filterSecteur, setFilterSecteur] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_secteur') || ''
     return ''
@@ -514,6 +525,22 @@ export default function ClientsPage() {
           )}
         </button>
 
+        {/* Sort dropdown */}
+        <select
+          value={sortOrder}
+          onChange={e => setSortOrder(e.target.value as any)}
+          style={{
+            height: 40, padding: '0 12px', borderRadius: 10,
+            border: '2px solid var(--border)', background: 'var(--card)',
+            color: 'var(--foreground)', fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'var(--font-body)',
+          }}
+        >
+          <option value="recent">Plus récents</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+        </select>
+
         {/* View toggle */}
         <div style={{
           display: 'flex', gap: 0, border: '2px solid var(--border)',
@@ -633,7 +660,13 @@ export default function ClientsPage() {
           flexDirection: viewMode === 'list' ? 'column' : undefined,
           gap: viewMode === 'grid' ? 16 : 8,
         }}>
-          {clients.map(client => (
+          {[...clients].sort((a, b) => {
+            if (sortOrder === 'az') return (a.nom_entreprise || '').localeCompare(b.nom_entreprise || '', 'fr')
+            if (sortOrder === 'za') return (b.nom_entreprise || '').localeCompare(a.nom_entreprise || '', 'fr')
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          }).map(client => {
+            const isNew = clientsLastSeen && client.created_at ? new Date(client.created_at) > new Date(clientsLastSeen) : false
+            return (
             <div
               key={client.id}
               onClick={() => router.push(`/clients/${client.id}`)}
@@ -658,6 +691,17 @@ export default function ClientsPage() {
                 e.currentTarget.style.borderColor = 'var(--border)'
               }}
             >
+              {/* Badge "nouveau" */}
+              {isNew && (
+                <span style={{
+                  position: 'absolute', top: 8, left: 8,
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: '#EF4444', border: '2px solid var(--card)',
+                  boxShadow: '0 0 6px rgba(239,68,68,0.5)',
+                  animation: 'pulse 2s infinite',
+                  zIndex: 2,
+                }} />
+              )}
               {/* Top: Avatar + Name */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
                 <div style={{
@@ -758,7 +802,7 @@ export default function ClientsPage() {
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

@@ -13,6 +13,14 @@ import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdat
 import { useQueryClient } from '@tanstack/react-query'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
 
+function getCandidatsLastSeen(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const data = JSON.parse(localStorage.getItem('talentflow_last_seen') || '{}')
+    return data.candidats || null
+  } catch { return null }
+}
+
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
   contacte:  'neo-badge neo-badge-contacte',
@@ -518,11 +526,14 @@ export default function CandidatsList() {
     setAiInterpreted('')
   }
 
+  const candidatsLastSeen = getCandidatsLastSeen()
+
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
+    const isNewCandidat = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
 
     return (
       <div
@@ -538,6 +549,16 @@ export default function CandidatsList() {
           position: 'relative',
         }}
       >
+        {/* Badge "nouveau" en haut à gauche */}
+        {isNewCandidat && (
+          <span style={{
+            position: 'absolute', top: 6, left: 6,
+            width: 10, height: 10, borderRadius: '50%',
+            background: '#EF4444', border: '2px solid var(--surface)',
+            boxShadow: '0 0 6px rgba(239,68,68,0.5)',
+            zIndex: 2,
+          }} />
+        )}
         {/* Checkbox */}
         <div
           onClick={e => { e.stopPropagation(); toggleSelect(c.id) }}
