@@ -35,10 +35,10 @@ function InstallButton() {
   if (!deferredPrompt) return null
 
   return (
-    <button onClick={handleInstall} className="l-btn-ghost" style={{ cursor: 'pointer', background: 'none', border: 'none' }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ marginRight: 4 }}>
-        <path d="M12 16l-5-5h3V4h4v7h3l-5 5z" fill="#5C5640"/>
-        <path d="M5 18h14v2H5z" fill="#5C5640"/>
+    <button onClick={handleInstall} className="l-btn-main" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M12 16l-5-5h3V4h4v7h3l-5 5z" fill="currentColor"/>
+        <path d="M5 18h14v2H5z" fill="currentColor"/>
       </svg>
       Installer l&apos;application
     </button>
@@ -78,9 +78,6 @@ export default function Hero() {
 
         <BlurFade delay={0.3} inView>
           <div className="l-actions">
-            <Link href="/login" className="l-btn-main">
-              Commencer gratuitement →
-            </Link>
             <InstallButton />
           </div>
         </BlurFade>
