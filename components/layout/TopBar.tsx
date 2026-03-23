@@ -86,39 +86,31 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     staleTime: 60_000,
   })
 
-  const { data: _candidatsRaw } = useQuery({
-    queryKey: ['candidats', {}],
+  // Recherche via l'API serveur (RPC full-text)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const { data: searchResults, isFetching: searchFetching } = useQuery({
+    queryKey: ['topbar-search', debouncedQuery],
     queryFn: async () => {
-      const res = await fetch('/api/candidats')
-      if (!res.ok) return { candidats: [], total: 0 }
-      const { candidats, total } = await res.json()
-      return { candidats: (candidats || []) as Candidat[], total: (total || 0) as number }
+      if (!debouncedQuery.trim()) return []
+      const res = await fetch(`/api/candidats?search=${encodeURIComponent(debouncedQuery)}&per_page=8&import_status=all`)
+      if (!res.ok) return []
+      const { candidats } = await res.json()
+      return (candidats || []) as Candidat[]
     },
-    staleTime: 60_000,
+    enabled: debouncedQuery.trim().length > 0,
+    staleTime: 10_000,
   })
-  const allCandidats = _candidatsRaw?.candidats
 
   const filtered = useMemo(() => {
     if (aiResults !== null) return aiResults
-    if (!query.trim() || !allCandidats) return []
-    const q = query.toLowerCase()
-    return (allCandidats as any[]).filter((c: any) =>
-      (c.nom || '').toLowerCase().includes(q) ||
-      (c.prenom || '').toLowerCase().includes(q) ||
-      (c.titre_poste || '').toLowerCase().includes(q) ||
-      (c.email || '').toLowerCase().includes(q) ||
-      (c.localisation || '').toLowerCase().includes(q) ||
-      (c.formation || '').toLowerCase().includes(q) ||
-      (c.resume_ia || '').toLowerCase().includes(q) ||
-      (c.cv_texte_brut || '').toLowerCase().includes(q) ||
-      (c.competences || []).some((s: string) => s.toLowerCase().includes(q)) ||
-      (c.langues || []).some((s: string) => s.toLowerCase().includes(q)) ||
-      (c.experiences || []).some((e: any) =>
-        (e.poste || '').toLowerCase().includes(q) ||
-        (e.entreprise || '').toLowerCase().includes(q)
-      )
-    ).slice(0, 8)
-  }, [allCandidats, query, aiResults])
+    if (!debouncedQuery.trim()) return []
+    return searchResults || []
+  }, [searchResults, debouncedQuery, aiResults])
 
   const handleAiSearch = useCallback(async () => {
     if (!query.trim()) return

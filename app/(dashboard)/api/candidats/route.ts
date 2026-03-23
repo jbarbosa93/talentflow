@@ -36,17 +36,19 @@ export async function GET(request: NextRequest) {
       .from('candidats')
       .select(LIST_COLUMNS, { count: 'exact' })
 
-    // Filtres
-    if (statut) query = query.eq('statut_pipeline', statut as any)
-    if (importStatus) query = query.eq('import_status', importStatus as any)
+    // Filtres — 'all' = pas de filtre
+    const effectiveImportStatus = importStatus && importStatus !== 'all' ? importStatus : ''
+    const effectiveStatut = statut && statut !== 'all' ? statut : ''
+    if (effectiveStatut) query = query.eq('statut_pipeline', effectiveStatut as any)
+    if (effectiveImportStatus) query = query.eq('import_status', effectiveImportStatus as any)
 
     // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
       const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
         search_query: words.join(' '),
-        filter_import_status: importStatus || null,
-        filter_statut: statut || null,
+        filter_import_status: effectiveImportStatus || null,
+        filter_statut: effectiveStatut || null,
         result_limit: 10000,
       })
       const searchIds = rpcResult.data as { id: string }[] | null
