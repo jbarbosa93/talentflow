@@ -493,16 +493,22 @@ function EmailTab() {
         {/* Template */}
         <div>
           <label style={labelStyle}>Template (optionnel)</label>
-          <Select value={templateId} onValueChange={handleTemplateChange}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-              <SelectValue placeholder="Charger un template..." />
-            </SelectTrigger>
-            <SelectContent>
-              {templates?.map((t: any) => (
-                <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <select
+            value={templateId}
+            onChange={e => handleTemplateChange(e.target.value)}
+            style={{
+              width: '100%', height: 42, padding: '0 14px',
+              background: 'var(--card)', border: '2px solid var(--border)',
+              borderRadius: 8, color: 'var(--foreground)',
+              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)',
+              cursor: 'pointer', appearance: 'auto',
+            }}
+          >
+            <option value="">Charger un template...</option>
+            {templates?.map((t: any) => (
+              <option key={t.id} value={t.id}>{t.nom}</option>
+            ))}
+          </select>
         </div>
 
         {/* Destinataires multi-email */}
