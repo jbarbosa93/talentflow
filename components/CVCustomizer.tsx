@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { X, Download, Eye, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages } from 'lucide-react'
 import { toast } from 'sonner'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Candidat {
   id: string
@@ -62,9 +63,30 @@ export default function CVCustomizerModal({
     show_permis: !!candidat.permis_conduire,
   })
   const [customContent, setCustomContent] = useState<Record<string, string>>({})
+  const [recruiterInfo, setRecruiterInfo] = useState<{ prenom: string; nom: string; email: string; telephone?: string; entreprise?: string } | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [downloading, setDownloading] = useState(false)
+
+  // Récupérer les infos du recruteur connecté
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const meta = user.user_metadata || {}
+        setRecruiterInfo({
+          prenom: meta.prenom || '',
+          nom: meta.nom || '',
+          email: user.email || '',
+          telephone: meta.telephone || meta.phone || '',
+          entreprise: meta.entreprise || 'L-Agence SA',
+        })
+      }
+    })
+  }, [])
 
   useEffect(() => {
     setCustomContent({
@@ -79,6 +101,7 @@ export default function CVCustomizerModal({
   const buildPayload = () => ({
     candidat_id: candidat.id,
     included_sections: Object.entries(sections).filter(([, v]) => v).map(([k]) => k),
+    recruiter_info: recruiterInfo || undefined,
     custom_content: {
       ...customContent,
       show_localisation: infoFields.show_localisation ? '1' : '0',
