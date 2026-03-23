@@ -154,15 +154,21 @@ const CandidatCard = memo(function CandidatCard({
             <MapPin size={9} />{item.localisation}
           </span>
         )}
-        {item.annees_exp > 0 && (
-          <span style={{
-            fontSize: 10, color: 'var(--muted-foreground)',
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: 'var(--secondary)', padding: '2px 8px', borderRadius: 6,
-          }}>
-            <Briefcase size={9} />{item.annees_exp}ans
-          </span>
-        )}
+        {item.date_naissance && (() => {
+          const dn = item.date_naissance
+          let age: number | null = null
+          if (/^\d+$/.test(dn) && parseInt(dn) > 1900) age = new Date().getFullYear() - parseInt(dn)
+          else { const d = new Date(dn); if (!isNaN(d.getTime())) age = Math.floor((Date.now() - d.getTime()) / 31557600000) }
+          return age && age > 0 && age < 120 ? (
+            <span style={{
+              fontSize: 10, color: 'var(--muted-foreground)',
+              display: 'flex', alignItems: 'center', gap: 3,
+              background: 'var(--secondary)', padding: '2px 8px', borderRadius: 6,
+            }}>
+              <Calendar size={9} />{age}ans
+            </span>
+          ) : null
+        })()}
         {item.score_ia != null && (
           <span style={{
             fontSize: 10, fontWeight: 700, color: scoreColor(item.score_ia),
@@ -308,14 +314,14 @@ export default function PipelinePage() {
         const [nouveaux, autres] = await Promise.all([
           supabase
             .from('candidats')
-            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+            .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at')
             .eq('statut_pipeline', 'nouveau')
             .gt('created_at', cutoffDate)
             .order('created_at', { ascending: false })
             .limit(100),
           supabase
             .from('candidats')
-            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+            .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at')
             .in('statut_pipeline', ['contacte', 'entretien', 'place', 'refuse'])
             .order('updated_at', { ascending: false })
             .limit(500),
@@ -327,7 +333,7 @@ export default function PipelinePage() {
       } else {
         const { data: pipelineData, error } = await supabase
           .from('pipeline')
-          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at)')
+          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at)')
           .eq('offre_id', offreFilter)
         if (error) throw error
         return (pipelineData || []).map((p: any) => ({
@@ -586,11 +592,8 @@ export default function PipelinePage() {
             overflowX: 'auto', paddingBottom: 8, minHeight: 0,
           }}>
             {ETAPES.map((etape, colIndex) => (
-              <motion.div
+              <div
                 key={etape.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: colIndex * 0.06, duration: 0.4 }}
                 style={{
                   flex: 1, minWidth: 240, maxWidth: 320,
                   display: 'flex', flexDirection: 'column', minHeight: 0,
@@ -687,7 +690,7 @@ export default function PipelinePage() {
                     </div>
                   )}
                 </Droppable>
-              </motion.div>
+              </div>
             ))}
           </div>
         </DragDropContext>
