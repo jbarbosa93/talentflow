@@ -6,9 +6,10 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, Activity,
 } from 'lucide-react'
 import CVCustomizerModal from '@/components/CVCustomizer'
+import ActivityHistory from '@/components/ActivityHistory'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
@@ -150,6 +151,7 @@ export default function CandidatDetailPage() {
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
+  const [showActivityHistory, setShowActivityHistory] = useState(false)
   const [mergeSearch, setMergeSearch]     = useState('')
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
   const [mergeLoading, setMergeLoading]   = useState(false)
@@ -734,6 +736,10 @@ export default function CandidatDetailPage() {
                 <button onClick={() => { setShowMergeSearch(true); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Merge size={14} color="var(--muted)" /> Fusionner avec...
+                </button>
+                <button onClick={() => { setShowActivityHistory(true); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <Activity size={14} color="var(--primary)" /> Historique d&apos;activité
                 </button>
                 <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
@@ -1911,6 +1917,14 @@ export default function CandidatDetailPage() {
       {/* ── CV Customizer Modal ── */}
       {showCvCustomizer && candidat && (
         <CVCustomizerModal candidat={candidat} onClose={() => setShowCvCustomizer(false)} />
+      )}
+
+      {showActivityHistory && candidat && (
+        <ActivityHistory
+          candidatId={candidat.id}
+          candidatNom={`${candidat.prenom || ''} ${candidat.nom || ''}`.trim()}
+          onClose={() => setShowActivityHistory(false)}
+        />
       )}
 
       <style>{`

@@ -52,13 +52,15 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient() as any
     const { searchParams } = new URL(request.url)
 
-    const search   = searchParams.get('search') || ''
-    const type     = searchParams.get('type') || ''
-    const userId   = searchParams.get('user_id') || ''
-    const dateFrom = searchParams.get('date_from') || ''
-    const dateTo   = searchParams.get('date_to') || ''
-    const page     = parseInt(searchParams.get('page') || '1')
-    const perPage  = Math.min(parseInt(searchParams.get('per_page') || '20'), 100)
+    const search      = searchParams.get('search') || ''
+    const type        = searchParams.get('type') || ''
+    const userId      = searchParams.get('user_id') || ''
+    const candidatId  = searchParams.get('candidat_id') || ''
+    const clientId    = searchParams.get('client_id') || ''
+    const dateFrom    = searchParams.get('date_from') || ''
+    const dateTo      = searchParams.get('date_to') || ''
+    const page        = parseInt(searchParams.get('page') || '1')
+    const perPage     = Math.min(parseInt(searchParams.get('per_page') || '20'), 100)
 
     let query = supabase
       .from('activites')
@@ -76,6 +78,14 @@ export async function GET(request: NextRequest) {
 
     if (userId) {
       query = query.eq('user_id', userId)
+    }
+
+    if (candidatId) {
+      query = query.eq('candidat_id', candidatId)
+    }
+
+    if (clientId) {
+      query = query.eq('client_id', clientId)
     }
 
     if (dateFrom) {

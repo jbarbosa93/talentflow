@@ -697,17 +697,27 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
   await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), email: analyse.email || '—' } })
 
-  // Log activité équipe
+  // Log activité équipe — première entrée dans l'historique du candidat
   try {
     const routeUser = await getRouteUser()
     const candidatNom = `${analyse.prenom || ''} ${analyse.nom}`.trim()
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const timeStr = now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')
     await logActivityServer({
       ...routeUser,
       type: 'candidat_importe',
-      titre: `Import CV — ${candidatNom}`,
-      description: `${analyse.titre_poste || 'Sans poste'} — importé depuis upload`,
+      titre: `Candidat importé le ${dateStr} à ${timeStr}`,
+      description: `${candidatNom} — ${analyse.titre_poste || 'Sans poste'} — importé depuis upload`,
       candidat_id: candidat?.id,
       candidat_nom: candidatNom,
+      metadata: {
+        source: 'import_cv',
+        import_status: 'a_traiter',
+        fichier: file.name,
+        titre_poste: analyse.titre_poste || null,
+        email: analyse.email || null,
+      },
     })
   } catch {}
 

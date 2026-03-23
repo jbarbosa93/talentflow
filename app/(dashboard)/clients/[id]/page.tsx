@@ -4,10 +4,11 @@ import { useState } from 'react'
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
-  Briefcase, MessageSquare, Users, Smartphone, User,
+  Briefcase, MessageSquare, Users, Smartphone, User, Activity,
 } from 'lucide-react'
 import { useClient, useUpdateClient, useDeleteClient, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
+import ActivityHistory from '@/components/ActivityHistory'
 
 // Editable field component
 function EditableField({ label, value, field, icon, onSave, multiline }: {
@@ -116,6 +117,7 @@ export default function ClientDetailPage() {
   const updateClient = useUpdateClient()
   const deleteClient = useDeleteClient()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showActivityHistory, setShowActivityHistory] = useState(false)
 
   const handleSave = (field: string, value: string) => {
     updateClient.mutate({ id, data: { [field]: value } as any })
@@ -253,22 +255,39 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        {/* Delete button */}
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            border: '1.5px solid var(--border)', background: 'var(--card)',
-            color: 'var(--muted)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'color 0.15s, border-color 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#EF4444' }}
-          onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-          title="Supprimer ce client"
-        >
-          <Trash2 size={16} />
-        </button>
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button
+            onClick={() => setShowActivityHistory(true)}
+            style={{
+              width: 40, height: 40, borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--card)',
+              color: 'var(--muted)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            title="Historique d'activité"
+          >
+            <Activity size={16} />
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{
+              width: 40, height: 40, borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--card)',
+              color: 'var(--muted)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#EF4444' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            title="Supprimer ce client"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Info cards grid */}
@@ -479,6 +498,14 @@ export default function ClientDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showActivityHistory && client && (
+        <ActivityHistory
+          clientId={client.id}
+          clientNom={client.nom_entreprise || ''}
+          onClose={() => setShowActivityHistory(false)}
+        />
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

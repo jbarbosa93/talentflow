@@ -35,6 +35,7 @@ export function useActivites(filters?: {
   search?: string
   type?: string
   user_id?: string
+  candidat_id?: string
   date_from?: string
   date_to?: string
   page?: number
@@ -47,6 +48,7 @@ export function useActivites(filters?: {
       if (filters?.search) params.set('search', filters.search)
       if (filters?.type) params.set('type', filters.type)
       if (filters?.user_id) params.set('user_id', filters.user_id)
+      if (filters?.candidat_id) params.set('candidat_id', filters.candidat_id)
       if (filters?.date_from) params.set('date_from', filters.date_from)
       if (filters?.date_to) params.set('date_to', filters.date_to)
       if (filters?.page) params.set('page', String(filters.page))
