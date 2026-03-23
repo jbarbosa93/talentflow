@@ -89,9 +89,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles)
     const valid = arr.filter(f => FORMATS_OK.includes(getExt(f.name)))
-    const invalid = arr.length - valid.length
-    if (invalid > 0) {
-      toast.error(`${invalid} fichier(s) ignoré(s) — formats acceptés : ${FORMATS_OK.join(', ')}`)
+    const invalidFiles = arr.filter(f => !FORMATS_OK.includes(getExt(f.name)))
+    if (invalidFiles.length > 0) {
+      const names = invalidFiles.map(f => f.name).slice(0, 10).join('\n• ')
+      toast.error(`${invalidFiles.length} fichier(s) ignoré(s) :\n• ${names}${invalidFiles.length > 10 ? `\n...et ${invalidFiles.length - 10} autres` : ''}\n\nFormats acceptés : ${FORMATS_OK.join(', ')}`, { duration: 8000 })
     }
     setFiles(prev => {
       const existing = new Set(prev.map(f => `${f.file.name}-${f.file.size}`))
