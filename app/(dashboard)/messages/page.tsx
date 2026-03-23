@@ -1,6 +1,6 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin } from 'lucide-react'
 import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useEmailTemplates, useCreateTemplate } from '@/hooks/useMessages'
 import { useCandidats } from '@/hooks/useCandidats'
+import { useClients, type Client } from '@/hooks/useClients'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -227,6 +228,429 @@ function CandidatSearch({
   )
 }
 
+// ─── Geo Helpers ─────────────────────────────────────────────────────────────
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+}
+
+// ─── Client Picker Modal ──────────────────────────────────────────────────────
+
+function ClientPickerModal({
+  onClose,
+  onConfirm,
+  alreadySelected,
+}: {
+  onClose: () => void
+  onConfirm: (emails: string[]) => void
+  alreadySelected: string[]
+}) {
+  const [search, setSearch] = useState('')
+  const [secteurFilter, setSecteurFilter] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set(alreadySelected))
+
+  // ── Location / distance ─────────────────────────────────────────────
+  const [refInput, setRefInput] = useState('')
+  const [refSuggestions, setRefSuggestions] = useState<Array<{ lat: number; lng: number; display: string }>>([])
+  const [refLoc, setRefLoc] = useState<{ lat: number; lng: number; label: string } | null>(null)
+  const [refLoading, setRefLoading] = useState(false)
+  const [maxKm, setMaxKm] = useState<number | null>(null)
+  const [cityCoords, setCityCoords] = useState<Record<string, { lat: number; lng: number } | null>>({})
+  const coordsCacheRef = useRef<Record<string, { lat: number; lng: number } | null>>({})
+  const geocodeQueueRef = useRef<string[]>([])
+  const geocodingRef = useRef(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const handleRefInput = (val: string) => {
+    setRefInput(val)
+    setRefLoc(null)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!val.trim()) { setRefSuggestions([]); return }
+    debounceRef.current = setTimeout(async () => {
+      setRefLoading(true)
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5&accept-language=fr`, { headers: { 'User-Agent': 'TalentFlow/1.0' } })
+        const data = await r.json()
+        setRefSuggestions(data.slice(0, 5).map((d: any) => ({ lat: +d.lat, lng: +d.lon, display: d.display_name })))
+      } catch {}
+      setRefLoading(false)
+    }, 400)
+  }
+
+  const queueGeocode = useCallback(async (cityKeys: string[]) => {
+    for (const key of cityKeys) {
+      if (coordsCacheRef.current[key] !== undefined || geocodeQueueRef.current.includes(key)) continue
+      geocodeQueueRef.current.push(key)
+    }
+    if (geocodingRef.current) return
+    geocodingRef.current = true
+    while (geocodeQueueRef.current.length > 0) {
+      const key = geocodeQueueRef.current.shift()!
+      if (coordsCacheRef.current[key] !== undefined) continue
+      await new Promise(r => setTimeout(r, 300))
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(key)}&format=json&limit=1`, { headers: { 'User-Agent': 'TalentFlow/1.0' } })
+        const data = await r.json()
+        coordsCacheRef.current[key] = data[0] ? { lat: +data[0].lat, lng: +data[0].lon } : null
+      } catch {
+        coordsCacheRef.current[key] = null
+      }
+      setCityCoords({ ...coordsCacheRef.current })
+    }
+    geocodingRef.current = false
+  }, [])
+
+  const getCityKey = (c: Client) => [c.ville, c.npa, c.canton].filter(Boolean).join(' ')
+
+  const getDistance = useCallback((c: Client): number | null => {
+    if (!refLoc) return null
+    const key = getCityKey(c)
+    const coords = cityCoords[key]
+    if (!coords) return null
+    return haversineKm(refLoc.lat, refLoc.lng, coords.lat, coords.lng)
+  }, [refLoc, cityCoords])
+
+  const { data } = useClients({ per_page: 500 })
+  const clients: Client[] = data?.clients || []
+
+  // Unique secteurs
+  const secteurs = Array.from(new Set(clients.map(c => c.secteur).filter(Boolean))).sort((a, b) => a!.localeCompare(b!, 'fr')) as string[]
+
+  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = normalize(search)
+
+  const filtered = clients.filter(c => {
+    if (secteurFilter && c.secteur !== secteurFilter) return false
+    if (maxKm !== null && refLoc) {
+      const dist = getDistance(c)
+      if (dist === null || dist > maxKm) return false
+    }
+    if (!q) return true
+    const hay = normalize(`${c.nom_entreprise} ${c.secteur || ''} ${c.ville || ''} ${c.email || ''} ${(c.contacts || []).map((ct: any) => `${ct.nom || ''} ${ct.email || ''}`).join(' ')}`)
+    return hay.includes(q)
+  })
+
+  // Trigger geocoding of visible clients when ref location is set
+  useEffect(() => {
+    if (!refLoc) return
+    const keys = clients.map(getCityKey).filter(Boolean)
+    queueGeocode([...new Set(keys)])
+  }, [refLoc, clients, queueGeocode])
+
+  const hasEmail = (c: Client) => !!(c.email || (c.contacts || []).some((ct: any) => ct.email))
+
+  const displayList = [...filtered].sort((a, b) => {
+    const aE = hasEmail(a), bE = hasEmail(b)
+    if (aE !== bE) return aE ? -1 : 1
+    if (refLoc) return (getDistance(a) ?? Infinity) - (getDistance(b) ?? Infinity)
+    return 0
+  })
+
+  // All possible emails in filtered list
+  const allEmails = filtered.flatMap(c => {
+    const emails: string[] = []
+    if (c.email) emails.push(c.email)
+    if (c.contacts) {
+      for (const ct of c.contacts) {
+        if (ct.email) emails.push(ct.email)
+      }
+    }
+    return emails
+  })
+
+  const allSelected = allEmails.length > 0 && allEmails.every(e => selected.has(e))
+
+  const toggleEmail = (email: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(email)) next.delete(email)
+      else next.add(email)
+      return next
+    })
+  }
+
+  const toggleClient = (client: Client) => {
+    const emails: string[] = []
+    if (client.email) emails.push(client.email)
+    if (client.contacts) for (const ct of client.contacts) { if (ct.email) emails.push(ct.email) }
+    const allChecked = emails.length > 0 && emails.every(e => selected.has(e))
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (allChecked) emails.forEach(e => next.delete(e))
+      else emails.forEach(e => next.add(e))
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        allEmails.forEach(e => next.delete(e))
+        return next
+      })
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev)
+        allEmails.forEach(e => next.add(e))
+        return next
+      })
+    }
+  }
+
+  const newCount = [...selected].filter(e => !alreadySelected.includes(e)).length
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--card)', borderRadius: 18, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.3)', border: '2px solid var(--border)' }}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1.5px solid var(--border)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div>
+              <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Choisir les destinataires</h2>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: '3px 0 0' }}>Sélectionnez les clients et contacts à ajouter en CCI</p>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+              <X size={14} />
+            </button>
+          </div>
+          {/* Search + filters */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: secteurs.length > 0 ? 10 : 0 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+              <input
+                autoFocus
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher par nom, secteur, ville, email..."
+                style={{ width: '100%', height: 38, paddingLeft: 32, paddingRight: 12, border: '2px solid var(--border)', borderRadius: 10, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+          </div>
+          {/* Secteur filter — dropdown */}
+          {secteurs.length > 0 && (
+            <select
+              value={secteurFilter}
+              onChange={e => setSecteurFilter(e.target.value)}
+              style={{
+                width: '100%', height: 38, padding: '0 12px',
+                border: '2px solid var(--border)', borderRadius: 10,
+                background: secteurFilter ? 'var(--primary)' : 'var(--secondary)',
+                color: secteurFilter ? '#0F172A' : 'var(--muted)',
+                fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body)',
+                cursor: 'pointer', outline: 'none',
+              }}
+            >
+              <option value="">Tous les secteurs / métiers</option>
+              {secteurs.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          )}
+
+          {/* ── Location / distance filter ───────────────────────── */}
+          <div style={{ position: 'relative', marginTop: 8 }}>
+            <div style={{ position: 'relative' }}>
+              <MapPin size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: refLoc ? '#F5A623' : 'var(--muted)', pointerEvents: 'none' }} />
+              <input
+                value={refInput}
+                onChange={e => handleRefInput(e.target.value)}
+                placeholder="Distance depuis... (ville, adresse)"
+                style={{ width: '100%', height: 38, paddingLeft: 32, paddingRight: refLoading ? 36 : refLoc ? 32 : 12, border: `2px solid ${refLoc ? '#F5A623' : 'var(--border)'}`, borderRadius: 10, background: refLoc ? '#FFFBEB' : 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              />
+              {refLoading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: 'var(--muted)', lineHeight: 1 }}>⏳</span>}
+              {refLoc && !refLoading && (
+                <button onMouseDown={e => { e.preventDefault(); setRefLoc(null); setRefInput(''); setRefSuggestions([]) }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex' }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            {/* Autocomplete suggestions */}
+            {refSuggestions.length > 0 && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', overflow: 'hidden' }}>
+                {refSuggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={e => { e.preventDefault(); setRefLoc({ lat: s.lat, lng: s.lng, label: s.display }); setRefInput(s.display.split(',').slice(0, 2).join(', ').trim()); setRefSuggestions([]) }}
+                    style={{ width: '100%', padding: '9px 14px', textAlign: 'left', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--foreground)', borderBottom: i < refSuggestions.length - 1 ? '1px solid var(--border)' : 'none', fontFamily: 'inherit' }}
+                    onMouseOver={e => e.currentTarget.style.background = 'var(--secondary)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'none'}
+                  >
+                    <span style={{ fontWeight: 700 }}>{s.display.split(',')[0]}</span>
+                    <span style={{ color: 'var(--muted)', marginLeft: 6 }}>{s.display.split(',').slice(1, 3).join(',')}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Rayon + sort options */}
+            {refLoc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Rayon :</span>
+                {[null, 10, 20, 50, 100, 200].map(km => (
+                  <button
+                    key={km ?? 'all'}
+                    onClick={() => setMaxKm(km)}
+                    style={{
+                      padding: '3px 10px', borderRadius: 20, border: `1.5px solid ${maxKm === km ? '#F5A623' : 'var(--border)'}`,
+                      background: maxKm === km ? '#FEF3C7' : 'var(--secondary)', color: maxKm === km ? '#92400E' : 'var(--muted)',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {km === null ? 'Tous' : `${km} km`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Select all bar */}
+        <div style={{ padding: '10px 24px', borderBottom: '1px solid var(--border)', background: 'var(--secondary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#F5A623' }}
+            />
+            Tout sélectionner ({allEmails.length} emails)
+          </label>
+          <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+            {selected.size} email{selected.size !== 1 ? 's' : ''} sélectionné{selected.size !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Client list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 24px' }}>
+          {displayList.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)', fontSize: 13 }}>
+              {maxKm !== null ? `Aucun client dans un rayon de ${maxKm} km` : 'Aucun client trouvé'}
+            </div>
+          ) : (
+            displayList.map(client => {
+              const clientEmails: string[] = []
+              if (client.email) clientEmails.push(client.email)
+              const contacts: Array<{ nom?: string; prenom?: string; name?: string; email?: string; poste?: string }> = client.contacts || []
+              contacts.forEach((ct: any) => { if (ct.email) clientEmails.push(ct.email) })
+
+              const hasAnyEmail = clientEmails.length > 0
+              const clientAllChecked = hasAnyEmail && clientEmails.every(e => selected.has(e))
+              const clientSomeChecked = clientEmails.some(e => selected.has(e))
+
+              return (
+                <div key={client.id} style={{ borderBottom: '1px solid var(--border)', paddingTop: 10, paddingBottom: 10, opacity: hasAnyEmail ? 1 : 0.45 }}>
+                  {/* Client row */}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: hasAnyEmail ? 'pointer' : 'default' }}>
+                    <input
+                      type="checkbox"
+                      checked={clientAllChecked}
+                      disabled={!hasAnyEmail}
+                      ref={el => { if (el) el.indeterminate = !clientAllChecked && clientSomeChecked }}
+                      onChange={() => toggleClient(client)}
+                      style={{ width: 15, height: 15, cursor: hasAnyEmail ? 'pointer' : 'default', accentColor: '#F5A623', flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--foreground)' }}>{client.nom_entreprise}</span>
+                        {refLoc && (() => {
+                          const dist = getDistance(client)
+                          if (dist === null) return <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>…</span>
+                          const color = dist < 20 ? '#166534' : dist < 50 ? '#92400E' : '#6B7280'
+                          const bg = dist < 20 ? '#DCFCE7' : dist < 50 ? '#FEF3C7' : 'var(--secondary)'
+                          return (
+                            <span style={{ fontSize: 10, fontWeight: 800, color, background: bg, padding: '1px 6px', borderRadius: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {dist} km
+                            </span>
+                          )
+                        })()}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 8 }}>
+                        {client.secteur && <span>{client.secteur}</span>}
+                        {client.ville && <span>{client.ville}</span>}
+                        {client.email
+                          ? <span style={{ color: '#3B82F6' }}>{client.email}</span>
+                          : <span style={{ fontStyle: 'italic' }}>Pas d'email</span>
+                        }
+                      </div>
+                    </div>
+                    <a
+                      href={`/clients/${client.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      title="Ouvrir la fiche client (nouvel onglet)"
+                      style={{ flexShrink: 0, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 6, color: 'var(--muted)', textDecoration: 'none', border: '1px solid transparent', transition: 'all 0.15s' }}
+                      onMouseOver={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--foreground)' }}
+                      onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--muted)' }}
+                    >
+                      <ExternalLink size={11} />
+                    </a>
+                    {client.email && (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(client.email)}
+                        onChange={() => toggleEmail(client.email!)}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: 13, height: 13, cursor: 'pointer', accentColor: '#F5A623' }}
+                        title={client.email}
+                      />
+                    )}
+                  </label>
+                  {/* All contacts (grayed out if no email) */}
+                  {contacts.map((ct: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 25, marginTop: 4, opacity: ct.email ? 1 : 0.4 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!ct.email && selected.has(ct.email)}
+                        disabled={!ct.email}
+                        onChange={() => ct.email && toggleEmail(ct.email)}
+                        style={{ width: 13, height: 13, cursor: ct.email ? 'pointer' : 'default', accentColor: '#F5A623', flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>{ct.prenom || ''} {ct.nom || ct.name || ''}</span>
+                        {ct.poste && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 6 }}>· {ct.poste}</span>}
+                        {ct.email
+                          ? <span style={{ fontSize: 11, color: '#3B82F6', marginLeft: 6 }}>{ct.email}</span>
+                          : <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 6, fontStyle: 'italic' }}>Pas d'email</span>
+                        }
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 12 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', border: '2px solid var(--border)', borderRadius: 10, background: 'transparent', color: 'var(--foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Annuler
+          </button>
+          <button
+            onClick={() => onConfirm([...selected])}
+            disabled={selected.size === 0}
+            style={{ padding: '9px 22px', border: '2px solid #0F172A', borderRadius: 10, background: '#F5A623', color: '#0F172A', fontSize: 13, fontWeight: 800, cursor: selected.size > 0 ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: selected.size > 0 ? 1 : 0.5 }}
+          >
+            Ajouter {selected.size > 0 ? `${selected.size} email${selected.size > 1 ? 's' : ''}` : ''} en CCI
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Email Tab ────────────────────────────────────────────────────────────────
 
 function EmailTab() {
@@ -308,6 +732,7 @@ function EmailTab() {
   }
 
   const [doublonAlert, setDoublonAlert] = useState<{ doublons: any[]; onConfirm: () => void } | null>(null)
+  const [showClientPicker, setShowClientPicker] = useState(false)
 
   const doSend = () => {
     sendEmail.mutate({
@@ -513,18 +938,36 @@ function EmailTab() {
 
         {/* Destinataires multi-email */}
         <div>
-          <label style={labelStyle}>
-            Destinataires clients (CCI) *
-            {destinataires.length > 1 && (
-              <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
-                {destinataires.length} destinataires — envoi en copie cachée
-              </span>
-            )}
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>
+              Destinataires clients (CCI) *
+              {destinataires.length > 0 && (
+                <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
+                  {destinataires.length} destinataire{destinataires.length > 1 ? 's' : ''} — envoi en copie cachée
+                </span>
+              )}
+            </label>
+            <button
+              onClick={() => setShowClientPicker(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 8,
+                border: '2px solid var(--border)', background: 'var(--card)',
+                color: 'var(--foreground)', fontSize: 12, fontWeight: 700,
+                fontFamily: 'var(--font-body)', cursor: 'pointer',
+                transition: 'border-color 0.15s',
+              }}
+              onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+              onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <Users size={13} />
+              Choisir clients
+            </button>
+          </div>
           <EmailChipInput
             value={destinataires}
             onChange={setDestinataires}
-            placeholder="Ajouter un email (appuyez Entrée)..."
+            placeholder="Ajouter un email manuellement (appuyez Entrée)..."
           />
         </div>
 
@@ -565,6 +1008,24 @@ function EmailTab() {
           </Button>
         </div>
       </div>
+
+      {/* Client Picker Modal */}
+      {showClientPicker && (
+        <ClientPickerModal
+          onClose={() => setShowClientPicker(false)}
+          onConfirm={(emails) => {
+            setDestinataires(prev => {
+              const merged = [...prev]
+              for (const e of emails) {
+                if (!merged.includes(e)) merged.push(e)
+              }
+              return merged
+            })
+            setShowClientPicker(false)
+          }}
+          alreadySelected={destinataires}
+        />
+      )}
 
       {/* Alerte doublon envoi */}
       {doublonAlert && (
