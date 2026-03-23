@@ -1,6 +1,7 @@
 // app/(dashboard)/api/activites/route.ts
-// GET  /api/activites?search=xxx&type=email_envoye&user_id=xxx&page=1&per_page=20
-// POST /api/activites  body: { type, titre, description?, candidat_id?, ... }
+// GET    /api/activites?search=xxx&type=email_envoye&user_id=xxx&page=1&per_page=20
+// POST   /api/activites  body: { type, titre, description?, candidat_id?, ... }
+// DELETE /api/activites  body: { ids: string[] } | { types: string[] }
 
 /*
   ──────────────────────────────────────────────────
@@ -198,6 +199,39 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ activite: data }, { status: 201 })
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const serverSupabase = await createClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifie' }, { status: 401 })
+
+    const body = await request.json()
+    const supabase = createAdminClient() as any
+
+    if (body.ids && Array.isArray(body.ids) && body.ids.length > 0) {
+      // Delete specific IDs
+      const { error } = await supabase.from('activites').delete().in('id', body.ids)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ deleted: body.ids.length })
+    } else if (body.types && Array.isArray(body.types) && body.types.length > 0) {
+      // Delete all of given types
+      const { error, count } = await supabase
+        .from('activites')
+        .delete({ count: 'exact' })
+        .in('type', body.types)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ deleted: count })
+    } else {
+      return NextResponse.json({ error: 'ids ou types requis' }, { status: 400 })
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur serveur' },

@@ -1,15 +1,17 @@
 'use client'
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import {
   Activity, Mail, MessageCircle, Smartphone, FileText, Upload,
   Calendar, StickyNote, ArrowRight, Building2, Search, X,
   ChevronLeft, ChevronRight, Trash2, Edit3, Check, MessageSquare,
-  Filter,
+  Filter, CheckSquare, Square, AlertTriangle,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useActivites, useUpdateActiviteNotes, useDeleteActivite } from '@/hooks/useActivites'
 import type { Activite } from '@/hooks/useActivites'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 /* ─── Config ─── */
 
@@ -33,6 +35,7 @@ const TABS = [
   { key: 'cv',         label: 'CV',         types: 'cv_envoye,candidat_importe' },
   { key: 'entretiens', label: 'Entretiens', types: 'entretien_planifie' },
   { key: 'notes',      label: 'Notes',      types: 'note_ajoutee' },
+  { key: 'pipeline',   label: 'Pipeline',   types: 'statut_change' },
   { key: 'clients',    label: 'Clients',    types: 'client_contacte' },
 ]
 
@@ -158,7 +161,12 @@ function NoteEditor({ activite, onClose }: { activite: Activite; onClose: () => 
 
 /* ─── Activity Card Component ─── */
 
-function ActivityCard({ activite, index }: { activite: Activite; index: number }) {
+function ActivityCard({ activite, index, selected, onToggle }: {
+  activite: Activite
+  index: number
+  selected?: boolean
+  onToggle?: (id: string) => void
+}) {
   const [editingNote, setEditingNote] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const deleteActivite = useDeleteActivite()
@@ -176,6 +184,23 @@ function ActivityCard({ activite, index }: { activite: Activite; index: number }
       layout
     >
       <div style={{ display: 'flex', gap: 0 }}>
+        {/* Checkbox */}
+        {onToggle && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', paddingTop: 14, width: 28, flexShrink: 0 }}>
+            <div
+              onClick={() => onToggle(activite.id)}
+              style={{
+                width: 18, height: 18, borderRadius: 5,
+                border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+                background: selected ? 'var(--primary)' : 'transparent',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, transition: 'all 0.15s',
+              }}
+            >
+              {selected && <Check size={11} color="var(--ink, #1C1A14)" strokeWidth={3} />}
+            </div>
+          </div>
+        )}
         {/* Timeline */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -410,6 +435,10 @@ export default function ActivitesPage() {
   const [activeTab, setActiveTab] = useState('all')
   const [page, setPage] = useState(1)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showViderConfirm, setShowViderConfirm] = useState(false)
+  const [viderLoading, setViderLoading] = useState(false)
+  const queryClient = useQueryClient()
 
   const handleSearch = (val: string) => {
     setSearch(val)
@@ -422,6 +451,47 @@ export default function ActivitesPage() {
 
   const currentTab = TABS.find(t => t.key === activeTab) || TABS[0]
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+
+  const deselectAll = useCallback(() => setSelectedIds(new Set()), [])
+
+  const deleteSelected = useCallback(async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    const res = await fetch('/api/activites', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    if (!res.ok) { toast.error('Erreur suppression'); return }
+    toast.success(`${ids.length} activité${ids.length > 1 ? 's' : ''} supprimée${ids.length > 1 ? 's' : ''}`)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['activites'] })
+  }, [selectedIds, queryClient])
+
+  const viderOnglet = useCallback(async () => {
+    setViderLoading(true)
+    const types = currentTab.types ? currentTab.types.split(',') : Object.keys(TYPE_CONFIG)
+    const res = await fetch('/api/activites', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ types }),
+    })
+    setViderLoading(false)
+    setShowViderConfirm(false)
+    if (!res.ok) { toast.error('Erreur suppression'); return }
+    const { deleted } = await res.json()
+    toast.success(`${deleted ?? 'Toutes les'} activités supprimées`)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['activites'] })
+  }, [currentTab, queryClient])
+
   const { data, isLoading } = useActivites({
     search: debouncedSearch,
     type: currentTab.types || undefined,
@@ -432,6 +502,10 @@ export default function ActivitesPage() {
   const activites = data?.activites || []
   const total = data?.total || 0
   const totalPages = data?.total_pages || 1
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(activites.map((a: Activite) => a.id)))
+  }, [activites])
 
   // Group activities by date for section headers
   const groupedActivites = useMemo(() => {
@@ -470,32 +544,167 @@ export default function ActivitesPage() {
         initial="hidden"
         animate="show"
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Activity style={{ width: 22, height: 22, color: 'var(--primary)' }} />
-              Activite
-            </h1>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Activity style={{ width: 22, height: 22, color: 'var(--primary)' }} />
+                Activite
+              </h1>
+              {total > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}
+                  style={{
+                    padding: '3px 10px', borderRadius: 8,
+                    background: 'var(--primary)', color: 'var(--ink, #1C1A14)',
+                    fontSize: 12, fontWeight: 800,
+                  }}
+                >
+                  {total}
+                </motion.span>
+              )}
+            </div>
+            <p className="d-page-sub">
+              Fil d&apos;activite de l&apos;equipe — tout ce qui se passe en temps reel
+            </p>
+          </div>
+
+          {/* Actions toolbar */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Select all / deselect */}
+            {activites.length > 0 && (
+              <>
+                <button
+                  onClick={selectedIds.size === activites.length ? deselectAll : selectAll}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '7px 12px', borderRadius: 9,
+                    border: '2px solid var(--border)', background: 'var(--card)',
+                    color: 'var(--foreground)', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  {selectedIds.size === activites.length
+                    ? <><CheckSquare size={14} /> Tout désélectionner</>
+                    : <><Square size={14} /> Tout sélectionner</>
+                  }
+                </button>
+                {selectedIds.size > 0 && (
+                  <button
+                    onClick={deleteSelected}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '7px 12px', borderRadius: 9,
+                      border: '2px solid #EF4444',
+                      background: 'rgba(239,68,68,0.1)',
+                      color: '#EF4444', fontSize: 12, fontWeight: 700,
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    <Trash2 size={13} /> Supprimer ({selectedIds.size})
+                  </button>
+                )}
+              </>
+            )}
+            {/* Vider l'onglet */}
             {total > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.2 }}
+              <button
+                onClick={() => setShowViderConfirm(true)}
                 style={{
-                  padding: '3px 10px', borderRadius: 8,
-                  background: 'var(--primary)', color: 'var(--ink, #1C1A14)',
-                  fontSize: 12, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '7px 12px', borderRadius: 9,
+                  border: '2px solid var(--border)', background: 'var(--card)',
+                  color: 'var(--muted)', fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  transition: 'all 0.15s',
                 }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = '#EF4444'; e.currentTarget.style.color = '#EF4444' }}
+                onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
               >
-                {total}
-              </motion.span>
+                <Trash2 size={13} /> Vider l&apos;onglet
+              </button>
             )}
           </div>
-          <p className="d-page-sub">
-            Fil d&apos;activite de l&apos;equipe — tout ce qui se passe en temps reel
-          </p>
         </div>
       </motion.div>
+
+      {/* ── Confirm Vider Modal ── */}
+      <AnimatePresence>
+        {showViderConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowViderConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: 'var(--card)', borderRadius: 16,
+                border: '2px solid var(--border)',
+                padding: 28, maxWidth: 420, width: '90%',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: 'rgba(239,68,68,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <AlertTriangle size={22} color="#EF4444" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
+                    Vider l&apos;onglet &laquo; {currentTab.label} &raquo;
+                  </h3>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
+                    Cette action est irréversible.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowViderConfirm(false)}
+                  style={{
+                    padding: '9px 18px', borderRadius: 9, border: '2px solid var(--border)',
+                    background: 'var(--card)', color: 'var(--muted)',
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={viderOnglet}
+                  disabled={viderLoading}
+                  style={{
+                    padding: '9px 18px', borderRadius: 9,
+                    border: '2px solid #EF4444',
+                    background: '#EF4444', color: '#fff',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    opacity: viderLoading ? 0.7 : 1,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <Trash2 size={14} />
+                  {viderLoading ? 'Suppression...' : 'Vider tout'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Filter bar ── */}
       <motion.div
@@ -645,6 +854,8 @@ export default function ActivitesPage() {
                       key={activite.id}
                       activite={activite}
                       index={gi * 5 + i}
+                      selected={selectedIds.has(activite.id)}
+                      onToggle={toggleSelect}
                     />
                   ))}
                 </AnimatePresence>
