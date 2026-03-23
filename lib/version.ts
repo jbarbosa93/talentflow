@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.15.0'
+export const APP_VERSION = 'v0.16.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.16.0',
+    date: '2026-03-24',
+    label: 'Mailing Geo & Activites',
+    features: [
+      'Mailing : filtre distance geographique avec autocompletion (Nominatim/OpenStreetMap)',
+      'Mailing : rayon kilometrique configurable (10 / 20 / 50 / 100 / 200 km)',
+      'Mailing : tri automatique des clients du plus proche au plus loin',
+      'Mailing : badge km code-couleur (vert < 20km, orange < 50km, gris au-dela)',
+      'Mailing : clients sans email toujours en bas de liste',
+      'Mailing : secteurs/metiers tries A-Z dans la liste deroulante',
+      'Mailing : une seule checkbox par client (email boite), contacts selectionnables independamment',
+      'Mailing : bouton lien externe pour ouvrir la fiche client sans fermer la modale',
+      'Activites : onglet Pipeline (changements de statut)',
+      'Activites : onglet Messages (emails, WhatsApp, SMS, CV envoyes)',
+      'Activites : onglet Candidats remplace CV (imports + modifications)',
+      'Activites : filtre par plage de dates (du/au)',
+      'Activites : multi-selection avec tout selectionner / tout deselectionner',
+      'Activites : bouton Vider l\'onglet avec confirmation modale',
+      'Pipeline : bouton X rouge sur les cartes pour retirer un candidat du pipeline',
+      'Pipeline : surbrillance des colonnes corrigee (fonctionne meme avec des cartes dans la colonne)',
+      'Pipeline : colonne Refuse plus coupee a l\'affichage',
+      'Pipeline : bouton Retour contextuel (Retour au pipeline / Retour aux candidats)',
+      'Pipeline : suppression de la fleche orange (doublon du bouton oeil)',
+    ],
+  },
   {
     version: 'v0.15.0',
     date: '2026-03-23',
