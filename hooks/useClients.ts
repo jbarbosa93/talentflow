@@ -15,6 +15,7 @@ export interface Client {
   notes: string | null
   site_web: string | null
   statut: 'actif' | 'desactive'
+  contacts: any[] | null
   created_at: string
 }
 

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
-  Briefcase,
+  Briefcase, LayoutGrid, List,
 } from 'lucide-react'
 import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
 
@@ -279,6 +279,8 @@ export default function ClientsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statutFilter, setStatutFilter] = useState('all')
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [cantonFilter, setCantonFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   // Debounce search
@@ -387,6 +389,43 @@ export default function ClientsPage() {
           ))}
         </div>
 
+        {/* Canton filter */}
+        <select
+          value={cantonFilter}
+          onChange={e => { setCantonFilter(e.target.value); setPage(1) }}
+          style={{
+            height: 40, padding: '0 12px', borderRadius: 10,
+            border: '2px solid var(--border)', background: 'var(--card)',
+            color: cantonFilter ? 'var(--foreground)' : 'var(--muted)',
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'var(--font-body)', outline: 'none',
+          }}
+        >
+          <option value="">Canton</option>
+          {Object.keys(CANTON_COLORS).sort().map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+
+        {/* View toggle */}
+        <div style={{
+          display: 'flex', gap: 0, border: '2px solid var(--border)',
+          borderRadius: 10, overflow: 'hidden', background: 'var(--card)', marginLeft: 'auto',
+        }}>
+          <button onClick={() => setViewMode('grid')} style={{
+            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: viewMode === 'grid' ? 'var(--primary)' : 'transparent',
+            color: viewMode === 'grid' ? 'var(--ink)' : 'var(--muted)',
+            cursor: 'pointer', borderRight: '1px solid var(--border)',
+          }}><LayoutGrid size={16} /></button>
+          <button onClick={() => setViewMode('list')} style={{
+            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
+            color: viewMode === 'list' ? 'var(--ink)' : 'var(--muted)',
+            cursor: 'pointer',
+          }}><List size={16} /></button>
+        </div>
+
         {/* Loading indicator */}
         {isFetching && (
           <Loader2 size={18} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
@@ -402,7 +441,11 @@ export default function ClientsPage() {
           <Loader2 size={24} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
           <span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 600 }}>Chargement des clients...</span>
         </div>
-      ) : clients.length === 0 ? (
+      ) : (() => {
+        const filteredClients = cantonFilter
+          ? clients.filter(c => c.canton?.toUpperCase().trim() === cantonFilter)
+          : clients
+        return filteredClients.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '80px 20px',
           background: 'var(--card)', borderRadius: 16, border: '2px solid var(--border)',
@@ -417,11 +460,12 @@ export default function ClientsPage() {
         </div>
       ) : (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: 16,
+          display: viewMode === 'grid' ? 'grid' : 'flex',
+          gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(340px, 1fr))' : undefined,
+          flexDirection: viewMode === 'list' ? 'column' : undefined,
+          gap: viewMode === 'grid' ? 16 : 8,
         }}>
-          {clients.map(client => (
+          {filteredClients.map(client => (
             <div
               key={client.id}
               onClick={() => router.push(`/clients/${client.id}`)}
@@ -548,7 +592,7 @@ export default function ClientsPage() {
             </div>
           ))}
         </div>
-      )}
+      )})()}
 
       {/* Pagination */}
       {totalPages > 1 && (

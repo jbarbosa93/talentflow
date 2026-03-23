@@ -4,7 +4,7 @@ import { useState } from 'react'
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
-  Briefcase, MessageSquare,
+  Briefcase, MessageSquare, Users, Smartphone, User,
 } from 'lucide-react'
 import { useClient, useUpdateClient, useDeleteClient, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
@@ -354,6 +354,73 @@ export default function ClientDetailPage() {
           multiline
         />
       </div>
+
+      {/* Contacts clients */}
+      {(() => {
+        const contacts = typeof client.contacts === 'string' ? JSON.parse(client.contacts) : (client.contacts || [])
+        if (!contacts || contacts.length === 0) return null
+        return (
+          <div style={{
+            background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
+            padding: '20px 22px', marginBottom: 20,
+          }}>
+            <h3 style={{
+              fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 16px',
+              textTransform: 'uppercase', letterSpacing: 0.5,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Users size={14} />
+              Personnes de contact ({contacts.length})
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: contacts.length === 1 ? '1fr' : '1fr 1fr', gap: 12 }}>
+              {contacts.map((c: any, i: number) => (
+                <div key={i} style={{
+                  background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                  borderRadius: 10, padding: '14px 16px',
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 800, color: 'var(--ink)', flexShrink: 0,
+                    }}>
+                      {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase() || <User size={14} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+                        {[c.titre, c.prenom, c.nom].filter(Boolean).join(' ') || 'Contact'}
+                      </div>
+                      {c.fonction && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                          {c.fonction}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                    {c.telephone && (
+                      <a href={`tel:${c.telephone}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                        <Phone size={12} color="var(--muted)" /> {c.telephone}
+                      </a>
+                    )}
+                    {c.mobile && c.mobile !== c.telephone && (
+                      <a href={`tel:${c.mobile}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                        <Smartphone size={12} color="var(--muted)" /> {c.mobile}
+                      </a>
+                    )}
+                    {c.email && (
+                      <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: 'var(--primary-dark, #E6B800)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                        <Mail size={12} color="var(--muted)" /> {c.email}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Meta info */}
       <div style={{
