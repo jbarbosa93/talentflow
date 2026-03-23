@@ -43,6 +43,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH - Modifier le rôle d'un utilisateur
+export async function PATCH(request: NextRequest) {
+  try {
+    const { userId, role } = await request.json()
+    if (!userId) return NextResponse.json({ error: 'userId requis' }, { status: 400 })
+    if (!['Admin', 'Secrétaire', 'Consultant'].includes(role))
+      return NextResponse.json({ error: 'Rôle invalide' }, { status: 400 })
+
+    const supabase = createAdminClient()
+    const { data: { user: existing }, error: fetchErr } = await supabase.auth.admin.getUserById(userId)
+    if (fetchErr || !existing) return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 })
+
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { ...existing.user_metadata, role },
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Erreur serveur'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
 // DELETE - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
   try {

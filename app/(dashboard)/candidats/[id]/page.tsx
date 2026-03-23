@@ -864,7 +864,7 @@ export default function CandidatDetailPage() {
                 <label style={labelStyle}>Coordonnées</label>
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Email"        value={editData.email}       onChange={e => set('email', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Téléphone"    value={editData.telephone}   onChange={e => set('telephone', e.target.value)} />
-                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Date de naissance (JJ.MM.AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
+                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Âge (ex: 65) ou date (JJ/MM/AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 2 }}>
                   <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
                   <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>

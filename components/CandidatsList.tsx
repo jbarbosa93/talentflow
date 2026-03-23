@@ -38,15 +38,32 @@ const SORT_OPTS = [
   { value: 'titre_az',   label: 'Métier A \u2192 Z' },
 ]
 
-// Calcule l'âge à partir d'une date de naissance (formats DD/MM/YYYY ou YYYY-MM-DD)
+// Calcule ou retourne l'âge depuis date_naissance
+// Accepte : DD/MM/YYYY · DD.MM.YYYY · YYYY-MM-DD · YYYY/MM/DD · "1985" (année) · "65" (âge direct)
 const calculerAge = (dateNaissance: string | null): number | null => {
   if (!dateNaissance) return null
+  const s = dateNaissance.trim()
+
+  // Âge direct : nombre entre 1 et 120 (ex: "65", "42")
+  if (/^\d{1,3}$/.test(s)) {
+    const n = parseInt(s, 10)
+    return n >= 1 && n <= 120 ? n : null
+  }
+
+  // Année seule sur 4 chiffres (ex: "1985")
+  if (/^\d{4}$/.test(s)) {
+    const age = new Date().getFullYear() - parseInt(s, 10)
+    return age > 0 && age < 120 ? age : null
+  }
+
   let birthDate: Date | null = null
-  const isoMatch = dateNaissance.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
+  // ISO ou YYYY/MM/DD
+  const isoMatch = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
   if (isoMatch) {
     birthDate = new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]))
   } else {
-    const euMatch = dateNaissance.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
+    // DD/MM/YYYY ou DD.MM.YYYY
+    const euMatch = s.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
     if (euMatch) {
       birthDate = new Date(parseInt(euMatch[3]), parseInt(euMatch[2]) - 1, parseInt(euMatch[1]))
     }
@@ -56,7 +73,7 @@ const calculerAge = (dateNaissance: string | null): number | null => {
   let age = today.getFullYear() - birthDate.getFullYear()
   const m = today.getMonth() - birthDate.getMonth()
   if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--
-  return age > 0 && age < 100 ? age : null
+  return age > 0 && age < 120 ? age : null
 }
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -555,10 +572,10 @@ export default function CandidatsList() {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             {c.titre_poste && (
-              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>{c.titre_poste}</span>
+              <span style={{ fontSize: 15, color: 'var(--foreground)', fontWeight: 600 }}>{c.titre_poste}</span>
             )}
             {c.localisation && (
-              <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 {'\uD83D\uDCCD'} {c.localisation}
               </span>
             )}

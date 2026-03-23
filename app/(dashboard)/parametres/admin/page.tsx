@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Shield, Trash2, UserPlus, Mail, Building2, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Shield, Trash2, UserPlus, Mail, Building2, RefreshCw, AlertTriangle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,7 @@ function RoleBadge({ role }: { role: string }) {
 export default function AdminPage() {
   const queryClient = useQueryClient()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [editingRole, setEditingRole] = useState<string | null>(null)
   const [inviteForm, setInviteForm] = useState({
     email: '',
     prenom: '',
@@ -102,6 +103,29 @@ export default function AdminPage() {
     onError: (err: Error) => {
       toast.error(err.message)
       setConfirmDelete(null)
+    },
+  })
+
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role }),
+      })
+      if (!res.ok) {
+        const body = await res.json()
+        throw new Error(body.error || 'Erreur lors de la modification')
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      setEditingRole(null)
+      toast.success('Rôle mis à jour')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+      setEditingRole(null)
     },
   })
 
@@ -283,9 +307,50 @@ export default function AdminPage() {
                         </div>
                       </td>
 
-                      {/* Rôle */}
+                      {/* Rôle — modifiable */}
                       <td style={{ padding: '12px 16px' }}>
-                        <RoleBadge role={user.role} />
+                        {editingRole === user.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <select
+                              defaultValue={user.role}
+                              autoFocus
+                              onBlur={e => {
+                                const newRole = e.currentTarget.value
+                                if (newRole !== user.role) {
+                                  updateRoleMutation.mutate({ userId: user.id, role: newRole })
+                                } else {
+                                  setEditingRole(null)
+                                }
+                              }}
+                              onChange={e => {
+                                const newRole = e.currentTarget.value
+                                updateRoleMutation.mutate({ userId: user.id, role: newRole })
+                              }}
+                              style={{
+                                fontSize: 12, fontWeight: 700, padding: '3px 8px',
+                                borderRadius: 8, border: '1.5px solid var(--primary)',
+                                background: 'var(--primary-soft)', color: 'var(--foreground)',
+                                cursor: 'pointer', outline: 'none',
+                              }}
+                            >
+                              <option value="Consultant">Consultant</option>
+                              <option value="Secrétaire">Secrétaire</option>
+                              <option value="Admin">Administrateur</option>
+                            </select>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setEditingRole(user.id)}
+                            title="Cliquer pour modifier le rôle"
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              padding: 0, display: 'flex', alignItems: 'center', gap: 5,
+                            }}
+                          >
+                            <RoleBadge role={user.role} />
+                            <span style={{ fontSize: 10, color: 'var(--muted)' }}>✎</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Entreprise */}
