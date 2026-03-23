@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2, X, Wrench,
+  Upload, Loader2, X, Wrench, Building2,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -18,6 +18,7 @@ import BetaBadge from '@/components/BetaBadge'
 const NAV_ITEMS = [
   { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/candidats',  label: 'Candidats',        icon: Users },
+  { href: '/clients',    label: 'Clients',           icon: Building2 },
   { href: '/offres',     label: 'Commandes',         icon: Briefcase },
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
   { href: '/entretiens', label: 'Entretiens',        icon: Calendar },
