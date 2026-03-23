@@ -426,18 +426,37 @@ function EmailTab() {
                 if (!c) return null
                 const isAttached = !!cvAttached[id]
                 return (
-                  <button key={id} onClick={() => setCvCandidatId(id)} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    padding: '6px 12px', borderRadius: 8,
+                  <span key={id} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 0,
+                    borderRadius: 8, overflow: 'hidden',
                     background: isAttached ? '#D1FAE5' : 'var(--secondary)',
                     border: isAttached ? '1.5px solid #10B981' : '1.5px solid var(--border)',
-                    fontSize: 12, fontWeight: 600,
-                    color: isAttached ? '#065F46' : 'var(--foreground)',
-                    cursor: 'pointer', transition: 'all 0.2s',
+                    transition: 'all 0.2s',
                   }}>
-                    {isAttached ? <Check size={12} /> : <Paperclip size={12} />}
-                    {isAttached ? `CV joint — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
-                  </button>
+                    <button onClick={() => setCvCandidatId(id)} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 12px', border: 'none', background: 'transparent',
+                      fontSize: 12, fontWeight: 600,
+                      color: isAttached ? '#065F46' : 'var(--foreground)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      {isAttached ? <Check size={12} /> : <Paperclip size={12} />}
+                      {isAttached ? `CV joint — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
+                    </button>
+                    <button onClick={(e) => {
+                      e.stopPropagation()
+                      setCandidatIds(prev => prev.filter(i => i !== id))
+                      setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
+                    }} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 28, height: '100%', border: 'none', background: 'transparent',
+                      cursor: 'pointer', color: isAttached ? '#065F46' : 'var(--muted)',
+                      borderLeft: isAttached ? '1px solid #10B981' : '1px solid var(--border)',
+                      padding: '4px 0',
+                    }}>
+                      <X size={12} />
+                    </button>
+                  </span>
                 )
               })}
             </div>
