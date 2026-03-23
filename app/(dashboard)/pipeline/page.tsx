@@ -24,6 +24,7 @@ const ETAPES: {
   borderColor: string
   icon: string
 }[] = [
+  { id: 'nouveau',   label: 'Nouveau',   color: '#3B82F6', bgSoft: 'rgba(59,130,246,0.08)',  borderColor: 'rgba(59,130,246,0.2)',  icon: '' },
   { id: 'contacte',  label: 'Contacté',  color: '#F59E0B', bgSoft: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)', icon: '' },
   { id: 'entretien', label: 'Entretien', color: '#8B5CF6', bgSoft: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.2)', icon: '' },
   { id: 'place',     label: 'Placé',     color: '#10B981', bgSoft: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)', icon: '' },
@@ -295,7 +296,8 @@ export default function PipelinePage() {
         const { data, error } = await supabase
           .from('candidats')
           .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
-          .in('statut_pipeline', ['contacte', 'entretien', 'place', 'refuse'])
+          .in('statut_pipeline', ['nouveau', 'contacte', 'entretien', 'place', 'refuse'])
+          .neq('import_status', 'a_traiter')
           .order('updated_at', { ascending: false })
           .limit(500)
         if (error) throw error
