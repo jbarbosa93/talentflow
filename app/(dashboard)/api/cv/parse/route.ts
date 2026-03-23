@@ -437,10 +437,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
   if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.nom && analyse.prenom) {
+    // Essai 1 : match exact nom + prénom
     const { data: byName } = await adminClient
       .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
       .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
     candidatExistant = byName
+
+    // Essai 2 : match flexible — le nom parsé contient le nom en base ou vice versa
+    // Utile pour les certificats où le nom est "FERREIRA GONÇALVES" mais en base c'est "Gonçalves"
+    if (!candidatExistant) {
+      const fullNameParsed = `${analyse.prenom} ${analyse.nom}`.toLowerCase().trim()
+      const nameParts = fullNameParsed.split(/\s+/).filter((p: string) => p.length > 2)
+      // Chercher par le dernier mot du nom (souvent le nom de famille principal)
+      const lastNamePart = analyse.nom.split(/\s+/).pop() || analyse.nom
+      if (lastNamePart.length >= 3) {
+        const { data: byPartialName } = await adminClient
+          .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+          .ilike('nom', `%${lastNamePart}%`)
+          .limit(10)
+        if (byPartialName && byPartialName.length > 0) {
+          // Vérifier parmi les résultats si le prénom matche aussi (au moins le premier prénom)
+          const firstPrenom = analyse.prenom.split(/\s+/)[0].toLowerCase()
+          const match = byPartialName.find((c: any) => {
+            const cPrenom = (c.prenom || '').toLowerCase()
+            const cNom = (c.nom || '').toLowerCase()
+            const cFull = `${cPrenom} ${cNom}`
+            return cPrenom.includes(firstPrenom) || firstPrenom.includes(cPrenom.split(/\s+/)[0])
+          })
+          if (match) candidatExistant = match
+        }
+      }
+    }
   }
   // Classification document
   const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
