@@ -1,6 +1,8 @@
 'use client'
-import { useState, memo, useCallback, useMemo } from 'react'
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+import { useState, useCallback, useMemo } from 'react'
+import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, useDroppable, DragOverEvent } from '@dnd-kit/core'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -193,26 +195,20 @@ const CandidatCard = memo(function CandidatCard({
       )}
 
       {/* Quick actions on hover */}
-      <AnimatePresence>
-        {hovered && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 4 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              marginTop: 10, paddingTop: 10,
-              borderTop: '1px solid var(--border)',
-            }}
-          >
-            <QuickAction icon={Eye} label="Voir profil" />
-            <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" />
-            <QuickAction icon={MessageSquare} label="Ajouter note" color="#3B82F6" />
-            <QuickAction icon={ArrowRight} label="Déplacer" color="#F59E0B" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {hovered && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            marginTop: 10, paddingTop: 10,
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}`} />
+          <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
+          <QuickAction icon={MessageSquare} label="Envoyer CV" color="#3B82F6" onClick={() => window.location.href = '/messages'} />
+          <QuickAction icon={ArrowRight} label="Voir fiche" color="#F59E0B" onClick={() => window.location.href = `/candidats/${item.id}`} />
+        </div>
+      )}
     </div>
   )
 })

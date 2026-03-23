@@ -47,7 +47,7 @@ export default function MessagesPage() {
   return (
     <div className="d-page" style={{ maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Mailing en masse</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Envois</h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>Contactez vos candidats par email, WhatsApp ou SMS</p>
       </div>
 
