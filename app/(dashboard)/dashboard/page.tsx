@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2 } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
@@ -322,6 +322,139 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* ── Activite recente ── */}
+      <RecentActivityWidget />
+
     </div>
+  )
+}
+
+/* ─── Activity type config ─── */
+const ACT_TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  email_envoye:      { icon: Mail,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
+  whatsapp_envoye:   { icon: MessageCircle,  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  sms_envoye:        { icon: Smartphone,     color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
+  cv_envoye:         { icon: FileText,       color: '#F97316', bg: 'rgba(249,115,22,0.15)' },
+  candidat_importe:  { icon: Upload,         color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
+  candidat_modifie:  { icon: Activity,       color: '#6366F1', bg: 'rgba(99,102,241,0.15)' },
+  entretien_planifie:{ icon: Calendar,       color: '#7C3AED', bg: 'rgba(124,58,237,0.15)' },
+  note_ajoutee:      { icon: StickyNote,     color: '#D97706', bg: 'rgba(217,119,6,0.15)' },
+  statut_change:     { icon: ArrowRight,     color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  client_contacte:   { icon: Building2,      color: '#14B8A6', bg: 'rgba(20,184,166,0.15)' },
+}
+
+function actTempsRelatif(dateStr: string): string {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const diffSec = Math.floor((now - then) / 1000)
+  if (diffSec < 60) return 'a l\'instant'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `il y a ${diffMin} min`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `il y a ${diffH}h`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD === 1) return 'hier'
+  if (diffD < 7) return `il y a ${diffD}j`
+  return `il y a ${Math.floor(diffD / 7)} sem.`
+}
+
+function actInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (name[0] || '?').toUpperCase()
+}
+
+function RecentActivityWidget() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['activites', { per_page: 8, page: 1 }],
+    queryFn: async () => {
+      const res = await fetch('/api/activites?per_page=8&page=1')
+      if (!res.ok) throw new Error('Erreur chargement')
+      return res.json()
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  })
+
+  const activites = data?.activites || []
+
+  return (
+    <motion.div
+      custom={3}
+      variants={fadeUp}
+      initial="hidden"
+      animate="show"
+      className="neo-card-soft"
+      style={{ padding: 24, marginTop: 20 }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 className="neo-section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Activity style={{ width: 16, height: 16, color: 'var(--primary)' }} />
+          Activite recente
+        </h2>
+        <Link href="/activites" style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+          Voir tout <ArrowRight style={{ width: 13, height: 13 }} />
+        </Link>
+      </div>
+
+      {isLoading && activites.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+          Chargement...
+        </div>
+      ) : activites.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+          Aucune activite pour le moment
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {activites.map((a: any, i: number) => {
+            const config = ACT_TYPE_CONFIG[a.type] || ACT_TYPE_CONFIG.statut_change
+            const Icon = config.icon
+            return (
+              <motion.div
+                key={a.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04, type: 'spring', stiffness: 300, damping: 25 }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', borderRadius: 10,
+                  transition: 'background 0.12s',
+                  cursor: 'default',
+                }}
+                whileHover={{ backgroundColor: 'var(--secondary, rgba(0,0,0,0.03))' }}
+              >
+                {/* Colored dot */}
+                <div style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: config.color, flexShrink: 0,
+                }} />
+                {/* Avatar */}
+                <div style={{
+                  width: 26, height: 26, borderRadius: 8,
+                  background: config.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, fontSize: 10, fontWeight: 800, color: config.color,
+                }}>
+                  {actInitials(a.user_name || '')}
+                </div>
+                {/* Title */}
+                <span style={{
+                  flex: 1, fontSize: 12, fontWeight: 600,
+                  color: 'var(--foreground)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {a.titre}
+                </span>
+                {/* Time */}
+                <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, fontWeight: 500 }}>
+                  {actTempsRelatif(a.created_at)}
+                </span>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+    </motion.div>
   )
 }
