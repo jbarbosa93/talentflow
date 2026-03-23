@@ -545,20 +545,20 @@ function ClientPickerModal({
               contacts.forEach((ct: any) => { if (ct.email) clientEmails.push(ct.email) })
 
               const hasAnyEmail = clientEmails.length > 0
-              const clientAllChecked = hasAnyEmail && clientEmails.every(e => selected.has(e))
-              const clientSomeChecked = clientEmails.some(e => selected.has(e))
+              const companyChecked = !!client.email && selected.has(client.email)
+              const someChecked = clientEmails.some(e => selected.has(e))
 
               return (
                 <div key={client.id} style={{ borderBottom: '1px solid var(--border)', paddingTop: 10, paddingBottom: 10, opacity: hasAnyEmail ? 1 : 0.45 }}>
                   {/* Client row */}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: hasAnyEmail ? 'pointer' : 'default' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: client.email ? 'pointer' : 'default' }}>
                     <input
                       type="checkbox"
-                      checked={clientAllChecked}
-                      disabled={!hasAnyEmail}
-                      ref={el => { if (el) el.indeterminate = !clientAllChecked && clientSomeChecked }}
-                      onChange={() => toggleClient(client)}
-                      style={{ width: 15, height: 15, cursor: hasAnyEmail ? 'pointer' : 'default', accentColor: '#F5A623', flexShrink: 0 }}
+                      checked={companyChecked}
+                      disabled={!client.email}
+                      ref={el => { if (el) el.indeterminate = !companyChecked && someChecked }}
+                      onChange={() => client.email && toggleEmail(client.email)}
+                      style={{ width: 15, height: 15, cursor: client.email ? 'pointer' : 'default', accentColor: '#F5A623', flexShrink: 0 }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -596,16 +596,6 @@ function ClientPickerModal({
                     >
                       <ExternalLink size={11} />
                     </a>
-                    {client.email && (
-                      <input
-                        type="checkbox"
-                        checked={selected.has(client.email)}
-                        onChange={() => toggleEmail(client.email!)}
-                        onClick={e => e.stopPropagation()}
-                        style={{ width: 13, height: 13, cursor: 'pointer', accentColor: '#F5A623' }}
-                        title={client.email}
-                      />
-                    )}
                   </label>
                   {/* All contacts (grayed out if no email) */}
                   {contacts.map((ct: any, i: number) => (
