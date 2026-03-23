@@ -354,6 +354,13 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                   href={item.href}
                   className={`d-nav-link${active ? ' active' : ''}`}
                   style={{ position: 'relative', zIndex: 1 }}
+                  onClick={() => {
+                    if (!item.href.startsWith('/candidats')) {
+                      sessionStorage.removeItem('candidats_search')
+                      sessionStorage.removeItem('candidats_page')
+                      sessionStorage.removeItem('candidats_import_status')
+                    }
+                  }}
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
@@ -400,6 +407,13 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                     href={item.href}
                     className={`d-nav-link${active ? ' active' : ''}`}
                     style={{ position: 'relative', zIndex: 1, borderRadius: 8, background: active ? 'var(--primary)' : undefined }}
+                    onClick={() => {
+                      if (!item.href.startsWith('/candidats')) {
+                        sessionStorage.removeItem('candidats_search')
+                        sessionStorage.removeItem('candidats_page')
+                        sessionStorage.removeItem('candidats_import_status')
+                      }
+                    }}
                   >
                     <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                     {item.label}
