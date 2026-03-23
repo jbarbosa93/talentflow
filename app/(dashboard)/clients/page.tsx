@@ -318,32 +318,8 @@ export default function ClientsPage() {
             {total.toLocaleString('fr-CH')} entreprise{total !== 1 ? 's' : ''} enregistree{total !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            height: 42, padding: '0 20px', borderRadius: 8,
-            border: '2px solid var(--foreground)', background: 'var(--primary)',
-            color: 'var(--ink)', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'var(--font-body)',
-            boxShadow: '3px 3px 0 var(--foreground)',
-            transition: 'transform 0.1s, box-shadow 0.1s',
-          }}
-          onMouseDown={e => {
-            e.currentTarget.style.transform = 'translate(2px, 2px)'
-            e.currentTarget.style.boxShadow = '1px 1px 0 var(--foreground)'
-          }}
-          onMouseUp={e => {
-            e.currentTarget.style.transform = 'none'
-            e.currentTarget.style.boxShadow = '3px 3px 0 var(--foreground)'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.transform = 'none'
-            e.currentTarget.style.boxShadow = '3px 3px 0 var(--foreground)'
-          }}
-        >
-          <Plus size={16} strokeWidth={3} />
-          Ajouter un client
+        <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
+          <Plus size={15} /> Ajouter un client
         </button>
       </div>
 
