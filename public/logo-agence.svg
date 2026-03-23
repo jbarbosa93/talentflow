@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 200">
+  <rect width="600" height="200" rx="0" fill="#FFE600"/>
+  <text x="300" y="115" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="90" font-weight="400" fill="#1C1A14" letter-spacing="2">
+    <tspan font-size="110" font-weight="700">L</tspan>-AGENCE
+  </text>
+  <text x="300" y="155" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="22" fill="#1C1A14" letter-spacing="8">
+    Emplois fixes &amp; temporaires
+  </text>
+</svg>
