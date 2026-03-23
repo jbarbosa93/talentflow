@@ -709,15 +709,13 @@ export default function CandidatsList() {
               </button>
             </>
           )}
-          {importStatusFilter === 'traite' && (
-            <button
-              onClick={() => setShowMessage(true)}
-              className="neo-btn neo-btn-sm"
-              style={{ background: '#007AFF', color: 'white', boxShadow: 'none' }}
-            >
-              <MessageSquare size={13} /> Message ({selCount})
-            </button>
-          )}
+          <button
+            onClick={() => setShowMessage(true)}
+            className="neo-btn neo-btn-sm"
+            style={{ background: '#007AFF', color: 'white', boxShadow: 'none' }}
+          >
+            <MessageSquare size={13} /> Message ({selCount})
+          </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
             className="neo-btn neo-btn-sm"
@@ -1165,8 +1163,8 @@ export default function CandidatsList() {
         </div>
       )}
 
-      {/* Modal Message (all mode only) */}
-      {importStatusFilter === 'traite' && showMessage && (() => {
+      {/* Modal Message */}
+      {showMessage && (() => {
         const selected = sorted.filter((c: any) => selectedIds.has(c.id))
         const avecTel   = selected.filter((c: any) => c.telephone)
         const sansTel   = selected.filter((c: any) => !c.telephone)
