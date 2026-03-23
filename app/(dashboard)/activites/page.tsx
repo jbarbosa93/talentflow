@@ -4,7 +4,7 @@ import {
   Activity, Mail, MessageCircle, Smartphone, FileText, Upload,
   Calendar, StickyNote, ArrowRight, Building2, Search, X,
   ChevronLeft, ChevronRight, Trash2, Edit3, Check, MessageSquare,
-  Filter, CheckSquare, Square, AlertTriangle,
+  Filter, CheckSquare, Square, AlertTriangle, CalendarRange,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -30,9 +30,8 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; colo
 
 const TABS = [
   { key: 'all',        label: 'Tous',       types: '' },
-  { key: 'emails',     label: 'Emails',     types: 'email_envoye' },
-  { key: 'whatsapp',   label: 'WhatsApp',   types: 'whatsapp_envoye' },
-  { key: 'cv',         label: 'CV',         types: 'cv_envoye,candidat_importe' },
+  { key: 'messages',   label: 'Messages',   types: 'email_envoye,whatsapp_envoye,sms_envoye,cv_envoye' },
+  { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie' },
   { key: 'entretiens', label: 'Entretiens', types: 'entretien_planifie' },
   { key: 'notes',      label: 'Notes',      types: 'note_ajoutee' },
   { key: 'pipeline',   label: 'Pipeline',   types: 'statut_change' },
@@ -438,6 +437,8 @@ export default function ActivitesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showViderConfirm, setShowViderConfirm] = useState(false)
   const [viderLoading, setViderLoading] = useState(false)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const queryClient = useQueryClient()
 
   const handleSearch = (val: string) => {
@@ -497,6 +498,8 @@ export default function ActivitesPage() {
     type: currentTab.types || undefined,
     page,
     per_page: 20,
+    date_from: dateFrom ? dateFrom + 'T00:00:00' : undefined,
+    date_to: dateTo ? dateTo + 'T23:59:59' : undefined,
   })
 
   const activites = data?.activites || []
@@ -747,39 +750,86 @@ export default function ActivitesPage() {
           ))}
         </div>
 
-        {/* Search */}
-        <div style={{ position: 'relative', maxWidth: 400 }}>
-          <Search size={15} style={{
-            position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-            color: 'var(--muted)',
-          }} />
-          <input
-            type="text"
-            placeholder="Rechercher dans l'activite..."
-            value={search}
-            onChange={e => handleSearch(e.target.value)}
-            style={{
-              width: '100%', padding: '10px 14px 10px 36px',
-              border: '2px solid var(--border)', borderRadius: 10,
-              background: 'var(--card)', color: 'var(--foreground)',
-              fontSize: 13, fontFamily: 'var(--font-body)',
-              outline: 'none', transition: 'border-color 0.15s',
-            }}
-            onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-            onBlur={e => e.target.style.borderColor = 'var(--border)'}
-          />
-          {search && (
-            <button
-              onClick={() => { setSearch(''); setDebouncedSearch(''); setPage(1) }}
+        {/* Search + Date filters */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: 400 }}>
+            <Search size={15} style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+              color: 'var(--muted)',
+            }} />
+            <input
+              type="text"
+              placeholder="Rechercher dans l'activite..."
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
               style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--muted)', padding: 2,
+                width: '100%', padding: '10px 14px 10px 36px',
+                border: '2px solid var(--border)', borderRadius: 10,
+                background: 'var(--card)', color: 'var(--foreground)',
+                fontSize: 13, fontFamily: 'var(--font-body)',
+                outline: 'none', transition: 'border-color 0.15s',
               }}
-            >
-              <X size={14} />
-            </button>
-          )}
+              onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            {search && (
+              <button
+                onClick={() => { setSearch(''); setDebouncedSearch(''); setPage(1) }}
+                style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--muted)', padding: 2,
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Date range */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <CalendarRange size={15} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setPage(1) }}
+              style={{
+                padding: '9px 10px', border: '2px solid var(--border)', borderRadius: 10,
+                background: 'var(--card)', color: dateFrom ? 'var(--foreground)' : 'var(--muted)',
+                fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                cursor: 'pointer', colorScheme: 'dark',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>→</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={e => { setDateTo(e.target.value); setPage(1) }}
+              style={{
+                padding: '9px 10px', border: '2px solid var(--border)', borderRadius: 10,
+                background: 'var(--card)', color: dateTo ? 'var(--foreground)' : 'var(--muted)',
+                fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                cursor: 'pointer', colorScheme: 'dark',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border)'}
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }}
+                title="Effacer les dates"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--muted)', padding: 2, display: 'flex',
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
 
