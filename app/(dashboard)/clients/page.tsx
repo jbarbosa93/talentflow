@@ -275,18 +275,56 @@ function CreateClientModal({ open, onClose, onCreate }: {
 
 export default function ClientsPage() {
   const router = useRouter()
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statutFilter, setStatutFilter] = useState('all')
-  const [page, setPage] = useState(1)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [cantonFilter, setCantonFilter] = useState('')
+
+  // Restore state from sessionStorage on mount
+  const [search, setSearch] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_search') || ''
+    return ''
+  })
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
+  const [statutFilter, setStatutFilter] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_statut') || 'all'
+    return 'all'
+  })
+  const [page, setPage] = useState(() => {
+    if (typeof window !== 'undefined') return parseInt(sessionStorage.getItem('clients_page') || '1')
+    return 1
+  })
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') return (sessionStorage.getItem('clients_view') as 'grid' | 'list') || 'grid'
+    return 'grid'
+  })
+  const [cantonFilter, setCantonFilter] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_canton') || ''
+    return ''
+  })
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [filterSecteur, setFilterSecteur] = useState('')
-  const [filterVille, setFilterVille] = useState('')
-  const [filterNPA, setFilterNPA] = useState('')
+  const [filterSecteur, setFilterSecteur] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_secteur') || ''
+    return ''
+  })
+  const [filterVille, setFilterVille] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_ville') || ''
+    return ''
+  })
+  const [filterNPA, setFilterNPA] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_npa') || ''
+    return ''
+  })
   const [filterAvecContacts, setFilterAvecContacts] = useState('')
+
+  // Persist all filters to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('clients_search', search)
+    sessionStorage.setItem('clients_statut', statutFilter)
+    sessionStorage.setItem('clients_page', String(page))
+    sessionStorage.setItem('clients_view', viewMode)
+    sessionStorage.setItem('clients_canton', cantonFilter)
+    sessionStorage.setItem('clients_secteur', filterSecteur)
+    sessionStorage.setItem('clients_ville', filterVille)
+    sessionStorage.setItem('clients_npa', filterNPA)
+  }, [search, statutFilter, page, viewMode, cantonFilter, filterSecteur, filterVille, filterNPA])
 
   // Debounce search
   useEffect(() => {
