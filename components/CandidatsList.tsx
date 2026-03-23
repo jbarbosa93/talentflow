@@ -667,6 +667,11 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {search && (
+            <button onClick={() => { setSearch(''); sessionStorage.removeItem(sessionStorageKey) }} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
+              <X size={14} /> Nouvelle recherche
+            </button>
+          )}
           <button onClick={() => openUpload()} className="neo-btn-yellow">
             <Upload size={15} /> Importer Candidat/s
           </button>
