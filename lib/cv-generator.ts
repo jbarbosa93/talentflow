@@ -161,27 +161,42 @@ export async function generateBrandedCV(
   const timesRoman = await doc.embedFont(StandardFonts.TimesRoman)
   const timesBold = await doc.embedFont(StandardFonts.TimesRomanBold)
 
-  // Logo text "L-AGENCE" in serif (like the real logo)
+  // Logo text "L-AGENCE" in serif (same weight, no bold on L)
   const logoY = PAGE_HEIGHT - MARGIN - 10
-  page.drawText('L', { x: MARGIN, y: logoY, font: timesBold, size: 36, color: DARK })
-  page.drawText('-AGENCE', { x: MARGIN + timesBold.widthOfTextAtSize('L', 36), y: logoY, font: timesRoman, size: 22, color: DARK })
+  page.drawText('L', { x: MARGIN, y: logoY, font: timesRoman, size: 36, color: DARK })
+  page.drawText('-AGENCE', { x: MARGIN + timesRoman.widthOfTextAtSize('L', 36), y: logoY, font: timesRoman, size: 22, color: DARK })
   page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: logoY - 18, font: helvetica, size: 8, color: GRAY })
 
+  // Recruiter info top-right
+  const rightX = PAGE_WIDTH - MARGIN
+  if (recruiterInfo) {
+    const recName = `${recruiterInfo.prenom} ${recruiterInfo.nom}`
+    page.drawText(recName, { x: rightX - helveticaBold.widthOfTextAtSize(recName, 11), y: logoY, font: helveticaBold, size: 11, color: DARK })
+    const recRole = 'Consultant'
+    page.drawText(recRole, { x: rightX - helvetica.widthOfTextAtSize(recRole, 9), y: logoY - 14, font: helvetica, size: 9, color: GRAY })
+    if (recruiterInfo.telephone) {
+      page.drawText(recruiterInfo.telephone, { x: rightX - helvetica.widthOfTextAtSize(recruiterInfo.telephone, 8), y: logoY - 26, font: helvetica, size: 8, color: GRAY })
+    }
+    if (recruiterInfo.email) {
+      page.drawText(recruiterInfo.email, { x: rightX - helvetica.widthOfTextAtSize(recruiterInfo.email, 8), y: logoY - 38, font: helvetica, size: 8, color: GRAY })
+    }
+  }
+
   // Thin separator line
-  page.drawRectangle({ x: MARGIN, y: logoY - 28, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
+  page.drawRectangle({ x: MARGIN, y: logoY - 48, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
   // "Dossier candidat · date" small, right-aligned under separator
   const dateStr = new Date().toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' })
   const dossierLabel = `Dossier candidat · ${dateStr}`
   page.drawText(dossierLabel, {
     x: PAGE_WIDTH - MARGIN - helvetica.widthOfTextAtSize(dossierLabel, 8),
-    y: logoY - 42,
+    y: logoY - 62,
     font: helvetica,
     size: 8,
     color: GRAY,
   })
 
-  y = logoY - 60
+  y = logoY - 80
 
   // ═══════════════════ CANDIDAT NAME ═══════════════════
 
@@ -293,29 +308,13 @@ export async function generateBrandedCV(
   // Separator line
   page.drawRectangle({ x: MARGIN, y: footerTop, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
-  // Left side: L-AGENCE + agency contact
+  // Left side: L-AGENCE + agency info
   const fLeftY = footerTop - 16
-  page.drawText('L', { x: MARGIN, y: fLeftY, font: timesBold, size: 20, color: DARK })
-  page.drawText('-AGENCE', { x: MARGIN + timesBold.widthOfTextAtSize('L', 20), y: fLeftY, font: timesRoman, size: 14, color: DARK })
+  page.drawText('L', { x: MARGIN, y: fLeftY, font: timesRoman, size: 20, color: DARK })
+  page.drawText('-AGENCE', { x: MARGIN + timesRoman.widthOfTextAtSize('L', 20), y: fLeftY, font: timesRoman, size: 14, color: DARK })
   page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: fLeftY - 14, font: helvetica, size: 7, color: GRAY })
   page.drawText('info@l-agence.ch', { x: MARGIN, y: fLeftY - 26, font: helvetica, size: 8, color: GRAY })
-
-  // Right side: Recruiter signature
-  const rightX = PAGE_WIDTH - MARGIN
-  if (recruiterInfo) {
-    const recName = `${recruiterInfo.prenom} ${recruiterInfo.nom}`
-    page.drawText(recName, { x: rightX - helveticaBold.widthOfTextAtSize(recName, 10), y: fLeftY, font: helveticaBold, size: 10, color: DARK })
-    const role = 'Consultant'
-    page.drawText(role, { x: rightX - helvetica.widthOfTextAtSize(role, 8), y: fLeftY - 14, font: helvetica, size: 8, color: GRAY })
-    if (recruiterInfo.telephone) {
-      const tel = recruiterInfo.telephone
-      page.drawText(tel, { x: rightX - helvetica.widthOfTextAtSize(tel, 8), y: fLeftY - 26, font: helvetica, size: 8, color: GRAY })
-    }
-    if (recruiterInfo.email) {
-      const em = recruiterInfo.email
-      page.drawText(em, { x: rightX - helvetica.widthOfTextAtSize(em, 8), y: fLeftY - 38, font: helvetica, size: 8, color: GRAY })
-    }
-  }
+  page.drawText('Avenue des Alpes 3, 1870 Monthey - CH', { x: MARGIN, y: fLeftY - 38, font: helvetica, size: 7, color: GRAY })
 
   // Confidential notice centered at very bottom
   const confText = 'Document confidentiel'
