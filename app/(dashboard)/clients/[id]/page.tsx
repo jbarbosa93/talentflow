@@ -171,16 +171,17 @@ export default function ClientDetailPage() {
       <button
         onClick={() => router.push('/clients')}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--muted)', fontSize: 13, fontWeight: 600,
-          fontFamily: 'var(--font-body)', padding: 0, marginBottom: 20,
-          transition: 'color 0.15s',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: 'var(--primary-soft, #FFF3C4)', border: '1.5px solid var(--primary)',
+          borderRadius: 100, padding: '8px 18px',
+          color: 'var(--primary-dark, #E6B800)', fontSize: 13, fontWeight: 600,
+          cursor: 'pointer', fontFamily: 'var(--font-body)',
+          marginBottom: 20, transition: 'all 0.15s',
         }}
-        onMouseEnter={e => e.currentTarget.style.color = 'var(--foreground)'}
-        onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
+        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'var(--ink, #1C1A14)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'var(--primary-soft, #FFF3C4)'; e.currentTarget.style.color = 'var(--primary-dark, #E6B800)' }}
       >
-        <ArrowLeft size={16} />
+        <ArrowLeft size={14} />
         Retour aux clients
       </button>
 

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
-  Briefcase, LayoutGrid, List,
+  Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw,
 } from 'lucide-react'
 import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
 
@@ -282,6 +282,11 @@ export default function ClientsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [cantonFilter, setCantonFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [filterSecteur, setFilterSecteur] = useState('')
+  const [filterVille, setFilterVille] = useState('')
+  const [filterNPA, setFilterNPA] = useState('')
+  const [filterAvecContacts, setFilterAvecContacts] = useState('')
 
   // Debounce search
   useEffect(() => {
@@ -389,23 +394,27 @@ export default function ClientsPage() {
           ))}
         </div>
 
-        {/* Canton filter */}
-        <select
-          value={cantonFilter}
-          onChange={e => { setCantonFilter(e.target.value); setPage(1) }}
+        {/* Filtres avancés button */}
+        <button
+          onClick={() => setShowAdvancedFilters(v => !v)}
           style={{
-            height: 40, padding: '0 12px', borderRadius: 10,
-            border: '2px solid var(--border)', background: 'var(--card)',
-            color: cantonFilter ? 'var(--foreground)' : 'var(--muted)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            height: 40, padding: '0 14px', borderRadius: 10,
+            border: '2px solid var(--border)',
+            background: showAdvancedFilters ? 'var(--primary)' : 'var(--card)',
+            color: showAdvancedFilters ? 'var(--ink)' : 'var(--foreground)',
             fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-body)', outline: 'none',
+            fontFamily: 'var(--font-body)',
           }}
         >
-          <option value="">Canton</option>
-          {Object.keys(CANTON_COLORS).sort().map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+          <SlidersHorizontal size={14} />
+          Filtres avancés
+          {(cantonFilter || filterSecteur || filterVille || filterNPA || filterAvecContacts) && (
+            <span style={{ background: '#EF4444', color: 'white', borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700 }}>
+              {[cantonFilter, filterSecteur, filterVille, filterNPA, filterAvecContacts].filter(Boolean).length}
+            </span>
+          )}
+        </button>
 
         {/* View toggle */}
         <div style={{
@@ -432,6 +441,71 @@ export default function ClientsPage() {
         )}
       </div>
 
+      {/* Filtres avancés panel */}
+      {showAdvancedFilters && (
+        <div style={{
+          background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 12,
+          padding: 16, marginBottom: 16,
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12,
+        }}>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Secteur</label>
+            <input value={filterSecteur} onChange={e => { setFilterSecteur(e.target.value); setPage(1) }}
+              placeholder="Ex: Construction, BTP..."
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ville</label>
+            <input value={filterVille} onChange={e => { setFilterVille(e.target.value); setPage(1) }}
+              placeholder="Ex: Monthey, Sion..."
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Canton</label>
+            <select value={cantonFilter} onChange={e => { setCantonFilter(e.target.value); setPage(1) }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: cantonFilter ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            >
+              <option value="">Tous</option>
+              {Object.keys(CANTON_COLORS).sort().map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>NPA</label>
+            <input value={filterNPA} onChange={e => { setFilterNPA(e.target.value); setPage(1) }}
+              placeholder="Ex: 1870, 1950..."
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contacts</label>
+            <select value={filterAvecContacts} onChange={e => { setFilterAvecContacts(e.target.value); setPage(1) }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: filterAvecContacts ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            >
+              <option value="">Tous</option>
+              <option value="avec">Avec contacts</option>
+              <option value="sans">Sans contacts</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button onClick={() => {
+              setCantonFilter(''); setFilterSecteur(''); setFilterVille(''); setFilterNPA(''); setFilterAvecContacts(''); setPage(1)
+            }} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              height: 38, padding: '0 16px', borderRadius: 8,
+              border: '1.5px solid var(--border)', background: 'var(--secondary)',
+              color: 'var(--foreground)', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}>
+              <RotateCcw size={13} /> Réinitialiser
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Grid of client cards */}
       {isLoading ? (
         <div style={{
@@ -442,9 +516,20 @@ export default function ClientsPage() {
           <span style={{ fontSize: 15, color: 'var(--muted)', fontWeight: 600 }}>Chargement des clients...</span>
         </div>
       ) : (() => {
-        const filteredClients = cantonFilter
-          ? clients.filter(c => c.canton?.toUpperCase().trim() === cantonFilter)
-          : clients
+        const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        let filteredClients = clients
+        if (cantonFilter) filteredClients = filteredClients.filter(c => c.canton?.toUpperCase().trim() === cantonFilter)
+        if (filterSecteur) filteredClients = filteredClients.filter(c => normalize(c.secteur || '').includes(normalize(filterSecteur)))
+        if (filterVille) filteredClients = filteredClients.filter(c => normalize(c.ville || '').includes(normalize(filterVille)))
+        if (filterNPA) filteredClients = filteredClients.filter(c => (c.npa || '').includes(filterNPA))
+        if (filterAvecContacts === 'avec') filteredClients = filteredClients.filter(c => {
+          const contacts = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : (c.contacts || [])
+          return contacts.length > 0
+        })
+        if (filterAvecContacts === 'sans') filteredClients = filteredClients.filter(c => {
+          const contacts = typeof c.contacts === 'string' ? JSON.parse(c.contacts) : (c.contacts || [])
+          return contacts.length === 0
+        })
         return filteredClients.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '80px 20px',
