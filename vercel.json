@@ -1,3 +1,9 @@
 {
-  "regions": ["dub1"]
+  "regions": ["dub1"],
+  "crons": [
+    {
+      "path": "/api/cron/email-sync",
+      "schedule": "*/10 * * * *"
+    }
+  ]
 }

@@ -1,5 +1,6 @@
-// app/api/microsoft/sync/route.ts
-// Synchronise les emails depuis un dossier Outlook ciblé → crée les candidats
+// app/api/cron/email-sync/route.ts
+// Endpoint appelé automatiquement par Vercel Cron toutes les 10 minutes
+// Synchronise les emails du dossier Outlook "CV à traiter" → candidats TalentFlow
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -10,41 +11,29 @@ import type { Integration } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const CV_EXTENSIONS = ['pdf', 'docx', 'doc']
 const DEFAULT_FOLDER_NAME = 'CV à traiter'
 
-// Cherche le dossier par nom dans la boîte mail
 async function findFolderByName(
   accessToken: string,
   folderName: string
 ): Promise<{ id: string; displayName: string } | null> {
-  // 1. Cherche dans les dossiers de premier niveau
-  try {
-    const data = await callGraph(
-      accessToken,
-      `/me/mailFolders?$filter=displayName eq '${encodeURIComponent(folderName)}'&$select=id,displayName&$top=5`
-    )
-    if (data?.value?.length > 0) return data.value[0]
-  } catch { /* try next */ }
-
-  // 2. Cherche sans filtre (certaines versions de Graph n'acceptent pas le filtre sur displayName)
   try {
     const data = await callGraph(accessToken, '/me/mailFolders?$select=id,displayName&$top=100')
     const found = (data?.value || []).find(
       (f: any) => f.displayName?.toLowerCase() === folderName.toLowerCase()
     )
     if (found) return found
-  } catch { /* try next */ }
+  } catch { /* try inbox children */ }
 
-  // 3. Cherche dans les sous-dossiers de la Boîte de réception
   try {
-    const inboxData = await callGraph(
+    const subData = await callGraph(
       accessToken,
       '/me/mailFolders/inbox/childFolders?$select=id,displayName&$top=100'
     )
-    const found = (inboxData?.value || []).find(
+    const found = (subData?.value || []).find(
       (f: any) => f.displayName?.toLowerCase() === folderName.toLowerCase()
     )
     if (found) return found
@@ -53,22 +42,18 @@ async function findFolderByName(
   return null
 }
 
-export async function POST(request?: Request) {
+export async function GET(request: Request) {
+  // Vercel Cron authentifie avec Authorization: Bearer <CRON_SECRET>
+  const authHeader = request.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  }
+
   try {
     const supabase = createAdminClient()
 
-    // Parse optional params
-    let forceFolderName: string | null = null
-    let forceFolderId: string | null = null
-    if (request) {
-      try {
-        const url = new URL(request.url)
-        forceFolderName = url.searchParams.get('folder_name')
-        forceFolderId = url.searchParams.get('folder_id')
-      } catch { /* ignore */ }
-    }
-
-    // Get Microsoft integration
     const { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
@@ -79,43 +64,34 @@ export async function POST(request?: Request) {
       .single()
 
     const integration = integrationRaw as unknown as Integration | null
-
     if (!integration) {
-      return NextResponse.json(
-        { error: 'Aucune intégration Microsoft active. Connectez votre compte.' },
-        { status: 404 }
-      )
+      // Pas de compte connecté — cron inutile, pas d'erreur
+      return NextResponse.json({ skipped: true, reason: 'Aucune intégration Microsoft active' })
+    }
+
+    const meta = (integration.metadata as any) || {}
+    // Respecte le paramètre auto_sync (désactivable depuis la page Intégrations)
+    if (meta.auto_sync === false) {
+      return NextResponse.json({ skipped: true, reason: 'Sync automatique désactivé' })
     }
 
     const accessToken = await getValidAccessToken(integration.id)
-    const meta = (integration.metadata as any) || {}
+    const targetFolderName = meta.email_folder_name || DEFAULT_FOLDER_NAME
+    let targetFolderId = meta.email_folder_id || null
 
-    // Détermine le dossier à surveiller
-    const targetFolderName = forceFolderName || meta.email_folder_name || DEFAULT_FOLDER_NAME
-    let targetFolderId = forceFolderId || meta.email_folder_id || null
-
-    // Cherche le dossier si on n'a pas l'ID
     if (!targetFolderId) {
       const folder = await findFolderByName(accessToken, targetFolderName)
       if (!folder) {
-        return NextResponse.json(
-          {
-            error: `Dossier "${targetFolderName}" introuvable dans Outlook.`,
-            hint: 'Créez ce dossier dans votre Outlook ou configurez le bon nom dans les intégrations.',
-          },
-          { status: 404 }
-        )
+        console.log(`[Cron] Dossier "${targetFolderName}" introuvable`)
+        return NextResponse.json({ skipped: true, reason: `Dossier "${targetFolderName}" introuvable` })
       }
       targetFolderId = folder.id
-
-      // Sauvegarde l'ID pour les prochains appels
       await supabase.from('integrations').update({
         metadata: { ...meta, email_folder_id: targetFolderId, email_folder_name: targetFolderName },
         updated_at: new Date().toISOString(),
       }).eq('id', integration.id)
     }
 
-    // Récupère les emails du dossier cible (non traités — pas de filtre date pour ne rien rater)
     const messages = await callGraph(
       accessToken,
       `/me/mailFolders/${targetFolderId}/messages?$filter=hasAttachments eq true&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,receivedDateTime,hasAttachments`
@@ -128,16 +104,14 @@ export async function POST(request?: Request) {
     const created: string[] = []
 
     for (const message of messages.value || []) {
-      // Déjà traité ?
-      const { data: existing } = await supabase
+      const { data: alreadyDone } = await supabase
         .from('emails_recus')
         .select('id')
         .eq('microsoft_message_id', message.id)
         .maybeSingle()
 
-      if (existing) { skipped++; continue }
+      if (alreadyDone) { skipped++; continue }
 
-      // Récupère les pièces jointes
       let attachments: any[] = []
       try {
         const attData = await callGraph(
@@ -145,9 +119,7 @@ export async function POST(request?: Request) {
           `/me/messages/${message.id}/attachments?$select=id,name,contentType,size,contentBytes`
         )
         attachments = attData.value || []
-      } catch {
-        skipped++; continue
-      }
+      } catch { skipped++; continue }
 
       const cvAttachments = attachments.filter((att: any) => {
         const ext = (att.name || '').toLowerCase().split('.').pop()
@@ -168,18 +140,14 @@ export async function POST(request?: Request) {
         continue
       }
 
-      // Traite la première pièce jointe CV trouvée
       const att = cvAttachments[0]
       try {
         const buffer = Buffer.from(att.contentBytes, 'base64')
         const filename = att.name || 'cv.pdf'
         const mimeType = att.contentType || 'application/octet-stream'
 
-        // Extraction texte
         let texteCV = ''
-        try {
-          texteCV = await extractTextFromCV(buffer, filename, mimeType)
-        } catch { /* will try vision */ }
+        try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch { /* vision fallback */ }
 
         const isPDF = filename.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf'
         const isScanned = !texteCV || texteCV.trim().length < 50
@@ -193,21 +161,18 @@ export async function POST(request?: Request) {
           throw new Error('Fichier illisible')
         }
 
-        // Vérification doublon candidat (par email ou nom+prénom)
         const senderEmail = message.from?.emailAddress?.address
         const candidatEmail = analyse.email || senderEmail || null
-        const candidatNom = (analyse.nom || '').trim()
-        const candidatPrenom = (analyse.prenom || '').trim()
 
+        // Vérif doublon par email
         if (candidatEmail) {
           const { data: existing } = await supabase
             .from('candidats')
-            .select('id, nom, prenom')
+            .select('id')
             .ilike('email', candidatEmail)
             .maybeSingle()
 
           if (existing) {
-            // Enregistre l'email comme traité (doublon)
             await supabase.from('emails_recus').insert({
               integration_id: integration.id,
               microsoft_message_id: message.id,
@@ -222,7 +187,6 @@ export async function POST(request?: Request) {
           }
         }
 
-        // Upload vers Supabase Storage
         const timestamp = Date.now()
         const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
         const { data: storageData } = await supabase.storage
@@ -237,12 +201,11 @@ export async function POST(request?: Request) {
           cvUrl = urlData?.signedUrl || null
         }
 
-        // Crée le candidat avec source E-MAIL et import_status a_traiter
         const { data: candidat, error: dbError } = await supabase
           .from('candidats')
           .insert({
-            nom: candidatNom || 'Candidat',
-            prenom: candidatPrenom || null,
+            nom: (analyse.nom || '').trim() || 'Candidat',
+            prenom: (analyse.prenom || '').trim() || null,
             email: candidatEmail,
             telephone: analyse.telephone || null,
             localisation: analyse.localisation || null,
@@ -280,10 +243,10 @@ export async function POST(request?: Request) {
         })
 
         processed++
-        created.push(`${candidatPrenom} ${candidatNom}`.trim() || 'Candidat')
+        created.push(`${analyse.prenom || ''} ${analyse.nom || ''}`.trim() || 'Candidat')
 
       } catch (err) {
-        console.error('[MS Sync] Erreur pièce jointe:', err)
+        console.error('[Cron Sync] Erreur:', err)
         errors++
         try {
           await supabase.from('emails_recus').insert({
@@ -298,47 +261,25 @@ export async function POST(request?: Request) {
       }
     }
 
-    // Met à jour la date du dernier sync
-    const currentMeta = (integration.metadata as any) || {}
+    // Sauvegarde la date du dernier sync
+    const updatedMeta = { ...meta, last_sync: new Date().toISOString(), email_folder_id: targetFolderId, email_folder_name: targetFolderName }
     await supabase.from('integrations').update({
-      metadata: {
-        ...currentMeta,
-        last_sync: new Date().toISOString(),
-        email_folder_id: targetFolderId,
-        email_folder_name: targetFolderName,
-      },
+      metadata: updatedMeta,
       updated_at: new Date().toISOString(),
     }).eq('id', integration.id)
 
-    const result = {
-      success: true,
-      folder: targetFolderName,
-      processed,
-      skipped,
-      duplicates,
-      errors,
-      created,
+    const result = { success: true, folder: targetFolderName, processed, skipped, duplicates, errors, created }
+    if (processed > 0) {
+      console.log(`[Cron Sync] "${targetFolderName}": ${processed} créés, ${duplicates} doublons`)
+      await logActivity({ action: 'microsoft_sync', details: result })
     }
-
-    console.log(`[MS Sync] Dossier "${targetFolderName}": ${processed} créés, ${duplicates} doublons, ${skipped} ignorés, ${errors} erreurs`)
-    await logActivity({ action: 'microsoft_sync', details: result })
     return NextResponse.json(result)
 
   } catch (error) {
-    console.error('[MS Sync] Erreur fatale:', error)
+    console.error('[Cron Sync] Erreur fatale:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur serveur' },
       { status: 500 }
     )
   }
-}
-
-export async function GET() {
-  const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('emails_recus')
-    .select('*, candidats(nom, prenom)')
-    .order('recu_le', { ascending: false })
-    .limit(30)
-  return NextResponse.json({ emails: data || [] })
 }

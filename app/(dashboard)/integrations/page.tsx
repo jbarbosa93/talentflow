@@ -2,17 +2,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle,
-  Plug, Clock, User, ExternalLink, Loader2,
+  Plug, Clock, User, ExternalLink, Loader2, FolderOpen,
+  ChevronDown, Zap, ZapOff,
 } from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, Suspense } from 'react'
+import { useEffect, Suspense, useState } from 'react'
 
 function IntegrationsContent() {
   const searchParams  = useSearchParams()
   const queryClient   = useQueryClient()
   const sync          = useSyncMicrosoft()
+
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
 
   useEffect(() => {
     const success = searchParams.get('success')
@@ -40,6 +43,16 @@ function IntegrationsContent() {
     enabled: !!integrationsData?.integrations?.find((i: any) => i.type === 'microsoft'),
   })
 
+  const { data: foldersData, isLoading: loadingFolders } = useQuery({
+    queryKey: ['ms-folders'],
+    queryFn: async () => {
+      const res = await fetch('/api/microsoft/folders')
+      return res.json()
+    },
+    staleTime: 60_000,
+    enabled: showFolderPicker,
+  })
+
   const disconnectMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/integrations?id=${id}`, { method: 'DELETE' })
@@ -51,10 +64,46 @@ function IntegrationsContent() {
     },
   })
 
+  const selectFolderMutation = useMutation({
+    mutationFn: async ({ folder_id, folder_name }: { folder_id: string, folder_name: string }) => {
+      const res = await fetch('/api/microsoft/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder_id, folder_name }),
+      })
+      return res.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      queryClient.invalidateQueries({ queryKey: ['ms-folders'] })
+      setShowFolderPicker(false)
+      toast.success(`Dossier "${data.folder_name}" configuré. La sync se fera toutes les 10 min.`)
+    },
+    onError: () => toast.error('Erreur lors de la configuration'),
+  })
+
+  const toggleAutoSyncMutation = useMutation({
+    mutationFn: async ({ integrationId, autoSync }: { integrationId: string, autoSync: boolean }) => {
+      const res = await fetch('/api/microsoft/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toggle_auto_sync: !autoSync, integration_id: integrationId }),
+      })
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+    },
+  })
+
   const msIntegration = integrationsData?.integrations?.find((i: any) => i.type === 'microsoft')
   const isConnected   = !!msIntegration
   const emails        = emailsData?.emails || []
   const importedEmails = emails.filter((e: any) => e.candidat_id)
+  const meta          = msIntegration?.metadata || {}
+  const configuredFolder = foldersData?.configured || meta?.email_folder_name || 'CV à traiter'
+  const lastSync      = meta?.last_sync ? new Date(meta.last_sync) : null
+  const autoSyncEnabled = meta?.auto_sync !== false // true par défaut
 
   return (
     <div className="d-page" style={{ maxWidth: 860, paddingBottom: 60 }}>
@@ -118,6 +167,16 @@ function IntegrationsContent() {
                         <XCircle size={10} /> Non connecté
                       </span>
                     )}
+                    {isConnected && autoSyncEnabled && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
+                        background: '#EFF6FF', color: '#1D4ED8',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        border: '1.5px solid #BFDBFE',
+                      }}>
+                        <Zap size={10} /> Sync auto
+                      </span>
+                    )}
                   </div>
 
                   {isConnected ? (
@@ -171,22 +230,134 @@ function IntegrationsContent() {
               </div>
             </div>
 
-            {/* Stats si connecté */}
+            {/* ── Config dossier + stats si connecté ── */}
             {isConnected && (
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '2px solid var(--border)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                  <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emails.length}</p>
-                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
+              <>
+                {/* Dossier surveillé */}
+                <div style={{
+                  marginTop: 20, paddingTop: 16, borderTop: '2px solid var(--border)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <FolderOpen size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1 }}>
+                          Dossier surveillé
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                          Les CVs reçus dans ce dossier Outlook seront automatiquement importés
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 8,
+                        background: 'var(--primary-soft)', border: '2px solid var(--primary)',
+                        fontWeight: 700, fontSize: 13, color: 'var(--foreground)',
+                      }}>
+                        <FolderOpen size={13} style={{ color: 'var(--primary)' }} />
+                        {configuredFolder}
+                      </div>
+                      <button
+                        onClick={() => setShowFolderPicker(!showFolderPicker)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '6px 10px', borderRadius: 8,
+                          background: 'var(--surface)', border: '1.5px solid var(--border)',
+                          fontSize: 12, fontWeight: 700, color: 'var(--muted)',
+                          cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        }}
+                      >
+                        Changer <ChevronDown size={12} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sélecteur de dossier */}
+                  {showFolderPicker && (
+                    <div style={{
+                      marginTop: 12, padding: 16, borderRadius: 10,
+                      background: 'var(--background)', border: '1.5px solid var(--border)',
+                    }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>
+                        Choisir le dossier Outlook à surveiller :
+                      </p>
+                      {loadingFolders ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+                          <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                          Chargement des dossiers...
+                        </div>
+                      ) : foldersData?.folders?.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {foldersData.folders
+                            .filter((f: any) => f.displayName && !['Drafts', 'Brouillons', 'Deleted Items', 'Éléments supprimés', 'Junk Email', 'Courrier indésirable', 'Outbox', 'Boîte d\'envoi', 'Sent Items', 'Éléments envoyés'].includes(f.displayName))
+                            .map((folder: any) => (
+                            <button
+                              key={folder.id}
+                              onClick={() => selectFolderMutation.mutate({ folder_id: folder.id, folder_name: folder.displayName })}
+                              disabled={selectFolderMutation.isPending}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                padding: '6px 12px', borderRadius: 8,
+                                background: folder.displayName === configuredFolder ? 'var(--primary-soft)' : 'var(--surface)',
+                                border: `1.5px solid ${folder.displayName === configuredFolder ? 'var(--primary)' : 'var(--border)'}`,
+                                fontSize: 12, fontWeight: 600,
+                                color: folder.displayName === configuredFolder ? 'var(--foreground)' : 'var(--muted)',
+                                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                              }}
+                            >
+                              <FolderOpen size={11} />
+                              {folder._parent ? `${folder._parent} › ` : ''}{folder.displayName}
+                              <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400 }}>
+                                ({folder.totalItemCount || 0})
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          Aucun dossier trouvé. Vérifiez la connexion Microsoft.
+                        </p>
+                      )}
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic' }}>
+                        Astuce : glissez les emails avec CVs dans ce dossier Outlook et TalentFlow les importera automatiquement toutes les 10 minutes.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Infos sync */}
+                  <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Zap size={11} />
+                      Sync automatique toutes les 10 min
+                    </span>
+                    {lastSync && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={11} />
+                        Dernier sync : {lastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                  <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{importedEmails.length}</p>
-                  <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+
+                {/* Stats */}
+                <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emails.length}</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
+                  </div>
+                  <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{importedEmails.length}</p>
+                    <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                  </div>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emails.length - importedEmails.length}</p>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
+                  </div>
                 </div>
-                <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                  <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emails.length - importedEmails.length}</p>
-                  <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
-                </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -241,8 +412,43 @@ function IntegrationsContent() {
                     <pre style={{ fontSize: 12, color: '#059669', fontFamily: 'monospace', lineHeight: 2, margin: 0 }}>
 {`MICROSOFT_CLIENT_ID     = <votre-client-id>
 MICROSOFT_CLIENT_SECRET  = <votre-secret>
-MICROSOFT_TENANT_ID      = common`}
+MICROSOFT_TENANT_ID      = common
+CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                     </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Guide workflow email → TalentFlow ── */}
+          {isConnected && (
+            <div className="neo-card" style={{ padding: 20, marginBottom: 16, background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '3px 3px 0 #FDE68A' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <Mail size={16} style={{ color: '#D97706', flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <h3 style={{ fontSize: 13, fontWeight: 800, color: '#92400E', marginBottom: 8 }}>
+                    Comment ça marche — Import automatique par email
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {[
+                      `Vous recevez un email avec un CV en pièce jointe`,
+                      `Glissez cet email dans votre dossier Outlook "${configuredFolder}"`,
+                      `TalentFlow détecte le nouvel email et importe le CV automatiquement (toutes les 10 min)`,
+                      `Le candidat apparaît dans "À traiter" avec la source E-MAIL`,
+                      `Vérifiez et validez le candidat pour l'intégrer dans votre base active`,
+                    ].map((step, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <div style={{
+                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                          background: '#F59E0B', color: '#fff',
+                          fontSize: 10, fontWeight: 800,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          marginTop: 1,
+                        }}>{i + 1}</div>
+                        <p style={{ fontSize: 12, color: '#78350F', lineHeight: 1.5 }}>{step}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
