@@ -8,6 +8,7 @@ import { extractTextFromCV, validateCVFile } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import type { CandidatInsert, DocumentType } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
+import { analyserDocumentMultiType } from '@/lib/document-splitter'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 60          // 60s max (Vercel Hobby)
@@ -122,6 +123,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 3b. Vérification rapide : fichier déjà importé ? (par nom de fichier)
   //     Évite de consommer l'API Claude pour des CVs déjà en base
+  //     Note : on utilise file.name ici (avant split) pour détecter le doublon du fichier source
   if (!forceInsert && !replaceId && !updateId) {
     const { data: existingByFile } = await supabase
       .from('candidats')
@@ -143,16 +145,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 4. Convertir en Buffer
   const arrayBuffer = await file.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+  let buffer: Buffer = Buffer.from(arrayBuffer)
+
+  // 4b. Détection multi-documents (PDFs uniquement, > 100 KB pour éviter les PDFs vides)
+  const ext0    = file.name.toLowerCase().split('.').pop() || ''
+  const isPDF0  = ext0 === 'pdf' || file.type === 'application/pdf'
+  let autresDocumentsMultiType: Awaited<ReturnType<typeof analyserDocumentMultiType>>['autresDocuments'] = []
+  let filenameEffectif = file.name
+
+  if (isPDF0 && file.size > 100 * 1024) {
+    try {
+      const multiDocResult = await analyserDocumentMultiType(buffer, file.name)
+      if (multiDocResult.estMultiDocument) {
+        console.log(`[Multi-Doc] PDF multi-type détecté dans ${file.name} → ${multiDocResult.autresDocuments.length} document(s) séparé(s)`)
+        buffer = multiDocResult.cvBuffer
+        filenameEffectif = multiDocResult.cvFilename
+        autresDocumentsMultiType = multiDocResult.autresDocuments
+      }
+    } catch (multiDocErr) {
+      console.warn('[Multi-Doc] Erreur détection multi-type (fallback logique normale):', (multiDocErr as Error).message)
+      // Fallback : on continue avec le buffer original sans split
+    }
+  }
 
   // 5. Extraire le texte — timeout 10s (pdf-parse peut bloquer sur des PDFs corrompus)
   console.log('[CV Parse] Extraction texte...')
   const texteCV = await withTimeout(
-    extractTextFromCV(buffer, file.name, file.type),
+    extractTextFromCV(buffer, filenameEffectif, file.type),
     10_000, 'extraction texte'
   ).catch(() => '')  // si extraction timeout → traiter comme PDF scanné
 
-  const ext      = file.name.toLowerCase().split('.').pop() || ''
+  const ext      = filenameEffectif.toLowerCase().split('.').pop() || ''
   const isPDF    = ext === 'pdf' || file.type === 'application/pdf'
   const isDoc    = ext === 'doc' || file.type === 'application/msword'
   const isImage  = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
@@ -280,7 +303,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 7. Upload Supabase Storage — timeout 15s
   const adminClient = createAdminClient()
   const timestamp = Date.now()
-  const nomFichierStorage = `${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const nomFichierStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
   console.log('[CV Parse] Upload storage...')
   const { data: storageData, error: storageError } = await withTimeout(
@@ -542,7 +565,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     competences: analyse.competences || [],
     formation: analyse.formation || null,
     cv_url: cvUrl,
-    cv_nom_fichier: file.name,
+    cv_nom_fichier: file.name, // On garde le nom du fichier source pour la détection doublon
     photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: texteCV.slice(0, 10000),
@@ -633,6 +656,41 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       etape: statutPipeline as any,
       score_ia: null,
     }).select()
+  }
+
+  // 11. Attacher les autres documents issus du split multi-type
+  if (candidat && autresDocumentsMultiType.length > 0) {
+    try {
+      const docsAjoutes: import('@/types/database').CandidatDocument[] = []
+      for (const autreDoc of autresDocumentsMultiType) {
+        try {
+          const docTimestamp = Date.now()
+          const docStorageName = `${docTimestamp}_${autreDoc.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const { data: docStorageData } = await adminClient.storage.from('cvs').upload(docStorageName, autreDoc.buffer, {
+            contentType: 'application/pdf',
+            upsert: false,
+          })
+          let docUrl: string | null = null
+          if (docStorageData?.path) {
+            const { data: docUrlData } = await adminClient.storage.from('cvs').createSignedUrl(docStorageData.path, 60 * 60 * 24 * 365 * 10)
+            docUrl = docUrlData?.signedUrl || null
+          }
+          if (docUrl) {
+            const mappedDocType = mapDocumentType(autreDoc.type)
+            docsAjoutes.push({ name: autreDoc.filename, url: docUrl, type: mappedDocType, uploaded_at: new Date().toISOString() })
+            console.log(`[Multi-Doc] Document ${autreDoc.type} uploadé : ${autreDoc.filename}`)
+          }
+        } catch (docErr) {
+          console.warn(`[Multi-Doc] Erreur upload document ${autreDoc.type}:`, (docErr as Error).message)
+        }
+      }
+      if (docsAjoutes.length > 0) {
+        await adminClient.from('candidats').update({ documents: docsAjoutes, updated_at: new Date().toISOString() }).eq('id', candidat.id)
+        console.log(`[Multi-Doc] ${docsAjoutes.length} document(s) attaché(s) au candidat ${candidat.id}`)
+      }
+    } catch (attachErr) {
+      console.warn('[Multi-Doc] Erreur attachement documents (non bloquant):', (attachErr as Error).message)
+    }
   }
 
   console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)

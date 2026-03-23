@@ -7,7 +7,8 @@ import JSZip from 'jszip'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
-import type { CandidatInsert } from '@/types/database'
+import type { CandidatInsert, DocumentType } from '@/types/database'
+import { analyserDocumentMultiType } from '@/lib/document-splitter'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes pour traiter un gros ZIP
@@ -32,6 +33,18 @@ function getMimeTypeForImage(ext: string): 'image/jpeg' | 'image/png' | 'image/w
   return 'image/jpeg'
 }
 
+function mapDocumentTypeBulk(type: string): DocumentType {
+  const mapping: Record<string, DocumentType> = {
+    'certificat': 'certificat',
+    'diplome': 'diplome',
+    'lettre_motivation': 'lettre_motivation',
+    'formation': 'formation',
+    'permis': 'permis',
+    'attestation': 'certificat',
+  }
+  return mapping[type] || 'autre'
+}
+
 async function traiterUnFichier(
   filename: string,
   buffer: Buffer,
@@ -43,17 +56,36 @@ async function traiterUnFichier(
   const isImage = FORMATS_IMAGES.includes(ext)
   const isPDF = ext === 'pdf'
 
+  // Détection multi-documents pour les PDFs > 100 KB
+  let bufferEffectif = buffer
+  let filenameEffectif = filename
+  let autresDocumentsMultiType: Awaited<ReturnType<typeof analyserDocumentMultiType>>['autresDocuments'] = []
+
+  if (isPDF && buffer.length > 100 * 1024) {
+    try {
+      const multiDocResult = await analyserDocumentMultiType(buffer, filename)
+      if (multiDocResult.estMultiDocument) {
+        console.log(`[Multi-Doc] Détecté ${multiDocResult.autresDocuments.length + 1} types dans ${filename}`)
+        bufferEffectif = multiDocResult.cvBuffer
+        filenameEffectif = multiDocResult.cvFilename
+        autresDocumentsMultiType = multiDocResult.autresDocuments
+      }
+    } catch (multiDocErr) {
+      console.warn(`[Multi-Doc] Erreur détection pour ${filename} (fallback):`, (multiDocErr as Error).message)
+    }
+  }
+
   let analyse
 
   if (isImage) {
     const mimeType = getMimeTypeForImage(ext)
-    analyse = await analyserCVDepuisImage(buffer, mimeType)
+    analyse = await analyserCVDepuisImage(bufferEffectif, mimeType)
   } else {
-    const texteCV = await extractTextFromCV(buffer, filename)
+    const texteCV = await extractTextFromCV(bufferEffectif, filenameEffectif)
     const isScanned = !texteCV || texteCV.trim().length < 50
 
     if (isScanned && isPDF) {
-      analyse = await analyserCVDepuisPDF(buffer)
+      analyse = await analyserCVDepuisPDF(bufferEffectif)
     } else if (isScanned) {
       throw new Error('Fichier vide ou illisible')
     } else {
@@ -61,14 +93,14 @@ async function traiterUnFichier(
     }
   }
 
-  // Upload vers Supabase Storage
+  // Upload vers Supabase Storage (utiliser bufferEffectif = pages CV uniquement si split)
   const timestamp = Date.now()
-  const nomStorage = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+  const nomStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
   let cvUrl: string | null = null
   const { data: storageData } = await supabase.storage
     .from('cvs')
-    .upload(nomStorage, buffer, {
+    .upload(nomStorage, bufferEffectif, {
       contentType: isImage ? getMimeTypeForImage(ext) : 'application/octet-stream',
       upsert: false,
     })
@@ -80,12 +112,12 @@ async function traiterUnFichier(
     cvUrl = urlData?.signedUrl || null
   }
 
-  // Extraction photo candidat (PDFs uniquement)
+  // Extraction photo candidat (PDFs uniquement — depuis bufferEffectif = pages CV)
   let photoUrl: string | null = null
   if (isPDF) {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-      const photoBuffer = await extractPhotoFromPDF(buffer)
+      const photoBuffer = await extractPhotoFromPDF(bufferEffectif)
       if (photoBuffer) {
         const photoTimestamp = Date.now()
         const photoFileName = `photos/${photoTimestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
@@ -150,6 +182,40 @@ async function traiterUnFichier(
       etape: statut as any,
       score_ia: null,
     })
+  }
+
+  // Attacher les autres documents issus du split multi-type
+  if (candidat && autresDocumentsMultiType.length > 0) {
+    try {
+      const docsAjoutes: import('@/types/database').CandidatDocument[] = []
+      for (const autreDoc of autresDocumentsMultiType) {
+        try {
+          const docTimestamp = Date.now()
+          const docStorageName = `${docTimestamp}_${autreDoc.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const { data: docStorageData } = await supabase.storage.from('cvs').upload(docStorageName, autreDoc.buffer, {
+            contentType: 'application/pdf',
+            upsert: false,
+          })
+          let docUrl: string | null = null
+          if (docStorageData?.path) {
+            const { data: docUrlData } = await supabase.storage.from('cvs').createSignedUrl(docStorageData.path, 60 * 60 * 24 * 365 * 10)
+            docUrl = docUrlData?.signedUrl || null
+          }
+          if (docUrl) {
+            const mappedDocType = mapDocumentTypeBulk(autreDoc.type)
+            docsAjoutes.push({ name: autreDoc.filename, url: docUrl, type: mappedDocType, uploaded_at: new Date().toISOString() })
+            console.log(`[Multi-Doc] Bulk: document ${autreDoc.type} uploadé pour ${filename}`)
+          }
+        } catch (docErr) {
+          console.warn(`[Multi-Doc] Bulk: erreur upload document ${autreDoc.type}:`, (docErr as Error).message)
+        }
+      }
+      if (docsAjoutes.length > 0) {
+        await supabase.from('candidats').update({ documents: docsAjoutes, updated_at: new Date().toISOString() }).eq('id', candidat.id)
+      }
+    } catch (attachErr) {
+      console.warn(`[Multi-Doc] Bulk: erreur attachement documents pour ${filename}:`, (attachErr as Error).message)
+    }
   }
 
   return { candidat, analyse }
