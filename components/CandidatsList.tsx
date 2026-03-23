@@ -567,12 +567,12 @@ export default function CandidatsList() {
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)', lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3 }}>
             {c.prenom} {c.nom}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             {c.titre_poste && (
-              <span style={{ fontSize: 15, color: 'var(--foreground)', fontWeight: 600 }}>{c.titre_poste}</span>
+              <span style={{ fontSize: 15, color: 'var(--foreground)', fontWeight: 400 }}>{c.titre_poste}</span>
             )}
             {c.localisation && (
               <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
