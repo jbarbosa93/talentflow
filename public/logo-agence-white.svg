@@ -1,5 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 60" fill="none">
-  <text x="0" y="42" font-family="'Times New Roman', Times, serif" font-size="52" fill="white" font-weight="400" letter-spacing="0">L</text>
-  <text x="28" y="42" font-family="'Times New Roman', Times, serif" font-size="32" fill="white" font-weight="400" letter-spacing="4">-AGENCE</text>
-  <text x="2" y="56" font-family="Arial, Helvetica, sans-serif" font-size="10" fill="rgba(255,255,255,0.6)" letter-spacing="3.5">Emplois fixes &amp; temporaires</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 70" fill="none">
+  <!-- L grand serif -->
+  <text x="0" y="48" font-family="'Georgia', 'Times New Roman', Times, serif" font-size="58" fill="white" font-weight="400" letter-spacing="-1">L</text>
+  <!-- -AGENCE en caps serif plus petit -->
+  <text x="32" y="48" font-family="'Georgia', 'Times New Roman', Times, serif" font-size="34" fill="white" font-weight="400" letter-spacing="5">-AGENCE</text>
+  <!-- Sous-titre espacé -->
+  <text x="4" y="64" font-family="'Arial', Helvetica, sans-serif" font-size="10.5" fill="rgba(255,255,255,0.55)" letter-spacing="4" font-weight="400">Emplois fixes &amp; temporaires</text>
 </svg>

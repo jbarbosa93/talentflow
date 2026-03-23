@@ -106,12 +106,39 @@ export async function GET(request: NextRequest) {
         query = query.order('created_at', { ascending: false })
     }
 
-    // Pagination
-    const from = (page - 1) * perPage
-    const to = from + perPage - 1
-    query = query.range(from, to)
+    // Pagination — pour les gros volumes (>1000), paginer côté serveur
+    if (perPage <= 1000) {
+      const from = (page - 1) * perPage
+      const to = from + perPage - 1
+      query = query.range(from, to)
+    } else {
+      // Supabase limite à 1000 par requête, charger par batches
+      query = query.range(0, 999)
+    }
 
-    const { data, error, count } = await query
+    const { data: firstBatch, error, count } = await query
+
+    let data = firstBatch
+    if (!error && perPage > 1000 && (count || 0) > 1000) {
+      // Charger les batches suivants
+      const allData = [...(firstBatch || [])]
+      let offset = 1000
+      while (offset < (count || 0) && offset < perPage) {
+        const batchQuery = supabase
+          .from('candidats')
+          .select(LIST_COLUMNS)
+        // Ré-appliquer les mêmes filtres
+        if (effectiveImportStatus) (batchQuery as any).eq('import_status', effectiveImportStatus)
+        if (effectiveStatut) (batchQuery as any).eq('statut_pipeline', effectiveStatut)
+        const { data: batch } = await (batchQuery as any)
+          .order('created_at', { ascending: sort === 'date_asc' })
+          .range(offset, Math.min(offset + 999, perPage - 1))
+        if (batch) allData.push(...batch)
+        else break
+        offset += 1000
+      }
+      data = allData
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
