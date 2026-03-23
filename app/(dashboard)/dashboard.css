@@ -439,25 +439,30 @@ body {
 .neo-btn-yellow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  height: 42px;
   background: var(--primary);
-  color: var(--sidebar-bg);
-  border: none;
-  border-radius: 100px;
-  padding: 10px 20px;
-  font-size: 13.5px;
+  color: var(--ink, #1C1A14);
+  border: 2px solid var(--foreground);
+  border-radius: 8px;
+  padding: 0 20px;
+  font-size: 14px;
   font-weight: 700;
   font-family: var(--font-body);
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.18s ease;
-  box-shadow: 0 2px 8px rgba(245,167,35,0.35);
+  transition: transform 0.1s, box-shadow 0.1s;
+  box-shadow: 3px 3px 0 var(--foreground);
 }
 .neo-btn-yellow:hover {
   background: var(--primary-hover);
-  color: var(--sidebar-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(245,167,35,0.45);
+  color: var(--ink, #1C1A14);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--foreground);
+}
+.neo-btn-yellow:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--foreground);
 }
 .neo-btn-sm { padding: 7px 14px; font-size: 12.5px; }
 .neo-btn-ghost {
