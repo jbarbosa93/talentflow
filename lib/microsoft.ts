@@ -4,12 +4,12 @@
 import { createAdminClient } from './supabase/admin'
 import type { Integration } from '@/types/database'
 
-const TENANT = process.env.MICROSOFT_TENANT_ID || 'common'
-const CLIENT_ID = process.env.MICROSOFT_CLIENT_ID!
-const CLIENT_SECRET = process.env.MICROSOFT_CLIENT_SECRET!
+const TENANT = (process.env.MICROSOFT_TENANT_ID || 'common').trim()
+const CLIENT_ID = (process.env.MICROSOFT_CLIENT_ID || '').trim()
+const CLIENT_SECRET = (process.env.MICROSOFT_CLIENT_SECRET || '').trim()
 
 function getRedirectUri() {
-  return `${process.env.NEXT_PUBLIC_APP_URL}/api/microsoft/callback`
+  return `${(process.env.NEXT_PUBLIC_APP_URL || '').trim()}/api/microsoft/callback`
 }
 
 const SCOPES = 'Mail.Read Mail.Send Calendars.ReadWrite offline_access User.Read Sites.Read.All Files.Read.All'
