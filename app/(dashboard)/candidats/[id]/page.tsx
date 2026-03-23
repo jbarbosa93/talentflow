@@ -6,8 +6,9 @@ import {
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
-  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen,
+  Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, FileText,
 } from 'lucide-react'
+import CVCustomizerModal from '@/components/CVCustomizer'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
   useAjouterNote, useDeleteCandidat,
@@ -147,6 +148,7 @@ export default function CandidatDetailPage() {
   const [showNotes, setShowNotes]         = useState(false)
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
+  const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [mergeSearch, setMergeSearch]     = useState('')
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
@@ -294,6 +296,7 @@ export default function CandidatDetailPage() {
       linkedin:        candidat.linkedin || '',
       permis_conduire: candidat.permis_conduire ?? false,
       date_naissance:  candidat.date_naissance || '',
+      genre:           candidat.genre || '',
       resume_ia:       candidat.resume_ia || '',
       experiences:     JSON.parse(JSON.stringify(candidat.experiences || [])),
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),
@@ -330,6 +333,7 @@ export default function CandidatDetailPage() {
       linkedin:           rest.linkedin || '',
       permis_conduire:    rest.permis_conduire,
       date_naissance:     rest.date_naissance,
+      genre:              rest.genre || null,
       competences:        rest.competences ? rest.competences.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
       langues:            rest.langues     ? rest.langues.split(',').map((s: string) => s.trim()).filter(Boolean)     : [],
       experiences:        rest.experiences        || [],
@@ -723,6 +727,10 @@ export default function CandidatDetailPage() {
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Info size={14} color="var(--muted)" /> Informations
                 </button>
+                <button onClick={() => { setShowCvCustomizer(true); setShowMenu(false) }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <FileText size={14} color="var(--primary)" /> Personnaliser CV
+                </button>
                 <button onClick={() => { setShowMergeSearch(true); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Merge size={14} color="var(--muted)" /> Fusionner avec...
@@ -865,6 +873,11 @@ export default function CandidatDetailPage() {
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Email"        value={editData.email}       onChange={e => set('email', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Téléphone"    value={editData.telephone}   onChange={e => set('telephone', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Âge (ex: 65) ou date (JJ/MM/AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
+                <select className="neo-input" style={{ height: 30, fontSize: 12 }} value={editData.genre} onChange={e => set('genre', e.target.value)}>
+                  <option value="">Genre (non précisé)</option>
+                  <option value="homme">Homme</option>
+                  <option value="femme">Femme</option>
+                </select>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 2 }}>
                   <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
                   <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>
@@ -935,6 +948,12 @@ export default function CandidatDetailPage() {
                         : candidat.date_naissance
                       }
                     </span>
+                  </div>
+                )}
+                {candidat.genre && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
+                    <span style={{ fontSize: 12 }}>{candidat.genre === 'homme' ? '👨' : '👩'}</span>
+                    <span>{candidat.genre === 'homme' ? 'Homme' : 'Femme'}</span>
                   </div>
                 )}
                 {candidat.permis_conduire != null && (
@@ -1887,6 +1906,11 @@ export default function CandidatDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── CV Customizer Modal ── */}
+      {showCvCustomizer && candidat && (
+        <CVCustomizerModal candidat={candidat} onClose={() => setShowCvCustomizer(false)} />
       )}
 
       <style>{`

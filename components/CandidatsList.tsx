@@ -139,6 +139,7 @@ export default function CandidatsList() {
   const [filterLangue, setFilterLangue] = useState('')
   const [filterPermis, setFilterPermis] = useState<boolean | null>(null)
   const [filterExpMin, setFilterExpMin] = useState<number | ''>('')
+  const [filterGenre, setFilterGenre] = useState<string>('')
 
   // CV hover preview
   const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
@@ -306,9 +307,10 @@ export default function CandidatsList() {
       .filter(c => !filterLangue || (c.langues || []).some((l: string) => normalize(l).includes(normalize(filterLangue))))
       .filter(c => filterPermis === null || c.permis_conduire === filterPermis)
       .filter(c => filterExpMin === '' || (c.annees_exp || 0) >= filterExpMin)
+      .filter(c => filterGenre === '' || c.genre === filterGenre)
 
     return filtered
-  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin, filterGenre])
 
   const activeFiltersCount = [
     filterMetier !== '',
@@ -317,6 +319,7 @@ export default function CandidatsList() {
     filterAgeMax !== '',
     filterLangue !== '',
     filterPermis !== null,
+    filterGenre !== '',
   ].filter(Boolean).length
 
   // Tri côté serveur — seul le tri par distance reste côté client
@@ -895,6 +898,14 @@ export default function CandidatsList() {
             <input value={filterLangue} onChange={e=>setFilterLangue(e.target.value)} placeholder="Ex: Français, Anglais..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
           </div>
           <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>GENRE</label>
+            <select value={filterGenre} onChange={e=>setFilterGenre(e.target.value)} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}>
+              <option value="">Tous</option>
+              <option value="homme">Homme</option>
+              <option value="femme">Femme</option>
+            </select>
+          </div>
+          <div>
             <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>PERMIS DE CONDUIRE</label>
             <select value={filterPermis===null?'':filterPermis?'oui':'non'} onChange={e=>setFilterPermis(e.target.value===''?null:e.target.value==='oui')} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}>
               <option value="">Tous</option>
@@ -903,7 +914,7 @@ export default function CandidatsList() {
             </select>
           </div>
           <div style={{display:'flex',alignItems:'flex-end'}}>
-            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
+            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('');setFilterGenre('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
               Réinitialiser
             </button>
           </div>
