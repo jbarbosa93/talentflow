@@ -156,45 +156,32 @@ export async function generateBrandedCV(
     }
   }
 
-  // ═══════════════════ HEADER ═══════════════════
+  // ═══════════════════ HEADER — CLEAN, NO YELLOW ═══════════════════
 
-  // Yellow header band
-  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 100, width: PAGE_WIDTH, height: 100, color: YELLOW })
+  const timesRoman = await doc.embedFont(StandardFonts.TimesRoman)
+  const timesBold = await doc.embedFont(StandardFonts.TimesRomanBold)
 
-  // Logo
-  if (logoPng) {
-    const logoScale = 60 / logoPng.height
-    page.drawImage(logoPng, {
-      x: MARGIN,
-      y: PAGE_HEIGHT - 85,
-      width: logoPng.width * logoScale,
-      height: 60,
-    })
-  } else {
-    page.drawText('L-AGENCE', { x: MARGIN, y: PAGE_HEIGHT - 65, font: helveticaBold, size: 22, color: DARK })
-    page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: PAGE_HEIGHT - 82, font: helvetica, size: 9, color: DARK })
-  }
+  // Logo text "L-AGENCE" in serif (like the real logo)
+  const logoY = PAGE_HEIGHT - MARGIN - 10
+  page.drawText('L', { x: MARGIN, y: logoY, font: timesBold, size: 36, color: DARK })
+  page.drawText('-AGENCE', { x: MARGIN + timesBold.widthOfTextAtSize('L', 36), y: logoY, font: timesRoman, size: 22, color: DARK })
+  page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: logoY - 18, font: helvetica, size: 8, color: GRAY })
 
-  // "DOSSIER CANDIDAT" à droite
-  page.drawText('DOSSIER CANDIDAT', {
-    x: PAGE_WIDTH - MARGIN - helveticaBold.widthOfTextAtSize('DOSSIER CANDIDAT', 12),
-    y: PAGE_HEIGHT - 55,
-    font: helveticaBold,
-    size: 12,
-    color: DARK,
-  })
+  // Thin separator line
+  page.drawRectangle({ x: MARGIN, y: logoY - 28, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
-  // Date
+  // "Dossier candidat · date" small, right-aligned under separator
   const dateStr = new Date().toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' })
-  page.drawText(dateStr, {
-    x: PAGE_WIDTH - MARGIN - helvetica.widthOfTextAtSize(dateStr, 9),
-    y: PAGE_HEIGHT - 72,
+  const dossierLabel = `Dossier candidat · ${dateStr}`
+  page.drawText(dossierLabel, {
+    x: PAGE_WIDTH - MARGIN - helvetica.widthOfTextAtSize(dossierLabel, 8),
+    y: logoY - 42,
     font: helvetica,
-    size: 9,
-    color: DARK,
+    size: 8,
+    color: GRAY,
   })
 
-  y = PAGE_HEIGHT - 120
+  y = logoY - 60
 
   // ═══════════════════ CANDIDAT NAME ═══════════════════
 
@@ -302,32 +289,31 @@ export async function generateBrandedCV(
 
   // ═══════════════════ FOOTER — SIGNATURE STYLE ═══════════════════
 
-  const timesRoman = await doc.embedFont(StandardFonts.TimesRoman)
-  const timesBold = await doc.embedFont(StandardFonts.TimesRomanBold)
-
-  const footerH = 65
+  const footerTop = 80
   // Separator line
-  page.drawRectangle({ x: MARGIN, y: footerH + 8, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
+  page.drawRectangle({ x: MARGIN, y: footerTop, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
-  // Left side: Logo text (serif, like the real L-Agence logo)
-  page.drawText('L', { x: MARGIN, y: footerH - 10, font: timesBold, size: 28, color: DARK })
-  page.drawText('-AGENCE', { x: MARGIN + timesBold.widthOfTextAtSize('L', 28), y: footerH - 10, font: timesRoman, size: 18, color: DARK })
-  page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: footerH - 28, font: helvetica, size: 8, color: GRAY })
+  // Left side: L-AGENCE + agency contact
+  const fLeftY = footerTop - 16
+  page.drawText('L', { x: MARGIN, y: fLeftY, font: timesBold, size: 20, color: DARK })
+  page.drawText('-AGENCE', { x: MARGIN + timesBold.widthOfTextAtSize('L', 20), y: fLeftY, font: timesRoman, size: 14, color: DARK })
+  page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: fLeftY - 14, font: helvetica, size: 7, color: GRAY })
+  page.drawText('info@l-agence.ch', { x: MARGIN, y: fLeftY - 26, font: helvetica, size: 8, color: GRAY })
 
-  // Right side: Recruiter contact info
+  // Right side: Recruiter signature
   const rightX = PAGE_WIDTH - MARGIN
   if (recruiterInfo) {
     const recName = `${recruiterInfo.prenom} ${recruiterInfo.nom}`
-    page.drawText(recName, { x: rightX - helveticaBold.widthOfTextAtSize(recName, 10), y: footerH - 4, font: helveticaBold, size: 10, color: DARK })
-    const role = recruiterInfo.entreprise || 'Consultant'
-    page.drawText(role, { x: rightX - helvetica.widthOfTextAtSize(role, 8), y: footerH - 16, font: helvetica, size: 8, color: GRAY })
+    page.drawText(recName, { x: rightX - helveticaBold.widthOfTextAtSize(recName, 10), y: fLeftY, font: helveticaBold, size: 10, color: DARK })
+    const role = 'Consultant'
+    page.drawText(role, { x: rightX - helvetica.widthOfTextAtSize(role, 8), y: fLeftY - 14, font: helvetica, size: 8, color: GRAY })
     if (recruiterInfo.telephone) {
       const tel = recruiterInfo.telephone
-      page.drawText(tel, { x: rightX - helvetica.widthOfTextAtSize(tel, 8), y: footerH - 28, font: helvetica, size: 8, color: GRAY })
+      page.drawText(tel, { x: rightX - helvetica.widthOfTextAtSize(tel, 8), y: fLeftY - 26, font: helvetica, size: 8, color: GRAY })
     }
     if (recruiterInfo.email) {
       const em = recruiterInfo.email
-      page.drawText(em, { x: rightX - helvetica.widthOfTextAtSize(em, 8), y: footerH - 40, font: helvetica, size: 8, color: GRAY })
+      page.drawText(em, { x: rightX - helvetica.widthOfTextAtSize(em, 8), y: fLeftY - 38, font: helvetica, size: 8, color: GRAY })
     }
   }
 
@@ -335,10 +321,10 @@ export async function generateBrandedCV(
   const confText = 'Document confidentiel'
   page.drawText(confText, {
     x: (PAGE_WIDTH - helvetica.widthOfTextAtSize(confText, 7)) / 2,
-    y: 15,
+    y: 12,
     font: helvetica,
     size: 7,
-    color: rgb(180/255, 180/255, 180/255),
+    color: rgb(200/255, 200/255, 200/255),
   })
 
   return doc.save()
