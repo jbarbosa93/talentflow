@@ -24,10 +24,10 @@ const ETAPES: {
   icon: string
 }[] = [
   { id: 'nouveau',   label: 'Nouveau',   color: '#3B82F6', bgSoft: 'rgba(59,130,246,0.08)',  borderColor: 'rgba(59,130,246,0.2)',  icon: '+" ' },
-  { id: 'contacte',  label: 'Contact\u00e9',  color: '#F59E0B', bgSoft: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)', icon: '' },
+  { id: 'contacte',  label: 'Contacté',  color: '#F59E0B', bgSoft: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.2)', icon: '' },
   { id: 'entretien', label: 'Entretien', color: '#8B5CF6', bgSoft: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.2)', icon: '' },
-  { id: 'place',     label: 'Plac\u00e9',     color: '#10B981', bgSoft: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)', icon: '' },
-  { id: 'refuse',    label: 'Refus\u00e9',    color: '#EF4444', bgSoft: 'rgba(239,68,68,0.08)',  borderColor: 'rgba(239,68,68,0.2)',  icon: '' },
+  { id: 'place',     label: 'Placé',     color: '#10B981', bgSoft: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.2)', icon: '' },
+  { id: 'refuse',    label: 'Refusé',    color: '#EF4444', bgSoft: 'rgba(239,68,68,0.08)',  borderColor: 'rgba(239,68,68,0.2)',  icon: '' },
 ]
 
 function getInitials(prenom: string | null, nom: string) {
@@ -202,7 +202,7 @@ const CandidatCard = memo(function CandidatCard({
             <QuickAction icon={Eye} label="Voir profil" />
             <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" />
             <QuickAction icon={MessageSquare} label="Ajouter note" color="#3B82F6" />
-            <QuickAction icon={ArrowRight} label="D\u00e9placer" color="#F59E0B" />
+            <QuickAction icon={ArrowRight} label="Déplacer" color="#F59E0B" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -256,12 +256,22 @@ export default function PipelinePage() {
     queryKey: ['pipeline-candidats', offreFilter],
     queryFn: async () => {
       if (offreFilter === 'tous') {
-        const { data, error } = await supabase
-          .from('candidats')
-          .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        return data || []
+        // Fetch all candidates (Supabase default limit is 1000, so paginate)
+        const allData: any[] = []
+        let from = 0
+        const batchSize = 1000
+        while (true) {
+          const { data, error } = await supabase
+            .from('candidats')
+            .select('id, nom, prenom, titre_poste, annees_exp, statut_pipeline, email, localisation, updated_at, created_at')
+            .order('created_at', { ascending: false })
+            .range(from, from + batchSize - 1)
+          if (error) throw error
+          allData.push(...(data || []))
+          if (!data || data.length < batchSize) break
+          from += batchSize
+        }
+        return allData
       } else {
         const { data: pipelineData, error } = await supabase
           .from('pipeline')
@@ -316,7 +326,7 @@ export default function PipelinePage() {
       .eq('id', draggableId)
 
     if (error) {
-      toast.error('Erreur mise \u00e0 jour')
+      toast.error('Erreur mise à jour')
       queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
     } else {
       if (offreFilter !== 'tous') {
@@ -350,7 +360,7 @@ export default function PipelinePage() {
                 Pipeline
               </h1>
               <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>
-                {total} candidat{total > 1 ? 's' : ''} {searchQuery ? 'trouv\u00e9s' : 'au total'}
+                {total} candidat{total > 1 ? 's' : ''} {searchQuery ? 'trouvés' : 'au total'}
               </p>
             </div>
           </div>
@@ -465,7 +475,7 @@ export default function PipelinePage() {
           <div style={{ textAlign: 'center' }}>
             <Search size={32} color="var(--muted-foreground)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted-foreground)' }}>
-              Aucun r\u00e9sultat pour &laquo; {searchQuery} &raquo;
+              Aucun résultat pour &laquo; {searchQuery} &raquo;
             </p>
           </div>
         </div>
@@ -570,7 +580,7 @@ export default function PipelinePage() {
                           }}
                         >
                           <p style={{ fontSize: 12, fontWeight: 600, color: etape.color, margin: 0 }}>
-                            D\u00e9poser ici
+                            Déposer ici
                           </p>
                         </motion.div>
                       )}

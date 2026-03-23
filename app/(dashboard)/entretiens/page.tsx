@@ -22,16 +22,16 @@ import { fr } from 'date-fns/locale'
 
 /* ─── Config ─── */
 const STATUT_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  planifie: { label: 'Planifi\u00e9',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: Clock },
-  confirme: { label: 'Confirm\u00e9',  color: '#10B981', bg: 'rgba(16,185,129,0.12)', icon: CheckCircle },
-  annule:   { label: 'Annul\u00e9',    color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  icon: XCircle },
-  complete: { label: 'Termin\u00e9',   color: '#6B7280', bg: 'rgba(107,114,128,0.12)', icon: CheckCircle },
+  planifie: { label: 'Planifié',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: Clock },
+  confirme: { label: 'Confirmé',  color: '#10B981', bg: 'rgba(16,185,129,0.12)', icon: CheckCircle },
+  annule:   { label: 'Annulé',    color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  icon: XCircle },
+  complete: { label: 'Terminé',   color: '#6B7280', bg: 'rgba(107,114,128,0.12)', icon: CheckCircle },
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   visio:      { label: 'Visio',       icon: Video,  color: '#3B82F6' },
-  presentiel: { label: 'Pr\u00e9sentiel',  icon: MapPin, color: '#8B5CF6' },
-  telephone:  { label: 'T\u00e9l\u00e9phone',  icon: Phone,  color: '#10B981' },
+  presentiel: { label: 'Présentiel',  icon: MapPin, color: '#8B5CF6' },
+  telephone:  { label: 'Téléphone',  icon: Phone,  color: '#10B981' },
 }
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8h to 19h
@@ -170,7 +170,7 @@ function SidebarCard({ entretien, onUpdate, onDelete }: {
               {entretien.titre}
             </p>
             <p style={{ fontSize: 10, color: 'var(--muted-foreground)', margin: '2px 0 0' }}>
-              {format(date, "EEEE d MMM '\u00e0' HH:mm", { locale: fr })}
+              {format(date, "EEEE d MMM 'à' HH:mm", { locale: fr })}
             </p>
           </div>
         </div>
@@ -354,7 +354,7 @@ export default function EntretiensPage() {
                 Entretiens
               </h1>
               <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>
-                {stats.planifie + stats.confirme} \u00e0 venir &middot; {stats.thisWeek} cette semaine
+                {stats.planifie + stats.confirme} à venir &middot; {stats.thisWeek} cette semaine
               </p>
             </div>
           </div>
@@ -398,8 +398,8 @@ export default function EntretiensPage() {
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
           {[
-            { label: 'Planifi\u00e9s', value: stats.planifie, color: '#F59E0B', icon: Clock },
-            { label: 'Confirm\u00e9s', value: stats.confirme, color: '#10B981', icon: CheckCircle },
+            { label: 'Planifiés', value: stats.planifie, color: '#F59E0B', icon: Clock },
+            { label: 'Confirmés', value: stats.confirme, color: '#10B981', icon: CheckCircle },
             { label: 'Cette semaine', value: stats.thisWeek, color: '#8B5CF6', icon: CalendarDays },
             { label: 'Total', value: stats.total, color: '#3B82F6', icon: Briefcase },
           ].map(s => (
@@ -504,10 +504,10 @@ export default function EntretiensPage() {
               <CalendarDays size={32} color="#8B5CF6" />
             </div>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px' }}>
-              Aucun entretien planifi\u00e9
+              Aucun entretien planifié
             </h3>
             <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: '0 0 24px', lineHeight: 1.6 }}>
-              Planifiez votre premier entretien pour commencer \u00e0 organiser vos rendez-vous de recrutement.
+              Planifiez votre premier entretien pour commencer à organiser vos rendez-vous de recrutement.
             </p>
             <Button onClick={() => setShowCreate(true)} style={{ borderRadius: 10, fontWeight: 700, gap: 6 }}>
               <Plus size={15} />
@@ -663,7 +663,7 @@ export default function EntretiensPage() {
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <AlertCircle size={20} color="var(--muted-foreground)" style={{ margin: '0 auto 8px', opacity: 0.5 }} />
                   <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>
-                    Aucun entretien \u00e0 venir
+                    Aucun entretien à venir
                   </p>
                 </div>
               ) : (
@@ -741,7 +741,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <label style={labelStyle}>Titre de l&apos;entretien *</label>
-        <Input value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Entretien RH -- D\u00e9veloppeur Frontend" required />
+        <Input value={titre} onChange={e => setTitre(e.target.value)} placeholder="ex: Entretien RH -- Développeur Frontend" required />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -749,7 +749,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
           <label style={labelStyle}>Candidat</label>
           <Select value={candidatId} onValueChange={setCandidatId}>
             <SelectTrigger style={{ height: 38 }}>
-              <SelectValue placeholder="S\u00e9lectionner..." />
+              <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
             <SelectContent>
               {candidats?.map(c => (
@@ -762,7 +762,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
           <label style={labelStyle}>Offre</label>
           <Select value={offreId} onValueChange={setOffreId}>
             <SelectTrigger style={{ height: 38 }}>
-              <SelectValue placeholder="S\u00e9lectionner..." />
+              <SelectValue placeholder="Sélectionner..." />
             </SelectTrigger>
             <SelectContent>
               {offres?.map(o => (
@@ -779,7 +779,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
           <Input type="datetime-local" value={dateHeure} onChange={e => setDateHeure(e.target.value)} required />
         </div>
         <div>
-          <label style={labelStyle}>Dur\u00e9e (minutes)</label>
+          <label style={labelStyle}>Durée (minutes)</label>
           <Input type="number" min="15" step="15" value={duree} onChange={e => setDuree(e.target.value)} />
         </div>
       </div>
@@ -822,7 +822,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
       {type === 'presentiel' && (
         <div>
           <label style={labelStyle}>Lieu</label>
-          <Input value={lieu} onChange={e => setLieu(e.target.value)} placeholder="ex: Rue du Rh\u00f4ne 12, Gen\u00e8ve" />
+          <Input value={lieu} onChange={e => setLieu(e.target.value)} placeholder="ex: Rue du Rhône 12, Genève" />
         </div>
       )}
 
@@ -833,7 +833,7 @@ function CreateEntretienForm({ onSuccess }: { onSuccess: () => void }) {
 
       <div>
         <label style={labelStyle}>Notes</label>
-        <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Points \u00e0 aborder, documents \u00e0 pr\u00e9parer..." rows={2} style={{ resize: 'none' }} />
+        <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Points à aborder, documents à préparer..." rows={2} style={{ resize: 'none' }} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
