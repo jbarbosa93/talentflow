@@ -347,7 +347,6 @@ export default function ClientsPage() {
     return ''
   })
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showAISearch, setShowAISearch] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [filterSecteur, setFilterSecteur] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_secteur') || ''
@@ -423,18 +422,6 @@ export default function ClientsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={() => setShowAISearch(true)} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            height: 42, padding: '0 18px', borderRadius: 8,
-            border: '2px solid var(--foreground)',
-            background: 'linear-gradient(135deg, #F7C948 0%, #F5B731 100%)',
-            color: 'var(--ink, #1C1A14)', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'var(--font-body)',
-            boxShadow: '3px 3px 0 var(--foreground)',
-            transition: 'transform 0.1s, box-shadow 0.1s',
-          }}>
-            <Sparkles size={15} /> Recherche IA
-          </button>
           <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
             <Plus size={15} /> Ajouter un client
           </button>
@@ -825,48 +812,6 @@ export default function ClientsPage() {
       />
 
       {/* AI Search modal */}
-      {showAISearch && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backdropFilter: 'blur(4px)',
-        }} onClick={() => setShowAISearch(false)}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 16,
-            padding: 32, width: '100%', maxWidth: 700, maxHeight: '90vh', overflowY: 'auto',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #F7C948 0%, #F5B731 100%)',
-                  border: '2px solid var(--foreground)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Sparkles size={18} color="var(--ink, #1C1A14)" />
-                </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
-                  Recherche IA de client
-                </h2>
-              </div>
-              <button onClick={() => setShowAISearch(false)} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--muted)', padding: 4,
-              }}>
-                <X size={20} />
-              </button>
-            </div>
-            <AIClientSearch
-              onClientAdded={() => {
-                createClient.reset()
-              }}
-              onClose={() => setShowAISearch(false)}
-            />
-          </div>
-        </div>
-      )}
-
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
