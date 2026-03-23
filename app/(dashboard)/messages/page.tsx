@@ -35,7 +35,7 @@ const CAT_COLORS: Record<string, { bg: string; color: string }> = {
 type TabId = 'email' | 'whatsapp' | 'sms' | 'templates'
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'email',     label: 'Email',          icon: Mail },
+  { id: 'email',     label: 'Mailing',         icon: Mail },
   { id: 'whatsapp',  label: 'WhatsApp',        icon: MessageCircle },
   { id: 'sms',       label: 'SMS / iMessage',  icon: Smartphone },
   { id: 'templates', label: 'Templates',       icon: FileText },
@@ -47,7 +47,7 @@ export default function MessagesPage() {
   return (
     <div className="d-page" style={{ maxWidth: 800 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Messages</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Mailing en masse</h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>Contactez vos candidats par email, WhatsApp ou SMS</p>
       </div>
 
@@ -310,6 +310,7 @@ function EmailTab() {
     if (destinataires.length === 0 || !sujet || !corps) return
     sendEmail.mutate({
       candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
+      attach_cvs: candidatIds.length > 0,
       destinataires,
       sujet,
       corps,
@@ -487,9 +488,16 @@ function EmailTab() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
-          <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Mail size={12} />{smtpConfig?.configured ? `Envoi depuis ${smtpConfig.email}` : 'Email non configuré'} {destinataires.length > 1 ? '(CCI)' : ''}
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+              <Mail size={12} />{smtpConfig?.configured ? `Envoi depuis ${smtpConfig.email}` : 'Email non configuré'} {destinataires.length > 1 ? '(CCI)' : ''}
+            </p>
+            {candidatIds.length > 0 && (
+              <p style={{ fontSize: 11, color: 'var(--primary-dark)', display: 'flex', alignItems: 'center', gap: 4, margin: 0 }}>
+                <Paperclip size={11} /> {candidatIds.length} CV personnalisé{candidatIds.length > 1 ? 's' : ''} en pièce jointe
+              </p>
+            )}
+          </div>
           <Button onClick={handleSend} disabled={destinataires.length === 0 || !sujet || !corps || sendEmail.isPending || sent}>
             {sent ? (
               <><Check className="w-3.5 h-3.5 mr-2" />Envoyé</>
