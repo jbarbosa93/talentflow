@@ -1,5 +1,5 @@
-// Hook pour compter les nouveaux éléments depuis la dernière visite
-// Stocke le timestamp de dernière visite par section dans localStorage
+// Hook pour compter les nouvelles actions faites par D'AUTRES utilisateurs
+// Badge = "ton collègue a fait quelque chose que tu n'as pas encore vu"
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useCallback } from 'react'
@@ -26,62 +26,71 @@ export function useMarkSectionSeen() {
   }, [])
 }
 
+// Mapping type d'activité → section sidebar
+const TYPE_TO_SECTION: Record<string, string> = {
+  candidat_importe: 'candidats',
+  candidat_modifie: 'candidats',
+  client_contacte: 'clients',
+  email_envoye: 'activites',
+  whatsapp_envoye: 'activites',
+  sms_envoye: 'activites',
+  cv_envoye: 'activites',
+  entretien_planifie: 'entretiens',
+  statut_change: 'activites',
+  note_ajoutee: 'activites',
+}
+
 export function useNewItemsBadges() {
   return useQuery({
     queryKey: ['new-items-badges'],
     queryFn: async () => {
       const supabase = createClient()
       const lastSeen = getLastSeen()
-
-      // Default: si jamais visité, on montre rien (pas de spam au premier login)
       const defaultDate = new Date().toISOString()
 
-      const [candidats, clients, offres, entretiens, activites] = await Promise.all([
-        // Nouveaux candidats
-        supabase
-          .from('candidats')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', lastSeen.candidats || defaultDate),
-        // Nouveaux clients
-        (supabase as any)
-          .from('clients')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', lastSeen.clients || defaultDate),
-        // Nouvelles commandes
-        supabase
-          .from('offres')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', lastSeen.offres || defaultDate),
-        // Nouveaux entretiens
-        supabase
-          .from('entretiens')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', lastSeen.entretiens || defaultDate),
-        // Nouvelles activités
-        (supabase as any)
-          .from('activites')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', lastSeen.activites || defaultDate),
-      ])
+      // Récupérer l'utilisateur courant
+      const { data: { user } } = await supabase.auth.getUser()
+      const currentUserId = user?.id || ''
 
-      return {
-        candidats: candidats.count || 0,
-        clients: clients.count || 0,
-        offres: offres.count || 0,
-        entretiens: entretiens.count || 0,
-        activites: activites.count || 0,
+      // Compter les activités par section faites par D'AUTRES utilisateurs
+      const counts: Record<string, number> = {
+        candidats: 0,
+        clients: 0,
+        offres: 0,
+        entretiens: 0,
+        activites: 0,
       }
+
+      // Récupérer toutes les activités récentes (max 200) faites par d'autres
+      const { data: recentActivities } = await (supabase as any)
+        .from('activites')
+        .select('type, created_at, user_id')
+        .neq('user_id', currentUserId)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (recentActivities) {
+        for (const act of recentActivities) {
+          const section = TYPE_TO_SECTION[act.type] || 'activites'
+          const sectionLastSeen = lastSeen[section] || defaultDate
+          if (new Date(act.created_at) > new Date(sectionLastSeen)) {
+            counts[section] = (counts[section] || 0) + 1
+          }
+        }
+      }
+
+      return counts
     },
     staleTime: 30_000,
-    refetchInterval: 30_000, // Refresh toutes les 30s
+    refetchInterval: 30_000,
   })
 }
 
 // Mapping section → couleur du badge
 export const BADGE_COLORS: Record<string, string> = {
-  candidats: '#F7C948',   // jaune (candidats)
-  clients: '#10B981',     // vert (clients)
-  offres: '#3B82F6',      // bleu (commandes)
-  entretiens: '#8B5CF6',  // violet (entretiens)
-  activites: '#F97316',   // orange (activité)
+  candidats: '#F7C948',
+  clients: '#10B981',
+  offres: '#3B82F6',
+  entretiens: '#8B5CF6',
+  activites: '#F97316',
 }
