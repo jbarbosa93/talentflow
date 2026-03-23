@@ -196,6 +196,42 @@ function IntegrationsContent() {
         </div>
       </div>
 
+      {/* Configuration API */}
+      <div style={{ background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 16px' }}>Configuration</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Zap size={16} color="var(--primary)" />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Claude AI (Anthropic)</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>Analyse IA des CVs — clé configurée via variable d&apos;environnement</div>
+              </div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecté</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CloudUpload size={16} color="#3B82F6" />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Supabase</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>Base de données et stockage de fichiers</div>
+              </div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecté</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <ExternalLink size={16} color="var(--muted)" />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>URL de l&apos;application</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>https://www.talent-flow.ch</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {isLoading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
           <Loader2 size={28} style={{ color: 'var(--primary)', animation: 'spin 1s linear infinite' }} />

@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy } from 'lucide-react'
+import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,8 +12,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 const SECTIONS = [
-  { id: 'api',           label: 'Intégrations',  icon: Key },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'profil',        label: 'Mon Profil',    icon: UserCircle },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
 ]
@@ -46,7 +45,7 @@ const TOOLS_SECTIONS = [
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
 export default function ParametresPage() {
-  const [section, setSection] = useState('api')
+  const [section, setSection] = useState('profil')
   const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
@@ -105,7 +104,7 @@ export default function ParametresPage() {
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {section === 'api'           && <ApiSection />}
+          {section === 'profil'        && <ProfilSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
           {section === 'metiers'        && <MetiersSection />}
@@ -181,6 +180,115 @@ function SectionCard({ title, description, children, onSave, saving, saved }: {
 }
 
 // ─── Profil ───────────────────────────────────────────────────────────────────
+
+function ProfilSection() {
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
+  const [email, setEmail] = useState('')
+  const [entreprise, setEntreprise] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [savingPw, setSavingPw] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {}
+        setPrenom(meta.prenom || '')
+        setNom(meta.nom || '')
+        setEmail(session.user.email || '')
+        setEntreprise(meta.entreprise || '')
+        setTelephone(meta.telephone || '')
+      }
+    })
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({
+      data: { prenom, nom, entreprise, telephone },
+    })
+    if (error) toast.error(error.message)
+    else toast.success('Profil mis à jour')
+    setSaving(false)
+  }
+
+  const handlePasswordChange = async () => {
+    if (newPassword.length < 8) { toast.error('Minimum 8 caractères'); return }
+    if (newPassword !== confirmPassword) { toast.error('Les mots de passe ne correspondent pas'); return }
+    setSavingPw(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) toast.error(error.message)
+    else { toast.success('Mot de passe mis à jour'); setNewPassword(''); setConfirmPassword('') }
+    setSavingPw(false)
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: 42, padding: '0 14px', borderRadius: 10,
+    border: '2px solid var(--border)', background: 'var(--secondary)',
+    color: 'var(--foreground)', fontSize: 14, fontFamily: 'var(--font-body)',
+    outline: 'none', boxSizing: 'border-box',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <SectionCard title="Informations personnelles" description="Vos coordonnées affichées dans TalentFlow">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Prénom</label>
+            <input value={prenom} onChange={e => setPrenom(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Nom</label>
+            <input value={nom} onChange={e => setNom(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <label style={labelStyle}>Email</label>
+          <input value={email} disabled style={{ ...inputStyle, opacity: 0.6, cursor: 'not-allowed' }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
+          <div>
+            <label style={labelStyle}>Entreprise</label>
+            <input value={entreprise} onChange={e => setEntreprise(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Téléphone</label>
+            <input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+41 78 ..." style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={handleSave} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13 }}>
+            <Save size={14} /> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+          </button>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Changer le mot de passe" description="Sécurisez votre compte avec un mot de passe fort">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Nouveau mot de passe</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 caractères" style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Confirmer le mot de passe</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Répétez le mot de passe" style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={handlePasswordChange} disabled={savingPw || !newPassword} className="neo-btn-yellow" style={{ fontSize: 13 }}>
+            <Save size={14} /> {savingPw ? 'Mise à jour...' : 'Mettre à jour'}
+          </button>
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
 
 // ─── API / Intégrations ───────────────────────────────────────────────────────
 
