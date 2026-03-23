@@ -207,12 +207,19 @@ export async function generateBrandedCV(
     y -= 20
   }
 
-  // Info line : localisation · âge
+  // Info line : localisation · âge · permis — controlled by customContent flags
+  const showLoc = customContent?.show_localisation !== '0'
+  const showAge = customContent?.show_age !== '0'
+  const showPermis = customContent?.show_permis !== '0'
+
   const infoParts: string[] = []
-  if (candidat.localisation) infoParts.push(candidat.localisation)
+  if (showLoc) {
+    const loc = getContent('localisation', candidat.localisation || '')
+    if (loc) infoParts.push(loc)
+  }
   const age = calculerAge(candidat.date_naissance ?? null)
-  if (age) infoParts.push(`${age} ans`)
-  if (candidat.permis_conduire) infoParts.push('Permis B')
+  if (showAge && age) infoParts.push(`${age} ans`)
+  if (showPermis && candidat.permis_conduire) infoParts.push('Permis de conduire')
   if (infoParts.length > 0) {
     page.drawText(infoParts.join('  ·  '), { x: MARGIN, y, font: helvetica, size: 10, color: GRAY })
     y -= 16
@@ -293,30 +300,39 @@ export async function generateBrandedCV(
     y -= 8
   }
 
-  // ═══════════════════ FOOTER — RECRUTEUR ═══════════════════
+  // ═══════════════════ FOOTER — SIGNATURE STYLE ═══════════════════
 
-  // Draw footer on last page
-  const footerY = MARGIN + 30
-  page.drawRectangle({ x: 0, y: 0, width: PAGE_WIDTH, height: footerY + 20, color: rgb(248 / 255, 248 / 255, 248 / 255) })
-  page.drawRectangle({ x: 0, y: footerY + 20, width: PAGE_WIDTH, height: 1, color: LIGHT_GRAY })
+  // Footer style signature email (dark band + recruiter info)
+  const footerH = 70
+  const footerY = 0
+
+  // Dark background band
+  page.drawRectangle({ x: 0, y: footerY, width: PAGE_WIDTH, height: footerH, color: DARK })
+  // Yellow accent line at top
+  page.drawRectangle({ x: 0, y: footerH, width: PAGE_WIDTH, height: 3, color: YELLOW })
 
   if (recruiterInfo) {
-    const recLine = `${recruiterInfo.prenom} ${recruiterInfo.nom} — ${recruiterInfo.entreprise || 'L-Agence SA'}`
-    page.drawText(recLine, { x: MARGIN, y: footerY, font: helveticaBold, size: 9, color: DARK })
-    const contactLine = [recruiterInfo.email, recruiterInfo.telephone].filter(Boolean).join('  ·  ')
-    page.drawText(contactLine, { x: MARGIN, y: footerY - 13, font: helvetica, size: 8, color: GRAY })
+    const recName = `${recruiterInfo.prenom} ${recruiterInfo.nom}`
+    page.drawText(recName, { x: MARGIN, y: footerH - 22, font: helveticaBold, size: 11, color: WHITE })
+    const recTitle = recruiterInfo.entreprise || 'L-Agence SA'
+    page.drawText(recTitle, { x: MARGIN, y: footerH - 36, font: helvetica, size: 9, color: YELLOW })
+    const contactParts = [recruiterInfo.email, recruiterInfo.telephone].filter(Boolean).join('  |  ')
+    if (contactParts) {
+      page.drawText(contactParts, { x: MARGIN, y: footerH - 50, font: helvetica, size: 8, color: rgb(180/255, 180/255, 180/255) })
+    }
   } else {
-    page.drawText('L-Agence SA — Emplois fixes & temporaires', { x: MARGIN, y: footerY, font: helveticaBold, size: 9, color: DARK })
+    page.drawText('L-AGENCE', { x: MARGIN, y: footerH - 24, font: helveticaBold, size: 14, color: YELLOW })
+    page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: footerH - 40, font: helvetica, size: 9, color: rgb(180/255, 180/255, 180/255) })
   }
 
-  // Confidential notice right side
+  // Confidential notice right side in footer
   const confText = 'Document confidentiel'
   page.drawText(confText, {
     x: PAGE_WIDTH - MARGIN - helvetica.widthOfTextAtSize(confText, 8),
-    y: footerY - 13,
+    y: footerH - 50,
     font: helvetica,
     size: 8,
-    color: GRAY,
+    color: rgb(120/255, 120/255, 120/255),
   })
 
   return doc.save()
