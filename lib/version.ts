@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.14.0'
+export const APP_VERSION = 'v0.15.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.15.0',
+    date: '2026-03-23',
+    label: 'Clients, Mailing & Activite',
+    features: [
+      'Module Clients complet : 1207 entreprises importees depuis QUADRIGIS avec 538 contacts',
+      'Fiche client : infos, adresse, secteur, notes, personnes de contact (nom, fonction, tel, email)',
+      'Filtres avances clients : secteur, ville, canton, NPA, avec/sans contacts',
+      'Vue grille/liste sur Clients avec persistance recherche',
+      'Mailing en masse : selection candidats + CV personnalise auto en piece jointe',
+      'Personnaliseur CV : sections toggleables, champs editables, apercu PDF temps reel',
+      'Bouton "Joindre au mail" (vert) directement depuis le formulaire envois',
+      'CV PDF brande L-Agence : header recruteur, footer bureau, permis de conduire',
+      'Dashboard : KPI Clients, graphique candidatures recues (jour/semaine/mois)',
+      'Fil d\'activite : timeline collaborative, filtres par type, notes editables',
+      'Widget activite recente sur dashboard (refresh 30s)',
+      'Pipeline redesigne : Kanban couleurs, drag & drop ameliore, recherche, actions rapides',
+      'Entretiens redesignes : calendrier semaine, grille horaire, events couleur par type',
+      'Affichage 100/500/1000/Tous candidats sur une seule page',
+      'Reset selection automatique lors de recherche/changement filtres',
+      'Bouton "Tout deselectionner" noir',
+      'App mobile : login redesigne, pagination 4000+ candidats, OTA updates',
+      'PWA installable depuis le navigateur',
+      'Sidebar : Clients, Activite, Envois (renomme)',
+    ],
+  },
   {
     version: 'v0.14.0',
     date: '2026-03-22',

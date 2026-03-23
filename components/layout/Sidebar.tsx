@@ -165,10 +165,6 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 36, marginTop: 1 }}>
               {entreprise}
             </span>
-          {false && entreprise && (
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 20, marginTop: 1 }}>
-              {entreprise}
-            </span>
           )}
         </Link>
       </motion.div>

@@ -298,9 +298,12 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* ── Activite recente ── */}
+      <RecentActivityWidget />
+
       {/* ── Carte des candidats ── */}
       <motion.div
-        custom={2}
+        custom={3}
         variants={fadeUp}
         initial="hidden"
         animate="show"
@@ -320,9 +323,6 @@ export default function DashboardPage() {
           <CandidatsMap />
         </div>
       </motion.div>
-
-      {/* ── Activite recente ── */}
-      <RecentActivityWidget />
 
     </div>
   )
