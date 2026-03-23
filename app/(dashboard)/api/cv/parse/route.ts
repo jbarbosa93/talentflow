@@ -481,7 +481,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const mappedType = mapDocumentType(analyse.document_type)
       const { data: existDoc } = await adminClient.from('candidats').select('documents').eq('id', candidatExistant.id).single()
       const docs = (existDoc?.documents as any[]) || []
-      docs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
+      // Vérifier si ce fichier exact existe déjà (par URL ou nom de fichier)
+      const alreadyExists = docs.some((d: any) => d.url === cvUrl || d.name === file.name)
+      if (!alreadyExists) {
+        docs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
+      } else {
+        console.log(`[CV Parse] Document déjà présent: ${file.name}, skip`)
+      }
       await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
       console.log(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
