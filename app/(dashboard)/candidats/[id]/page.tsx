@@ -1,5 +1,5 @@
 'use client'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
@@ -138,6 +138,8 @@ const smallMuted: React.CSSProperties = { color: 'var(--muted)', fontSize: 12 }
 export default function CandidatDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromPipeline = searchParams.get('from') === 'pipeline'
   const queryClient = useQueryClient()
   const [note, setNote]                   = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -652,8 +654,8 @@ export default function CandidatDetailPage() {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <button onClick={() => router.back()} className="neo-btn-ghost neo-btn-sm">
-          <ArrowLeft size={14} /> Retour aux candidats
+        <button onClick={() => fromPipeline ? router.push('/pipeline') : router.back()} className="neo-btn-ghost neo-btn-sm">
+          <ArrowLeft size={14} /> {fromPipeline ? 'Retour au pipeline' : 'Retour aux candidats'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {candidat.import_status === 'a_traiter' && !isEditing && (

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useMemo, memo } from 'react'
-import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, closestCenter, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, DragOverEvent, useDroppable } from '@dnd-kit/core'
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion } from 'framer-motion'
 import {
   Star, GripVertical, MapPin, Search, Calendar, MessageSquare,
-  ArrowRight, ChevronDown, Clock, Eye, UserPlus, Briefcase,
+  ChevronDown, Clock, Eye, UserPlus, Briefcase,
   TrendingUp, Filter, LayoutGrid
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -86,8 +86,8 @@ const QuickAction = ({ icon: Icon, label, onClick, color }: {
 )
 
 /* ─────── Droppable Column ─────── */
-function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id })
+function DroppableColumn({ id, children, isActive }: { id: string; children: React.ReactNode; isActive?: boolean }) {
+  const { setNodeRef } = useDroppable({ id })
   const etape = ETAPES.find(e => e.id === id)!
 
   return (
@@ -96,10 +96,10 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
       style={{
         flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8,
         borderRadius: '0 0 16px 16px',
-        borderLeft: `2px solid ${isOver ? etape.color : etape.borderColor}`,
-        borderRight: `2px solid ${isOver ? etape.color : etape.borderColor}`,
-        borderBottom: `2px solid ${isOver ? etape.color : etape.borderColor}`,
-        background: isOver ? `${etape.color}08` : 'var(--secondary)',
+        borderLeft: `2px solid ${isActive ? etape.color : etape.borderColor}`,
+        borderRight: `2px solid ${isActive ? etape.color : etape.borderColor}`,
+        borderBottom: `2px solid ${isActive ? etape.color : etape.borderColor}`,
+        background: isActive ? `${etape.color}12` : 'var(--secondary)',
         minHeight: 100, overflowY: 'auto',
         transition: 'background 0.25s, border-color 0.25s',
       }}
@@ -235,10 +235,9 @@ function DraggableCard({ item, etapeColor }: { item: any; etapeColor: string }) 
             borderTop: '1px solid var(--border)',
           }}
         >
-          <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}`} />
+          <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
           <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
           <QuickAction icon={MessageSquare} label="Envoyer CV" color="#3B82F6" onClick={() => window.location.href = '/messages'} />
-          <QuickAction icon={ArrowRight} label="Voir fiche" color="#F59E0B" onClick={() => window.location.href = `/candidats/${item.id}`} />
         </div>
       )}
     </div>
@@ -325,6 +324,7 @@ export default function PipelinePage() {
   const [offreFilter, setOffreFilter] = useState<string>('tous')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [overColumnId, setOverColumnId] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
   const sensors = useSensors(
@@ -457,10 +457,26 @@ export default function PipelinePage() {
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string)
+    setOverColumnId(null)
   }, [])
+
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { over } = event
+    if (!over) { setOverColumnId(null); return }
+    const overId = over.id as string
+    // Check if directly over a column
+    if (ETAPES.some(e => e.id === overId)) {
+      setOverColumnId(overId)
+    } else {
+      // Over a card — find its column
+      const overCard = candidats?.find((c: any) => c.id === overId)
+      if (overCard) setOverColumnId(overCard.statut_pipeline)
+    }
+  }, [candidats])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveId(null)
+    setOverColumnId(null)
     const { active, over } = event
     if (!over) return
 
@@ -522,6 +538,7 @@ export default function PipelinePage() {
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null)
+    setOverColumnId(null)
   }, [])
 
   return (
@@ -703,14 +720,15 @@ export default function PipelinePage() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
           <div style={{
             display: 'flex', gap: 12, flex: 1,
-            overflowX: 'auto', paddingBottom: 8, minHeight: 0,
+            overflowX: 'auto', paddingBottom: 8, paddingRight: 4, minHeight: 0,
           }}>
             {ETAPES.map((etape) => (
               <div
@@ -751,7 +769,7 @@ export default function PipelinePage() {
                 </div>
 
                 {/* Droppable area */}
-                <DroppableColumn id={etape.id}>
+                <DroppableColumn id={etape.id} isActive={overColumnId === etape.id}>
                   <SortableContext
                     items={candidatsByEtape[etape.id].map((c: any) => c.id)}
                     strategy={verticalListSortingStrategy}
