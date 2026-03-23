@@ -1,12 +1,12 @@
 'use client'
 import { useState, useCallback, useMemo } from 'react'
-import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, useDroppable, DragOverEvent } from '@dnd-kit/core'
-import { useSortable } from '@dnd-kit/sortable'
+import { DndContext, DragOverlay, closestCorners, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, useDroppable } from '@dnd-kit/core'
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Star, GripVertical, MapPin, Search, Calendar, MessageSquare,
   ArrowRight, ChevronDown, Clock, Eye, UserPlus, Briefcase,
@@ -85,35 +85,67 @@ const QuickAction = ({ icon: Icon, label, onClick, color }: {
   </button>
 )
 
-/* ─────── Candidate Card ─────── */
-const CandidatCard = memo(function CandidatCard({
-  provided, snapshot, item, etapeColor
-}: { provided: any; snapshot: any; item: any; etapeColor: string }) {
-  const [hovered, setHovered] = useState(false)
+/* ─────── Droppable Column ─────── */
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+  const etape = ETAPES.find(e => e.id === id)!
 
   return (
     <div
-      ref={provided.innerRef}
-      {...provided.draggableProps}
-      {...provided.dragHandleProps}
+      ref={setNodeRef}
+      style={{
+        flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8,
+        borderRadius: '0 0 16px 16px',
+        borderLeft: `2px solid ${isOver ? etape.color : etape.borderColor}`,
+        borderRight: `2px solid ${isOver ? etape.color : etape.borderColor}`,
+        borderBottom: `2px solid ${isOver ? etape.color : etape.borderColor}`,
+        background: isOver ? `${etape.color}08` : 'var(--secondary)',
+        minHeight: 100, overflowY: 'auto',
+        transition: 'background 0.25s, border-color 0.25s',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/* ─────── Draggable Card ─────── */
+function DraggableCard({ item, etapeColor }: { item: any; etapeColor: string }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id })
+  const [hovered, setHovered] = useState(false)
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    background: 'var(--card)',
+    borderRadius: 14,
+    padding: '14px 16px',
+    border: `2px solid ${isDragging ? 'var(--primary)' : hovered ? 'rgba(255,255,255,0.12)' : 'var(--border)'}`,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    boxShadow: isDragging
+      ? '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--primary)'
+      : hovered
+        ? '0 4px 16px rgba(0,0,0,0.2)'
+        : '0 1px 3px rgba(0,0,0,0.1)',
+    userSelect: 'none',
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{
-        ...provided.draggableProps.style,
-        background: 'var(--card)',
-        borderRadius: 14,
-        padding: '14px 16px',
-        border: `2px solid ${snapshot.isDragging ? 'var(--primary)' : hovered ? 'rgba(255,255,255,0.12)' : 'var(--border)'}`,
-        cursor: snapshot.isDragging ? 'grabbing' : 'grab',
-        boxShadow: snapshot.isDragging
-          ? '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--primary)'
-          : hovered
-            ? '0 4px 16px rgba(0,0,0,0.2)'
-            : '0 1px 3px rgba(0,0,0,0.1)',
-        userSelect: 'none',
-        transform: snapshot.isDragging ? 'rotate(2deg)' : 'none',
-        transition: snapshot.isDragging ? 'none' : 'border-color 0.2s, box-shadow 0.2s',
-      }}
+      style={style}
     >
       {/* Top row: avatar + name + grip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -211,7 +243,54 @@ const CandidatCard = memo(function CandidatCard({
       )}
     </div>
   )
-})
+}
+
+/* ─────── Overlay Card (shown while dragging) ─────── */
+function OverlayCard({ item, etapeColor }: { item: any; etapeColor: string }) {
+  return (
+    <div
+      style={{
+        background: 'var(--card)',
+        borderRadius: 14,
+        padding: '14px 16px',
+        border: '2px solid var(--primary)',
+        cursor: 'grabbing',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--primary)',
+        userSelect: 'none',
+        transform: 'rotate(2deg)',
+        width: 280,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: `linear-gradient(135deg, ${etapeColor}22, ${etapeColor}44)`,
+          border: `2px solid ${etapeColor}33`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 800, color: etapeColor,
+          flexShrink: 0,
+        }}>
+          {getInitials(item.prenom, item.nom)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{
+            fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {item.prenom} {item.nom}
+          </p>
+          <p style={{
+            fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {item.titre_poste || 'Sans poste'}
+          </p>
+        </div>
+        <GripVertical size={14} style={{ color: 'var(--muted-foreground)', opacity: 0.4, flexShrink: 0 }} />
+      </div>
+    </div>
+  )
+}
 
 /* ─────── Stats Bar ─────── */
 function StatsBar({ candidatsByEtape }: { candidatsByEtape: Record<PipelineEtape, any[]> }) {
@@ -245,7 +324,14 @@ function StatsBar({ candidatsByEtape }: { candidatsByEtape: Record<PipelineEtape
 export default function PipelinePage() {
   const [offreFilter, setOffreFilter] = useState<string>('tous')
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeId, setActiveId] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  )
 
   const { data: offres } = useQuery({
     queryKey: ['offres-pipeline'],
@@ -363,10 +449,39 @@ export default function PipelinePage() {
 
   const total = filteredCandidats?.length || 0
 
-  const onDragEnd = useCallback(async (result: DropResult) => {
-    if (!result.destination) return
-    const { draggableId, destination } = result
-    const newEtape = destination.droppableId as PipelineEtape
+  // Find the active item and its etape color for the overlay
+  const activeItem = activeId ? candidats?.find((c: any) => c.id === activeId) : null
+  const activeEtapeColor = activeItem
+    ? ETAPES.find(e => e.id === activeItem.statut_pipeline)?.color || '#3B82F6'
+    : '#3B82F6'
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }, [])
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setActiveId(null)
+    const { active, over } = event
+    if (!over) return
+
+    const draggableId = active.id as string
+    // The over.id could be a column id (etape) or another card id
+    // We need to determine which column was dropped into
+    let newEtape: PipelineEtape | undefined
+
+    // Check if dropped over a column directly
+    const isColumn = ETAPES.some(e => e.id === over.id)
+    if (isColumn) {
+      newEtape = over.id as PipelineEtape
+    } else {
+      // Dropped over another card — find which column that card belongs to
+      const overCandidat = candidats?.find((c: any) => c.id === over.id)
+      if (overCandidat) {
+        newEtape = overCandidat.statut_pipeline as PipelineEtape
+      }
+    }
+
+    if (!newEtape) return
     const candidat = candidats?.find((c: any) => c.id === draggableId)
     if (!candidat || candidat.statut_pipeline === newEtape) return
 
@@ -404,6 +519,10 @@ export default function PipelinePage() {
       })
     }
   }, [candidats, offreFilter, queryClient])
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null)
+  }, [])
 
   return (
     <div style={{ padding: '20px 24px', height: '100vh', maxHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -582,12 +701,18 @@ export default function PipelinePage() {
           </div>
         </div>
       ) : (
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
           <div style={{
             display: 'flex', gap: 12, flex: 1,
             overflowX: 'auto', paddingBottom: 8, minHeight: 0,
           }}>
-            {ETAPES.map((etape, colIndex) => (
+            {ETAPES.map((etape) => (
               <div
                 key={etape.id}
                 style={{
@@ -626,70 +751,41 @@ export default function PipelinePage() {
                 </div>
 
                 {/* Droppable area */}
-                <Droppable droppableId={etape.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      style={{
-                        flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8,
-                        borderRadius: '0 0 16px 16px',
-                        borderLeft: `2px solid ${snapshot.isDraggingOver ? etape.color : etape.borderColor}`,
-                        borderRight: `2px solid ${snapshot.isDraggingOver ? etape.color : etape.borderColor}`,
-                        borderBottom: `2px solid ${snapshot.isDraggingOver ? etape.color : etape.borderColor}`,
-                        background: snapshot.isDraggingOver
-                          ? `${etape.color}08`
-                          : 'var(--secondary)',
-                        minHeight: 100, overflowY: 'auto',
-                        transition: 'background 0.25s, border-color 0.25s',
-                      }}
-                    >
-                      {candidatsByEtape[etape.id].map((item: any, index: number) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index}>
-                          {(provided, snapshot) => (
-                            <CandidatCard
-                              provided={provided}
-                              snapshot={snapshot}
-                              item={item}
-                              etapeColor={etape.color}
-                            />
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                      {candidatsByEtape[etape.id].length === 0 && !snapshot.isDraggingOver && (
-                        <div style={{
-                          padding: '32px 16px', textAlign: 'center',
-                          borderRadius: 12, border: '2px dashed var(--border)',
-                          margin: 4,
-                        }}>
-                          <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0 }}>
-                            Glissez un candidat ici
-                          </p>
-                        </div>
-                      )}
-                      {snapshot.isDraggingOver && candidatsByEtape[etape.id].length === 0 && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          style={{
-                            padding: '24px 16px', textAlign: 'center',
-                            borderRadius: 12, border: `2px dashed ${etape.color}`,
-                            background: `${etape.color}10`,
-                          }}
-                        >
-                          <p style={{ fontSize: 12, fontWeight: 600, color: etape.color, margin: 0 }}>
-                            Déposer ici
-                          </p>
-                        </motion.div>
-                      )}
+                <DroppableColumn id={etape.id}>
+                  <SortableContext
+                    items={candidatsByEtape[etape.id].map((c: any) => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {candidatsByEtape[etape.id].map((item: any) => (
+                      <DraggableCard
+                        key={item.id}
+                        item={item}
+                        etapeColor={etape.color}
+                      />
+                    ))}
+                  </SortableContext>
+                  {candidatsByEtape[etape.id].length === 0 && (
+                    <div style={{
+                      padding: '32px 16px', textAlign: 'center',
+                      borderRadius: 12, border: '2px dashed var(--border)',
+                      margin: 4,
+                    }}>
+                      <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0 }}>
+                        Glissez un candidat ici
+                      </p>
                     </div>
                   )}
-                </Droppable>
+                </DroppableColumn>
               </div>
             ))}
           </div>
-        </DragDropContext>
+
+          <DragOverlay>
+            {activeItem ? (
+              <OverlayCard item={activeItem} etapeColor={activeEtapeColor} />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </div>
   )
