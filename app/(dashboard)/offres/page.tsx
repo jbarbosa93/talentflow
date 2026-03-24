@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase } from 'lucide-react'
+import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +37,7 @@ function useDeleteOffre() {
 }
 
 export default function OffresPage() {
-  const [activeTab, setActiveTab] = useState<'offres' | 'facebook'>('offres')
+  const [activeTab, setActiveTab] = useState<'offres' | 'analyse' | 'facebook'>('offres')
   const [showCreate, setShowCreate] = useState(false)
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -92,6 +92,10 @@ export default function OffresPage() {
             <button style={tabStyle(activeTab === 'offres')} onClick={() => setActiveTab('offres')}>
               Commandes
             </button>
+            <button style={tabStyle(activeTab === 'analyse')} onClick={() => setActiveTab('analyse')}>
+              <Sparkles size={13} />
+              Analyser CDC
+            </button>
             <button style={tabStyle(activeTab === 'facebook')} onClick={() => setActiveTab('facebook')}>
               <span style={{ fontSize: 13 }}>🌐</span>
               job-room.ch
@@ -107,6 +111,7 @@ export default function OffresPage() {
       </motion.div>
 
       {activeTab === 'facebook' && <JobRoomComposer offres={offres || []} />}
+      {activeTab === 'analyse' && <AnalyseCDC onCommandeCreated={() => setActiveTab('offres')} />}
       {activeTab === 'offres' && (<>
 
       {isLoading ? (
@@ -298,6 +303,263 @@ export default function OffresPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Analyser Cahier des Charges ─────────────────────────────────────────────
+
+type CDCResult = {
+  client_nom: string
+  titre: string
+  nb_postes: number
+  localisation: string
+  exp_requise: number
+  date_debut: string
+  duree_mission: string
+  competences: string[]
+  formation: string
+  langues: string[]
+  permis: boolean
+  taux_activite: string
+  description: string
+  notes: string
+}
+
+function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
+  const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<CDCResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // Editable fields after analysis
+  const [edited, setEdited] = useState<CDCResult | null>(null)
+  const [saving, setSaving] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const createOffre = useCreateOffre()
+
+  const inputStyle = {
+    width: '100%', padding: '8px 12px', border: '1.5px solid var(--border)',
+    borderRadius: 8, fontSize: 13, fontFamily: 'var(--font-body)',
+    color: 'var(--foreground)', background: 'var(--surface)', outline: 'none',
+    boxSizing: 'border-box' as const,
+  }
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+    marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em',
+  }
+
+  const handleFile = (f: File) => {
+    const ok = f.type.includes('pdf') || f.type.includes('image') || f.name.toLowerCase().endsWith('.pdf')
+    if (!ok) { setError('Format non supporté — utilisez PDF ou image (JPG, PNG)'); return }
+    setFile(f)
+    setResult(null)
+    setEdited(null)
+    setError(null)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false)
+    const f = e.dataTransfer.files[0]
+    if (f) handleFile(f)
+  }
+
+  const handleAnalyse = async () => {
+    if (!file) return
+    setLoading(true); setError(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/commandes/analyse-cdc', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur analyse')
+      setResult(data.commande)
+      setEdited(data.commande)
+    } catch (e: any) {
+      setError(e.message || 'Erreur lors de l\'analyse')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreate = () => {
+    if (!edited) return
+    setSaving(true)
+    createOffre.mutate({
+      titre: edited.titre,
+      type_contrat: edited.duree_mission || 'Mission',
+      client_nom: edited.client_nom || undefined,
+      nb_postes: edited.nb_postes || 1,
+      date_debut: edited.date_debut || undefined,
+      duree_mission: edited.duree_mission || undefined,
+      description: edited.description || undefined,
+      competences: edited.competences,
+      localisation: edited.localisation || undefined,
+      notes: [
+        edited.notes,
+        edited.formation ? `Formation requise : ${edited.formation}` : '',
+        edited.langues?.length ? `Langues : ${edited.langues.join(', ')}` : '',
+        edited.permis ? 'Permis de conduire requis' : '',
+        edited.taux_activite ? `Taux d\'activité : ${edited.taux_activite}` : '',
+      ].filter(Boolean).join('\n') || undefined,
+      exp_requise: edited.exp_requise || 0,
+    }, {
+      onSuccess: () => { setSaving(false); toast.success('Commande créée avec succès !'); onCommandeCreated() },
+      onError: () => { setSaving(false); toast.error('Erreur lors de la création') },
+    })
+  }
+
+  const set = (k: keyof CDCResult, v: any) => setEdited(prev => prev ? { ...prev, [k]: v } : prev)
+
+  if (result && edited) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #10B981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircle2 size={18} color="white" />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>Analyse terminée — vérifiez les informations</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              {file?.name} · Corrigez si nécessaire puis créez la commande
+            </div>
+          </div>
+          <button onClick={() => { setResult(null); setEdited(null); setFile(null) }}
+            style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Nouvelle analyse
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, maxWidth: 780 }}>
+          <div>
+            <label style={labelStyle}><Building2 size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Nom du client</label>
+            <input style={inputStyle} value={edited.client_nom} onChange={e => set('client_nom', e.target.value)} placeholder="Entreprise cliente" />
+          </div>
+          <div>
+            <label style={labelStyle}>Poste recherché *</label>
+            <input style={inputStyle} value={edited.titre} onChange={e => set('titre', e.target.value)} placeholder="Intitulé du poste" />
+          </div>
+          <div>
+            <label style={labelStyle}><MapPin size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Localisation</label>
+            <input style={inputStyle} value={edited.localisation} onChange={e => set('localisation', e.target.value)} placeholder="Ville, Canton" />
+          </div>
+          <div>
+            <label style={labelStyle}><Users size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Nb de postes</label>
+            <input style={inputStyle} type="number" min={1} value={edited.nb_postes} onChange={e => set('nb_postes', parseInt(e.target.value) || 1)} />
+          </div>
+          <div>
+            <label style={labelStyle}><Calendar size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Date de début</label>
+            <input style={inputStyle} type="date" value={edited.date_debut} onChange={e => set('date_debut', e.target.value)} />
+          </div>
+          <div>
+            <label style={labelStyle}><Clock size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Durée / Type contrat</label>
+            <input style={inputStyle} value={edited.duree_mission} onChange={e => set('duree_mission', e.target.value)} placeholder="CDI, Temporaire, 3 mois..." />
+          </div>
+          <div>
+            <label style={labelStyle}>Expérience requise (ans)</label>
+            <input style={inputStyle} type="number" min={0} value={edited.exp_requise} onChange={e => set('exp_requise', parseInt(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label style={labelStyle}>Taux d&apos;activité</label>
+            <input style={inputStyle} value={edited.taux_activite} onChange={e => set('taux_activite', e.target.value)} placeholder="100%" />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}><Wrench size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Compétences requises (séparées par virgule)</label>
+            <input style={inputStyle} value={edited.competences.join(', ')} onChange={e => set('competences', e.target.value.split(',').map(c => c.trim()).filter(Boolean))} placeholder="CFC maçon, Coffrage, Banche..." />
+          </div>
+          <div>
+            <label style={labelStyle}>Formation requise</label>
+            <input style={inputStyle} value={edited.formation} onChange={e => set('formation', e.target.value)} placeholder="CFC, Bachelor, Master..." />
+          </div>
+          <div>
+            <label style={labelStyle}><Languages size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Langues (séparées par virgule)</label>
+            <input style={inputStyle} value={edited.langues.join(', ')} onChange={e => set('langues', e.target.value.split(',').map(l => l.trim()).filter(Boolean))} placeholder="Français, Allemand..." />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Description du poste</label>
+            <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={edited.description} onChange={e => set('description', e.target.value)} placeholder="Description des missions..." />
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}><FileText size={10} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Notes internes</label>
+            <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={edited.notes} onChange={e => set('notes', e.target.value)} placeholder="Conditions, contact client, salaire..." />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+          <button
+            onClick={handleCreate}
+            disabled={!edited.titre || saving}
+            className="neo-btn-yellow"
+          >
+            {saving ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Création...</> : <><Plus size={14} /> Créer la commande</>}
+          </button>
+        </div>
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ maxWidth: 600 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Analyser un Cahier des Charges</h2>
+        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+          Importez un PDF ou une image de cahier des charges, description de poste ou appel d&apos;offres.
+          Claude IA extrait automatiquement toutes les informations pour créer une commande.
+        </p>
+      </div>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        onClick={() => fileRef.current?.click()}
+        style={{
+          border: `2px dashed ${isDragging ? '#10B981' : file ? '#10B981' : 'var(--border)'}`,
+          borderRadius: 16, padding: '40px 24px', textAlign: 'center', cursor: 'pointer',
+          background: isDragging ? 'rgba(16,185,129,0.04)' : file ? 'rgba(16,185,129,0.02)' : 'var(--surface)',
+          transition: 'all 0.2s',
+        }}
+      >
+        <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+        {file ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={24} color="#10B981" />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{file.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{(file.size / 1024).toFixed(0)} KB · Cliquez pour changer</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Upload size={24} style={{ color: 'var(--muted)' }} />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Glissez un fichier ici ou cliquez pour choisir</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>PDF, JPG, PNG · Cahier des charges, description de poste, appel d&apos;offres</div>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, color: '#DC2626', fontSize: 13 }}>
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      {file && !loading && (
+        <button onClick={handleAnalyse} className="neo-btn-yellow" style={{ marginTop: 16, width: '100%', justifyContent: 'center' }}>
+          <Sparkles size={15} />
+          Analyser avec Claude IA
+        </button>
+      )}
+
+      {loading && (
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13, color: 'var(--muted)' }}>
+          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+          Claude analyse le document... cela prend quelques secondes.
+        </div>
+      )}
+    </motion.div>
   )
 }
 

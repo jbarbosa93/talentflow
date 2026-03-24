@@ -395,46 +395,80 @@ export async function calculerScoreMatching(
     annees_exp: number
     titre_poste: string | null
     resume_ia: string | null
+    formation?: string | null
+    langues?: string[] | null
+    cv_texte_brut?: string | null
+    experiences?: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
   },
   offre: {
     titre: string
     competences: string[]
     exp_requise: number
     description: string | null
+    localisation?: string | null
+    notes?: string | null
   }
 ): Promise<MatchingResult> {
   const client = getClient()
 
-  const prompt = `Tu es un expert en recrutement. Évalue la compatibilité entre ce candidat et cette offre.
+  // Extrait les 3 dernières expériences du candidat pour le contexte
+  const expRecentes = (candidat.experiences || []).slice(0, 3)
+    .map(e => `${e.poste} chez ${e.entreprise} (${e.periode})${e.description ? ': ' + e.description.slice(0, 100) : ''}`)
+    .join('\n')
 
-CANDIDAT :
-- Titre : ${candidat.titre_poste || 'Non renseigné'}
-- Expérience : ${candidat.annees_exp} ans
-- Compétences : ${candidat.competences.join(', ')}
-- Résumé : ${candidat.resume_ia || 'Non disponible'}
+  // CV brut tronqué à 1500 chars pour ne pas dépasser les tokens
+  const cvBrut = (candidat.cv_texte_brut || '').slice(0, 1500)
 
-OFFRE :
-- Titre : ${offre.titre}
-- Expérience requise : ${offre.exp_requise} ans minimum
-- Compétences requises : ${offre.competences.join(', ')}
-- Description : ${(offre.description || '').slice(0, 500)}
+  // Contexte complet de l'offre (description + notes = cahier des charges)
+  const offreContext = [offre.description, offre.notes].filter(Boolean).join('\n').slice(0, 1200)
+
+  const prompt = `Tu es un expert en recrutement RH avec 20 ans d'expérience en placement de personnel technique et industriel.
+
+MISSION : Évalue la compatibilité RÉELLE entre ce candidat et ce poste. Ne te limite PAS aux mots-clés exacts — raisonne comme un recruteur expérimenté qui comprend les équivalences de métier, les compétences transférables et les domaines connexes.
+
+━━━ CANDIDAT ━━━
+Titre actuel : ${candidat.titre_poste || 'Non renseigné'}
+Expérience totale : ${candidat.annees_exp} ans
+Formation : ${candidat.formation || 'Non renseignée'}
+Langues : ${(candidat.langues || []).join(', ') || 'Non renseignées'}
+Compétences déclarées : ${candidat.competences.join(', ') || 'Aucune'}
+Résumé IA : ${candidat.resume_ia || 'Non disponible'}
+${expRecentes ? `Expériences récentes :\n${expRecentes}` : ''}
+${cvBrut ? `Extrait CV :\n${cvBrut}` : ''}
+
+━━━ POSTE À POURVOIR ━━━
+Intitulé : ${offre.titre}
+Lieu : ${offre.localisation || 'Non précisé'}
+Expérience requise : ${offre.exp_requise} ans minimum
+Compétences requises : ${offre.competences.join(', ') || 'Voir description'}
+Description complète :
+${offreContext || 'Non disponible'}
+
+━━━ INSTRUCTIONS ━━━
+1. ÉQUIVALENCES SÉMANTIQUES : comprends que "plombier-chauffagiste" = pertinent pour "CVCS/sanitaire", "mécanicien automobile" = transférable en maintenance industrielle, etc.
+2. COMPÉTENCES TRANSFÉRABLES : un candidat sans le titre exact mais avec les bonnes bases techniques peut être excellent
+3. FORMATION : évalue si la formation du candidat correspond au niveau requis même si l'intitulé diffère
+4. LANGUES : vérifie si les exigences linguistiques sont satisfaites
+5. EXPÉRIENCES : analyse le contenu réel des postes occupés, pas seulement les titres
+
+Pondération du score global :
+- 50% adéquation technique/métier (domaine, compétences, formation)
+- 25% expérience et ancienneté
+- 15% compétences spécifiques listées
+- 10% facteurs secondaires (langues, localisation, soft skills)
 
 Retourne UNIQUEMENT ce JSON (sans markdown) :
 {
   "score": 78,
   "score_competences": 80,
   "score_experience": 75,
-  "competences_matchees": ["React", "TypeScript"],
-  "competences_manquantes": ["GraphQL"],
-  "explication": "Explication courte en 1-2 phrases.",
+  "competences_matchees": ["CVCS", "chauffage"],
+  "competences_manquantes": ["Planon"],
+  "explication": "Explication de 2-3 phrases expliquant le raisonnement, les points forts et les points faibles.",
   "recommandation": "fort"
 }
 
-Règles de scoring :
-- score_competences : % de compétences requises que le candidat possède (0-100)
-- score_experience : 100 si exp >= requise, sinon (exp/requise)*100, max 100
-- score : moyenne pondérée (60% compétences + 40% expérience)
-- recommandation : "fort" si score >= 75, "moyen" si 50-74, "faible" si < 50`
+Règles : score_competences = adéquation technique globale (0-100) | score_experience = 100 si exp >= requise sinon (exp/requise)*100 | score = pondération selon les règles ci-dessus | recommandation : "fort" si >= 75, "moyen" si 50-74, "faible" si < 50`
 
   try {
     const response = await withRetry(() => client.messages.create({

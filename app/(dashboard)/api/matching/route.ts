@@ -27,8 +27,24 @@ export async function POST(request: NextRequest) {
     if (!offre) return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
 
     const result = await calculerScoreMatching(
-      { competences: candidat.competences, annees_exp: candidat.annees_exp, titre_poste: candidat.titre_poste, resume_ia: candidat.resume_ia },
-      { titre: offre.titre, competences: offre.competences, exp_requise: offre.exp_requise, description: offre.description }
+      {
+        competences: candidat.competences,
+        annees_exp: candidat.annees_exp,
+        titre_poste: candidat.titre_poste,
+        resume_ia: candidat.resume_ia,
+        formation: candidat.formation,
+        langues: candidat.langues,
+        cv_texte_brut: candidat.cv_texte_brut,
+        experiences: candidat.experiences,
+      },
+      {
+        titre: offre.titre,
+        competences: offre.competences,
+        exp_requise: offre.exp_requise,
+        description: offre.description,
+        localisation: offre.localisation,
+        notes: offre.notes,
+      }
     )
 
     const { data: pipeline, error } = await admin

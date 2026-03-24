@@ -47,10 +47,13 @@ function scoreCandidat(
 ): number {
   let score = 0
 
-  const normComp  = (candidat.competences || []).map((s: string) => normalize(s))
-  const normTags  = (candidat.tags || []).map((s: string) => normalize(s))
-  const normTitre = normalize(candidat.titre_poste || '')
-  const normResume = normalize(candidat.resume_ia || '')
+  const normComp    = (candidat.competences || []).map((s: string) => normalize(s))
+  const normTags    = (candidat.tags || []).map((s: string) => normalize(s))
+  const normTitre   = normalize(candidat.titre_poste || '')
+  const normResume  = normalize(candidat.resume_ia || '')
+  const normFormation = normalize(candidat.formation || '')
+  // CV brut tronqué pour la recherche (évite de traiter des MBs de texte)
+  const normCvBrut  = normalize((candidat.cv_texte_brut || '').slice(0, 3000))
 
   // ── Correspondance compétences (pondération max) ─────────────────────────
   for (const comp of offreCompetences) {
@@ -60,10 +63,10 @@ function scoreCandidat(
       score += 5
     } else if (normTags.some((t: string) => t.includes(nc))) {
       score += 3
-    } else if (normTitre.includes(nc)) {
+    } else if (normTitre.includes(nc) || normFormation.includes(nc)) {
       score += 3
-    } else if (normResume.includes(nc)) {
-      score += 1
+    } else if (normResume.includes(nc) || normCvBrut.includes(nc)) {
+      score += 2  // Bonus : trouvé dans le vrai CV
     }
   }
 
@@ -77,6 +80,8 @@ function scoreCandidat(
       score += 2
     } else if (normResume.includes(kw)) {
       score += 1
+    } else if (normCvBrut.includes(kw)) {
+      score += 1  // Trouvé dans le CV brut
     }
   }
 
@@ -84,11 +89,11 @@ function scoreCandidat(
   if (expRequise > 0) {
     const exp = candidat.annees_exp || 0
     if (exp >= expRequise) {
-      score += 4            // Expérience suffisante
+      score += 4
     } else if (exp >= expRequise * 0.5) {
-      score += 1            // Légèrement en-dessous — acceptable
+      score += 1
     } else if (exp < expRequise * 0.25) {
-      score -= 6            // Très sous-qualifié — pénalité forte
+      score -= 3  // Pénalité allégée — Claude jugera mieux l'expérience réelle
     }
   }
 
@@ -123,8 +128,8 @@ export async function POST(request: NextRequest) {
     // Union : titre + description (dédupliqué, sans les compétences déjà traitées séparément)
     const offreKeywords = Array.from(new Set([...offreTitreKeywords, ...offreDescKeywords]))
 
-    // 3. Charger TOUS les candidats (champs légers seulement)
-    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url'
+    // 3. Charger TOUS les candidats (avec cv_texte_brut pour pré-sélection enrichie)
+    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url, formation, cv_texte_brut'
     const PAGE_SIZE = 1000
     const allCandidats: any[] = []
     let offset = 0
