@@ -106,6 +106,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     setFiles(prev => {
       const existing = new Set(prev.map(f => `${f.file.name}-${f.file.size}`))
       const toAdd = valid.filter(f => !existing.has(`${f.name}-${f.size}`))
+      if (toAdd.length > 0) setDone(false) // Reset "terminé" quand on ajoute de nouveaux fichiers
       return [...prev, ...toAdd.map(f => ({ file: f, status: 'pending' as FileStatus }))]
     })
   }, [])
