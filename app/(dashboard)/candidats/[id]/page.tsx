@@ -301,6 +301,7 @@ export default function CandidatDetailPage() {
       permis_conduire: candidat.permis_conduire ?? false,
       date_naissance:  candidat.date_naissance || '',
       genre:           candidat.genre || '',
+      created_at:      candidat.created_at ? new Date(candidat.created_at).toISOString().slice(0, 10) : '',
       resume_ia:       candidat.resume_ia || '',
       experiences:     JSON.parse(JSON.stringify(candidat.experiences || [])),
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),
@@ -344,6 +345,10 @@ export default function CandidatDetailPage() {
       formations_details: rest.formations_details || [],
       tags:               metiers || [],
       rating:             rest.rating > 0 ? rest.rating : null,
+    }
+    // Si la date d'ajout a été modifiée, l'inclure
+    if (rest.created_at) {
+      payload.created_at = `${rest.created_at}T12:00:00.000Z`
     }
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
   }
@@ -881,6 +886,10 @@ export default function CandidatDetailPage() {
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Email"        value={editData.email}       onChange={e => set('email', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Téléphone"    value={editData.telephone}   onChange={e => set('telephone', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Âge (ex: 65) ou date (JJ/MM/AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <input className="neo-input" type="date" style={{ height: 30, fontSize: 12, flex: 1 }} value={editData.created_at || ''} onChange={e => set('created_at', e.target.value)} title="Date d'ajout" />
+                  <span style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Date d&apos;ajout</span>
+                </div>
                 <select className="neo-input" style={{ height: 30, fontSize: 12 }} value={editData.genre} onChange={e => set('genre', e.target.value)}>
                   <option value="">Genre (non précisé)</option>
                   <option value="homme">Homme</option>
