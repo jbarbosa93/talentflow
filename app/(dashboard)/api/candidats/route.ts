@@ -16,7 +16,7 @@ const LIST_COLUMNS = [
   'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'linkedin', 'permis_conduire', 'date_naissance',
-  'experiences', 'formations_details', 'import_status', 'rating',
+  'experiences', 'formations_details', 'import_status', 'rating', 'genre',
   'created_at', 'updated_at',
 ].join(', ')
 

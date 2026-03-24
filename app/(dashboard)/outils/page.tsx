@@ -148,19 +148,41 @@ function SyncDatesCard({ index }: { index: number }) {
 
 function SyncGenreCard({ index }: { index: number }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ updated: number; skipped: number; total: number } | null>(null)
+  const [result, setResult] = useState<{ updated: number; skipped: number; total: number; remaining?: number } | null>(null)
+  const [cumulative, setCumulative] = useState({ updated: 0, skipped: 0, total: 0 })
 
   const handleSync = async () => {
     if (state === 'loading') return
     setState('loading')
+    let totalUpdated = cumulative.updated
+    let totalSkipped = cumulative.skipped
+    let totalProcessed = cumulative.total
+    let remaining = 1 // Start loop
+
     try {
-      const res = await fetch('/api/candidats/sync-genre', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur')
-      setResult(data)
+      while (remaining > 0) {
+        const res = await fetch('/api/candidats/sync-genre', { method: 'POST' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erreur')
+
+        totalUpdated += data.updated || 0
+        totalSkipped += data.skipped || 0
+        totalProcessed += data.total || 0
+        remaining = data.remaining || 0
+
+        const acc = { updated: totalUpdated, skipped: totalSkipped, total: totalProcessed, remaining }
+        setCumulative(acc)
+        setResult(acc)
+      }
       setState('done')
     } catch {
-      setState('error')
+      // Même en cas d'erreur, afficher les résultats partiels
+      if (totalUpdated > 0) {
+        setResult({ updated: totalUpdated, skipped: totalSkipped, total: totalProcessed, remaining: 0 })
+        setState('done')
+      } else {
+        setState('error')
+      }
     }
   }
 
@@ -227,7 +249,9 @@ function SyncGenreCard({ index }: { index: number }) {
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
           {state === 'loading'
-            ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>Analyse en cours…</span>
+            ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                Analyse en cours… {cumulative.updated > 0 ? `(${cumulative.updated} traités)` : ''}
+              </span>
             : state === 'done'
             ? <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 600 }}>Terminé</span>
             : <ArrowRight size={16} style={{ color }} />
