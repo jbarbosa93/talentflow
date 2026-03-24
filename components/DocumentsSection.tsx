@@ -57,6 +57,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
   const [showUpload, setShowUpload] = useState(false)
   const [pendingFile, setPendingFile] = useState<{ file: globalThis.File; name: string } | null>(null)
   const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null)
+  const [openMoveMenu, setOpenMoveMenu] = useState<string | null>(null)
   const [editNameValue, setEditNameValue] = useState('')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
@@ -642,50 +643,52 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               'Télécharger',
                               '#6B7280',
                             )}
-                            {/* Changer catégorie — dropdown select */}
+                            {/* Changer catégorie — dropdown custom */}
                             {(() => {
-                              const typeKey = isCvCategory && localIdx === 0 && cvUrl ? -999 : realIdx
                               const isCvPrincipal = isCvCategory && localIdx === 0 && cvUrl
+                              const menuKey = isCvPrincipal ? `cv_${localIdx}` : `doc_${realIdx}`
                               return (
                                 <div style={{ position: 'relative' }}>
-                                  <select
-                                    value=""
-                                    onChange={e => {
-                                      const val = e.target.value
-                                      if (!val) return
-                                      if (val === '__cv__') {
-                                        // Déjà gère le toast dans handleSetAsCv
-                                        handleSetAsCv(realIdx)
-                                      } else if (isCvPrincipal && onCvChange) {
-                                        const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: val as any, uploaded_at: new Date().toISOString() }
-                                        onUpdate([...documents, movedDoc])
-                                        onCvChange('', '')
-                                        toast.success('Document déplacé')
-                                      } else {
-                                        // Déjà gère le toast dans handleChangeType
-                                        handleChangeType(realIdx, val)
-                                      }
-                                    }}
-                                    title="Changer catégorie"
-                                    style={{
-                                      width: 28, height: 28, borderRadius: 6,
-                                      border: '1px solid var(--border)', background: 'white',
-                                      cursor: 'pointer', fontSize: 0, padding: 0,
-                                      appearance: 'none', WebkitAppearance: 'none',
-                                      backgroundImage: 'none',
-                                    }}
-                                  >
-                                    <option value="">↕</option>
-                                    {!isCvPrincipal && onCvChange && <option value="__cv__">→ CV principal</option>}
-                                    {UPLOAD_TYPES.map(t => (
-                                      <option key={t.value} value={t.value}>→ {t.label}</option>
-                                    ))}
-                                  </select>
-                                  <ChevronDown size={10} style={{
-                                    position: 'absolute', top: '50%', left: '50%',
-                                    transform: 'translate(-50%, -50%)', pointerEvents: 'none',
-                                    color: '#D97706',
-                                  }} />
+                                  {actionBtn(
+                                    () => setOpenMoveMenu(prev => prev === menuKey ? null : menuKey),
+                                    <ChevronDown size={12} style={{ color: '#D97706' }} />,
+                                    'Déplacer vers...',
+                                    '#D97706',
+                                  )}
+                                  {openMoveMenu === menuKey && (
+                                    <div style={{
+                                      position: 'absolute', top: '100%', right: 0, zIndex: 100,
+                                      background: 'white', border: '1px solid var(--border)',
+                                      borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                      padding: '4px 0', minWidth: 170, marginTop: 4,
+                                    }}>
+                                      {!isCvPrincipal && onCvChange && (
+                                        <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#D97706', fontWeight: 600 }}
+                                          onMouseEnter={e => (e.currentTarget.style.background = '#FEF3C7')}
+                                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                                        >→ CV principal</button>
+                                      )}
+                                      {UPLOAD_TYPES.map(t => (
+                                        <button key={t.value}
+                                          onClick={() => {
+                                            if (isCvPrincipal && onCvChange) {
+                                              const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
+                                              onUpdate([...documents, movedDoc])
+                                              onCvChange('', '')
+                                              toast.success('Document déplacé')
+                                            } else {
+                                              handleChangeType(realIdx, t.value)
+                                            }
+                                            setOpenMoveMenu(null)
+                                          }}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--foreground)' }}
+                                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                                        >→ {t.label}</button>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })()}
