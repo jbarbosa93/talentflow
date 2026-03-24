@@ -33,15 +33,6 @@ const OUTILS = [
     badge: null,
   },
   {
-    href: '/outils/analyser-candidats',
-    icon: SearchCheck,
-    title: 'Analyser les candidats',
-    description: 'Auditez la qualité de votre base candidats : photos, CVs, fiches incomplètes.',
-    color: '#8B5CF6',
-    colorSoft: 'rgba(139,92,246,0.12)',
-    badge: null,
-  },
-  {
     href: '/parametres/analyse-complete',
     icon: ScanSearch,
     title: 'Analyse complète IA',
