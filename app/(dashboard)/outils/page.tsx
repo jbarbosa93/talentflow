@@ -1,7 +1,8 @@
 'use client'
 import Link from 'next/link'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2 } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -48,6 +49,101 @@ const cardVariants = {
     opacity: 1, y: 0,
     transition: { delay: i * 0.08, type: 'spring' as const, stiffness: 300, damping: 26 },
   }),
+}
+
+function SyncDatesCard({ index }: { index: number }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ updated: number; skipped: number; total: number } | null>(null)
+
+  const handleSync = async () => {
+    if (state === 'loading') return
+    setState('loading')
+    try {
+      const res = await fetch('/api/candidats/sync-dates', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setResult(data)
+      setState('done')
+    } catch (e: any) {
+      setState('error')
+    }
+  }
+
+  const color = '#F59E0B'
+  const colorSoft = 'rgba(245,158,11,0.12)'
+
+  return (
+    <motion.div
+      custom={index}
+      variants={cardVariants}
+      initial="hidden"
+      animate="show"
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+      whileHover={{ y: state === 'loading' ? 0 : -4, boxShadow: state === 'loading' ? undefined : '0 12px 32px rgba(0,0,0,0.12)' }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+    >
+      <div
+        className="neo-card-soft"
+        style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: state === 'loading' ? 'wait' : 'pointer' }}
+        onClick={state === 'idle' || state === 'error' ? handleSync : undefined}
+      >
+        {/* Top accent bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, ${color}, ${color}88)`,
+          borderRadius: '14px 14px 0 0',
+        }} />
+
+        {/* Icon */}
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: colorSoft,
+          border: `1.5px solid ${color}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16, marginTop: 8,
+        }}>
+          {state === 'loading'
+            ? <Loader2 size={22} style={{ color, animation: 'spin 1s linear infinite' }} />
+            : state === 'done'
+            ? <Check size={22} style={{ color: '#16A34A' }} />
+            : <CalendarClock size={22} style={{ color }} />
+          }
+        </div>
+
+        {/* Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
+            Sync dates depuis fichiers
+          </h2>
+        </div>
+
+        {/* Description / Result */}
+        {state === 'done' && result ? (
+          <p style={{ fontSize: 13, color: '#16A34A', lineHeight: 1.6, margin: 0, marginBottom: 20, fontWeight: 600 }}>
+            ✓ {result.updated} candidat{result.updated > 1 ? 's' : ''} mis à jour · {result.skipped} sans date dans le nom du fichier
+          </p>
+        ) : state === 'error' ? (
+          <p style={{ fontSize: 13, color: '#EF4444', lineHeight: 1.6, margin: 0, marginBottom: 20 }}>
+            Erreur lors de la synchronisation. Cliquez pour réessayer.
+          </p>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0, marginBottom: 20 }}>
+            Met à jour la date d&apos;ajout de chaque candidat selon la date trouvée dans le nom du fichier CV (format DD.MM.YYYY). Si aucune date → date originale conservée.
+          </p>
+        )}
+
+        {/* CTA */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {state === 'loading'
+            ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>Traitement en cours…</span>
+            : state === 'done'
+            ? <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 600 }}>Terminé</span>
+            : <ArrowRight size={16} style={{ color }} />
+          }
+        </div>
+      </div>
+    </motion.div>
+  )
 }
 
 export default function OutilsPage() {
@@ -129,7 +225,12 @@ export default function OutilsPage() {
             </motion.div>
           )
         })}
+
+        {/* Sync dates from filenames — action card */}
+        <SyncDatesCard index={OUTILS.length} />
       </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

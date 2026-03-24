@@ -387,8 +387,20 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {/* Badge nouveaux éléments */}
-                  {(() => {
+                  {/* Badge "À traiter" pour Candidats */}
+                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 100,
+                      background: '#F59E0B', color: '#0F172A',
+                      fontSize: 10, fontWeight: 800,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 5px', flexShrink: 0,
+                    }}>
+                      {aTraiterCount > 99 ? '99+' : aTraiterCount}
+                    </span>
+                  )}
+                  {/* Badge nouveaux éléments (autres sections) */}
+                  {item.href !== '/candidats' && (() => {
                     const badgeKey = BADGE_SECTION_MAP[item.href]
                     const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
                     if (!count) return null
@@ -415,6 +427,36 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                     }} />
                   )}
                 </Link>
+                {/* Sous-menu Candidats : À traiter */}
+                {item.href === '/candidats' && active && (
+                  <Link
+                    href="/candidats/a-traiter"
+                    className="d-nav-link"
+                    style={{
+                      position: 'relative', zIndex: 1,
+                      paddingLeft: 36, fontSize: 12,
+                      background: typeof window !== 'undefined' && sessionStorage.getItem('candidats_import_status') === 'a_traiter'
+                        ? 'rgba(245,158,11,0.15)' : undefined,
+                      color: typeof window !== 'undefined' && sessionStorage.getItem('candidats_import_status') === 'a_traiter'
+                        ? '#F59E0B' : undefined,
+                      fontWeight: typeof window !== 'undefined' && sessionStorage.getItem('candidats_import_status') === 'a_traiter'
+                        ? 700 : undefined,
+                    }}
+                  >
+                    <span style={{ width: 14, flexShrink: 0 }} />
+                    À traiter
+                    {typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 16, height: 16, borderRadius: 99,
+                        padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: '#F59E0B', color: '#0F172A',
+                        fontSize: 9, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        {aTraiterCount > 99 ? '99+' : aTraiterCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
               </motion.div>
             )
           })}
