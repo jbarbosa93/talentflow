@@ -43,7 +43,7 @@ export async function POST() {
 
       const { error: updateError } = await supabase
         .from('candidats')
-        .update({ created_at: isoDate })
+        .update({ created_at: isoDate } as Record<string, unknown>)
         .eq('id', candidat.id)
 
       if (!updateError) updated++
