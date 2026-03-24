@@ -257,7 +257,7 @@ export default function AdminPage() {
           fontSize: 13, fontWeight: 700, color: 'var(--muted)',
           textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12,
         }}>
-          Utilisateurs actifs ({users.length})
+          Utilisateurs actifs ({users.filter(u => u.last_sign_in_at).length})
         </h2>
 
         <div style={{
@@ -291,8 +291,8 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user, i) => {
-                  const isLast = i === users.length - 1
+                {users.filter(u => u.last_sign_in_at).map((user, i, arr) => {
+                  const isLast = i === arr.length - 1
                   const fullName = [user.prenom, user.nom].filter(Boolean).join(' ') || user.email?.split('@')[0] || '—'
                   const initiales = getInitiales(user.prenom, user.nom, user.email || '')
 
@@ -482,6 +482,105 @@ export default function AdminPage() {
           )}
         </div>
       </section>
+
+      {/* Section invitations en attente */}
+      {users.filter(u => !u.last_sign_in_at).length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{
+            fontSize: 13, fontWeight: 700, color: 'var(--muted)',
+            textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12,
+          }}>
+            Invitations en attente ({users.filter(u => !u.last_sign_in_at).length})
+          </h2>
+          <div style={{
+            background: 'var(--card)',
+            border: '1.5px solid var(--border)',
+            borderRadius: 12,
+            overflow: 'hidden',
+          }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                  {['Utilisateur', 'Rôle', 'Entreprise', 'Invité le', ''].map(h => (
+                    <th key={h} style={{
+                      padding: '10px 16px', textAlign: 'left',
+                      fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+                      textTransform: 'uppercase', letterSpacing: '0.4px',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.filter(u => !u.last_sign_in_at).map((user, i, arr) => {
+                  const isLast = i === arr.length - 1
+                  const fullName = [user.prenom, user.nom].filter(Boolean).join(' ') || user.email?.split('@')[0] || '—'
+                  const initiales = getInitiales(user.prenom, user.nom, user.email)
+                  return (
+                    <tr key={user.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            background: '#FEF3C7', color: '#92400E',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 700, flexShrink: 0,
+                          }}>{initiales}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{fullName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <Mail size={10} /> {user.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}><RoleBadge role={user.role} /></td>
+                      <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--muted)' }}>
+                        {user.entreprise ? <><Building2 size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />{user.entreprise}</> : '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--muted)' }}>
+                        {formatDate(user.created_at)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
+                          <button
+                            onClick={() => resendInviteMutation.mutate(user)}
+                            disabled={resendInviteMutation.isPending}
+                            title="Renvoyer le lien d'invitation"
+                            style={{
+                              background: 'none', border: '1px solid transparent', cursor: 'pointer',
+                              color: 'var(--muted)', padding: '6px', borderRadius: 6,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.color = '#2563EB'; e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.background = '#EFF6FF' }}
+                            onMouseOut={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none' }}
+                          >
+                            <Send size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteMutation.mutate(user.id)}
+                            title="Supprimer"
+                            style={{
+                              background: 'none', border: '1px solid transparent', cursor: 'pointer',
+                              color: 'var(--muted)', padding: '6px', borderRadius: 6,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.background = '#FEF2F2' }}
+                            onMouseOut={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'none' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Section invitation */}
       <section>
