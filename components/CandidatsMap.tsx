@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -96,6 +96,29 @@ const GEO_CACHE: Record<string, [number, number]> = {
   'bruxelles': [50.8503, 4.3517], 'brussels': [50.8503, 4.3517],
   'luxembourg': [49.6116, 6.1319],
   'liège': [50.6326, 5.5797], 'liege': [50.6326, 5.5797],
+}
+
+// ─── Contour simplifié de la Suisse (GeoJSON) ────────────────────────────────
+const SWITZERLAND_GEOJSON: GeoJSON.Feature = {
+  type: 'Feature',
+  properties: {},
+  geometry: {
+    type: 'Polygon',
+    coordinates: [[
+      [6.02, 47.73], [6.21, 47.80], [6.37, 47.87], [6.68, 47.88], [6.75, 47.76],
+      [7.04, 47.77], [7.19, 47.74], [7.22, 47.56], [7.60, 47.57], [7.89, 47.73],
+      [8.15, 47.79], [8.45, 47.86], [8.57, 47.81], [8.73, 47.78], [8.88, 47.73],
+      [9.01, 47.69], [9.25, 47.70], [9.46, 47.57], [9.54, 47.46], [9.65, 47.46],
+      [9.79, 47.54], [9.83, 47.46], [9.93, 47.38], [10.01, 47.28], [10.06, 47.19],
+      [9.96, 46.99], [10.04, 46.87], [9.94, 46.78], [9.77, 46.74], [9.66, 46.58],
+      [9.57, 46.41], [9.42, 46.26], [9.24, 46.25], [9.01, 46.05], [8.94, 45.92],
+      [8.70, 45.93], [8.52, 46.07], [8.31, 46.06], [8.10, 45.98], [7.77, 45.93],
+      [7.50, 45.88], [7.22, 45.89], [7.04, 45.96], [6.81, 45.89], [6.62, 46.04],
+      [6.53, 46.16], [6.43, 46.38], [6.22, 46.38], [6.10, 46.42], [5.97, 46.45],
+      [5.97, 46.59], [6.03, 46.77], [5.96, 46.98], [6.04, 47.25], [6.02, 47.55],
+      [6.02, 47.73],
+    ]],
+  },
 }
 
 const LS_GEO_KEY = 'talentflow_geocache_map'
@@ -263,6 +286,10 @@ export default function CandidatsMap() {
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <GeoJSON
+        data={SWITZERLAND_GEOJSON}
+        style={{ color: '#EF4444', weight: 2.5, fill: false, dashArray: '6 4', opacity: 0.85 }}
       />
       {withCoords.map(g => (
         <Marker key={g.ville} position={g.coords!} icon={markerIcon(g.candidats.length)}>
