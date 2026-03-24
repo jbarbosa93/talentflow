@@ -330,7 +330,7 @@ function ClientPickerModal({
       if (dist === null || dist > maxKm) return false
     }
     if (!q) return true
-    const hay = normalize(`${c.nom_entreprise} ${c.secteur || ''} ${c.ville || ''} ${c.email || ''} ${(c.contacts || []).map((ct: any) => `${ct.nom || ''} ${ct.email || ''}`).join(' ')}`)
+    const hay = normalize(`${c.nom_entreprise} ${c.secteur || ''} ${c.adresse || ''} ${c.npa || ''} ${c.ville || ''} ${c.canton || ''} ${c.telephone || ''} ${c.email || ''} ${c.site_web || ''} ${c.notes || ''} ${(c.contacts || []).map((ct: any) => `${ct.prenom || ''} ${ct.nom || ''} ${ct.name || ''} ${ct.email || ''} ${ct.telephone || ''} ${ct.poste || ''}`).join(' ')}`)
     return hay.includes(q)
   })
 
