@@ -13,6 +13,13 @@ export function useCandidats(filters?: {
   page?: number
   per_page?: number
   sort?: string
+  genre?: string
+  age_min?: number
+  age_max?: number
+  langue?: string
+  permis?: boolean | null
+  lieu?: string
+  metier?: string
 }) {
   return useQuery({
     queryKey: ['candidats', filters],
@@ -24,6 +31,13 @@ export function useCandidats(filters?: {
       if (filters?.page) params.set('page', String(filters.page))
       if (filters?.per_page !== undefined) params.set('per_page', String(filters.per_page))
       if (filters?.sort) params.set('sort', filters.sort)
+      if (filters?.genre) params.set('genre', filters.genre)
+      if (filters?.age_min !== undefined) params.set('age_min', String(filters.age_min))
+      if (filters?.age_max !== undefined) params.set('age_max', String(filters.age_max))
+      if (filters?.langue) params.set('langue', filters.langue)
+      if (filters?.permis !== undefined && filters.permis !== null) params.set('permis', filters.permis ? 'true' : 'false')
+      if (filters?.lieu) params.set('lieu', filters.lieu)
+      if (filters?.metier) params.set('metier', filters.metier)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
       const data = await res.json()

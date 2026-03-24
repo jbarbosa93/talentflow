@@ -31,6 +31,13 @@ export async function GET(request: NextRequest) {
     const rawPerPage = parseInt(searchParams.get('per_page') || '20')
     const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
     const sort = searchParams.get('sort') || 'date_desc'
+    const genre = searchParams.get('genre') || ''
+    const ageMin = searchParams.get('age_min') || ''
+    const ageMax = searchParams.get('age_max') || ''
+    const langue = searchParams.get('langue') || ''
+    const permis = searchParams.get('permis') || ''
+    const lieu = searchParams.get('lieu') || ''
+    const metier = searchParams.get('metier') || ''
 
     // Construire la requête de base
     let query = supabase
@@ -42,6 +49,24 @@ export async function GET(request: NextRequest) {
     const effectiveStatut = statut && statut !== 'all' ? statut : ''
     if (effectiveStatut) query = query.eq('statut_pipeline', effectiveStatut as any)
     if (effectiveImportStatus) query = query.eq('import_status', effectiveImportStatus as any)
+    if (genre) query = query.eq('genre', genre as any)
+    if (permis === 'true') query = query.eq('permis_conduire', true)
+    if (permis === 'false') query = query.eq('permis_conduire', false)
+    if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
+    if (metier) query = query.ilike('titre_poste', `%${metier}%` as any)
+    if (langue) query = query.contains('langues', [langue] as any)
+    // Filtre âge via date_naissance (calcul côté serveur)
+    if (ageMin || ageMax) {
+      const now = new Date()
+      if (ageMin) {
+        const maxDate = new Date(now.getFullYear() - parseInt(ageMin), now.getMonth(), now.getDate()).toISOString().slice(0, 10)
+        query = query.lte('date_naissance', maxDate as any)
+      }
+      if (ageMax) {
+        const minDate = new Date(now.getFullYear() - parseInt(ageMax) - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
+        query = query.gte('date_naissance', minDate as any)
+      }
+    }
 
     // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
     if (search) {

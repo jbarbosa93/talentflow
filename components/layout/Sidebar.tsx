@@ -387,24 +387,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {/* Badge nouveaux éléments */}
+                  {/* Petit rond rouge — nouveaux éléments */}
                   {(() => {
                     const badgeKey = BADGE_SECTION_MAP[item.href]
                     const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
                     if (!count) return null
                     return (
                       <span style={{
-                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 100,
-                        background: '#EF4444', color: '#fff',
-                        fontSize: 10, fontWeight: 800,
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '0 5px', flexShrink: 0,
+                        marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%',
+                        background: '#EF4444', flexShrink: 0,
                         animation: 'pulse 2s infinite',
-                        border: active ? '2px solid var(--foreground)' : 'none',
-                        boxShadow: active ? '0 0 0 1px rgba(0,0,0,0.3)' : 'none',
-                      }}>
-                        {count > 99 ? '99+' : count}
-                      </span>
+                      }} />
                     )
                   })()}
                   {showMatchingDot && (

@@ -226,7 +226,7 @@ export default function CandidatsList() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     setPage(1)
     setSelectedIds(new Set())
-  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage])
+  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier])
 
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
@@ -235,6 +235,13 @@ export default function CandidatsList() {
     page,
     per_page: perPage,
     sort: sortBy,
+    genre: filterGenre || undefined,
+    age_min: filterAgeMin !== '' ? filterAgeMin : undefined,
+    age_max: filterAgeMax !== '' ? filterAgeMax : undefined,
+    langue: filterLangue || undefined,
+    permis: filterPermis,
+    lieu: filterLieu || undefined,
+    metier: filterMetier || undefined,
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidats = candidatsData?.total ?? allCandidats.length
@@ -288,13 +295,13 @@ export default function CandidatsList() {
     return () => document.removeEventListener('click', close)
   }, [])
 
-  // Filtrage — la recherche et le tri sont côté serveur maintenant
-  // Seuls les filtres avancés restent côté client
+  // Filtrage — les filtres avancés sont maintenant côté serveur
+  // Seuls les filtres locaux restent côté client (filtreLocalisation, filtreMetier = dropdown par métier/lieu)
   const candidatsFiltres = useMemo(() => {
     const base = aiResults !== null ? aiResults : (allCandidats || [])
     let filtered: any[] = base as any[]
 
-    // Filtres avancés côté client (pas supportés par Supabase facilement)
+    // Filtres locaux uniquement (dropdown par métier/localisation, pas les filtres avancés)
     if (filtreLocalisation.trim()) {
       const loc = normalize(filtreLocalisation)
       filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
@@ -302,24 +309,12 @@ export default function CandidatsList() {
     if (filtreMetier) {
       filtered = filtered.filter((c: any) => (c.tags || []).includes(filtreMetier))
     }
-    filtered = filtered
-      .filter(c => !filterMetier || normalize(c.titre_poste || '').includes(normalize(filterMetier)))
-      .filter(c => !filterLieu || normalize(c.localisation || '').includes(normalize(filterLieu)))
-      .filter(c => {
-        if (filterAgeMin === '' && filterAgeMax === '') return true
-        const age = c.date_naissance ? calculerAge(c.date_naissance) : null
-        if (age === null) return filterAgeMin === ''
-        if (filterAgeMin !== '' && age < filterAgeMin) return false
-        if (filterAgeMax !== '' && age > filterAgeMax) return false
-        return true
-      })
-      .filter(c => !filterLangue || (c.langues || []).some((l: string) => normalize(l).includes(normalize(filterLangue))))
-      .filter(c => filterPermis === null || c.permis_conduire === filterPermis)
-      .filter(c => filterExpMin === '' || (c.annees_exp || 0) >= filterExpMin)
-      .filter(c => filterGenre === '' || c.genre === filterGenre)
+    if (filterExpMin !== '') {
+      filtered = filtered.filter(c => (c.annees_exp || 0) >= filterExpMin)
+    }
 
     return filtered
-  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterMetier, filterLieu, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterExpMin, filterGenre])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin])
 
   const activeFiltersCount = [
     filterMetier !== '',
