@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck, ScanSearch } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -40,6 +40,15 @@ const OUTILS = [
     color: '#8B5CF6',
     colorSoft: 'rgba(139,92,246,0.12)',
     badge: null,
+  },
+  {
+    href: '/parametres/analyse-complete',
+    icon: ScanSearch,
+    title: 'Analyse complète IA',
+    description: 'Re-analyse tous les CVs avec le moteur IA actuel. Détecte les fiches incomplètes et propose des mises à jour. Fonctionne en arrière-plan.',
+    color: '#DC2626',
+    colorSoft: 'rgba(220,38,38,0.12)',
+    badge: 'IA',
   },
 ]
 
