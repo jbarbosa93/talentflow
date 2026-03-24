@@ -1080,9 +1080,7 @@ export default function CandidatsList() {
       ) : (
         /* Flat list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
-            {candidatesPagines.length} candidat{candidatesPagines.length > 1 ? 's' : ''} affichés
-          </div>
+          {/* Compteur supprimé — total affiché en haut */}
           {candidatesPagines.map((c: any) => renderCard(c))}
 
           {/* Pagination */}
