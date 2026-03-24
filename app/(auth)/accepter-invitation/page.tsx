@@ -20,6 +20,7 @@ function AccepterInvitationInner() {
   const [error, setError]         = useState('')
   const [done, setDone]           = useState(false)
   const [expired, setExpired]     = useState(false)
+  const [entreprise, setEntreprise] = useState('')
 
   useEffect(() => {
     const authError = searchParams.get('auth_error')
@@ -58,6 +59,7 @@ function AccepterInvitationInner() {
       }
       const m = data.user.user_metadata || {}
       setUser({ email: data.user.email, prenom: m.prenom || '', nom: m.nom || '', entreprise: m.entreprise || '' })
+      setEntreprise(m.entreprise || '')
       setLoading(false)
     }
 
@@ -78,7 +80,10 @@ function AccepterInvitationInner() {
     }
 
     setSaving(true)
-    const { error: updateErr } = await supabase.auth.updateUser({ password })
+    const { error: updateErr } = await supabase.auth.updateUser({
+      password,
+      data: { ...((user as any)?.user_metadata || {}), entreprise },
+    })
     if (updateErr) {
       setError(updateErr.message)
       setSaving(false)
@@ -213,7 +218,7 @@ function AccepterInvitationInner() {
                       className="auth-input"
                       value={user?.prenom || ''}
                       readOnly
-                      style={{ background: 'var(--secondary)', color: 'var(--muted)', cursor: 'default' }}
+                      style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' }}
                     />
                   </div>
                   <div>
@@ -222,7 +227,7 @@ function AccepterInvitationInner() {
                       className="auth-input"
                       value={user?.nom || ''}
                       readOnly
-                      style={{ background: 'var(--secondary)', color: 'var(--muted)', cursor: 'default' }}
+                      style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' }}
                     />
                   </div>
                 </div>
@@ -233,7 +238,20 @@ function AccepterInvitationInner() {
                     className="auth-input"
                     value={user?.email || ''}
                     readOnly
-                    style={{ background: 'var(--secondary)', color: 'var(--muted)', cursor: 'default' }}
+                    style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' }}
+                  />
+                </div>
+
+                {/* Entreprise — pré-rempli si fourni, sinon éditable */}
+                <div>
+                  <label className="auth-label">Entreprise</label>
+                  <input
+                    className="auth-input"
+                    value={entreprise}
+                    onChange={e => setEntreprise(e.target.value)}
+                    placeholder="Nom de votre entreprise"
+                    readOnly={!!user?.entreprise}
+                    style={user?.entreprise ? { background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' } : undefined}
                   />
                 </div>
 
