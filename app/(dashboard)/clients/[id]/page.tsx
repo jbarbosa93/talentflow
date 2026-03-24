@@ -28,50 +28,46 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
         <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 4 }}>
           {label}
         </label>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-          {multiline ? (
-            <textarea
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              rows={4}
-              autoFocus
-              style={{
-                flex: 1, padding: '8px 12px',
-                border: '2px solid var(--primary)', borderRadius: 8,
-                background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-                resize: 'vertical', boxSizing: 'border-box',
-              }}
-            />
-          ) : (
-            <input
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              autoFocus
-              onKeyDown={e => {
-                if (e.key === 'Enter') { onSave(field, draft); setEditing(false) }
-                if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) }
-              }}
-              style={{
-                flex: 1, height: 38, padding: '0 12px',
-                border: '2px solid var(--primary)', borderRadius: 8,
-                background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-          )}
+        {multiline ? (
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            rows={4}
+            autoFocus
+            style={{
+              width: '100%', padding: '8px 12px',
+              border: '2px solid var(--primary)', borderRadius: 8,
+              background: 'var(--secondary)', color: 'var(--foreground)',
+              fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+              resize: 'vertical', boxSizing: 'border-box',
+            }}
+          />
+        ) : (
+          <input
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            autoFocus
+            onKeyDown={e => {
+              if (e.key === 'Enter') { onSave(field, draft); setEditing(false) }
+              if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) }
+            }}
+            style={{
+              width: '100%', height: 38, padding: '0 12px',
+              border: '2px solid var(--primary)', borderRadius: 8,
+              background: 'var(--secondary)', color: 'var(--foreground)',
+              fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        )}
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
           <button onClick={() => { onSave(field, draft); setEditing(false) }}
-            className="neo-btn-yellow"
-            style={{ width: 34, height: 34, padding: 0, flexShrink: 0 }}>
-            <Check size={14} strokeWidth={3} />
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid #BBF7D0', background: '#F0FDF4', color: '#166534', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <Check size={12} strokeWidth={3} /> Sauvegarder
           </button>
-          <button onClick={() => { setDraft(value || ''); setEditing(false) }} style={{
-            width: 34, height: 34, borderRadius: 8, border: '1.5px solid var(--border)',
-            background: 'var(--card)', color: 'var(--muted)', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <X size={14} />
+          <button onClick={() => { setDraft(value || ''); setEditing(false) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <X size={12} /> Annuler
           </button>
         </div>
       </div>
@@ -89,7 +85,9 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
       onMouseEnter={e => e.currentTarget.style.background = 'var(--secondary)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      {icon && <span style={{ color: 'var(--muted)', marginTop: 2, flexShrink: 0 }}>{icon}</span>}
+      <span style={{ color: 'var(--muted)', marginTop: 2, flexShrink: 0, width: 14, display: 'flex', justifyContent: 'center' }}>
+        {icon || null}
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
           {label}
