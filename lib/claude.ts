@@ -132,6 +132,12 @@ Règles :
 - document_type : Identifier le type de document. "cv" si c'est un curriculum vitae ou un résumé professionnel. "certificat" pour certificats de travail. "diplome" pour diplômes. "lettre_motivation" pour lettres de motivation. "formation" pour attestations de formation. "permis" pour permis de travail/séjour. "attestation" pour attestations diverses. "autre" si le type ne correspond à aucune catégorie. Un CV contient typiquement : données personnelles, expériences professionnelles, formations, compétences. Si le document est clairement PAS un CV (ex: attestation, certificat), le classifier correctement.
 - Ne rien inventer, extraire uniquement ce qui est dans le CV`
 
+const CV_TRANSLATE_RULE = `
+RÈGLE DE TRADUCTION OBLIGATOIRE : Traduis TOUJOURS toutes les informations en FRANÇAIS, même si le CV est dans une autre langue (portugais, espagnol, anglais, allemand, italien, etc.).
+Cela s'applique à : titre_poste, competences, formation, resume, experiences (poste, description), formations_details (diplome, etablissement), langues (noms en français).
+Exemple : "Soldador de Arco Submerso" → "Soudeur à l'arc submergé", "Welder" → "Soudeur", "Elektriker" → "Électricien".
+Les noms propres (nom, prénom, entreprises, écoles) ne doivent PAS être traduits.`
+
 // ─── Parser JSON robuste ─────────────────────────────────────────────────────
 
 function parseCV(text: string): CVAnalyse {
@@ -254,8 +260,9 @@ async function limitPDFPages(buffer: Buffer, maxPages = 5): Promise<Buffer> {
 // ─── Analyse depuis un PDF scanné ──────────────────────────────────────────
 // Claude supporte les PDFs nativement → envoi direct sans conversion en images !
 
-export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse> {
+export async function analyserCVDepuisPDF(pdfBuffer: Buffer, options?: { translateToFrench?: boolean }): Promise<CVAnalyse> {
   const client = getClient()
+  const translate = options?.translateToFrench !== false // true par défaut
 
   // Limiter aux 5 premières pages → réduit drastiquement le temps de traitement Claude
   const trimmedBuffer = await limitPDFPages(pdfBuffer, 5)
@@ -263,7 +270,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   console.log(`[Claude] Envoi PDF natif (${(trimmedBuffer.length / 1024).toFixed(0)} KB, original: ${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
 
-  const scanPrompt = `${CV_JSON_PROMPT}\n\nIMPORTANT : Ce document est un scan. S'il apparaît pivoté (à l'envers, de côté), lis-le quand même dans la bonne orientation et extrais toutes les informations visibles.`
+  const scanPrompt = `${CV_JSON_PROMPT}${translate ? CV_TRANSLATE_RULE : ''}\n\nIMPORTANT : Ce document est un scan. S'il apparaît pivoté (à l'envers, de côté), lis-le quand même dans la bonne orientation et extrais toutes les informations visibles.`
 
   const pdfContent = [
     {
@@ -351,15 +358,16 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
 // ─── Analyse depuis texte extrait ───────────────────────────────────────────
 
-export async function analyserCV(texteCV: string): Promise<CVAnalyse> {
+export async function analyserCV(texteCV: string, options?: { translateToFrench?: boolean }): Promise<CVAnalyse> {
   const client = getClient()
+  const translate = options?.translateToFrench !== false // true par défaut
 
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1800,
     messages: [{
       role: 'user',
-      content: `${CV_JSON_PROMPT}\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 12000)}\n</cv>`,
+      content: `${CV_JSON_PROMPT}${translate ? CV_TRANSLATE_RULE : ''}\n\nCV à analyser :\n<cv>\n${texteCV.slice(0, 12000)}\n</cv>`,
     }],
   }))
 

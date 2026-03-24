@@ -100,11 +100,11 @@ async function processCandidat(admin: ReturnType<typeof createAdminClient>, cand
         cvRes.headers.get('content-type')?.includes('pdf')
 
       if (isPdf) {
-        analyse = await analyserCVDepuisPDF(buffer)
+        analyse = await analyserCVDepuisPDF(buffer, { translateToFrench: false })
       } else {
         const text = candidat.cv_texte_brut || buffer.toString('utf-8')
         if (text.length < 50) return { id: candidat.id, skipped: true, reason: 'text_too_short' }
-        analyse = await analyserCV(text.slice(0, 12000))
+        analyse = await analyserCV(text.slice(0, 12000), { translateToFrench: false })
       }
 
       // Si le document n'est pas un CV, skip
