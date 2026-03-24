@@ -496,12 +496,6 @@ export default function AdminPage() {
                     <tr key={user.id} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{
-                            width: 32, height: 32, borderRadius: 8,
-                            background: '#FEF3C7', color: '#92400E',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 11, fontWeight: 700, flexShrink: 0,
-                          }}>{initiales}</div>
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 13 }}>{fullName}</div>
                             <div style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
