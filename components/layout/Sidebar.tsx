@@ -387,20 +387,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {/* Badge "À traiter" pour Candidats */}
-                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
-                    <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 100,
-                      background: '#F59E0B', color: '#0F172A',
-                      fontSize: 10, fontWeight: 800,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      padding: '0 5px', flexShrink: 0,
-                    }}>
-                      {aTraiterCount > 99 ? '99+' : aTraiterCount}
-                    </span>
-                  )}
-                  {/* Badge nouveaux éléments (autres sections) */}
-                  {item.href !== '/candidats' && (() => {
+                  {/* Badge nouveaux éléments */}
+                  {(() => {
                     const badgeKey = BADGE_SECTION_MAP[item.href]
                     const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
                     if (!count) return null
