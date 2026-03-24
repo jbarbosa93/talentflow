@@ -427,29 +427,6 @@ export default function AdminPage() {
                         ) : (
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           <button
-                            onClick={() => resendInviteMutation.mutate(user)}
-                            disabled={resendInviteMutation.isPending}
-                            title="Renvoyer le lien d'invitation"
-                            style={{
-                              background: 'none', border: '1px solid transparent', cursor: 'pointer',
-                              color: 'var(--muted)', padding: '6px', borderRadius: 6,
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              transition: 'all 0.15s',
-                            }}
-                            onMouseOver={e => {
-                              e.currentTarget.style.color = '#2563EB'
-                              e.currentTarget.style.borderColor = '#BFDBFE'
-                              e.currentTarget.style.background = '#EFF6FF'
-                            }}
-                            onMouseOut={e => {
-                              e.currentTarget.style.color = 'var(--muted)'
-                              e.currentTarget.style.borderColor = 'transparent'
-                              e.currentTarget.style.background = 'none'
-                            }}
-                          >
-                            <Send size={14} />
-                          </button>
-                          <button
                             onClick={() => setConfirmDelete(user.id)}
                             title="Supprimer l'utilisateur"
                             style={{

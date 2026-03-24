@@ -423,7 +423,11 @@ export default function CandidatsList() {
   }
 
   const openMessages = (formatted: string[]) => {
-    window.open('sms:', '_self')
+    // Ouvrir Messages avec numéros ET message pré-rempli
+    // sms:NUM1,NUM2?body=MESSAGE → ouvre Messages avec les destinataires et le texte
+    const numbers = formatted.join(',')
+    const body = encodeURIComponent(messageText || '')
+    window.open(`sms:${numbers}${body ? `?body=${body}` : ''}`, '_self')
   }
 
   const handleBulkDelete = () => {
