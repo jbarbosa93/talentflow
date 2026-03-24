@@ -38,7 +38,7 @@ Retourne UNIQUEMENT un JSON valide (sans markdown, sans backticks) avec cette st
 
 Règles d'extraction :
 - titre : intitulé du poste tel qu'indiqué dans le document (ex: "Chef d'objet FM", "Électricien CFC")
-- client_nom : nom de l'entreprise/client si mentionné, sinon ""
+- client_nom : nom EXACT de l'entreprise cliente tel qu'écrit dans le document. Si aucun nom d'entreprise n'est clairement identifiable → "" (chaîne vide). NE JAMAIS inventer, déduire ou supposer un nom d'entreprise.
 - nb_postes : nombre de postes à pourvoir (1 par défaut)
 - exp_requise : années d'expérience requises (entier, 0 si non précisé)
 - date_debut : format ISO "YYYY-MM-DD" si précisé, sinon ""
