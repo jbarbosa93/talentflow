@@ -294,7 +294,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
     if (isEmpty) {
       console.log('[Claude] ⚠️ Haiku n\'a rien extrait — fallback vers Sonnet pour ce scan...')
       const sonnetResponse = await withRetry(() => client.messages.create({
-        model: 'claude-sonnet-4-5-20241022',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2500,
         messages: [{ role: 'user', content: pdfContent }],
       }))

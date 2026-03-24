@@ -446,13 +446,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         }
       }
       console.log(`[CV Parse] Actualisation CV: ${file.name}`)
-    } else if (!isCV) {
-      // Ce n'est PAS un CV → ajouter aux documents avec la bonne catégorie
+    } else if (!isCV && mode !== 'reanalyse') {
+      // Ce n'est PAS un CV et ce n'est PAS une ré-analyse → ajouter aux documents
+      // En mode ré-analyse, on ne crée JAMAIS de documents "Autre" (c'est le CV principal)
       console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
       const mappedType = mapDocumentType(analyse.document_type)
       const existingDocs = (existing?.documents as any[]) || []
-      existingDocs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
-      updateData.documents = existingDocs
+      // Éviter les doublons par nom de fichier
+      if (!existingDocs.some((d: any) => d.name === file.name)) {
+        existingDocs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
+        updateData.documents = existingDocs
+      }
     }
 
     updateData.updated_at = new Date().toISOString()
