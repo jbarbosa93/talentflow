@@ -40,7 +40,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         entreprise: demande.entreprise,
         role:       'Consultant',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?next=/accepter-invitation`,
+      redirectTo: `https://www.talent-flow.ch/api/auth/callback?next=/accepter-invitation`,
     })
 
     // Si l'utilisateur existe déjà → on ignore l'erreur d'invitation et on approuve quand même
