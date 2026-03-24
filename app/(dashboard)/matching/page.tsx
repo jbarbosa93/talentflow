@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History } from 'lucide-react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
@@ -16,10 +16,27 @@ function scoreColor(score: number) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
+function toPhone(raw?: string | null) {
+  if (!raw) return ''
+  let p = raw.replace(/\s/g, '')
+  if (p.startsWith('0')) p = '+41' + p.slice(1)
+  return p
+}
+
 export default function MatchingPage() {
   const [selectedOffre, setSelectedOffre] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showContactModal, setShowContactModal] = useState(false)
   const { data: offres } = useOffres(true)
   const matching = useMatching()
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const selectedCandidats = matching.results.filter(r => selectedIds.has(r.candidat.id)).map(r => r.candidat)
 
   const offre = offres?.find(o => o.id === selectedOffre)
 
@@ -268,13 +285,60 @@ export default function MatchingPage() {
         )}
       </div>
 
+      {/* Barre sélection flottante */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          position: 'sticky', top: 16, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--foreground)', color: 'white',
+          borderRadius: 14, padding: '12px 20px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+          marginBottom: 16, gap: 16,
+          animation: 'slideDown 0.2s ease',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={14} color="#0F172A" />
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>
+              {selectedIds.size} candidat{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              style={{ height: 36, padding: '0 14px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)' }}
+            >
+              Désélectionner
+            </button>
+            <button
+              onClick={() => setShowContactModal(true)}
+              style={{ height: 36, padding: '0 20px', background: 'var(--primary)', color: '#0F172A', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 8 }}
+            >
+              <Phone size={14} />Contacter
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Résultats (mis à jour en temps réel) */}
       {matching.results.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {matching.results.map((r, idx) => (
-            <CandidatMatchCard key={r.candidat.id} result={r} rank={idx + 1} />
+            <CandidatMatchCard
+              key={r.candidat.id}
+              result={r}
+              rank={idx + 1}
+              selected={selectedIds.has(r.candidat.id)}
+              onToggle={() => toggleSelect(r.candidat.id)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Modal contact */}
+      {showContactModal && (
+        <ContactModal candidats={selectedCandidats} onClose={() => setShowContactModal(false)} />
       )}
 
       {/* Empty states */}
@@ -294,14 +358,19 @@ export default function MatchingPage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+      `}</style>
     </div>
   )
 }
 
 // ─── Carte candidat ───────────────────────────────────────────────────────────
 
-function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number }) {
+function CandidatMatchCard({ result, rank, selected, onToggle }: { result: MatchResult; rank: number; selected: boolean; onToggle: () => void }) {
   const [photoError, setPhotoError] = useState(false)
   const { candidat, score, score_competences, score_experience, competences_matchees, competences_manquantes, explication } = result
   const c = scoreColor(score)
@@ -318,17 +387,31 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
   const showPhoto = !!candidat.photo_url && !photoError
 
   return (
-    <div style={{
-      background: rank <= 3 ? rankStyle!.bg : 'var(--card)',
-      border: `1.5px solid ${rank <= 3 ? rankStyle!.border : 'var(--border)'}`,
-      borderRadius: 'var(--radius-lg)',
-      padding: '18px 20px',
-      boxShadow: 'var(--card-shadow)',
-    } as React.CSSProperties}>
+    <div
+      onClick={onToggle}
+      style={{
+        background: selected ? 'rgba(245,167,35,0.06)' : (rank <= 3 ? rankStyle!.bg : 'var(--card)'),
+        border: `1.5px solid ${selected ? 'var(--primary)' : (rank <= 3 ? rankStyle!.border : 'var(--border)')}`,
+        borderRadius: 'var(--radius-lg)',
+        padding: '18px 20px',
+        boxShadow: selected ? '0 0 0 3px rgba(245,167,35,0.15)' : 'var(--card-shadow)',
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+      } as React.CSSProperties}>
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
-        {/* Rang + avatar */}
+        {/* Checkbox + Rang + avatar */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {/* Checkbox */}
+          <div style={{
+            width: 20, height: 20, borderRadius: 6,
+            border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+            background: selected ? 'var(--primary)' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s', flexShrink: 0,
+          }}>
+            {selected && <CheckCircle size={12} color="#0F172A" strokeWidth={3} />}
+          </div>
           <div style={{ fontSize: 20, lineHeight: 1 }}>
             {rank <= 3
               ? rankStyle!.icon
@@ -406,6 +489,7 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
 
           <Link
             href={`/candidats/${candidat.id}`}
+            onClick={e => e.stopPropagation()}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
           >
             Voir profil <ArrowRight size={12} />
@@ -414,6 +498,154 @@ function CandidatMatchCard({ result, rank }: { result: MatchResult; rank: number
       </div>
     </div>
   )
+}
+
+// ─── Modal Contact ─────────────────────────────────────────────────────────────
+
+function ContactModal({ candidats, onClose }: { candidats: any[]; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24, animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--card)', borderRadius: 20,
+          width: '100%', maxWidth: 560, maxHeight: '80vh',
+          overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          animation: 'slideUp 0.25s ease',
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>
+              Contacter {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+              Choisissez le moyen de contact pour chaque candidat
+            </p>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Liste */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
+          {candidats.map(c => {
+            const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+            const phone = toPhone(c.telephone)
+            const waPhone = phone.replace('+', '')
+            const greet = encodeURIComponent(`Bonjour ${c.prenom || ''},\n`)
+            const hasPhone = !!phone
+            const hasEmail = !!c.email
+
+            return (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 8px', borderBottom: '1px solid var(--border)',
+              }}>
+                {/* Avatar */}
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                  background: c.photo_url ? 'transparent' : 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+                }}>
+                  {c.photo_url
+                    ? <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : initiales}
+                </div>
+
+                {/* Nom + poste */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.prenom} {c.nom}
+                  </p>
+                  {c.telephone && (
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>
+                  )}
+                </div>
+
+                {/* Boutons contact */}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {/* Appeler */}
+                  <ContactBtn
+                    href={hasPhone ? `tel:${phone}` : undefined}
+                    icon={Phone}
+                    label="Appeler"
+                    color="#16A34A"
+                    bg="rgba(22,163,74,0.1)"
+                    disabled={!hasPhone}
+                  />
+                  {/* SMS */}
+                  <ContactBtn
+                    href={hasPhone ? `sms:${phone}?body=${greet}` : undefined}
+                    icon={Smartphone}
+                    label="SMS"
+                    color="#3B82F6"
+                    bg="rgba(59,130,246,0.1)"
+                    disabled={!hasPhone}
+                  />
+                  {/* WhatsApp */}
+                  <ContactBtn
+                    href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined}
+                    icon={MessageCircle}
+                    label="WhatsApp"
+                    color="#22C55E"
+                    bg="rgba(34,197,94,0.1)"
+                    disabled={!hasPhone}
+                  />
+                  {/* Email (Outlook) */}
+                  <ContactBtn
+                    href={hasEmail ? `mailto:${c.email}?subject=${encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)}&body=${greet}` : undefined}
+                    icon={Mail}
+                    label="E-mail"
+                    color="#6366F1"
+                    bg="rgba(99,102,241,0.1)"
+                    disabled={!hasEmail}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer info */}
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', borderRadius: '0 0 20px 20px' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+            📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
+  href?: string; icon: React.ElementType; label: string; color: string; bg: string; disabled?: boolean
+}) {
+  const style: React.CSSProperties = {
+    width: 36, height: 36, borderRadius: 9,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: `1.5px solid ${disabled ? 'var(--border)' : color + '44'}`,
+    background: disabled ? 'var(--secondary)' : bg,
+    color: disabled ? 'var(--muted)' : color,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    textDecoration: 'none', transition: 'all 0.15s',
+    opacity: disabled ? 0.4 : 1,
+    flexShrink: 0,
+  }
+  if (disabled) return <div style={style} title={`${label} — numéro manquant`}><Icon size={15} /></div>
+  return <a href={href} style={style} title={label} target="_blank" rel="noreferrer"><Icon size={15} /></a>
 }
 
 function MiniBar({ label, value }: { label: string; value: number }) {
