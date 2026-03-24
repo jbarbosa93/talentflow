@@ -8,6 +8,7 @@ import {
   Zap, Clock, X, Tag, Copy, CheckSquare, Square, HardDriveDownload, ChevronDown,
 } from 'lucide-react'
 import { useImport, getCatColor, type FileJob } from '@/contexts/ImportContext'
+import { CalendarClock } from 'lucide-react'
 
 /** Traverse récursive d'un FileSystemDirectoryEntry */
 async function traverseEntry(
@@ -106,7 +107,7 @@ export default function ImportMassePage() {
   const {
     jobs, statut, running, done, speed, eta, creditExhausted,
     total, succeeded, failed, doublons, processing, pending, completed, progress, categories,
-    setStatut, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
+    setStatut, useFilenameDate, setUseFilenameDate, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
   } = ctx
 
   const isPaused = !running && !done && completed > 0 && pending > 0
@@ -412,7 +413,32 @@ export default function ImportMassePage() {
             </p>
           </div>
 
-          {/* Pipeline supprimé — tous les candidats importés sont 'nouveau' par défaut */}
+          {/* Option : date depuis nom de fichier */}
+          <label
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '12px 16px', borderRadius: 12,
+              background: useFilenameDate ? 'rgba(245,158,11,0.08)' : 'var(--card)',
+              border: `1.5px solid ${useFilenameDate ? '#F59E0B' : 'var(--border)'}`,
+              cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={useFilenameDate}
+              onChange={e => setUseFilenameDate(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#F59E0B', cursor: 'pointer' }}
+            />
+            <CalendarClock size={16} style={{ color: useFilenameDate ? '#D97706' : 'var(--muted)', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: useFilenameDate ? '#92400E' : 'var(--foreground)' }}>
+                Utiliser la date du nom de fichier
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                Si le nom du fichier contient une date (ex: NOM prenom 15.03.2022.pdf), elle sera utilisée comme date d&apos;ajout. Sinon, la date d&apos;import est conservée.
+              </div>
+            </div>
+          </label>
         </div>
       )}
 

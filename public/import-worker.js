@@ -1,7 +1,7 @@
 // Web Worker — traitement import en masse en arrière-plan
 // Tourne dans un thread séparé, actif même onglet inactif
 
-const CONCURRENCY        = 2
+const CONCURRENCY        = 3
 const MAX_RETRIES        = 3
 const FETCH_TIMEOUT      = 57_000   // 57s — laisse le temps à la route (55s global) de répondre
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
@@ -10,6 +10,7 @@ let queue          = []
 let running        = false
 let paused         = false
 let activeWorkers  = 0   // compteur pour envoyer DONE seulement quand le DERNIER worker finit
+let useFilenameDate = false
 
 self.onmessage = function (e) {
   const { type, payload } = e.data
@@ -17,6 +18,7 @@ self.onmessage = function (e) {
   switch (type) {
     case 'START':
       queue   = [...payload.jobs]
+      useFilenameDate = !!payload.useFilenameDate
       paused  = false
       running = true
       startWorkers()
@@ -59,6 +61,7 @@ async function processJobDirect(job, t0) {
     if (job.categorie)   formData.append('categorie', job.categorie)
     if (job.forceInsert) formData.append('force_insert', 'true')
     if (job.replaceId)   formData.append('replace_id', job.replaceId)
+    if (useFilenameDate) formData.append('use_filename_date', 'true')
 
     const controller = new AbortController()
     const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
@@ -122,6 +125,7 @@ async function processJobLarge(job, t0) {
           categorie: job.categorie,
           force_insert: job.forceInsert,
           replace_id: job.replaceId,
+          use_filename_date: useFilenameDate,
         }),
         signal: controller.signal,
       })

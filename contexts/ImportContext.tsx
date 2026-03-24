@@ -71,6 +71,8 @@ interface ImportContextType {
   progress: number
   categories: string[]
   setStatut: (s: PipelineEtape) => void
+  useFilenameDate: boolean
+  setUseFilenameDate: (v: boolean) => void
   addFiles: (files: FileList | File[]) => void
   addFilesWithMeta: (items: Array<{ file: File; relativePath?: string }>) => void
   startProcessing: () => void
@@ -96,6 +98,7 @@ export function useImport() {
 export function ImportProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobsState]  = useState<FileJob[]>(() => _jobs)
   const [statut, setStatut]   = useState<PipelineEtape>('nouveau')
+  const [useFilenameDate, setUseFilenameDate] = useState(false)
   const [running, setRunning]           = useState(() => _workerRunning)
   const [done, setDone]                 = useState(() => _done)
   const [creditExhausted, setCreditExhausted] = useState(false)
@@ -278,11 +281,12 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
         type: 'START',
         payload: {
           jobs: pendingJobs.map(j => ({ id: j.id, file: j.file, statut, categorie: j.categorie })),
+          useFilenameDate,
         },
       })
       return current
     })
-  }, [statut, bindWorker])
+  }, [statut, useFilenameDate, bindWorker])
 
   const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; _workerPaused = true; setRunning(false) }, [])
   const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  _workerPaused = false; setRunning(true); setCreditExhausted(false) }, [])
@@ -375,7 +379,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     <ImportContext.Provider value={{
       jobs, statut, running, done, speed, eta, creditExhausted,
       total, succeeded, failed, doublons, processing, pending, completed, progress, categories,
-      setStatut, addFiles, addFilesWithMeta, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
+      setStatut, useFilenameDate, setUseFilenameDate, addFiles, addFilesWithMeta, startProcessing, pause, resume, stop, reset, retryErrors, resolveDoublon, exportCSV,
     }}>
       {children}
     </ImportContext.Provider>

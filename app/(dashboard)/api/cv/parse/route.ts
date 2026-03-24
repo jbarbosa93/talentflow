@@ -70,6 +70,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let categorie: string | null = null
 
   let updateId: string | null = null
+  let useFilenameDate = false
 
   if (ct.includes('application/json')) {
     const body = await request.json()
@@ -80,6 +81,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     updateId         = body.update_id || null
     offreId          = body.offre_id || null
     categorie        = body.categorie || null
+    useFilenameDate  = body.use_filename_date === true
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -90,6 +92,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     updateId        = formData.get('update_id') as string | null
     storagePathInput = formData.get('storage_path') as string | null
     categorie        = formData.get('categorie') as string | null
+    useFilenameDate  = formData.get('use_filename_date') === 'true'
   }
 
   // Si storage_path fourni → télécharger depuis Supabase
@@ -581,6 +584,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter',
+  }
+
+  // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
+  if (useFilenameDate && file.name) {
+    const dateMatch = file.name.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+    if (dateMatch) {
+      const [, dd, mm, yyyy] = dateMatch
+      const d = parseInt(dd), m = parseInt(mm), y = parseInt(yyyy)
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2030) {
+        ;(nouveauCandidat as any).created_at = `${yyyy}-${mm}-${dd}T12:00:00.000Z`
+      }
+    }
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient
