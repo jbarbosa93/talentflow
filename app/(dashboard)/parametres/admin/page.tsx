@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Shield, Trash2, UserPlus, Mail, Building2, RefreshCw, AlertTriangle, Pencil } from 'lucide-react'
+import { Shield, Trash2, UserPlus, Mail, Building2, RefreshCw, AlertTriangle, Pencil, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -126,6 +126,31 @@ export default function AdminPage() {
     onError: (err: Error) => {
       toast.error(err.message)
       setEditingRole(null)
+    },
+  })
+
+  const resendInviteMutation = useMutation({
+    mutationFn: async (user: AdminUser) => {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          prenom: user.prenom,
+          nom: user.nom,
+          role: user.role,
+          entreprise: user.entreprise,
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || 'Erreur lors du renvoi')
+      return body
+    },
+    onSuccess: (_data, user) => {
+      toast.success(`Lien renvoyé à ${user.email}`)
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
     },
   })
 
@@ -400,6 +425,30 @@ export default function AdminPage() {
                             </button>
                           </div>
                         ) : (
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <button
+                            onClick={() => resendInviteMutation.mutate(user)}
+                            disabled={resendInviteMutation.isPending}
+                            title="Renvoyer le lien d'invitation"
+                            style={{
+                              background: 'none', border: '1px solid transparent', cursor: 'pointer',
+                              color: 'var(--muted)', padding: '6px', borderRadius: 6,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseOver={e => {
+                              e.currentTarget.style.color = '#2563EB'
+                              e.currentTarget.style.borderColor = '#BFDBFE'
+                              e.currentTarget.style.background = '#EFF6FF'
+                            }}
+                            onMouseOut={e => {
+                              e.currentTarget.style.color = 'var(--muted)'
+                              e.currentTarget.style.borderColor = 'transparent'
+                              e.currentTarget.style.background = 'none'
+                            }}
+                          >
+                            <Send size={14} />
+                          </button>
                           <button
                             onClick={() => setConfirmDelete(user.id)}
                             title="Supprimer l'utilisateur"
@@ -422,6 +471,7 @@ export default function AdminPage() {
                           >
                             <Trash2 size={14} />
                           </button>
+                          </div>
                         )}
                       </td>
                     </tr>
