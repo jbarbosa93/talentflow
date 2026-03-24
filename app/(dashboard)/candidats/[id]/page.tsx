@@ -353,8 +353,17 @@ export default function CandidatDetailPage() {
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
   }
 
+  const [showReanalyseConfirm, setShowReanalyseConfirm] = useState(false)
+
   const reanalyseIA = async () => {
     if (!candidat?.cv_url) return
+    // Afficher popup de confirmation d'abord
+    setShowReanalyseConfirm(true)
+  }
+
+  const confirmReanalyse = async () => {
+    if (!candidat?.cv_url) return
+    setShowReanalyseConfirm(false)
     setReanalyseLoading(true)
     try {
       // Étape 1 : uploader le CV sur Supabase via presign (bypass limite 4.5 Mo Vercel)
@@ -376,7 +385,7 @@ export default function CandidatDetailPage() {
       })
       if (!uploadRes.ok) throw new Error('Erreur upload Supabase')
 
-      // Étape 2 : envoyer le storage_path au parse API (corps JSON léger)
+      // Étape 2 : envoyer le storage_path au parse API avec mode=reanalyse (écrasement)
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 55000)
       const parseRes = await fetch('/api/cv/parse', {
@@ -386,6 +395,7 @@ export default function CandidatDetailPage() {
           storage_path: storagePath,
           update_id: candidat.id,
           force_insert: true,
+          mode: 'reanalyse', // Mode écrasement : remplace tout sauf nom/prénom/photo
         }),
         signal: controller.signal,
       })
@@ -402,7 +412,7 @@ export default function CandidatDetailPage() {
       // Refresh candidate data
       queryClient.invalidateQueries({ queryKey: ['candidat', candidat.id] })
       queryClient.invalidateQueries({ queryKey: ['candidats'] })
-      toast.success('Profil mis à jour avec l\'analyse IA')
+      toast.success('Profil entièrement mis à jour avec l\'analyse IA')
     } catch (err: any) {
       console.error('[Ré-analyse IA]', err)
       toast.error(err.message || 'Erreur lors de la ré-analyse IA')
@@ -1759,6 +1769,41 @@ export default function CandidatDetailPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Confirmation Ré-analyse IA ── */}
+      {showReanalyseConfirm && (
+        <div onClick={() => setShowReanalyseConfirm(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 9000,
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.15s ease',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: 'white', borderRadius: 16, padding: '28px 32px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            maxWidth: 440, width: '90%', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔄</div>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#d97706', marginBottom: 8 }}>
+              Ré-analyser ce CV ?
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
+              Toutes les informations du profil seront <strong>mises à jour</strong> par rapport au CV actuel.<br />
+              Seuls le <strong>nom</strong>, <strong>prénom</strong> et la <strong>photo</strong> seront conservés.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button onClick={() => setShowReanalyseConfirm(false)}
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Annuler
+              </button>
+              <button onClick={confirmReanalyse}
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', background: '#d97706', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Confirmer
+              </button>
             </div>
           </div>
         </div>

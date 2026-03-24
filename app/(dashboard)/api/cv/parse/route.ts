@@ -71,6 +71,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   let updateId: string | null = null
   let useFilenameDate = false
+  let mode: string | null = null // 'reanalyse' = écrasement total sauf nom/prénom/photo
 
   if (ct.includes('application/json')) {
     const body = await request.json()
@@ -82,6 +83,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     offreId          = body.offre_id || null
     categorie        = body.categorie || null
     useFilenameDate  = body.use_filename_date === true
+    mode             = body.mode || null
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -93,6 +95,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     storagePathInput = formData.get('storage_path') as string | null
     categorie        = formData.get('categorie') as string | null
     useFilenameDate  = formData.get('use_filename_date') === 'true'
+    mode             = formData.get('mode') as string | null
   }
 
   // Si storage_path fourni → télécharger depuis Supabase
@@ -340,63 +343,95 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8a. Actualiser l'existant si "actualiser"
   if (updateId) {
-    // Récupérer le candidat existant pour fusionner (ajouter, pas remplacer)
+    // Récupérer le candidat existant
     const { data: existing } = await adminClient
       .from('candidats')
-      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url')
+      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url, documents')
       .eq('id', updateId)
       .single()
 
     const updateData: Record<string, any> = {}
-    // Nom/prénom : mettre à jour seulement si le nom actuel est "Candidat" ou vide
-    if (analyse.nom && (!existing?.nom || existing.nom === 'Candidat')) {
-      updateData.nom = analyse.nom
-    }
-    if (analyse.prenom && !existing?.prenom) {
-      updateData.prenom = analyse.prenom
-    }
-    // Email, téléphone, lieu : toujours remplacer
-    if (analyse.email) updateData.email = analyse.email
-    if (analyse.telephone) updateData.telephone = analyse.telephone
-    if (analyse.localisation) updateData.localisation = analyse.localisation
-    // Titre poste : toujours mettre à jour (peut évoluer)
-    if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
-    // Compétences : fusionner (ajouter les nouvelles)
-    if (analyse.competences?.length) {
-      const existingComp = (existing?.competences as string[]) || []
-      const merged = [...new Set([...existingComp, ...analyse.competences])]
-      updateData.competences = merged
-    }
-    if (analyse.formation) updateData.formation = analyse.formation
-    // Langues : fusionner
-    if (analyse.langues?.length) {
-      const existingLang = (existing?.langues as string[]) || []
-      const merged = [...new Set([...existingLang, ...analyse.langues])]
-      updateData.langues = merged
-    }
-    if (analyse.linkedin) updateData.linkedin = analyse.linkedin
-    if (analyse.permis_conduire !== undefined) updateData.permis_conduire = analyse.permis_conduire
-    if (analyse.date_naissance) updateData.date_naissance = analyse.date_naissance
-    // Expériences : fusionner (ajouter celles qui n'existent pas encore)
-    if (analyse.experiences?.length) {
-      const existingExp = (existing?.experiences as any[]) || []
-      const existingKeys = new Set(existingExp.map((e: any) => `${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
-      const newExp = analyse.experiences.filter((e: any) => !existingKeys.has(`${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
-      if (newExp.length > 0) updateData.experiences = [...existingExp, ...newExp]
-    }
-    // Formations : fusionner
-    if (analyse.formations_details?.length) {
-      const existingForm = (existing?.formations_details as any[]) || []
-      const existingKeys = new Set(existingForm.map((f: any) => `${f.titre || ''}_${f.etablissement || ''}`))
-      const newForm = analyse.formations_details.filter((f: any) => !existingKeys.has(`${f.titre || ''}_${f.etablissement || ''}`))
-      if (newForm.length > 0) updateData.formations_details = [...existingForm, ...newForm]
-    }
-    if (analyse.resume) updateData.resume_ia = analyse.resume
-    if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
 
-    // Classification du document
+    if (mode === 'reanalyse') {
+      // ═══ MODE REANALYSE : écrasement total sauf nom/prénom/photo ═══
+      // Nom/prénom : conserver ceux existants (ne pas écraser)
+      // Photo : conserver celle existante (ne pas écraser)
+
+      // Écraser TOUT le reste avec les nouvelles données du CV
+      updateData.email = analyse.email || null
+      updateData.telephone = analyse.telephone || null
+      updateData.localisation = analyse.localisation || null
+      updateData.titre_poste = analyse.titre_poste || null
+      updateData.competences = analyse.competences || []
+      updateData.langues = analyse.langues || []
+      updateData.experiences = analyse.experiences || []
+      updateData.formations_details = analyse.formations_details || []
+      updateData.formation = analyse.formation || null
+      updateData.linkedin = analyse.linkedin || null
+      updateData.permis_conduire = analyse.permis_conduire ?? null
+      updateData.date_naissance = analyse.date_naissance || null
+      updateData.resume_ia = analyse.resume || null
+      if ((analyse as any).genre) updateData.genre = (analyse as any).genre
+      if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
+      if (cvUrl) updateData.cv_url = cvUrl
+      updateData.cv_nom_fichier = file.name
+      // Photo : ne PAS écraser si existante
+      if (photoUrl && !existing?.photo_url) {
+        updateData.photo_url = photoUrl
+      }
+      console.log(`[CV Parse] Ré-analyse (écrasement) : ${file.name}`)
+    } else {
+      // ═══ MODE MERGE : ajouter sans remplacer (import normal) ═══
+      // Nom/prénom : mettre à jour seulement si le nom actuel est "Candidat" ou vide
+      if (analyse.nom && (!existing?.nom || existing.nom === 'Candidat')) {
+        updateData.nom = analyse.nom
+      }
+      if (analyse.prenom && !existing?.prenom) {
+        updateData.prenom = analyse.prenom
+      }
+      // Email, téléphone, lieu : toujours remplacer
+      if (analyse.email) updateData.email = analyse.email
+      if (analyse.telephone) updateData.telephone = analyse.telephone
+      if (analyse.localisation) updateData.localisation = analyse.localisation
+      // Titre poste : toujours mettre à jour (peut évoluer)
+      if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
+      // Compétences : fusionner (ajouter les nouvelles)
+      if (analyse.competences?.length) {
+        const existingComp = (existing?.competences as string[]) || []
+        const merged = [...new Set([...existingComp, ...analyse.competences])]
+        updateData.competences = merged
+      }
+      if (analyse.formation) updateData.formation = analyse.formation
+      // Langues : fusionner
+      if (analyse.langues?.length) {
+        const existingLang = (existing?.langues as string[]) || []
+        const merged = [...new Set([...existingLang, ...analyse.langues])]
+        updateData.langues = merged
+      }
+      if (analyse.linkedin) updateData.linkedin = analyse.linkedin
+      if (analyse.permis_conduire !== undefined) updateData.permis_conduire = analyse.permis_conduire
+      if (analyse.date_naissance) updateData.date_naissance = analyse.date_naissance
+      // Expériences : fusionner (ajouter celles qui n'existent pas encore)
+      if (analyse.experiences?.length) {
+        const existingExp = (existing?.experiences as any[]) || []
+        const existingKeys = new Set(existingExp.map((e: any) => `${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
+        const newExp = analyse.experiences.filter((e: any) => !existingKeys.has(`${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
+        if (newExp.length > 0) updateData.experiences = [...existingExp, ...newExp]
+      }
+      // Formations : fusionner
+      if (analyse.formations_details?.length) {
+        const existingForm = (existing?.formations_details as any[]) || []
+        const existingKeys = new Set(existingForm.map((f: any) => `${f.titre || ''}_${f.etablissement || ''}`))
+        const newForm = analyse.formations_details.filter((f: any) => !existingKeys.has(`${f.titre || ''}_${f.etablissement || ''}`))
+        if (newForm.length > 0) updateData.formations_details = [...existingForm, ...newForm]
+      }
+      if (analyse.resume) updateData.resume_ia = analyse.resume
+      if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
+    }
+
+    // Classification du document (commun aux deux modes)
     const isCV = !analyse.document_type || analyse.document_type === 'cv'
-    if (isCV) {
+    if (isCV && mode !== 'reanalyse') {
       // C'est un CV → mettre à jour cv_url, cv_nom_fichier
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
@@ -411,12 +446,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         }
       }
       console.log(`[CV Parse] Actualisation CV: ${file.name}`)
-    } else {
+    } else if (!isCV) {
       // Ce n'est PAS un CV → ajouter aux documents avec la bonne catégorie
       console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
       const mappedType = mapDocumentType(analyse.document_type)
-      const { data: existingCandidat } = await adminClient.from('candidats').select('documents').eq('id', updateId).single()
-      const existingDocs = (existingCandidat?.documents as any[]) || []
+      const existingDocs = (existing?.documents as any[]) || []
       existingDocs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
       updateData.documents = existingDocs
     }

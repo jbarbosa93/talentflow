@@ -10,7 +10,7 @@ import { motion } from 'framer-motion'
 import {
   Star, GripVertical, MapPin, Search, Calendar, MessageSquare,
   ChevronDown, Clock, Eye, UserPlus, Briefcase, X,
-  TrendingUp, Filter, LayoutGrid
+  TrendingUp, Filter, LayoutGrid, Pencil, Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { logActivity } from '@/hooks/useActivites'
@@ -323,12 +323,39 @@ function StatsBar({ candidatsByEtape }: { candidatsByEtape: Record<PipelineEtape
 }
 
 /* ─────── Main Page ─────── */
+const PIPELINE_LABELS_LS_KEY = 'tf_pipeline_labels'
+function getSavedLabels(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(localStorage.getItem(PIPELINE_LABELS_LS_KEY) || '{}') } catch { return {} }
+}
+
 export default function PipelinePage() {
   const [offreFilter, setOffreFilter] = useState<string>('tous')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overColumnId, setOverColumnId] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  // Labels personnalisables pour chaque colonne pipeline
+  const [customLabels, setCustomLabels] = useState<Record<string, string>>(getSavedLabels)
+  const [editingEtape, setEditingEtape] = useState<string | null>(null)
+  const [editLabelValue, setEditLabelValue] = useState('')
+
+  const getEtapeLabel = (etape: typeof ETAPES[number]) => customLabels[etape.id] || etape.label
+
+  const startEditLabel = (etapeId: string, currentLabel: string) => {
+    setEditingEtape(etapeId)
+    setEditLabelValue(currentLabel)
+  }
+  const saveLabel = (etapeId: string) => {
+    const trimmed = editLabelValue.trim()
+    if (trimmed) {
+      const updated = { ...customLabels, [etapeId]: trimmed }
+      setCustomLabels(updated)
+      localStorage.setItem(PIPELINE_LABELS_LS_KEY, JSON.stringify(updated))
+    }
+    setEditingEtape(null)
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -773,9 +800,42 @@ export default function PipelinePage() {
                       background: etape.color,
                       boxShadow: `0 0 8px ${etape.color}66`,
                     }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: etape.color }}>
-                      {etape.label}
-                    </span>
+                    {editingEtape === etape.id ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <input
+                          autoFocus
+                          value={editLabelValue}
+                          onChange={e => setEditLabelValue(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveLabel(etape.id); if (e.key === 'Escape') setEditingEtape(null) }}
+                          style={{
+                            fontSize: 13, fontWeight: 700, color: etape.color,
+                            border: `1px solid ${etape.color}66`, borderRadius: 6,
+                            padding: '2px 8px', width: 120, outline: 'none',
+                            background: 'white', fontFamily: 'inherit',
+                          }}
+                        />
+                        <button onClick={() => saveLabel(etape.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
+                          <Check size={14} color={etape.color} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        style={{ fontSize: 13, fontWeight: 700, color: etape.color, cursor: 'pointer' }}
+                        onDoubleClick={() => startEditLabel(etape.id, getEtapeLabel(etape))}
+                        title="Double-cliquez pour renommer"
+                      >
+                        {getEtapeLabel(etape)}
+                      </span>
+                    )}
+                    {editingEtape !== etape.id && (
+                      <button
+                        onClick={() => startEditLabel(etape.id, getEtapeLabel(etape))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4 }}
+                        title="Renommer cette colonne"
+                      >
+                        <Pencil size={11} color={etape.color} />
+                      </button>
+                    )}
                   </div>
                   <span style={{
                     fontSize: 12, fontWeight: 800, color: etape.color,

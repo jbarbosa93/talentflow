@@ -122,7 +122,13 @@ export default function CandidatsList() {
     return (s && ['nouveau','contacte','entretien','place','refuse'].includes(s) ? s : 'tous') as PipelineEtape | 'tous'
   })
   const [filtreLocalisation, setFiltreLocalisation] = useState('')
-  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance'>('date_desc')
+  // Helper pour restaurer les filtres depuis sessionStorage
+  const ssGet = (key: string, fallback: any = '') => {
+    try { const v = sessionStorage.getItem(`candidats_${key}`); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
+  }
+  const ssSet = (key: string, val: any) => { try { sessionStorage.setItem(`candidats_${key}`, JSON.stringify(val)) } catch {} }
+
+  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance'>(() => ssGet('sort', 'date_desc'))
   const [groupByMetier, setGroupByMetier] = useState(false)
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
@@ -138,16 +144,28 @@ export default function CandidatsList() {
   const [aiInterpreted, setAiInterpreted] = useState('')
 
 
-  // Advanced filters
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [filterMetier, setFilterMetier] = useState('')
-  const [filterLieu, setFilterLieu] = useState('')
-  const [filterAgeMin, setFilterAgeMin] = useState<number | ''>('')
-  const [filterAgeMax, setFilterAgeMax] = useState<number | ''>('')
-  const [filterLangue, setFilterLangue] = useState('')
-  const [filterPermis, setFilterPermis] = useState<boolean | null>(null)
-  const [filterExpMin, setFilterExpMin] = useState<number | ''>('')
-  const [filterGenre, setFilterGenre] = useState<string>('')
+  // Advanced filters — restaurés depuis sessionStorage
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(() => ssGet('showAdv', false))
+  const [filterMetier, setFilterMetier] = useState(() => ssGet('fMetier', ''))
+  const [filterLieu, setFilterLieu] = useState(() => ssGet('fLieu', ''))
+  const [filterAgeMin, setFilterAgeMin] = useState<number | ''>(() => ssGet('fAgeMin', ''))
+  const [filterAgeMax, setFilterAgeMax] = useState<number | ''>(() => ssGet('fAgeMax', ''))
+  const [filterLangue, setFilterLangue] = useState(() => ssGet('fLangue', ''))
+  const [filterPermis, setFilterPermis] = useState<boolean | null>(() => ssGet('fPermis', null))
+  const [filterExpMin, setFilterExpMin] = useState<number | ''>(() => ssGet('fExpMin', ''))
+  const [filterGenre, setFilterGenre] = useState<string>(() => ssGet('fGenre', ''))
+
+  // Persister les filtres dans sessionStorage
+  useEffect(() => { ssSet('sort', sortBy) }, [sortBy])
+  useEffect(() => { ssSet('showAdv', showAdvancedFilters) }, [showAdvancedFilters])
+  useEffect(() => { ssSet('fMetier', filterMetier) }, [filterMetier])
+  useEffect(() => { ssSet('fLieu', filterLieu) }, [filterLieu])
+  useEffect(() => { ssSet('fAgeMin', filterAgeMin) }, [filterAgeMin])
+  useEffect(() => { ssSet('fAgeMax', filterAgeMax) }, [filterAgeMax])
+  useEffect(() => { ssSet('fLangue', filterLangue) }, [filterLangue])
+  useEffect(() => { ssSet('fPermis', filterPermis) }, [filterPermis])
+  useEffect(() => { ssSet('fExpMin', filterExpMin) }, [filterExpMin])
+  useEffect(() => { ssSet('fGenre', filterGenre) }, [filterGenre])
 
   // CV hover preview
   const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
@@ -900,7 +918,7 @@ export default function CandidatsList() {
         </button>
 
         {/* Filtres avancés button */}
-        <button onClick={() => setShowAdvancedFilters(v => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'white':'var(--text)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'white':'var(--text)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
           <SlidersHorizontal size={14} />
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
