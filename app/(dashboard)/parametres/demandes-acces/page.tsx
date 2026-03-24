@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Users, Mail, Building2, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { Users, Mail, Building2, Clock, CheckCircle, XCircle, RefreshCw, Trash2 } from 'lucide-react'
 
 interface Demande {
   id: string
@@ -53,6 +53,16 @@ export default function DemandesAccesPage() {
         body: JSON.stringify({ statut }),
       })
       await fetchDemandes()
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  const deleteDemande = async (id: string) => {
+    setUpdating(id)
+    try {
+      await fetch(`/api/demande-acces/${id}`, { method: 'DELETE' })
+      setDemandes(prev => prev.filter(d => d.id !== id))
     } finally {
       setUpdating(null)
     }
@@ -141,7 +151,7 @@ export default function DemandesAccesPage() {
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {traitees.map(d => (
-                  <DemandeCard key={d.id} demande={d} updating={updating === d.id} onUpdate={updateStatut} />
+                  <DemandeCard key={d.id} demande={d} updating={updating === d.id} onUpdate={updateStatut} onDelete={deleteDemande} />
                 ))}
               </div>
             </section>
@@ -152,10 +162,11 @@ export default function DemandesAccesPage() {
   )
 }
 
-function DemandeCard({ demande, updating, onUpdate }: {
+function DemandeCard({ demande, updating, onUpdate, onDelete }: {
   demande: Demande
   updating: boolean
   onUpdate: (id: string, statut: string) => void
+  onDelete?: (id: string) => void
 }) {
   const cfg = STATUT_CONFIG[demande.statut]
 
@@ -233,14 +244,28 @@ function DemandeCard({ demande, updating, onUpdate }: {
       )}
 
       {demande.statut !== 'en_attente' && (
-        <button
-          onClick={() => onUpdate(demande.id, 'en_attente')}
-          disabled={updating}
-          className="neo-btn-ghost"
-          style={{ padding: '6px 10px', fontSize: 11, gap: 4, flexShrink: 0 }}
-        >
-          <RefreshCw size={11} /> Remettre en attente
-        </button>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button
+            onClick={() => onUpdate(demande.id, 'en_attente')}
+            disabled={updating}
+            className="neo-btn-ghost"
+            style={{ padding: '6px 10px', fontSize: 11, gap: 4 }}
+            title="Remettre en attente"
+          >
+            <RefreshCw size={11} /> Annuler
+          </button>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(demande.id)}
+              disabled={updating}
+              className="neo-btn-ghost"
+              style={{ padding: '6px 10px', fontSize: 11, gap: 4, color: '#DC2626', borderColor: '#FECACA' }}
+              title="Supprimer définitivement"
+            >
+              <Trash2 size={11} /> Supprimer
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
