@@ -79,11 +79,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Fichier requis' }, { status: 400 })
     }
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
-    const mimeType = file.type || 'application/pdf'
+    const mimeType = file.type || ''
+    const fileName = file.name.toLowerCase()
+    const isDocx = fileName.endsWith('.docx') || mimeType.includes('wordprocessingml') || mimeType.includes('msword')
+    const isPdf = fileName.endsWith('.pdf') || mimeType.includes('pdf')
+    const isImage = mimeType.includes('image/') || fileName.match(/\.(jpe?g|png|webp)$/)
 
-    if (!allowedTypes.some(t => mimeType.includes(t.split('/')[1])) && !mimeType.includes('pdf')) {
-      return NextResponse.json({ error: 'Format non supporté. Utilisez PDF, JPG ou PNG.' }, { status: 400 })
+    if (!isDocx && !isPdf && !isImage) {
+      return NextResponse.json({ error: 'Format non supporté. Utilisez PDF, DOCX, JPG ou PNG.' }, { status: 400 })
     }
 
     const arrayBuffer = await file.arrayBuffer()
@@ -92,7 +95,14 @@ export async function POST(request: NextRequest) {
 
     let messageContent: Anthropic.MessageParam['content']
 
-    if (mimeType.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) {
+    if (isDocx) {
+      // Extraire le texte du DOCX avec mammoth
+      const mammoth = await import('mammoth')
+      const { value: docxText } = await mammoth.extractRawText({ buffer })
+      messageContent = [
+        { type: 'text', text: `${CDC_PROMPT}\n\nDocument à analyser :\n<document>\n${docxText.slice(0, 12000)}\n</document>` },
+      ]
+    } else if (isPdf) {
       const trimmed = await limitPDFPages(buffer, 8)
       const base64 = trimmed.toString('base64')
       messageContent = [

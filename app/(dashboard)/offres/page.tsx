@@ -349,8 +349,9 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
   }
 
   const handleFile = (f: File) => {
-    const ok = f.type.includes('pdf') || f.type.includes('image') || f.name.toLowerCase().endsWith('.pdf')
-    if (!ok) { setError('Format non supporté — utilisez PDF ou image (JPG, PNG)'); return }
+    const name = f.name.toLowerCase()
+    const ok = f.type.includes('pdf') || f.type.includes('image') || f.type.includes('wordprocessingml') || f.type.includes('msword') || name.endsWith('.pdf') || name.endsWith('.docx')
+    if (!ok) { setError('Format non supporté — utilisez PDF, DOCX ou image (JPG, PNG)'); return }
     setFile(f)
     setResult(null)
     setEdited(null)
@@ -520,7 +521,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
           transition: 'all 0.2s',
         }}
       >
-        <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+        <input ref={fileRef} type="file" accept=".pdf,.docx,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
         {file ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -535,7 +536,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
               <Upload size={24} style={{ color: 'var(--muted)' }} />
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>Glissez un fichier ici ou cliquez pour choisir</div>
-            <div style={{ fontSize: 12, color: 'var(--muted)' }}>PDF, JPG, PNG · Cahier des charges, description de poste, appel d&apos;offres</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>PDF, DOCX, JPG, PNG · Cahier des charges, description de poste, appel d&apos;offres</div>
           </div>
         )}
       </div>
