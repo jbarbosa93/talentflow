@@ -66,6 +66,26 @@ function AccepterInvitationInner() {
     tryGetUser()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sécurité : si l'utilisateur quitte la page sans créer son mot de passe → sign out
+  useEffect(() => {
+    if (done || loading || expired) return // Pas de sign out si succès, loading ou expiré
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Avertir l'utilisateur qu'il doit finir la création du compte
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      // Si le composant se démonte sans avoir fini → sign out
+      if (!done) {
+        supabase.auth.signOut()
+      }
+    }
+  }, [done, loading, expired, supabase.auth])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -82,7 +102,7 @@ function AccepterInvitationInner() {
     setSaving(true)
     const { error: updateErr } = await supabase.auth.updateUser({
       password,
-      data: { ...((user as any)?.user_metadata || {}), entreprise },
+      data: { ...((user as any)?.user_metadata || {}), entreprise, password_set_at: new Date().toISOString() },
     })
     if (updateErr) {
       setError(updateErr.message)

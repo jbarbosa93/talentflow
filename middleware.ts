@@ -111,6 +111,25 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // SÉCURITÉ : Si utilisateur invité sans mot de passe défini → bloquer l'accès
+  // Les utilisateurs invités via Supabase ont email_confirmed_at mais pas de password_set_at
+  // jusqu'à ce qu'ils créent leur mot de passe sur /accepter-invitation
+  if (user && isProtectedRoute) {
+    const meta = user.user_metadata || {}
+    const isInvitedUser = user.app_metadata?.provider === 'email' && user.app_metadata?.providers?.includes('email')
+    const hasPassword = !!meta.password_set_at
+
+    // Si l'utilisateur a été invité (pas de connexion classique) et n'a pas encore défini son mot de passe
+    if (isInvitedUser && !hasPassword && !user.last_sign_in_at) {
+      // Sign out et rediriger vers login
+      await supabase.auth.signOut()
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('error', 'password_required')
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Restriction par domaine email
   const allowedDomainsEnv = process.env.ALLOWED_EMAIL_DOMAINS
   if (allowedDomainsEnv && user && user.email && isProtectedRoute) {

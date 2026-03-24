@@ -71,26 +71,30 @@ export async function GET(request: NextRequest) {
 
       if (!searchError && searchIds && searchIds.length > 0) {
         const ids = searchIds.map((r: { id: string }) => r.id)
-        // Envoyer les IDs par batch de 50 max pour éviter la limite URL de PostgREST
-        const batchSize = 50
-        const batches: string[][] = []
-        for (let i = 0; i < ids.length; i += batchSize) {
-          batches.push(ids.slice(i, i + batchSize))
-        }
-        // Construire un OR de .in() n'est pas possible, utiliser la première batch pour la requête paginée
-        // et retourner le total réel
         const totalFound = ids.length
         const totalPages = Math.ceil(totalFound / perPage)
-        const startIdx = (page - 1) * perPage
-        const pageIds = ids.slice(startIdx, startIdx + perPage)
-        if (pageIds.length === 0) {
-          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+
+        // Récupérer TOUS les candidats trouvés avec le tri appliqué, puis paginer
+        let searchQuery = supabase
+          .from('candidats')
+          .select(LIST_COLUMNS)
+          .in('id', ids)
+
+        // Appliquer le tri
+        switch (sort) {
+          case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }); break
+          case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }); break
+          case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }); break
+          default:          searchQuery = searchQuery.order('created_at', { ascending: false })
         }
-        query = query.in('id', pageIds)
-        // Désactiver le filtre import_status/statut car déjà filtré par la RPC
-        // et désactiver la pagination Supabase car on pagine manuellement
-        const { data, error } = await query
-        if (error) throw error
+
+        // Pagination
+        const from = (page - 1) * perPage
+        const to = from + perPage - 1
+        searchQuery = searchQuery.range(from, to)
+
+        const { data, error: searchFetchError } = await searchQuery
+        if (searchFetchError) throw searchFetchError
         return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
       } else if (!searchError && searchIds && searchIds.length === 0) {
         return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage, total_pages: 0 })
