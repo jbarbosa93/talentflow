@@ -55,18 +55,7 @@ export async function GET(request: NextRequest) {
     if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
     if (metier) query = query.ilike('titre_poste', `%${metier}%` as any)
     if (langue) query = query.contains('langues', [langue] as any)
-    // Filtre âge via date_naissance (calcul côté serveur)
-    if (ageMin || ageMax) {
-      const now = new Date()
-      if (ageMin) {
-        const maxDate = new Date(now.getFullYear() - parseInt(ageMin), now.getMonth(), now.getDate()).toISOString().slice(0, 10)
-        query = query.lte('date_naissance', maxDate as any)
-      }
-      if (ageMax) {
-        const minDate = new Date(now.getFullYear() - parseInt(ageMax) - 1, now.getMonth(), now.getDate()).toISOString().slice(0, 10)
-        query = query.gte('date_naissance', minDate as any)
-      }
-    }
+    // Note : le filtre âge reste côté client (date_naissance a des formats mixtes : "54", "15/03/1990", etc.)
 
     // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
     if (search) {

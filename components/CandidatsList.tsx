@@ -228,23 +228,23 @@ export default function CandidatsList() {
     setSelectedIds(new Set())
   }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier])
 
+  // Si filtre âge actif → fetch tout (client-side, car date_naissance a des formats mixtes)
+  const ageFilterActive = filterAgeMin !== '' || filterAgeMax !== ''
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
     import_status: importStatusFilter as ImportStatus,
     search: debouncedSearch || undefined,
-    page,
-    per_page: perPage,
+    page: ageFilterActive ? 1 : page,
+    per_page: ageFilterActive ? 0 : perPage, // 0 = fetch all (max 10000)
     sort: sortBy,
     genre: filterGenre || undefined,
-    age_min: filterAgeMin !== '' ? filterAgeMin : undefined,
-    age_max: filterAgeMax !== '' ? filterAgeMax : undefined,
     langue: filterLangue || undefined,
     permis: filterPermis,
     lieu: filterLieu || undefined,
     metier: filterMetier || undefined,
   })
   const allCandidats = candidatsData?.candidats || []
-  const totalCandidats = candidatsData?.total ?? allCandidats.length
+  const totalCandidatsRaw = candidatsData?.total ?? allCandidats.length
   const deleteBulk   = useDeleteCandidatsBulk()
   const updateStatut = useUpdateStatutCandidat()
   const updateImportStatus = useUpdateImportStatusBulk()
@@ -295,13 +295,12 @@ export default function CandidatsList() {
     return () => document.removeEventListener('click', close)
   }, [])
 
-  // Filtrage — les filtres avancés sont maintenant côté serveur
-  // Seuls les filtres locaux restent côté client (filtreLocalisation, filtreMetier = dropdown par métier/lieu)
+  // Filtrage — la plupart des filtres sont côté serveur
+  // Restent côté client : âge (format mixte), dropdown par métier/localisation, exp min
   const candidatsFiltres = useMemo(() => {
     const base = aiResults !== null ? aiResults : (allCandidats || [])
     let filtered: any[] = base as any[]
 
-    // Filtres locaux uniquement (dropdown par métier/localisation, pas les filtres avancés)
     if (filtreLocalisation.trim()) {
       const loc = normalize(filtreLocalisation)
       filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
@@ -312,9 +311,19 @@ export default function CandidatsList() {
     if (filterExpMin !== '') {
       filtered = filtered.filter(c => (c.annees_exp || 0) >= filterExpMin)
     }
+    // Filtre âge côté client (date_naissance peut être "54", "15/03/1990", etc.)
+    if (filterAgeMin !== '' || filterAgeMax !== '') {
+      filtered = filtered.filter(c => {
+        const age = c.date_naissance ? calculerAge(c.date_naissance) : null
+        if (age === null) return false
+        if (filterAgeMin !== '' && age < filterAgeMin) return false
+        if (filterAgeMax !== '' && age > filterAgeMax) return false
+        return true
+      })
+    }
 
     return filtered
-  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin, filterAgeMin, filterAgeMax])
 
   const activeFiltersCount = [
     filterMetier !== '',
@@ -338,10 +347,17 @@ export default function CandidatsList() {
     return candidatsFiltres // Déjà trié par le serveur
   }, [candidatsFiltres, sortBy, distances])
 
-  // Pas de pagination client — le serveur pagine déjà
+  // Pagination : client-side quand filtre âge actif, sinon serveur
   const candidatesTries = sorted
-  const candidatesPagines = candidatesTries
-  const totalPages = candidatsData?.total_pages || 1
+  const clientPaginated = ageFilterActive
+  const candidatesPagines = clientPaginated
+    ? candidatesTries.slice((page - 1) * perPage, page * perPage)
+    : candidatesTries
+  const totalCandidats = clientPaginated ? candidatesTries.length : totalCandidatsRaw
+  const totalFiltered = clientPaginated ? candidatesTries.length : (candidatsData?.total ?? 0)
+  const totalPages = clientPaginated
+    ? Math.ceil(candidatesTries.length / perPage) || 1
+    : (candidatsData?.total_pages || 1)
   const hasMore = page < totalPages
 
   // Group by métier ou lieu
