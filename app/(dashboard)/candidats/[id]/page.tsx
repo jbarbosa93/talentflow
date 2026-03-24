@@ -370,9 +370,17 @@ export default function CandidatDetailPage() {
       formData.append('update_id', candidat.id)
       formData.append('force_insert', 'true')
 
-      const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData })
-      const parseData = await parseRes.json()
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
+      const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData, signal: controller.signal })
+      clearTimeout(timeout)
 
+      const ct = parseRes.headers.get('content-type') || ''
+      if (!ct.includes('application/json')) {
+        const text = await parseRes.text()
+        throw new Error(text.slice(0, 100) || `Erreur serveur (${parseRes.status})`)
+      }
+      const parseData = await parseRes.json()
       if (!parseRes.ok) throw new Error(parseData.error || 'Erreur lors de l\'analyse IA')
 
       // Refresh candidate data
