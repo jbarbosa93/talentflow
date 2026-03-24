@@ -486,7 +486,7 @@ export type Database = {
           nom: string
           entreprise: string
           email: string
-          statut: 'en_attente' | 'approuve' | 'refuse'
+          statut: 'en_attente' | 'approuve' | 'refuse' | 'supprime'
           created_at: string
         }
         Insert: {

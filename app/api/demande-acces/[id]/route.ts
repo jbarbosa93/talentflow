@@ -5,11 +5,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params
   const { statut } = await request.json()
 
-  if (!['en_attente', 'approuve', 'refuse'].includes(statut)) {
+  if (!['en_attente', 'approuve', 'refuse', 'supprime'].includes(statut)) {
     return NextResponse.json({ error: 'Statut invalide' }, { status: 400 })
   }
 
   const supabase = createAdminClient()
+
+  // Si déplacement vers la corbeille → pas d'envoi d'email
+  if (statut === 'supprime') {
+    const supabaseSup = createAdminClient()
+    const { error: supErr } = await supabaseSup.from('demandes_acces').update({ statut }).eq('id', id)
+    if (supErr) return NextResponse.json({ error: supErr.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
 
   // Si approbation → envoyer l'invitation par email (création de compte)
   if (statut === 'approuve') {
