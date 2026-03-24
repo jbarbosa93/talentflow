@@ -357,22 +357,38 @@ export default function CandidatDetailPage() {
     if (!candidat?.cv_url) return
     setReanalyseLoading(true)
     try {
-      // Fetch the CV file from storage
+      // Étape 1 : uploader le CV sur Supabase via presign (bypass limite 4.5 Mo Vercel)
       const cvRes = await fetch(candidat.cv_url)
       if (!cvRes.ok) throw new Error('Impossible de télécharger le CV')
       const cvBlob = await cvRes.blob()
       const fileName = candidat.cv_nom_fichier || 'cv.pdf'
-      const cvFile = new File([cvBlob], fileName, { type: cvBlob.type })
 
-      // Send to parse API with update_id to update the existing candidate
-      const formData = new FormData()
-      formData.append('cv', cvFile)
-      formData.append('update_id', candidat.id)
-      formData.append('force_insert', 'true')
+      // Obtenir une URL pré-signée pour l'upload
+      const presignRes = await fetch(`/api/cv/presign?filename=${encodeURIComponent(fileName)}`)
+      if (!presignRes.ok) throw new Error('Impossible d\'obtenir l\'URL d\'upload')
+      const { signedUrl, path: storagePath } = await presignRes.json()
 
+      // Upload direct vers Supabase (pas via Vercel)
+      const uploadRes = await fetch(signedUrl, {
+        method: 'PUT',
+        body: cvBlob,
+        headers: { 'Content-Type': cvBlob.type || 'application/octet-stream' },
+      })
+      if (!uploadRes.ok) throw new Error('Erreur upload Supabase')
+
+      // Étape 2 : envoyer le storage_path au parse API (corps JSON léger)
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
-      const parseRes = await fetch('/api/cv/parse', { method: 'POST', body: formData, signal: controller.signal })
+      const timeout = setTimeout(() => controller.abort(), 55000)
+      const parseRes = await fetch('/api/cv/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storage_path: storagePath,
+          update_id: candidat.id,
+          force_insert: true,
+        }),
+        signal: controller.signal,
+      })
       clearTimeout(timeout)
 
       const ct = parseRes.headers.get('content-type') || ''
