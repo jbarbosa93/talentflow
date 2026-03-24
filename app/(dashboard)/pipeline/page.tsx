@@ -62,6 +62,7 @@ const QuickAction = ({ icon: Icon, label, onClick, color }: {
   icon: React.ElementType; label: string; onClick?: () => void; color?: string
 }) => (
   <button
+    onPointerDown={e => e.stopPropagation()}
     onClick={(e) => { e.stopPropagation(); onClick?.() }}
     title={label}
     style={{
@@ -148,25 +149,6 @@ function DraggableCard({ item, etapeColor, onRemove }: { item: any; etapeColor: 
       onMouseLeave={() => setHovered(false)}
       style={style}
     >
-      {/* Remove button */}
-      <button
-        onPointerDown={e => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onRemove() }}
-        title="Retirer du pipeline"
-        style={{
-          position: 'absolute', top: 8, right: 8,
-          width: 20, height: 20, borderRadius: 6,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(239,68,68,0.12)', border: '1.5px solid rgba(239,68,68,0.3)',
-          color: '#EF4444', cursor: 'pointer', padding: 0,
-          opacity: hovered ? 1 : 0,
-          transition: 'opacity 0.15s',
-          zIndex: 2,
-        }}
-      >
-        <X size={11} strokeWidth={3} />
-      </button>
-
       {/* Top row: avatar + name + grip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         {/* Avatar */}
@@ -258,6 +240,7 @@ function DraggableCard({ item, etapeColor, onRemove }: { item: any; etapeColor: 
           <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
           <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
           <QuickAction icon={MessageSquare} label="Envoyer CV" color="#3B82F6" onClick={() => window.location.href = '/messages'} />
+          <QuickAction icon={X} label="Retirer du pipeline" color="#EF4444" onClick={() => onRemove()} />
         </div>
       )}
     </div>
