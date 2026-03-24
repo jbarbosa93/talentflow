@@ -289,10 +289,44 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
   try {
     const result = parseCV(text)
 
-    // Étape 2 : si Haiku n'a presque rien trouvé → fallback Sonnet (plus puissant pour scans)
+    // Étape 2 : si Haiku n'a presque rien trouvé → PDF peut-être inversé
     const isEmpty = !result.nom && !result.prenom && !result.titre_poste && (result.competences?.length || 0) === 0
     if (isEmpty) {
-      console.log('[Claude] ⚠️ Haiku n\'a rien extrait — fallback vers Sonnet pour ce scan...')
+      // Étape 2a : retourner le PDF 180° et réessayer avec Haiku
+      console.log('[Claude] ⚠️ Haiku n\'a rien extrait — tentative rotation 180°...')
+      try {
+        const { PDFDocument, degrees } = await import('pdf-lib')
+        const pdfDoc = await PDFDocument.load(trimmedBuffer, { ignoreEncryption: true })
+        for (let i = 0; i < pdfDoc.getPageCount(); i++) {
+          const p = pdfDoc.getPage(i)
+          p.setRotation(degrees((p.getRotation().angle + 180) % 360))
+        }
+        const rotatedBytes = await pdfDoc.save()
+        const rotatedBase64 = Buffer.from(rotatedBytes).toString('base64')
+        const rotatedContent = [
+          { type: 'document' as const, source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: rotatedBase64 } },
+          { type: 'text' as const, text: scanPrompt },
+        ]
+        const rotatedResponse = await withRetry(() => client.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1800,
+          messages: [{ role: 'user', content: rotatedContent }],
+        }))
+        const rotatedText = rotatedResponse.content[0]?.type === 'text' ? rotatedResponse.content[0].text : ''
+        try {
+          const rotatedResult = parseCV(rotatedText)
+          const rotatedEmpty = !rotatedResult.nom && !rotatedResult.prenom && !rotatedResult.titre_poste
+          if (!rotatedEmpty) {
+            console.log(`[Claude] ✅ PDF retourné 180° → Haiku a trouvé : ${rotatedResult.prenom} ${rotatedResult.nom}`)
+            return rotatedResult
+          }
+        } catch { /* rotation n'a pas aidé */ }
+      } catch (rotErr) {
+        console.warn('[Claude] Rotation 180° échouée:', (rotErr as Error).message)
+      }
+
+      // Étape 2b : fallback Sonnet (plus puissant pour scans difficiles)
+      console.log('[Claude] ⚠️ Rotation n\'a pas aidé — fallback vers Sonnet...')
       const sonnetResponse = await withRetry(() => client.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 2500,
