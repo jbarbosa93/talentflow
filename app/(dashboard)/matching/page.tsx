@@ -500,6 +500,25 @@ function CandidatMatchCard({ result, rank, selected, onToggle }: { result: Match
   )
 }
 
+// ─── Avatar avec fallback onError ─────────────────────────────────────────────
+function AvatarWithFallback({ prenom, nom, photo_url }: { prenom?: string | null; nom?: string | null; photo_url?: string | null }) {
+  const [err, setErr] = useState(false)
+  const initiales = `${(prenom || '')[0] || ''}${(nom || '')[0] || ''}`.toUpperCase() || '?'
+  const show = !!photo_url && !err
+  return (
+    <div style={{
+      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+      background: show ? 'transparent' : 'var(--primary)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+    }}>
+      {show
+        ? <img src={photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setErr(true)} />
+        : initiales}
+    </div>
+  )
+}
+
 // ─── Modal Contact ─────────────────────────────────────────────────────────────
 
 function ContactModal({ candidats, onClose }: { candidats: any[]; onClose: () => void }) {
@@ -554,16 +573,7 @@ function ContactModal({ candidats, onClose }: { candidats: any[]; onClose: () =>
                 padding: '12px 8px', borderBottom: '1px solid var(--border)',
               }}>
                 {/* Avatar */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                  background: c.photo_url ? 'transparent' : 'var(--primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
-                }}>
-                  {c.photo_url
-                    ? <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : initiales}
-                </div>
+                <AvatarWithFallback prenom={c.prenom} nom={c.nom} photo_url={c.photo_url} />
 
                 {/* Nom + poste */}
                 <div style={{ flex: 1, minWidth: 0 }}>

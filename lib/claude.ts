@@ -474,6 +474,7 @@ Règles : score_competences = adéquation technique globale (0-100) | score_expe
     const response = await withRetry(() => client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
+      temperature: 0,
       messages: [{ role: 'user', content: prompt }],
     }))
     let text = (response.content[0]?.type === 'text' ? response.content[0].text : '')
