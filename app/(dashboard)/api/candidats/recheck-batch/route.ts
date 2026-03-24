@@ -11,12 +11,10 @@ const BATCH_SIZE = 3
 // Comparer ancien vs nouveau et retourner les diffs significatifs
 function computeDiffs(old_: any, new_: any): { field: string; old: any; new_val: any }[] {
   const diffs: { field: string; old: any; new_val: any }[] = []
+  // NE PAS comparer : nom, prenom, email, telephone, localisation, date_naissance
+  // (déjà nettoyés par Cowork — on ne veut pas les écraser)
   const fields = [
     { key: 'titre_poste', label: 'Poste' },
-    { key: 'email', label: 'Email' },
-    { key: 'telephone', label: 'Téléphone' },
-    { key: 'localisation', label: 'Localisation' },
-    { key: 'date_naissance', label: 'Date naissance' },
     { key: 'permis_conduire', label: 'Permis' },
     { key: 'formation', label: 'Formation' },
     { key: 'linkedin', label: 'LinkedIn' },

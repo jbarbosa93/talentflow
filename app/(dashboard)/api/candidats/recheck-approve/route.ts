@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
       const newData = result.new_data as any
       if (!newData) continue
 
+      // NE PAS toucher : nom, prenom, email, telephone, localisation, date_naissance, photo
+      // (déjà nettoyés par Cowork)
+      // Seulement les champs "contenu CV"
       const updateFields: Record<string, any> = {
-        email: newData.email || null,
-        telephone: newData.telephone || null,
-        localisation: newData.localisation || null,
         titre_poste: newData.titre_poste || null,
         competences: newData.competences || [],
         langues: newData.langues || [],
@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
         formation: newData.formation || null,
         linkedin: newData.linkedin || null,
         permis_conduire: newData.permis_conduire ?? null,
-        date_naissance: newData.date_naissance || null,
         resume_ia: newData.resume || null,
         updated_at: new Date().toISOString(),
       }
@@ -62,10 +61,8 @@ export async function POST(request: NextRequest) {
 
   if (action === 'approve') {
     const newData = result.new_data as any
+    // NE PAS toucher : nom, prenom, email, telephone, localisation, date_naissance, photo
     const updateFields: Record<string, any> = {
-      email: newData.email || null,
-      telephone: newData.telephone || null,
-      localisation: newData.localisation || null,
       titre_poste: newData.titre_poste || null,
       competences: newData.competences || [],
       langues: newData.langues || [],
@@ -74,7 +71,6 @@ export async function POST(request: NextRequest) {
       formation: newData.formation || null,
       linkedin: newData.linkedin || null,
       permis_conduire: newData.permis_conduire ?? null,
-      date_naissance: newData.date_naissance || null,
       resume_ia: newData.resume || null,
       updated_at: new Date().toISOString(),
     }
