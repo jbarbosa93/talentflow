@@ -263,32 +263,53 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer): Promise<CVAnalyse>
 
   console.log(`[Claude] Envoi PDF natif (${(trimmedBuffer.length / 1024).toFixed(0)} KB, original: ${(pdfBuffer.length / 1024).toFixed(0)} KB)...`)
 
+  const scanPrompt = `${CV_JSON_PROMPT}\n\nIMPORTANT : Ce document est un scan. S'il apparaît pivoté (à l'envers, de côté), lis-le quand même dans la bonne orientation et extrais toutes les informations visibles.`
+
+  const pdfContent = [
+    {
+      type: 'document' as const,
+      source: {
+        type: 'base64' as const,
+        media_type: 'application/pdf' as const,
+        data: base64,
+      },
+    },
+    { type: 'text' as const, text: scanPrompt },
+  ]
+
+  // Étape 1 : essayer avec Haiku (rapide + économique)
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1800,
-    messages: [{
-      role: 'user',
-      content: [
-        {
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: base64,
-          },
-        },
-        {
-          type: 'text',
-          text: `${CV_JSON_PROMPT}\n\nIMPORTANT : Ce document est un scan. S'il apparaît pivoté (à l'envers, de côté), lis-le quand même dans la bonne orientation et extrais toutes les informations visibles.`,
-        },
-      ],
-    }],
+    messages: [{ role: 'user', content: pdfContent }],
   }))
 
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
   try {
-    return parseCV(text)
+    const result = parseCV(text)
+
+    // Étape 2 : si Haiku n'a presque rien trouvé → fallback Sonnet (plus puissant pour scans)
+    const isEmpty = !result.nom && !result.prenom && !result.titre_poste && (result.competences?.length || 0) === 0
+    if (isEmpty) {
+      console.log('[Claude] ⚠️ Haiku n\'a rien extrait — fallback vers Sonnet pour ce scan...')
+      const sonnetResponse = await withRetry(() => client.messages.create({
+        model: 'claude-sonnet-4-5-20241022',
+        max_tokens: 2500,
+        messages: [{ role: 'user', content: pdfContent }],
+      }))
+      const sonnetText = sonnetResponse.content[0]?.type === 'text' ? sonnetResponse.content[0].text : ''
+      try {
+        const sonnetResult = parseCV(sonnetText)
+        console.log(`[Claude] ✅ Sonnet a trouvé : ${sonnetResult.prenom} ${sonnetResult.nom} — ${sonnetResult.titre_poste}`)
+        return sonnetResult
+      } catch {
+        console.error('[Claude] Sonnet a aussi échoué, retour résultat Haiku')
+        return result
+      }
+    }
+
+    return result
   } catch {
     throw new Error(`Claude a retourné un JSON invalide (PDF) : ${text.slice(0, 200)}`)
   }
