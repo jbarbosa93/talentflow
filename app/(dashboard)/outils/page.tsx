@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2 } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -84,7 +84,7 @@ function SyncDatesCard({ index }: { index: number }) {
     >
       <div
         className="neo-card-soft"
-        style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: state === 'loading' ? 'wait' : 'pointer' }}
+        style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: state === 'loading' ? 'wait' : 'pointer', height: '100%', display: 'flex', flexDirection: 'column' }}
         onClick={state === 'idle' || state === 'error' ? handleSync : undefined}
       >
         {/* Top accent bar */}
@@ -146,6 +146,98 @@ function SyncDatesCard({ index }: { index: number }) {
   )
 }
 
+function SyncGenreCard({ index }: { index: number }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ updated: number; skipped: number; total: number } | null>(null)
+
+  const handleSync = async () => {
+    if (state === 'loading') return
+    setState('loading')
+    try {
+      const res = await fetch('/api/candidats/sync-genre', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setResult(data)
+      setState('done')
+    } catch {
+      setState('error')
+    }
+  }
+
+  const color = '#8B5CF6'
+  const colorSoft = 'rgba(139,92,246,0.12)'
+
+  return (
+    <motion.div
+      custom={index}
+      variants={cardVariants}
+      initial="hidden"
+      animate="show"
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+      whileHover={{ y: state === 'loading' ? 0 : -4, boxShadow: state === 'loading' ? undefined : '0 12px 32px rgba(0,0,0,0.12)' }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+    >
+      <div
+        className="neo-card-soft"
+        style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: state === 'loading' ? 'wait' : 'pointer', height: '100%', display: 'flex', flexDirection: 'column' }}
+        onClick={state === 'idle' || state === 'error' ? handleSync : undefined}
+      >
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, ${color}, ${color}88)`,
+          borderRadius: '14px 14px 0 0',
+        }} />
+
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: colorSoft, border: `1.5px solid ${color}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16, marginTop: 8,
+        }}>
+          {state === 'loading'
+            ? <Loader2 size={22} style={{ color, animation: 'spin 1s linear infinite' }} />
+            : state === 'done'
+            ? <Check size={22} style={{ color: '#16A34A' }} />
+            : <UserCheck size={22} style={{ color }} />
+          }
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
+            Détecter le genre
+          </h2>
+          <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 100, background: color, color: 'white', letterSpacing: '0.05em' }}>
+            IA
+          </span>
+        </div>
+
+        {state === 'done' && result ? (
+          <p style={{ fontSize: 13, color: '#16A34A', lineHeight: 1.6, margin: 0, marginBottom: 20, fontWeight: 600, flex: 1 }}>
+            ✓ {result.updated} candidat{result.updated > 1 ? 's' : ''} mis à jour{result.skipped > 0 ? ` · ${result.skipped} non déterminé${result.skipped > 1 ? 's' : ''}` : ''}
+          </p>
+        ) : state === 'error' ? (
+          <p style={{ fontSize: 13, color: '#EF4444', lineHeight: 1.6, margin: 0, marginBottom: 20, flex: 1 }}>
+            Erreur lors de l&apos;analyse. Cliquez pour réessayer.
+          </p>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0, marginBottom: 20, flex: 1 }}>
+            Analyse les prénoms via IA pour déterminer le genre (homme/femme) de chaque candidat qui n&apos;en a pas encore.
+          </p>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
+          {state === 'loading'
+            ? <span style={{ fontSize: 12, color: 'var(--muted)' }}>Analyse en cours…</span>
+            : state === 'done'
+            ? <span style={{ fontSize: 12, color: '#16A34A', fontWeight: 600 }}>Terminé</span>
+            : <ArrowRight size={16} style={{ color }} />
+          }
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 export default function OutilsPage() {
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -179,8 +271,8 @@ export default function OutilsPage() {
               whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}
               transition={{ type: 'spring', stiffness: 300, damping: 24 }}
             >
-              <Link href={outil.href} style={{ textDecoration: 'none', display: 'block' }}>
-                <div className="neo-card-soft" style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: 'pointer' }}>
+              <Link href={outil.href} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
+                <div className="neo-card-soft" style={{ padding: 24, position: 'relative', overflow: 'hidden', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column' }}>
                   {/* Top accent bar */}
                   <div style={{
                     position: 'absolute', top: 0, left: 0, right: 0, height: 3,
@@ -212,12 +304,12 @@ export default function OutilsPage() {
                   </div>
 
                   {/* Description */}
-                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0, marginBottom: 20 }}>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, margin: 0, marginBottom: 20, flex: 1 }}>
                     {outil.description}
                   </p>
 
                   {/* CTA arrow */}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
                     <ArrowRight size={16} style={{ color: outil.color }} />
                   </div>
                 </div>
@@ -228,6 +320,9 @@ export default function OutilsPage() {
 
         {/* Sync dates from filenames — action card */}
         <SyncDatesCard index={OUTILS.length} />
+
+        {/* Sync genre — action card */}
+        <SyncGenreCard index={OUTILS.length + 1} />
       </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
