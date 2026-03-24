@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { analyserCVDepuisPDF, analyserCV } from '@/lib/claude'
-import { after } from 'next/server'
+// after() supprimé — le frontend pilote les batches
 
 export const maxDuration = 60
 
@@ -243,24 +243,6 @@ export async function POST(request: NextRequest) {
     batch_results: results.filter(Boolean),
     has_more: hasMore,
   })
-
-  // Auto-continuation côté serveur via after()
-  if (hasMore) {
-    const baseUrl = request.nextUrl.origin
-    after(async () => {
-      try {
-        // Petit délai pour ne pas surcharger l'API Claude
-        await new Promise(r => setTimeout(r, 1000))
-        await fetch(`${baseUrl}/api/candidats/recheck-batch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ offset: nextOffset, action: 'continue' }),
-        })
-      } catch (err) {
-        console.error('[Recheck] Erreur auto-continuation:', err)
-      }
-    })
-  }
 
   return response
 }

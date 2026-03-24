@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Play, Pause, CheckCircle, XCircle, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Check, X, Loader2 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { ArrowLeft, Play, Pause, CheckCircle, RefreshCw, ChevronDown, ChevronUp, Loader2, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 
@@ -30,6 +30,14 @@ export default function AnalyseCompletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [approving, setApproving] = useState<string | null>(null)
   const [approvingAll, setApprovingAll] = useState(false)
+  const [offset, setOffset] = useState(0)
+  const [batchErrors, setBatchErrors] = useState(0)
+  const runningRef = useRef(false)
+  const offsetRef = useRef(0)
+
+  // Keep refs in sync
+  runningRef.current = running
+  offsetRef.current = offset
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -44,29 +52,102 @@ export default function AnalyseCompletePage() {
     setLoading(false)
   }, [])
 
-  // Poll toutes les 10s si running
+  // Poll status toutes les 15s
   useEffect(() => {
     fetchStatus()
-    const interval = setInterval(fetchStatus, running ? 10000 : 30000)
+    const interval = setInterval(fetchStatus, 15000)
     return () => clearInterval(interval)
-  }, [fetchStatus, running])
+  }, [fetchStatus])
+
+  // ─── MOTEUR DE BATCH CÔTÉ CLIENT ───
+  // Boucle qui appelle l'API batch par batch tant que `running` est true
+  const runBatchLoop = useCallback(async (startOffset: number, isStart: boolean) => {
+    let currentOffset = startOffset
+    let consecutiveErrors = 0
+
+    while (runningRef.current) {
+      try {
+        const res = await fetch('/api/candidats/recheck-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: isStart && currentOffset === startOffset ? 'start' : 'continue',
+            offset: currentOffset,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (data.done) {
+          toast.success(`✅ Analyse terminée ! ${currentOffset} CVs traités.`)
+          setRunning(false)
+          runningRef.current = false
+          fetchStatus()
+          break
+        }
+
+        if (data.error) {
+          consecutiveErrors++
+          setBatchErrors(prev => prev + 1)
+          if (consecutiveErrors >= 5) {
+            toast.error('Trop d\'erreurs consécutives — analyse en pause.')
+            setRunning(false)
+            runningRef.current = false
+            break
+          }
+          // Attendre un peu avant de réessayer
+          await new Promise(r => setTimeout(r, 3000))
+          continue
+        }
+
+        consecutiveErrors = 0
+        currentOffset = data.processed || (currentOffset + 3)
+        setOffset(currentOffset)
+        offsetRef.current = currentOffset
+
+        // Rafraîchir le status toutes les 10 batches
+        if (currentOffset % 30 === 0) {
+          fetchStatus()
+        }
+
+        // Petit délai entre batches pour ne pas surcharger l'API
+        await new Promise(r => setTimeout(r, 500))
+
+      } catch (err: any) {
+        consecutiveErrors++
+        setBatchErrors(prev => prev + 1)
+        if (consecutiveErrors >= 5) {
+          toast.error('Erreur réseau — analyse en pause.')
+          setRunning(false)
+          runningRef.current = false
+          break
+        }
+        await new Promise(r => setTimeout(r, 5000))
+      }
+    }
+  }, [fetchStatus])
 
   const handleStart = async () => {
-    if (!confirm('Lancer l\'analyse complète de tous les CVs ? Cela peut prendre plusieurs heures et consommer des crédits API Claude.')) return
+    if (!confirm('Lancer l\'analyse complète de tous les CVs ? Cela peut prendre plusieurs heures et consommer des crédits API Claude.\n\nLaissez cette page ouverte — l\'analyse s\'arrête si vous la fermez, mais reprend où elle en était quand vous revenez.')) return
     setRunning(true)
-    try {
-      const res = await fetch('/api/candidats/recheck-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start', offset: 0 }),
-      })
-      const data = await res.json()
-      toast.success(`Analyse lancée ! ${data.processed || 0} candidats traités pour commencer.`)
-      fetchStatus()
-    } catch (err: any) {
-      toast.error(err.message)
-      setRunning(false)
-    }
+    setOffset(0)
+    setBatchErrors(0)
+    runningRef.current = true
+    toast.success('Analyse lancée !')
+    runBatchLoop(0, true)
+  }
+
+  const handleResume = async () => {
+    setRunning(true)
+    runningRef.current = true
+    toast.success(`Reprise à partir du candidat #${offset}`)
+    runBatchLoop(offset, false)
+  }
+
+  const handlePause = () => {
+    setRunning(false)
+    runningRef.current = false
+    toast.info(`Analyse en pause au candidat #${offset}. Cliquez "Reprendre" pour continuer.`)
   }
 
   const handleApprove = async (resultId: string) => {
@@ -103,7 +184,7 @@ export default function AnalyseCompletePage() {
   }
 
   const handleApproveAll = async () => {
-    if (!confirm(`Approuver les ${status?.pending_count || 0} modifications en attente ? Les profils seront mis à jour.`)) return
+    if (!confirm(`Approuver les ${status?.pending_count || 0} modifications en attente ? Les profils seront mis à jour (sauf nom, prénom, email, téléphone, localisation, date).`)) return
     setApprovingAll(true)
     try {
       const res = await fetch('/api/candidats/recheck-approve', {
@@ -119,6 +200,8 @@ export default function AnalyseCompletePage() {
   }
 
   const pendingResults: RecheckResult[] = status?.pending || []
+  const totalCvs = status?.total || 0
+  const progressPct = totalCvs > 0 ? Math.min(100, Math.round((offset / totalCvs) * 100)) : 0
 
   if (loading) {
     return (
@@ -131,21 +214,44 @@ export default function AnalyseCompletePage() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
       {/* Header */}
-      <Link href="/parametres/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', textDecoration: 'none', marginBottom: 20 }}>
+      <Link href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)', textDecoration: 'none', marginBottom: 20 }}>
         <ArrowLeft size={14} /> Retour aux outils
       </Link>
 
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>🔍 Analyse complète des CVs</h1>
-      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 24, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.6 }}>
         Re-analyse tous les CVs avec le moteur IA actuel. Les candidats avec des différences significatives (≥2 champs)
         apparaîtront ci-dessous pour que vous puissiez valider ou ignorer chaque modification.
-        <br /><strong>Fonctionne en arrière-plan</strong> — vous pouvez fermer cette page et revenir plus tard.
       </p>
+      <p style={{ fontSize: 13, color: '#D97706', fontWeight: 600, marginBottom: 24 }}>
+        ⚠️ Gardez cette page ouverte pendant l'analyse. Si vous fermez, l'analyse se met en pause et reprend quand vous revenez.
+      </p>
+
+      {/* Progress bar globale */}
+      {running && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>
+              Progression : {offset} / {totalCvs} CVs analysés ({progressPct}%)
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              ~{Math.round((totalCvs - offset) * 5 / 60)} min restantes
+            </span>
+          </div>
+          <div style={{ height: 8, background: '#E5E7EB', borderRadius: 100, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${progressPct}%`,
+              background: 'linear-gradient(90deg, #3B82F6, #60A5FA)',
+              borderRadius: 100, transition: 'width 0.5s ease',
+            }} />
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Total CVs', value: status?.total || 0, color: '#3B82F6', icon: '📄' },
+          { label: 'Total CVs', value: totalCvs, color: '#3B82F6', icon: '📄' },
           { label: 'En attente', value: status?.pending_count || 0, color: '#D97706', icon: '⏳' },
           { label: 'Approuvés', value: status?.approved_count || 0, color: '#10B981', icon: '✅' },
           { label: 'Ignorés', value: status?.rejected_count || 0, color: '#6B7280', icon: '⏭' },
@@ -163,23 +269,44 @@ export default function AnalyseCompletePage() {
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
-        <button onClick={handleStart} disabled={running}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
-            borderRadius: 10, border: 'none', background: running ? '#9CA3AF' : 'var(--primary)',
-            color: 'white', fontSize: 14, fontWeight: 700, cursor: running ? 'default' : 'pointer',
-            fontFamily: 'inherit',
-          }}>
-          {running ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={16} />}
-          {running ? 'Analyse en cours...' : 'Lancer l\'analyse complète'}
-        </button>
+        {!running && offset === 0 && (
+          <button onClick={handleStart}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
+              borderRadius: 10, border: 'none', background: 'var(--primary)',
+              color: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            <Play size={16} /> Lancer l'analyse complète
+          </button>
+        )}
+
+        {!running && offset > 0 && (
+          <button onClick={handleResume}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
+              borderRadius: 10, border: 'none', background: '#3B82F6',
+              color: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            <Play size={16} /> Reprendre (à partir de #{offset})
+          </button>
+        )}
+
+        {running && (
+          <button onClick={handlePause}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px',
+              borderRadius: 10, border: 'none', background: '#EF4444',
+              color: 'white', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            <Square size={16} /> Mettre en pause
+          </button>
+        )}
 
         <button onClick={fetchStatus}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '12px 18px',
             borderRadius: 10, border: '1px solid var(--border)', background: 'white',
-            color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit',
+            color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}>
           <RefreshCw size={14} /> Actualiser
         </button>
@@ -205,16 +332,20 @@ export default function AnalyseCompletePage() {
           borderRadius: 16, border: '1px solid var(--border)',
         }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>
-            {status?.approved_count > 0 ? '✅' : '📋'}
+            {status?.approved_count > 0 ? '✅' : running ? '⏳' : '📋'}
           </div>
           <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>
             {status?.approved_count > 0
               ? 'Toutes les modifications ont été traitées !'
+              : running
+              ? 'Analyse en cours... Les résultats apparaîtront ici.'
               : 'Aucun résultat pour l\'instant'}
           </h3>
           <p style={{ fontSize: 13, color: 'var(--muted)' }}>
             {status?.approved_count > 0
               ? `${status.approved_count} candidats approuvés, ${status.rejected_count || 0} ignorés.`
+              : running
+              ? `${offset} CVs analysés sur ${totalCvs}...`
               : 'Lancez l\'analyse pour scanner tous les CVs.'}
           </p>
         </div>
@@ -259,7 +390,6 @@ export default function AnalyseCompletePage() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {/* Boutons rapides */}
                     <button onClick={e => { e.stopPropagation(); handleApprove(result.id) }}
                       disabled={isProcessing}
                       style={{
