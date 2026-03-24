@@ -50,7 +50,7 @@ Règles d'extraction :
 - taux_activite : ex: "100%", "80-100%"
 - description : résumé des missions principales (3-5 phrases)
 - notes : tout ce qui est utile à noter (conditions salariales, avantages, contact, remarques)
-- localisation : TOUJOURS la ville/commune concrète (ex: "Monthey", "Sion", "Lausanne"). Si le document mentionne une ville spécifique ET une région, prendre la ville. Ne jamais mettre une région vague comme "Ouest", "Romand", "Est" à moins que aucune ville ne soit mentionnée
+- localisation : TOUJOURS la ville/commune concrète (ex: "Monthey", "Sion", "Lausanne"). Chercher dans tous les champs du document : "Lieu de travail", "Lieu de déroulement", "Lieu de la mission", "Lieu d'exécution", "Localisation", "Adresse", "Site", "Région" — prendre la valeur la plus précise (ville > commune > NPA > région). Si le document mentionne une ville ET une région, prendre la ville. Ne jamais mettre une région vague ("Ouest", "Romand", "Est", "Valais romand") si une ville est disponible
 - Si une info est absente → chaîne vide "" (ou false, [], 0 selon le type)
 - Ne rien inventer, uniquement ce qui est dans le document`
 
