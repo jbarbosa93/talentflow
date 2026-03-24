@@ -23,7 +23,7 @@ Retourne UNIQUEMENT un JSON valide (sans markdown, sans backticks) avec cette st
   "client_nom": "Nom de l'entreprise cliente",
   "titre": "Intitulé exact du poste recherché",
   "nb_postes": 1,
-  "localisation": "Ville, Canton/Pays",
+  "localisation": "Ville ou commune spécifique (ex: Monthey, Sion, Genève)",
   "exp_requise": 3,
   "date_debut": "2024-04-01",
   "duree_mission": "CDI ou durée ex: 3 mois, 6 mois",
@@ -50,6 +50,7 @@ Règles d'extraction :
 - taux_activite : ex: "100%", "80-100%"
 - description : résumé des missions principales (3-5 phrases)
 - notes : tout ce qui est utile à noter (conditions salariales, avantages, contact, remarques)
+- localisation : TOUJOURS la ville/commune concrète (ex: "Monthey", "Sion", "Lausanne"). Si le document mentionne une ville spécifique ET une région, prendre la ville. Ne jamais mettre une région vague comme "Ouest", "Romand", "Est" à moins que aucune ville ne soit mentionnée
 - Si une info est absente → chaîne vide "" (ou false, [], 0 selon le type)
 - Ne rien inventer, uniquement ce qui est dans le document`
 
