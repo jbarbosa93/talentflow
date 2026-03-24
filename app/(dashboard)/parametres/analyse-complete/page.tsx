@@ -30,33 +30,10 @@ export default function AnalyseCompletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [approving, setApproving] = useState<string | null>(null)
   const [approvingAll, setApprovingAll] = useState(false)
-  const [offset, setOffsetRaw] = useState(0)
+  const [offset, setOffset] = useState(0)
   const [batchErrors, setBatchErrors] = useState(0)
   const runningRef = useRef(false)
   const offsetRef = useRef(0)
-
-  // Wrapper setOffset qui persiste dans localStorage
-  const setOffset = useCallback((val: number | ((prev: number) => number)) => {
-    setOffsetRaw(prev => {
-      const newVal = typeof val === 'function' ? val(prev) : val
-      try { localStorage.setItem('recheck_offset', String(newVal)) } catch {}
-      return newVal
-    })
-  }, [])
-
-  // Restaurer l'offset depuis localStorage au chargement
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('recheck_offset')
-      if (saved) {
-        const parsed = parseInt(saved, 10)
-        if (!isNaN(parsed) && parsed > 0) {
-          setOffsetRaw(parsed)
-          offsetRef.current = parsed
-        }
-      }
-    } catch {}
-  }, [])
 
   // Keep refs in sync
   runningRef.current = running
@@ -71,6 +48,11 @@ export default function AnalyseCompletePage() {
       })
       const data = await res.json()
       setStatus(data)
+      // Restaurer l'offset depuis la base de données (nombre de candidats déjà traités)
+      if (data.total_processed && data.total_processed > 0) {
+        setOffset(data.total_processed)
+        offsetRef.current = data.total_processed
+      }
     } catch { /* ignore */ }
     setLoading(false)
   }, [])

@@ -131,24 +131,21 @@ async function processCandidat(admin: ReturnType<typeof createAdminClient>, cand
 
       const diffs = computeDiffs(old_data, analyse)
 
-      // Sauvegarder seulement s'il y a des diffs significatifs (≥2 champs)
-      if (diffs.length >= 2) {
-        // Vérifier qu'on n'a pas déjà un résultat pour ce candidat
-        const { data: existing } = await (admin as any).from('recheck_results')
-          .select('id').eq('candidat_id', candidat.id).maybeSingle()
+      // Toujours sauvegarder le résultat (pour tracker la progression)
+      const { data: existing } = await (admin as any).from('recheck_results')
+        .select('id').eq('candidat_id', candidat.id).maybeSingle()
 
-        if (!existing) {
-          await (admin as any).from('recheck_results').insert({
-            candidat_id: candidat.id,
-            candidat_nom: candidat.nom,
-            candidat_prenom: candidat.prenom,
-            old_data,
-            new_data: analyse,
-            diffs,
-            diff_count: diffs.length,
-            status: 'pending',
-          })
-        }
+      if (!existing) {
+        await (admin as any).from('recheck_results').insert({
+          candidat_id: candidat.id,
+          candidat_nom: candidat.nom,
+          candidat_prenom: candidat.prenom,
+          old_data: diffs.length >= 2 ? old_data : null,
+          new_data: diffs.length >= 2 ? analyse : null,
+          diffs: diffs.length >= 2 ? diffs : null,
+          diff_count: diffs.length,
+          status: diffs.length >= 2 ? 'pending' : 'no_diff',
+        })
       }
 
       return {
@@ -186,6 +183,11 @@ export async function POST(request: NextRequest) {
       .select('id', { count: 'exact', head: true }).eq('status', 'approved')
     const { count: rejectedCount } = await (admin as any).from('recheck_results')
       .select('id', { count: 'exact', head: true }).eq('status', 'rejected')
+    const { count: noDiffCount } = await (admin as any).from('recheck_results')
+      .select('id', { count: 'exact', head: true }).eq('status', 'no_diff')
+
+    // Total traités = tous les statuts dans la table
+    const totalProcessed = (pendingCount || 0) + (approvedCount || 0) + (rejectedCount || 0) + (noDiffCount || 0)
 
     const { data: pending } = await (admin as any).from('recheck_results')
       .select('*').eq('status', 'pending')
@@ -193,6 +195,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       total: totalWithCv || 0,
+      total_processed: totalProcessed,
       pending_count: pendingCount || 0,
       approved_count: approvedCount || 0,
       rejected_count: rejectedCount || 0,
