@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight } from 'lucide-react'
+import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { historyLoad, type MatchHistoryItem } from '@/contexts/MatchingContext'
@@ -17,6 +17,13 @@ function scoreColor(score: number) {
 function formatDate(iso: string) {
   const d = new Date(iso)
   return d.toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function toPhone(raw?: string | null) {
+  if (!raw) return ''
+  let p = raw.replace(/\s/g, '')
+  if (p.startsWith('0')) p = '+41' + p.slice(1)
+  return p
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -52,9 +59,139 @@ function Avatar({ candidat }: { candidat: MatchHistoryItem['results'][0]['candid
   )
 }
 
+// ─── ModalAvatar (avec fallback onError) ─────────────────────────────────────
+function ModalAvatar({ prenom, nom, photo_url }: { prenom: string | null; nom: string; photo_url: string | null }) {
+  const [err, setErr] = useState(false)
+  const initiales = `${(prenom || '')[0] || ''}${(nom || '')[0] || ''}`.toUpperCase() || '?'
+  const show = !!photo_url && !err
+  return (
+    <div style={{
+      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+      background: show ? 'transparent' : 'var(--primary)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+    }}>
+      {show
+        ? <img src={photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setErr(true)} />
+        : initiales}
+    </div>
+  )
+}
+
+// ─── ContactBtn ──────────────────────────────────────────────────────────────
+function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
+  href?: string; icon: React.ElementType; label: string; color: string; bg: string; disabled?: boolean
+}) {
+  const style: React.CSSProperties = {
+    width: 36, height: 36, borderRadius: 9,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: `1.5px solid ${disabled ? 'var(--border)' : color + '44'}`,
+    background: disabled ? 'var(--secondary)' : bg,
+    color: disabled ? 'var(--muted)' : color,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    textDecoration: 'none', transition: 'all 0.15s',
+    opacity: disabled ? 0.4 : 1,
+    flexShrink: 0,
+  }
+  if (disabled) return <div style={style} title={`${label} — info manquante`}><Icon size={15} /></div>
+  return <a href={href} style={style} title={label} target="_blank" rel="noreferrer"><Icon size={15} /></a>
+}
+
+// ─── ContactModal ────────────────────────────────────────────────────────────
+type HistoryCandidат = MatchHistoryItem['results'][0]['candidat']
+function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24, animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--card)', borderRadius: 20,
+          width: '100%', maxWidth: 560, maxHeight: '80vh',
+          overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          animation: 'slideUp 0.25s ease',
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>
+              Contacter {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+              Choisissez le moyen de contact pour chaque candidat
+            </p>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Liste */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
+          {candidats.map(c => {
+            const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+            const phone = toPhone(c.telephone)
+            const waPhone = phone.replace('+', '')
+            const greet = encodeURIComponent(`Bonjour ${c.prenom || ''},\n`)
+            const hasPhone = !!phone
+            const hasEmail = !!c.email
+
+            return (
+              <div key={c.id} style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 8px', borderBottom: '1px solid var(--border)',
+              }}>
+                {/* Avatar */}
+                <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
+
+                {/* Nom + téléphone */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.prenom} {c.nom}
+                  </p>
+                  {c.telephone && (
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>
+                  )}
+                </div>
+
+                {/* Boutons contact */}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <ContactBtn href={hasPhone ? `tel:${phone}` : undefined} icon={Phone} label="Appeler" color="#16A34A" bg="rgba(22,163,74,0.1)" disabled={!hasPhone} />
+                  <ContactBtn href={hasPhone ? `sms:${phone}?body=${greet}` : undefined} icon={Smartphone} label="SMS" color="#3B82F6" bg="rgba(59,130,246,0.1)" disabled={!hasPhone} />
+                  <ContactBtn href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined} icon={MessageCircle} label="WhatsApp" color="#22C55E" bg="rgba(34,197,94,0.1)" disabled={!hasPhone} />
+                  <ContactBtn href={hasEmail ? `mailto:${c.email}?subject=${encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)}&body=${greet}` : undefined} icon={Mail} label="E-mail" color="#6366F1" bg="rgba(99,102,241,0.1)" disabled={!hasEmail} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', borderRadius: '0 0 20px 20px' }}>
+          <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
+            📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page principale ─────────────────────────────────────────────────────────
 export default function MatchingHistoriquePage() {
   const [history, setHistory] = useState<MatchHistoryItem[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showContact, setShowContact] = useState(false)
   const matching = useMatching()
   const router = useRouter()
 
@@ -73,6 +210,7 @@ export default function MatchingHistoriquePage() {
   const clearAll = () => {
     setHistory([])
     setExpanded(null)
+    setSelectedIds(new Set())
     try { localStorage.removeItem(LS_HISTORY_KEY) } catch {}
   }
 
@@ -82,8 +220,23 @@ export default function MatchingHistoriquePage() {
     router.push('/matching')
   }
 
+  const toggleSelect = (candidatId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(candidatId)) next.delete(candidatId)
+      else next.add(candidatId)
+      return next
+    })
+  }
+
+  // Récupère les candidats sélectionnés depuis tout l'historique
+  const allCandidats = history.flatMap(h => h.results.map(r => r.candidat))
+  const selectedCandidats = allCandidats.filter((c, i, arr) =>
+    selectedIds.has(c.id) && arr.findIndex(x => x.id === c.id) === i
+  )
+
   return (
-    <div className="d-page" style={{ maxWidth: 860 }}>
+    <div className="d-page" style={{ maxWidth: 860, paddingBottom: selectedIds.size > 0 ? 100 : 0 }}>
 
       {/* Header */}
       <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -137,7 +290,7 @@ export default function MatchingHistoriquePage() {
               key={item.id}
               style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--card-shadow)', overflow: 'hidden' }}
             >
-              {/* En-tête — toujours visible, cliquable pour déplier */}
+              {/* En-tête */}
               <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 
                 {/* Titre + meta */}
@@ -161,7 +314,7 @@ export default function MatchingHistoriquePage() {
                   </div>
                 </div>
 
-                {/* Boutons toujours visibles */}
+                {/* Boutons */}
                 <button
                   onClick={(e) => relaunch(item, e)}
                   style={{ padding: '6px 14px', borderRadius: 7, border: '1.5px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.08)', color: '#6366F1', cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
@@ -203,8 +356,27 @@ export default function MatchingHistoriquePage() {
                     {item.results.map((r, idx) => {
                       const c = scoreColor(r.score)
                       const rankEmoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null
+                      const isSelected = selectedIds.has(r.candidat.id)
                       return (
-                        <div key={r.candidat.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 10, background: 'var(--secondary)', border: '1px solid var(--border)' }}>
+                        <div
+                          key={r.candidat.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '9px 12px', borderRadius: 10,
+                            background: isSelected ? 'rgba(99,102,241,0.06)' : 'var(--secondary)',
+                            border: `1px solid ${isSelected ? 'rgba(99,102,241,0.35)' : 'var(--border)'}`,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(r.candidat.id)}
+                            onClick={e => e.stopPropagation()}
+                            style={{ width: 16, height: 16, accentColor: '#6366F1', cursor: 'pointer', flexShrink: 0 }}
+                          />
+
                           <span style={{ fontSize: rankEmoji ? 16 : 11, fontWeight: 700, color: 'var(--muted)', width: 26, textAlign: 'center', flexShrink: 0 }}>
                             {rankEmoji || `#${idx + 1}`}
                           </span>
@@ -237,6 +409,52 @@ export default function MatchingHistoriquePage() {
           )
         })}
       </div>
+
+      {/* Barre flottante sélection */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--foreground)', color: 'white',
+          borderRadius: 16, padding: '12px 20px',
+          display: 'flex', alignItems: 'center', gap: 16,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          zIndex: 100, animation: 'slideUp 0.2s ease',
+          whiteSpace: 'nowrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Users size={16} />
+            <span style={{ fontSize: 14, fontWeight: 700 }}>
+              {selectedIds.size} candidat{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+            </span>
+          </div>
+          <button
+            onClick={() => setShowContact(true)}
+            style={{
+              padding: '8px 18px', borderRadius: 10,
+              background: 'var(--primary)', color: '#0F172A',
+              border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-body)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Phone size={14} />Contacter
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: 4 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Modal contact */}
+      {showContact && (
+        <ContactModal
+          candidats={selectedCandidats}
+          onClose={() => setShowContact(false)}
+        />
+      )}
     </div>
   )
 }

@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     const offreKeywords = Array.from(new Set([...offreTitreKeywords, ...offreDescKeywords]))
 
     // 3. Charger TOUS les candidats (avec cv_texte_brut pour pré-sélection enrichie)
-    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url, formation, cv_texte_brut'
+    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url, formation, cv_texte_brut, telephone, email'
     const PAGE_SIZE = 1000
     const allCandidats: any[] = []
     let offset = 0
