@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, CheckCircle2, Lock, AlertTriangle } from 'lucide-react'
 
-export default function AccepterInvitationPage() {
+function AccepterInvitationInner() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const supabase     = createClient()
@@ -332,5 +332,17 @@ export default function AccepterInvitationPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AccepterInvitationPage() {
+  return (
+    <Suspense fallback={
+      <div className="auth-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <Loader2 size={32} className="spin" style={{ color: '#F7C948' }} />
+      </div>
+    }>
+      <AccepterInvitationInner />
+    </Suspense>
   )
 }
