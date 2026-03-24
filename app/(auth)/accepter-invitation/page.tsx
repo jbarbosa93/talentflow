@@ -1,13 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2, CheckCircle2, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, CheckCircle2, Lock, AlertTriangle } from 'lucide-react'
 
 export default function AccepterInvitationPage() {
-  const router = useRouter()
-  const supabase = createClient()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const supabase     = createClient()
 
   const [user, setUser]           = useState<{ email?: string; prenom?: string; nom?: string; entreprise?: string } | null>(null)
   const [loading, setLoading]     = useState(true)
@@ -18,22 +19,49 @@ export default function AccepterInvitationPage() {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [done, setDone]           = useState(false)
+  const [expired, setExpired]     = useState(false)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    const authError = searchParams.get('auth_error')
+    if (authError === 'otp_expired' || authError === 'access_denied') {
+      setExpired(true)
+      setLoading(false)
+      return
+    }
+
+    // Si le hash contient access_token (invitation directe), on attend que Supabase l'établisse
+    const hash = window.location.hash
+    const hashParams = new URLSearchParams(hash.replace('#', ''))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+
+    const tryGetUser = async () => {
+      // Si on a un token dans le hash, on établit la session manuellement
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      }
+
+      const { data } = await supabase.auth.getUser()
       if (!data.user) {
-        router.replace('/login')
+        // Attendre un peu que Supabase traite le hash
+        setTimeout(async () => {
+          const { data: data2 } = await supabase.auth.getUser()
+          if (!data2.user) {
+            router.replace('/login')
+            return
+          }
+          const m = data2.user.user_metadata || {}
+          setUser({ email: data2.user.email, prenom: m.prenom || '', nom: m.nom || '', entreprise: m.entreprise || '' })
+          setLoading(false)
+        }, 1200)
         return
       }
       const m = data.user.user_metadata || {}
-      setUser({
-        email:      data.user.email,
-        prenom:     m.prenom || '',
-        nom:        m.nom || '',
-        entreprise: m.entreprise || '',
-      })
+      setUser({ email: data.user.email, prenom: m.prenom || '', nom: m.nom || '', entreprise: m.entreprise || '' })
       setLoading(false)
-    })
+    }
+
+    tryGetUser()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,6 +93,42 @@ export default function AccepterInvitationPage() {
     return (
       <div className="auth-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <Loader2 size={32} className="spin" style={{ color: '#F7C948' }} />
+      </div>
+    )
+  }
+
+  if (expired) {
+    return (
+      <div className="auth-page">
+        <div className="auth-left">
+          <Link href="/" className="auth-logo">
+            <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:9, background:'#F7C948', flexShrink:0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/></svg>
+            </span>
+            <span className="auth-logo-text">TalentFlow</span>
+          </Link>
+          <div className="auth-left-content">
+            <div className="auth-left-tag">Accès sur invitation</div>
+            <h1 className="auth-left-title">Lien expiré</h1>
+            <p className="auth-left-desc">Votre lien d&apos;invitation n&apos;est plus valide. Contactez votre administrateur pour recevoir une nouvelle invitation.</p>
+          </div>
+          <div className="auth-left-footer">© 2026 TalentFlow. Tous droits réservés.</div>
+        </div>
+        <div className="auth-right">
+          <div className="auth-card" style={{ textAlign:'center', padding:'40px 32px' }}>
+            <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:64, height:64, borderRadius:16, background:'#FEF2F2', marginBottom:20 }}>
+              <AlertTriangle size={32} color="#DC2626" />
+            </div>
+            <h2 className="auth-card-title">Lien d&apos;invitation expiré</h2>
+            <p className="auth-card-sub" style={{ marginBottom:24 }}>
+              Ce lien d&apos;invitation n&apos;est plus valide (durée dépassée).<br/>
+              Demandez à votre administrateur de vous renvoyer une invitation.
+            </p>
+            <Link href="/login" style={{ display:'inline-block', padding:'10px 24px', background:'#F7C948', color:'#1C1A14', borderRadius:99, fontWeight:600, fontSize:14, textDecoration:'none' }}>
+              Aller à la connexion →
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }

@@ -4,10 +4,12 @@ import Strip from "@/components/landing/Strip"
 import Features from "@/components/landing/Features"
 import Footer from "@/components/landing/Footer"
 import Particles from "@/components/magicui/particles"
+import AuthHashHandler from "@/components/landing/AuthHashHandler"
 
 export default function LandingPage() {
   return (
     <div className="landing-root" style={{ background: '#FFFDF5', minHeight: '100vh', position: 'relative' }}>
+      <AuthHashHandler />
       <Particles
         className="z-0"
         quantity={60}
