@@ -11,12 +11,9 @@ export async function GET(request: NextRequest) {
 
   // Extract purpose from state (format: "talentflow-ats:outlook" or "talentflow-ats:onedrive")
   const purposeFromState = state.includes(':') ? state.split(':')[1] : null
-  // Determine integration type based on purpose
-  const integrationType = purposeFromState === 'outlook'
-    ? 'microsoft_outlook'
-    : purposeFromState === 'onedrive'
-      ? 'microsoft_onedrive'
-      : 'microsoft_onedrive' // default to onedrive for backward compat
+  // Toujours utiliser type='microsoft' (contrainte DB) — on distingue par metadata.purpose
+  const integrationType = 'microsoft'
+  const purpose = purposeFromState || 'onedrive'
 
   if (error) {
     return NextResponse.redirect(
@@ -47,38 +44,41 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Chercher si une intégration de ce type existe déjà
-    const { data: existing } = await (supabase as any)
+    // Chercher si une intégration Microsoft avec ce purpose existe déjà
+    // On utilise metadata->purpose pour distinguer outlook vs onedrive (même type 'microsoft')
+    const { data: allMicrosoft } = await supabase
       .from('integrations')
-      .select('id')
-      .eq('type', integrationType)
-      .limit(1)
-      .maybeSingle()
+      .select('id, metadata')
+      .eq('type', 'microsoft')
 
-    console.log(`[MS Callback] type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
+    const existing = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === purpose)
+
+    console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existing?.id || 'none'}`)
 
     if (existing) {
-      const { error: updateErr } = await (supabase as any).from('integrations').update({
+      const { error: updateErr } = await supabase.from('integrations').update({
         email,
         nom_compte: displayName,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         actif: true,
+        metadata: { ...(existing.metadata as any || {}), purpose },
         updated_at: new Date().toISOString(),
       }).eq('id', existing.id)
       console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
     } else {
-      const { data: inserted, error: insertErr } = await (supabase as any).from('integrations').insert({
-        type: integrationType,
+      const { data: inserted, error: insertErr } = await supabase.from('integrations').insert({
+        type: 'microsoft' as any,
         email,
         nom_compte: displayName,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         actif: true,
+        metadata: { purpose },
       }).select()
-      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK', inserted?.[0]?.id || 'no id')
+      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK', (inserted as any)?.[0]?.id || 'no id')
     }
 
     const actionLabel = purposeFromState === 'outlook' ? 'microsoft_outlook_connecte' : 'microsoft_onedrive_connecte'

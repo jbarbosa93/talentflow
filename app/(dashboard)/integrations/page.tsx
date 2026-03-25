@@ -46,10 +46,10 @@ function IntegrationsContent() {
     return integrations.find((i: any) => i.type === targetType) || null
   }
 
-  // Outlook integration (microsoft_outlook, fallback to legacy 'microsoft')
-  const outlookIntegration = findIntegration('microsoft_outlook')
-  // OneDrive integration (microsoft_onedrive, fallback to legacy 'microsoft')
-  const onedriveIntegration = findIntegration('microsoft_onedrive') || findIntegration('microsoft')
+  // Find by metadata.purpose (all are type 'microsoft')
+  const allMicrosoft = (integrationsData?.integrations || []).filter((i: any) => i.type === 'microsoft')
+  const outlookIntegration = allMicrosoft.find((i: any) => i.metadata?.purpose === 'outlook') || null
+  const onedriveIntegration = allMicrosoft.find((i: any) => i.metadata?.purpose === 'onedrive') || allMicrosoft.find((i: any) => !i.metadata?.purpose) || null
   const isOutlookConnected = !!outlookIntegration
   const isOnedriveConnected = !!onedriveIntegration
 
