@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
 
     const newMeta = {
       ...meta,
-      [purpose]: accountData, // meta.outlook ou meta.onedrive
-      purpose: meta.purpose || purpose, // garde le premier purpose comme principal
+      [purpose]: { ...(meta[purpose] || {}), ...accountData }, // merge sans écraser la config SharePoint
+      purpose: meta.purpose || purpose,
     }
 
     console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existingRow?.id || 'none'}`)
