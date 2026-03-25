@@ -17,8 +17,6 @@ function IntegrationsContent() {
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
-  const [showAllEmails, setShowAllEmails] = useState(false)
-  const [showAllOnedriveFiles, setShowAllOnedriveFiles] = useState(false)
 
   // Boucle auto sync Outlook
   const [outlookSyncing, setOutlookSyncing] = useState(false)
@@ -609,26 +607,11 @@ function IntegrationsContent() {
                 {/* Historique emails Outlook */}
                 {emails.length > 0 && (
                   <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)' }}>
-                        Derniers emails importés
-                      </h4>
-                      {emails.length > 5 && (
-                        <button
-                          onClick={() => setShowAllEmails(!showAllEmails)}
-                          style={{
-                            fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'none',
-                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                            fontFamily: 'var(--font-body)',
-                          }}
-                        >
-                          {showAllEmails ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                          {showAllEmails ? 'Voir moins' : 'Voir plus'}
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {emails.slice(0, showAllEmails ? 999 : 5).map((email: any) => (
+                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                      Derniers emails importés ({emails.length})
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                      {emails.map((email: any) => (
                         <div key={email.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
@@ -906,18 +889,6 @@ function IntegrationsContent() {
                   </div>
                 </div>
 
-                {/* Note informationnelle */}
-                <div style={{
-                  marginTop: 14, padding: '10px 14px', borderRadius: 8,
-                  background: '#F0F9FF', border: '1.5px solid #BAE6FD',
-                  display: 'flex', alignItems: 'flex-start', gap: 8,
-                }}>
-                  <CloudUpload size={14} style={{ color: '#0369A1', flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 12, color: '#075985', lineHeight: 1.5 }}>
-                    Déposez vos CVs dans ce dossier OneDrive pour qu&apos;ils soient automatiquement importés et analysés dans TalentFlow.
-                  </p>
-                </div>
-
                 {/* Stats OneDrive */}
                 <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
@@ -939,26 +910,11 @@ function IntegrationsContent() {
                 {/* Historique fichiers OneDrive */}
                 {onedriveFichiers.length > 0 && (
                   <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)' }}>
-                        Derniers fichiers importés
-                      </h4>
-                      {onedriveFichiers.length > 5 && (
-                        <button
-                          onClick={() => setShowAllOnedriveFiles(!showAllOnedriveFiles)}
-                          style={{
-                            fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'none',
-                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                            fontFamily: 'var(--font-body)',
-                          }}
-                        >
-                          {showAllOnedriveFiles ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                          {showAllOnedriveFiles ? 'Voir moins' : 'Voir plus'}
-                        </button>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {onedriveFichiers.slice(0, showAllOnedriveFiles ? 999 : 5).map((f: any) => (
+                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                      Derniers fichiers importés ({onedriveFichiers.length})
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                      {onedriveFichiers.map((f: any) => (
                         <div key={f.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
