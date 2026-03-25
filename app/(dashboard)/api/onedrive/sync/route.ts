@@ -147,22 +147,40 @@ export async function POST() {
           const candidatPrenom = (analyse.prenom || '').trim()
           const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
 
-          // f. Vérifie doublon candidat (email → téléphone → nom+prénom)
+          // f. Vérifie doublon candidat (5 méthodes)
           let existingCandidat: any = null
 
+          // 1. Par email
           if (candidatEmail && !existingCandidat) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .ilike('email', candidatEmail).maybeSingle()
             existingCandidat = data
           }
+          // 2. Par téléphone (derniers 9 chiffres)
           if (!existingCandidat && candidatTel.length >= 8) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
             existingCandidat = data
           }
+          // 3. Par nom + prénom exact
           if (!existingCandidat && candidatNom && candidatPrenom) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
+            existingCandidat = data
+          }
+          // 4. Par nom flexible (le dernier mot du nom parsé contient le nom en base)
+          if (!existingCandidat && candidatNom && candidatPrenom) {
+            const lastNamePart = candidatNom.split(/\s+/).pop() || candidatNom
+            if (lastNamePart.length >= 3) {
+              const { data } = await supabase.from('candidats').select('id, nom, prenom')
+                .ilike('nom', `%${lastNamePart}%`).ilike('prenom', `%${candidatPrenom}%`).maybeSingle()
+              existingCandidat = data
+            }
+          }
+          // 5. Par nom de fichier (souvent contient le nom du candidat)
+          if (!existingCandidat && filename) {
+            const { data } = await supabase.from('candidats').select('id, nom, prenom')
+              .eq('cv_nom_fichier', filename).maybeSingle()
             existingCandidat = data
           }
 
@@ -201,7 +219,7 @@ export async function POST() {
             try {
               const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
               const photoPromise = extractPhotoFromPDF(buffer)
-              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000))
               const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
               if (photoBuffer) {
                 const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`

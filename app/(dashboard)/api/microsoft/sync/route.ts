@@ -288,7 +288,7 @@ export async function POST(request?: Request) {
             try {
               const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
               const photoPromise = extractPhotoFromPDF(buffer)
-              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000))
               const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
               if (photoBuffer) {
                 const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
