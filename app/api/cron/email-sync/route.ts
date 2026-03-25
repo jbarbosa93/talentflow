@@ -116,14 +116,14 @@ export async function GET(request: Request) {
       try {
         const attData = await callGraph(
           accessToken,
-          `/me/messages/${message.id}/attachments?$select=id,name,contentType,size,contentBytes`
+          `/me/messages/${message.id}/attachments?$select=id,name,contentType,size`
         )
         attachments = attData.value || []
       } catch { skipped++; continue }
 
       const cvAttachments = attachments.filter((att: any) => {
         const ext = (att.name || '').toLowerCase().split('.').pop()
-        return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024 && att.contentBytes
+        return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024
       })
 
       if (cvAttachments.length === 0) {
@@ -142,7 +142,18 @@ export async function GET(request: Request) {
 
       const att = cvAttachments[0]
       try {
-        const buffer = Buffer.from(att.contentBytes, 'base64')
+        // Télécharger le contenu (contentBytes peut être null pour les gros fichiers)
+        let buffer: Buffer
+        if (att.contentBytes) {
+          buffer = Buffer.from(att.contentBytes, 'base64')
+        } else {
+          const dlRes = await fetch(
+            `https://graph.microsoft.com/v1.0/me/messages/${message.id}/attachments/${att.id}/$value`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+          if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+          buffer = Buffer.from(await dlRes.arrayBuffer())
+        }
         const filename = att.name || 'cv.pdf'
         const mimeType = att.contentType || 'application/octet-stream'
 

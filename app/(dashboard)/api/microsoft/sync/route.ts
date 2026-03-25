@@ -136,12 +136,12 @@ export async function POST(request?: Request) {
 
       if (existing) { skipped++; continue }
 
-      // Récupère les pièces jointes
+      // Récupère les pièces jointes (sans contentBytes — on télécharge séparément)
       let attachments: any[] = []
       try {
         const attData = await callGraph(
           accessToken,
-          `/me/messages/${message.id}/attachments?$select=id,name,contentType,size,contentBytes`
+          `/me/messages/${message.id}/attachments?$select=id,name,contentType,size`
         )
         attachments = attData.value || []
       } catch (attErr: any) {
@@ -149,11 +149,10 @@ export async function POST(request?: Request) {
         skipped++; continue
       }
 
-      console.log(`[Sync] Message "${message.subject}": ${attachments.length} attachments`, attachments.map((a: any) => `${a.name} (${a.contentType}, ${(a.size/1024).toFixed(0)}KB, hasBytes:${!!a.contentBytes})`))
-
+      // Filtrer les CVs par extension
       const cvAttachments = attachments.filter((att: any) => {
         const ext = (att.name || '').toLowerCase().split('.').pop()
-        return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024 && att.contentBytes
+        return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024
       })
 
       if (cvAttachments.length === 0) {
@@ -173,7 +172,19 @@ export async function POST(request?: Request) {
       // Traite la première pièce jointe CV trouvée
       const att = cvAttachments[0]
       try {
-        const buffer = Buffer.from(att.contentBytes, 'base64')
+        // Télécharger le contenu de la pièce jointe (contentBytes peut être null pour les gros fichiers)
+        let buffer: Buffer
+        if (att.contentBytes) {
+          buffer = Buffer.from(att.contentBytes, 'base64')
+        } else {
+          // Télécharger via l'endpoint $value
+          const dlRes = await fetch(
+            `https://graph.microsoft.com/v1.0/me/messages/${message.id}/attachments/${att.id}/$value`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+          if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+          buffer = Buffer.from(await dlRes.arrayBuffer())
+        }
         const filename = att.name || 'cv.pdf'
         const mimeType = att.contentType || 'application/octet-stream'
 
