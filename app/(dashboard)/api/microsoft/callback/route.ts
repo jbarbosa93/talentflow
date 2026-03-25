@@ -44,52 +44,43 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // UNE seule row type='microsoft' (contrainte UNIQUE sur type)
-    // On stocke les 2 comptes (outlook + onedrive) dans metadata
-    const { data: existingRow } = await supabase
+    // 2 rows indépendantes : microsoft_outlook et microsoft_onedrive
+    const integrationType = purpose === 'outlook' ? 'microsoft_outlook' : 'microsoft_onedrive'
+
+    // Chercher si cette intégration existe déjà
+    const { data: existing } = await supabase
       .from('integrations')
-      .select('id, metadata, email, nom_compte, access_token, refresh_token')
-      .eq('type', 'microsoft')
+      .select('id, metadata')
+      .eq('type', integrationType)
       .maybeSingle()
 
-    const meta = (existingRow?.metadata as any) || {}
+    // Pour OneDrive, préserver la config SharePoint si elle existe
+    const existingMeta = (existing?.metadata as any) || {}
 
-    // Stocker les tokens du compte connecté dans metadata[purpose]
-    const accountData = {
-      email,
-      nom_compte: displayName,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: expiresAt,
-    }
+    console.log(`[MS Callback] purpose=${purpose}, type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
 
-    const newMeta = {
-      ...meta,
-      [purpose]: { ...(meta[purpose] || {}), ...accountData }, // merge sans écraser la config SharePoint
-      purpose: meta.purpose || purpose,
-    }
-
-    console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existingRow?.id || 'none'}`)
-
-    if (existingRow) {
-      // Update SEULEMENT metadata — ne jamais écraser les champs principaux
-      // Tous les tokens sont dans metadata.outlook / metadata.onedrive
+    if (existing) {
       const { error: updateErr } = await supabase.from('integrations').update({
-        metadata: newMeta,
-        actif: true,
-        updated_at: new Date().toISOString(),
-      }).eq('id', existingRow.id)
-      console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
-    } else {
-      const { error: insertErr } = await supabase.from('integrations').insert({
-        type: 'microsoft' as any,
         email,
         nom_compte: displayName,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         actif: true,
-        metadata: newMeta,
+        metadata: { ...existingMeta, purpose },
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+      console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
+    } else {
+      const { error: insertErr } = await supabase.from('integrations').insert({
+        type: integrationType as any,
+        email,
+        nom_compte: displayName,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: expiresAt,
+        actif: true,
+        metadata: { purpose },
       })
       console.log('[MS Callback] Insert result:', insertErr?.message || 'OK')
     }

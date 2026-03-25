@@ -110,17 +110,29 @@ export async function getValidAccessToken(integrationId: string): Promise<string
 // Les tokens sont stockés dans metadata.outlook / metadata.onedrive
 export async function getAccessTokenForPurpose(purpose: 'outlook' | 'onedrive'): Promise<{ token: string; integrationId: string }> {
   const supabase = createAdminClient()
-  const { data: rowRaw } = await supabase.from('integrations').select('*').eq('type', 'microsoft').eq('actif', true).maybeSingle()
-  const row = rowRaw as any
-  if (!row) throw new Error('Aucune intégration Microsoft active')
+  const targetType = purpose === 'outlook' ? 'microsoft_outlook' : 'microsoft_onedrive'
 
+  // Chercher d'abord le nouveau type, puis fallback sur l'ancien 'microsoft'
+  let { data: rowRaw } = await supabase.from('integrations').select('*').eq('type', targetType).eq('actif', true).maybeSingle()
+  if (!rowRaw) {
+    // Fallback : ancien type 'microsoft' avec metadata.purpose ou metadata[purpose]
+    const { data: legacy } = await supabase.from('integrations').select('*').eq('type', 'microsoft').eq('actif', true).maybeSingle()
+    rowRaw = legacy
+  }
+  const row = rowRaw as any
+  if (!row) throw new Error(`Compte Microsoft ${purpose} non connecté`)
+
+  // Les tokens sont directement dans la row (nouveau design)
+  if (row.access_token) {
+    return { token: await getValidAccessToken(row.id), integrationId: row.id }
+  }
+
+  // Legacy fallback : tokens dans metadata[purpose]
   const meta = row.metadata || {}
   const account = meta[purpose]
 
   if (!account?.access_token) {
-    // Fallback : utiliser les tokens principaux de la row
-    if (!row.access_token) throw new Error(`Compte Microsoft ${purpose} non connecté`)
-    return { token: await getValidAccessToken(row.id), integrationId: row.id }
+    throw new Error(`Compte Microsoft ${purpose} non connecté`)
   }
 
   // Vérifier expiration

@@ -146,13 +146,13 @@ function IntegrationsContent() {
     return integrations.find((i: any) => i.type === targetType) || null
   }
 
-  // UNE seule row microsoft — outlook et onedrive stockés dans metadata
-  const microsoftRow = (integrationsData?.integrations || []).find((i: any) => i.type === 'microsoft') || null
-  const outlookAccount = microsoftRow?.metadata?.outlook || null
-  const onedriveAccount = microsoftRow?.metadata?.onedrive || null
-  // Construire des objets "fake integration" pour outlook et onedrive
-  const outlookIntegration = outlookAccount ? { ...microsoftRow, email: outlookAccount.email, nom_compte: outlookAccount.nom_compte } : null
-  const onedriveIntegration = onedriveAccount ? { ...microsoftRow, email: onedriveAccount.email, nom_compte: onedriveAccount.nom_compte } : microsoftRow
+  // 2 rows indépendantes : microsoft_outlook et microsoft_onedrive
+  const integrations = integrationsData?.integrations || []
+  const outlookIntegration = integrations.find((i: any) => i.type === 'microsoft_outlook')
+    || integrations.find((i: any) => i.type === 'microsoft' && i.metadata?.purpose === 'outlook') || null
+  const onedriveIntegration = integrations.find((i: any) => i.type === 'microsoft_onedrive')
+    || integrations.find((i: any) => i.type === 'microsoft' && i.metadata?.purpose === 'onedrive')
+    || integrations.find((i: any) => i.type === 'microsoft' && !i.metadata?.purpose) || null
   const isOutlookConnected = !!outlookIntegration
   const isOnedriveConnected = !!onedriveIntegration
 
@@ -644,6 +644,11 @@ function IntegrationsContent() {
                               <Clock size={10} />
                               {email.recu_le ? new Date(email.recu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}
                             </span>
+                            {email.expediteur && (
+                              <span style={{ fontSize: 10, color: '#6B7280', flexShrink: 0, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                de {email.expediteur}
+                              </span>
+                            )}
                           </div>
                           {email.candidat_id ? (
                             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46', flexShrink: 0 }}>
@@ -667,65 +672,7 @@ function IntegrationsContent() {
             )}
           </div>
 
-          {/* ── Guide de configuration ── */}
-          {!isOutlookConnected && !isOnedriveConnected && (
-            <div className="neo-card" style={{ padding: 24, marginBottom: 16, borderColor: 'var(--primary)', background: 'var(--primary-soft)' }}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <AlertCircle size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 1 }} />
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 12 }}>
-                    Configuration requise — Azure App Registration
-                  </h3>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {[
-                      { n: 1, text: 'Allez sur', link: 'https://portal.azure.com', linkText: 'portal.azure.com' },
-                      { n: 2, text: 'Menu → Azure Active Directory → App registrations → New registration' },
-                      { n: 3, text: 'Nom : "TalentFlow ATS" · Supported account types : "Personal Microsoft accounts"' },
-                      { n: 4, text: 'Redirect URI (Web) :', code: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'}/api/microsoft/callback` },
-                      { n: 5, text: 'Copiez le Client ID (Overview) et créez un Secret (Certificates & secrets)' },
-                      { n: 6, text: 'API permissions → Add → Microsoft Graph → Mail.Read, Mail.Send, User.Read, Files.Read, offline_access' },
-                    ].map((step) => (
-                      <div key={step.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                          background: 'var(--primary)', color: '#0F172A',
-                          fontSize: 11, fontWeight: 800,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>{step.n}</div>
-                        <p style={{ fontSize: 12, color: 'var(--foreground)', lineHeight: 1.6, marginTop: 1 }}>
-                          {step.text}{' '}
-                          {(step as any).link && (
-                            <a href={(step as any).link} target="_blank" rel="noreferrer"
-                              style={{ color: '#2563EB', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                              {(step as any).linkText} <ExternalLink size={10} />
-                            </a>
-                          )}
-                          {(step as any).code && (
-                            <code style={{ display: 'block', marginTop: 4, padding: '4px 8px', background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 6, fontSize: 11, color: '#7C3AED', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                              {(step as any).code}
-                            </code>
-                          )}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--surface)', borderRadius: 8, border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                      Ajoutez dans Vercel → Settings → Environment Variables :
-                    </p>
-                    <pre style={{ fontSize: 12, color: '#059669', fontFamily: 'monospace', lineHeight: 2, margin: 0 }}>
-{`MICROSOFT_CLIENT_ID     = <votre-client-id>
-MICROSOFT_CLIENT_SECRET  = <votre-secret>
-MICROSOFT_TENANT_ID      = common
-CRON_SECRET              = <une-clé-secrète-aléatoire>`}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Guide de configuration supprimé — Azure est déjà configuré */}
 
 
           {/* ── Microsoft OneDrive Card ── */}
