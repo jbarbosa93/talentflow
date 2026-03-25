@@ -8,7 +8,7 @@ import {
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, Suspense, useState } from 'react'
+import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
 
 function IntegrationsContent() {
   const searchParams  = useSearchParams()
@@ -17,6 +17,92 @@ function IntegrationsContent() {
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
+
+  // Boucle auto sync Outlook
+  const [outlookSyncing, setOutlookSyncing] = useState(false)
+  const [outlookProgress, setOutlookProgress] = useState({ total: 0, created: 0, batch: 0 })
+  const outlookStopRef = useRef(false)
+
+  const runOutlookSyncLoop = useCallback(async () => {
+    setOutlookSyncing(true)
+    outlookStopRef.current = false
+    let totalCreated = 0
+    let totalProcessed = 0
+    let batchNum = 0
+
+    while (!outlookStopRef.current) {
+      try {
+        const res = await fetch('/api/microsoft/sync', { method: 'POST' })
+        const ct = res.headers.get('content-type') || ''
+        if (!ct.includes('json')) { toast.error('Timeout serveur — batch terminé'); break }
+        const data = await res.json()
+
+        if (data.error) { toast.error(data.error); break }
+
+        batchNum++
+        totalCreated += data.created?.length || 0
+        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
+        setOutlookProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
+
+        // Si aucun nouveau traité dans ce batch, on a fini
+        if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
+          toast.success(`✅ Sync Outlook terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
+          break
+        }
+
+        // Petit délai entre batches
+        await new Promise(r => setTimeout(r, 1000))
+      } catch {
+        toast.error('Erreur réseau — sync arrêtée')
+        break
+      }
+    }
+
+    setOutlookSyncing(false)
+    queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  }, [queryClient])
+
+  // Boucle auto sync OneDrive
+  const [onedriveSyncing, setOnedriveSyncing] = useState(false)
+  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, batch: 0 })
+  const onedriveStopRef = useRef(false)
+
+  const runOneDriveSyncLoop = useCallback(async () => {
+    setOnedriveSyncing(true)
+    onedriveStopRef.current = false
+    let totalCreated = 0
+    let totalProcessed = 0
+    let batchNum = 0
+
+    while (!onedriveStopRef.current) {
+      try {
+        const res = await fetch('/api/onedrive/sync', { method: 'POST' })
+        const ct = res.headers.get('content-type') || ''
+        if (!ct.includes('json')) { toast.error('Timeout serveur — batch terminé'); break }
+        const data = await res.json()
+
+        if (data.error) { toast.error(data.error); break }
+
+        batchNum++
+        totalCreated += data.created?.length || 0
+        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
+        setOnedriveProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
+
+        if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
+          toast.success(`✅ Sync OneDrive terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
+          break
+        }
+
+        await new Promise(r => setTimeout(r, 1000))
+      } catch {
+        toast.error('Erreur réseau — sync arrêtée')
+        break
+      }
+    }
+
+    setOnedriveSyncing(false)
+    queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  }, [queryClient])
 
   useEffect(() => {
     const success = searchParams.get('success')
@@ -337,15 +423,23 @@ function IntegrationsContent() {
               <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                 {isOutlookConnected ? (
                   <>
-                    <button
-                      onClick={() => sync.mutate()}
-                      disabled={sync.isPending}
-                      className="neo-btn"
-                      style={{ fontSize: 12, padding: '7px 14px' }}
-                    >
-                      <RefreshCw size={13} className={sync.isPending ? 'animate-spin' : ''} />
-                      {sync.isPending ? 'Sync...' : 'Synchroniser'}
-                    </button>
+                    {outlookSyncing ? (
+                      <button
+                        onClick={() => { outlookStopRef.current = true }}
+                        style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
+                      >
+                        ⏹ Stop ({outlookProgress.created} importés, batch {outlookProgress.batch})
+                      </button>
+                    ) : (
+                      <button
+                        onClick={runOutlookSyncLoop}
+                        className="neo-btn"
+                        style={{ fontSize: 12, padding: '7px 14px' }}
+                      >
+                        <RefreshCw size={13} />
+                        Synchroniser tout
+                      </button>
+                    )}
                     <button
                       onClick={() => disconnectMutation.mutate(outlookIntegration.id)}
                       style={{
@@ -397,18 +491,7 @@ function IntegrationsContent() {
                         <FolderOpen size={13} style={{ color: 'var(--primary)' }} />
                         {configuredFolder}
                       </div>
-                      <button
-                        onClick={() => setShowFolderPicker(!showFolderPicker)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 4,
-                          padding: '6px 10px', borderRadius: 8,
-                          background: 'var(--surface)', border: '1.5px solid var(--border)',
-                          fontSize: 12, fontWeight: 700, color: 'var(--muted)',
-                          cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        }}
-                      >
-                        Changer <ChevronDown size={12} />
-                      </button>
+                      {/* Bouton Changer supprimé — dossier fixe */}
                     </div>
                   </div>
 
@@ -670,16 +753,24 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
               <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
                 {isOnedriveConnected ? (
                   <>
-                    <button
-                      onClick={() => syncOneDriveMutation.mutate()}
-                      disabled={syncOneDriveMutation.isPending || !onedriveFolderId}
-                      className="neo-btn"
-                      style={{ fontSize: 12, padding: '7px 14px' }}
-                      title={!onedriveFolderId ? 'Configurez un dossier d\'abord' : undefined}
-                    >
-                      <RefreshCw size={13} className={syncOneDriveMutation.isPending ? 'animate-spin' : ''} />
-                      {syncOneDriveMutation.isPending ? 'Sync...' : 'Synchroniser'}
-                    </button>
+                    {onedriveSyncing ? (
+                      <button
+                        onClick={() => { onedriveStopRef.current = true }}
+                        style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
+                      >
+                        ⏹ Stop ({onedriveProgress.created} importés, batch {onedriveProgress.batch})
+                      </button>
+                    ) : (
+                      <button
+                        onClick={runOneDriveSyncLoop}
+                        disabled={!onedriveFolderId}
+                        className="neo-btn"
+                        style={{ fontSize: 12, padding: '7px 14px' }}
+                      >
+                        <RefreshCw size={13} />
+                        Synchroniser tout
+                      </button>
+                    )}
                     <button
                       onClick={() => disconnectMutation.mutate(onedriveIntegration.id)}
                       style={{
@@ -743,18 +834,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                           Aucun dossier configuré
                         </div>
                       )}
-                      <button
-                        onClick={() => setShowOneDriveFolderPicker(!showOneDriveFolderPicker)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 4,
-                          padding: '6px 10px', borderRadius: 8,
-                          background: 'var(--surface)', border: '1.5px solid var(--border)',
-                          fontSize: 12, fontWeight: 700, color: 'var(--muted)',
-                          cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        }}
-                      >
-                        {onedriveFolderName ? 'Changer' : 'Choisir'} <ChevronDown size={12} />
-                      </button>
+                      {/* Bouton Changer supprimé — dossier fixe */}
                     </div>
                   </div>
 

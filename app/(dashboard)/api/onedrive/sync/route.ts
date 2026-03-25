@@ -46,19 +46,26 @@ export async function POST() {
     // 3. Liste les fichiers CV dans le dossier SharePoint (récursif avec sous-dossiers)
     let fichiers: any[] = []
     try {
-      // Lister seulement les fichiers à la racine du dossier (pas les sous-dossiers pour éviter timeout)
-      const data = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,size&$top=50`)
-      const items = data.value || []
-      for (const item of items) {
+      // Lister les fichiers racine + 1 niveau de sous-dossiers
+      const MAX_FILES_PER_SYNC = 10
+      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size&$top=100`)
+      for (const item of (rootData.value || [])) {
         if (item.file) {
           const ext = item.name.split('.').pop()?.toLowerCase()
-          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
-            fichiers.push(item)
-          }
+          if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
+        } else if (item.folder) {
+          // Scanner les sous-dossiers (1 niveau)
+          try {
+            const subData = await callGraph(accessToken, `/drives/${driveId}/items/${item.id}/children?$select=name,id,file,size&$top=50`)
+            for (const sub of (subData.value || [])) {
+              if (sub.file) {
+                const ext = sub.name.split('.').pop()?.toLowerCase()
+                if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(sub)
+              }
+            }
+          } catch { /* sous-dossier inaccessible — skip */ }
         }
       }
-      // Limiter à 10 nouveaux fichiers par sync
-      const MAX_FILES = 10
     } catch (err) {
       return NextResponse.json(
         { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },
@@ -72,8 +79,10 @@ export async function POST() {
     let duplicates = 0
     const created: string[] = []
 
-    // 5. Pour chaque fichier CV
+    // 5. Pour chaque fichier CV (max 5 nouveaux par sync pour éviter timeout)
+    const MAX_NEW = 5
     for (const fichier of fichiers) {
+      if (processed + errors >= MAX_NEW) break
       try {
         // a. Vérifie si déjà traité
         let dejaTraite = false
