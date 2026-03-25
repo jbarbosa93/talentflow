@@ -904,9 +904,13 @@ export default function CandidatDetailPage() {
                           type="button"
                           onClick={() => {
                             const newRating = candidat.rating === star ? 0 : star
+                            // Mise à jour optimiste via le cache React Query
+                            queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, rating: newRating } : old)
+                            // Sauvegarder en base
                             const supabase = createClient()
-                            supabase.from('candidats').update({ rating: newRating }).eq('id', candidat.id).then(() => {})
-                            setCandidat((prev: any) => prev ? { ...prev, rating: newRating } : prev)
+                            supabase.from('candidats').update({ rating: newRating }).eq('id', candidat.id).then(() => {
+                              queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                            })
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}
                           title={`${star} étoile${star > 1 ? 's' : ''}`}
