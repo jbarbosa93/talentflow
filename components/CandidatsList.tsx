@@ -525,12 +525,37 @@ export default function CandidatsList() {
     setTimeout(() => setNumCopied(false), 2500)
   }
 
+  const [smsQueue, setSmsQueue] = useState<string[]>([])
+  const [smsIndex, setSmsIndex] = useState(0)
+
   const openMessages = (formatted: string[]) => {
-    // Ouvrir Messages avec numéros ET message pré-rempli
-    // sms:NUM1,NUM2?body=MESSAGE → ouvre Messages avec les destinataires et le texte
-    const numbers = formatted.join(',')
+    if (formatted.length === 0) return
     const body = encodeURIComponent(messageText || '')
-    window.open(`sms:${numbers}${body ? `?body=${body}` : ''}`, '_self')
+
+    if (formatted.length === 1) {
+      // Un seul numéro → ouvrir directement
+      window.open(`sms:${formatted[0]}${body ? `?body=${body}` : ''}`, '_self')
+      return
+    }
+
+    // Plusieurs numéros → ouvrir un par un
+    // Stocker la queue et ouvrir le premier
+    setSmsQueue(formatted)
+    setSmsIndex(0)
+    window.open(`sms:${formatted[0]}${body ? `?body=${body}` : ''}`, '_self')
+  }
+
+  const openNextSms = () => {
+    const nextIdx = smsIndex + 1
+    if (nextIdx >= smsQueue.length) {
+      setSmsQueue([])
+      setSmsIndex(0)
+      alert('Tous les messages ont été ouverts !')
+      return
+    }
+    setSmsIndex(nextIdx)
+    const body = encodeURIComponent(messageText || '')
+    window.open(`sms:${smsQueue[nextIdx]}${body ? `?body=${body}` : ''}`, '_self')
   }
 
   const handleBulkDelete = () => {
@@ -1504,18 +1529,29 @@ export default function CandidatsList() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => setShowMessage(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
+                  <button onClick={() => { setShowMessage(false); setSmsQueue([]); setSmsIndex(0) }} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
                     Annuler
                   </button>
-                  <button
-                    onClick={() => openMessages(formatted)}
-                    disabled={avecTel.length === 0}
-                    className="neo-btn"
-                    style={{ flex: 2, justifyContent: 'center', background: '#007AFF', color: 'white', boxShadow: 'none', opacity: avecTel.length === 0 ? 0.4 : 1 }}
-                  >
-                    <MessageSquare size={14} />
-                    Ouvrir Messages
-                  </button>
+                  {smsQueue.length > 0 ? (
+                    <button
+                      onClick={openNextSms}
+                      className="neo-btn"
+                      style={{ flex: 2, justifyContent: 'center', background: '#10B981', color: 'white', boxShadow: 'none' }}
+                    >
+                      <MessageSquare size={14} />
+                      Suivant ({smsIndex + 1}/{smsQueue.length}) → {smsQueue[smsIndex + 1] || 'Terminé'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => openMessages(formatted)}
+                      disabled={avecTel.length === 0}
+                      className="neo-btn"
+                      style={{ flex: 2, justifyContent: 'center', background: '#007AFF', color: 'white', boxShadow: 'none', opacity: avecTel.length === 0 ? 0.4 : 1 }}
+                    >
+                      <MessageSquare size={14} />
+                      Ouvrir Messages {avecTel.length > 1 ? `(1 par 1 · ${avecTel.length})` : ''}
+                    </button>
+                  )}
                 </div>
 
                 {avecTel.length === 0 && (

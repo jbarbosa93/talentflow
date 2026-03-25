@@ -33,26 +33,29 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient()
     const redirectTo = `https://www.talent-flow.ch/api/auth/callback?next=/accepter-invitation`
 
-    // Essayer l'invitation normale
+    // Vérifier si l'utilisateur existe déjà
+    const { data: { users: existingUsers } } = await supabase.auth.admin.listUsers()
+    const existingUser = existingUsers?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+
+    if (existingUser) {
+      // L'utilisateur existe — vérifier s'il s'est déjà connecté
+      if (existingUser.last_sign_in_at) {
+        // Utilisateur actif → ne pas renvoyer d'invitation
+        return NextResponse.json({ error: 'Cet utilisateur a déjà un compte actif.' }, { status: 400 })
+      }
+
+      // Utilisateur jamais connecté → supprimer et ré-inviter pour envoyer un VRAI email
+      await supabase.auth.admin.deleteUser(existingUser.id)
+    }
+
+    // Envoyer l'invitation (crée l'utilisateur + envoie l'email automatiquement)
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       data: { prenom, nom, role, entreprise },
       redirectTo,
     })
 
-    // Si l'utilisateur existe déjà → générer un lien de récupération (reset password)
-    // pour qu'il puisse quand même définir son mot de passe
-    if (error && error.message.toLowerCase().includes('already')) {
-      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
-        type: 'recovery',
-        email,
-        options: { redirectTo },
-      })
-      if (linkErr) return NextResponse.json({ error: linkErr.message }, { status: 500 })
-      return NextResponse.json({ success: true, user: linkData.user, resent: true })
-    }
-
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, user: data.user })
+    return NextResponse.json({ success: true, user: data.user, resent: !!existingUser })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Erreur serveur'
     return NextResponse.json({ error: msg }, { status: 500 })
