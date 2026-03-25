@@ -72,7 +72,7 @@ export async function POST() {
     const created: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 3 par sync — chaque prend ~15s)
-    const MAX_NEW = 3
+    const MAX_NEW = 2 // 2 CVs par batch (~25s chaque avec photo)
     for (const fichier of fichiers) {
       if (processed + errors >= MAX_NEW) break
       try {
@@ -173,12 +173,14 @@ export async function POST() {
           cvUrl = urlData?.signedUrl || null
         }
 
-        // Extraction photo du PDF
+        // Extraction photo du PDF (timeout 8s — skip si trop lent)
         let photoUrl: string | null = null
         if (isPDF) {
           try {
             const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-            const photoBuffer = await extractPhotoFromPDF(buffer)
+            const photoPromise = extractPhotoFromPDF(buffer)
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+            const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
             if (photoBuffer) {
               const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
               const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })

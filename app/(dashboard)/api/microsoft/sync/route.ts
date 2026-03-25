@@ -109,35 +109,30 @@ export async function POST(request?: Request) {
       }).eq('id', integration.id)
     }
 
-    // Récupère les emails du dossier cible avec pagination (max 200 par page, max 5 pages = 1000 emails)
+    // Charger TOUS les IDs déjà traités en 1 requête (rapide, ~100ms)
+    const { data: alreadyDone } = await supabase.from('emails_recus').select('microsoft_message_id')
+    const doneIds = new Set((alreadyDone || []).map((r: any) => r.microsoft_message_id))
+    console.log(`[MS Sync] ${doneIds.size} emails déjà traités en base`)
+
+    // Récupérer les emails page par page, filtrer les non-traités en mémoire
     let allMessages: any[] = []
-    // Récupérer les emails NON encore traités en vérifiant par batch
-    // On récupère page par page et on s'arrête dès qu'on a assez de nouveaux
-    let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=20&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
-    const MAX_NEW_TO_PROCESS = 5 // 5 CVs par sync max (chaque prend ~10s avec Claude)
-    let newFound = 0
+    let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
+    const MAX_NEW_TO_PROCESS = 3
+    let pagesChecked = 0
+    const MAX_PAGES = 5
 
-    while (nextLink && newFound < MAX_NEW_TO_PROCESS) {
+    while (nextLink && allMessages.length < MAX_NEW_TO_PROCESS && pagesChecked < MAX_PAGES) {
       const page = await callGraph(accessToken, nextLink)
-      const pageMessages = page.value || []
-
-      for (const msg of pageMessages) {
-        // Vérifier si déjà traité AVANT de l'ajouter
-        const { data: ex } = await supabase.from('emails_recus').select('id').eq('microsoft_message_id', msg.id).maybeSingle()
-        if (!ex) {
+      for (const msg of (page.value || [])) {
+        if (!doneIds.has(msg.id)) {
           allMessages.push(msg)
-          newFound++
-          if (newFound >= MAX_NEW_TO_PROCESS) break
+          if (allMessages.length >= MAX_NEW_TO_PROCESS) break
         }
       }
-
-      // Si tous les messages de cette page étaient déjà traités, continuer à la page suivante
-      if (newFound < MAX_NEW_TO_PROCESS && page['@odata.nextLink']) {
-        nextLink = page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '')
-      } else {
-        nextLink = null
-      }
+      nextLink = page['@odata.nextLink'] ? page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : null
+      pagesChecked++
     }
+    console.log(`[MS Sync] ${allMessages.length} nouveaux emails trouvés (${pagesChecked} pages)`)
 
     let processed = 0
     let skipped = 0
@@ -283,7 +278,9 @@ export async function POST(request?: Request) {
         if (isPDF) {
           try {
             const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-            const photoBuffer = await extractPhotoFromPDF(buffer)
+            const photoPromise = extractPhotoFromPDF(buffer)
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+            const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
             if (photoBuffer) {
               const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
               const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
