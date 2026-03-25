@@ -225,7 +225,12 @@ export async function POST(request?: Request) {
 
           // Vérification doublon candidat (email → téléphone → nom+prénom)
           const senderEmail = message.from?.emailAddress?.address
-          const candidatEmail = analyse.email || senderEmail || null
+          // Ne PAS utiliser l'email de l'expéditeur comme email du candidat
+          // si c'est noreply, info, contact, etc. (emails de formulaire/système)
+          // Emails système/formulaire — ne pas utiliser comme email du candidat
+          const ignoredSenders = ['noreply@', 'no-reply@', 'ne-pas-repondre', 'info@', 'contact@', 'postmaster@', 'mailer-daemon@']
+          const isSenderIgnored = ignoredSenders.some(prefix => (senderEmail || '').toLowerCase().includes(prefix))
+          const candidatEmail = analyse.email || (isSenderIgnored ? null : senderEmail) || null
           const candidatNom = (analyse.nom || '').trim()
           const candidatPrenom = (analyse.prenom || '').trim()
           const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
@@ -396,21 +401,7 @@ export async function POST(request?: Request) {
     console.log(`[MS Sync] Dossier "${targetFolderName}": ${processed} créés, ${duplicates} doublons, ${skipped} ignorés, ${errors} erreurs`)
     await logActivity({ action: 'microsoft_sync', details: result })
 
-    const hasMore = allMessages.length >= MAX_NEW_TO_PROCESS
-    const response = NextResponse.json(result)
-
-    if (hasMore) {
-      after(async () => {
-        try {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'
-          await fetch(`${baseUrl}/api/microsoft/sync`, { method: 'POST' })
-        } catch (err) {
-          console.error('[Sync] Background continuation error:', err)
-        }
-      })
-    }
-
-    return response
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('[MS Sync] Erreur fatale:', error)
@@ -421,16 +412,7 @@ export async function POST(request?: Request) {
   }
 }
 
-export async function DELETE() {
-  try {
-    const supabase = createAdminClient()
-    await supabase.from('emails_recus').delete().gte('created_at', '2000-01-01')
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('[MS Sync] DELETE error:', error)
-    return NextResponse.json({ error: 'Erreur suppression historique' }, { status: 500 })
-  }
-}
+// DELETE supprimé — ne jamais effacer l'historique (cause des re-doublons)
 
 export async function GET(request: NextRequest) {
   const supabase = createAdminClient()

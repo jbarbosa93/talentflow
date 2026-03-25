@@ -724,24 +724,7 @@ function IntegrationsContent() {
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={async () => {
-                        if (!confirm('Supprimer tout l\'historique des emails ? Les candidats importés ne seront pas supprimés.')) return
-                        try {
-                          await fetch('/api/microsoft/sync', { method: 'DELETE' })
-                          queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
-                          toast.success('Historique emails supprimé')
-                        } catch { toast.error('Erreur lors de la suppression') }
-                      }}
-                      style={{
-                        marginTop: 10, fontSize: 11, fontWeight: 600, padding: '4px 10px',
-                        borderRadius: 6, border: '1px solid #FECACA', background: 'transparent',
-                        color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        opacity: 0.7,
-                      }}
-                    >
-                      🗑 Effacer l&apos;historique
-                    </button>
+                    {/* Historique conservé pour éviter les re-doublons */}
                   </div>
                 )}
               </>
@@ -1045,24 +1028,7 @@ function IntegrationsContent() {
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={async () => {
-                        if (!confirm('Supprimer tout l\'historique des fichiers OneDrive ? Les candidats importés ne seront pas supprimés.')) return
-                        try {
-                          await fetch('/api/onedrive/sync', { method: 'DELETE' })
-                          queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
-                          toast.success('Historique OneDrive supprimé')
-                        } catch { toast.error('Erreur lors de la suppression') }
-                      }}
-                      style={{
-                        marginTop: 10, fontSize: 11, fontWeight: 600, padding: '4px 10px',
-                        borderRadius: 6, border: '1px solid #FECACA', background: 'transparent',
-                        color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)',
-                        opacity: 0.7,
-                      }}
-                    >
-                      🗑 Effacer l&apos;historique
-                    </button>
+                    {/* Historique conservé pour éviter les re-doublons */}
                   </div>
                 )}
               </>

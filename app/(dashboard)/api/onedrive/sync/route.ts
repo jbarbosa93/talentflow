@@ -339,21 +339,7 @@ export async function POST() {
       await logActivity({ action: 'onedrive_sync', details: result })
     }
 
-    const hasMore = fichiers.length > MAX_NEW
-    const response = NextResponse.json(result)
-
-    if (hasMore) {
-      after(async () => {
-        try {
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'
-          await fetch(`${baseUrl}/api/onedrive/sync`, { method: 'POST' })
-        } catch (err) {
-          console.error('[OneDrive Sync] Background continuation error:', err)
-        }
-      })
-    }
-
-    return response
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error('[OneDrive Sync] Erreur fatale:', error)
@@ -364,16 +350,7 @@ export async function POST() {
   }
 }
 
-export async function DELETE() {
-  try {
-    const supabase = createAdminClient()
-    await (supabase as any).from('onedrive_fichiers').delete().gte('created_at', '2000-01-01')
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('[OneDrive Sync] DELETE error:', error)
-    return NextResponse.json({ error: 'Erreur suppression historique' }, { status: 500 })
-  }
-}
+// DELETE supprimé — ne jamais effacer l'historique (cause des re-doublons)
 
 export async function GET() {
   try {
