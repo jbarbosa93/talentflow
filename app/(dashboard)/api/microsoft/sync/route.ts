@@ -109,11 +109,19 @@ export async function POST(request?: Request) {
       }).eq('id', integration.id)
     }
 
-    // Récupère les emails du dossier cible (non traités — pas de filtre date pour ne rien rater)
-    const messages = await callGraph(
-      accessToken,
-      `/me/mailFolders/${targetFolderId}/messages?$top=10&$select=id,subject,from,receivedDateTime,hasAttachments`
-    )
+    // Récupère les emails du dossier cible avec pagination (max 200 par page, max 5 pages = 1000 emails)
+    let allMessages: any[] = []
+    let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
+    let pageCount = 0
+    const MAX_PAGES = 5
+    const MAX_NEW_TO_PROCESS = 10 // Traiter max 10 nouveaux CVs par sync (timeout 60s)
+
+    while (nextLink && pageCount < MAX_PAGES) {
+      const page = await callGraph(accessToken, nextLink)
+      allMessages = allMessages.concat(page.value || [])
+      nextLink = page['@odata.nextLink'] ? page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : null
+      pageCount++
+    }
 
     let processed = 0
     let skipped = 0
@@ -121,7 +129,7 @@ export async function POST(request?: Request) {
     let duplicates = 0
     const created: string[] = []
 
-    for (const message of messages.value || []) {
+    for (const message of allMessages) {
       // Déjà traité ?
       const { data: existing } = await supabase
         .from('emails_recus')
@@ -130,6 +138,12 @@ export async function POST(request?: Request) {
         .maybeSingle()
 
       if (existing) { skipped++; continue }
+
+      // Limiter le nombre de nouveaux CVs traités par sync (timeout 60s)
+      if (processed + errors >= MAX_NEW_TO_PROCESS) {
+        skipped++
+        continue
+      }
 
       // Récupère les pièces jointes (sans contentBytes — on télécharge séparément)
       let attachments: any[] = []
