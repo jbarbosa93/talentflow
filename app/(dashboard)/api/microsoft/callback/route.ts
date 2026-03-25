@@ -48,16 +48,17 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
     // Chercher si une intégration de ce type existe déjà
-    const { data: existing } = await supabase
+    const { data: existing } = await (supabase as any)
       .from('integrations')
       .select('id')
       .eq('type', integrationType)
       .limit(1)
       .maybeSingle()
 
+    console.log(`[MS Callback] type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
+
     if (existing) {
-      // Update l'existante
-      const { error: updateErr } = await supabase.from('integrations').update({
+      const { error: updateErr } = await (supabase as any).from('integrations').update({
         email,
         nom_compte: displayName,
         access_token: tokens.access_token,
@@ -66,10 +67,9 @@ export async function GET(request: NextRequest) {
         actif: true,
         updated_at: new Date().toISOString(),
       }).eq('id', existing.id)
-      if (updateErr) console.error('[MS Callback] Update error:', updateErr)
+      console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
     } else {
-      // Insert nouvelle
-      const { error: insertErr } = await supabase.from('integrations').insert({
+      const { data: inserted, error: insertErr } = await (supabase as any).from('integrations').insert({
         type: integrationType,
         email,
         nom_compte: displayName,
@@ -77,8 +77,8 @@ export async function GET(request: NextRequest) {
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         actif: true,
-      })
-      if (insertErr) console.error('[MS Callback] Insert error:', insertErr)
+      }).select()
+      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK', inserted?.[0]?.id || 'no id')
     }
 
     const actionLabel = purposeFromState === 'outlook' ? 'microsoft_outlook_connecte' : 'microsoft_onedrive_connecte'
