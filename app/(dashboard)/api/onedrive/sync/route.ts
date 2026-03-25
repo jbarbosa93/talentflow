@@ -43,27 +43,18 @@ export async function POST() {
       )
     }
 
-    // 3. Liste les fichiers CV dans le dossier SharePoint (récursif avec sous-dossiers)
+    // 3. Charger TOUS les IDs déjà traités en mémoire (rapide, 1 seule requête)
+    const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id')
+    const doneIds = new Set((alreadyDone || []).map((r: any) => r.onedrive_item_id))
+
+    // 4. Lister les fichiers dans le dossier SharePoint (seulement racine, pas sous-dossiers — rapide)
     let fichiers: any[] = []
     try {
-      // Lister les fichiers racine + 1 niveau de sous-dossiers
-      const MAX_FILES_PER_SYNC = 10
-      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size&$top=100`)
+      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,size&$top=200`)
       for (const item of (rootData.value || [])) {
-        if (item.file) {
+        if (item.file && !doneIds.has(item.id)) {
           const ext = item.name.split('.').pop()?.toLowerCase()
           if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
-        } else if (item.folder) {
-          // Scanner les sous-dossiers (1 niveau)
-          try {
-            const subData = await callGraph(accessToken, `/drives/${driveId}/items/${item.id}/children?$select=name,id,file,size&$top=50`)
-            for (const sub of (subData.value || [])) {
-              if (sub.file) {
-                const ext = sub.name.split('.').pop()?.toLowerCase()
-                if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(sub)
-              }
-            }
-          } catch { /* sous-dossier inaccessible — skip */ }
         }
       }
     } catch (err) {
@@ -79,41 +70,12 @@ export async function POST() {
     let duplicates = 0
     const created: string[] = []
 
-    // 5. Pour chaque fichier CV (max 5 nouveaux par sync pour éviter timeout)
-    const MAX_NEW = 5
+    // 5. Pour chaque fichier CV NON traité (max 3 par sync — chaque prend ~15s)
+    const MAX_NEW = 3
     for (const fichier of fichiers) {
       if (processed + errors >= MAX_NEW) break
       try {
-        // a. Vérifie si déjà traité
-        let dejaTraite = false
-        try {
-          const { data: existing } = await (supabase as any)
-            .from('onedrive_fichiers')
-            .select('id')
-            .eq('onedrive_item_id', fichier.id)
-            .maybeSingle()
-
-          if (existing) {
-            dejaTraite = true
-          }
-        } catch (tableErr: any) {
-          const msg = tableErr?.message || ''
-          if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('42P01')) {
-            return NextResponse.json(
-              {
-                error: 'Table onedrive_fichiers manquante.',
-                hint: 'Exécutez la migration SQL supabase/migrations/20260323_onedrive_fichiers.sql dans votre dashboard Supabase.',
-              },
-              { status: 500 }
-            )
-          }
-          throw tableErr
-        }
-
-        if (dejaTraite) {
-          skipped++
-          continue
-        }
+        // Déjà filtré en mémoire (doneIds) — pas besoin de vérifier en DB
 
         // b. Vérifie taille < 10MB
         if (fichier.size > MAX_FILE_SIZE) {
