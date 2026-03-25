@@ -72,20 +72,12 @@ export async function GET(request: NextRequest) {
     console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existingRow?.id || 'none'}`)
 
     if (existingRow) {
-      // Update la row existante — le champ principal (email, access_token) reste le premier connecté
-      // Les tokens de chaque compte sont dans metadata.outlook / metadata.onedrive
+      // Update SEULEMENT metadata — ne jamais écraser les champs principaux
+      // Tous les tokens sont dans metadata.outlook / metadata.onedrive
       const { error: updateErr } = await supabase.from('integrations').update({
         metadata: newMeta,
         actif: true,
         updated_at: new Date().toISOString(),
-        // Si c'est le même purpose que le principal, update aussi les champs principaux
-        ...(meta.purpose === purpose || !existingRow.access_token ? {
-          email,
-          nom_compte: displayName,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt,
-        } : {}),
       }).eq('id', existingRow.id)
       console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
     } else {
