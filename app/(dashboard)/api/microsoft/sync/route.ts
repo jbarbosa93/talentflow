@@ -68,21 +68,34 @@ export async function POST(request?: Request) {
       } catch { /* ignore */ }
     }
 
-    // Get Microsoft integration
-    const { data: integrationRaw } = await supabase
+    // Get Microsoft Outlook integration for email sync
+    // Try microsoft_outlook first, fallback to legacy 'microsoft' for backward compat
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_outlook')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
+
     const integration = integrationRaw as unknown as Integration | null
 
     if (!integration) {
       return NextResponse.json(
-        { error: 'Aucune intégration Microsoft active. Connectez votre compte.' },
+        { error: 'Aucune intégration Microsoft Outlook active. Connectez votre compte.' },
         { status: 404 }
       )
     }

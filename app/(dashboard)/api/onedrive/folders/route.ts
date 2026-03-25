@@ -14,14 +14,27 @@ export async function GET() {
   try {
     const supabase = createAdminClient()
 
-    const { data: integrationRaw } = await supabase
+    // Try microsoft_onedrive first, fallback to legacy 'microsoft'
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_onedrive')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
+
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
 
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {
@@ -54,14 +67,27 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    const { data: integrationRaw } = await supabase
+    // Try microsoft_onedrive first, fallback to legacy 'microsoft'
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_onedrive')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
+
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
 
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {

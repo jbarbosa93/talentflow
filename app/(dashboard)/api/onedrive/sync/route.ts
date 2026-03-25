@@ -20,20 +20,32 @@ export async function POST() {
   try {
     const supabase = createAdminClient()
 
-    // 1. Récupère l'intégration Microsoft active
-    const { data: integrationRaw } = await supabase
+    // 1. Récupère l'intégration Microsoft OneDrive active (fallback legacy 'microsoft')
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_onedrive')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
+
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {
       return NextResponse.json(
-        { error: 'Aucune intégration Microsoft active. Connectez votre compte.' },
+        { error: 'Aucune intégration Microsoft OneDrive active. Connectez votre compte.' },
         { status: 404 }
       )
     }

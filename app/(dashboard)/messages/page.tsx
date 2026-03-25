@@ -652,20 +652,16 @@ function EmailTab() {
   const [sujet, setSujet] = useState('')
   const [corps, setCorps] = useState('')
   const [sent, setSent] = useState(false)
-  const [showSmtpSetup, setShowSmtpSetup] = useState(false)
-  const [smtpConfig, setSmtpConfig] = useState<{ configured: boolean; email?: string; nom?: string } | null>(null)
-  const [smtpForm, setSmtpForm] = useState({ email: '', password: '', nom: '', host: 'smtp.office365.com', port: 587 })
-  const [smtpSaving, setSmtpSaving] = useState(false)
-  const [smtpError, setSmtpError] = useState('')
+  const [msConfig, setMsConfig] = useState<{ configured: boolean; email?: string; nom?: string } | null>(null)
 
   const { data: _candidatsData } = useCandidats({ per_page: 500 })
   const candidats = (_candidatsData?.candidats || []).filter((c: any) => c.import_status !== 'archive')
   const { data: templates } = useEmailTemplates()
 
-  // SMTP send hook (direct, pas Microsoft)
+  // Envoyer via Microsoft Graph API (pas SMTP — SMTP est désactivé chez la plupart des organisations)
   const sendEmail = useMutation({
     mutationFn: async (body: any) => {
-      const res = await fetch('/api/smtp/send', {
+      const res = await fetch('/api/microsoft/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -674,34 +670,22 @@ function EmailTab() {
       if (!res.ok) throw new Error(data.error)
       return data
     },
-    onSuccess: (data: any) => toast.success(data.count > 1 ? `Email envoyé à ${data.count} destinataires (CCI)` : 'Email envoyé'),
+    onSuccess: (data: any) => toast.success(data.count > 1 ? `Email envoyé à ${data.count} destinataires (CCI)` : 'Email envoyé ✓'),
     onError: (e: Error) => toast.error(`Erreur : ${e.message}`),
   })
 
-  // Charger la config SMTP au montage
+  // Vérifier si Microsoft est connecté (intégration OneDrive = envoi mails)
   useEffect(() => {
-    fetch('/api/smtp/settings').then(r => r.json()).then(setSmtpConfig).catch(() => {})
+    fetch('/api/microsoft/send', { method: 'OPTIONS' }).catch(() => {})
+    // Vérifier via l'API status
+    fetch('/api/integrations/status').then(r => r.json()).then((data: any) => {
+      if (data.microsoft_onedrive || data.microsoft) {
+        setMsConfig({ configured: true, email: data.microsoft_onedrive?.email || data.microsoft?.email, nom: data.microsoft_onedrive?.nom || data.microsoft?.nom })
+      } else {
+        setMsConfig({ configured: false })
+      }
+    }).catch(() => setMsConfig({ configured: false }))
   }, [])
-
-  const handleSmtpSave = async () => {
-    setSmtpSaving(true)
-    setSmtpError('')
-    try {
-      const res = await fetch('/api/smtp/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(smtpForm),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setSmtpConfig({ configured: true, email: smtpForm.email, nom: smtpForm.nom })
-      setShowSmtpSetup(false)
-      toast.success('Email connecté avec succès')
-    } catch (err: any) {
-      setSmtpError(err.message)
-    }
-    setSmtpSaving(false)
-  }
 
   // Quand on sélectionne des candidats (pas d'auto-ajout email)
   const handleCandidatChange = (ids: string[]) => {
@@ -772,80 +756,35 @@ function EmailTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* SMTP Status + Setup */}
-      {smtpConfig?.configured ? (
+      {/* Microsoft Graph API Status */}
+      {msConfig?.configured ? (
         <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: '#F0FDF4', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#166534', margin: 0 }}>
-              Connecté — {smtpConfig.email}
+              ✉️ Connecté via Microsoft 365 — {msConfig.email}
             </p>
-            <p style={{ fontSize: 11, color: '#15803D', marginTop: 1 }}>Les emails seront envoyés depuis ce compte</p>
+            <p style={{ fontSize: 11, color: '#15803D', marginTop: 1 }}>Les emails seront envoyés depuis ce compte via Microsoft Graph</p>
           </div>
-          <button onClick={() => setShowSmtpSetup(true)}
-            style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #BBF7D0', background: 'transparent', color: '#166534', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            Modifier
-          </button>
         </div>
       ) : (
         <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: '#FFFBEB', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Mail size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Connectez votre email</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Microsoft 365 non connecté</p>
             <p style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>
-              Entrez votre email et mot de passe pour envoyer directement depuis TalentFlow.
+              Connectez votre compte Microsoft 365 dans Intégrations pour envoyer des emails.
             </p>
           </div>
-          <button onClick={() => setShowSmtpSetup(true)}
+          <a href="/integrations"
             className="neo-btn-yellow neo-btn-sm"
-            style={{ whiteSpace: 'nowrap' }}>
-            Connecter
-          </button>
+            style={{ whiteSpace: 'nowrap', textDecoration: 'none' }}>
+            Intégrations →
+          </a>
         </div>
       )}
 
       {/* SMTP Setup Modal */}
-      {showSmtpSetup && (
-        <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, boxShadow: 'var(--card-shadow)' }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 16px 0' }}>Connexion email (SMTP)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div>
-              <label style={labelStyle}>Votre nom</label>
-              <Input value={smtpForm.nom} onChange={e => setSmtpForm(f => ({ ...f, nom: e.target.value }))} placeholder="João Barbosa" />
-            </div>
-            <div>
-              <label style={labelStyle}>Email *</label>
-              <Input value={smtpForm.email} onChange={e => setSmtpForm(f => ({ ...f, email: e.target.value }))} placeholder="vous@entreprise.com" type="email" />
-            </div>
-            <div>
-              <label style={labelStyle}>Mot de passe *</label>
-              <Input value={smtpForm.password} onChange={e => setSmtpForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" type="password" />
-            </div>
-            <div>
-              <label style={labelStyle}>Serveur SMTP</label>
-              <Input value={smtpForm.host} onChange={e => setSmtpForm(f => ({ ...f, host: e.target.value }))} placeholder="smtp.office365.com" />
-            </div>
-          </div>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12 }}>
-            Outlook/Microsoft : smtp.office365.com · Gmail : smtp.gmail.com · Infomaniak : mail.infomaniak.com
-          </p>
-          {smtpError && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12, color: '#DC2626' }}>
-              {smtpError}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setShowSmtpSetup(false)}
-              style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Annuler
-            </button>
-            <Button onClick={handleSmtpSave} disabled={smtpSaving || !smtpForm.email || !smtpForm.password}>
-              {smtpSaving ? 'Test connexion...' : 'Connecter'}
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
         {/* Candidats multi-select */}
         <div>
@@ -981,7 +920,7 @@ function EmailTab() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-              <Mail size={12} />{smtpConfig?.configured ? `Envoi depuis ${smtpConfig.email}` : 'Email non configuré'} {destinataires.length > 1 ? '(CCI)' : ''}
+              <Mail size={12} />{msConfig?.configured ? `Envoi depuis ${msConfig.email}` : 'Microsoft 365 non connecté'} {destinataires.length > 1 ? '(CCI)' : ''}
             </p>
             {Object.keys(cvAttached).length > 0 && (
               <p style={{ fontSize: 11, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>

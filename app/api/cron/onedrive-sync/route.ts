@@ -29,19 +29,31 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient()
 
-    // Récupère l'intégration Microsoft active
-    const { data: integrationRaw } = await supabase
+    // Try microsoft_onedrive first, fallback to legacy 'microsoft' for backward compat
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_onedrive')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
+
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {
-      return NextResponse.json({ skipped: true, reason: 'Aucune intégration Microsoft active' })
+      return NextResponse.json({ skipped: true, reason: 'Aucune intégration Microsoft OneDrive active' })
     }
 
     const meta = (integration.metadata as any) || {}

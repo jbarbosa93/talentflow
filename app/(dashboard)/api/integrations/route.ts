@@ -5,7 +5,7 @@ export async function GET() {
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('integrations')
-    .select('id, type, email, nom_compte, actif, expires_at, created_at, updated_at')
+    .select('id, type, email, nom_compte, actif, expires_at, metadata, created_at, updated_at')
     .order('created_at', { ascending: false })
   return NextResponse.json({ integrations: data || [] })
 }

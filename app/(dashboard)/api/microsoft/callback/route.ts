@@ -7,6 +7,16 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const error = searchParams.get('error')
+  const state = searchParams.get('state') || ''
+
+  // Extract purpose from state (format: "talentflow-ats:outlook" or "talentflow-ats:onedrive")
+  const purposeFromState = state.includes(':') ? state.split(':')[1] : null
+  // Determine integration type based on purpose
+  const integrationType = purposeFromState === 'outlook'
+    ? 'microsoft_outlook'
+    : purposeFromState === 'onedrive'
+      ? 'microsoft_onedrive'
+      : 'microsoft_onedrive' // default to onedrive for backward compat
 
   if (error) {
     return NextResponse.redirect(
@@ -37,9 +47,9 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Upsert integration (one per type)
+    // Upsert integration (one per type — microsoft_outlook or microsoft_onedrive)
     const { error: dbError } = await supabase.from('integrations').upsert({
-      type: 'microsoft',
+      type: integrationType,
       email,
       nom_compte: displayName,
       access_token: tokens.access_token,
@@ -53,7 +63,7 @@ export async function GET(request: NextRequest) {
       console.error('[MS Callback] DB error:', dbError)
       // Try insert if upsert fails
       await supabase.from('integrations').insert({
-        type: 'microsoft',
+        type: integrationType,
         email,
         nom_compte: displayName,
         access_token: tokens.access_token,
@@ -63,10 +73,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    await logActivity({ action: 'microsoft_connecte', user_email: email })
+    await logActivity({ action: 'microsoft_connecte' as any, user_email: email })
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=microsoft`
+      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=${integrationType}`
     )
   } catch (err) {
     console.error('[MS Callback] Error:', err)

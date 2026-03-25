@@ -1,18 +1,28 @@
 // app/(dashboard)/api/microsoft/folders/route.ts
 // Retourne la liste des dossiers Outlook pour la configuration du dossier à surveiller
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidAccessToken, callGraph } from '@/lib/microsoft'
 import type { Integration } from '@/types/database'
 
 export const runtime = 'nodejs'
 
-export async function GET() {
-  try {
-    const supabase = createAdminClient()
+// Helper: find integration by purpose with backward compat
+async function findIntegration(supabase: any, purpose?: string | null) {
+  const targetType = purpose === 'onedrive' ? 'microsoft_onedrive' : 'microsoft_outlook'
+  let { data } = await supabase
+    .from('integrations')
+    .select('*')
+    .eq('type', targetType)
+    .eq('actif', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
 
-    const { data: integrationRaw } = await supabase
+  if (!data) {
+    // Fallback to legacy 'microsoft' type
+    const { data: legacyData } = await supabase
       .from('integrations')
       .select('*')
       .eq('type', 'microsoft')
@@ -20,8 +30,19 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
+    data = legacyData
+  }
 
-    const integration = integrationRaw as unknown as Integration | null
+  return data as unknown as Integration | null
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createAdminClient()
+    const { searchParams } = new URL(request.url)
+    const purpose = searchParams.get('purpose') // 'outlook' or 'onedrive'
+
+    const integration = await findIntegration(supabase, purpose)
     if (!integration) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
     }
@@ -74,23 +95,15 @@ export async function GET() {
 // Met à jour le dossier surveillé
 export async function POST(request: Request) {
   try {
-    const { folder_id, folder_name } = await request.json()
+    const body = await request.json()
+    const { folder_id, folder_name, purpose } = body
     if (!folder_id || !folder_name) {
       return NextResponse.json({ error: 'folder_id et folder_name requis' }, { status: 400 })
     }
 
     const supabase = createAdminClient()
 
-    const { data: integrationRaw } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('type', 'microsoft')
-      .eq('actif', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    const integration = integrationRaw as unknown as Integration | null
+    const integration = await findIntegration(supabase, purpose)
     if (!integration) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
     }

@@ -54,19 +54,32 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient()
 
-    const { data: integrationRaw } = await supabase
+    // Try microsoft_outlook first, fallback to legacy 'microsoft' for backward compat
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_outlook')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
+
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {
       // Pas de compte connecté — cron inutile, pas d'erreur
-      return NextResponse.json({ skipped: true, reason: 'Aucune intégration Microsoft active' })
+      return NextResponse.json({ skipped: true, reason: 'Aucune intégration Microsoft Outlook active' })
     }
 
     const meta = (integration.metadata as any) || {}
@@ -221,7 +234,7 @@ export async function GET(request: Request) {
             cv_nom_fichier: filename,
             resume_ia: analyse.resume || null,
             cv_texte_brut: texteCV.slice(0, 10000),
-            statut_pipeline: 'nouveau',
+            // PAS de statut_pipeline — la pipeline est gérée manuellement
             import_status: 'a_traiter',
             source: 'E-MAIL',
             tags: [],

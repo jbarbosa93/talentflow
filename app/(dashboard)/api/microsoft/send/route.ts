@@ -30,21 +30,34 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get Microsoft integration
-    const { data: integrationRaw } = await supabase
+    // Get Microsoft OneDrive integration (used for sending emails via j.barbosa)
+    // Try microsoft_onedrive first, fallback to legacy 'microsoft' for backward compat
+    let { data: integrationRaw } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .eq('type', 'microsoft_onedrive')
       .eq('actif', true)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
+    if (!integrationRaw) {
+      const { data: legacyRaw } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft')
+        .eq('actif', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      integrationRaw = legacyRaw
+    }
+
     const integration = integrationRaw as unknown as Integration | null
 
     if (!integration) {
       return NextResponse.json(
-        { error: 'Compte Microsoft non connecté. Configurez l\'intégration d\'abord.' },
+        { error: 'Compte Microsoft OneDrive non connecté. Configurez l\'intégration d\'abord.' },
         { status: 404 }
       )
     }
