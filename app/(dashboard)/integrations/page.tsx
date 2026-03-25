@@ -201,8 +201,8 @@ function IntegrationsContent() {
   const autoSyncEnabled = outlookMeta?.auto_sync !== false // true par défaut
 
   // OneDrive derived values
-  const onedriveFolderName   = onedriveMeta?.onedrive_folder_name || null
-  const onedriveFolderId     = onedriveMeta?.onedrive_folder_id || null
+  const onedriveFolderName   = onedriveMeta?.sharepoint_folder_name || onedriveMeta?.onedrive_folder_name || null
+  const onedriveFolderId     = onedriveMeta?.sharepoint_folder_id || onedriveMeta?.onedrive_folder_id || null
   const onedriveLastSync     = onedriveMeta?.onedrive_last_sync ? new Date(onedriveMeta.onedrive_last_sync) : null
   const onedriveAutoSync     = onedriveMeta?.onedrive_auto_sync !== false // true par défaut
   const onedriveFichiers     = onedriveFilesData?.fichiers || []

@@ -3,12 +3,10 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getValidAccessToken } from '@/lib/microsoft'
-import { listerFichiersCVs, telechargerFichier } from '@/lib/onedrive'
+import { getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
 import { logActivity } from '@/lib/activity-log'
-import type { Integration } from '@/types/database'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -20,48 +18,64 @@ export async function POST() {
   try {
     const supabase = createAdminClient()
 
-    // 1. Fetch all active Microsoft integrations, then filter by metadata.purpose
-    const { data: allMicrosoft } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('type', 'microsoft')
-      .eq('actif', true)
-    const integrationRaw = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
-      || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
-
-    const integration = integrationRaw as unknown as Integration | null
-    if (!integration) {
-      return NextResponse.json(
-        { error: 'Aucune intégration Microsoft OneDrive active. Connectez votre compte.' },
-        { status: 404 }
-      )
+    // 1. Obtenir le token OneDrive (SharePoint)
+    let accessToken: string
+    let integrationId: string
+    try {
+      const result = await getAccessTokenForPurpose('onedrive')
+      accessToken = result.token
+      integrationId = result.integrationId
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 404 })
     }
 
-    // 2. Récupère access token valide
-    const accessToken = await getValidAccessToken(integration.id)
-    const meta = (integration.metadata as any) || {}
+    // 2. Lire la config SharePoint depuis metadata
+    const { data: integrationRow } = await supabase.from('integrations').select('metadata').eq('id', integrationId).single()
+    const meta = ((integrationRow as any)?.metadata?.onedrive) || {}
+    const driveId = meta.sharepoint_drive_id
+    const folderId = meta.sharepoint_folder_id
+    const folderName = meta.sharepoint_folder_name || DEFAULT_FOLDER_NAME
 
-    // 3. Lit le dossier configuré
-    const folderId = meta.onedrive_folder_id || null
-    const folderName = meta.onedrive_folder_name || DEFAULT_FOLDER_NAME
-
-    if (!folderId) {
+    if (!driveId || !folderId) {
       return NextResponse.json(
-        {
-          error: `Aucun dossier OneDrive configuré.`,
-          hint: `Configurez un dossier dans les intégrations (ex: "${DEFAULT_FOLDER_NAME}").`,
-        },
+        { error: 'Aucun dossier SharePoint configuré. Configurez dans Intégrations.' },
         { status: 400 }
       )
     }
 
-    // 4. Liste les fichiers CV dans ce dossier
+    // 3. Liste les fichiers CV dans le dossier SharePoint (récursif avec sous-dossiers)
     let fichiers: any[] = []
     try {
-      fichiers = await listerFichiersCVs(accessToken, folderId)
+      const listFiles = async (parentId: string): Promise<any[]> => {
+        const data = await callGraph(accessToken, `/drives/${driveId}/items/${parentId}/children?$select=name,id,file,size,parentReference&$top=200`)
+        const items = data.value || []
+        let results: any[] = []
+        for (const item of items) {
+          if (item.file) {
+            // C'est un fichier — vérifier si c'est un CV (PDF, DOCX, image)
+            const ext = item.name.split('.').pop()?.toLowerCase()
+            if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
+              results.push(item)
+            }
+          } else if (item.folder) {
+            // C'est un sous-dossier — recurse (max 1 niveau)
+            const subItems = await callGraph(accessToken, `/drives/${driveId}/items/${item.id}/children?$select=name,id,file,size&$top=100`)
+            for (const sub of (subItems.value || [])) {
+              if (sub.file) {
+                const ext = sub.name.split('.').pop()?.toLowerCase()
+                if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
+                  results.push(sub)
+                }
+              }
+            }
+          }
+        }
+        return results
+      }
+      fichiers = await listFiles(folderId)
     } catch (err) {
       return NextResponse.json(
-        { error: `Impossible de lister les fichiers: ${err instanceof Error ? err.message : 'Erreur'}` },
+        { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },
         { status: 500 }
       )
     }
@@ -114,7 +128,12 @@ export async function POST() {
         }
 
         // c. Télécharge le fichier
-        const buffer = await telechargerFichier(accessToken, fichier.driveId, fichier.id)
+        // Télécharger via SharePoint Graph API
+        const dlRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${fichier.id}/content`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        if (!dlRes.ok) { errors++; continue }
+        const buffer = Buffer.from(await dlRes.arrayBuffer())
         const filename = fichier.name
         const ext = filename.toLowerCase().split('.').pop() || ''
         const mimeType = ext === 'pdf'
@@ -158,7 +177,7 @@ export async function POST() {
             // Enregistre comme doublon dans onedrive_fichiers
             try {
               await (supabase as any).from('onedrive_fichiers').insert({
-                integration_id: integration.id,
+                integration_id: integrationId,
                 onedrive_item_id: fichier.id,
                 nom_fichier: filename,
                 traite: true,
@@ -223,7 +242,7 @@ export async function POST() {
         // i. Insert dans onedrive_fichiers
         try {
           await (supabase as any).from('onedrive_fichiers').insert({
-            integration_id: integration.id,
+            integration_id: integrationId,
             onedrive_item_id: fichier.id,
             nom_fichier: filename,
             traite: true,
@@ -246,7 +265,7 @@ export async function POST() {
         // Enregistre l'erreur dans onedrive_fichiers
         try {
           await (supabase as any).from('onedrive_fichiers').insert({
-            integration_id: integration.id,
+            integration_id: integrationId,
             onedrive_item_id: fichier.id,
             nom_fichier: fichier.name,
             traite: false,
@@ -266,7 +285,7 @@ export async function POST() {
         },
         updated_at: new Date().toISOString(),
       })
-      .eq('id', integration.id)
+      .eq('id', integrationId)
 
     // 7. Retourne les stats
     const result = {
