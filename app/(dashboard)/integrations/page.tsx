@@ -352,6 +352,8 @@ function IntegrationsContent() {
   const emails        = emailsData?.emails || []
   const emailsTotal   = emailsData?.total ?? emails.length
   const emailsWithCV  = emailsData?.with_cv ?? emails.filter((e: any) => e.candidat_id).length
+  const emailsDuplicates = emails.filter((e: any) => e.erreur?.startsWith('Doublon')).length
+  const emailsSansCV = emailsTotal - emailsWithCV - emailsDuplicates
   const configuredFolder = foldersData?.configured || outlookMeta?.email_folder_name || 'CV à traiter'
   const lastSync      = outlookMeta?.last_sync ? new Date(outlookMeta.last_sync) : null
   const autoSyncEnabled = outlookMeta?.auto_sync !== false // true par défaut
@@ -646,18 +648,22 @@ function IntegrationsContent() {
                 </div>
 
                 {/* Stats */}
-                <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{outlookSyncing ? emailsTotal + outlookProgress.total : emailsTotal}</p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
+                <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 14px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 24, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{outlookSyncing ? emailsTotal + outlookProgress.total : emailsTotal}</p>
+                    <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
                   </div>
-                  <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{outlookSyncing ? emailsWithCV + outlookProgress.created : emailsWithCV}</p>
-                    <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                  <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 14px', border: '1.5px solid #BBF7D0' }}>
+                    <p style={{ fontSize: 24, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{outlookSyncing ? emailsWithCV + outlookProgress.created : emailsWithCV}</p>
+                    <p style={{ fontSize: 10, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                   </div>
-                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{outlookSyncing ? (emailsTotal - emailsWithCV) + outlookProgress.duplicates + outlookProgress.errors : emailsTotal - emailsWithCV}</p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
+                  <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 14px', border: '1.5px solid #FDE68A' }}>
+                    <p style={{ fontSize: 24, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>{outlookSyncing ? emailsDuplicates + outlookProgress.duplicates : emailsDuplicates}</p>
+                    <p style={{ fontSize: 10, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Doublons</p>
+                  </div>
+                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 14px', border: '1.5px solid var(--border)' }}>
+                    <p style={{ fontSize: 24, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{outlookSyncing ? emailsSansCV + outlookProgress.errors : emailsSansCV}</p>
+                    <p style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV</p>
                   </div>
                 </div>
 
