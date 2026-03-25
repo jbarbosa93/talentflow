@@ -44,13 +44,15 @@ function IntegrationsContent() {
         totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
         setOutlookProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
 
+        // Rafraîchir les stats après chaque batch
+        queryClient.invalidateQueries({ queryKey: ['integrations'] })
+
         // Si aucun nouveau traité dans ce batch, on a fini
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
           toast.success(`✅ Sync Outlook terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
           break
         }
 
-        // Petit délai entre batches
         await new Promise(r => setTimeout(r, 1000))
       } catch {
         toast.error('Erreur réseau — sync arrêtée')
@@ -87,6 +89,9 @@ function IntegrationsContent() {
         totalCreated += data.created?.length || 0
         totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
         setOnedriveProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
+
+        // Rafraîchir les stats après chaque batch
+        queryClient.invalidateQueries({ queryKey: ['integrations'] })
 
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
           toast.success(`✅ Sync OneDrive terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
