@@ -15,8 +15,9 @@ function getRedirectUri() {
   return `${url}/api/microsoft/callback`
 }
 
-// Permissions minimales pour la lecture des emails/CVs et fichiers OneDrive — évite l'obligation de consentement admin
-const SCOPES = 'Mail.Read Mail.Send Files.Read offline_access User.Read'
+// Utiliser .default pour récupérer les permissions déjà consenties par l'admin
+// Cela évite le blocage "Approbation administrateur requise" pour les apps non vérifiées
+const SCOPES = 'https://graph.microsoft.com/.default offline_access'
 
 export function getMicrosoftAuthUrl(): string {
   const params = new URLSearchParams({
