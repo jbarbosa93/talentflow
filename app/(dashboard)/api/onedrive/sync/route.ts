@@ -360,7 +360,7 @@ export async function GET() {
       .from('onedrive_fichiers')
       .select('*, candidats(nom, prenom)')
       .order('traite_le', { ascending: false })
-      .limit(30)
+      .limit(500)
 
     if (error) {
       const msg = error.message || ''
