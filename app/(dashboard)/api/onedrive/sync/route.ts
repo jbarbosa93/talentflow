@@ -9,7 +9,7 @@ import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const DEFAULT_FOLDER_NAME = 'CVs TalentFlow'
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
@@ -86,7 +86,7 @@ export async function POST() {
     const created: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 3 par sync — chaque prend ~15s)
-    const MAX_NEW = 3 // 3 CVs par batch
+    const MAX_NEW = 10 // 10 CVs par batch (Vercel Pro)
     for (const fichier of fichiers) {
       if (processed + errors >= MAX_NEW) break
       try {

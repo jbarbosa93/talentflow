@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const LIST_COLUMNS = [
   'id', 'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',

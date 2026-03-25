@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Tous les champs utiles pour la liste (excl. cv_texte_brut qui peut peser plusieurs MB)
 const LIST_COLUMNS = [

@@ -251,11 +251,15 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
     let lastSuccessCandidat: any = null
 
-    // ── Pass 1 : traiter tous les fichiers ──
-    for (const idx of pendingIndices) {
+    // ── Pass 1 : traiter tous les fichiers (5 en parallèle) ──
+    const PARALLEL = 5
+    for (let i = 0; i < pendingIndices.length; i += PARALLEL) {
       if (cancelledRef.current) break
-      const result = await processOneFile(idx)
-      if (result.candidat) lastSuccessCandidat = result.candidat
+      const chunk = pendingIndices.slice(i, i + PARALLEL)
+      const results = await Promise.all(chunk.map(idx => processOneFile(idx)))
+      for (const result of results) {
+        if (result.candidat) lastSuccessCandidat = result.candidat
+      }
     }
 
     // ── Pass 2 : retry les documents non-CV qui n'avaient pas trouvé de candidat ──

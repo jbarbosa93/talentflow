@@ -10,7 +10,7 @@ import type { Integration } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const CV_EXTENSIONS = ['pdf', 'docx', 'doc']
 const DEFAULT_FOLDER_NAME = 'CV à traiter'
@@ -117,7 +117,7 @@ export async function POST(request?: Request) {
     // Récupérer les emails page par page, filtrer les non-traités en mémoire
     let allMessages: any[] = []
     let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
-    const MAX_NEW_TO_PROCESS = 3
+    const MAX_NEW_TO_PROCESS = 10
     let pagesChecked = 0
     const MAX_PAGES = 10 // 10 pages × 50 = 500 emails scannés
 

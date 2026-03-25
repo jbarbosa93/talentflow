@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Mots-clés typiques d'un CV / curriculum vitae
 const CV_KEYWORDS = [

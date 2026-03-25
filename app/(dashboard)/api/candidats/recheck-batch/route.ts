@@ -3,10 +3,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { analyserCVDepuisPDF, analyserCV } from '@/lib/claude'
 // after() supprimé — le frontend pilote les batches
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Nombre de candidats traités par batch
-const BATCH_SIZE = 3
+const BATCH_SIZE = 5
 
 // Comparer ancien vs nouveau et retourner les diffs significatifs
 function computeDiffs(old_: any, new_: any): { field: string; old: any; new_val: any }[] {

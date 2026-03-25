@@ -258,7 +258,7 @@ function IntegrationsContent() {
       queryClient.invalidateQueries({ queryKey: ['integrations'] })
       queryClient.invalidateQueries({ queryKey: ['ms-folders'] })
       setShowFolderPicker(false)
-      toast.success(`Dossier "${data.folder_name}" configuré. La sync se fera 1×/jour automatiquement.`)
+      toast.success(`Dossier "${data.folder_name}" configuré. La sync se fera toutes les 10 min automatiquement.`)
     },
     onError: () => toast.error('Erreur lors de la configuration'),
   })
@@ -606,7 +606,7 @@ function IntegrationsContent() {
                         </p>
                       )}
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic' }}>
-                        Astuce : glissez les emails avec CVs dans ce dossier Outlook et TalentFlow les importera automatiquement 1×/jour automatiquementutes.
+                        Astuce : glissez les emails avec CVs dans ce dossier Outlook et TalentFlow les importera automatiquement toutes les 10 min.
                       </p>
                     </div>
                   )}
@@ -634,7 +634,7 @@ function IntegrationsContent() {
                       }}
                     >
                       {autoSyncEnabled ? <Zap size={11} /> : <ZapOff size={11} />}
-                      Sync auto {autoSyncEnabled ? '1×/jour à 1h00' : 'désactivée'}
+                      Sync auto {autoSyncEnabled ? 'toutes les 10 min' : 'désactivée'}
                     </button>
                     {lastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -955,7 +955,7 @@ function IntegrationsContent() {
                       }}
                     >
                       {onedriveAutoSync ? <Zap size={11} /> : <ZapOff size={11} />}
-                      Sync auto {onedriveAutoSync ? '1x/jour à 1h00' : 'désactivée'}
+                      Sync auto {onedriveAutoSync ? 'toutes les 10 min' : 'désactivée'}
                     </button>
                     {onedriveLastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>

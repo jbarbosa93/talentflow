@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // POST : Détermine le genre (homme/femme) de chaque candidat à partir du prénom
 // Traite max 500 candidats par appel (pour tenir dans 60s Vercel)

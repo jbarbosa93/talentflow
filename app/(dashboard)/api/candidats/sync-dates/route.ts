@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // POST : Met à jour created_at de chaque candidat selon la date dans le nom du fichier CV
 // Pagination Supabase + updates parallèles par batch de 50 pour tenir dans les 60s

@@ -11,7 +11,7 @@ import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/cl
 import type { CandidatInsert } from '@/types/database'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const FORMATS_IMAGES = ['jpg', 'jpeg', 'png']
 

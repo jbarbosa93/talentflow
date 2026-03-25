@@ -12,7 +12,7 @@ import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
-export const maxDuration = 60          // 60s max (Vercel Hobby)
+export const maxDuration = 300         // 300s max (Vercel Pro)
 export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
 // ─── Timeout utilitaire ───────────────────────────────────────────────────────
