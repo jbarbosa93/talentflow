@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle,
   Plug, Clock, User, ExternalLink, Loader2, FolderOpen,
-  ChevronDown, Zap, ZapOff, CloudUpload, FileText,
+  ChevronDown, ChevronUp, Zap, ZapOff, CloudUpload, FileText,
 } from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
@@ -17,6 +17,8 @@ function IntegrationsContent() {
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
+  const [showAllEmails, setShowAllEmails] = useState(false)
+  const [showAllOnedriveFiles, setShowAllOnedriveFiles] = useState(false)
 
   // Boucle auto sync Outlook
   const [outlookSyncing, setOutlookSyncing] = useState(false)
@@ -604,6 +606,63 @@ function IntegrationsContent() {
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
                   </div>
                 </div>
+
+                {/* Historique emails Outlook */}
+                {emails.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)' }}>
+                        Derniers emails importés
+                      </h4>
+                      {emails.length > 5 && (
+                        <button
+                          onClick={() => setShowAllEmails(!showAllEmails)}
+                          style={{
+                            fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'none',
+                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {showAllEmails ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          {showAllEmails ? 'Voir moins' : 'Voir plus'}
+                        </button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {emails.slice(0, showAllEmails ? 20 : 5).map((email: any) => (
+                        <div key={email.id} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                          padding: '8px 12px', borderRadius: 8,
+                          background: 'var(--background)', border: '1.5px solid var(--border)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                            <Mail size={13} style={{ color: '#0078D4', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {email.sujet || '—'}
+                            </span>
+                            <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
+                              <Clock size={10} />
+                              {email.recu_le ? new Date(email.recu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}
+                            </span>
+                          </div>
+                          {email.candidat_id ? (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46', flexShrink: 0 }}>
+                              {email.candidats?.prenom} {email.candidats?.nom}
+                            </span>
+                          ) : email.doublon ? (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A', flexShrink: 0 }}>
+                              Doublon
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)', flexShrink: 0 }}>
+                              Sans CV
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -668,39 +727,6 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
             </div>
           )}
 
-          {/* ── Guide workflow email → TalentFlow ── */}
-          {isOutlookConnected && (
-            <div className="neo-card" style={{ padding: 20, marginBottom: 16, background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '3px 3px 0 #FDE68A' }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
-                <div>
-                  <h3 style={{ fontSize: 13, fontWeight: 800, color: '#92400E', marginBottom: 8 }}>
-                    Comment ça marche — Import automatique par email
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {[
-                      `Vous recevez un email avec un CV en pièce jointe`,
-                      `Glissez cet email dans votre dossier Outlook "${configuredFolder}"`,
-                      `TalentFlow détecte le nouvel email et importe le CV (1×/jour à 1h00 ou cliquez Synchroniser)`,
-                      `Le candidat apparaît dans "À traiter" avec la source E-MAIL`,
-                      `Vérifiez et validez le candidat pour l'intégrer dans votre base active`,
-                    ].map((step, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                          background: '#F59E0B', color: '#fff',
-                          fontSize: 10, fontWeight: 800,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          marginTop: 1,
-                        }}>{i + 1}</div>
-                        <p style={{ fontSize: 12, color: '#78350F', lineHeight: 1.5 }}>{step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ── Microsoft OneDrive Card ── */}
           <div className="neo-card" style={{
@@ -914,17 +940,16 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                       onClick={() => toggleOneDriveAutoSyncMutation.mutate({ autoSync: onedriveAutoSync })}
                       disabled={toggleOneDriveAutoSyncMutation.isPending}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '5px 10px', borderRadius: 8,
-                        background: onedriveAutoSync ? '#EFF6FF' : 'var(--surface)',
-                        border: `1.5px solid ${onedriveAutoSync ? '#0078D4' : 'var(--border)'}`,
-                        fontSize: 11, fontWeight: 700,
-                        color: onedriveAutoSync ? '#1D4ED8' : 'var(--muted)',
-                        cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 10px', borderRadius: 100, cursor: 'pointer',
+                        border: `1.5px solid ${onedriveAutoSync ? '#BBF7D0' : '#E5E7EB'}`,
+                        background: onedriveAutoSync ? '#F0FDF4' : 'var(--background)',
+                        color: onedriveAutoSync ? '#15803D' : 'var(--muted)',
+                        fontWeight: 700, fontFamily: 'var(--font-body)',
                       }}
                     >
                       {onedriveAutoSync ? <Zap size={11} /> : <ZapOff size={11} />}
-                      Sync automatique {onedriveAutoSync ? 'activée' : 'désactivée'}
+                      Sync auto {onedriveAutoSync ? '1x/jour à 1h00' : 'désactivée'}
                     </button>
                     {onedriveLastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -968,11 +993,26 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                 {/* Historique fichiers OneDrive */}
                 {onedriveFichiers.length > 0 && (
                   <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
-                      Derniers fichiers importés
-                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)' }}>
+                        Derniers fichiers importés
+                      </h4>
+                      {onedriveFichiers.length > 5 && (
+                        <button
+                          onClick={() => setShowAllOnedriveFiles(!showAllOnedriveFiles)}
+                          style={{
+                            fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'none',
+                            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                            fontFamily: 'var(--font-body)',
+                          }}
+                        >
+                          {showAllOnedriveFiles ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          {showAllOnedriveFiles ? 'Voir moins' : 'Voir plus'}
+                        </button>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {onedriveFichiers.slice(0, 5).map((f: any) => (
+                      {onedriveFichiers.slice(0, showAllOnedriveFiles ? 20 : 5).map((f: any) => (
                         <div key={f.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
@@ -1050,51 +1090,6 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
             </div>
           </div>
 
-          {/* ── Historique emails ── */}
-          {isOutlookConnected && emails.length > 0 && (
-            <div className="neo-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)' }}>Historique des emails analysés</h3>
-                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{emails.length} emails</span>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1.5px solid var(--border)', background: 'var(--background)' }}>
-                    {['Expéditeur', 'Sujet', 'Reçu le', 'Résultat'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {emails.slice(0, 20).map((email: any) => (
-                    <tr key={email.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--foreground)', fontWeight: 600 }}>{email.expediteur || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--muted)', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{email.sujet || '—'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--muted)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <Clock size={11} />
-                          {email.recu_le ? new Date(email.recu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 16px' }}>
-                        {email.candidat_id ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
-                            {email.candidats?.prenom} {email.candidats?.nom}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)' }}>
-                            Pas de CV
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </>
       )}
 
