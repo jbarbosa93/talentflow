@@ -61,8 +61,9 @@ function IntegrationsContent() {
         queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
-        // Si aucun nouveau traité dans ce batch, on a fini
-        if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
+        // Continuer tant qu'il y a eu de l'activité (created, doublons, ou erreurs)
+        const batchActivity = (data.created?.length || 0) + (data.duplicates || 0) + (data.errors || 0)
+        if (batchActivity === 0) {
           break
         }
 
@@ -137,7 +138,8 @@ function IntegrationsContent() {
         queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
-        if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
+        const batchActivity2 = (data.created?.length || 0) + (data.duplicates || 0) + (data.errors || 0)
+        if (batchActivity2 === 0) {
           break
         }
 
