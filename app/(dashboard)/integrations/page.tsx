@@ -22,9 +22,11 @@ function IntegrationsContent() {
   const [outlookSyncing, setOutlookSyncing] = useState(false)
   const [outlookProgress, setOutlookProgress] = useState({ total: 0, created: 0, batch: 0 })
   const outlookStopRef = useRef(false)
+  const [outlookStopping, setOutlookStopping] = useState(false)
 
   const runOutlookSyncLoop = useCallback(async () => {
     setOutlookSyncing(true)
+    setOutlookStopping(false)
     outlookStopRef.current = false
     let totalCreated = 0
     let totalProcessed = 0
@@ -46,6 +48,8 @@ function IntegrationsContent() {
 
         // Rafraîchir les stats après chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
+        queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
+        queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
         // Si aucun nouveau traité dans ce batch, on a fini
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
@@ -68,6 +72,7 @@ function IntegrationsContent() {
   const [onedriveSyncing, setOnedriveSyncing] = useState(false)
   const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, batch: 0 })
   const onedriveStopRef = useRef(false)
+  const [onedriveStopping, setOnedriveStopping] = useState(false)
 
   const runOneDriveSyncLoop = useCallback(async () => {
     setOnedriveSyncing(true)
@@ -92,6 +97,8 @@ function IntegrationsContent() {
 
         // Rafraîchir les stats après chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
+        queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
+        queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
           toast.success(`✅ Sync OneDrive terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
@@ -153,7 +160,7 @@ function IntegrationsContent() {
   const { data: emailsData } = useQuery({
     queryKey: ['emails-recus'],
     queryFn: async () => {
-      const res = await fetch('/api/microsoft/sync')
+      const res = await fetch('/api/microsoft/sync?limit=500')
       return res.json()
     },
     staleTime: 30_000,
@@ -286,7 +293,8 @@ function IntegrationsContent() {
 
   // Outlook derived values
   const emails        = emailsData?.emails || []
-  const importedEmails = emails.filter((e: any) => e.candidat_id)
+  const emailsTotal   = emailsData?.total ?? emails.length
+  const emailsWithCV  = emailsData?.with_cv ?? emails.filter((e: any) => e.candidat_id).length
   const configuredFolder = foldersData?.configured || outlookMeta?.email_folder_name || 'CV à traiter'
   const lastSync      = outlookMeta?.last_sync ? new Date(outlookMeta.last_sync) : null
   const autoSyncEnabled = outlookMeta?.auto_sync !== false // true par défaut
@@ -554,10 +562,29 @@ function IntegrationsContent() {
 
                   {/* Infos sync */}
                   <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Zap size={11} />
-                      Sync automatique 1×/jour à 1h00
-                    </span>
+                    <button
+                      onClick={async () => {
+                        const newVal = !autoSyncEnabled
+                        await fetch('/api/integrations', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ id: outlookIntegration?.id, metadata: { ...outlookMeta, auto_sync: newVal } }),
+                        })
+                        queryClient.invalidateQueries({ queryKey: ['integrations'] })
+                        toast.success(newVal ? 'Sync auto activée' : 'Sync auto désactivée')
+                      }}
+                      style={{
+                        fontSize: 11, display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '4px 10px', borderRadius: 100, cursor: 'pointer',
+                        border: `1.5px solid ${autoSyncEnabled ? '#BBF7D0' : '#E5E7EB'}`,
+                        background: autoSyncEnabled ? '#F0FDF4' : 'var(--background)',
+                        color: autoSyncEnabled ? '#15803D' : 'var(--muted)',
+                        fontWeight: 700, fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      {autoSyncEnabled ? <Zap size={11} /> : <ZapOff size={11} />}
+                      Sync auto {autoSyncEnabled ? '1×/jour à 1h00' : 'désactivée'}
+                    </button>
                     {lastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={11} />
@@ -570,15 +597,15 @@ function IntegrationsContent() {
                 {/* Stats */}
                 <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emails.length}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emailsTotal}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
                   </div>
                   <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{importedEmails.length}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{emailsWithCV}</p>
                     <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                   </div>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emails.length - importedEmails.length}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emailsTotal - emailsWithCV}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 // app/api/microsoft/sync/route.ts
 // Synchronise les emails depuis un dossier Outlook ciblé → crée les candidats
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidAccessToken, getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
@@ -358,12 +358,15 @@ export async function POST(request?: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
+  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '500')
+  const { count: total } = await supabase.from('emails_recus').select('id', { count: 'exact', head: true })
+  const { count: withCV } = await supabase.from('emails_recus').select('id', { count: 'exact', head: true }).not('candidat_id', 'is', null)
   const { data } = await supabase
     .from('emails_recus')
     .select('*, candidats(nom, prenom)')
     .order('recu_le', { ascending: false })
-    .limit(30)
-  return NextResponse.json({ emails: data || [] })
+    .limit(limit)
+  return NextResponse.json({ emails: data || [], total: total || 0, with_cv: withCV || 0 })
 }
