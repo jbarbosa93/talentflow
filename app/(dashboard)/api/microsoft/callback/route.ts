@@ -20,13 +20,13 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=${encodeURIComponent(searchParams.get('error_description') || error)}`
+      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?error=${encodeURIComponent(searchParams.get('error_description') || error)}`
     )
   }
 
   if (!code) {
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=Code+manquant`
+      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?error=Code+manquant`
     )
   }
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (tokens.error) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=${encodeURIComponent(tokens.error_description || tokens.error)}`
+        `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?error=${encodeURIComponent(tokens.error_description || tokens.error)}`
       )
     }
 
@@ -77,12 +77,12 @@ export async function GET(request: NextRequest) {
     await logActivity({ action: actionLabel as any, user_email: email })
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=${integrationType}`
+      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?success=${integrationType}`
     )
   } catch (err) {
     console.error('[MS Callback] Error:', err)
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=${encodeURIComponent('Erreur lors de la connexion')}`
+      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?error=${encodeURIComponent('Erreur lors de la connexion')}`
     )
   }
 }

@@ -21,11 +21,15 @@ function IntegrationsContent() {
   useEffect(() => {
     const success = searchParams.get('success')
     const error   = searchParams.get('error')
-    if (success === 'microsoft_outlook') toast.success('Compte Microsoft Outlook connecté avec succès !')
-    if (success === 'microsoft_onedrive') toast.success('Compte Microsoft OneDrive connecté avec succès !')
-    if (success === 'microsoft') toast.success('Compte Microsoft connecté avec succès !')
+    if (success) {
+      // Invalider le cache pour recharger les intégrations
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      if (success === 'microsoft_outlook') toast.success('Compte Microsoft Outlook connecté avec succès !')
+      else if (success === 'microsoft_onedrive') toast.success('Compte Microsoft OneDrive connecté avec succès !')
+      else toast.success('Compte Microsoft connecté avec succès !')
+    }
     if (error) toast.error(`Erreur connexion : ${decodeURIComponent(error)}`)
-  }, [searchParams])
+  }, [searchParams, queryClient])
 
   const { data: integrationsData, isLoading } = useQuery({
     queryKey: ['integrations'],
