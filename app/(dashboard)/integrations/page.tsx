@@ -464,7 +464,7 @@ function IntegrationsContent() {
                   <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Zap size={11} />
-                      Sync automatique toutes les 10 min
+                      Sync automatique 1×/jour à 8h00
                     </span>
                     {lastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>

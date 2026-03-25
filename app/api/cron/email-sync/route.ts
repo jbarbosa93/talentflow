@@ -94,7 +94,7 @@ export async function GET(request: Request) {
 
     const messages = await callGraph(
       accessToken,
-      `/me/mailFolders/${targetFolderId}/messages?$filter=hasAttachments eq true&$orderby=receivedDateTime desc&$top=50&$select=id,subject,from,receivedDateTime,hasAttachments`
+      `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments`
     )
 
     let processed = 0

@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     await logActivity({ action: actionLabel as any, user_email: email })
 
     return NextResponse.redirect(
-      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?success=${integrationType}`
+      `${(process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost') ? 'https://www.talent-flow.ch' : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')}/integrations?success=microsoft_${purpose}`
     )
   } catch (err) {
     console.error('[MS Callback] Error:', err)
