@@ -100,7 +100,7 @@ function IntegrationsContent() {
       queryClient.invalidateQueries({ queryKey: ['integrations'] })
       queryClient.invalidateQueries({ queryKey: ['ms-folders'] })
       setShowFolderPicker(false)
-      toast.success(`Dossier "${data.folder_name}" configuré. La sync se fera toutes les 10 min.`)
+      toast.success(`Dossier "${data.folder_name}" configuré. La sync se fera 1×/jour automatiquement.`)
     },
     onError: () => toast.error('Erreur lors de la configuration'),
   })
@@ -455,7 +455,7 @@ function IntegrationsContent() {
                         </p>
                       )}
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, fontStyle: 'italic' }}>
-                        Astuce : glissez les emails avec CVs dans ce dossier Outlook et TalentFlow les importera automatiquement toutes les 10 minutes.
+                        Astuce : glissez les emails avec CVs dans ce dossier Outlook et TalentFlow les importera automatiquement 1×/jour automatiquementutes.
                       </p>
                     </div>
                   )}
@@ -558,7 +558,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
           {isOutlookConnected && (
             <div className="neo-card" style={{ padding: 20, marginBottom: 16, background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '3px 3px 0 #FDE68A' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <Mail size={16} style={{ color: '#D97706', flexShrink: 0, marginTop: 2 }} />
+                <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>📋</span>
                 <div>
                   <h3 style={{ fontSize: 13, fontWeight: 800, color: '#92400E', marginBottom: 8 }}>
                     Comment ça marche — Import automatique par email
@@ -567,7 +567,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                     {[
                       `Vous recevez un email avec un CV en pièce jointe`,
                       `Glissez cet email dans votre dossier Outlook "${configuredFolder}"`,
-                      `TalentFlow détecte le nouvel email et importe le CV automatiquement (toutes les 10 min)`,
+                      `TalentFlow détecte le nouvel email et importe le CV (1×/jour à 8h00 ou cliquez Synchroniser)`,
                       `Le candidat apparaît dans "À traiter" avec la source E-MAIL`,
                       `Vérifiez et validez le candidat pour l'intégrer dans votre base active`,
                     ].map((step, i) => (
