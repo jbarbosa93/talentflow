@@ -48,15 +48,29 @@ export async function POST() {
     const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id')
     const doneIds = new Set((alreadyDone || []).map((r: any) => r.onedrive_item_id))
 
-    // 4. Lister les fichiers dans le dossier SharePoint (seulement racine, pas sous-dossiers — rapide)
+    // 4. Lister les fichiers dans le dossier SharePoint (racine + sous-dossiers)
     let fichiers: any[] = []
     try {
-      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,size&$top=200`)
+      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size&$top=200`)
+      const folders: any[] = []
       for (const item of (rootData.value || [])) {
         if (item.file && !doneIds.has(item.id)) {
           const ext = item.name.split('.').pop()?.toLowerCase()
           if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
         }
+        if (item.folder) folders.push(item)
+      }
+      // Scanner les sous-dossiers
+      for (const folder of folders) {
+        try {
+          const subData = await callGraph(accessToken, `/drives/${driveId}/items/${folder.id}/children?$select=name,id,file,size&$top=200`)
+          for (const item of (subData.value || [])) {
+            if (item.file && !doneIds.has(item.id)) {
+              const ext = item.name.split('.').pop()?.toLowerCase()
+              if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
+            }
+          }
+        } catch { /* ignore sub-folder errors */ }
       }
     } catch (err) {
       return NextResponse.json(
@@ -72,7 +86,7 @@ export async function POST() {
     const created: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 3 par sync — chaque prend ~15s)
-    const MAX_NEW = 2 // 2 CVs par batch (~25s chaque avec photo)
+    const MAX_NEW = 3 // 3 CVs par batch
     for (const fichier of fichiers) {
       if (processed + errors >= MAX_NEW) break
       try {

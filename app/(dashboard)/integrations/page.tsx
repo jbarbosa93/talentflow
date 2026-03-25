@@ -21,7 +21,7 @@ function IntegrationsContent() {
 
   // Boucle auto sync Outlook
   const [outlookSyncing, setOutlookSyncing] = useState(false)
-  const [outlookProgress, setOutlookProgress] = useState({ total: 0, created: 0, batch: 0 })
+  const [outlookProgress, setOutlookProgress] = useState({ total: 0, created: 0, duplicates: 0, errors: 0, batch: 0 })
   const outlookStopRef = useRef(false)
   const [outlookStopping, setOutlookStopping] = useState(false)
 
@@ -54,7 +54,7 @@ function IntegrationsContent() {
         totalSkipped += data.skipped || 0
         totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.duplicates || 0)
         if (data.created) allCreatedNames.push(...data.created)
-        setOutlookProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
+        setOutlookProgress({ total: totalProcessed, created: totalCreated, duplicates: totalDuplicates, errors: totalErrors, batch: batchNum })
 
         // Rafraîchir les stats après chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
@@ -99,7 +99,7 @@ function IntegrationsContent() {
 
   // Boucle auto sync OneDrive
   const [onedriveSyncing, setOnedriveSyncing] = useState(false)
-  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, batch: 0 })
+  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, duplicates: 0, errors: 0, batch: 0 })
   const onedriveStopRef = useRef(false)
   const [onedriveStopping, setOnedriveStopping] = useState(false)
 
@@ -131,7 +131,7 @@ function IntegrationsContent() {
         totalSkipped += data.skipped || 0
         totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.duplicates || 0)
         if (data.created) allCreatedNames.push(...data.created)
-        setOnedriveProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
+        setOnedriveProgress({ total: totalProcessed, created: totalCreated, duplicates: totalDuplicates, errors: totalErrors, batch: batchNum })
 
         // Rafraîchir les stats après chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
@@ -648,15 +648,15 @@ function IntegrationsContent() {
                 {/* Stats */}
                 <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{emailsTotal}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{outlookSyncing ? emailsTotal + outlookProgress.total : emailsTotal}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Emails analysés</p>
                   </div>
                   <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{emailsWithCV}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{outlookSyncing ? emailsWithCV + outlookProgress.created : emailsWithCV}</p>
                     <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                   </div>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{emailsTotal - emailsWithCV}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{outlookSyncing ? (emailsTotal - emailsWithCV) + outlookProgress.duplicates + outlookProgress.errors : emailsTotal - emailsWithCV}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Sans CV détecté</p>
                   </div>
                 </div>
@@ -969,16 +969,16 @@ function IntegrationsContent() {
                 {/* Stats OneDrive */}
                 <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveFichiers.length}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? onedriveFichiers.length + onedriveProgress.total : onedriveFichiers.length}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analysés</p>
                   </div>
                   <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveImported.length}</p>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? onedriveImported.length + onedriveProgress.created : onedriveImported.length}</p>
                     <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                   </div>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
                     <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>
-                      {onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length}
+                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length + onedriveProgress.duplicates : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length}
                     </p>
                     <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Doublons</p>
                   </div>
