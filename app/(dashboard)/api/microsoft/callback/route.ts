@@ -47,22 +47,29 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Upsert integration (one per type — microsoft_outlook or microsoft_onedrive)
-    const { error: dbError } = await supabase.from('integrations').upsert({
-      type: integrationType,
-      email,
-      nom_compte: displayName,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      expires_at: expiresAt,
-      actif: true,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'type' })
+    // Chercher si une intégration de ce type existe déjà
+    const { data: existing } = await supabase
+      .from('integrations')
+      .select('id')
+      .eq('type', integrationType)
+      .limit(1)
+      .maybeSingle()
 
-    if (dbError) {
-      console.error('[MS Callback] DB error:', dbError)
-      // Try insert if upsert fails
-      await supabase.from('integrations').insert({
+    if (existing) {
+      // Update l'existante
+      const { error: updateErr } = await supabase.from('integrations').update({
+        email,
+        nom_compte: displayName,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: expiresAt,
+        actif: true,
+        updated_at: new Date().toISOString(),
+      }).eq('id', existing.id)
+      if (updateErr) console.error('[MS Callback] Update error:', updateErr)
+    } else {
+      // Insert nouvelle
+      const { error: insertErr } = await supabase.from('integrations').insert({
         type: integrationType,
         email,
         nom_compte: displayName,
@@ -71,6 +78,7 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt,
         actif: true,
       })
+      if (insertErr) console.error('[MS Callback] Insert error:', insertErr)
     }
 
     const actionLabel = purposeFromState === 'outlook' ? 'microsoft_outlook_connecte' : 'microsoft_onedrive_connecte'
