@@ -45,6 +45,7 @@ function IntegrationsContent() {
         if (!ct.includes('json')) { toast.error('Timeout serveur — batch terminé'); break }
         const data = await res.json()
 
+        if (data.stopped) { break }
         if (data.error) { toast.error(data.error); break }
 
         batchNum++
@@ -122,6 +123,7 @@ function IntegrationsContent() {
         if (!ct.includes('json')) { toast.error('Timeout serveur — batch terminé'); break }
         const data = await res.json()
 
+        if (data.stopped) { break }
         if (data.error) { toast.error(data.error); break }
 
         batchNum++
@@ -491,7 +493,16 @@ function IntegrationsContent() {
                   <>
                     {outlookSyncing ? (
                       <button
-                        onClick={() => { outlookStopRef.current = true }}
+                        onClick={() => {
+                          outlookStopRef.current = true
+                          setOutlookStopping(true)
+                          // Stop background sync too
+                          fetch('/api/integrations', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'microsoft_outlook', metadata_update: { sync_stop_requested: true } }),
+                          })
+                        }}
                         style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
                         ⏹ Stop ({outlookProgress.created} importés, batch {outlookProgress.batch})
@@ -812,7 +823,16 @@ function IntegrationsContent() {
                   <>
                     {onedriveSyncing ? (
                       <button
-                        onClick={() => { onedriveStopRef.current = true }}
+                        onClick={() => {
+                          onedriveStopRef.current = true
+                          setOnedriveStopping(true)
+                          // Stop background sync too
+                          fetch('/api/integrations', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'microsoft_onedrive', metadata_update: { sync_stop_requested: true } }),
+                          })
+                        }}
                         style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
                         ⏹ Stop ({onedriveProgress.created} importés, batch {onedriveProgress.batch})

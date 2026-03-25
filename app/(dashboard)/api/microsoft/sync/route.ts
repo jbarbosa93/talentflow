@@ -2,6 +2,7 @@
 // Synchronise les emails depuis un dossier Outlook ciblé → crée les candidats
 
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidAccessToken, getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
@@ -84,6 +85,14 @@ export async function POST(request?: Request) {
     const integration = integrationRaw as unknown as Integration
     const meta = (integration.metadata as any) || {}
 
+    // Check if sync should stop
+    if (meta.sync_stop_requested) {
+      await supabase.from('integrations').update({
+        metadata: { ...meta, sync_stop_requested: false },
+      }).eq('id', integration.id)
+      return NextResponse.json({ stopped: true, message: 'Sync arrêtée' })
+    }
+
     // Détermine le dossier à surveiller
     const targetFolderName = forceFolderName || meta.email_folder_name || DEFAULT_FOLDER_NAME
     let targetFolderId = forceFolderId || meta.email_folder_id || null
@@ -140,110 +149,191 @@ export async function POST(request?: Request) {
     let duplicates = 0
     const created: string[] = []
 
-    for (const message of allMessages) {
-      // Tous les messages dans allMessages sont déjà filtrés (non traités)
-
-      // Récupère les pièces jointes (sans contentBytes — on télécharge séparément)
-      let attachments: any[] = []
-      try {
-        const attData = await callGraph(
-          accessToken,
-          `/me/messages/${message.id}/attachments?$select=id,name,contentType,size`
-        )
-        attachments = attData.value || []
-      } catch (attErr: any) {
-        console.error(`[Sync] Attachments error for ${message.subject}:`, attErr?.message || attErr)
-        skipped++; continue
-      }
-
-      // Filtrer les CVs par extension
-      const cvAttachments = attachments.filter((att: any) => {
-        const ext = (att.name || '').toLowerCase().split('.').pop()
-        return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024
-      })
-
-      if (cvAttachments.length === 0) {
-        await supabase.from('emails_recus').insert({
-          integration_id: integration.id,
-          microsoft_message_id: message.id,
-          expediteur: message.from?.emailAddress?.address,
-          sujet: message.subject,
-          recu_le: message.receivedDateTime,
-          traite: true,
-          candidat_id: null,
-        })
-        skipped++
-        continue
-      }
-
-      // Traite la première pièce jointe CV trouvée
-      const att = cvAttachments[0]
-      try {
-        // Télécharger le contenu de la pièce jointe (contentBytes peut être null pour les gros fichiers)
-        let buffer: Buffer
-        if (att.contentBytes) {
-          buffer = Buffer.from(att.contentBytes, 'base64')
-        } else {
-          // Télécharger via l'endpoint $value
-          const dlRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${message.id}/attachments/${att.id}/$value`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          )
-          if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
-          buffer = Buffer.from(await dlRes.arrayBuffer())
-        }
-        const filename = att.name || 'cv.pdf'
-        const mimeType = att.contentType || 'application/octet-stream'
-
-        // Extraction texte
-        let texteCV = ''
+    const PARALLEL = 5
+    for (let i = 0; i < allMessages.length; i += PARALLEL) {
+      const chunk = allMessages.slice(i, i + PARALLEL)
+      const results = await Promise.all(chunk.map(async (message): Promise<{ status: 'created' | 'skipped' | 'duplicate' | 'error'; name?: string }> => {
         try {
-          texteCV = await extractTextFromCV(buffer, filename, mimeType)
-        } catch { /* will try vision */ }
+          // Récupère les pièces jointes (sans contentBytes — on télécharge séparément)
+          let attachments: any[] = []
+          try {
+            const attData = await callGraph(
+              accessToken,
+              `/me/messages/${message.id}/attachments?$select=id,name,contentType,size`
+            )
+            attachments = attData.value || []
+          } catch (attErr: any) {
+            console.error(`[Sync] Attachments error for ${message.subject}:`, attErr?.message || attErr)
+            return { status: 'skipped' }
+          }
 
-        const isPDF = filename.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf'
-        const isScanned = !texteCV || texteCV.trim().length < 50
+          // Filtrer les CVs par extension
+          const cvAttachments = attachments.filter((att: any) => {
+            const ext = (att.name || '').toLowerCase().split('.').pop()
+            return CV_EXTENSIONS.includes(ext) && att.size < 10 * 1024 * 1024
+          })
 
-        let analyse: any
-        if (isScanned && isPDF) {
-          analyse = await analyserCVDepuisPDF(buffer)
-        } else if (!isScanned) {
-          analyse = await analyserCV(texteCV)
-        } else {
-          throw new Error('Fichier illisible')
-        }
+          if (cvAttachments.length === 0) {
+            await supabase.from('emails_recus').insert({
+              integration_id: integration.id,
+              microsoft_message_id: message.id,
+              expediteur: message.from?.emailAddress?.address,
+              sujet: message.subject,
+              recu_le: message.receivedDateTime,
+              traite: true,
+              candidat_id: null,
+            })
+            return { status: 'skipped' }
+          }
 
-        // Vérification doublon candidat (email → téléphone → nom+prénom)
-        const senderEmail = message.from?.emailAddress?.address
-        const candidatEmail = analyse.email || senderEmail || null
-        const candidatNom = (analyse.nom || '').trim()
-        const candidatPrenom = (analyse.prenom || '').trim()
-        const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
+          // Traite la première pièce jointe CV trouvée
+          const att = cvAttachments[0]
 
-        let existingCandidat: any = null
+          // Télécharger le contenu de la pièce jointe (contentBytes peut être null pour les gros fichiers)
+          let buffer: Buffer
+          if (att.contentBytes) {
+            buffer = Buffer.from(att.contentBytes, 'base64')
+          } else {
+            // Télécharger via l'endpoint $value
+            const dlRes = await fetch(
+              `https://graph.microsoft.com/v1.0/me/messages/${message.id}/attachments/${att.id}/$value`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            )
+            if (!dlRes.ok) throw new Error(`Download failed: ${dlRes.status}`)
+            buffer = Buffer.from(await dlRes.arrayBuffer())
+          }
+          const filename = att.name || 'cv.pdf'
+          const mimeType = att.contentType || 'application/octet-stream'
 
-        // 1. Par email
-        if (candidatEmail && !existingCandidat) {
-          const { data } = await supabase.from('candidats').select('id, nom, prenom')
-            .ilike('email', candidatEmail).maybeSingle()
-          existingCandidat = data
-        }
+          // Extraction texte
+          let texteCV = ''
+          try {
+            texteCV = await extractTextFromCV(buffer, filename, mimeType)
+          } catch { /* will try vision */ }
 
-        // 2. Par téléphone (derniers 9 chiffres)
-        if (!existingCandidat && candidatTel.length >= 8) {
-          const { data } = await supabase.from('candidats').select('id, nom, prenom')
-            .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
-          existingCandidat = data
-        }
+          const isPDF = filename.toLowerCase().endsWith('.pdf') || mimeType === 'application/pdf'
+          const isScanned = !texteCV || texteCV.trim().length < 50
 
-        // 3. Par nom + prénom exact
-        if (!existingCandidat && candidatNom && candidatPrenom) {
-          const { data } = await supabase.from('candidats').select('id, nom, prenom')
-            .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
-          existingCandidat = data
-        }
+          let analyse: any
+          if (isScanned && isPDF) {
+            analyse = await analyserCVDepuisPDF(buffer)
+          } else if (!isScanned) {
+            analyse = await analyserCV(texteCV)
+          } else {
+            throw new Error('Fichier illisible')
+          }
 
-        if (existingCandidat) {
+          // Vérification doublon candidat (email → téléphone → nom+prénom)
+          const senderEmail = message.from?.emailAddress?.address
+          const candidatEmail = analyse.email || senderEmail || null
+          const candidatNom = (analyse.nom || '').trim()
+          const candidatPrenom = (analyse.prenom || '').trim()
+          const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
+
+          let existingCandidat: any = null
+
+          // 1. Par email
+          if (candidatEmail && !existingCandidat) {
+            const { data } = await supabase.from('candidats').select('id, nom, prenom')
+              .ilike('email', candidatEmail).maybeSingle()
+            existingCandidat = data
+          }
+
+          // 2. Par téléphone (derniers 9 chiffres)
+          if (!existingCandidat && candidatTel.length >= 8) {
+            const { data } = await supabase.from('candidats').select('id, nom, prenom')
+              .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
+            existingCandidat = data
+          }
+
+          // 3. Par nom + prénom exact
+          if (!existingCandidat && candidatNom && candidatPrenom) {
+            const { data } = await supabase.from('candidats').select('id, nom, prenom')
+              .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
+            existingCandidat = data
+          }
+
+          if (existingCandidat) {
+            await supabase.from('emails_recus').insert({
+              integration_id: integration.id,
+              microsoft_message_id: message.id,
+              expediteur: senderEmail,
+              sujet: message.subject,
+              recu_le: message.receivedDateTime,
+              traite: true,
+              candidat_id: existingCandidat.id,
+              erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
+            })
+            return { status: 'duplicate' }
+          }
+
+          // Upload vers Supabase Storage
+          const timestamp = Date.now()
+          const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const { data: storageData } = await supabase.storage
+            .from('cvs')
+            .upload(storageName, buffer, { contentType: mimeType, upsert: false })
+
+          let cvUrl: string | null = null
+          if (storageData?.path) {
+            const { data: urlData } = await supabase.storage
+              .from('cvs')
+              .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+            cvUrl = urlData?.signedUrl || null
+          }
+
+          // Extraction photo du PDF
+          let photoUrl: string | null = null
+          if (isPDF) {
+            try {
+              const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+              const photoPromise = extractPhotoFromPDF(buffer)
+              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+              const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
+              if (photoBuffer) {
+                const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+                const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
+                if (photoData?.path) {
+                  const { data: pUrl } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+                  photoUrl = pUrl?.signedUrl || null
+                }
+              }
+            } catch { /* photo extraction failed — continue without */ }
+          }
+
+          // Crée le candidat avec source E-MAIL et import_status a_traiter
+          const { data: candidat, error: dbError } = await supabase
+            .from('candidats')
+            .insert({
+              nom: candidatNom || 'Candidat',
+              prenom: candidatPrenom || null,
+              email: candidatEmail,
+              telephone: analyse.telephone || null,
+              localisation: analyse.localisation || null,
+              titre_poste: analyse.titre_poste || null,
+              annees_exp: analyse.annees_exp || 0,
+              competences: analyse.competences || [],
+              formation: analyse.formation || null,
+              langues: analyse.langues || null,
+              linkedin: analyse.linkedin || null,
+              experiences: analyse.experiences || null,
+              formations_details: analyse.formations_details || null,
+              cv_url: cvUrl,
+              cv_nom_fichier: filename,
+              photo_url: photoUrl,
+              resume_ia: analyse.resume || null,
+              cv_texte_brut: texteCV.slice(0, 10000),
+              statut_pipeline: 'nouveau',
+              import_status: 'a_traiter',
+              source: 'E-MAIL',
+              tags: [],
+              notes: `Email de: ${senderEmail || 'inconnu'}\nSujet: ${message.subject || '—'}\nDossier: ${targetFolderName}`,
+            })
+            .select()
+            .single()
+
+          if (dbError) throw dbError
+
           await supabase.from('emails_recus').insert({
             integration_id: integration.id,
             microsoft_message_id: message.id,
@@ -251,106 +341,33 @@ export async function POST(request?: Request) {
             sujet: message.subject,
             recu_le: message.receivedDateTime,
             traite: true,
-            candidat_id: existingCandidat.id,
-            erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
+            candidat_id: (candidat as any)?.id || null,
           })
-          duplicates++
-          continue
-        }
 
-        // Upload vers Supabase Storage
-        const timestamp = Date.now()
-        const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-        const { data: storageData } = await supabase.storage
-          .from('cvs')
-          .upload(storageName, buffer, { contentType: mimeType, upsert: false })
+          return { status: 'created', name: `${candidatPrenom} ${candidatNom}`.trim() || 'Candidat' }
 
-        let cvUrl: string | null = null
-        if (storageData?.path) {
-          const { data: urlData } = await supabase.storage
-            .from('cvs')
-            .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
-          cvUrl = urlData?.signedUrl || null
-        }
-
-        // Extraction photo du PDF
-        let photoUrl: string | null = null
-        if (isPDF) {
+        } catch (err) {
+          console.error('[MS Sync] Erreur pièce jointe:', err)
           try {
-            const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-            const photoPromise = extractPhotoFromPDF(buffer)
-            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
-            const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
-            if (photoBuffer) {
-              const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
-              const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
-              if (photoData?.path) {
-                const { data: pUrl } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
-                photoUrl = pUrl?.signedUrl || null
-              }
-            }
-          } catch { /* photo extraction failed — continue without */ }
+            await supabase.from('emails_recus').insert({
+              integration_id: integration.id,
+              microsoft_message_id: message.id,
+              expediteur: message.from?.emailAddress?.address,
+              sujet: message.subject,
+              recu_le: message.receivedDateTime,
+              traite: false,
+            })
+          } catch { /* ignore */ }
+          return { status: 'error' }
         }
+      }))
 
-        // Crée le candidat avec source E-MAIL et import_status a_traiter
-        const { data: candidat, error: dbError } = await supabase
-          .from('candidats')
-          .insert({
-            nom: candidatNom || 'Candidat',
-            prenom: candidatPrenom || null,
-            email: candidatEmail,
-            telephone: analyse.telephone || null,
-            localisation: analyse.localisation || null,
-            titre_poste: analyse.titre_poste || null,
-            annees_exp: analyse.annees_exp || 0,
-            competences: analyse.competences || [],
-            formation: analyse.formation || null,
-            langues: analyse.langues || null,
-            linkedin: analyse.linkedin || null,
-            experiences: analyse.experiences || null,
-            formations_details: analyse.formations_details || null,
-            cv_url: cvUrl,
-            cv_nom_fichier: filename,
-            photo_url: photoUrl,
-            resume_ia: analyse.resume || null,
-            cv_texte_brut: texteCV.slice(0, 10000),
-            statut_pipeline: 'nouveau',
-            import_status: 'a_traiter',
-            source: 'E-MAIL',
-            tags: [],
-            notes: `Email de: ${senderEmail || 'inconnu'}\nSujet: ${message.subject || '—'}\nDossier: ${targetFolderName}`,
-          })
-          .select()
-          .single()
-
-        if (dbError) throw dbError
-
-        await supabase.from('emails_recus').insert({
-          integration_id: integration.id,
-          microsoft_message_id: message.id,
-          expediteur: senderEmail,
-          sujet: message.subject,
-          recu_le: message.receivedDateTime,
-          traite: true,
-          candidat_id: (candidat as any)?.id || null,
-        })
-
-        processed++
-        created.push(`${candidatPrenom} ${candidatNom}`.trim() || 'Candidat')
-
-      } catch (err) {
-        console.error('[MS Sync] Erreur pièce jointe:', err)
-        errors++
-        try {
-          await supabase.from('emails_recus').insert({
-            integration_id: integration.id,
-            microsoft_message_id: message.id,
-            expediteur: message.from?.emailAddress?.address,
-            sujet: message.subject,
-            recu_le: message.receivedDateTime,
-            traite: false,
-          })
-        } catch { /* ignore */ }
+      // Accumulate results
+      for (const r of results) {
+        if (r.status === 'created') { processed++; if (r.name) created.push(r.name) }
+        else if (r.status === 'skipped') skipped++
+        else if (r.status === 'duplicate') duplicates++
+        else if (r.status === 'error') errors++
       }
     }
 
@@ -378,7 +395,22 @@ export async function POST(request?: Request) {
 
     console.log(`[MS Sync] Dossier "${targetFolderName}": ${processed} créés, ${duplicates} doublons, ${skipped} ignorés, ${errors} erreurs`)
     await logActivity({ action: 'microsoft_sync', details: result })
-    return NextResponse.json(result)
+
+    const hasMore = allMessages.length >= MAX_NEW_TO_PROCESS
+    const response = NextResponse.json(result)
+
+    if (hasMore) {
+      after(async () => {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'
+          await fetch(`${baseUrl}/api/microsoft/sync`, { method: 'POST' })
+        } catch (err) {
+          console.error('[Sync] Background continuation error:', err)
+        }
+      })
+    }
+
+    return response
 
   } catch (error) {
     console.error('[MS Sync] Erreur fatale:', error)
