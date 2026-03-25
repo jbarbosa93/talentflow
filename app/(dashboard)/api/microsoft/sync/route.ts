@@ -111,16 +111,32 @@ export async function POST(request?: Request) {
 
     // Récupère les emails du dossier cible avec pagination (max 200 par page, max 5 pages = 1000 emails)
     let allMessages: any[] = []
-    let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
-    let pageCount = 0
-    const MAX_PAGES = 5
-    const MAX_NEW_TO_PROCESS = 10 // Traiter max 10 nouveaux CVs par sync (timeout 60s)
+    // Récupérer les emails NON encore traités en vérifiant par batch
+    // On récupère page par page et on s'arrête dès qu'on a assez de nouveaux
+    let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=20&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
+    const MAX_NEW_TO_PROCESS = 5 // 5 CVs par sync max (chaque prend ~10s avec Claude)
+    let newFound = 0
 
-    while (nextLink && pageCount < MAX_PAGES) {
+    while (nextLink && newFound < MAX_NEW_TO_PROCESS) {
       const page = await callGraph(accessToken, nextLink)
-      allMessages = allMessages.concat(page.value || [])
-      nextLink = page['@odata.nextLink'] ? page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '') : null
-      pageCount++
+      const pageMessages = page.value || []
+
+      for (const msg of pageMessages) {
+        // Vérifier si déjà traité AVANT de l'ajouter
+        const { data: ex } = await supabase.from('emails_recus').select('id').eq('microsoft_message_id', msg.id).maybeSingle()
+        if (!ex) {
+          allMessages.push(msg)
+          newFound++
+          if (newFound >= MAX_NEW_TO_PROCESS) break
+        }
+      }
+
+      // Si tous les messages de cette page étaient déjà traités, continuer à la page suivante
+      if (newFound < MAX_NEW_TO_PROCESS && page['@odata.nextLink']) {
+        nextLink = page['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '')
+      } else {
+        nextLink = null
+      }
     }
 
     let processed = 0
@@ -130,20 +146,7 @@ export async function POST(request?: Request) {
     const created: string[] = []
 
     for (const message of allMessages) {
-      // Déjà traité ?
-      const { data: existing } = await supabase
-        .from('emails_recus')
-        .select('id')
-        .eq('microsoft_message_id', message.id)
-        .maybeSingle()
-
-      if (existing) { skipped++; continue }
-
-      // Limiter le nombre de nouveaux CVs traités par sync (timeout 60s)
-      if (processed + errors >= MAX_NEW_TO_PROCESS) {
-        skipped++
-        continue
-      }
+      // Tous les messages dans allMessages sont déjà filtrés (non traités)
 
       // Récupère les pièces jointes (sans contentBytes — on télécharge séparément)
       let attachments: any[] = []

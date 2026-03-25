@@ -46,33 +46,19 @@ export async function POST() {
     // 3. Liste les fichiers CV dans le dossier SharePoint (récursif avec sous-dossiers)
     let fichiers: any[] = []
     try {
-      const listFiles = async (parentId: string): Promise<any[]> => {
-        const data = await callGraph(accessToken, `/drives/${driveId}/items/${parentId}/children?$select=name,id,file,size,parentReference&$top=200`)
-        const items = data.value || []
-        let results: any[] = []
-        for (const item of items) {
-          if (item.file) {
-            // C'est un fichier — vérifier si c'est un CV (PDF, DOCX, image)
-            const ext = item.name.split('.').pop()?.toLowerCase()
-            if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
-              results.push(item)
-            }
-          } else if (item.folder) {
-            // C'est un sous-dossier — recurse (max 1 niveau)
-            const subItems = await callGraph(accessToken, `/drives/${driveId}/items/${item.id}/children?$select=name,id,file,size&$top=100`)
-            for (const sub of (subItems.value || [])) {
-              if (sub.file) {
-                const ext = sub.name.split('.').pop()?.toLowerCase()
-                if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
-                  results.push(sub)
-                }
-              }
-            }
+      // Lister seulement les fichiers à la racine du dossier (pas les sous-dossiers pour éviter timeout)
+      const data = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,size&$top=50`)
+      const items = data.value || []
+      for (const item of items) {
+        if (item.file) {
+          const ext = item.name.split('.').pop()?.toLowerCase()
+          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png'].includes(ext || '')) {
+            fichiers.push(item)
           }
         }
-        return results
       }
-      fichiers = await listFiles(folderId)
+      // Limiter à 10 nouveaux fichiers par sync
+      const MAX_FILES = 10
     } catch (err) {
       return NextResponse.json(
         { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },
