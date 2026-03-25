@@ -896,18 +896,30 @@ export default function CandidatDetailPage() {
                       {candidat.prenom} {candidat.nom}
                     </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
-                    {candidat.rating > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'center', gap: 1, marginTop: 4 }}>
-                        {[1, 2, 3, 4, 5].map(star => (
+                    {/* Étoiles cliquables — toujours visibles */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginTop: 4 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => {
+                            const newRating = candidat.rating === star ? 0 : star
+                            const supabase = createClient()
+                            supabase.from('candidats').update({ rating: newRating }).eq('id', candidat.id).then(() => {})
+                            setCandidat((prev: any) => prev ? { ...prev, rating: newRating } : prev)
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}
+                          title={`${star} étoile${star > 1 ? 's' : ''}`}
+                        >
                           <Star
-                            key={star}
-                            size={14}
+                            size={16}
                             color="#EAB308"
-                            fill={star <= candidat.rating ? '#EAB308' : 'none'}
+                            fill={star <= (candidat.rating || 0) ? '#EAB308' : 'none'}
                           />
-                        ))}
-                      </div>
-                    )}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Pastilles métier déplacées sous la ville */}
                   </>
                 )}
               </div>
@@ -933,6 +945,7 @@ export default function CandidatDetailPage() {
                   <input type="checkbox" checked={editData.permis_conduire} onChange={e => set('permis_conduire', e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)' }} />
                   <span style={{ fontSize: 12, color: 'var(--foreground)' }}>Permis de conduire</span>
                 </label>
+                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Localisation" value={editData.localisation} onChange={e => set('localisation', e.target.value)} />
                 {agenceMetiers.length > 0 && (
                   <div>
                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 5 }}>Métiers</label>
@@ -944,7 +957,7 @@ export default function CandidatDetailPage() {
                             const current = editData.metiers || []
                             set('metiers', active ? current.filter((x: string) => x !== m) : [...current, m])
                           }}
-                            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: 'pointer', border: active ? '2px solid var(--primary)' : '1px solid var(--border)', background: active ? 'var(--primary-soft)' : 'white', color: active ? 'var(--foreground)' : 'var(--muted)', transition: 'all 0.15s' }}>
+                            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: 'pointer', border: active ? '2px solid #3B82F6' : '1px solid var(--border)', background: active ? 'rgba(59,130,246,0.1)' : 'white', color: active ? '#3B82F6' : 'var(--muted)', transition: 'all 0.15s' }}>
                             {m}
                           </button>
                         )
@@ -952,7 +965,6 @@ export default function CandidatDetailPage() {
                     </div>
                   </div>
                 )}
-                <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Localisation" value={editData.localisation} onChange={e => set('localisation', e.target.value)} />
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -1013,13 +1025,7 @@ export default function CandidatDetailPage() {
                     <span>Permis : {candidat.permis_conduire ? '✅ Oui' : '❌ Non'}</span>
                   </div>
                 )}
-                {candidat.tags?.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-                    {candidat.tags.map((m: string) => (
-                      <span key={m} style={{ padding: '3px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{m}</span>
-                    ))}
-                  </div>
-                )}
+                {/* Pastilles jaunes supprimées — métiers affichés en bleu sous la ville */}
                 {candidat.localisation && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...smallMuted }}>
                     <MapPin size={12} style={{ flexShrink: 0 }} />
@@ -1030,6 +1036,17 @@ export default function CandidatDetailPage() {
                       onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
                       onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
                     >{candidat.localisation}</a>
+                  </div>
+                )}
+                {/* Pastilles métier — sous la ville */}
+                {candidat.tags && candidat.tags.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                    {candidat.tags.map((tag: string) => (
+                      <span key={tag} style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 100,
+                        background: 'rgba(59,130,246,0.1)', color: '#3B82F6',
+                      }}>{tag}</span>
+                    ))}
                   </div>
                 )}
               </div>

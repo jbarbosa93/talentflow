@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (permis === 'true') query = query.eq('permis_conduire', true)
     if (permis === 'false') query = query.eq('permis_conduire', false)
     if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
-    if (metier) query = query.ilike('titre_poste', `%${metier}%` as any)
+    if (metier) query = query.contains('tags', [metier] as any)
     if (langue) query = query.contains('langues', [langue] as any)
     // Note : le filtre âge reste côté client (date_naissance a des formats mixtes : "54", "15/03/1990", etc.)
 

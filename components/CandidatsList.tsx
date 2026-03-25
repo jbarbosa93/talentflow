@@ -5,7 +5,7 @@ import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive,
+  CheckCircle, Archive, Briefcase,
 } from 'lucide-react'
 
 import { useUpload } from '@/contexts/UploadContext'
@@ -92,6 +92,79 @@ const IMPORT_STATUS_OPTS = [
   { value: 'archive',   label: 'Archivé' },
 ]
 
+// ─── Popover de sélection de métier ───
+function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
+  candidatId: string
+  currentTags: string[]
+  onClose: () => void
+  onSave: (tags: string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>(currentTags)
+  const [metiers, setMetiers] = useState<string[]>([])
+
+  useEffect(() => {
+    const stored = localStorage.getItem('agence_metiers')
+    if (stored) {
+      try { setMetiers(JSON.parse(stored)) } catch { /* ignore */ }
+    }
+  }, [])
+
+  const toggle = (m: string) => {
+    setSelected(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
+  }
+
+  return (
+    <div style={{
+      position: 'absolute', top: '100%', right: 0, zIndex: 100,
+      background: 'white', borderRadius: 10, padding: 10,
+      boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+      border: '1px solid var(--border)', minWidth: 200, maxHeight: 280, overflowY: 'auto',
+    }}
+      onClick={e => e.stopPropagation()}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase' }}>
+        Métier(s)
+      </div>
+      {metiers.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+          Aucun métier configuré.<br />Allez dans Paramètres pour en ajouter.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {metiers.map(m => (
+            <label key={m} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '5px 8px', borderRadius: 6, cursor: 'pointer',
+              background: selected.includes(m) ? 'rgba(59,130,246,0.08)' : 'transparent',
+              fontSize: 12, fontWeight: selected.includes(m) ? 600 : 400,
+            }}>
+              <input
+                type="checkbox"
+                checked={selected.includes(m)}
+                onChange={() => toggle(m)}
+                style={{ accentColor: '#3B82F6' }}
+              />
+              {m}
+            </label>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={{
+          padding: '4px 10px', fontSize: 11, borderRadius: 6,
+          border: '1px solid var(--border)', background: 'white',
+          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+        }}>Annuler</button>
+        <button onClick={() => onSave(selected)} style={{
+          padding: '4px 10px', fontSize: 11, borderRadius: 6,
+          border: 'none', background: '#3B82F6', color: 'white',
+          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700,
+        }}>Enregistrer</button>
+      </div>
+    </div>
+  )
+}
+
 export default function CandidatsList() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -169,6 +242,7 @@ export default function CandidatsList() {
 
   // CV hover preview
   const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
+  const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
@@ -640,14 +714,7 @@ export default function CandidatsList() {
           </div>
         </div>
 
-        {/* Âge (calculé depuis date_naissance) */}
-        {age !== null && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
-            {age} ans
-          </span>
-        )}
-
-        {/* Star rating */}
+        {/* Star rating — à gauche de l'âge */}
         {c.rating > 0 && (
           <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
             {[1, 2, 3, 4, 5].map(star => (
@@ -659,6 +726,13 @@ export default function CandidatsList() {
               />
             ))}
           </div>
+        )}
+
+        {/* Âge (calculé depuis date_naissance) */}
+        {age !== null && (
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
+            {age} ans
+          </span>
         )}
 
         {/* Bouton CV hover preview */}
@@ -711,9 +785,44 @@ export default function CandidatsList() {
           </button>
         )}
 
+        {/* Métier — pastille bleue si assigné, bouton discret sinon */}
+        <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={e => { e.stopPropagation(); setMetierPopoverId(metierPopoverId === c.id ? null : c.id) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '3px 9px', borderRadius: 100,
+              border: (c.tags && c.tags.length > 0) ? 'none' : '1px dashed var(--border)',
+              background: (c.tags && c.tags.length > 0) ? 'rgba(59,130,246,0.1)' : 'transparent',
+              cursor: 'pointer', fontSize: 10, fontWeight: (c.tags && c.tags.length > 0) ? 700 : 600,
+              color: (c.tags && c.tags.length > 0) ? '#3B82F6' : 'var(--muted)',
+              fontFamily: 'inherit', whiteSpace: 'nowrap',
+              opacity: (c.tags && c.tags.length > 0) ? 1 : 0.6,
+            }}
+            title={(c.tags && c.tags.length > 0) ? 'Modifier les métiers' : 'Assigner un métier'}
+          >
+            <Briefcase size={10} />
+            {(c.tags && c.tags.length > 0) ? (c.tags[0] + (c.tags.length > 1 ? ` +${c.tags.length - 1}` : '')) : 'Métier'}
+          </button>
+          {metierPopoverId === c.id && (
+            <MetierPopover
+              candidatId={c.id}
+              currentTags={c.tags || []}
+              onClose={() => setMetierPopoverId(null)}
+              onSave={async (tags) => {
+                const { createClient } = await import('@/lib/supabase/client')
+                const supabase = createClient()
+                await supabase.from('candidats').update({ tags }).eq('id', c.id)
+                setMetierPopoverId(null)
+                queryClient.invalidateQueries({ queryKey: ['candidats'] })
+              }}
+            />
+          )}
+        </div>
+
         {/* Date d'ajout */}
-        <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-          Ajouté le {new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+        <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, opacity: 0.7 }}>
+          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       </div>
     )
@@ -940,10 +1049,7 @@ export default function CandidatsList() {
       {/* Advanced filters panel */}
       {showAdvancedFilters && (
         <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12}}>
-          <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>MÉTIER</label>
-            <input value={filterMetier} onChange={e=>setFilterMetier(e.target.value)} placeholder="Ex: Soudeur, Maçon..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
-          </div>
+          {/* Métier filtré via le dropdown principal — supprimé ici pour éviter doublon */}
           <div>
             <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LIEU</label>
             <input value={filterLieu} onChange={e=>setFilterLieu(e.target.value)} placeholder="Ex: Genève, Lausanne..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
