@@ -464,7 +464,7 @@ function IntegrationsContent() {
                   <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Zap size={11} />
-                      Sync automatique 1×/jour à 8h00
+                      Sync automatique 1×/jour à 1h00
                     </span>
                     {lastSync && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -567,7 +567,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                     {[
                       `Vous recevez un email avec un CV en pièce jointe`,
                       `Glissez cet email dans votre dossier Outlook "${configuredFolder}"`,
-                      `TalentFlow détecte le nouvel email et importe le CV (1×/jour à 8h00 ou cliquez Synchroniser)`,
+                      `TalentFlow détecte le nouvel email et importe le CV (1×/jour à 1h00 ou cliquez Synchroniser)`,
                       `Le candidat apparaît dans "À traiter" avec la source E-MAIL`,
                       `Vérifiez et validez le candidat pour l'intégrer dans votre base active`,
                     ].map((step, i) => (
