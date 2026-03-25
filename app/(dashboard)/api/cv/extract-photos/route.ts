@@ -9,7 +9,7 @@ export const maxDuration = 300
 export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
-  const { batchSize = 10, force = false, offset = 0, candidatId } = await request.json().catch(() => ({}))
+  const { batchSize = 20, force = false, offset = 0, candidatId } = await request.json().catch(() => ({}))
 
   // ── Mode individuel : extraction photo pour un seul candidat ──
   if (candidatId) {
@@ -110,23 +110,26 @@ export async function POST(request: NextRequest) {
   const foundCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string }[] = []
   const processedCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; hadPhoto: boolean; photo_url?: string }[] = []
 
-  for (const cand of candidates) {
+  // Traiter en parallèle par chunks de 5
+  const PHOTO_PARALLEL = 5
+  for (let ci = 0; ci < candidates.length; ci += PHOTO_PARALLEL) {
+    const chunk = candidates.slice(ci, ci + PHOTO_PARALLEL)
+    await Promise.all(chunk.map(async (cand) => {
     try {
       const ext = (cand.cv_nom_fichier || cand.cv_url || '').toLowerCase().split('.').pop()
       if (!['pdf'].includes(ext || '')) {
-        // Non-PDF: mark as checked (no photo extraction possible from non-PDF)
         if (!cand.photo_url || cand.photo_url === 'checked' || force) {
           await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         }
         processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
         processed++
-        continue
+        return
       }
 
       if (!cand.cv_url) {
         processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
         processed++
-        continue
+        return
       }
 
       // Download the CV
@@ -134,7 +137,7 @@ export async function POST(request: NextRequest) {
       if (!cvRes.ok) {
         processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
         processed++
-        continue
+        return
       }
       const buffer = Buffer.from(await cvRes.arrayBuffer())
 
@@ -190,7 +193,8 @@ export async function POST(request: NextRequest) {
       console.error(`Photo extraction failed for ${cand.id}:`, e)
       processed++
     }
-  }
+    })) // end Promise.all + chunk.map
+  } // end chunk loop
 
   // Calculate remaining
   let remaining = 0
