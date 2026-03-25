@@ -718,6 +718,12 @@ export default function CandidatsList() {
                 {'\uD83D\uDCCD'} {c.localisation}
               </span>
             )}
+            {c.source === 'E-MAIL' && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#DBEAFE', color: '#1D4ED8', letterSpacing: '0.02em' }}>📧 Email</span>
+            )}
+            {c.source === 'ONEDRIVE' && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#E0F2FE', color: '#0369A1', letterSpacing: '0.02em' }}>📂 OneDrive</span>
+            )}
           </div>
         </div>
 
