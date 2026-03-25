@@ -31,10 +31,11 @@ export async function POST() {
 
     // 2. Lire la config SharePoint depuis metadata
     const { data: integrationRow } = await supabase.from('integrations').select('metadata').eq('id', integrationId).single()
-    const meta = ((integrationRow as any)?.metadata?.onedrive) || {}
-    const driveId = meta.sharepoint_drive_id
-    const folderId = meta.sharepoint_folder_id
-    const folderName = meta.sharepoint_folder_name || DEFAULT_FOLDER_NAME
+    const meta = (integrationRow as any)?.metadata || {}
+    // Config SharePoint directement dans metadata de la row microsoft_onedrive
+    const driveId = meta.sharepoint_drive_id || meta.onedrive?.sharepoint_drive_id
+    const folderId = meta.sharepoint_folder_id || meta.onedrive?.sharepoint_folder_id
+    const folderName = meta.sharepoint_folder_name || meta.onedrive?.sharepoint_folder_name || DEFAULT_FOLDER_NAME
 
     if (!driveId || !folderId) {
       return NextResponse.json(

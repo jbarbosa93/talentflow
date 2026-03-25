@@ -301,10 +301,9 @@ function IntegrationsContent() {
   const lastSync      = outlookMeta?.last_sync ? new Date(outlookMeta.last_sync) : null
   const autoSyncEnabled = outlookMeta?.auto_sync !== false // true par défaut
 
-  // OneDrive derived values
-  const onedriveSubMeta      = onedriveMeta?.onedrive || {} // metadata.onedrive (sub-object avec config SharePoint)
-  const onedriveFolderName   = onedriveSubMeta?.sharepoint_folder_name || onedriveMeta?.sharepoint_folder_name || onedriveMeta?.onedrive_folder_name || null
-  const onedriveFolderId     = onedriveSubMeta?.sharepoint_folder_id || onedriveMeta?.sharepoint_folder_id || onedriveMeta?.onedrive_folder_id || null
+  // OneDrive derived values — config SharePoint directement dans metadata
+  const onedriveFolderName   = onedriveMeta?.sharepoint_folder_name || null
+  const onedriveFolderId     = onedriveMeta?.sharepoint_folder_id || null
   const onedriveLastSync     = onedriveMeta?.onedrive_last_sync ? new Date(onedriveMeta.onedrive_last_sync) : null
   const onedriveAutoSync     = onedriveMeta?.onedrive_auto_sync !== false // true par défaut
   const onedriveFichiers     = onedriveFilesData?.fichiers || []
