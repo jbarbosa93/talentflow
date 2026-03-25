@@ -106,6 +106,39 @@ export async function getValidAccessToken(integrationId: string): Promise<string
   return integration.access_token
 }
 
+// Obtenir un token valide pour un purpose spécifique (outlook ou onedrive)
+// Les tokens sont stockés dans metadata.outlook / metadata.onedrive
+export async function getAccessTokenForPurpose(purpose: 'outlook' | 'onedrive'): Promise<{ token: string; integrationId: string }> {
+  const supabase = createAdminClient()
+  const { data: rowRaw } = await supabase.from('integrations').select('*').eq('type', 'microsoft').eq('actif', true).maybeSingle()
+  const row = rowRaw as any
+  if (!row) throw new Error('Aucune intégration Microsoft active')
+
+  const meta = row.metadata || {}
+  const account = meta[purpose]
+
+  if (!account?.access_token) {
+    // Fallback : utiliser les tokens principaux de la row
+    if (!row.access_token) throw new Error(`Compte Microsoft ${purpose} non connecté`)
+    return { token: await getValidAccessToken(row.id), integrationId: row.id }
+  }
+
+  // Vérifier expiration
+  const expiresAt = new Date(account.expires_at)
+  const isExpired = expiresAt.getTime() - Date.now() < 5 * 60 * 1000
+
+  if (isExpired && account.refresh_token) {
+    const tokens = await refreshToken(account.refresh_token)
+    if (tokens.error) throw new Error(`Token ${purpose} expiré. Reconnectez.`)
+    const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+    meta[purpose] = { ...account, access_token: tokens.access_token, refresh_token: tokens.refresh_token || account.refresh_token, expires_at: newExpiresAt }
+    await supabase.from('integrations').update({ metadata: meta, updated_at: new Date().toISOString() }).eq('id', row.id)
+    return { token: tokens.access_token, integrationId: row.id }
+  }
+
+  return { token: account.access_token, integrationId: row.id }
+}
+
 export async function callGraph(
   accessToken: string,
   endpoint: string,

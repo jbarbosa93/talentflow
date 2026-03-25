@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getValidAccessToken, callGraph } from '@/lib/microsoft'
+import { getValidAccessToken, getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
 import type { Integration } from '@/types/database'
@@ -68,25 +68,20 @@ export async function POST(request?: Request) {
       } catch { /* ignore */ }
     }
 
-    // Fetch all active Microsoft integrations, then filter by metadata.purpose
-    const { data: allMicrosoft } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('type', 'microsoft')
-      .eq('actif', true)
-    const integrationRaw = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'outlook')
-      || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
-
-    const integration = integrationRaw as unknown as Integration | null
-
-    if (!integration) {
-      return NextResponse.json(
-        { error: 'Aucune intégration Microsoft Outlook active. Connectez votre compte.' },
-        { status: 404 }
-      )
+    // Obtenir le token Outlook via metadata
+    let accessToken: string
+    let integrationId: string
+    try {
+      const result = await getAccessTokenForPurpose('outlook')
+      accessToken = result.token
+      integrationId = result.integrationId
+    } catch (err: any) {
+      return NextResponse.json({ error: err.message }, { status: 404 })
     }
 
-    const accessToken = await getValidAccessToken(integration.id)
+    // Charger l'intégration pour accéder aux metadata
+    const { data: integrationRaw } = await supabase.from('integrations').select('*').eq('id', integrationId).single()
+    const integration = integrationRaw as unknown as Integration
     const meta = (integration.metadata as any) || {}
 
     // Détermine le dossier à surveiller

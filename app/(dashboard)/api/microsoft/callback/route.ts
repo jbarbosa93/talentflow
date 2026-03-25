@@ -44,31 +44,52 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Chercher si une intégration Microsoft avec ce purpose existe déjà
-    // On utilise metadata->purpose pour distinguer outlook vs onedrive (même type 'microsoft')
-    const { data: allMicrosoft } = await supabase
+    // UNE seule row type='microsoft' (contrainte UNIQUE sur type)
+    // On stocke les 2 comptes (outlook + onedrive) dans metadata
+    const { data: existingRow } = await supabase
       .from('integrations')
-      .select('id, metadata')
+      .select('id, metadata, email, nom_compte, access_token, refresh_token')
       .eq('type', 'microsoft')
+      .maybeSingle()
 
-    const existing = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === purpose)
+    const meta = (existingRow?.metadata as any) || {}
 
-    console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existing?.id || 'none'}`)
+    // Stocker les tokens du compte connecté dans metadata[purpose]
+    const accountData = {
+      email,
+      nom_compte: displayName,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: expiresAt,
+    }
 
-    if (existing) {
+    const newMeta = {
+      ...meta,
+      [purpose]: accountData, // meta.outlook ou meta.onedrive
+      purpose: meta.purpose || purpose, // garde le premier purpose comme principal
+    }
+
+    console.log(`[MS Callback] purpose=${purpose}, email=${email}, existing=${existingRow?.id || 'none'}`)
+
+    if (existingRow) {
+      // Update la row existante — le champ principal (email, access_token) reste le premier connecté
+      // Les tokens de chaque compte sont dans metadata.outlook / metadata.onedrive
       const { error: updateErr } = await supabase.from('integrations').update({
-        email,
-        nom_compte: displayName,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: expiresAt,
+        metadata: newMeta,
         actif: true,
-        metadata: { ...(existing.metadata as any || {}), purpose },
         updated_at: new Date().toISOString(),
-      }).eq('id', existing.id)
+        // Si c'est le même purpose que le principal, update aussi les champs principaux
+        ...(meta.purpose === purpose || !existingRow.access_token ? {
+          email,
+          nom_compte: displayName,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+        } : {}),
+      }).eq('id', existingRow.id)
       console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
     } else {
-      const { data: inserted, error: insertErr } = await supabase.from('integrations').insert({
+      const { error: insertErr } = await supabase.from('integrations').insert({
         type: 'microsoft' as any,
         email,
         nom_compte: displayName,
@@ -76,9 +97,9 @@ export async function GET(request: NextRequest) {
         refresh_token: tokens.refresh_token,
         expires_at: expiresAt,
         actif: true,
-        metadata: { purpose },
-      }).select()
-      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK', (inserted as any)?.[0]?.id || 'no id')
+        metadata: newMeta,
+      })
+      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK')
     }
 
     const actionLabel = purposeFromState === 'outlook' ? 'microsoft_outlook_connecte' : 'microsoft_onedrive_connecte'

@@ -46,10 +46,13 @@ function IntegrationsContent() {
     return integrations.find((i: any) => i.type === targetType) || null
   }
 
-  // Find by metadata.purpose (all are type 'microsoft')
-  const allMicrosoft = (integrationsData?.integrations || []).filter((i: any) => i.type === 'microsoft')
-  const outlookIntegration = allMicrosoft.find((i: any) => i.metadata?.purpose === 'outlook') || null
-  const onedriveIntegration = allMicrosoft.find((i: any) => i.metadata?.purpose === 'onedrive') || allMicrosoft.find((i: any) => !i.metadata?.purpose) || null
+  // UNE seule row microsoft — outlook et onedrive stockés dans metadata
+  const microsoftRow = (integrationsData?.integrations || []).find((i: any) => i.type === 'microsoft') || null
+  const outlookAccount = microsoftRow?.metadata?.outlook || null
+  const onedriveAccount = microsoftRow?.metadata?.onedrive || null
+  // Construire des objets "fake integration" pour outlook et onedrive
+  const outlookIntegration = outlookAccount ? { ...microsoftRow, email: outlookAccount.email, nom_compte: outlookAccount.nom_compte } : null
+  const onedriveIntegration = onedriveAccount ? { ...microsoftRow, email: onedriveAccount.email, nom_compte: onedriveAccount.nom_compte } : microsoftRow
   const isOutlookConnected = !!outlookIntegration
   const isOnedriveConnected = !!onedriveIntegration
 
