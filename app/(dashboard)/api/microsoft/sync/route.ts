@@ -119,7 +119,7 @@ export async function POST(request?: Request) {
     let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
     const MAX_NEW_TO_PROCESS = 3
     let pagesChecked = 0
-    const MAX_PAGES = 5
+    const MAX_PAGES = 10 // 10 pages × 50 = 500 emails scannés
 
     while (nextLink && allMessages.length < MAX_NEW_TO_PROCESS && pagesChecked < MAX_PAGES) {
       const page = await callGraph(accessToken, nextLink)
