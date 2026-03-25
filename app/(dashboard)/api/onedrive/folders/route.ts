@@ -14,27 +14,14 @@ export async function GET() {
   try {
     const supabase = createAdminClient()
 
-    // Try microsoft_onedrive first, fallback to legacy 'microsoft'
-    let { data: integrationRaw } = await supabase
+    // Fetch all active Microsoft integrations, then filter by metadata.purpose
+    const { data: allMicrosoft } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft_onedrive')
+      .eq('type', 'microsoft')
       .eq('actif', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (!integrationRaw) {
-      const { data: legacyRaw } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('type', 'microsoft')
-        .eq('actif', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      integrationRaw = legacyRaw
-    }
+    const integrationRaw = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
+      || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
 
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {
@@ -67,29 +54,16 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Try microsoft_onedrive first, fallback to legacy 'microsoft'
-    let { data: integrationRaw } = await supabase
+    // Fetch all active Microsoft integrations, then filter by metadata.purpose
+    const { data: allMicrosoftPost } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft_onedrive')
+      .eq('type', 'microsoft')
       .eq('actif', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    const integrationRawPost = (allMicrosoftPost || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
+      || (allMicrosoftPost || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
 
-    if (!integrationRaw) {
-      const { data: legacyRaw } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('type', 'microsoft')
-        .eq('actif', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      integrationRaw = legacyRaw
-    }
-
-    const integration = integrationRaw as unknown as Integration | null
+    const integration = integrationRawPost as unknown as Integration | null
     if (!integration) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
     }

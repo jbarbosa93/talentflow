@@ -54,27 +54,14 @@ export async function GET(request: Request) {
   try {
     const supabase = createAdminClient()
 
-    // Try microsoft_outlook first, fallback to legacy 'microsoft' for backward compat
-    let { data: integrationRaw } = await supabase
+    // Fetch all active Microsoft integrations, then filter by metadata.purpose
+    const { data: allMicrosoft } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft_outlook')
+      .eq('type', 'microsoft')
       .eq('actif', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (!integrationRaw) {
-      const { data: legacyRaw } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('type', 'microsoft')
-        .eq('actif', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      integrationRaw = legacyRaw
-    }
+    const integrationRaw = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'outlook')
+      || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
 
     const integration = integrationRaw as unknown as Integration | null
     if (!integration) {

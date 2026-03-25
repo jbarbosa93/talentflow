@@ -10,30 +10,17 @@ export const runtime = 'nodejs'
 
 // Helper: find integration by purpose with backward compat
 async function findIntegration(supabase: any, purpose?: string | null) {
-  const targetType = purpose === 'onedrive' ? 'microsoft_onedrive' : 'microsoft_outlook'
-  let { data } = await supabase
+  const { data: allMicrosoft } = await supabase
     .from('integrations')
     .select('*')
-    .eq('type', targetType)
+    .eq('type', 'microsoft')
     .eq('actif', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
 
-  if (!data) {
-    // Fallback to legacy 'microsoft' type
-    const { data: legacyData } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('type', 'microsoft')
-      .eq('actif', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-    data = legacyData
-  }
+  const targetPurpose = purpose || 'outlook'
+  const found = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === targetPurpose)
+    || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
 
-  return data as unknown as Integration | null
+  return found as unknown as Integration | null
 }
 
 export async function GET(request: NextRequest) {
