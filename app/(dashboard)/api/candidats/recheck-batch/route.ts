@@ -5,8 +5,8 @@ import { analyserCVDepuisPDF, analyserCV } from '@/lib/claude'
 
 export const maxDuration = 300
 
-// Nombre de candidats traités par batch
-const BATCH_SIZE = 5
+// Nombre de candidats traités par batch (Vercel Pro 300s)
+const BATCH_SIZE = 10
 
 // Comparer ancien vs nouveau et retourner les diffs significatifs
 function computeDiffs(old_: any, new_: any): { field: string; old: any; new_val: any }[] {

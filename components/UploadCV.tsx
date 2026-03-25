@@ -251,8 +251,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
     let lastSuccessCandidat: any = null
 
-    // ── Pass 1 : traiter tous les fichiers (5 en parallèle) ──
-    const PARALLEL = 5
+    // ── Pass 1 : traiter tous les fichiers (10 en parallèle — Vercel Pro 300s) ──
+    const PARALLEL = 10
     for (let i = 0; i < pendingIndices.length; i += PARALLEL) {
       if (cancelledRef.current) break
       const chunk = pendingIndices.slice(i, i + PARALLEL)
