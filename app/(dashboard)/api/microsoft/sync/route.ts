@@ -144,9 +144,12 @@ export async function POST(request?: Request) {
           `/me/messages/${message.id}/attachments?$select=id,name,contentType,size,contentBytes`
         )
         attachments = attData.value || []
-      } catch {
+      } catch (attErr: any) {
+        console.error(`[Sync] Attachments error for ${message.subject}:`, attErr?.message || attErr)
         skipped++; continue
       }
+
+      console.log(`[Sync] Message "${message.subject}": ${attachments.length} attachments`, attachments.map((a: any) => `${a.name} (${a.contentType}, ${(a.size/1024).toFixed(0)}KB, hasBytes:${!!a.contentBytes})`))
 
       const cvAttachments = attachments.filter((att: any) => {
         const ext = (att.name || '').toLowerCase().split('.').pop()
