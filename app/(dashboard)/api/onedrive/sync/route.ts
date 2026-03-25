@@ -121,30 +121,40 @@ export async function POST() {
         const candidatEmail = analyse.email || null
         const candidatNom = (analyse.nom || '').trim()
         const candidatPrenom = (analyse.prenom || '').trim()
+        const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
 
-        // f. Vérifie doublon candidat par email
-        if (candidatEmail) {
-          const { data: existingCandidat } = await supabase
-            .from('candidats')
-            .select('id, nom, prenom')
-            .ilike('email', candidatEmail)
-            .maybeSingle()
+        // f. Vérifie doublon candidat (email → téléphone → nom+prénom)
+        let existingCandidat: any = null
 
-          if (existingCandidat) {
-            // Enregistre comme doublon dans onedrive_fichiers
-            try {
-              await (supabase as any).from('onedrive_fichiers').insert({
-                integration_id: integrationId,
-                onedrive_item_id: fichier.id,
-                nom_fichier: filename,
-                traite: true,
-                candidat_id: existingCandidat.id,
-                erreur: 'Doublon — candidat déjà existant',
-              })
-            } catch { /* ignore */ }
-            duplicates++
-            continue
-          }
+        if (candidatEmail && !existingCandidat) {
+          const { data } = await supabase.from('candidats').select('id, nom, prenom')
+            .ilike('email', candidatEmail).maybeSingle()
+          existingCandidat = data
+        }
+        if (!existingCandidat && candidatTel.length >= 8) {
+          const { data } = await supabase.from('candidats').select('id, nom, prenom')
+            .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
+          existingCandidat = data
+        }
+        if (!existingCandidat && candidatNom && candidatPrenom) {
+          const { data } = await supabase.from('candidats').select('id, nom, prenom')
+            .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
+          existingCandidat = data
+        }
+
+        if (existingCandidat) {
+          try {
+            await (supabase as any).from('onedrive_fichiers').insert({
+              integration_id: integrationId,
+              onedrive_item_id: fichier.id,
+              nom_fichier: filename,
+              traite: true,
+              candidat_id: existingCandidat.id,
+              erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
+            })
+          } catch { /* ignore */ }
+          duplicates++
+          continue
         }
 
         // g. Upload vers Supabase Storage bucket 'cvs'
@@ -160,6 +170,23 @@ export async function POST() {
             .from('cvs')
             .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
           cvUrl = urlData?.signedUrl || null
+        }
+
+        // Extraction photo du PDF
+        let photoUrl: string | null = null
+        if (isPDF) {
+          try {
+            const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+            const photoBuffer = await extractPhotoFromPDF(buffer)
+            if (photoBuffer) {
+              const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+              const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
+              if (photoData?.path) {
+                const { data: pUrl } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+                photoUrl = pUrl?.signedUrl || null
+              }
+            }
+          } catch { /* photo extraction failed */ }
         }
 
         // h. Crée le candidat
@@ -180,6 +207,7 @@ export async function POST() {
             experiences: analyse.experiences || null,
             formations_details: analyse.formations_details || null,
             cv_url: cvUrl,
+            photo_url: photoUrl,
             cv_nom_fichier: filename,
             resume_ia: analyse.resume || null,
             cv_texte_brut: texteCV.slice(0, 10000),
