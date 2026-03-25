@@ -628,7 +628,7 @@ function IntegrationsContent() {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {emails.slice(0, showAllEmails ? 20 : 5).map((email: any) => (
+                      {emails.slice(0, showAllEmails ? 999 : 5).map((email: any) => (
                         <div key={email.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
@@ -958,7 +958,7 @@ function IntegrationsContent() {
                       )}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {onedriveFichiers.slice(0, showAllOnedriveFiles ? 20 : 5).map((f: any) => (
+                      {onedriveFichiers.slice(0, showAllOnedriveFiles ? 999 : 5).map((f: any) => (
                         <div key={f.id} style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
