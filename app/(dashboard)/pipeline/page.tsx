@@ -401,45 +401,45 @@ export default function PipelinePage() {
   }, [])
 
   const addCandidatToPipeline = useCallback(async (candidat: any, etape: PipelineEtape) => {
-    await supabase.from('candidats').update({ statut_pipeline: etape }).eq('id', candidat.id)
-    queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-    toast.success(`${candidat.prenom || ''} ${candidat.nom} ajouté à ${ETAPES.find(e => e.id === etape)?.label}`)
-    setAddSearch('')
-    setAddResults([])
-    setShowAddDropdown(false)
-    logActivity({
-      type: 'statut_change',
-      titre: `${candidat.prenom || ''} ${candidat.nom} ajouté au pipeline — ${ETAPES.find(e => e.id === etape)?.label}`,
-      candidat_id: candidat.id,
-      candidat_nom: `${candidat.prenom || ''} ${candidat.nom}`,
-    })
-  }, [queryClient])
+    try {
+      // Utiliser l'API pour contourner les RLS
+      const res = await fetch(`/api/candidats/${candidat.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut_pipeline: etape }),
+      })
+      if (!res.ok) {
+        // Fallback : update direct
+        const { error } = await supabase.from('candidats').update({ statut_pipeline: etape }).eq('id', candidat.id)
+        if (error) throw error
+      }
+      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+      toast.success(`${candidat.prenom || ''} ${candidat.nom} ajouté à ${ETAPES.find(e => e.id === etape)?.label}`)
+      setAddSearch('')
+      setAddResults([])
+      setShowAddDropdown(false)
+      logActivity({
+        type: 'statut_change',
+        titre: `${candidat.prenom || ''} ${candidat.nom} ajouté au pipeline — ${ETAPES.find(e => e.id === etape)?.label}`,
+        candidat_id: candidat.id,
+        candidat_nom: `${candidat.prenom || ''} ${candidat.nom}`,
+      })
+    } catch (err: any) {
+      toast.error(`Erreur : ${err.message}`)
+    }
+  }, [queryClient, supabase])
 
   const { data: candidats, isLoading } = useQuery({
     queryKey: ['pipeline-candidats', offreFilter],
     queryFn: async () => {
       if (offreFilter === 'tous') {
-        // Candidats dans la pipeline :
-        // - "nouveau" : seulement ceux importés APRÈS le 23.03.2026 (pipeline vide avant)
-        // - contacté/entretien/placé/refusé : tous (placés manuellement)
-        const cutoffDate = '2026-03-23T23:59:59'
-        const [nouveaux, autres] = await Promise.all([
-          supabase
-            .from('candidats')
-            .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at')
-            .eq('statut_pipeline', 'nouveau')
-            .gt('created_at', cutoffDate)
-            .order('created_at', { ascending: false })
-            .limit(100),
-          supabase
-            .from('candidats')
-            .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at')
-            .in('statut_pipeline', ['contacte', 'entretien', 'place', 'refuse'])
-            .order('updated_at', { ascending: false })
-            .limit(500),
-        ])
-        const data = [...(nouveaux.data || []), ...(autres.data || [])]
-        const error = nouveaux.error || autres.error
+        // Tous les candidats ayant un statut_pipeline (ajoutés manuellement ou via import)
+        const { data, error } = await supabase
+          .from('candidats')
+          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at')
+          .not('statut_pipeline', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(500)
         if (error) throw error
         return data || []
       } else {
@@ -651,23 +651,18 @@ export default function PipelinePage() {
                             {c.titre_poste || ''}{c.localisation ? ` · ${c.localisation}` : ''}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                          {ETAPES.map(e => (
-                            <button
-                              key={e.id}
-                              onClick={() => addCandidatToPipeline(c, e.id)}
-                              title={e.label}
-                              style={{
-                                width: 24, height: 24, borderRadius: 6,
-                                background: e.bgSoft, border: `1.5px solid ${e.borderColor}`,
-                                color: e.color, fontSize: 9, fontWeight: 800,
-                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              }}
-                            >
-                              {e.label[0]}
-                            </button>
-                          ))}
-                        </div>
+                        <button
+                          onClick={() => addCandidatToPipeline(c, 'nouveau')}
+                          style={{
+                            padding: '5px 12px', borderRadius: 6,
+                            background: 'var(--primary)', border: 'none',
+                            color: 'white', fontSize: 11, fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          + Ajouter
+                        </button>
                       </div>
                     </div>
                   ))}
