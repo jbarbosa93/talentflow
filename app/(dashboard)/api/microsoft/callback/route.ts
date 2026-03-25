@@ -73,7 +73,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    await logActivity({ action: 'microsoft_connecte' as any, user_email: email })
+    const actionLabel = purposeFromState === 'outlook' ? 'microsoft_outlook_connecte' : 'microsoft_onedrive_connecte'
+    await logActivity({ action: actionLabel as any, user_email: email })
 
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=${integrationType}`

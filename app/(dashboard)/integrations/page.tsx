@@ -21,6 +21,8 @@ function IntegrationsContent() {
   useEffect(() => {
     const success = searchParams.get('success')
     const error   = searchParams.get('error')
+    if (success === 'microsoft_outlook') toast.success('Compte Microsoft Outlook connecté avec succès !')
+    if (success === 'microsoft_onedrive') toast.success('Compte Microsoft OneDrive connecté avec succès !')
     if (success === 'microsoft') toast.success('Compte Microsoft connecté avec succès !')
     if (error) toast.error(`Erreur connexion : ${decodeURIComponent(error)}`)
   }, [searchParams])
@@ -34,6 +36,22 @@ function IntegrationsContent() {
     staleTime: 10_000,
   })
 
+  // Helper: find integration by type with backward compat
+  const findIntegration = (targetType: string) => {
+    const integrations = integrationsData?.integrations || []
+    return integrations.find((i: any) => i.type === targetType) || null
+  }
+
+  // Outlook integration (microsoft_outlook, fallback to legacy 'microsoft')
+  const outlookIntegration = findIntegration('microsoft_outlook')
+  // OneDrive integration (microsoft_onedrive, fallback to legacy 'microsoft')
+  const onedriveIntegration = findIntegration('microsoft_onedrive') || findIntegration('microsoft')
+  const isOutlookConnected = !!outlookIntegration
+  const isOnedriveConnected = !!onedriveIntegration
+
+  const outlookMeta = outlookIntegration?.metadata || {}
+  const onedriveMeta = onedriveIntegration?.metadata || {}
+
   const { data: emailsData } = useQuery({
     queryKey: ['emails-recus'],
     queryFn: async () => {
@@ -41,17 +59,17 @@ function IntegrationsContent() {
       return res.json()
     },
     staleTime: 30_000,
-    enabled: !!integrationsData?.integrations?.find((i: any) => i.type === 'microsoft'),
+    enabled: isOutlookConnected,
   })
 
   const { data: foldersData, isLoading: loadingFolders } = useQuery({
     queryKey: ['ms-folders'],
     queryFn: async () => {
-      const res = await fetch('/api/microsoft/folders')
+      const res = await fetch('/api/microsoft/folders?purpose=outlook')
       return res.json()
     },
     staleTime: 60_000,
-    enabled: showFolderPicker,
+    enabled: showFolderPicker && isOutlookConnected,
   })
 
   const disconnectMutation = useMutation({
@@ -70,7 +88,7 @@ function IntegrationsContent() {
       const res = await fetch('/api/microsoft/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folder_id, folder_name }),
+        body: JSON.stringify({ folder_id, folder_name, purpose: 'outlook' }),
       })
       return res.json()
     },
@@ -88,7 +106,7 @@ function IntegrationsContent() {
       const res = await fetch('/api/microsoft/folders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toggle_auto_sync: !autoSync, integration_id: integrationId }),
+        body: JSON.stringify({ toggle_auto_sync: !autoSync, integration_id: integrationId, purpose: 'outlook' }),
       })
       return res.json()
     },
@@ -106,7 +124,7 @@ function IntegrationsContent() {
       return res.json()
     },
     staleTime: 60_000,
-    enabled: showOneDriveFolderPicker,
+    enabled: showOneDriveFolderPicker && isOnedriveConnected,
   })
 
   const { data: onedriveFilesData } = useQuery({
@@ -116,7 +134,7 @@ function IntegrationsContent() {
       return res.json()
     },
     staleTime: 30_000,
-    enabled: !!integrationsData?.integrations?.find((i: any) => i.type === 'microsoft'),
+    enabled: isOnedriveConnected,
   })
 
   const selectOneDriveFolderMutation = useMutation({
@@ -168,20 +186,18 @@ function IntegrationsContent() {
     },
   })
 
-  const msIntegration = integrationsData?.integrations?.find((i: any) => i.type === 'microsoft')
-  const isConnected   = !!msIntegration
+  // Outlook derived values
   const emails        = emailsData?.emails || []
   const importedEmails = emails.filter((e: any) => e.candidat_id)
-  const meta          = msIntegration?.metadata || {}
-  const configuredFolder = foldersData?.configured || meta?.email_folder_name || 'CV à traiter'
-  const lastSync      = meta?.last_sync ? new Date(meta.last_sync) : null
-  const autoSyncEnabled = meta?.auto_sync !== false // true par défaut
+  const configuredFolder = foldersData?.configured || outlookMeta?.email_folder_name || 'CV à traiter'
+  const lastSync      = outlookMeta?.last_sync ? new Date(outlookMeta.last_sync) : null
+  const autoSyncEnabled = outlookMeta?.auto_sync !== false // true par défaut
 
-  // OneDrive dérivés
-  const onedriveFolderName   = meta?.onedrive_folder_name || null
-  const onedriveFolderId     = meta?.onedrive_folder_id || null
-  const onedriveLastSync     = meta?.onedrive_last_sync ? new Date(meta.onedrive_last_sync) : null
-  const onedriveAutoSync     = meta?.onedrive_auto_sync !== false // true par défaut
+  // OneDrive derived values
+  const onedriveFolderName   = onedriveMeta?.onedrive_folder_name || null
+  const onedriveFolderId     = onedriveMeta?.onedrive_folder_id || null
+  const onedriveLastSync     = onedriveMeta?.onedrive_last_sync ? new Date(onedriveMeta.onedrive_last_sync) : null
+  const onedriveAutoSync     = onedriveMeta?.onedrive_auto_sync !== false // true par défaut
   const onedriveFichiers     = onedriveFilesData?.fichiers || []
   const onedriveImported     = onedriveFichiers.filter((f: any) => f.candidat_id && !f.erreur)
 
@@ -238,16 +254,16 @@ function IntegrationsContent() {
         </div>
       ) : (
         <>
-          {/* ── Microsoft 365 Card ── */}
+          {/* ── Microsoft Outlook Card ── */}
           <div className="neo-card" style={{
             padding: 24, marginBottom: 16,
-            borderColor: isConnected ? 'var(--primary)' : undefined,
-            boxShadow: isConnected ? '4px 4px 0 var(--primary)' : undefined,
+            borderColor: isOutlookConnected ? 'var(--primary)' : undefined,
+            boxShadow: isOutlookConnected ? '4px 4px 0 var(--primary)' : undefined,
           }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
               {/* Left */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                {/* Microsoft logo */}
+                {/* Microsoft/Outlook logo */}
                 <div style={{
                   width: 52, height: 52, borderRadius: 12, flexShrink: 0,
                   border: '2px solid var(--border)', background: 'var(--surface)',
@@ -255,17 +271,14 @@ function IntegrationsContent() {
                   boxShadow: '2px 2px 0 var(--border)',
                 }}>
                   <svg viewBox="0 0 24 24" style={{ width: 28, height: 28 }}>
-                    <path fill="#F25022" d="M1 1h10v10H1z"/>
-                    <path fill="#7FBA00" d="M13 1h10v10H13z"/>
-                    <path fill="#00A4EF" d="M1 13h10v10H1z"/>
-                    <path fill="#FFB900" d="M13 13h10v10H13z"/>
+                    <path fill="#0078D4" d="M24 7.387v10.478c0 .23-.08.424-.238.576-.16.154-.353.23-.578.23h-8.547V6.58h8.547c.225 0 .418.077.578.23.158.153.238.347.238.577zM13.42 3.33v17.34L0 18.4V5.6l13.42-2.27zM9.6 14.4c.384-.6.577-1.337.577-2.214 0-.904-.2-1.656-.6-2.255-.4-.6-.94-.9-1.62-.9-.68 0-1.22.3-1.62.9-.4.6-.6 1.35-.6 2.255 0 .877.193 1.614.577 2.214.384.6.92.9 1.607.9.688 0 1.228-.3 1.68-.9z"/>
                   </svg>
                 </div>
 
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Microsoft 365</h2>
-                    {isConnected ? (
+                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Microsoft Outlook</h2>
+                    {isOutlookConnected ? (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
                         background: '#D1FAE5', color: '#065F46',
@@ -283,7 +296,7 @@ function IntegrationsContent() {
                         <XCircle size={10} /> Non connecté
                       </span>
                     )}
-                    {isConnected && autoSyncEnabled && (
+                    {isOutlookConnected && autoSyncEnabled && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
                         background: '#EFF6FF', color: '#1D4ED8',
@@ -295,18 +308,18 @@ function IntegrationsContent() {
                     )}
                   </div>
 
-                  {isConnected ? (
+                  {isOutlookConnected ? (
                     <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <User size={11} /> {msIntegration.nom_compte}
+                        <User size={11} /> {outlookIntegration.nom_compte}
                       </p>
                       <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Mail size={11} /> {msIntegration.email}
+                        <Mail size={11} /> {outlookIntegration.email}
                       </p>
                     </div>
                   ) : (
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                      Outlook, Exchange — synchronisation automatique des CVs reçus par email
+                      Réception des CVs par email (info@l-agence.ch) — import automatique depuis la boîte de réception
                     </p>
                   )}
                 </div>
@@ -314,7 +327,7 @@ function IntegrationsContent() {
 
               {/* Buttons */}
               <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-                {isConnected ? (
+                {isOutlookConnected ? (
                   <>
                     <button
                       onClick={() => sync.mutate()}
@@ -326,7 +339,7 @@ function IntegrationsContent() {
                       {sync.isPending ? 'Sync...' : 'Synchroniser'}
                     </button>
                     <button
-                      onClick={() => disconnectMutation.mutate(msIntegration.id)}
+                      onClick={() => disconnectMutation.mutate(outlookIntegration.id)}
                       style={{
                         fontSize: 12, fontWeight: 700, padding: '7px 14px',
                         borderRadius: 8, border: '2px solid #FECACA',
@@ -338,16 +351,16 @@ function IntegrationsContent() {
                     </button>
                   </>
                 ) : (
-                  <a href="/api/microsoft/auth" className="neo-btn" style={{ textDecoration: 'none', fontSize: 13 }}>
+                  <a href="/api/microsoft/auth?purpose=outlook" className="neo-btn" style={{ textDecoration: 'none', fontSize: 13 }}>
                     <Plug size={14} />
-                    Connecter Microsoft
+                    Connecter Outlook
                   </a>
                 )}
               </div>
             </div>
 
             {/* ── Config dossier + stats si connecté ── */}
-            {isConnected && (
+            {isOutlookConnected && (
               <>
                 {/* Dossier surveillé */}
                 <div style={{
@@ -425,7 +438,7 @@ function IntegrationsContent() {
                               }}
                             >
                               <FolderOpen size={11} />
-                              {folder._parent ? `${folder._parent} › ` : ''}{folder.displayName}
+                              {folder._parent ? `${folder._parent} > ` : ''}{folder.displayName}
                               <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 400 }}>
                                 ({folder.totalItemCount || 0})
                               </span>
@@ -478,7 +491,7 @@ function IntegrationsContent() {
           </div>
 
           {/* ── Guide de configuration ── */}
-          {!isConnected && (
+          {!isOutlookConnected && !isOnedriveConnected && (
             <div className="neo-card" style={{ padding: 24, marginBottom: 16, borderColor: 'var(--primary)', background: 'var(--primary-soft)' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <AlertCircle size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 1 }} />
@@ -494,7 +507,7 @@ function IntegrationsContent() {
                       { n: 3, text: 'Nom : "TalentFlow ATS" · Supported account types : "Personal Microsoft accounts"' },
                       { n: 4, text: 'Redirect URI (Web) :', code: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'}/api/microsoft/callback` },
                       { n: 5, text: 'Copiez le Client ID (Overview) et créez un Secret (Certificates & secrets)' },
-                      { n: 6, text: 'API permissions → Add → Microsoft Graph → Mail.Read, Mail.Send, User.Read, offline_access, Calendars.ReadWrite' },
+                      { n: 6, text: 'API permissions → Add → Microsoft Graph → Mail.Read, Mail.Send, User.Read, Files.Read, offline_access' },
                     ].map((step) => (
                       <div key={step.n} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                         <div style={{
@@ -538,7 +551,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
           )}
 
           {/* ── Guide workflow email → TalentFlow ── */}
-          {isConnected && (
+          {isOutlookConnected && (
             <div className="neo-card" style={{ padding: 20, marginBottom: 16, background: '#FFFBEB', borderColor: '#FDE68A', boxShadow: '3px 3px 0 #FDE68A' }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <Mail size={16} style={{ color: '#D97706', flexShrink: 0, marginTop: 2 }} />
@@ -571,11 +584,11 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
             </div>
           )}
 
-          {/* ── OneDrive Card ── */}
+          {/* ── Microsoft OneDrive Card ── */}
           <div className="neo-card" style={{
             padding: 24, marginBottom: 16,
-            borderColor: isConnected && onedriveFolderId ? 'var(--primary)' : undefined,
-            boxShadow: isConnected && onedriveFolderId ? '4px 4px 0 var(--primary)' : undefined,
+            borderColor: isOnedriveConnected && onedriveFolderId ? 'var(--primary)' : undefined,
+            boxShadow: isOnedriveConnected && onedriveFolderId ? '4px 4px 0 var(--primary)' : undefined,
           }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
               {/* Left */}
@@ -594,8 +607,8 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
 
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>OneDrive</h2>
-                    {isConnected ? (
+                    <h2 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Microsoft OneDrive</h2>
+                    {isOnedriveConnected ? (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
                         background: '#D1FAE5', color: '#065F46',
@@ -613,7 +626,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                         <XCircle size={10} /> Non connecté
                       </span>
                     )}
-                    {isConnected && onedriveFolderId && onedriveAutoSync && (
+                    {isOnedriveConnected && onedriveFolderId && onedriveAutoSync && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
                         background: '#EFF6FF', color: '#1D4ED8',
@@ -624,33 +637,64 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                       </span>
                     )}
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                    {isConnected
-                      ? 'Importation automatique des CVs déposés dans un dossier OneDrive'
-                      : 'Connectez Microsoft pour activer la sync OneDrive'}
-                  </p>
+
+                  {isOnedriveConnected ? (
+                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <User size={11} /> {onedriveIntegration.nom_compte}
+                      </p>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Mail size={11} /> {onedriveIntegration.email}
+                      </p>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        Sync fichiers OneDrive + envoi d&apos;emails
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                      Sync fichiers OneDrive (j.barbosa@l-agence.ch) + envoi d&apos;emails aux candidats
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Buttons */}
-              {isConnected && (
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
-                  <button
-                    onClick={() => syncOneDriveMutation.mutate()}
-                    disabled={syncOneDriveMutation.isPending || !onedriveFolderId}
-                    className="neo-btn"
-                    style={{ fontSize: 12, padding: '7px 14px' }}
-                    title={!onedriveFolderId ? 'Configurez un dossier d\'abord' : undefined}
-                  >
-                    <RefreshCw size={13} className={syncOneDriveMutation.isPending ? 'animate-spin' : ''} />
-                    {syncOneDriveMutation.isPending ? 'Sync...' : 'Synchroniser'}
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                {isOnedriveConnected ? (
+                  <>
+                    <button
+                      onClick={() => syncOneDriveMutation.mutate()}
+                      disabled={syncOneDriveMutation.isPending || !onedriveFolderId}
+                      className="neo-btn"
+                      style={{ fontSize: 12, padding: '7px 14px' }}
+                      title={!onedriveFolderId ? 'Configurez un dossier d\'abord' : undefined}
+                    >
+                      <RefreshCw size={13} className={syncOneDriveMutation.isPending ? 'animate-spin' : ''} />
+                      {syncOneDriveMutation.isPending ? 'Sync...' : 'Synchroniser'}
+                    </button>
+                    <button
+                      onClick={() => disconnectMutation.mutate(onedriveIntegration.id)}
+                      style={{
+                        fontSize: 12, fontWeight: 700, padding: '7px 14px',
+                        borderRadius: 8, border: '2px solid #FECACA',
+                        background: 'white', color: '#DC2626', cursor: 'pointer',
+                        fontFamily: 'var(--font-body)',
+                      }}
+                    >
+                      Déconnecter
+                    </button>
+                  </>
+                ) : (
+                  <a href="/api/microsoft/auth?purpose=onedrive" className="neo-btn" style={{ textDecoration: 'none', fontSize: 13 }}>
+                    <Plug size={14} />
+                    Connecter OneDrive
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Config dossier + stats si connecté */}
-            {isConnected && (
+            {isOnedriveConnected && (
               <>
                 {/* Dossier OneDrive surveillé */}
                 <div style={{
@@ -855,7 +899,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
             )}
 
             {/* Migration needed notice */}
-            {isConnected && onedriveFilesData?.migration_needed && (
+            {isOnedriveConnected && onedriveFilesData?.migration_needed && (
               <div style={{
                 marginTop: 14, padding: '10px 14px', borderRadius: 8,
                 background: '#FEF3C7', border: '1.5px solid #FDE68A',
@@ -900,7 +944,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
           </div>
 
           {/* ── Historique emails ── */}
-          {isConnected && emails.length > 0 && (
+          {isOutlookConnected && emails.length > 0 && (
             <div className="neo-card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ padding: '16px 20px', borderBottom: '2px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)' }}>Historique des emails analysés</h3>
@@ -930,7 +974,7 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                       <td style={{ padding: '10px 16px' }}>
                         {email.candidat_id ? (
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
-                            ✓ {email.candidats?.prenom} {email.candidats?.nom}
+                            {email.candidats?.prenom} {email.candidats?.nom}
                           </span>
                         ) : (
                           <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)' }}>
