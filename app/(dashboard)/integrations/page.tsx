@@ -17,6 +17,7 @@ function IntegrationsContent() {
 
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
+  const [syncReport, setSyncReport] = useState<any>(null)
 
   // Boucle auto sync Outlook
   const [outlookSyncing, setOutlookSyncing] = useState(false)
@@ -30,7 +31,12 @@ function IntegrationsContent() {
     outlookStopRef.current = false
     let totalCreated = 0
     let totalProcessed = 0
+    let totalDuplicates = 0
+    let totalErrors = 0
+    let totalSkipped = 0
     let batchNum = 0
+    const allCreatedNames: string[] = []
+    const allDuplicateNames: string[] = []
 
     while (!outlookStopRef.current) {
       try {
@@ -43,7 +49,11 @@ function IntegrationsContent() {
 
         batchNum++
         totalCreated += data.created?.length || 0
-        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
+        totalDuplicates += data.duplicates || 0
+        totalErrors += data.errors || 0
+        totalSkipped += data.skipped || 0
+        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.duplicates || 0)
+        if (data.created) allCreatedNames.push(...data.created)
         setOutlookProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
 
         // Rafraîchir les stats après chaque batch
@@ -53,7 +63,6 @@ function IntegrationsContent() {
 
         // Si aucun nouveau traité dans ce batch, on a fini
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
-          toast.success(`✅ Sync Outlook terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
           break
         }
 
@@ -63,6 +72,25 @@ function IntegrationsContent() {
         break
       }
     }
+
+    // Fetch updated emails to get doublon names
+    try {
+      const emailsRes = await fetch('/api/microsoft/sync?limit=500')
+      const emailsJson = await emailsRes.json()
+      const duplicateEmails = (emailsJson.emails || []).filter((e: any) => e.erreur?.startsWith('Doublon'))
+      allDuplicateNames.push(...duplicateEmails.map((e: any) => e.erreur.replace('Doublon — ', '')).slice(0, 50))
+    } catch { /* ignore */ }
+
+    setSyncReport({
+      type: 'outlook',
+      totalAnalysed: totalProcessed,
+      created: totalCreated,
+      createdNames: allCreatedNames,
+      duplicates: totalDuplicates,
+      duplicateNames: [...new Set(allDuplicateNames)].slice(0, 30),
+      errors: totalErrors,
+      skipped: totalSkipped,
+    })
 
     setOutlookSyncing(false)
     queryClient.invalidateQueries({ queryKey: ['integrations'] })
@@ -79,7 +107,12 @@ function IntegrationsContent() {
     onedriveStopRef.current = false
     let totalCreated = 0
     let totalProcessed = 0
+    let totalDuplicates = 0
+    let totalErrors = 0
+    let totalSkipped = 0
     let batchNum = 0
+    const allCreatedNames: string[] = []
+    const allDuplicateNames: string[] = []
 
     while (!onedriveStopRef.current) {
       try {
@@ -92,7 +125,11 @@ function IntegrationsContent() {
 
         batchNum++
         totalCreated += data.created?.length || 0
-        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0)
+        totalDuplicates += data.duplicates || 0
+        totalErrors += data.errors || 0
+        totalSkipped += data.skipped || 0
+        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.duplicates || 0)
+        if (data.created) allCreatedNames.push(...data.created)
         setOnedriveProgress({ total: totalProcessed, created: totalCreated, batch: batchNum })
 
         // Rafraîchir les stats après chaque batch
@@ -101,7 +138,6 @@ function IntegrationsContent() {
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
         if ((data.created?.length || 0) === 0 && (data.errors || 0) === 0) {
-          toast.success(`✅ Sync OneDrive terminée ! ${totalCreated} CVs importés sur ${batchNum} batch(es)`)
           break
         }
 
@@ -111,6 +147,25 @@ function IntegrationsContent() {
         break
       }
     }
+
+    // Fetch updated files to get doublon names
+    try {
+      const filesRes = await fetch('/api/onedrive/sync')
+      const filesJson = await filesRes.json()
+      const duplicateFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Doublon'))
+      allDuplicateNames.push(...duplicateFiles.map((f: any) => f.erreur.replace('Doublon — ', '')).slice(0, 50))
+    } catch { /* ignore */ }
+
+    setSyncReport({
+      type: 'onedrive',
+      totalAnalysed: totalProcessed,
+      created: totalCreated,
+      createdNames: allCreatedNames,
+      duplicates: totalDuplicates,
+      duplicateNames: [...new Set(allDuplicateNames)].slice(0, 30),
+      errors: totalErrors,
+      skipped: totalSkipped,
+    })
 
     setOnedriveSyncing(false)
     queryClient.invalidateQueries({ queryKey: ['integrations'] })
@@ -607,9 +662,11 @@ function IntegrationsContent() {
                 {/* Historique emails Outlook */}
                 {emails.length > 0 && (
                   <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
-                      Derniers emails importés ({emails.length})
-                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)' }}>
+                        Derniers emails importés ({emails.length})
+                      </h4>
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
                       {emails.map((email: any) => (
                         <div key={email.id} style={{
@@ -632,13 +689,13 @@ function IntegrationsContent() {
                               </span>
                             )}
                           </div>
-                          {email.candidat_id ? (
+                          {email.candidat_id && !email.erreur?.startsWith('Doublon') ? (
                             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46', flexShrink: 0 }}>
                               {email.candidats?.prenom} {email.candidats?.nom}
                             </span>
-                          ) : email.doublon ? (
+                          ) : email.erreur?.startsWith('Doublon') ? (
                             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A', flexShrink: 0 }}>
-                              Doublon
+                              {email.erreur}
                             </span>
                           ) : (
                             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: 'var(--background)', color: 'var(--muted)', border: '1.5px solid var(--border)', flexShrink: 0 }}>
@@ -648,6 +705,24 @@ function IntegrationsContent() {
                         </div>
                       ))}
                     </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Supprimer tout l\'historique des emails ? Les candidats importés ne seront pas supprimés.')) return
+                        try {
+                          await fetch('/api/microsoft/sync', { method: 'DELETE' })
+                          queryClient.invalidateQueries({ queryKey: ['emails-recus'] })
+                          toast.success('Historique emails supprimé')
+                        } catch { toast.error('Erreur lors de la suppression') }
+                      }}
+                      style={{
+                        marginTop: 10, fontSize: 11, fontWeight: 600, padding: '4px 10px',
+                        borderRadius: 6, border: '1px solid #FECACA', background: 'transparent',
+                        color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        opacity: 0.7,
+                      }}
+                    >
+                      🗑 Effacer l&apos;historique
+                    </button>
                   </div>
                 )}
               </>
@@ -931,8 +1006,8 @@ function IntegrationsContent() {
                               {f.candidats?.prenom} {f.candidats?.nom}
                             </span>
                           ) : f.erreur?.includes('Doublon') ? (
-                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
-                              Doublon
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
+                              {f.erreur}
                             </span>
                           ) : f.erreur ? (
                             <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>
@@ -942,6 +1017,24 @@ function IntegrationsContent() {
                         </div>
                       ))}
                     </div>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Supprimer tout l\'historique des fichiers OneDrive ? Les candidats importés ne seront pas supprimés.')) return
+                        try {
+                          await fetch('/api/onedrive/sync', { method: 'DELETE' })
+                          queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
+                          toast.success('Historique OneDrive supprimé')
+                        } catch { toast.error('Erreur lors de la suppression') }
+                      }}
+                      style={{
+                        marginTop: 10, fontSize: 11, fontWeight: 600, padding: '4px 10px',
+                        borderRadius: 6, border: '1px solid #FECACA', background: 'transparent',
+                        color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        opacity: 0.7,
+                      }}
+                    >
+                      🗑 Effacer l&apos;historique
+                    </button>
                   </div>
                 )}
               </>
@@ -993,6 +1086,106 @@ function IntegrationsContent() {
           </div>
 
         </>
+      )}
+
+      {/* ── Sync Report Modal ── */}
+      {syncReport && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 20,
+        }} onClick={() => setSyncReport(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--card, white)', borderRadius: 16, padding: '28px 32px',
+              maxWidth: 520, width: '100%', maxHeight: '80vh', overflowY: 'auto',
+              border: '2px solid var(--border)', boxShadow: '6px 6px 0 var(--border)',
+            }}
+          >
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', marginBottom: 20 }}>
+              Rapport de synchronisation — {syncReport.type === 'outlook' ? 'Outlook' : 'OneDrive'}
+            </h3>
+
+            {/* Stats grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
+              <div style={{ background: 'var(--background)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid var(--border)' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{syncReport.totalAnalysed}</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>
+                  {syncReport.type === 'outlook' ? 'Emails analysés' : 'Fichiers analysés'}
+                </p>
+              </div>
+              <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BBF7D0' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{syncReport.created}</p>
+                <p style={{ fontSize: 11, color: '#15803D', marginTop: 3, fontWeight: 600 }}>CVs importés</p>
+              </div>
+              <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: '#92400E', lineHeight: 1 }}>{syncReport.duplicates}</p>
+                <p style={{ fontSize: 11, color: '#92400E', marginTop: 3, fontWeight: 600 }}>Doublons détectés</p>
+              </div>
+              <div style={{ background: 'var(--background)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid var(--border)' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{syncReport.skipped + syncReport.errors}</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>Sans CV / Erreurs</p>
+              </div>
+            </div>
+
+            {/* Created list */}
+            {syncReport.createdNames?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginBottom: 6 }}>
+                  Candidats importés ({syncReport.created}) :
+                </p>
+                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                  {syncReport.createdNames.map((name: string, i: number) => (
+                    <div key={i} style={{ fontSize: 12, color: '#065F46', padding: '2px 0' }}>• {name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Duplicates list */}
+            {syncReport.duplicateNames?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>
+                  Doublons détectés ({syncReport.duplicates}) :
+                </p>
+                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                  {syncReport.duplicateNames.map((name: string, i: number) => (
+                    <div key={i} style={{ fontSize: 12, color: '#92400E', padding: '2px 0' }}>• {name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button
+                onClick={() => setSyncReport(null)}
+                style={{
+                  fontSize: 13, fontWeight: 700, padding: '8px 18px', borderRadius: 8,
+                  border: '2px solid var(--border)', background: 'var(--background)',
+                  color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                Fermer
+              </button>
+              {syncReport.created > 0 && (
+                <a
+                  href="/candidats"
+                  style={{
+                    fontSize: 13, fontWeight: 700, padding: '8px 18px', borderRadius: 8,
+                    border: '2px solid var(--primary)', background: 'var(--primary)',
+                    color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <User size={14} />
+                  Voir les candidats importés
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>

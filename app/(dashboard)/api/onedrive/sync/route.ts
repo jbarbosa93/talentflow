@@ -302,6 +302,17 @@ export async function POST() {
   }
 }
 
+export async function DELETE() {
+  try {
+    const supabase = createAdminClient()
+    await (supabase as any).from('onedrive_fichiers').delete().gte('created_at', '2000-01-01')
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[OneDrive Sync] DELETE error:', error)
+    return NextResponse.json({ error: 'Erreur suppression historique' }, { status: 500 })
+  }
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient()

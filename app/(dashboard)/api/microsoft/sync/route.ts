@@ -389,6 +389,17 @@ export async function POST(request?: Request) {
   }
 }
 
+export async function DELETE() {
+  try {
+    const supabase = createAdminClient()
+    await supabase.from('emails_recus').delete().gte('created_at', '2000-01-01')
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[MS Sync] DELETE error:', error)
+    return NextResponse.json({ error: 'Erreur suppression historique' }, { status: 500 })
+  }
+}
+
 export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
   const limit = parseInt(request.nextUrl.searchParams.get('limit') || '500')
