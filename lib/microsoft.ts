@@ -9,7 +9,10 @@ const CLIENT_ID = (process.env.MICROSOFT_CLIENT_ID || '').trim()
 const CLIENT_SECRET = (process.env.MICROSOFT_CLIENT_SECRET || '').trim()
 
 function getRedirectUri() {
-  return `${(process.env.NEXT_PUBLIC_APP_URL || '').trim()}/api/microsoft/callback`
+  const base = (process.env.NEXT_PUBLIC_APP_URL || '').trim()
+  // Forcer production URL si localhost détecté
+  const url = base.includes('localhost') ? 'https://www.talent-flow.ch' : (base || 'https://www.talent-flow.ch')
+  return `${url}/api/microsoft/callback`
 }
 
 // Permissions minimales pour la lecture des emails/CVs et fichiers OneDrive — évite l'obligation de consentement admin
