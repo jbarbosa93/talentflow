@@ -975,10 +975,10 @@ function IntegrationsContent() {
                     <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                   </div>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>
-                      {onedriveFichiers.filter((f: any) => f.erreur && f.erreur !== 'Doublon — candidat déjà existant').length}
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>
+                      {onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length}
                     </p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Erreurs</p>
+                    <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Doublons</p>
                   </div>
                 </div>
 
