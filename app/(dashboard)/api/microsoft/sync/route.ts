@@ -117,7 +117,7 @@ export async function POST(request?: Request) {
     // Récupérer les emails page par page, filtrer les non-traités en mémoire
     let allMessages: any[] = []
     let nextLink: string | null = `/me/mailFolders/${targetFolderId}/messages?$top=50&$select=id,subject,from,receivedDateTime,hasAttachments&$orderby=receivedDateTime desc`
-    const MAX_NEW_TO_PROCESS = 10
+    const MAX_NEW_TO_PROCESS = 20
     let pagesChecked = 0
     const MAX_PAGES = 10 // 10 pages × 50 = 500 emails scannés
 

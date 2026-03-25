@@ -86,7 +86,7 @@ export async function POST() {
     const created: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 3 par sync — chaque prend ~15s)
-    const MAX_NEW = 10 // 10 CVs par batch (Vercel Pro)
+    const MAX_NEW = 20 // 20 CVs par batch (Vercel Pro 300s)
     for (const fichier of fichiers) {
       if (processed + errors >= MAX_NEW) break
       try {
