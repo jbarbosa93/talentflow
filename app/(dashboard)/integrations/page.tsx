@@ -416,14 +416,9 @@ function IntegrationsContent() {
                   </div>
 
                   {isOutlookConnected ? (
-                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <User size={11} /> {outlookIntegration.nom_compte}
-                      </p>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Mail size={11} /> {outlookIntegration.email}
-                      </p>
-                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                      <Mail size={11} /> {outlookIntegration.email}
+                    </p>
                   ) : (
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
                       Réception des CVs par email (info@l-agence.ch) — import automatique depuis la boîte de réception
@@ -762,17 +757,9 @@ CRON_SECRET              = <une-clé-secrète-aléatoire>`}
                   </div>
 
                   {isOnedriveConnected ? (
-                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <User size={11} /> {onedriveIntegration.nom_compte}
-                      </p>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                        <Mail size={11} /> {onedriveIntegration.email}
-                      </p>
-                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                        Sync fichiers OneDrive + envoi d&apos;emails
-                      </p>
-                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
+                      <Mail size={11} /> {onedriveIntegration.email}
+                    </p>
                   ) : (
                     <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
                       Sync fichiers OneDrive (j.barbosa@l-agence.ch) + envoi d&apos;emails aux candidats
