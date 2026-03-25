@@ -324,7 +324,7 @@ export default function CandidatDetailPage() {
 
   const cancelEdit = () => { setIsEditing(false); setEditData({}) }
   const saveEdit   = () => {
-    const { metiers, ...rest } = editData
+    const { metiers, rating, ...rest } = editData
     const payload: Record<string, any> = {
       nom:                rest.nom,
       prenom:             rest.prenom,
@@ -343,8 +343,8 @@ export default function CandidatDetailPage() {
       langues:            rest.langues     ? rest.langues.split(',').map((s: string) => s.trim()).filter(Boolean)     : [],
       experiences:        rest.experiences        || [],
       formations_details: rest.formations_details || [],
-      tags:               metiers || [],
-      rating:             rest.rating > 0 ? rest.rating : null,
+      tags:               Array.isArray(metiers) ? metiers : [],
+      rating:             rating > 0 ? rating : null,
     }
     // Si la date d'ajout a été modifiée, l'inclure
     if (rest.created_at) {
@@ -902,15 +902,22 @@ export default function CandidatDetailPage() {
                         <button
                           key={star}
                           type="button"
-                          onClick={() => {
-                            const newRating = candidat.rating === star ? 0 : star
+                          onClick={async () => {
+                            const newRating = candidat.rating === star ? null : star
                             // Mise à jour optimiste via le cache React Query
                             queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, rating: newRating } : old)
-                            // Sauvegarder en base
-                            const supabase = createClient()
-                            supabase.from('candidats').update({ rating: newRating }).eq('id', candidat.id).then(() => {
+                            // Sauvegarder en base via l'API (bypass RLS)
+                            try {
+                              await fetch(`/api/candidats/${candidat.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ rating: newRating }),
+                              })
                               queryClient.invalidateQueries({ queryKey: ['candidats'] })
-                            })
+                            } catch {
+                              // Rollback en cas d'erreur
+                              queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                            }
                           }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}
                           title={`${star} étoile${star > 1 ? 's' : ''}`}

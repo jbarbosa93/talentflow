@@ -44,18 +44,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Cet utilisateur a déjà un compte actif.' }, { status: 400 })
       }
 
-      // Utilisateur jamais connecté → supprimer et ré-inviter pour envoyer un VRAI email
-      await supabase.auth.admin.deleteUser(existingUser.id)
+      // Utilisateur jamais connecté → mettre à jour les métadonnées et générer un nouveau lien d'invitation
+      await supabase.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: { prenom, nom, role, entreprise },
+      })
+
+      // Générer un lien d'invitation (envoie automatiquement l'email)
+      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: {
+          data: { prenom, nom, role, entreprise },
+          redirectTo,
+        },
+      })
+
+      if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 })
+
+      // L'email est envoyé automatiquement par Supabase via generateLink type 'invite'
+      return NextResponse.json({ success: true, user: linkData.user, resent: true })
     }
 
-    // Envoyer l'invitation (crée l'utilisateur + envoie l'email automatiquement)
+    // Nouvel utilisateur → envoyer l'invitation (crée l'utilisateur + envoie l'email automatiquement)
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
       data: { prenom, nom, role, entreprise },
       redirectTo,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, user: data.user, resent: !!existingUser })
+    return NextResponse.json({ success: true, user: data.user, resent: false })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Erreur serveur'
     return NextResponse.json({ error: msg }, { status: 500 })

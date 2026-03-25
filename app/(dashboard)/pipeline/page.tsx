@@ -632,12 +632,15 @@ export default function PipelinePage() {
                 }}
               />
               {showAddDropdown && addResults.length > 0 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                  background: 'var(--card)', border: '2px solid var(--border)',
-                  borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
-                  maxHeight: 320, overflowY: 'auto', zIndex: 100,
-                }}>
+                <div
+                  onMouseDown={e => e.preventDefault()}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
+                    background: 'var(--card)', border: '2px solid var(--border)',
+                    borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
+                    maxHeight: 320, overflowY: 'auto', zIndex: 100,
+                  }}
+                >
                   {addResults.map((c: any) => (
                     <div key={c.id} style={{
                       padding: '10px 14px', borderBottom: '1px solid var(--border)',
