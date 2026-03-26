@@ -253,22 +253,14 @@ export async function POST() {
               .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
             existingCandidat = data
           }
-          // 3. Par nom + prénom exact
+          // 3. Par nom + prénom exact (les deux doivent correspondre exactement)
           if (!existingCandidat && candidatNom && candidatPrenom) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
             existingCandidat = data
           }
-          // 4. Par nom flexible (le dernier mot du nom parsé contient le nom en base)
-          if (!existingCandidat && candidatNom && candidatPrenom) {
-            const lastNamePart = candidatNom.split(/\s+/).pop() || candidatNom
-            if (lastNamePart.length >= 3) {
-              const { data } = await supabase.from('candidats').select('id, nom, prenom')
-                .ilike('nom', `%${lastNamePart}%`).ilike('prenom', `%${candidatPrenom}%`).maybeSingle()
-              existingCandidat = data
-            }
-          }
-          // 5. Par nom de fichier (souvent contient le nom du candidat)
+          // 4. SUPPRIMÉ — matching partiel trop risqué (ex: "OLIVEIRA" → mauvaise personne)
+          // 5. Par nom de fichier exact (même nom de fichier = même candidat)
           if (!existingCandidat && filename) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .eq('cv_nom_fichier', filename).maybeSingle()
