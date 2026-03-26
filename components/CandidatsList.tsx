@@ -644,9 +644,12 @@ export default function CandidatsList() {
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
     const viewedSet = getViewedSet()
-    const seuilDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const isRecent = (c.created_at && c.created_at > seuilDate) || (c.updated_at && c.updated_at > seuilDate)
-    const isNewCandidat = isRecent && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
+    // Badge rouge si :
+    // 1. Le candidat est apparu APRÈS la dernière visite de la liste (nouveau depuis la dernière fois)
+    // OU a été explicitement marqué comme vu individuellement
+    // 2. ET son statut est encore 'nouveau'
+    const isAfterLastSeen = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
+    const isNewCandidat = isAfterLastSeen && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
 
     return (
       <div
