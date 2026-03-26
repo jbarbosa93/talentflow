@@ -78,32 +78,31 @@ export async function POST() {
 
     // 3. Charger TOUS les IDs déjà traités en mémoire (rapide, 1 seule requête)
     const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id')
-    const doneIds = new Set((alreadyDone || []).map((r: any) => r.onedrive_item_id))
+    const doneIds = new Set<string>((alreadyDone || []).map((r: any) => r.onedrive_item_id))
 
-    // 4. Lister les fichiers dans le dossier SharePoint (racine + sous-dossiers)
+    // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
+    async function scanFolderRecursive(scanDriveId: string, scanFolderId: string, scanToken: string, scanDoneIds: Set<string>, depth = 0): Promise<any[]> {
+      if (depth > 5) return []
+      const data = await callGraph(scanToken, `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`)
+      let result: any[] = []
+      for (const item of (data.value || [])) {
+        if (item.file && !scanDoneIds.has(item.id)) {
+          const ext = item.name.split('.').pop()?.toLowerCase()
+          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) result.push(item)
+        }
+        if (item.folder) {
+          try {
+            const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, scanDoneIds, depth + 1)
+            result.push(...subFiles)
+          } catch { /* ignore sub-folder errors */ }
+        }
+      }
+      return result
+    }
+
     let fichiers: any[] = []
     try {
-      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`)
-      const folders: any[] = []
-      for (const item of (rootData.value || [])) {
-        if (item.file && !doneIds.has(item.id)) {
-          const ext = item.name.split('.').pop()?.toLowerCase()
-          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) fichiers.push(item)
-        }
-        if (item.folder) folders.push(item)
-      }
-      // Scanner les sous-dossiers
-      for (const folder of folders) {
-        try {
-          const subData = await callGraph(accessToken, `/drives/${driveId}/items/${folder.id}/children?$select=name,id,file,size,lastModifiedDateTime&$top=200`)
-          for (const item of (subData.value || [])) {
-            if (item.file && !doneIds.has(item.id)) {
-              const ext = item.name.split('.').pop()?.toLowerCase()
-              if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) fichiers.push(item)
-            }
-          }
-        } catch { /* ignore sub-folder errors */ }
-      }
+      fichiers = await scanFolderRecursive(driveId, folderId, accessToken, doneIds)
     } catch (err) {
       return NextResponse.json(
         { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },

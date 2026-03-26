@@ -165,35 +165,35 @@ export default function CandidatsList() {
   const queryClient = useQueryClient()
   const { openUpload } = useUpload()
 
-  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('candidats_import_status')
-      if (saved) return saved
-    }
-    return 'a_traiter'
-  })
+  // Helper pour restaurer les filtres depuis sessionStorage (clé unique candidats_filters)
+  const FILTERS_KEY = 'candidats_filters'
+  const getFiltersFromStorage = (): Record<string, any> => {
+    try { return JSON.parse(sessionStorage.getItem(FILTERS_KEY) || '{}') } catch { return {} }
+  }
+  const ssGet = (key: string, fallback: any = '') => {
+    try {
+      const all = getFiltersFromStorage()
+      return key in all ? all[key] : fallback
+    } catch { return fallback }
+  }
+  const ssSet = (key: string, val: any) => {
+    try {
+      const all = getFiltersFromStorage()
+      all[key] = val
+      sessionStorage.setItem(FILTERS_KEY, JSON.stringify(all))
+    } catch {}
+  }
 
-  const sessionStorageKey = 'candidats_search'
+  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'a_traiter'))
 
   const { metiers: agenceMetiers } = useMetiers()
-  const [filtreMetier, setFiltreMetier]   = useState('')
-  const [search, setSearch]               = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem(sessionStorageKey)
-      if (saved) return saved
-    }
-    return ''
-  })
+  const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
+  const [search, setSearch]               = useState(() => ssGet('search', ''))
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
     const s = searchParams.get('statut')
     return (s && ['nouveau','contacte','entretien','place','refuse'].includes(s) ? s : 'tous') as PipelineEtape | 'tous'
   })
-  const [filtreLocalisation, setFiltreLocalisation] = useState('')
-  // Helper pour restaurer les filtres depuis sessionStorage
-  const ssGet = (key: string, fallback: any = '') => {
-    try { const v = sessionStorage.getItem(`candidats_${key}`); return v !== null ? JSON.parse(v) : fallback } catch { return fallback }
-  }
-  const ssSet = (key: string, val: any) => { try { sessionStorage.setItem(`candidats_${key}`, JSON.stringify(val)) } catch {} }
+  const [filtreLocalisation, setFiltreLocalisation] = useState(() => ssGet('filtreLocalisation', ''))
 
   const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance'>(() => ssGet('sort', 'date_desc'))
   const [groupByMetier, setGroupByMetier] = useState(false)
@@ -251,17 +251,10 @@ export default function CandidatsList() {
   }, [hoveredCv])
 
 
-  // Persist search in sessionStorage
-  useEffect(() => {
-    if (search) sessionStorage.setItem(sessionStorageKey, search)
-    else sessionStorage.removeItem(sessionStorageKey)
-  }, [search, sessionStorageKey])
-  // Restore search from sessionStorage on mount
-  useEffect(() => {
-    const saved = sessionStorage.getItem(sessionStorageKey)
-    if (saved && !search) setSearch(saved)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Persist search, filtreMetier, filtreLocalisation in sessionStorage (consolidated key)
+  useEffect(() => { ssSet('search', search) }, [search])
+  useEffect(() => { ssSet('filtreMetier', filtreMetier) }, [filtreMetier])
+  useEffect(() => { ssSet('filtreLocalisation', filtreLocalisation) }, [filtreLocalisation])
 
   // Distance depuis Monthey, Suisse — cache par localisation
   const [distances, setDistances] = useState<Record<string, number>>(() => {
@@ -276,12 +269,10 @@ export default function CandidatsList() {
   // Pipeline dropdown inline (only used in 'all' mode)
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
   const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
-  const [perPage, setPerPage] = useState<number>(20)
+  const [perPage, setPerPage] = useState<number>(() => ssGet('perPage', 20))
 
-  // Persist import status filter
-  useEffect(() => {
-    sessionStorage.setItem('candidats_import_status', importStatusFilter)
-  }, [importStatusFilter])
+  // Persist import status filter (consolidated key)
+  useEffect(() => { ssSet('importStatus', importStatusFilter) }, [importStatusFilter])
 
   // Debounced search pour ne pas spammer l'API
   const [debouncedSearch, setDebouncedSearch] = useState(search)
@@ -290,15 +281,10 @@ export default function CandidatsList() {
     return () => clearTimeout(timer)
   }, [search])
 
-  const [page, setPage] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = sessionStorage.getItem('candidats_page')
-      if (saved) return parseInt(saved, 10)
-    }
-    return 1
-  })
-  // Persist page
-  useEffect(() => { sessionStorage.setItem('candidats_page', String(page)) }, [page])
+  const [page, setPage] = useState<number>(() => ssGet('page', 1))
+  // Persist page + perPage
+  useEffect(() => { ssSet('page', page) }, [page])
+  useEffect(() => { ssSet('perPage', perPage) }, [perPage])
   // Reset page + sélection quand les filtres changent (skip au premier render)
   const isFirstRender = useRef(true)
   useEffect(() => {
@@ -849,7 +835,7 @@ export default function CandidatsList() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {search && (
-            <button onClick={() => { setSearch(''); sessionStorage.removeItem(sessionStorageKey) }} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
+            <button onClick={() => { setSearch(''); ssSet('search', '') }} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
               <X size={14} /> Nouvelle recherche
             </button>
           )}
@@ -946,7 +932,7 @@ export default function CandidatsList() {
             />
             {(search || aiResults !== null) && (
               <button
-                onClick={() => { clearAiSearch(); setSearch(''); sessionStorage.removeItem(sessionStorageKey) }}
+                onClick={() => { clearAiSearch(); setSearch(''); ssSet('search', '') }}
                 style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
               >
                 <X size={13} />

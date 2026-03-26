@@ -232,15 +232,41 @@ function DraggableCard({ item, etapeColor, onRemove }: { item: any; etapeColor: 
       {hovered && (
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 4,
+            display: 'flex', flexDirection: 'column', gap: 6,
             marginTop: 10, paddingTop: 10,
             borderTop: '1px solid var(--border)',
           }}
         >
-          <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
-          <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
-          <QuickAction icon={MessageSquare} label="Envoyer CV" color="#3B82F6" onClick={() => window.location.href = '/messages'} />
-          <QuickAction icon={X} label="Retirer du pipeline" color="#EF4444" onClick={() => onRemove()} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
+            <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
+            <QuickAction icon={MessageSquare} label="Envoyer CV" color="#3B82F6" onClick={() => window.location.href = '/messages'} />
+          </div>
+          <button
+            onPointerDown={e => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemove() }}
+            title="Retirer du pipeline"
+            style={{
+              width: '100%', padding: '5px 0', borderRadius: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              border: '1.5px solid rgba(239,68,68,0.3)',
+              background: 'rgba(239,68,68,0.06)',
+              color: '#EF4444',
+              cursor: 'pointer', transition: 'all 0.15s',
+              fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = '#EF4444';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)'
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.3)';
+              (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.06)'
+            }}
+          >
+            <X size={12} />
+            Retirer
+          </button>
         </div>
       )}
     </div>
