@@ -75,6 +75,43 @@ export async function POST(request: NextRequest) {
       message.toRecipients = recipients
     }
 
+    // Joindre les CVs des candidats sélectionnés
+    const allCandidatIds = candidat_ids || (candidat_id ? [candidat_id] : [])
+    if (allCandidatIds.length > 0) {
+      const { data: candidats } = await supabase
+        .from('candidats')
+        .select('id, nom, prenom, cv_url, cv_nom_fichier')
+        .in('id', allCandidatIds)
+
+      const attachments: any[] = []
+      for (const c of (candidats || [])) {
+        if (!c.cv_url) continue
+        try {
+          // Télécharger le CV depuis l'URL signée
+          const cvRes = await fetch(c.cv_url)
+          if (!cvRes.ok) continue
+          const buffer = Buffer.from(await cvRes.arrayBuffer())
+          const filename = c.cv_nom_fichier || `CV_${c.prenom || ''}_${c.nom || ''}.pdf`
+          const contentType = filename.toLowerCase().endsWith('.docx')
+            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : 'application/pdf'
+
+          attachments.push({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: filename,
+            contentType,
+            contentBytes: buffer.toString('base64'),
+          })
+        } catch (err) {
+          console.error(`[MS Send] Erreur téléchargement CV ${c.nom}:`, err)
+        }
+      }
+
+      if (attachments.length > 0) {
+        message.attachments = attachments
+      }
+    }
+
     // Send via Graph API
     await callGraph(accessToken, '/me/sendMail', {
       method: 'POST',
