@@ -829,16 +829,16 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
       opacity: isMerged ? 0.6 : 1,
       boxShadow: compact ? 'none' : 'var(--card-shadow)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ padding: '4px 12px', borderRadius: 99, background: c.bg, border: `1px solid ${c.border}` }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ padding: '4px 12px', borderRadius: 99, background: c.bg, border: `1px solid ${c.border}`, flexShrink: 0 }}>
             <span style={{ fontSize: 13, fontWeight: 800, color: c.text }}>{pair.result.score}% {c.label}</span>
           </div>
           {pair.result.raisons.map(r => (
             <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{r}</span>
           ))}
         </div>
-        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={14} />Fusionne</span>}
+        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 16 }}>
@@ -877,7 +877,9 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
 }
 
 function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a'] }) {
-  const initials = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
+  const c = candidat as Candidat
+  const initials = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+  const comps = (c.competences || []).slice(0, 5)
   return (
     <div style={{ padding: 12, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -886,18 +888,31 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {candidat.prenom} {candidat.nom}
+            {c.prenom} {c.nom}
           </div>
-          {candidat.titre_poste && (
+          {c.titre_poste && (
             <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {candidat.titre_poste}
+              {c.titre_poste}
             </div>
           )}
         </div>
       </div>
-      {candidat.email && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{candidat.email}</div>}
-      {candidat.telephone && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{candidat.telephone}</div>}
-      {candidat.localisation && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{candidat.localisation}</div>}
+      {c.email && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{c.email}</div>}
+      {c.telephone && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{c.telephone}</div>}
+      {c.localisation && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>{c.localisation}</div>}
+      {comps.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+          {comps.map(comp => (
+            <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F1F5F9', color: '#475569', fontWeight: 500 }}>{comp}</span>
+          ))}
+          {(c.competences || []).length > 5 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{(c.competences || []).length - 5}</span>}
+        </div>
+      )}
+      {c.cv_nom_fichier && (
+        <div style={{ fontSize: 10, color: '#2563EB', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          📄 {c.cv_nom_fichier}
+        </div>
+      )}
     </div>
   )
 }
