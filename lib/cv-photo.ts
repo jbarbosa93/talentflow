@@ -53,9 +53,16 @@ function scoreHeadshot(img: ImageCandidate): number {
   // --- Area scoring ---
   // Accept both medium and high-res: 15,000 - 3,000,000 pixels
   if (img.area >= 15000 && img.area <= 250000) score += 15
-  else if (img.area >= 8000 && img.area <= 3000000) score += 5
+  else if (img.area >= 8000 && img.area <= 1500000) score += 5
   else if (img.area < 5000) score -= 25   // Icon/logo
-  else if (img.area > 3000000) score -= 15 // Full page scan
+  else if (img.area > 1500000) score -= 40 // Full page scan / document entier
+
+  // --- Full-page scan detection ---
+  // A4 page scan: ~595x842 (72dpi) to ~2480x3508 (300dpi), ratio ~1.41
+  // Reject anything that looks like a full-page document scan
+  if (img.width > 500 && img.height > 700 && img.ratio >= 1.3 && img.ratio <= 1.5 && img.area > 400000) {
+    score -= 60 // Likely a full-page document scan, not a headshot
+  }
 
   // --- JPEG complexity (compressed size after resize to 300x400) ---
   // Real face photos have lots of color variation → larger JPEG

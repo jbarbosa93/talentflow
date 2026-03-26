@@ -271,16 +271,6 @@ function ActivityCard({ activite, index, selected, onToggle }: {
         >
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            {/* Avatar */}
-            <div style={{
-              width: 32, height: 32, borderRadius: 10,
-              background: config.bg,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, fontSize: 11, fontWeight: 800,
-              color: config.color,
-            }}>
-              {initialesFromName(activite.user_name)}
-            </div>
 
             {/* Content */}
             <div style={{ flex: 1, minWidth: 0 }}>

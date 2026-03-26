@@ -696,6 +696,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     import_status: 'a_traiter',
   }
 
+  // Genre (pas dans le type mais dans la table)
+  if ((analyse as any).genre) (nouveauCandidat as any).genre = (analyse as any).genre
+
   // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
   if (useFilenameDate && file.name) {
     const dateMatch = file.name.match(/(\d{2})\.(\d{2})\.(\d{4})/)

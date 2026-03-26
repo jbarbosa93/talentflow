@@ -184,6 +184,34 @@ export async function POST() {
           const candidatNom = (analyse.nom || '').trim()
           const candidatPrenom = (analyse.prenom || '').trim()
           const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
+          const docType = analyse.document_type || 'cv'
+          const isNotCV = docType && docType !== 'cv'
+
+          // e-bis. Si c'est un document non-CV (permis, certificat, etc.) SANS nom identifiable → skip
+          if (isNotCV && !candidatNom && !candidatEmail && candidatTel.length < 8) {
+            console.log(`[OneDrive Sync] Document "${docType}" sans candidat identifiable: ${filename}`)
+            try {
+              await (supabase as any).from('onedrive_fichiers').insert({
+                integration_id: integrationId,
+                onedrive_item_id: fichier.id,
+                nom_fichier: filename,
+                traite: true,
+                erreur: `Document "${docType}" — aucun candidat identifiable`,
+              })
+            } catch { /* ignore */ }
+
+            // Log activité pour traçabilité
+            try {
+              await (supabase as any).from('activites').insert({
+                type: 'onedrive_sync',
+                description: `Document ignoré — "${docType}" sans candidat identifiable`,
+                metadata: { filename, document_type: docType, source: 'onedrive' },
+                created_at: new Date().toISOString(),
+              })
+            } catch { /* ignore */ }
+
+            return { status: 'skipped', name: `⚠️ ${filename} (${docType})` }
+          }
 
           // f. Vérifie doublon candidat (5 méthodes)
           let existingCandidat: any = null
@@ -244,6 +272,50 @@ export async function POST() {
 
             const candidatDisplayName = `${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim()
 
+            // Si document non-CV (permis, certificat, etc.) → ajouter comme document au candidat existant
+            if (isNotCV) {
+              const timestamp = Date.now()
+              const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+              const { data: storageData } = await supabase.storage
+                .from('cvs')
+                .upload(storageName, buffer, { contentType: mimeType, upsert: false })
+
+              let docUrl: string | null = null
+              if (storageData?.path) {
+                const { data: urlData } = await supabase.storage
+                  .from('cvs')
+                  .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+                docUrl = urlData?.signedUrl || null
+              }
+
+              const existingDocs = candidatExistant.documents || []
+              const docTypeLabel = docType === 'permis' ? 'Permis' : docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'formation' ? 'Formation' : docType === 'attestation' ? 'Attestation' : 'Document'
+              existingDocs.push({
+                name: filename,
+                url: docUrl,
+                type: docTypeLabel,
+                uploaded_at: new Date().toISOString(),
+              })
+
+              await (supabase as any).from('candidats').update({
+                documents: existingDocs,
+                updated_at: new Date().toISOString(),
+              }).eq('id', candidatExistant.id)
+
+              try {
+                await (supabase as any).from('onedrive_fichiers').insert({
+                  integration_id: integrationId,
+                  onedrive_item_id: fichier.id,
+                  nom_fichier: filename,
+                  traite: true,
+                  candidat_id: existingCandidat.id,
+                  erreur: `${docTypeLabel} ajouté — ${candidatDisplayName}`,
+                })
+              } catch { /* ignore */ }
+
+              return { status: 'updated', name: `📄 ${docTypeLabel} → ${candidatDisplayName}`, candidatId: existingCandidat.id, filename }
+            }
+
             // Compare new CV analysis with existing candidate
             const cvHasNewContent = hasNewContent(candidatExistant, analyse)
 
@@ -284,6 +356,8 @@ export async function POST() {
                 formation: analyse.formation || candidatExistant.formation,
                 resume_ia: analyse.resume || candidatExistant.resume_ia,
                 permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
+                date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
+                genre: analyse.genre || candidatExistant.genre,
                 linkedin: analyse.linkedin || candidatExistant.linkedin,
                 annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
                 cv_url: newCvUrl || candidatExistant.cv_url,
@@ -378,6 +452,9 @@ export async function POST() {
               linkedin: analyse.linkedin || null,
               experiences: analyse.experiences || null,
               formations_details: analyse.formations_details || null,
+              date_naissance: analyse.date_naissance || null,
+              permis_conduire: analyse.permis_conduire ?? false,
+              genre: analyse.genre || null,
               cv_url: cvUrl,
               photo_url: photoUrl,
               cv_nom_fichier: filename,
@@ -463,7 +540,20 @@ export async function POST() {
             metadata: { source: 'onedrive', folder: folderName },
           })
         }
-        else if (r.status === 'reactivated') { reactivated++; if (r.name) reactivatedNames.push(r.name) }
+        else if (r.status === 'reactivated') {
+          reactivated++
+          if (r.name) reactivatedNames.push(r.name)
+          individualLogs.push({
+            user_id: '00000000-0000-0000-0000-000000000000',
+            user_name: 'Système (OneDrive)',
+            type: 'cv_doublon',
+            titre: `CV réactivé — ${r.name || 'inconnu'}`,
+            description: `Fichier: ${r.filename || 'inconnu'} · Dossier: ${folderName}`,
+            candidat_id: r.candidatId || null,
+            candidat_nom: r.name || null,
+            metadata: { source: 'onedrive', folder: folderName },
+          })
+        }
         else if (r.status === 'skipped') skipped++
         else if (r.status === 'error') errors++
       }
@@ -511,7 +601,10 @@ export async function POST() {
       // Log to logs_activite (legacy)
       await logActivity({ action: 'onedrive_sync', details: result })
 
-      // Log to activites table (used by the activities page)
+      // NOTE: On ne log plus le résumé "onedrive_sync" global — seuls les logs individuels
+      // (cv_importe, cv_actualise, cv_doublon) sont créés pour chaque fichier traité.
+      // Cela évite les doublons dans la page activités.
+      /*
       try {
         const parts: string[] = []
         if (processed > 0) parts.push(`${processed} importé${processed > 1 ? 's' : ''}`)
@@ -540,6 +633,7 @@ export async function POST() {
       } catch (e) {
         console.error('[OneDrive Sync] Erreur log activites:', e)
       }
+      */
     }
 
     return NextResponse.json(result)

@@ -10,6 +10,9 @@ type Candidat = {
   telephone: string | null; titre_poste: string | null; localisation: string | null
   annees_exp: number; competences: string[]; cv_url: string | null
   cv_nom_fichier: string | null; cv_texte_brut: string | null; created_at: string
+  photo_url?: string | null; source?: string | null
+  experiences?: { poste: string; entreprise: string; periode: string; description?: string }[] | null
+  formations_details?: { diplome: string; etablissement: string; annee: string }[] | null
 }
 
 export type DoublonPair = {

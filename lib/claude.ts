@@ -117,7 +117,8 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
       "annee": "2019"
     }
   ],
-  "document_type": "cv"
+  "document_type": "cv",
+  "genre": "M"
 }
 
 Règles :
@@ -125,7 +126,8 @@ Règles :
 - competences : maximum 15, technologies/outils/méthodes clés uniquement
 - langues : toutes les langues mentionnées dans le CV
 - permis_conduire : true si le CV mentionne le permis B ou permis de conduire, sinon false
-- date_naissance : 4 cas selon ce qui est dans le CV : (1) date exacte → "15/03/1985" format DD/MM/YYYY ; (2) année de naissance seulement → "1983" ; (3) âge actuel de la PERSONNE uniquement (ex: "41 ans", "âge : 35", "a 35 ans") → retourner le chiffre seul ex: "41" ou "35" ; (4) aucune info → "". ATTENTION CRITIQUE : "X ans d'expérience", "X années d'expérience professionnelle" = durée de carrière, JAMAIS l'âge de la personne → ne pas utiliser pour date_naissance
+- genre : "M" pour homme, "F" pour femme. Deviner à partir du prénom, de la photo si visible, ou d'indices dans le texte (accords grammaticaux "motivée" vs "motivé", etc.). Si impossible à déterminer → ""
+- date_naissance : CHERCHER ATTENTIVEMENT dans tout le document (coordonnées, infos personnelles, en-tête, pied de page, etc.). Formats courants à détecter : "30/12/1988", "30-12-1988", "30.12.1988", "1988-12-30", "36/ 30-12-1988" (âge/ date), "Né(e) le 30/12/1988", "Date de naissance: 30/12/1988", "DN: 30/12/1988", "36 ans (30/12/1988)", icône calendrier suivi d'une date. Retourner dans 4 cas : (1) date exacte trouvée → "30/12/1988" format DD/MM/YYYY ; (2) année de naissance seulement → "1988" ; (3) âge actuel de la PERSONNE uniquement (ex: "41 ans", "âge : 35", "a 35 ans") → retourner le chiffre seul ex: "41" ou "35" ; (4) aucune info → "". ATTENTION CRITIQUE : "X ans d'expérience", "X années d'expérience professionnelle" = durée de carrière, JAMAIS l'âge de la personne → ne pas utiliser pour date_naissance
 - experiences : toutes les expériences professionnelles dans l'ordre chronologique inverse (plus récente en premier)
 - formations_details : toutes les formations/diplômes dans l'ordre chronologique inverse
 - Si une info est absente, utiliser une chaîne vide "" (ou false pour les booléens, [] pour les tableaux)

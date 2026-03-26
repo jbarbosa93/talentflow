@@ -67,6 +67,9 @@ type Candidat = {
   telephone: string | null; titre_poste: string | null; localisation: string | null
   annees_exp: number; competences: string[]; cv_url: string | null
   cv_nom_fichier: string | null; cv_texte_brut: string | null; created_at: string
+  photo_url?: string | null; source?: string | null
+  experiences?: { poste: string; entreprise: string; periode: string; description?: string }[] | null
+  formations_details?: { diplome: string; etablissement: string; annee: string }[] | null
 }
 
 // ─── Merge field definitions ──────────────────────────────────────────────────
@@ -880,36 +883,89 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
   const c = candidat as Candidat
   const initials = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
   const comps = (c.competences || []).slice(0, 5)
+  const lastExp = (c.experiences || [])[0]
+  const expCount = (c.experiences || []).length
+  const formCount = ((c as any).formations_details || []).length
+
   return (
-    <div style={{ padding: 12, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
-          {initials}
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+    <div style={{ padding: 14, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+      {/* Header avec avatar/photo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        {c.photo_url ? (
+          <img src={c.photo_url} alt="" style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+            {initials}
+          </div>
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {c.prenom} {c.nom}
           </div>
           {c.titre_poste && (
-            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {c.titre_poste}
             </div>
           )}
         </div>
       </div>
-      {c.email && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{c.email}</div>}
-      {c.telephone && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>{c.telephone}</div>}
-      {c.localisation && <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>{c.localisation}</div>}
+
+      {/* Coordonnées */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+        {c.email && <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.email}</div>}
+        {c.telephone && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</div>}
+        {c.localisation && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.localisation}</div>}
+      </div>
+
+      {/* Dernière expérience */}
+      {lastExp && (
+        <div style={{ padding: '6px 8px', borderRadius: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', marginBottom: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {lastExp.poste}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {lastExp.entreprise} · {lastExp.periode}
+          </div>
+        </div>
+      )}
+
+      {/* Stats rapides */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+        {expCount > 0 && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#EDE9FE', color: '#7C3AED', fontWeight: 600 }}>
+            {expCount} exp.
+          </span>
+        )}
+        {formCount > 0 && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#D1FAE5', color: '#059669', fontWeight: 600 }}>
+            {formCount} form.
+          </span>
+        )}
+        {c.annees_exp > 0 && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#FEF3C7', color: '#D97706', fontWeight: 600 }}>
+            {c.annees_exp} ans
+          </span>
+        )}
+        {c.source && (
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#F1F5F9', color: '#64748B', fontWeight: 500 }}>
+            {c.source}
+          </span>
+        )}
+      </div>
+
+      {/* Compétences */}
       {comps.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
           {comps.map(comp => (
             <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F1F5F9', color: '#475569', fontWeight: 500 }}>{comp}</span>
           ))}
           {(c.competences || []).length > 5 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{(c.competences || []).length - 5}</span>}
         </div>
       )}
+
+      {/* CV */}
       {c.cv_nom_fichier && (
-        <div style={{ fontSize: 10, color: '#2563EB', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: 10, color: '#2563EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           📄 {c.cv_nom_fichier}
         </div>
       )}
