@@ -221,8 +221,10 @@ export async function generateBrandedCV(
     const loc = getContent('localisation', candidat.localisation || '')
     if (loc) infoParts.push(loc)
   }
-  const age = calculerAge(candidat.date_naissance ?? null)
-  if (showAge && age) infoParts.push(`${age} ans`)
+  // Âge : utiliser la valeur custom si fournie, sinon calculer depuis la fiche
+  const customAge = customContent?.age?.trim()
+  const age = customAge || calculerAge(candidat.date_naissance ?? null)
+  if (showAge && age) infoParts.push(`${age}${customAge ? '' : ' ans'}`)
   // Permis : afficher si coché, même si pas en base
   if (showPermis) infoParts.push('Permis de conduire')
   if (showOutille) infoParts.push('Outillé')
@@ -251,19 +253,26 @@ export async function generateBrandedCV(
     // Support compétences custom depuis le customizer (séparées par virgule)
     const customComps = customContent?.competences?.trim()
     const comps = customComps ? customComps.split(',').map((s: string) => s.trim()).filter(Boolean) : candidat.competences
-    // Draw as inline tags
-    let xPos = MARGIN
+    // Draw as simple text tags separated by · (no rectangles)
+    const compLine = comps.join('  ·  ')
+    // Split into lines if too long
+    const maxLineWidth = CONTENT_WIDTH
+    let currentLine = ''
+    const lines: string[] = []
     for (const comp of comps) {
-      const w = helvetica.widthOfTextAtSize(comp, 9) + 14
-      if (xPos + w > PAGE_WIDTH - MARGIN) {
-        xPos = MARGIN
-        y -= 20
+      const testLine = currentLine ? `${currentLine}  ·  ${comp}` : comp
+      if (helvetica.widthOfTextAtSize(testLine, 9) > maxLineWidth && currentLine) {
+        lines.push(currentLine)
+        currentLine = comp
+      } else {
+        currentLine = testLine
       }
-      newPageIfNeeded(22)
-      // Tag background — arrondi, centré verticalement
-      page.drawRectangle({ x: xPos, y: y - 2, width: w, height: 16, color: rgb(254 / 255, 243 / 255, 199 / 255), borderColor: rgb(217 / 255, 119 / 255, 6 / 255), borderWidth: 0.5, opacity: 0.7 })
-      page.drawText(comp, { x: xPos + 7, y: y + 2, font: helvetica, size: 9, color: DARK })
-      xPos += w + 5
+    }
+    if (currentLine) lines.push(currentLine)
+    for (const line of lines) {
+      newPageIfNeeded(14)
+      page.drawText(line, { x: MARGIN, y, font: helvetica, size: 9, color: GRAY })
+      y -= 14
     }
     y -= 24
   }

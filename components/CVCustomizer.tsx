@@ -112,6 +112,7 @@ export default function CVCustomizerModal({
       show_age: infoFields.show_age ? '1' : '0',
       show_permis: infoFields.show_permis ? '1' : '0',
       show_outille: infoFields.show_outille ? '1' : '0',
+      age: customContent.age || '',
       competences: customContent.competences || candidat.competences?.join(', ') || '',
     },
   })
@@ -328,6 +329,15 @@ export default function CVCustomizerModal({
                     <MapPin size={11} /> Localisation
                   </label>
                   <input value={customContent.localisation || ''} onChange={e => setCustomContent(p => ({ ...p, localisation: e.target.value }))} style={inputStyle} />
+                </div>
+              )}
+
+              {infoFields.show_age && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                    <Calendar size={11} /> Âge (ex: "32 ans" ou laisser vide si renseigné)
+                  </label>
+                  <input value={customContent.age || ''} onChange={e => setCustomContent(p => ({ ...p, age: e.target.value }))} style={inputStyle} placeholder={candidat.date_naissance ? 'Calculé automatiquement' : 'Ex: 32 ans'} />
                 </div>
               )}
 
