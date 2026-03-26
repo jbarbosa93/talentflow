@@ -882,11 +882,11 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button onClick={() => window.open(`/candidats/${pair.candidat_a.id}`, '_blank')}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
-            <Eye size={12} />{pair.candidat_a.prenom || 'A'}
+            <Eye size={12} />Profil A
           </button>
           <button onClick={() => window.open(`/candidats/${pair.candidat_b.id}`, '_blank')}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
-            <Eye size={12} />{pair.candidat_b.prenom || 'B'}
+            <Eye size={12} />Profil B
           </button>
           <div style={{ flex: 1 }} />
           <button onClick={() => onDifferents(pair.id)}
@@ -910,13 +910,14 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
   const lastExp = (c.experiences || [])[0]
   const expCount = (c.experiences || []).length
   const formCount = ((c as any).formations_details || []).length
+  const [imgError, setImgError] = useState(false)
 
   return (
     <div style={{ padding: 14, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header avec avatar/photo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        {c.photo_url ? (
-          <img src={c.photo_url} alt="" style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+        {c.photo_url && !imgError ? (
+          <img src={c.photo_url} alt="" onError={() => setImgError(true)} style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
         ) : (
           <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
             {initials}
