@@ -502,6 +502,22 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          key: string
+          value: unknown
+          created_at?: string
+          updated_at?: string
+        }
+        Insert: {
+          key: string
+          value: unknown
+        }
+        Update: {
+          value?: unknown
+        }
+        Relationships: []
+      }
     }
     Views: {
       vue_pipeline_complet: {
