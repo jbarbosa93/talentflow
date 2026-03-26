@@ -699,7 +699,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
           <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Fusionner les candidats</h3>
         </div>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
-          Choisissez le profil principal puis selectionnez pour chaque champ la valeur a conserver.
+          <strong style={{ color: 'var(--foreground)' }}>Profil principal</strong> = le profil dont l&apos;ID est conservé en base (l&apos;autre est supprimé). Les champs ci-dessous permettent de choisir <strong style={{ color: 'var(--foreground)' }}>valeur par valeur</strong> ce qui sera gardé, indépendamment du profil principal.
         </p>
 
         {/* Profile selector */}
