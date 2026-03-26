@@ -19,8 +19,10 @@ function getRedirectUri() {
 // Cela évite le blocage "Approbation administrateur requise" pour les apps non vérifiées
 const SCOPES = 'https://graph.microsoft.com/.default offline_access'
 
-export function getMicrosoftAuthUrl(purpose?: 'onedrive'): string {
-  const statePayload = purpose ? `talentflow-ats:${purpose}` : 'talentflow-ats:onedrive'
+export function getMicrosoftAuthUrl(purpose?: 'onedrive' | 'email', userId?: string): string {
+  const statePayload = userId
+    ? `talentflow-ats:${purpose || 'email'}:${userId}`
+    : `talentflow-ats:${purpose || 'onedrive'}`
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',

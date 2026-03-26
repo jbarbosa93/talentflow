@@ -7,21 +7,30 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const error = searchParams.get('error')
+  const stateParam = searchParams.get('state') || ''
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').includes('localhost')
     ? 'https://www.talent-flow.ch'
     : (process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch')
 
+  // Décoder le state : "talentflow-ats:onedrive" ou "talentflow-ats:email:USER_ID"
+  const stateParts = stateParam.split(':')
+  const purpose = stateParts[1] || 'onedrive'
+  const userId = stateParts[2] || null
+
+  // Page de retour selon le purpose
+  const errorRedirect = purpose === 'email' && userId
+    ? `${appUrl}/parametres/profil?error_email=`
+    : `${appUrl}/integrations?error=`
+
   if (error) {
     return NextResponse.redirect(
-      `${appUrl}/integrations?error=${encodeURIComponent(searchParams.get('error_description') || error)}`
+      `${errorRedirect}${encodeURIComponent(searchParams.get('error_description') || error)}`
     )
   }
 
   if (!code) {
-    return NextResponse.redirect(
-      `${appUrl}/integrations?error=Code+manquant`
-    )
+    return NextResponse.redirect(`${errorRedirect}Code+manquant`)
   }
 
   try {
@@ -29,29 +38,63 @@ export async function GET(request: NextRequest) {
 
     if (tokens.error) {
       return NextResponse.redirect(
-        `${appUrl}/integrations?error=${encodeURIComponent(tokens.error_description || tokens.error)}`
+        `${errorRedirect}${encodeURIComponent(tokens.error_description || tokens.error)}`
       )
     }
 
-    // Get user info
-    const user = await getMicrosoftUser(tokens.access_token)
-    const email = user.mail || user.userPrincipalName
-    const displayName = user.displayName
+    const msUser = await getMicrosoftUser(tokens.access_token)
+    const email = msUser.mail || msUser.userPrincipalName
+    const displayName = msUser.displayName
 
     const supabase = createAdminClient()
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // OneDrive uniquement
+    if (purpose === 'email' && userId) {
+      // ── Connexion Outlook personnelle (par user) ───────────────────────────
+      const { data: existing } = await supabase
+        .from('integrations')
+        .select('id')
+        .eq('type', 'microsoft_email' as any)
+        .filter('metadata->>user_id', 'eq', userId)
+        .maybeSingle()
+
+      if (existing) {
+        await supabase.from('integrations').update({
+          email,
+          nom_compte: displayName,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+          actif: true,
+          metadata: { purpose: 'email', user_id: userId },
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id)
+      } else {
+        await supabase.from('integrations').insert({
+          type: 'microsoft_email' as any,
+          email,
+          nom_compte: displayName,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expires_at: expiresAt,
+          actif: true,
+          metadata: { purpose: 'email', user_id: userId },
+        })
+      }
+
+      await logActivity({ action: 'microsoft_onedrive_connecte' as any, user_email: email })
+      return NextResponse.redirect(`${appUrl}/parametres/profil?success=microsoft_email`)
+    }
+
+    // ── Connexion OneDrive partagée (admin seulement) ──────────────────────
     const integrationType = 'microsoft_onedrive'
 
-    // Chercher si cette integration existe deja
     const { data: existing } = await supabase
       .from('integrations')
       .select('id, metadata')
       .eq('type', integrationType)
       .maybeSingle()
 
-    // Preserver la config SharePoint si elle existe
     const existingMeta = (existing?.metadata as any) || {}
 
     console.log(`[MS Callback] type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
@@ -84,16 +127,12 @@ export async function GET(request: NextRequest) {
 
     await logActivity({ action: 'microsoft_onedrive_connecte' as any, user_email: email })
 
-    // NOTE: la table emails_recus est deprecated et n'est plus utilisee.
-    // Elle peut etre supprimee lors d'une future migration.
+    return NextResponse.redirect(`${appUrl}/integrations?success=microsoft_onedrive`)
 
-    return NextResponse.redirect(
-      `${appUrl}/integrations?success=microsoft_onedrive`
-    )
   } catch (err) {
     console.error('[MS Callback] Error:', err)
     return NextResponse.redirect(
-      `${appUrl}/integrations?error=${encodeURIComponent('Erreur lors de la connexion')}`
+      `${errorRedirect}${encodeURIComponent('Erreur lors de la connexion')}`
     )
   }
 }

@@ -30,21 +30,30 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Get Microsoft OneDrive integration (used for sending emails via j.barbosa)
-    const { data: allMicrosoft } = await supabase
-      .from('integrations')
-      .select('*')
-      .like('type', 'microsoft%')
-      .eq('actif', true)
-    const integrationRaw = (allMicrosoft || []).find((i: any) => i.type === 'microsoft_onedrive')
-      || (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
-      || (allMicrosoft || [])[0] // fallback
+    // Récupérer le user connecté pour utiliser SON compte Outlook personnel
+    const { createClient } = await import('@/lib/supabase/server')
+    const supabaseUser = await createClient()
+    const { data: { user: currentUser } } = await supabaseUser.auth.getUser()
+
+    let integrationRaw: any = null
+
+    if (currentUser?.id) {
+      // Chercher l'intégration email personnelle de l'utilisateur
+      const { data: personalEmail } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('type', 'microsoft_email' as any)
+        .filter('metadata->>user_id', 'eq', currentUser.id)
+        .eq('actif', true)
+        .maybeSingle()
+      integrationRaw = personalEmail
+    }
 
     const integration = integrationRaw as unknown as Integration | null
 
     if (!integration) {
       return NextResponse.json(
-        { error: 'Compte Microsoft OneDrive non connecté. Configurez l\'intégration d\'abord.' },
+        { error: 'Aucun compte Outlook connecté. Connectez votre compte Outlook dans Paramètres > Profil.' },
         { status: 404 }
       )
     }

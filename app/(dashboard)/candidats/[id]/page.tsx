@@ -689,7 +689,7 @@ export default function CandidatDetailPage() {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <button onClick={() => fromPipeline ? router.push('/pipeline') : router.back()} className="neo-btn-ghost neo-btn-sm">
+        <button onClick={() => fromPipeline ? router.push('/pipeline') : router.push('/candidats')} className="neo-btn-ghost neo-btn-sm">
           <ArrowLeft size={14} /> {fromPipeline ? 'Retour au pipeline' : 'Retour aux candidats'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

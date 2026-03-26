@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Camera, Save, Lock, Mail, Phone, User, Briefcase,
   LogOut, Check, Loader2, AlertCircle, Calendar, MapPin,
-  ShieldCheck, ShieldOff, QrCode, ZoomIn, ZoomOut, Move,
+  ShieldCheck, ShieldOff, QrCode, ZoomIn, ZoomOut, Move, Plug, XCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -193,6 +193,20 @@ export default function ProfilPage() {
   const queryClient  = useQueryClient()
   const avatarRef    = useRef<HTMLInputElement>(null)
 
+  // Toast si retour OAuth Outlook réussi
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === 'microsoft_email') {
+      toast.success('Compte Outlook connecté avec succès ✓')
+      window.history.replaceState({}, '', '/parametres/profil')
+    }
+    if (params.get('error_email')) {
+      toast.error('Erreur connexion Outlook : ' + decodeURIComponent(params.get('error_email') || ''))
+      window.history.replaceState({}, '', '/parametres/profil')
+    }
+  }, [])
+
   // ── État du formulaire ────────────────────────────────────────────────────
   const [form, setForm] = useState({
     prenom: '', nom: '', entreprise: '', telephone: '', date_naissance: '',
@@ -207,6 +221,37 @@ export default function ProfilPage() {
   const [savingEmail, setSavingEmail]     = useState(false)
   const [savingPwd, setSavingPwd]         = useState(false)
   const [savingAvatar, setSavingAvatar]   = useState(false)
+  const [outlookLoading, setOutlookLoading] = useState(false)
+
+  // ── Outlook : intégration email personnelle ────────────────────────────────
+  const { data: outlookIntegration, refetch: refetchOutlook } = useQuery({
+    queryKey: ['outlook-integration'],
+    queryFn: async () => {
+      const res = await fetch('/api/microsoft/email-status')
+      if (!res.ok) return null
+      return res.json()
+    },
+    staleTime: 30_000,
+  })
+
+  const connectOutlook = () => {
+    window.location.href = '/api/microsoft/auth?purpose=email'
+  }
+
+  const disconnectOutlook = async () => {
+    setOutlookLoading(true)
+    try {
+      const res = await fetch('/api/microsoft/email-disconnect', { method: 'DELETE' })
+      if (res.ok) {
+        toast.success('Compte Outlook déconnecté')
+        refetchOutlook()
+      } else {
+        toast.error('Erreur lors de la déconnexion')
+      }
+    } finally {
+      setOutlookLoading(false)
+    }
+  }
 
   // Crop modal
   const [cropSrc, setCropSrc]             = useState<string | null>(null)
@@ -559,6 +604,59 @@ export default function ProfilPage() {
             {savingEmail ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Envoi...</> : <><Check size={14} /> Confirmer le changement</>}
           </button>
         </div>
+      </div>
+
+      {/* ── Compte Outlook personnel ── */}
+      <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
+        <p style={sectionTitle}><Plug size={15} style={{ color: '#0078D4' }} /> Compte Outlook (envoi d&apos;emails)</p>
+        {outlookIntegration ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,120,212,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Mail size={16} style={{ color: '#0078D4' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{outlookIntegration.nom_compte}</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0' }}>{outlookIntegration.email}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Connecté</span>
+              </div>
+            </div>
+            <button
+              onClick={disconnectOutlook}
+              disabled={outlookLoading}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+                borderRadius: 8, border: '1.5px solid #FECACA', background: 'white',
+                fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1,
+              }}
+            >
+              <XCircle size={13} /> Déconnecter
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+              Connectez votre compte Microsoft Outlook pour envoyer des emails depuis TalentFlow avec votre propre adresse.
+            </p>
+            <button
+              onClick={connectOutlook}
+              disabled={outlookLoading}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px',
+                borderRadius: 9, border: 'none', background: '#0078D4',
+                fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.7 : 1,
+              }}
+            >
+              {outlookLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Plug size={14} />}
+              Connecter mon Outlook
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── 2FA ── */}
