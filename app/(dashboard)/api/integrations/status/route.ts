@@ -4,18 +4,22 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export async function GET() {
   const admin = createAdminClient()
 
-  // Chercher toutes les intégrations Microsoft actives (type='microsoft', distinguished by metadata.purpose)
+  // Chercher toutes les intégrations Microsoft actives
   const { data: integrations } = await admin
     .from('integrations')
     .select('type, email, nom_compte, metadata, actif')
-    .eq('type', 'microsoft')
+    .like('type', 'microsoft%')
     .eq('actif', true)
 
   const result: Record<string, any> = {}
 
   for (const int of integrations || []) {
-    const purpose = (int.metadata as any)?.purpose || 'onedrive' // legacy fallback
-    const key = `microsoft_${purpose}` // e.g. microsoft_onedrive
+    // Type peut être 'microsoft', 'microsoft_onedrive', 'microsoft_outlook'
+    const type = int.type as string
+    const purpose = type === 'microsoft_onedrive' ? 'onedrive'
+      : type === 'microsoft_outlook' ? 'outlook'
+      : (int.metadata as any)?.purpose || 'onedrive'
+    const key = `microsoft_${purpose}`
     result[key] = {
       email: int.email,
       nom: int.nom_compte,

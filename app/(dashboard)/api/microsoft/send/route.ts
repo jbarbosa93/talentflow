@@ -31,14 +31,14 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient()
 
     // Get Microsoft OneDrive integration (used for sending emails via j.barbosa)
-    // Fetch all active Microsoft integrations, then filter by metadata.purpose
     const { data: allMicrosoft } = await supabase
       .from('integrations')
       .select('*')
-      .eq('type', 'microsoft')
+      .like('type', 'microsoft%')
       .eq('actif', true)
-    const integrationRaw = (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
-      || (allMicrosoft || []).find((i: any) => !(i.metadata as any)?.purpose) // legacy fallback
+    const integrationRaw = (allMicrosoft || []).find((i: any) => i.type === 'microsoft_onedrive')
+      || (allMicrosoft || []).find((i: any) => (i.metadata as any)?.purpose === 'onedrive')
+      || (allMicrosoft || [])[0] // fallback
 
     const integration = integrationRaw as unknown as Integration | null
 
