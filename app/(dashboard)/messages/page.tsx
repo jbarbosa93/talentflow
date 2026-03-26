@@ -674,17 +674,18 @@ function EmailTab() {
     onError: (e: Error) => toast.error(`Erreur : ${e.message}`),
   })
 
-  // Vérifier si Microsoft est connecté (intégration OneDrive = envoi mails)
+  // Vérifier si l'utilisateur a son propre compte Outlook connecté
   useEffect(() => {
-    fetch('/api/microsoft/send', { method: 'OPTIONS' }).catch(() => {})
-    // Vérifier via l'API status
-    fetch('/api/integrations/status').then(r => r.json()).then((data: any) => {
-      if (data.microsoft_onedrive || data.microsoft) {
-        setMsConfig({ configured: true, email: data.microsoft_onedrive?.email || data.microsoft?.email, nom: data.microsoft_onedrive?.nom || data.microsoft?.nom })
-      } else {
-        setMsConfig({ configured: false })
-      }
-    }).catch(() => setMsConfig({ configured: false }))
+    fetch('/api/microsoft/email-status')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: any) => {
+        if (data?.email) {
+          setMsConfig({ configured: true, email: data.email, nom: data.nom_compte })
+        } else {
+          setMsConfig({ configured: false })
+        }
+      })
+      .catch(() => setMsConfig({ configured: false }))
   }, [])
 
   // Quand on sélectionne des candidats (pas d'auto-ajout email)
@@ -771,15 +772,15 @@ function EmailTab() {
         <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: '#FFFBEB', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Mail size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Microsoft 365 non connecté</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Compte Outlook non connecté</p>
             <p style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>
-              Connectez votre compte Microsoft 365 dans Intégrations pour envoyer des emails.
+              Connectez votre compte Outlook dans Paramètres pour envoyer des emails depuis votre adresse.
             </p>
           </div>
-          <a href="/integrations"
+          <a href="/parametres?section=profil"
             className="neo-btn-yellow neo-btn-sm"
             style={{ whiteSpace: 'nowrap', textDecoration: 'none' }}>
-            Intégrations →
+            Paramètres →
           </a>
         </div>
       )}

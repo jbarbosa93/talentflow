@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle } from 'lucide-react'
+import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle, Mail, Plug, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useMetiers } from '@/hooks/useMetiers'
@@ -191,6 +191,10 @@ function ProfilSection() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPw, setSavingPw] = useState(false)
 
+  // Outlook per-user
+  const [outlookIntegration, setOutlookIntegration] = useState<{ email: string; nom_compte: string } | null>(null)
+  const [outlookLoading, setOutlookLoading] = useState(false)
+
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -203,7 +207,33 @@ function ProfilSection() {
         setTelephone(meta.telephone || '')
       }
     })
+    // Charger le statut Outlook
+    fetch('/api/microsoft/email-status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.email) setOutlookIntegration(data) })
+      .catch(() => {})
+
+    // Toast si retour OAuth Outlook
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('success') === 'microsoft_email') {
+        toast.success('Compte Outlook connecté avec succès ✓')
+        window.history.replaceState({}, '', window.location.pathname)
+        fetch('/api/microsoft/email-status').then(r => r.json()).then(data => { if (data?.email) setOutlookIntegration(data) })
+      }
+    }
   }, [])
+
+  const connectOutlook = () => { window.location.href = '/api/microsoft/auth?purpose=email' }
+
+  const disconnectOutlook = async () => {
+    setOutlookLoading(true)
+    try {
+      const res = await fetch('/api/microsoft/email-disconnect', { method: 'DELETE' })
+      if (res.ok) { toast.success('Compte Outlook déconnecté'); setOutlookIntegration(null) }
+      else toast.error('Erreur lors de la déconnexion')
+    } finally { setOutlookLoading(false) }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -266,6 +296,39 @@ function ProfilSection() {
             <Save size={14} /> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
           </button>
         </div>
+      </SectionCard>
+
+      <SectionCard title="Compte Outlook (envoi d'emails)" description="Connectez votre compte Microsoft pour envoyer des emails depuis votre adresse">
+        {outlookIntegration ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,120,212,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Mail size={16} style={{ color: '#0078D4' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{outlookIntegration.nom_compte}</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0' }}>{outlookIntegration.email}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Connecté</span>
+              </div>
+            </div>
+            <button onClick={disconnectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1.5px solid #FECACA', background: 'white', fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1 }}>
+              <XCircle size={13} /> Déconnecter
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
+              Chaque utilisateur doit connecter son propre compte Outlook pour envoyer des emails.
+            </p>
+            <button onClick={connectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 9, border: 'none', background: '#0078D4', fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              {outlookLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Plug size={14} />}
+              Connecter mon Outlook
+            </button>
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard title="Changer le mot de passe" description="Sécurisez votre compte avec un mot de passe fort">
