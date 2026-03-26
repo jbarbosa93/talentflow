@@ -371,7 +371,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       updateData.permis_conduire = analyse.permis_conduire ?? null
       updateData.date_naissance = analyse.date_naissance || null
       updateData.resume_ia = analyse.resume || null
-      if ((analyse as any).genre) updateData.genre = (analyse as any).genre
+      const genreRaw = (analyse as any).genre
+      if (genreRaw) {
+        const g = String(genreRaw).trim().toLowerCase()
+        updateData.genre = (g === 'm' || g === 'male' || g === 'homme') ? 'homme'
+          : (g === 'f' || g === 'female' || g === 'femme') ? 'femme'
+          : null
+      }
       if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
@@ -697,7 +703,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Genre (pas dans le type mais dans la table)
-  if ((analyse as any).genre) (nouveauCandidat as any).genre = (analyse as any).genre
+  const genreRawNew = (analyse as any).genre
+  if (genreRawNew) {
+    const g = String(genreRawNew).trim().toLowerCase()
+    ;(nouveauCandidat as any).genre = (g === 'm' || g === 'male' || g === 'homme') ? 'homme'
+      : (g === 'f' || g === 'female' || g === 'femme') ? 'femme'
+      : null
+  }
 
   // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
   if (useFilenameDate && file.name) {
