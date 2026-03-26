@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   // Page de retour selon le purpose
   const errorRedirect = purpose === 'email' && userId
-    ? `${appUrl}/parametres/profil?error_email=`
+    ? `${appUrl}/parametres?error_email=`
     : `${appUrl}/integrations?error=`
 
   if (error) {
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       }
 
       await logActivity({ action: 'microsoft_onedrive_connecte' as any, user_email: email })
-      return NextResponse.redirect(`${appUrl}/parametres/profil?success=microsoft_email`)
+      return NextResponse.redirect(`${appUrl}/parametres?success=microsoft_email`)
     }
 
     // ── Connexion OneDrive partagée (admin seulement) ──────────────────────

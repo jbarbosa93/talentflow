@@ -298,9 +298,6 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* ── Activite recente ── */}
-      <RecentActivityWidget />
-
       {/* ── Carte des candidats ── */}
       <motion.div
         custom={3}
