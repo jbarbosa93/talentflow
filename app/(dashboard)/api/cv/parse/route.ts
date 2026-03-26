@@ -574,14 +574,86 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       })
     }
 
-    // Pour les CVs, retourner le doublon pour auto-actualisation côté client
-    await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'candidat_existant' } })
-    return NextResponse.json({
-      isDuplicate: true,
-      candidatExistant,
-      analyse,
-      message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
-    })
+    // ── Smart update : comparer ancien vs nouveau CV ──
+    // Récupérer les données complètes du candidat existant
+    const { data: existingFull } = await adminClient.from('candidats')
+      .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents')
+      .eq('id', candidatExistant.id).single()
+
+    // Vérifier si le CV a du nouveau contenu
+    const hasNewContent = (() => {
+      if (!existingFull) return true
+      const oldExpCount = (existingFull.experiences || []).length
+      const newExpCount = (analyse.experiences || []).length
+      if (newExpCount > oldExpCount) return true
+      if (analyse.titre_poste && existingFull.titre_poste &&
+        analyse.titre_poste.toLowerCase() !== existingFull.titre_poste.toLowerCase()) return true
+      const oldComp = new Set((existingFull.competences || []).map((s: string) => s.toLowerCase()))
+      const newComp = (analyse.competences || []).filter((s: string) => !oldComp.has(s.toLowerCase()))
+      if (newComp.length >= 3) return true
+      const oldFormCount = (existingFull.formations_details || []).length
+      const newFormCount = (analyse.formations_details || []).length
+      if (newFormCount > oldFormCount) return true
+      return false
+    })()
+
+    if (hasNewContent && existingFull) {
+      // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
+      const existingDocs = (existingFull.documents as any[]) || []
+      if (existingFull.cv_url) {
+        existingDocs.push({
+          name: existingFull.cv_nom_fichier || 'Ancien CV',
+          url: existingFull.cv_url,
+          type: 'Ancien CV',
+          uploaded_at: new Date().toISOString(),
+        })
+      }
+
+      await adminClient.from('candidats').update({
+        titre_poste: analyse.titre_poste || existingFull.titre_poste,
+        competences: analyse.competences || existingFull.competences,
+        langues: analyse.langues || existingFull.langues,
+        experiences: analyse.experiences || existingFull.experiences,
+        formations_details: analyse.formations_details || existingFull.formations_details,
+        formation: analyse.formation || existingFull.formation,
+        resume_ia: analyse.resume || existingFull.resume_ia,
+        permis_conduire: analyse.permis_conduire ?? existingFull.permis_conduire,
+        linkedin: analyse.linkedin || existingFull.linkedin,
+        cv_url: cvUrl || existingFull.cv_url,
+        cv_nom_fichier: file.name,
+        documents: existingDocs,
+        created_at: new Date().toISOString(), // Date d'ajout = aujourd'hui
+        updated_at: new Date().toISOString(),
+      } as any).eq('id', candidatExistant.id)
+
+      console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
+      return NextResponse.json({
+        isDuplicate: true,
+        updated: true,
+        candidatExistant,
+        candidat: { ...candidatExistant, created_at: new Date().toISOString() },
+        analyse,
+        message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
+      })
+    } else {
+      // Même CV — juste réactiver la date d'ajout
+      await adminClient.from('candidats').update({
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as any).eq('id', candidatExistant.id)
+
+      console.log(`[CV Parse] Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'reactive_date' } })
+      return NextResponse.json({
+        isDuplicate: true,
+        reactivated: true,
+        candidatExistant,
+        candidat: { ...candidatExistant, created_at: new Date().toISOString() },
+        analyse,
+        message: `Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom} (date mise à jour)`,
+      })
+    }
   }
 
   // 8d. Document non-CV sans candidat existant → ne PAS créer de nouveau candidat
