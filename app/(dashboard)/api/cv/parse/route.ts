@@ -10,6 +10,7 @@ import type { CandidatInsert, DocumentType } from '@/types/database'
 import { logActivity } from '@/lib/activity-log'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
+import { normaliserGenre } from '@/lib/normaliser-genre'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -371,13 +372,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       updateData.permis_conduire = analyse.permis_conduire ?? null
       updateData.date_naissance = analyse.date_naissance || null
       updateData.resume_ia = analyse.resume || null
-      const genreRaw = (analyse as any).genre
-      if (genreRaw) {
-        const g = String(genreRaw).trim().toLowerCase()
-        updateData.genre = (g === 'm' || g === 'male' || g === 'homme') ? 'homme'
-          : (g === 'f' || g === 'female' || g === 'femme') ? 'femme'
-          : null
-      }
+      updateData.genre = normaliserGenre((analyse as any).genre)
       if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
@@ -703,13 +698,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Genre (pas dans le type mais dans la table)
-  const genreRawNew = (analyse as any).genre
-  if (genreRawNew) {
-    const g = String(genreRawNew).trim().toLowerCase()
-    ;(nouveauCandidat as any).genre = (g === 'm' || g === 'male' || g === 'homme') ? 'homme'
-      : (g === 'f' || g === 'female' || g === 'femme') ? 'femme'
-      : null
-  }
+  ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
   // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
   if (useFilenameDate && file.name) {

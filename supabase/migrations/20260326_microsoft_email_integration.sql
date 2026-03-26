@@ -6,4 +6,4 @@ ALTER TABLE integrations DROP CONSTRAINT IF EXISTS integrations_type_check;
 
 -- Recréer avec microsoft_email inclus
 ALTER TABLE integrations ADD CONSTRAINT integrations_type_check
-  CHECK (type IN ('microsoft', 'microsoft_onedrive', 'microsoft_email', 'google', 'whatsapp'));
+  CHECK (type IN ('microsoft', 'microsoft_onedrive', 'microsoft_outlook', 'microsoft_email', 'google', 'whatsapp'));

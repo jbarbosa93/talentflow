@@ -7,6 +7,7 @@ import { getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import { logActivity } from '@/lib/activity-log'
+import { normaliserGenre } from '@/lib/normaliser-genre'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -357,7 +358,7 @@ export async function POST() {
                 resume_ia: analyse.resume || candidatExistant.resume_ia,
                 permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
                 date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
-                genre: (() => { const g = String(analyse.genre || '').trim().toLowerCase(); return g === 'm' || g === 'male' || g === 'homme' ? 'homme' : g === 'f' || g === 'female' || g === 'femme' ? 'femme' : candidatExistant.genre || null })(),
+                genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
                 linkedin: analyse.linkedin || candidatExistant.linkedin,
                 annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
                 cv_url: newCvUrl || candidatExistant.cv_url,
@@ -454,7 +455,7 @@ export async function POST() {
               formations_details: analyse.formations_details || null,
               date_naissance: analyse.date_naissance || null,
               permis_conduire: analyse.permis_conduire ?? false,
-              genre: (() => { const g = String(analyse.genre || '').trim().toLowerCase(); return g === 'm' || g === 'male' || g === 'homme' ? 'homme' : g === 'f' || g === 'female' || g === 'femme' ? 'femme' : null })(),
+              genre: normaliserGenre(analyse.genre),
               cv_url: cvUrl,
               photo_url: photoUrl,
               cv_nom_fichier: filename,

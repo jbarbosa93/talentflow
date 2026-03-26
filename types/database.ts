@@ -12,7 +12,7 @@ export type CandidatDocument = {
   uploaded_at: string
 }
 export type OffreStatut = 'active' | 'pourvue' | 'archivee'
-export type IntegrationType = 'microsoft' | 'microsoft_onedrive' | 'microsoft_email' | 'google' | 'whatsapp'
+export type IntegrationType = 'microsoft' | 'microsoft_onedrive' | 'microsoft_outlook' | 'microsoft_email' | 'google' | 'whatsapp'
 export type EntretienType = 'visio' | 'presentiel' | 'telephone'
 export type EntretienStatut = 'planifie' | 'confirme' | 'annule' | 'complete'
 export type EmailTemplateCategorie = 'invitation_entretien' | 'relance' | 'refus' | 'offre' | 'general'
