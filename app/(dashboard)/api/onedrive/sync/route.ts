@@ -14,6 +14,29 @@ export const maxDuration = 300
 const DEFAULT_FOLDER_NAME = 'CVs TalentFlow'
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 
+function hasNewContent(existing: any, newAnalysis: any): boolean {
+  // Check if new analysis has more experiences
+  const oldExpCount = (existing.experiences || []).length
+  const newExpCount = (newAnalysis.experiences || []).length
+  if (newExpCount > oldExpCount) return true
+
+  // Check if titre_poste changed meaningfully
+  if (newAnalysis.titre_poste && existing.titre_poste &&
+      newAnalysis.titre_poste.toLowerCase() !== existing.titre_poste.toLowerCase()) return true
+
+  // Check new competences
+  const oldComp = new Set((existing.competences || []).map((s: string) => s.toLowerCase()))
+  const newComp = (newAnalysis.competences || []).filter((s: string) => !oldComp.has(s.toLowerCase()))
+  if (newComp.length >= 3) return true
+
+  // Check new formations
+  const oldFormCount = (existing.formations_details || []).length
+  const newFormCount = (newAnalysis.formations_details || []).length
+  if (newFormCount > oldFormCount) return true
+
+  return false
+}
+
 export async function POST() {
   try {
     const supabase = createAdminClient()
@@ -91,8 +114,11 @@ export async function POST() {
     let processed = 0
     let skipped = 0
     let errors = 0
-    let duplicates = 0
+    let updated = 0
+    let reactivated = 0
     const created: string[] = []
+    const updatedNames: string[] = []
+    const reactivatedNames: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 20 par batch, 5 en parallèle)
     const MAX_NEW = 20 // 20 CVs par batch (Vercel Pro 300s)
@@ -101,7 +127,7 @@ export async function POST() {
     const PARALLEL = 5
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
-      const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'duplicate' | 'error'; name?: string }> => {
+      const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string }> => {
         try {
           // b. Vérifie taille < 10MB
           if (fichier.size > MAX_FILE_SIZE) {
@@ -185,17 +211,108 @@ export async function POST() {
           }
 
           if (existingCandidat) {
-            try {
-              await (supabase as any).from('onedrive_fichiers').insert({
-                integration_id: integrationId,
-                onedrive_item_id: fichier.id,
-                nom_fichier: filename,
-                traite: true,
-                candidat_id: existingCandidat.id,
-                erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
-              })
-            } catch { /* ignore */ }
-            return { status: 'duplicate' }
+            // Smart update: fetch full existing candidate data
+            const { data: candidatExistant } = await supabase.from('candidats')
+              .select('*').eq('id', existingCandidat.id).single() as { data: any }
+
+            if (!candidatExistant) {
+              // Candidate disappeared, skip
+              try {
+                await (supabase as any).from('onedrive_fichiers').insert({
+                  integration_id: integrationId,
+                  onedrive_item_id: fichier.id,
+                  nom_fichier: filename,
+                  traite: true,
+                  candidat_id: existingCandidat.id,
+                  erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
+                })
+              } catch { /* ignore */ }
+              return { status: 'skipped' }
+            }
+
+            const candidatDisplayName = `${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim()
+
+            // Compare new CV analysis with existing candidate
+            const cvHasNewContent = hasNewContent(candidatExistant, analyse)
+
+            if (cvHasNewContent) {
+              // Step 3a: CV has NEW content — update candidate
+              const timestamp = Date.now()
+              const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+              const { data: storageData } = await supabase.storage
+                .from('cvs')
+                .upload(storageName, buffer, { contentType: mimeType, upsert: false })
+
+              let newCvUrl: string | null = null
+              if (storageData?.path) {
+                const { data: urlData } = await supabase.storage
+                  .from('cvs')
+                  .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+                newCvUrl = urlData?.signedUrl || null
+              }
+
+              // Move old CV to documents array
+              const existingDocs = candidatExistant.documents || []
+              if (candidatExistant.cv_url) {
+                existingDocs.push({
+                  name: candidatExistant.cv_nom_fichier || 'Ancien CV',
+                  url: candidatExistant.cv_url,
+                  type: 'Ancien CV',
+                  uploaded_at: new Date().toISOString(),
+                })
+              }
+
+              // Update candidate with new CV data
+              await (supabase as any).from('candidats').update({
+                titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
+                competences: analyse.competences || candidatExistant.competences,
+                langues: analyse.langues || candidatExistant.langues,
+                experiences: analyse.experiences || candidatExistant.experiences,
+                formations_details: analyse.formations_details || candidatExistant.formations_details,
+                formation: analyse.formation || candidatExistant.formation,
+                resume_ia: analyse.resume || candidatExistant.resume_ia,
+                permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
+                linkedin: analyse.linkedin || candidatExistant.linkedin,
+                annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
+                cv_url: newCvUrl || candidatExistant.cv_url,
+                cv_nom_fichier: filename,
+                documents: existingDocs,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }).eq('id', candidatExistant.id)
+
+              try {
+                await (supabase as any).from('onedrive_fichiers').insert({
+                  integration_id: integrationId,
+                  onedrive_item_id: fichier.id,
+                  nom_fichier: filename,
+                  traite: true,
+                  candidat_id: existingCandidat.id,
+                  erreur: `Mis à jour — ${candidatDisplayName}`,
+                })
+              } catch { /* ignore */ }
+
+              return { status: 'updated', name: candidatDisplayName }
+            } else {
+              // Step 3b: Same CV — just reactivate (refresh date)
+              await (supabase as any).from('candidats').update({
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }).eq('id', candidatExistant.id)
+
+              try {
+                await (supabase as any).from('onedrive_fichiers').insert({
+                  integration_id: integrationId,
+                  onedrive_item_id: fichier.id,
+                  nom_fichier: filename,
+                  traite: true,
+                  candidat_id: existingCandidat.id,
+                  erreur: `Réactivé — ${candidatDisplayName}`,
+                })
+              } catch { /* ignore */ }
+
+              return { status: 'reactivated', name: candidatDisplayName }
+            }
           }
 
           // g. Upload vers Supabase Storage bucket 'cvs'
@@ -305,8 +422,9 @@ export async function POST() {
       // Accumulate results
       for (const r of results) {
         if (r.status === 'created') { processed++; if (r.name) created.push(r.name) }
+        else if (r.status === 'updated') { updated++; if (r.name) updatedNames.push(r.name) }
+        else if (r.status === 'reactivated') { reactivated++; if (r.name) reactivatedNames.push(r.name) }
         else if (r.status === 'skipped') skipped++
-        else if (r.status === 'duplicate') duplicates++
         else if (r.status === 'error') errors++
       }
     }
@@ -329,12 +447,15 @@ export async function POST() {
       folder: folderName,
       processed,
       skipped,
-      duplicates,
+      updated,
+      reactivated,
       errors,
       created,
+      updatedNames,
+      reactivatedNames,
     }
 
-    console.log(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${duplicates} doublons, ${skipped} ignorés, ${errors} erreurs`)
+    console.log(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${updated} mis à jour, ${reactivated} réactivés, ${skipped} ignorés, ${errors} erreurs`)
     if (processed > 0) {
       await logActivity({ action: 'onedrive_sync', details: result })
     }

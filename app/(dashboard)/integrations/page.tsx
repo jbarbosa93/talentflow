@@ -20,7 +20,7 @@ function IntegrationsContent() {
 
   // Boucle auto sync OneDrive
   const [onedriveSyncing, setOnedriveSyncing] = useState(false)
-  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, duplicates: 0, errors: 0, batch: 0 })
+  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, updated: 0, reactivated: 0, errors: 0, batch: 0 })
   const onedriveStopRef = useRef(false)
   const [onedriveStopping, setOnedriveStopping] = useState(false)
 
@@ -29,12 +29,14 @@ function IntegrationsContent() {
     onedriveStopRef.current = false
     let totalCreated = 0
     let totalProcessed = 0
-    let totalDuplicates = 0
+    let totalUpdated = 0
+    let totalReactivated = 0
     let totalErrors = 0
     let totalSkipped = 0
     let batchNum = 0
     const allCreatedNames: string[] = []
-    const allDuplicateNames: string[] = []
+    const allUpdatedNames: string[] = []
+    const allReactivatedNames: string[] = []
 
     while (!onedriveStopRef.current) {
       try {
@@ -48,18 +50,21 @@ function IntegrationsContent() {
 
         batchNum++
         totalCreated += data.created?.length || 0
-        totalDuplicates += data.duplicates || 0
+        totalUpdated += data.updated || 0
+        totalReactivated += data.reactivated || 0
         totalErrors += data.errors || 0
         totalSkipped += data.skipped || 0
-        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.duplicates || 0)
+        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.updated || 0) + (data.reactivated || 0)
         if (data.created) allCreatedNames.push(...data.created)
-        setOnedriveProgress({ total: totalProcessed, created: totalCreated, duplicates: totalDuplicates, errors: totalErrors, batch: batchNum })
+        if (data.updatedNames) allUpdatedNames.push(...data.updatedNames)
+        if (data.reactivatedNames) allReactivatedNames.push(...data.reactivatedNames)
+        setOnedriveProgress({ total: totalProcessed, created: totalCreated, updated: totalUpdated, reactivated: totalReactivated, errors: totalErrors, batch: batchNum })
 
         // Rafraichir les stats apres chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
-        const batchActivity2 = (data.created?.length || 0) + (data.duplicates || 0) + (data.errors || 0)
+        const batchActivity2 = (data.created?.length || 0) + (data.updated || 0) + (data.reactivated || 0) + (data.errors || 0)
         if (batchActivity2 === 0) {
           break
         }
@@ -71,12 +76,14 @@ function IntegrationsContent() {
       }
     }
 
-    // Fetch updated files to get doublon names
+    // Fetch updated files to get names
     try {
       const filesRes = await fetch('/api/onedrive/sync')
       const filesJson = await filesRes.json()
-      const duplicateFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Doublon'))
-      allDuplicateNames.push(...duplicateFiles.map((f: any) => f.erreur.replace('Doublon — ', '')).slice(0, 50))
+      const updatedFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Mis à jour'))
+      allUpdatedNames.push(...updatedFiles.map((f: any) => f.erreur.replace('Mis à jour — ', '')).slice(0, 50))
+      const reactivatedFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Réactivé'))
+      allReactivatedNames.push(...reactivatedFiles.map((f: any) => f.erreur.replace('Réactivé — ', '')).slice(0, 50))
     } catch { /* ignore */ }
 
     setSyncReport({
@@ -84,8 +91,10 @@ function IntegrationsContent() {
       totalAnalysed: totalProcessed,
       created: totalCreated,
       createdNames: allCreatedNames,
-      duplicates: totalDuplicates,
-      duplicateNames: [...new Set(allDuplicateNames)].slice(0, 30),
+      updated: totalUpdated,
+      updatedNames: [...new Set(allUpdatedNames)].slice(0, 30),
+      reactivated: totalReactivated,
+      reactivatedNames: [...new Set(allReactivatedNames)].slice(0, 30),
       errors: totalErrors,
       skipped: totalSkipped,
     })
@@ -509,7 +518,7 @@ function IntegrationsContent() {
                 </div>
 
                 {/* Stats OneDrive */}
-                <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                   <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
                     <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? onedriveFichiers.length + onedriveProgress.total : onedriveFichiers.length}</p>
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analyses</p>
@@ -518,11 +527,17 @@ function IntegrationsContent() {
                     <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? onedriveImported.length + onedriveProgress.created : onedriveImported.length}</p>
                     <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importes</p>
                   </div>
-                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>
-                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length + onedriveProgress.duplicates : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Doublon')).length}
+                  <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BFDBFE' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>
+                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Mis à jour')).length + onedriveProgress.updated : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Mis à jour')).length}
                     </p>
-                    <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Doublons</p>
+                    <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4, fontWeight: 600 }}>Mis a jour</p>
+                  </div>
+                  <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #FDE68A' }}>
+                    <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>
+                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Réactivé')).length + onedriveProgress.reactivated : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Réactivé')).length}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Reactives</p>
                   </div>
                 </div>
 
@@ -539,25 +554,42 @@ function IntegrationsContent() {
                           padding: '8px 12px', borderRadius: 8,
                           background: 'var(--background)', border: '1.5px solid var(--border)',
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                             <FileText size={13} style={{ color: '#0078D4', flexShrink: 0 }} />
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
-                              {f.nom_fichier || '—'}
-                            </span>
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {f.nom_fichier || '—'}
+                              </span>
+                              {f.created_at && (
+                                <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', marginTop: 1 }}>
+                                  {new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {f.candidat_id && !f.erreur ? (
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
-                              {f.candidats?.prenom} {f.candidats?.nom}
-                            </span>
-                          ) : f.erreur?.includes('Doublon') ? (
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
-                              {f.erreur}
-                            </span>
-                          ) : f.erreur ? (
-                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>
-                              Erreur
-                            </span>
-                          ) : null}
+                          <div style={{ flexShrink: 0 }}>
+                            {f.candidat_id && !f.erreur ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
+                                {f.candidats?.prenom} {f.candidats?.nom}
+                              </span>
+                            ) : f.erreur?.startsWith('Mis à jour') ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#DBEAFE', color: '#1D4ED8', border: '1.5px solid #BFDBFE' }}>
+                                {f.erreur}
+                              </span>
+                            ) : f.erreur?.startsWith('Réactivé') ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
+                                {f.erreur}
+                              </span>
+                            ) : f.erreur?.includes('Doublon') ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
+                                {f.erreur}
+                              </span>
+                            ) : f.erreur ? (
+                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>
+                                Erreur
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -644,13 +676,13 @@ function IntegrationsContent() {
                 <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{syncReport.created}</p>
                 <p style={{ fontSize: 11, color: '#15803D', marginTop: 3, fontWeight: 600 }}>CVs importes</p>
               </div>
-              <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
-                <p style={{ fontSize: 22, fontWeight: 800, color: '#92400E', lineHeight: 1 }}>{syncReport.duplicates}</p>
-                <p style={{ fontSize: 11, color: '#92400E', marginTop: 3, fontWeight: 600 }}>Doublons detectes</p>
+              <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BFDBFE' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>{syncReport.updated || 0}</p>
+                <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 3, fontWeight: 600 }}>CVs mis a jour</p>
               </div>
-              <div style={{ background: 'var(--background)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid var(--border)' }}>
-                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--muted)', lineHeight: 1 }}>{syncReport.skipped + syncReport.errors}</p>
-                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>Sans CV / Erreurs</p>
+              <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>{syncReport.reactivated || 0}</p>
+                <p style={{ fontSize: 11, color: '#92400E', marginTop: 3, fontWeight: 600 }}>Reactives</p>
               </div>
             </div>
 
@@ -668,14 +700,28 @@ function IntegrationsContent() {
               </div>
             )}
 
-            {/* Duplicates list */}
-            {syncReport.duplicateNames?.length > 0 && (
+            {/* Updated list */}
+            {syncReport.updatedNames?.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 6 }}>
+                  CVs mis a jour ({syncReport.updated}) :
+                </p>
+                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                  {syncReport.updatedNames.map((name: string, i: number) => (
+                    <div key={i} style={{ fontSize: 12, color: '#1E40AF', padding: '2px 0' }}>• {name}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Reactivated list */}
+            {syncReport.reactivatedNames?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>
-                  Doublons detectes ({syncReport.duplicates}) :
+                  Candidats reactives ({syncReport.reactivated}) :
                 </p>
                 <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                  {syncReport.duplicateNames.map((name: string, i: number) => (
+                  {syncReport.reactivatedNames.map((name: string, i: number) => (
                     <div key={i} style={{ fontSize: 12, color: '#92400E', padding: '2px 0' }}>• {name}</div>
                   ))}
                 </div>
