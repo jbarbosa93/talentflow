@@ -1,7 +1,9 @@
 // types/database.ts
 // Compatible avec @supabase/supabase-js v2.99+
 
-export type PipelineEtape = 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
+// Default pipeline stage values: 'nouveau' | 'contacte' | 'entretien' | 'place' | 'refuse'
+// The column is now type text to support custom stages defined in app_settings.
+export type PipelineEtape = string
 export type ImportStatus = 'a_traiter' | 'traite' | 'archive'
 export type DocumentType = 'certificat' | 'diplome' | 'lettre_motivation' | 'formation' | 'permis' | 'autre'
 
@@ -35,7 +37,7 @@ export type Candidat = {
   photo_url: string | null
   resume_ia: string | null
   cv_texte_brut: string | null
-  statut_pipeline: PipelineEtape
+  statut_pipeline: string | null
   tags: string[]
   notes: string | null
   source: string | null
@@ -527,7 +529,7 @@ export type Database = {
     }
     Functions: Record<string, never>
     Enums: {
-      pipeline_etape: PipelineEtape
+      pipeline_etape: string
       offre_statut: OffreStatut
     }
     CompositeTypes: Record<string, never>
