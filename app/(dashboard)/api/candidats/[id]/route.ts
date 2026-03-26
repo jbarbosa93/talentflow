@@ -51,6 +51,9 @@ const FIELD_LABELS: Record<string, string> = {
   formations_details: 'Formations', experiences: 'Expériences',
   statut_pipeline: 'Statut pipeline', import_status: 'Statut import',
   permis_conduire: 'Permis de conduire', genre: 'Genre',
+  photo_url: 'Photo', cv_url: 'CV', cv_nom_fichier: 'Fichier CV',
+  annees_exp: 'Années d\'expérience', formation: 'Formation',
+  linkedin: 'LinkedIn', notes: 'Notes', tags: 'Tags', rating: 'Note',
 }
 
 /** Compare old and new values, returns array of changes */
@@ -66,14 +69,22 @@ function detectChanges(
     // Normalize for comparison
     const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : String(oldVal ?? '')
     const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal ?? '')
+    // Skip if both are effectively empty
+    const oldEmpty = !oldVal || oldStr === '' || oldStr === 'null' || oldStr === '[]' || oldStr === 'false'
+    const newEmpty = !newVal || newStr === '' || newStr === 'null' || newStr === '[]' || newStr === 'false'
+    if (oldEmpty && newEmpty) continue
     if (oldStr !== newStr) {
       // Truncate large text fields for readability
-      const truncate = (v: any) => {
+      const truncate = (v: any, fieldName?: string) => {
         if (v == null) return ''
+        // For URL fields, just show a short label
+        if (fieldName && (fieldName === 'photo_url' || fieldName === 'cv_url')) {
+          return v ? '✓' : ''
+        }
         const s = Array.isArray(v) ? v.join(', ') : String(v)
         return s.length > 100 ? s.slice(0, 100) + '…' : s
       }
-      changes.push({ field, label, old: truncate(oldVal), new: truncate(newVal) })
+      changes.push({ field, label, old: truncate(oldVal, field), new: truncate(newVal, field) })
     }
   }
   return changes
