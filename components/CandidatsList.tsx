@@ -43,6 +43,18 @@ function getCandidatsLastSeen(): string | null {
   } catch { return null }
 }
 
+export function markTousVus() {
+  if (typeof window === 'undefined') return
+  try {
+    // Avancer le "dernier vu" à maintenant → plus aucun candidat n'est "après la dernière visite"
+    const data = JSON.parse(localStorage.getItem('talentflow_last_seen') || '{}')
+    data.candidats = new Date().toISOString()
+    localStorage.setItem('talentflow_last_seen', JSON.stringify(data))
+    // Vider aussi la liste des candidats vus individuellement (propre)
+    localStorage.removeItem(VIEWED_KEY)
+  } catch { /* ignore */ }
+}
+
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
   contacte:  'neo-badge neo-badge-contacte',
@@ -221,6 +233,7 @@ export default function CandidatsList() {
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
+  const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render après markTousVus
   // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
@@ -635,19 +648,29 @@ export default function CandidatsList() {
     setAiInterpreted('')
   }
 
+  // badgeTick force la re-lecture de localStorage après markTousVus
+  void badgeTick
   const candidatsLastSeen = getCandidatsLastSeen()
-  void candidatsLastSeen // legacy — conservé pour compatibilité
+  const viewedSet = getViewedSet()
+
+  // Compter les badges actifs (pour le bouton "Tout marquer vu")
+  const badgeCount = useMemo(() => {
+    return sorted.filter(c => {
+      const isAfterLastSeen = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
+      return isAfterLastSeen && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
+    }).length
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sorted, candidatsLastSeen, badgeTick])
 
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    const viewedSet = getViewedSet()
     // Badge rouge si :
-    // 1. Le candidat est apparu APRÈS la dernière visite de la liste (nouveau depuis la dernière fois)
-    // OU a été explicitement marqué comme vu individuellement
-    // 2. ET son statut est encore 'nouveau'
+    // 1. Le candidat est apparu APRÈS la dernière visite de la liste
+    // 2. ET sa fiche n'a pas été ouverte
+    // 3. ET son statut est encore 'nouveau'
     const isAfterLastSeen = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
     const isNewCandidat = isAfterLastSeen && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
 
@@ -866,6 +889,23 @@ export default function CandidatsList() {
           {search && (
             <button onClick={() => { setSearch(''); ssSet('search', '') }} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
               <X size={14} /> Nouvelle recherche
+            </button>
+          )}
+          {badgeCount > 0 && (
+            <button
+              onClick={() => { markTousVus(); setBadgeTick(t => t + 1) }}
+              className="neo-btn-ghost"
+              style={{ fontSize: 13, gap: 6, position: 'relative' }}
+              title="Marquer tous les nouveaux candidats comme vus"
+            >
+              <Eye size={14} />
+              Tout marquer vu
+              <span style={{
+                background: '#EF4444', color: 'white', borderRadius: 100,
+                fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: 1.4,
+              }}>
+                {badgeCount}
+              </span>
             </button>
           )}
           <button onClick={() => openUpload()} className="neo-btn-yellow">
