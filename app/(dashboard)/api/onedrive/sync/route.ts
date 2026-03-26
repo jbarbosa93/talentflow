@@ -126,7 +126,7 @@ export async function POST() {
     const PARALLEL = 5
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
-      const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string }> => {
+      const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string; candidatId?: string; filename?: string }> => {
         // Date de modification du fichier OneDrive = date d'ajout du candidat
         const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
 
