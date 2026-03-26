@@ -799,13 +799,14 @@ function EmailTab() {
             onChange={handleCandidatChange}
             placeholder="Rechercher des candidats à joindre..."
           />
-          {/* Boutons Personnaliser CV par candidat */}
+          {/* Boutons Personnaliser CV / Joindre CV original par candidat */}
           {candidatIds.length > 0 && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {candidatIds.map(id => {
                 const c = (candidats as any)?.find((cc: any) => cc.id === id)
                 if (!c) return null
                 const isAttached = !!cvAttached[id]
+                const isOriginal = cvAttached[id]?.original === true
                 return (
                   <span key={id} style={{
                     display: 'inline-flex', alignItems: 'center', gap: 0,
@@ -818,12 +819,36 @@ function EmailTab() {
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '6px 12px', border: 'none', background: 'transparent',
                       fontSize: 12, fontWeight: 600,
-                      color: isAttached ? '#065F46' : 'var(--foreground)',
+                      color: isAttached && !isOriginal ? '#065F46' : 'var(--foreground)',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}>
-                      {isAttached ? <Check size={12} /> : <Paperclip size={12} />}
-                      {isAttached ? `CV joint — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
+                      {isAttached && !isOriginal ? <Check size={12} /> : <Paperclip size={12} />}
+                      {isAttached && !isOriginal ? `CV perso — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
                     </button>
+                    {/* Bouton joindre CV original */}
+                    {c.cv_url && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isOriginal) {
+                            setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
+                          } else {
+                            setCvAttached(prev => ({ ...prev, [id]: { original: true } }))
+                          }
+                        }}
+                        title={isOriginal ? 'CV original joint' : 'Joindre CV original'}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          padding: '4px 8px', border: 'none',
+                          background: isOriginal ? '#D1FAE5' : 'transparent',
+                          cursor: 'pointer', color: isOriginal ? '#065F46' : 'var(--muted)',
+                          borderLeft: '1px solid var(--border)',
+                          fontSize: 10, fontWeight: 700, fontFamily: 'inherit',
+                        }}
+                      >
+                        {isOriginal ? '✓ Original' : '📄'}
+                      </button>
+                    )}
                     <button onClick={(e) => {
                       e.stopPropagation()
                       setCandidatIds(prev => prev.filter(i => i !== id))

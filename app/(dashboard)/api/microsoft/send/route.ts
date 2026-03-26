@@ -77,7 +77,10 @@ export async function POST(request: NextRequest) {
 
     // Joindre les CVs des candidats sélectionnés
     const allCandidatIds = candidat_ids || (candidat_id ? [candidat_id] : [])
-    if (allCandidatIds.length > 0) {
+    const cvOptions = body.cv_options || {}
+    const attachCvs = body.attach_cvs || false
+
+    if (allCandidatIds.length > 0 && attachCvs) {
       const { data: candidats } = await supabase
         .from('candidats')
         .select('id, nom, prenom, cv_url, cv_nom_fichier')
@@ -85,9 +88,22 @@ export async function POST(request: NextRequest) {
 
       const attachments: any[] = []
       for (const c of (candidats || [])) {
+        const opts = cvOptions[c.id]
+
+        // Si CV personnalisé envoyé en base64 depuis le frontend
+        if (opts?.pdfBase64) {
+          attachments.push({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: `CV_${c.prenom || ''}_${c.nom || ''}.pdf`,
+            contentType: 'application/pdf',
+            contentBytes: opts.pdfBase64,
+          })
+          continue
+        }
+
+        // Sinon joindre le CV original
         if (!c.cv_url) continue
         try {
-          // Télécharger le CV depuis l'URL signée
           const cvRes = await fetch(c.cv_url)
           if (!cvRes.ok) continue
           const buffer = Buffer.from(await cvRes.arrayBuffer())
