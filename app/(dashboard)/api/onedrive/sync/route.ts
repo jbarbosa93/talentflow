@@ -5,7 +5,7 @@ import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
-import { analyserCV, analyserCVDepuisPDF } from '@/lib/claude'
+import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import { logActivity } from '@/lib/activity-log'
 
 export const runtime = 'nodejs'
@@ -88,7 +88,7 @@ export async function POST() {
       for (const item of (rootData.value || [])) {
         if (item.file && !doneIds.has(item.id)) {
           const ext = item.name.split('.').pop()?.toLowerCase()
-          if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
+          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) fichiers.push(item)
         }
         if (item.folder) folders.push(item)
       }
@@ -99,7 +99,7 @@ export async function POST() {
           for (const item of (subData.value || [])) {
             if (item.file && !doneIds.has(item.id)) {
               const ext = item.name.split('.').pop()?.toLowerCase()
-              if (['pdf', 'docx', 'doc'].includes(ext || '')) fichiers.push(item)
+              if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) fichiers.push(item)
             }
           }
         } catch { /* ignore sub-folder errors */ }
@@ -143,29 +143,39 @@ export async function POST() {
           const buffer = Buffer.from(await dlRes.arrayBuffer())
           const filename = fichier.name
           const ext = filename.toLowerCase().split('.').pop() || ''
-          const mimeType = ext === 'pdf'
-            ? 'application/pdf'
-            : ext === 'docx'
-            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            : 'application/msword'
+          const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
+          const isPDF = ext === 'pdf'
+          const isDocx = ext === 'docx'
+          const mimeType = isPDF ? 'application/pdf'
+            : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}`
+            : 'application/octet-stream'
 
-          // d. Extrait le texte
-          let texteCV = ''
-          try {
-            texteCV = await extractTextFromCV(buffer, filename, mimeType)
-          } catch { /* will try vision */ }
-
-          const isPDF = ext === 'pdf' || mimeType === 'application/pdf'
-          const isScanned = !texteCV || texteCV.trim().length < 50
-
-          // e. Analyse avec Claude
+          // d. Analyse avec Claude
           let analyse: any
-          if (isScanned && isPDF) {
-            analyse = await analyserCVDepuisPDF(buffer)
-          } else if (!isScanned) {
-            analyse = await analyserCV(texteCV)
+          let texteCV = ''
+
+          if (isImage) {
+            // Images (JPG, PNG, etc.) → envoi direct à Claude vision
+            analyse = await analyserCVDepuisImage(buffer, mimeType as any)
+          } else if (isPDF) {
+            // PDF → essayer d'extraire le texte, sinon vision
+            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch {}
+            if (texteCV && texteCV.trim().length >= 50) {
+              analyse = await analyserCV(texteCV)
+            } else {
+              analyse = await analyserCVDepuisPDF(buffer)
+            }
+          } else if (isDocx) {
+            // DOCX → extraire le texte
+            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch {}
+            if (texteCV && texteCV.trim().length >= 50) {
+              analyse = await analyserCV(texteCV)
+            } else {
+              throw new Error('DOCX illisible')
+            }
           } else {
-            throw new Error('Fichier illisible — ni texte extrait, ni PDF pour vision')
+            throw new Error(`Format non supporté: .${ext}`)
           }
 
           const candidatEmail = analyse.email || null
