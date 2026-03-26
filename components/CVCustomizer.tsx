@@ -111,6 +111,8 @@ export default function CVCustomizerModal({
       show_localisation: infoFields.show_localisation ? '1' : '0',
       show_age: infoFields.show_age ? '1' : '0',
       show_permis: infoFields.show_permis ? '1' : '0',
+      show_outille: infoFields.show_outille ? '1' : '0',
+      competences: customContent.competences || candidat.competences?.join(', ') || '',
     },
   })
 
@@ -339,6 +341,19 @@ export default function CVCustomizerModal({
                 </div>
               )}
 
+              {sections.competences && (candidat.competences?.length ?? 0) > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                    <Briefcase size={11} /> Compétences (séparées par des virgules)
+                  </label>
+                  <textarea
+                    value={customContent.competences ?? candidat.competences?.join(', ') ?? ''}
+                    onChange={e => setCustomContent(p => ({ ...p, competences: e.target.value }))}
+                    style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
+                    placeholder="Compétence 1, Compétence 2, ..."
+                  />
+                </div>
+              )}
               {sections.formations && candidat.formation && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>

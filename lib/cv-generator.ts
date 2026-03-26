@@ -197,17 +197,17 @@ export async function generateBrandedCV(
     color: GRAY,
   })
 
-  y = logoY - 80
+  y = logoY - 72
 
   // ═══════════════════ CANDIDAT NAME ═══════════════════
 
   const fullName = getContent('nom_complet', [candidat.prenom, candidat.nom].filter(Boolean).join(' ') || 'Candidat')
-  page.drawText(fullName, { x: MARGIN, y, font: helveticaBold, size: 22, color: DARK })
-  y -= 24
+  page.drawText(fullName, { x: MARGIN, y, font: helveticaBold, size: 20, color: DARK })
+  y -= 20
 
   if (candidat.titre_poste) {
-    page.drawText(getContent('titre_poste', candidat.titre_poste), { x: MARGIN, y, font: helvetica, size: 14, color: GRAY })
-    y -= 20
+    page.drawText(getContent('titre_poste', candidat.titre_poste), { x: MARGIN, y, font: helvetica, size: 12, color: GRAY })
+    y -= 16
   }
 
   // Info line : localisation · âge · permis — controlled by customContent flags
@@ -247,22 +247,24 @@ export async function generateBrandedCV(
 
   if (shouldInclude('competences') && candidat.competences && candidat.competences.length > 0) {
     drawSectionTitle('Compétences')
-    const comps = candidat.competences
+    // Support compétences custom depuis le customizer (séparées par virgule)
+    const customComps = customContent?.competences?.trim()
+    const comps = customComps ? customComps.split(',').map((s: string) => s.trim()).filter(Boolean) : candidat.competences
     // Draw as inline tags
     let xPos = MARGIN
     for (const comp of comps) {
-      const w = helvetica.widthOfTextAtSize(comp, 9) + 16
+      const w = helvetica.widthOfTextAtSize(comp, 9) + 14
       if (xPos + w > PAGE_WIDTH - MARGIN) {
         xPos = MARGIN
-        y -= 22
+        y -= 20
       }
-      newPageIfNeeded(24)
-      // Tag background
-      page.drawRectangle({ x: xPos, y: y - 4, width: w, height: 18, color: rgb(255 / 255, 243 / 255, 196 / 255) })
-      page.drawText(comp, { x: xPos + 8, y: y, font: helvetica, size: 9, color: DARK })
-      xPos += w + 6
+      newPageIfNeeded(22)
+      // Tag background — arrondi, centré verticalement
+      page.drawRectangle({ x: xPos, y: y - 2, width: w, height: 16, color: rgb(254 / 255, 243 / 255, 199 / 255), borderColor: rgb(217 / 255, 119 / 255, 6 / 255), borderWidth: 0.5, opacity: 0.7 })
+      page.drawText(comp, { x: xPos + 7, y: y + 2, font: helvetica, size: 9, color: DARK })
+      xPos += w + 5
     }
-    y -= 28
+    y -= 24
   }
 
   // ═══════════════════ EXPÉRIENCES ═══════════════════
