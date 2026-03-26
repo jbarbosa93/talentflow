@@ -34,6 +34,7 @@ const INFO_FIELDS = [
   { key: 'show_localisation', label: 'Localisation', icon: MapPin },
   { key: 'show_age', label: 'Âge', icon: Calendar },
   { key: 'show_permis', label: 'Permis de conduire', icon: Car },
+  { key: 'show_outille', label: 'Outillé', icon: Car },
 ]
 
 const inputStyle = {
@@ -65,6 +66,7 @@ export default function CVCustomizerModal({
     show_localisation: true,
     show_age: true,
     show_permis: !!candidat.permis_conduire,
+    show_outille: false,
   })
   const [customContent, setCustomContent] = useState<Record<string, string>>({})
   const [recruiterInfo, setRecruiterInfo] = useState<{ prenom: string; nom: string; email: string; telephone?: string; entreprise?: string } | null>(null)

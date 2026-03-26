@@ -125,7 +125,7 @@ export async function generateBrandedCV(
   let y = PAGE_HEIGHT - MARGIN
 
   function newPageIfNeeded(needed: number): PDFPage {
-    if (y - needed < MARGIN + 60) {
+    if (y - needed < MARGIN + 20) {
       page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
       y = PAGE_HEIGHT - MARGIN
     }
@@ -133,13 +133,13 @@ export async function generateBrandedCV(
   }
 
   function drawSectionTitle(title: string) {
-    newPageIfNeeded(40)
-    y -= 20
+    newPageIfNeeded(35)
+    y -= 14
     // Yellow line
     page.drawRectangle({ x: MARGIN, y: y - 2, width: CONTENT_WIDTH, height: 2, color: YELLOW })
-    y -= 18
+    y -= 14
     page.drawText(title.toUpperCase(), { x: MARGIN, y, font: helveticaBold, size: 11, color: DARK })
-    y -= 18
+    y -= 14
   }
 
   function drawText(text: string, opts?: { fontSize?: number; font?: PDFFont; color?: typeof DARK; indent?: number; maxWidth?: number }) {
@@ -214,6 +214,7 @@ export async function generateBrandedCV(
   const showLoc = customContent?.show_localisation !== '0'
   const showAge = customContent?.show_age !== '0'
   const showPermis = customContent?.show_permis !== '0'
+  const showOutille = customContent?.show_outille === '1'
 
   const infoParts: string[] = []
   if (showLoc) {
@@ -223,6 +224,7 @@ export async function generateBrandedCV(
   const age = calculerAge(candidat.date_naissance ?? null)
   if (showAge && age) infoParts.push(`${age} ans`)
   if (showPermis && candidat.permis_conduire) infoParts.push('Permis de conduire')
+  if (showOutille) infoParts.push('Outillé')
   if (infoParts.length > 0) {
     page.drawText(infoParts.join('  ·  '), { x: MARGIN, y, font: helvetica, size: 10, color: GRAY })
     y -= 16
