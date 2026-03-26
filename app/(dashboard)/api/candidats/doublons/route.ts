@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     if (body.action === 'merge') {
-      return handleMerge(body.keep_id, body.delete_id)
+      return handleMerge(body.keep_id, body.delete_id, body.field_overrides)
     }
 
     // Default: compare pair
@@ -86,7 +86,7 @@ Règles de scoring :
 
 // ─── Merge: fusionne B dans A, supprime B ─────────────────────────────────────
 
-async function handleMerge(keep_id: string, delete_id: string) {
+async function handleMerge(keep_id: string, delete_id: string, field_overrides?: Record<string, string>) {
   if (!keep_id || !delete_id) {
     return NextResponse.json({ error: 'keep_id et delete_id sont requis' }, { status: 400 })
   }
@@ -107,18 +107,32 @@ async function handleMerge(keep_id: string, delete_id: string) {
   const k = keep as Record<string, any>
   const d = del as Record<string, any>
 
+  // field_overrides: { fieldName: "keep" | "delete" } — user picks which source per field
+  const ov = field_overrides || {}
+
   // Champs texte: garder la valeur la plus longue/complète (pas juste keep en priorité)
   const textFields = ['email', 'telephone', 'localisation', 'titre_poste', 'formation',
     'resume_ia', 'cv_texte_brut', 'source', 'linkedin', 'notes', 'date_naissance']
   for (const f of textFields) {
-    const vKeep = k[f] || ''
-    const vDel = d[f] || ''
-    // Prendre la plus longue (plus d'info) — sauf si vide
-    merged[f] = (vKeep.length >= vDel.length ? vKeep : vDel) || null
+    if (ov[f] === 'delete') {
+      merged[f] = d[f] || k[f] || null
+    } else if (ov[f] === 'keep') {
+      merged[f] = k[f] || d[f] || null
+    } else {
+      const vKeep = k[f] || ''
+      const vDel = d[f] || ''
+      merged[f] = (vKeep.length >= vDel.length ? vKeep : vDel) || null
+    }
   }
 
-  // CV: garder le plus récent (par date d'ajout)
-  if (k.cv_url && d.cv_url) {
+  // CV: user override or auto (most recent)
+  if (ov['cv'] === 'delete') {
+    merged.cv_url = d.cv_url || k.cv_url || null
+    merged.cv_nom_fichier = d.cv_nom_fichier || k.cv_nom_fichier || null
+  } else if (ov['cv'] === 'keep') {
+    merged.cv_url = k.cv_url || d.cv_url || null
+    merged.cv_nom_fichier = k.cv_nom_fichier || d.cv_nom_fichier || null
+  } else if (k.cv_url && d.cv_url) {
     const keepDate = new Date(k.created_at).getTime()
     const delDate = new Date(d.created_at).getTime()
     if (delDate > keepDate) {
@@ -133,10 +147,16 @@ async function handleMerge(keep_id: string, delete_id: string) {
     merged.cv_nom_fichier = k.cv_nom_fichier || d.cv_nom_fichier || null
   }
 
-  // Photo: garder la vraie photo (pas 'checked')
-  const photoKeep = k.photo_url && k.photo_url !== 'checked' ? k.photo_url : null
-  const photoDel = d.photo_url && d.photo_url !== 'checked' ? d.photo_url : null
-  merged.photo_url = photoKeep || photoDel || k.photo_url || d.photo_url || null
+  // Photo: user override or auto
+  if (ov['photo'] === 'delete') {
+    merged.photo_url = (d.photo_url && d.photo_url !== 'checked' ? d.photo_url : null) || k.photo_url || null
+  } else if (ov['photo'] === 'keep') {
+    merged.photo_url = (k.photo_url && k.photo_url !== 'checked' ? k.photo_url : null) || d.photo_url || null
+  } else {
+    const photoKeep = k.photo_url && k.photo_url !== 'checked' ? k.photo_url : null
+    const photoDel = d.photo_url && d.photo_url !== 'checked' ? d.photo_url : null
+    merged.photo_url = photoKeep || photoDel || k.photo_url || d.photo_url || null
+  }
 
   // Numériques: prendre le max
   merged.annees_exp = Math.max(k.annees_exp || 0, d.annees_exp || 0)
