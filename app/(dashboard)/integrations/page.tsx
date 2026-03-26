@@ -517,29 +517,39 @@ function IntegrationsContent() {
                   </div>
                 </div>
 
-                {/* Stats OneDrive */}
-                <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                  <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? onedriveFichiers.length + onedriveProgress.total : onedriveFichiers.length}</p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analyses</p>
-                  </div>
-                  <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? onedriveImported.length + onedriveProgress.created : onedriveImported.length}</p>
-                    <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importes</p>
-                  </div>
-                  <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BFDBFE' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>
-                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Mis à jour')).length + onedriveProgress.updated : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Mis à jour')).length}
-                    </p>
-                    <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4, fontWeight: 600 }}>Mis a jour</p>
-                  </div>
-                  <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #FDE68A' }}>
-                    <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>
-                      {onedriveSyncing ? onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Réactivé')).length + onedriveProgress.reactivated : onedriveFichiers.filter((f: any) => f.erreur?.startsWith('Réactivé')).length}
-                    </p>
-                    <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Reactives</p>
-                  </div>
-                </div>
+                {/* Stats OneDrive — uniquement aujourd'hui (reset chaque jour) */}
+                {(() => {
+                  const today = new Date().toISOString().slice(0, 10)
+                  const todayFiles = onedriveFichiers.filter((f: any) => f.created_at?.slice(0, 10) === today)
+                  const todayImported = todayFiles.filter((f: any) => f.candidat_id && !f.erreur?.startsWith('Mis à jour') && !f.erreur?.startsWith('Réactivé') && !f.erreur?.startsWith('Doublon'))
+                  const todayUpdated = todayFiles.filter((f: any) => f.erreur?.startsWith('Mis à jour'))
+                  const todayReactivated = todayFiles.filter((f: any) => f.erreur?.startsWith('Réactivé'))
+                  return (
+                    <div style={{ marginTop: 14 }}>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, marginBottom: 8 }}>
+                        📊 Aujourd'hui ({new Date().toLocaleDateString('fr-CH', { day: 'numeric', month: 'long' })})
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                        <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? todayFiles.length + onedriveProgress.total : todayFiles.length}</p>
+                          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analysés</p>
+                        </div>
+                        <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? todayImported.length + onedriveProgress.created : todayImported.length}</p>
+                          <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                        </div>
+                        <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BFDBFE' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>{onedriveSyncing ? todayUpdated.length + onedriveProgress.updated : todayUpdated.length}</p>
+                          <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4, fontWeight: 600 }}>Mis à jour</p>
+                        </div>
+                        <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #FDE68A' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>{onedriveSyncing ? todayReactivated.length + onedriveProgress.reactivated : todayReactivated.length}</p>
+                          <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Réactivés</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Historique fichiers OneDrive */}
                 {onedriveFichiers.length > 0 && (
