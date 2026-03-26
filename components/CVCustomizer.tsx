@@ -156,14 +156,30 @@ export default function CVCustomizerModal({
     setDownloading(false)
   }
 
-  const handleAttach = () => {
-    const payload = buildPayload()
-    onAttach?.(candidat.id, {
-      includedSections: payload.included_sections,
-      customContent: payload.custom_content,
-    })
-    setAttached(true)
-    toast.success(`CV de ${candidat.prenom} ${candidat.nom} joint au mail`)
+  const handleAttach = async () => {
+    setDownloading(true)
+    try {
+      // Générer le PDF personnalisé
+      const res = await fetch('/api/cv/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPayload()),
+      })
+      const blob = await res.blob()
+      // Convertir en base64 pour l'envoi par email
+      const buffer = await blob.arrayBuffer()
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+
+      onAttach?.(candidat.id, {
+        pdfBase64: base64,
+        includedSections: buildPayload().included_sections,
+      })
+      setAttached(true)
+      toast.success(`CV personnalisé de ${candidat.prenom} ${candidat.nom} joint au mail`)
+    } catch {
+      toast.error('Erreur génération du CV personnalisé')
+    }
+    setDownloading(false)
   }
 
   const Checkbox = ({ checked, onClick, size = 20 }: { checked: boolean; onClick: () => void; size?: number }) => (

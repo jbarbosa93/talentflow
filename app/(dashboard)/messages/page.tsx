@@ -846,7 +846,7 @@ function EmailTab() {
                           fontSize: 10, fontWeight: 700, fontFamily: 'inherit',
                         }}
                       >
-                        {isOriginal ? '✓ Original' : '📄'}
+                        {isOriginal ? '✓ CV Original' : '📄 CV Original'}
                       </button>
                     )}
                     <button onClick={(e) => {
