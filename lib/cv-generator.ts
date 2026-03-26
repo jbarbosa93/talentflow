@@ -134,12 +134,13 @@ export async function generateBrandedCV(
 
   function drawSectionTitle(title: string) {
     newPageIfNeeded(30)
+    y -= 14
+    // Title above the line
+    page.drawText(title.toUpperCase(), { x: MARGIN, y, font: helveticaBold, size: 10, color: DARK })
+    y -= 6
+    // Thin yellow line below the title
+    page.drawRectangle({ x: MARGIN, y, width: CONTENT_WIDTH, height: 2, color: YELLOW })
     y -= 10
-    // Yellow banner with title on it
-    const bannerHeight = 18
-    page.drawRectangle({ x: MARGIN, y: y - bannerHeight, width: CONTENT_WIDTH, height: bannerHeight, color: YELLOW })
-    page.drawText(title.toUpperCase(), { x: MARGIN + 8, y: y - bannerHeight + 5, font: helveticaBold, size: 10, color: DARK })
-    y -= bannerHeight + 8
   }
 
   function drawText(text: string, opts?: { fontSize?: number; font?: PDFFont; color?: typeof DARK; indent?: number; maxWidth?: number }) {
