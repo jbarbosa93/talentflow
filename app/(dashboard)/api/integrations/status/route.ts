@@ -15,7 +15,7 @@ export async function GET() {
 
   for (const int of integrations || []) {
     const purpose = (int.metadata as any)?.purpose || 'onedrive' // legacy fallback
-    const key = `microsoft_${purpose}` // e.g. microsoft_outlook, microsoft_onedrive
+    const key = `microsoft_${purpose}` // e.g. microsoft_onedrive
     result[key] = {
       email: int.email,
       nom: int.nom_compte,

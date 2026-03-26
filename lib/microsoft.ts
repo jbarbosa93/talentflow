@@ -19,8 +19,8 @@ function getRedirectUri() {
 // Cela évite le blocage "Approbation administrateur requise" pour les apps non vérifiées
 const SCOPES = 'https://graph.microsoft.com/.default offline_access'
 
-export function getMicrosoftAuthUrl(purpose?: 'outlook' | 'onedrive'): string {
-  const statePayload = purpose ? `talentflow-ats:${purpose}` : 'talentflow-ats'
+export function getMicrosoftAuthUrl(purpose?: 'onedrive'): string {
+  const statePayload = purpose ? `talentflow-ats:${purpose}` : 'talentflow-ats:onedrive'
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: 'code',
@@ -106,11 +106,11 @@ export async function getValidAccessToken(integrationId: string): Promise<string
   return integration.access_token
 }
 
-// Obtenir un token valide pour un purpose spécifique (outlook ou onedrive)
-// Les tokens sont stockés dans metadata.outlook / metadata.onedrive
-export async function getAccessTokenForPurpose(purpose: 'outlook' | 'onedrive'): Promise<{ token: string; integrationId: string }> {
+// Obtenir un token valide pour OneDrive
+// Les tokens sont stockés dans metadata.onedrive
+export async function getAccessTokenForPurpose(purpose: 'onedrive'): Promise<{ token: string; integrationId: string }> {
   const supabase = createAdminClient()
-  const targetType = purpose === 'outlook' ? 'microsoft_outlook' : 'microsoft_onedrive'
+  const targetType = 'microsoft_onedrive'
 
   // Chercher d'abord le nouveau type, puis fallback sur l'ancien 'microsoft'
   let { data: rowRaw } = await supabase.from('integrations').select('*').eq('type', targetType).eq('actif', true).maybeSingle()

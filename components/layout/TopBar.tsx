@@ -74,7 +74,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     queryFn: () => fetch('/api/integrations').then(r => r.json()),
     staleTime: 30_000,
   })
-  const isMsConnected = intData?.integrations?.some((i: any) => ['microsoft', 'microsoft_outlook', 'microsoft_onedrive'].includes(i.type) && i.actif)
+  const isMsConnected = intData?.integrations?.some((i: any) => ['microsoft', 'microsoft_onedrive'].includes(i.type) && i.actif)
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],

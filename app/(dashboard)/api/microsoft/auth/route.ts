@@ -8,8 +8,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-  const { searchParams } = new URL(request.url)
-  const purpose = searchParams.get('purpose') as 'outlook' | 'onedrive' | null
-  const url = getMicrosoftAuthUrl(purpose || undefined)
+  const url = getMicrosoftAuthUrl('onedrive')
   return NextResponse.redirect(url)
 }

@@ -64,7 +64,7 @@ export function useSyncMicrosoft() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/microsoft/sync', { method: 'POST' })
+      const res = await fetch('/api/onedrive/sync', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       return data
@@ -72,6 +72,7 @@ export function useSyncMicrosoft() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['candidats'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
       toast.success(`Sync terminé : ${data.processed} nouveau${data.processed > 1 ? 'x' : ''} candidat${data.processed > 1 ? 's' : ''} importé${data.processed > 1 ? 's' : ''}`)
     },
     onError: (e: Error) => toast.error(e.message),
