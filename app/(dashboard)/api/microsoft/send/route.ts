@@ -101,7 +101,10 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Sinon joindre le CV original
+        // Si options existent mais pas original et pas pdfBase64 → CV personnalisé non généré, skip
+        if (opts && !opts.original && !opts.pdfBase64) continue
+
+        // Joindre le CV original (si opts.original ou pas d'options du tout)
         if (!c.cv_url) continue
         try {
           const cvRes = await fetch(c.cv_url)

@@ -164,8 +164,10 @@ export async function callGraph(
       ...(options.headers || {}),
     },
   })
-  if (response.status === 204) return null
-  const data = await response.json()
+  if (response.status === 204 || response.status === 202) return null
+  const text = await response.text()
+  if (!text || text.trim().length === 0) return null
+  const data = JSON.parse(text)
   if (!response.ok) {
     throw new Error(`Graph API ${response.status}: ${data.error?.message || response.statusText}`)
   }
