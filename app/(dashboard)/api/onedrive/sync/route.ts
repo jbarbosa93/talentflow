@@ -371,7 +371,7 @@ export async function POST() {
               cv_nom_fichier: filename,
               resume_ia: analyse.resume || null,
               cv_texte_brut: texteCV.slice(0, 10000),
-              statut_pipeline: 'nouveau',
+              statut_pipeline: null, // JAMAIS d'ajout auto en pipeline
               import_status: 'a_traiter',
               source: 'ONEDRIVE',
               tags: [],

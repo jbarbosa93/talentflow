@@ -61,7 +61,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 2. Récupérer le fichier — FormData (petit) ou JSON storage_path (gros)
   const ct = request.headers.get('content-type') || ''
   let file: File | null = null
-  let statutPipeline = 'nouveau'
+  let statutPipeline: string | null = null // JAMAIS d'ajout auto en pipeline
   let offreId: string | null = null
   let forceInsert = false
   let replaceId: string | null = null
@@ -76,7 +76,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (ct.includes('application/json')) {
     const body = await request.json()
     storagePathInput = body.storage_path
-    statutPipeline   = body.statut || 'nouveau'
+    statutPipeline   = body.statut || null
     forceInsert      = body.force_insert === true
     replaceId        = body.replace_id || null
     updateId         = body.update_id || null
@@ -87,7 +87,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
-    statutPipeline  = (formData.get('statut') as string) || 'nouveau'
+    statutPipeline  = (formData.get('statut') as string) || null
     offreId         = formData.get('offre_id') as string | null
     forceInsert     = formData.get('force_insert') === 'true'
     replaceId       = formData.get('replace_id') as string | null
