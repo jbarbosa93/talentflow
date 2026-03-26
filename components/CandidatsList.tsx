@@ -184,7 +184,7 @@ export default function CandidatsList() {
     } catch {}
   }
 
-  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'actif'))
+  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'a_traiter'))
 
   const { metiers: agenceMetiers } = useMetiers()
   const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
