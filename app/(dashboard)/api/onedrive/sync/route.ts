@@ -347,7 +347,7 @@ export async function POST() {
                 })
               }
 
-              // Update candidate with new CV data
+              // Update candidate with new CV data — NE JAMAIS toucher created_at (évite le badge rouge)
               await (supabase as any).from('candidats').update({
                 titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
                 competences: analyse.competences || candidatExistant.competences,
@@ -364,7 +364,6 @@ export async function POST() {
                 cv_url: newCvUrl || candidatExistant.cv_url,
                 cv_nom_fichier: filename,
                 documents: existingDocs,
-                created_at: fileDate, // Date de modification du fichier OneDrive
                 updated_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
 
@@ -381,9 +380,8 @@ export async function POST() {
 
               return { status: 'updated', name: candidatDisplayName, candidatId: existingCandidat.id, filename }
             } else {
-              // Step 3b: Same CV — just reactivate (refresh date)
+              // Step 3b: Same CV — juste mettre à jour updated_at, jamais created_at
               await (supabase as any).from('candidats').update({
-                created_at: fileDate, // Date de modification du fichier OneDrive
                 updated_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
 

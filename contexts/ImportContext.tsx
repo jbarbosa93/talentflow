@@ -13,6 +13,7 @@ export interface CandidatExistant {
   titre_poste?: string; created_at: string
 }
 export interface FileJob {
+  sessionId?: string   // UUID partagé par tous les fichiers d'un même import
   id: string
   file: File
   status: FileStatus
@@ -229,6 +230,8 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   }, [bindWorker, updateSpeedEta])
 
   const addFilesWithMeta = useCallback((items: Array<{ file: File; relativePath?: string }>) => {
+    const sessionId = crypto.randomUUID()
+    const sessionStart = new Date().toISOString()
     const valid    = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size <= MAX_FILE_SIZE)
     const invalid  = items.filter(({ file }) => !FORMATS_OK.includes(getExt(file.name)))
     const tooLarge = items.filter(({ file }) => FORMATS_OK.includes(getExt(file.name)) && file.size > MAX_FILE_SIZE)
@@ -247,7 +250,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
             if (parts.length >= 3) categorie = parts[parts.length - 2]
             else if (parts.length === 2) categorie = parts[0]
           }
-          return { id: `${file.name}-${file.size}-${Math.random()}`, file, status: 'pending' as FileStatus, categorie, relativePath: rel || undefined, addedAt: new Date().toISOString() }
+          return { id: `${file.name}-${file.size}-${Math.random()}`, file, status: 'pending' as FileStatus, categorie, relativePath: rel || undefined, addedAt: sessionStart, sessionId }
         })
       if (toAdd.length < valid.length) toast.info(`${valid.length - toAdd.length} doublon(s) de fichiers ignoré(s)`)
       return [...prev, ...toAdd]

@@ -490,18 +490,24 @@ function ImportLog({ jobs, resolveDoublon }: {
     })
   }
 
-  // Grouper par session (même minute = même session)
+  // Grouper par sessionId (tous les fichiers d'un même import = même session)
   const groups: { label: string; key: string; jobs: FileJob[] }[] = []
   const groupMap = new Map<string, FileJob[]>()
   for (const job of jobs) {
-    const d = job.addedAt ? new Date(job.addedAt) : null
-    const key = d
-      ? `${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-      : 'Import'
+    const key = job.sessionId || (job.addedAt
+      ? `${new Date(job.addedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} à ${new Date(job.addedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+      : 'Import')
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push(job)
   }
-  groupMap.forEach((gJobs, key) => groups.push({ label: key, key, jobs: gJobs }))
+  groupMap.forEach((gJobs, key) => {
+    const firstJob = gJobs[0]
+    const d = firstJob?.addedAt ? new Date(firstJob.addedAt) : null
+    const label = d
+      ? `${d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+      : 'Import'
+    groups.push({ label, key, jobs: gJobs })
+  })
   groups.reverse()
 
   return (
