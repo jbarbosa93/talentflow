@@ -14,6 +14,27 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useMetiers } from '@/hooks/useMetiers'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
 
+// ── Badge rouge : par candidat, persist dans localStorage ──────────────────
+// Un candidat est "nouveau/non-vu" tant que :
+// 1. Sa fiche n'a pas été ouverte
+// 2. Son statut_pipeline est encore 'nouveau'
+const VIEWED_KEY = 'talentflow_viewed_candidats'
+const SEUIL_JOURS_NOUVEAU = 30 // badge actif si créé/modifié depuis moins de 30j
+
+function getViewedSet(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try { return new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]')) }
+  catch { return new Set() }
+}
+export function markCandidatVu(id: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const set = getViewedSet()
+    set.add(id)
+    localStorage.setItem(VIEWED_KEY, JSON.stringify([...set]))
+  } catch { /* ignore */ }
+}
+
 function getCandidatsLastSeen(): string | null {
   if (typeof window === 'undefined') return null
   try {
@@ -576,6 +597,7 @@ export default function CandidatsList() {
     if (selectedIds.size > 0) toggleSelect(id)
     else {
       sessionStorage.setItem('candidats_last_list', importStatusFilter === 'a_traiter' ? 'a_traiter' : 'all')
+      markCandidatVu(id) // Badge rouge disparaît quand la fiche est ouverte
       router.push(`/candidats/${id}`)
     }
   }
@@ -614,13 +636,17 @@ export default function CandidatsList() {
   }
 
   const candidatsLastSeen = getCandidatsLastSeen()
+  void candidatsLastSeen // legacy — conservé pour compatibilité
 
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    const isNewCandidat = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
+    const viewedSet = getViewedSet()
+    const seuilDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const isRecent = (c.created_at && c.created_at > seuilDate) || (c.updated_at && c.updated_at > seuilDate)
+    const isNewCandidat = isRecent && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
 
     return (
       <div

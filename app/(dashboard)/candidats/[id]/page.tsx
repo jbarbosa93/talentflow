@@ -19,6 +19,7 @@ import { useMetiers } from '@/hooks/useMetiers'
 import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
+import { markCandidatVu } from '@/components/CandidatsList'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 
@@ -238,6 +239,9 @@ export default function CandidatDetailPage() {
   const candidat = data as any
 
   // Fermer menu 3 points quand clic dehors
+  // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
+  useEffect(() => { if (id) markCandidatVu(id) }, [id])
+
   useEffect(() => {
     if (!showMenu) return
     const handler = (e: MouseEvent) => {
