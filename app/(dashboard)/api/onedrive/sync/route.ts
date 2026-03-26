@@ -304,7 +304,7 @@ export async function POST() {
                 })
               } catch { /* ignore */ }
 
-              return { status: 'updated', name: candidatDisplayName }
+              return { status: 'updated', name: candidatDisplayName, candidatId: existingCandidat.id, filename }
             } else {
               // Step 3b: Same CV — just reactivate (refresh date)
               await (supabase as any).from('candidats').update({
@@ -413,7 +413,7 @@ export async function POST() {
             }
           }
 
-          return { status: 'created', name: `${candidatPrenom} ${candidatNom}`.trim() || 'Candidat' }
+          return { status: 'created', name: `${candidatPrenom} ${candidatNom}`.trim() || 'Candidat', candidatId, filename }
 
         } catch (err) {
           console.error(`[OneDrive Sync] Erreur fichier ${fichier.name}:`, err)
@@ -433,12 +433,48 @@ export async function POST() {
       }))
 
       // Accumulate results
+      const individualLogs: any[] = []
       for (const r of results) {
-        if (r.status === 'created') { processed++; if (r.name) created.push(r.name) }
-        else if (r.status === 'updated') { updated++; if (r.name) updatedNames.push(r.name) }
+        if (r.status === 'created') {
+          processed++
+          if (r.name) created.push(r.name)
+          individualLogs.push({
+            user_id: '00000000-0000-0000-0000-000000000000',
+            user_name: 'Système (OneDrive)',
+            type: 'cv_importe',
+            titre: `CV importé — ${r.name}`,
+            description: `Fichier: ${r.filename || 'inconnu'} · Dossier: ${folderName}`,
+            candidat_id: r.candidatId || null,
+            candidat_nom: r.name || null,
+            metadata: { source: 'onedrive', folder: folderName },
+          })
+        }
+        else if (r.status === 'updated') {
+          updated++
+          if (r.name) updatedNames.push(r.name)
+          individualLogs.push({
+            user_id: '00000000-0000-0000-0000-000000000000',
+            user_name: 'Système (OneDrive)',
+            type: 'cv_actualise',
+            titre: `CV actualisé — ${r.name}`,
+            description: `Fichier: ${r.filename || 'inconnu'} · Dossier: ${folderName}`,
+            candidat_id: r.candidatId || null,
+            candidat_nom: r.name || null,
+            metadata: { source: 'onedrive', folder: folderName },
+          })
+        }
         else if (r.status === 'reactivated') { reactivated++; if (r.name) reactivatedNames.push(r.name) }
         else if (r.status === 'skipped') skipped++
         else if (r.status === 'error') errors++
+      }
+
+      // Log individual activities (batch insert)
+      if (individualLogs.length > 0) {
+        try {
+          await (supabase as any).from('activites').insert(individualLogs)
+        } catch (e) {
+          console.error('[OneDrive Sync] Erreur log activites individuelles:', e)
+        }
       }
     }
 

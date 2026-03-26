@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.16.0'
+export const APP_VERSION = 'v0.16.1'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.16.1',
+    date: '2026-03-26',
+    label: 'CV, Doublons & Activites OneDrive',
+    features: [
+      'CV personnalise : titres de section au-dessus de la ligne jaune (plus lisible)',
+      'Doublons : tags raisons avec retour a la ligne (plus de debordement)',
+      'Doublons : carte candidat enrichie (competences, nom du CV)',
+      'Activites Imports : chaque CV importe/actualise depuis OneDrive est logge individuellement',
+      'Activites : onglet Imports affiche maintenant les imports OneDrive en detail',
+    ],
+  },
   {
     version: 'v0.16.0',
     date: '2026-03-24',
