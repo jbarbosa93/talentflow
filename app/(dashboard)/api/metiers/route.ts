@@ -3,9 +3,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const BUCKET = 'cvs'
-const FILE_PATH = 'settings/metiers.json'
-
 const DEFAULT_METIERS = [
   // BÂTIMENT
   'Maçonnerie', 'Goudron', 'Ferrailleur', 'Désamianteur', 'Peintre',
@@ -26,20 +23,29 @@ const DEFAULT_METIERS = [
 
 export async function GET() {
   const supabase = createAdminClient()
-  try {
-    const { data, error } = await supabase.storage.from(BUCKET).download(FILE_PATH)
-    if (data && !error) {
-      const text = await data.text()
-      const metiers = JSON.parse(text)
-      // Si le fichier existe mais est vide [], retourner les defaults
-      if (Array.isArray(metiers) && metiers.length > 0) {
-        return NextResponse.json({ metiers })
-      }
-    }
-  } catch {
-    // File doesn't exist yet — return defaults
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'metiers')
+    .single()
+
+  const noCache = { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+
+  if (error || !data) {
+    return NextResponse.json({ metiers: DEFAULT_METIERS }, { headers: noCache })
   }
-  return NextResponse.json({ metiers: DEFAULT_METIERS })
+
+  // data.value peut être un tableau JS (jsonb parsé) ou une string JSON
+  let metiers: string[]
+  if (Array.isArray(data.value)) {
+    metiers = data.value as string[]
+  } else if (typeof data.value === 'string') {
+    try { metiers = JSON.parse(data.value) } catch { metiers = DEFAULT_METIERS }
+  } else {
+    metiers = DEFAULT_METIERS
+  }
+
+  return NextResponse.json({ metiers }, { headers: noCache })
 }
 
 export async function PUT(request: NextRequest) {
@@ -50,12 +56,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'metiers must be an array' }, { status: 400 })
   }
 
-  const blob = new Blob([JSON.stringify(metiers, null, 2)], { type: 'application/json' })
-
-  // Try update first, then upload if file doesn't exist
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(FILE_PATH, blob, { contentType: 'application/json', upsert: true })
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: 'metiers', value: metiers })
 
   if (error) {
     console.error('[metiers] PUT error:', error)
