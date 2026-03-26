@@ -83,7 +83,7 @@ export async function POST() {
     // 4. Lister les fichiers dans le dossier SharePoint (racine + sous-dossiers)
     let fichiers: any[] = []
     try {
-      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size&$top=200`)
+      const rootData = await callGraph(accessToken, `/drives/${driveId}/items/${folderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`)
       const folders: any[] = []
       for (const item of (rootData.value || [])) {
         if (item.file && !doneIds.has(item.id)) {
@@ -95,7 +95,7 @@ export async function POST() {
       // Scanner les sous-dossiers
       for (const folder of folders) {
         try {
-          const subData = await callGraph(accessToken, `/drives/${driveId}/items/${folder.id}/children?$select=name,id,file,size&$top=200`)
+          const subData = await callGraph(accessToken, `/drives/${driveId}/items/${folder.id}/children?$select=name,id,file,size,lastModifiedDateTime&$top=200`)
           for (const item of (subData.value || [])) {
             if (item.file && !doneIds.has(item.id)) {
               const ext = item.name.split('.').pop()?.toLowerCase()
@@ -128,6 +128,9 @@ export async function POST() {
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
       const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string }> => {
+        // Date de modification du fichier OneDrive = date d'ajout du candidat
+        const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
+
         try {
           // b. Vérifie taille < 10MB
           if (fichier.size > MAX_FILE_SIZE) {
@@ -287,7 +290,7 @@ export async function POST() {
                 cv_url: newCvUrl || candidatExistant.cv_url,
                 cv_nom_fichier: filename,
                 documents: existingDocs,
-                created_at: new Date().toISOString(),
+                created_at: fileDate, // Date de modification du fichier OneDrive
                 updated_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
 
@@ -306,7 +309,7 @@ export async function POST() {
             } else {
               // Step 3b: Same CV — just reactivate (refresh date)
               await (supabase as any).from('candidats').update({
-                created_at: new Date().toISOString(),
+                created_at: fileDate, // Date de modification du fichier OneDrive
                 updated_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
 
@@ -386,7 +389,8 @@ export async function POST() {
               source: 'ONEDRIVE',
               tags: [],
               notes: `Importé depuis OneDrive — dossier: ${folderName}\nFichier: ${filename}`,
-            })
+              created_at: fileDate, // Date de modification du fichier OneDrive
+            } as any)
             .select()
             .single()
 
