@@ -437,7 +437,7 @@ export async function analyserCVDepuisImage(
         },
         {
           type: 'text',
-          text: CV_JSON_PROMPT,
+          text: `${CV_JSON_PROMPT}\n\nIMPORTANT : Si l'image est pivotée (90°, 180°, 270°), lis-la quand même dans la bonne orientation et extrais toutes les informations visibles.`,
         },
       ],
     }],

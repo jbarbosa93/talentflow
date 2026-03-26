@@ -77,8 +77,8 @@ export async function POST() {
       )
     }
 
-    // 3. Charger TOUS les IDs déjà traités en mémoire (rapide, 1 seule requête)
-    const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id')
+    // 3. Charger uniquement les IDs RÉUSSIS — les erreurs (traite: false) seront retentées
+    const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id').eq('traite', true)
     const doneIds = new Set<string>((alreadyDone || []).map((r: any) => r.onedrive_item_id))
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
@@ -166,6 +166,12 @@ export async function POST() {
             try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch {}
             if (texteCV && texteCV.trim().length >= 50) {
               analyse = await analyserCV(texteCV)
+              // Si le texte était illisible (scan rotaté) → fallback vision avec correction rotation
+              const estVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
+              if (estVide) {
+                console.log(`[OneDrive Sync] Texte extrait mais résultat vide (PDF rotaté?) → fallback vision`)
+                analyse = await analyserCVDepuisPDF(buffer)
+              }
             } else {
               analyse = await analyserCVDepuisPDF(buffer)
             }
