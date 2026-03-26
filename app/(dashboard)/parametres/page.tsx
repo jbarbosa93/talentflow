@@ -19,6 +19,25 @@ const SECTIONS = [
 
 export const AGENCE_METIERS_LS_KEY = 'agence_metiers'
 
+// Métiers par défaut de l'agence (initialisés au premier chargement)
+export const DEFAULT_METIERS = [
+  // BÂTIMENT
+  'Maçonnerie', 'Goudron', 'Ferrailleur', 'Désamianteur', 'Peintre',
+  'Plâtrier', 'Carreleur', 'Paysagiste', 'Sanitaire', 'Chauffage',
+  'Électricien', 'Automaticien', 'Ferblantier', 'Couvreur', 'Menuisier',
+  'Charpentier', 'Étancheur', 'Poseur de sols', 'Storiste', 'Échafaudages',
+  'Pompage / Solaire',
+  // TECHNIQUE - INDUSTRIE - USINE
+  'Mécanicien', 'Soudeur', 'Tuyauteur', 'Calorifugeur',
+  'Serrurier', 'Polymécanicien', 'Logisticien', 'Ventilation',
+  // DIVERS
+  'Chauffeur', 'Ouvrier', 'Manutentionnaire', 'Nettoyage',
+  // COMMERCIAL
+  'Administratif',
+  // ARCHITECTURE
+  'Architecture',
+]
+
 export const CANDIDAT_SECTIONS_DEFAULT = [
   { key: 'resume',       label: 'Résumé IA',       emoji: '✨' },
   { key: 'experiences',  label: 'Expériences',      emoji: '💼' },
@@ -700,7 +719,13 @@ function MetiersSection() {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(AGENCE_METIERS_LS_KEY)
-      if (stored) setMetiers(JSON.parse(stored))
+      if (stored) {
+        setMetiers(JSON.parse(stored))
+      } else {
+        // Initialiser avec les métiers par défaut
+        setMetiers(DEFAULT_METIERS)
+        localStorage.setItem(AGENCE_METIERS_LS_KEY, JSON.stringify(DEFAULT_METIERS))
+      }
     } catch {}
   }, [])
 
