@@ -16,6 +16,11 @@ export type LogAction =
   | 'onedrive_sync'
   | 'pipeline_etape_changee'
   | 'cv_actualise'
+  | 'note_changed'
+  | 'candidat_valide'
+  | 'metier_assigne'
+  | 'connexion'
+  | 'email_envoye_masse'
 
 export async function logActivity(params: {
   action: LogAction

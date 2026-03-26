@@ -30,6 +30,15 @@ export type ActiviteType =
   | 'note_ajoutee'
   | 'statut_change'
   | 'client_contacte'
+  | 'onedrive_sync'
+  | 'cv_importe'
+  | 'cv_actualise'
+  | 'cv_doublon'
+  | 'note_changed'
+  | 'candidat_valide'
+  | 'metier_assigne'
+  | 'connexion'
+  | 'email_envoye_masse'
 
 export function useActivites(filters?: {
   search?: string

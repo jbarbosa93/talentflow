@@ -5,6 +5,7 @@ import {
   Calendar, StickyNote, ArrowRight, Building2, Search, X,
   ChevronLeft, ChevronRight, Trash2, Edit3, Check, MessageSquare,
   Filter, CheckSquare, Square, AlertTriangle, CalendarRange,
+  FolderSync, RefreshCw, Copy, Star, UserCheck, Tag, LogIn, Send,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -16,43 +17,70 @@ import { toast } from 'sonner'
 /* ─── Config ─── */
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  email_envoye:      { label: 'Email',       icon: Mail,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
-  whatsapp_envoye:   { label: 'WhatsApp',    icon: MessageCircle,  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
-  sms_envoye:        { label: 'SMS',          icon: Smartphone,     color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
-  cv_envoye:         { label: 'CV',           icon: FileText,       color: '#F97316', bg: 'rgba(249,115,22,0.15)' },
-  candidat_importe:  { label: 'Import',       icon: Upload,         color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
-  candidat_modifie:  { label: 'Modification', icon: Edit3,          color: '#6366F1', bg: 'rgba(99,102,241,0.15)' },
-  entretien_planifie:{ label: 'Entretien',    icon: Calendar,       color: '#7C3AED', bg: 'rgba(124,58,237,0.15)' },
-  note_ajoutee:      { label: 'Note',         icon: StickyNote,     color: '#D97706', bg: 'rgba(217,119,6,0.15)' },
-  statut_change:     { label: 'Statut',       icon: ArrowRight,     color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
-  client_contacte:   { label: 'Client',       icon: Building2,      color: '#14B8A6', bg: 'rgba(20,184,166,0.15)' },
+  email_envoye:      { label: 'Email',           icon: Mail,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
+  whatsapp_envoye:   { label: 'WhatsApp',        icon: MessageCircle,  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  sms_envoye:        { label: 'SMS',             icon: Smartphone,     color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
+  cv_envoye:         { label: 'CV envoyé',       icon: FileText,       color: '#F97316', bg: 'rgba(249,115,22,0.15)' },
+  candidat_importe:  { label: 'Import',          icon: Upload,         color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
+  candidat_modifie:  { label: 'Modification',    icon: Edit3,          color: '#6366F1', bg: 'rgba(99,102,241,0.15)' },
+  entretien_planifie:{ label: 'Entretien',       icon: Calendar,       color: '#7C3AED', bg: 'rgba(124,58,237,0.15)' },
+  note_ajoutee:      { label: 'Note',            icon: StickyNote,     color: '#D97706', bg: 'rgba(217,119,6,0.15)' },
+  statut_change:     { label: 'Statut',          icon: ArrowRight,     color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  client_contacte:   { label: 'Client',          icon: Building2,      color: '#14B8A6', bg: 'rgba(20,184,166,0.15)' },
+  onedrive_sync:     { label: 'OneDrive',        icon: FolderSync,     color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' },
+  cv_importe:        { label: 'CV importé',      icon: FileText,       color: '#10B981', bg: 'rgba(16,185,129,0.15)' },
+  cv_actualise:      { label: 'CV actualisé',    icon: RefreshCw,      color: '#0EA5E9', bg: 'rgba(14,165,233,0.15)' },
+  cv_doublon:        { label: 'Doublon',         icon: Copy,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
+  note_changed:      { label: 'Note changée',    icon: Star,           color: '#EAB308', bg: 'rgba(234,179,8,0.15)' },
+  candidat_valide:   { label: 'Validé',          icon: UserCheck,      color: '#10B981', bg: 'rgba(16,185,129,0.15)' },
+  metier_assigne:    { label: 'Métier assigné',  icon: Tag,            color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
+  connexion:         { label: 'Connexion',       icon: LogIn,          color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  email_envoye_masse:{ label: 'Email en masse',  icon: Send,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
 }
 
 const TABS = [
   { key: 'all',        label: 'Tous',       types: '' },
-  { key: 'messages',   label: 'Messages',   types: 'email_envoye,whatsapp_envoye,sms_envoye,cv_envoye' },
-  { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie' },
+  { key: 'messages',   label: 'Messages',   types: 'email_envoye,whatsapp_envoye,sms_envoye,cv_envoye,email_envoye_masse' },
+  { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie,candidat_valide,cv_importe,cv_actualise,cv_doublon,metier_assigne,note_changed' },
+  { key: 'imports',    label: 'Imports',    types: 'onedrive_sync,cv_importe,cv_actualise,cv_doublon,candidat_importe' },
   { key: 'entretiens', label: 'Entretiens', types: 'entretien_planifie' },
-  { key: 'notes',      label: 'Notes',      types: 'note_ajoutee' },
+  { key: 'notes',      label: 'Notes',      types: 'note_ajoutee,note_changed' },
   { key: 'pipeline',   label: 'Pipeline',   types: 'statut_change' },
   { key: 'clients',    label: 'Clients',    types: 'client_contacte' },
+  { key: 'systeme',    label: 'Système',    types: 'connexion,onedrive_sync' },
 ]
 
 /* ─── Relative time in French ─── */
 
 function tempsRelatif(dateStr: string): string {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diffSec = Math.floor((now - then) / 1000)
+  const now = new Date()
+  const then = new Date(dateStr)
+  const diffSec = Math.floor((now.getTime() - then.getTime()) / 1000)
 
   if (diffSec < 60) return 'a l\'instant'
   const diffMin = Math.floor(diffSec / 60)
   if (diffMin < 60) return `il y a ${diffMin} min`
   const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `il y a ${diffH}h`
+
+  // Check if it's yesterday
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  const isYesterday = then.toDateString() === yesterday.toDateString()
+  const isToday = then.toDateString() === now.toDateString()
+
+  if (isToday) return `il y a ${diffH}h`
+  if (isYesterday) {
+    const hh = String(then.getHours()).padStart(2, '0')
+    const mm = String(then.getMinutes()).padStart(2, '0')
+    return `hier a ${hh}:${mm}`
+  }
+
   const diffD = Math.floor(diffH / 24)
-  if (diffD === 1) return 'hier'
-  if (diffD < 7) return `il y a ${diffD} jours`
+  if (diffD < 7) {
+    const hh = String(then.getHours()).padStart(2, '0')
+    const mm = String(then.getMinutes()).padStart(2, '0')
+    return `il y a ${diffD}j a ${hh}:${mm}`
+  }
   const diffW = Math.floor(diffD / 7)
   if (diffW < 4) return `il y a ${diffW} sem.`
   const diffM = Math.floor(diffD / 30)
@@ -784,6 +812,50 @@ export default function ActivitesPage() {
                 <X size={14} />
               </button>
             )}
+          </div>
+
+          {/* Quick date buttons */}
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            {[
+              { label: "Aujourd'hui", getRange: () => { const d = new Date().toISOString().split('T')[0]; return { from: d, to: d } } },
+              { label: 'Cette semaine', getRange: () => {
+                const now = new Date()
+                const day = now.getDay()
+                const diff = day === 0 ? 6 : day - 1
+                const monday = new Date(now)
+                monday.setDate(now.getDate() - diff)
+                return { from: monday.toISOString().split('T')[0], to: now.toISOString().split('T')[0] }
+              }},
+              { label: 'Ce mois', getRange: () => {
+                const now = new Date()
+                const first = new Date(now.getFullYear(), now.getMonth(), 1)
+                return { from: first.toISOString().split('T')[0], to: now.toISOString().split('T')[0] }
+              }},
+            ].map(preset => {
+              const range = preset.getRange()
+              const isActive = dateFrom === range.from && dateTo === range.to
+              return (
+                <button
+                  key={preset.label}
+                  onClick={() => {
+                    if (isActive) { setDateFrom(''); setDateTo(''); }
+                    else { setDateFrom(range.from); setDateTo(range.to); }
+                    setPage(1)
+                  }}
+                  style={{
+                    padding: '7px 12px', borderRadius: 8,
+                    border: `1.5px solid ${isActive ? 'var(--primary)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--primary)' : 'var(--card)',
+                    color: isActive ? 'var(--ink, #1C1A14)' : 'var(--muted)',
+                    fontSize: 11, fontWeight: isActive ? 800 : 600,
+                    cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    transition: 'all 0.15s', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {preset.label}
+                </button>
+              )
+            })}
           </div>
 
           {/* Date range */}

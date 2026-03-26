@@ -30,14 +30,23 @@ export function useMarkSectionSeen() {
 const TYPE_TO_SECTION: Record<string, string> = {
   candidat_importe: 'candidats',
   candidat_modifie: 'candidats',
+  candidat_valide: 'candidats',
+  cv_importe: 'candidats',
+  cv_actualise: 'candidats',
+  cv_doublon: 'candidats',
+  metier_assigne: 'candidats',
+  note_changed: 'candidats',
   client_contacte: 'clients',
   email_envoye: 'activites',
+  email_envoye_masse: 'activites',
   whatsapp_envoye: 'activites',
   sms_envoye: 'activites',
   cv_envoye: 'activites',
   entretien_planifie: 'entretiens',
   statut_change: 'activites',
   note_ajoutee: 'activites',
+  onedrive_sync: 'activites',
+  connexion: 'activites',
 }
 
 export function useNewItemsBadges() {

@@ -88,10 +88,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     queryKey: ['candidats-a-traiter-count'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/candidats/init-import-status')
+        const res = await fetch('/api/candidats/count-new')
         if (!res.ok) return 0
         const data = await res.json()
-        return data.a_traiter || 0
+        return data.count || 0
       } catch { return 0 }
     },
     staleTime: 30_000,
@@ -387,8 +387,21 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {/* Petit rond rouge — nouveaux éléments */}
+                  {/* Badge nombre de candidats à traiter */}
+                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && !active && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
+                      padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#F59E0B', color: 'white',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      lineHeight: 1,
+                    }}>
+                      {aTraiterCount > 99 ? '99+' : aTraiterCount}
+                    </span>
+                  )}
+                  {/* Petit rond rouge — nouveaux éléments (autres sections) */}
                   {(() => {
+                    if (item.href === '/candidats') return null
                     const badgeKey = BADGE_SECTION_MAP[item.href]
                     const count = badgeKey && newBadges ? (newBadges as any)[badgeKey] : 0
                     if (!count) return null
