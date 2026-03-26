@@ -25,10 +25,12 @@ export function useMetiers() {
         body: JSON.stringify({ metiers }),
       })
       if (!res.ok) throw new Error('Erreur sauvegarde métiers')
-      return res.json()
+      return { ...(await res.json()), _saved: metiers }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['metiers'] })
+    onSuccess: (data) => {
+      // Mettre à jour le cache directement avec les données sauvegardées
+      // (évite le problème de cache CDN Supabase qui retournerait les anciennes données)
+      queryClient.setQueryData(['metiers'], data._saved as string[])
     },
   })
 

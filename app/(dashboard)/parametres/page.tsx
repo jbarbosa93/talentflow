@@ -761,12 +761,14 @@ function MetiersSection() {
   const [saved, setSaved] = useState(false)
   const [dirty, setDirty] = useState(false)
 
-  // Sync local state when remote data loads
+  // Sync local state when remote data loads (or after save)
+  // !isLoading : attendre la fin du chargement initial avant de sync
+  // !dirty     : ne pas écraser les modifications locales en cours
   useEffect(() => {
-    if (remoteMetiers.length > 0 && !dirty) {
+    if (!isLoading && !dirty) {
       setMetiers(remoteMetiers)
     }
-  }, [remoteMetiers, dirty])
+  }, [remoteMetiers, isLoading, dirty])
 
   const add = () => {
     const trimmed = newMetier.trim()

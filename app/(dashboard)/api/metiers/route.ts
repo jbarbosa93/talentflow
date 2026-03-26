@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+export const dynamic = 'force-dynamic'
+
 const BUCKET = 'cvs'
 const FILE_PATH = 'settings/metiers.json'
 
@@ -29,7 +31,10 @@ export async function GET() {
     if (data && !error) {
       const text = await data.text()
       const metiers = JSON.parse(text)
-      return NextResponse.json({ metiers })
+      // Si le fichier existe mais est vide [], retourner les defaults
+      if (Array.isArray(metiers) && metiers.length > 0) {
+        return NextResponse.json({ metiers })
+      }
     }
   } catch {
     // File doesn't exist yet — return defaults
