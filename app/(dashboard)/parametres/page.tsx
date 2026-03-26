@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { useMetiers } from '@/hooks/useMetiers'
 
 const labelStyle: React.CSSProperties = {
   fontSize: 10, fontWeight: 700, color: 'var(--muted)',
@@ -15,27 +16,6 @@ const SECTIONS = [
   { id: 'profil',        label: 'Mon Profil',    icon: UserCircle },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
-]
-
-export const AGENCE_METIERS_LS_KEY = 'agence_metiers'
-
-// Métiers par défaut de l'agence (initialisés au premier chargement)
-export const DEFAULT_METIERS = [
-  // BÂTIMENT
-  'Maçonnerie', 'Goudron', 'Ferrailleur', 'Désamianteur', 'Peintre',
-  'Plâtrier', 'Carreleur', 'Paysagiste', 'Sanitaire', 'Chauffage',
-  'Électricien', 'Automaticien', 'Ferblantier', 'Couvreur', 'Menuisier',
-  'Charpentier', 'Étancheur', 'Poseur de sols', 'Storiste', 'Échafaudages',
-  'Pompage / Solaire',
-  // TECHNIQUE - INDUSTRIE - USINE
-  'Mécanicien', 'Soudeur', 'Tuyauteur', 'Calorifugeur',
-  'Serrurier', 'Polymécanicien', 'Logisticien', 'Ventilation',
-  // DIVERS
-  'Chauffeur', 'Ouvrier', 'Manutentionnaire', 'Nettoyage',
-  // COMMERCIAL
-  'Administratif',
-  // ARCHITECTURE
-  'Architecture',
 ]
 
 export const CANDIDAT_SECTIONS_DEFAULT = [
@@ -712,22 +692,18 @@ function PhotosSection() {
 // ─── Métiers de l'agence ─────────────────────────────────────────────────────
 
 function MetiersSection() {
+  const { metiers: remoteMetiers, isLoading, saveMetiers, isSaving } = useMetiers()
   const [metiers, setMetiers] = useState<string[]>([])
   const [newMetier, setNewMetier] = useState('')
   const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
 
+  // Sync local state when remote data loads
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(AGENCE_METIERS_LS_KEY)
-      if (stored) {
-        setMetiers(JSON.parse(stored))
-      } else {
-        // Initialiser avec les métiers par défaut
-        setMetiers(DEFAULT_METIERS)
-        localStorage.setItem(AGENCE_METIERS_LS_KEY, JSON.stringify(DEFAULT_METIERS))
-      }
-    } catch {}
-  }, [])
+    if (remoteMetiers.length > 0 && !dirty) {
+      setMetiers(remoteMetiers)
+    }
+  }, [remoteMetiers, dirty])
 
   const add = () => {
     const trimmed = newMetier.trim()
@@ -735,54 +711,71 @@ function MetiersSection() {
     const next = [...metiers, trimmed]
     setMetiers(next)
     setNewMetier('')
+    setDirty(true)
     setSaved(false)
   }
 
   const remove = (m: string) => {
     setMetiers(prev => prev.filter(x => x !== m))
+    setDirty(true)
     setSaved(false)
   }
 
   const handleSave = () => {
-    localStorage.setItem(AGENCE_METIERS_LS_KEY, JSON.stringify(metiers))
-    setSaved(true)
-    toast.success('Métiers enregistrés')
-    setTimeout(() => setSaved(false), 3000)
+    saveMetiers(metiers, {
+      onSuccess: () => {
+        setSaved(true)
+        setDirty(false)
+        toast.success('Métiers enregistrés (partagés avec tous les utilisateurs)')
+        setTimeout(() => setSaved(false), 3000)
+      },
+      onError: () => {
+        toast.error('Erreur lors de la sauvegarde des métiers')
+      },
+    })
   }
 
   return (
-    <SectionCard title="Métiers de l'agence" description="Définissez vos catégories de métiers pour classer les candidats" onSave={handleSave} saving={false} saved={saved}>
+    <SectionCard title="Métiers de l'agence" description="Définissez vos catégories de métiers pour classer les candidats" onSave={handleSave} saving={isSaving} saved={saved}>
       <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
-        Ces métiers seront proposés lors de l&apos;édition d&apos;une fiche candidat et utilisés pour filtrer les candidats.
+        Ces métiers sont partagés entre tous les utilisateurs. Toute modification sera visible par l&apos;ensemble de l&apos;équipe.
       </p>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <input
-          className="neo-input"
-          style={{ flex: 1, height: 36, fontSize: 13 }}
-          placeholder="Ajouter un métier (ex: Électricien, Ventilateur...)"
-          value={newMetier}
-          onChange={e => setNewMetier(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') add() }}
-        />
-        <button onClick={add} disabled={!newMetier.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
-          Ajouter
-        </button>
-      </div>
-      {metiers.length === 0 ? (
+      {isLoading ? (
         <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
-          Aucun métier défini. Ajoutez vos catégories ci-dessus.
+          Chargement des métiers...
         </p>
       ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {metiers.map(m => (
-            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-              {m}
-              <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
-                <X size={13} />
-              </button>
+        <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <input
+              className="neo-input"
+              style={{ flex: 1, height: 36, fontSize: 13 }}
+              placeholder="Ajouter un métier (ex: Électricien, Ventilateur...)"
+              value={newMetier}
+              onChange={e => setNewMetier(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') add() }}
+            />
+            <button onClick={add} disabled={!newMetier.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+              Ajouter
+            </button>
+          </div>
+          {metiers.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+              Aucun métier défini. Ajoutez vos catégories ci-dessus.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {metiers.map(m => (
+                <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+                  {m}
+                  <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </SectionCard>
   )

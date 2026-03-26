@@ -15,6 +15,7 @@ import {
   useAjouterNote, useDeleteCandidat,
 } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
+import { useMetiers } from '@/hooks/useMetiers'
 import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -80,7 +81,6 @@ const toWaPhone = (tel: string) => {
   return clean
 }
 
-const AGENCE_METIERS_LS_KEY = 'agence_metiers'
 const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -168,7 +168,7 @@ export default function CandidatDetailPage() {
     return saved ? parseInt(saved, 10) : 0
   })
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
-  const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
+  const { metiers: agenceMetiers } = useMetiers()
   const [photoUploading, setPhotoUploading] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
   const [editModal, setEditModal]         = useState<'formation' | 'competences' | 'langues' | null>(null)
@@ -256,10 +256,6 @@ export default function CandidatDetailPage() {
         const parsed = JSON.parse(stored) as string[]
         if (Array.isArray(parsed) && parsed.length > 0) setSectionsOrder(parsed)
       }
-    } catch {}
-    try {
-      const stored = localStorage.getItem(AGENCE_METIERS_LS_KEY)
-      if (stored) setAgenceMetiers(JSON.parse(stored))
     } catch {}
   }, [])
 

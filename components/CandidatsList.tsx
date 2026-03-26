@@ -11,6 +11,7 @@ import {
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
+import { useMetiers } from '@/hooks/useMetiers'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 function getCandidatsLastSeen(): string | null {
@@ -100,14 +101,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   onSave: (tags: string[]) => void
 }) {
   const [selected, setSelected] = useState<string[]>(currentTags)
-  const [metiers, setMetiers] = useState<string[]>([])
-
-  useEffect(() => {
-    const stored = localStorage.getItem('agence_metiers')
-    if (stored) {
-      try { setMetiers(JSON.parse(stored)) } catch { /* ignore */ }
-    }
-  }, [])
+  const { metiers } = useMetiers()
 
   const toggle = (m: string) => {
     setSelected(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
@@ -181,7 +175,7 @@ export default function CandidatsList() {
 
   const sessionStorageKey = 'candidats_search'
 
-  const [agenceMetiers, setAgenceMetiers] = useState<string[]>([])
+  const { metiers: agenceMetiers } = useMetiers()
   const [filtreMetier, setFiltreMetier]   = useState('')
   const [search, setSearch]               = useState(() => {
     if (typeof window !== 'undefined') {
@@ -283,13 +277,6 @@ export default function CandidatsList() {
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
   const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
   const [perPage, setPerPage] = useState<number>(20)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('agence_metiers')
-      if (stored) setAgenceMetiers(JSON.parse(stored))
-    } catch {}
-  }, [])
 
   // Persist import status filter
   useEffect(() => {
