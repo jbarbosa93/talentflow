@@ -133,13 +133,13 @@ export async function generateBrandedCV(
   }
 
   function drawSectionTitle(title: string) {
-    newPageIfNeeded(35)
-    y -= 14
+    newPageIfNeeded(30)
+    y -= 10
     // Yellow line
     page.drawRectangle({ x: MARGIN, y: y - 2, width: CONTENT_WIDTH, height: 2, color: YELLOW })
-    y -= 14
-    page.drawText(title.toUpperCase(), { x: MARGIN, y, font: helveticaBold, size: 11, color: DARK })
-    y -= 14
+    y -= 12
+    page.drawText(title.toUpperCase(), { x: MARGIN, y, font: helveticaBold, size: 10, color: DARK })
+    y -= 12
   }
 
   function drawText(text: string, opts?: { fontSize?: number; font?: PDFFont; color?: typeof DARK; indent?: number; maxWidth?: number }) {
@@ -210,7 +210,7 @@ export async function generateBrandedCV(
     y -= 16
   }
 
-  // Info line : localisation · âge · permis — controlled by customContent flags
+  // Info line : localisation · âge · permis · outillé — toggles FORCENT l'affichage
   const showLoc = customContent?.show_localisation !== '0'
   const showAge = customContent?.show_age !== '0'
   const showPermis = customContent?.show_permis !== '0'
@@ -223,17 +223,18 @@ export async function generateBrandedCV(
   }
   const age = calculerAge(candidat.date_naissance ?? null)
   if (showAge && age) infoParts.push(`${age} ans`)
-  if (showPermis && candidat.permis_conduire) infoParts.push('Permis de conduire')
+  // Permis : afficher si coché, même si pas en base
+  if (showPermis) infoParts.push('Permis de conduire')
   if (showOutille) infoParts.push('Outillé')
   if (infoParts.length > 0) {
     page.drawText(infoParts.join('  ·  '), { x: MARGIN, y, font: helvetica, size: 10, color: GRAY })
-    y -= 16
+    y -= 14
   }
 
-  // Separator
-  y -= 8
+  // Separator — plus compact
+  y -= 4
   page.drawRectangle({ x: MARGIN, y, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
-  y -= 16
+  y -= 10
 
   // ═══════════════════ RÉSUMÉ ═══════════════════
 
