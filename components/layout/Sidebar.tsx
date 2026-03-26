@@ -84,11 +84,18 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const userRole: string = user?.user_metadata?.role || 'Consultant'
   const isSecretaire = userRole === 'Secrétaire'
 
-  const { data: aTraiterCount } = useQuery({
-    queryKey: ['candidats-a-traiter-count'],
+  // Badge : compter uniquement les candidats ajoutés APRÈS la dernière visite
+  const [lastSeenCandidats, setLastSeenCandidats] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('candidats_last_seen') || ''
+    return ''
+  })
+
+  const { data: aTraiterCount, refetch: refetchCount } = useQuery({
+    queryKey: ['candidats-a-traiter-count', lastSeenCandidats],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/candidats/count-new')
+        const params = lastSeenCandidats ? `?since=${encodeURIComponent(lastSeenCandidats)}` : ''
+        const res = await fetch(`/api/candidats/count-new${params}`)
         if (!res.ok) return 0
         const data = await res.json()
         return data.count || 0
@@ -383,16 +390,25 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       sessionStorage.removeItem('candidats_page')
                       sessionStorage.removeItem('candidats_import_status')
                     }
+                    // Quand on clique sur Candidats → marquer comme vu après 3s
+                    if (item.href === '/candidats') {
+                      setTimeout(() => {
+                        const now = new Date().toISOString()
+                        localStorage.setItem('candidats_last_seen', now)
+                        setLastSeenCandidats(now)
+                        refetchCount()
+                      }, 3000)
+                    }
                   }}
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
-                  {/* Badge nombre de candidats à traiter */}
-                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && !active && (
+                  {/* Badge nombre de nouveaux candidats depuis dernière visite */}
+                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
                     <span style={{
                       marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
                       padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#F59E0B', color: 'white',
+                      background: '#EF4444', color: 'white',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1,
                     }}>
