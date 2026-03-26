@@ -469,8 +469,41 @@ export async function POST() {
     }
 
     console.log(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${updated} mis à jour, ${reactivated} réactivés, ${skipped} ignorés, ${errors} erreurs`)
-    if (processed > 0) {
+
+    // Log activity if anything happened (created, updated, or reactivated)
+    if (processed > 0 || updated > 0 || reactivated > 0) {
+      // Log to logs_activite (legacy)
       await logActivity({ action: 'onedrive_sync', details: result })
+
+      // Log to activites table (used by the activities page)
+      try {
+        const parts: string[] = []
+        if (processed > 0) parts.push(`${processed} importé${processed > 1 ? 's' : ''}`)
+        if (updated > 0) parts.push(`${updated} mis à jour`)
+        if (reactivated > 0) parts.push(`${reactivated} réactivé${reactivated > 1 ? 's' : ''}`)
+        if (errors > 0) parts.push(`${errors} erreur${errors > 1 ? 's' : ''}`)
+
+        await (supabase as any).from('activites').insert({
+          user_id: '00000000-0000-0000-0000-000000000000',
+          user_name: 'Système (OneDrive)',
+          type: 'onedrive_sync',
+          titre: `Sync OneDrive — ${parts.join(', ')}`,
+          description: `Dossier: ${folderName}`,
+          metadata: {
+            folder: folderName,
+            processed,
+            updated,
+            reactivated,
+            skipped,
+            errors,
+            created: created.slice(0, 10),
+            updatedNames: updatedNames.slice(0, 10),
+            reactivatedNames: reactivatedNames.slice(0, 10),
+          },
+        })
+      } catch (e) {
+        console.error('[OneDrive Sync] Erreur log activites:', e)
+      }
     }
 
     return NextResponse.json(result)

@@ -138,7 +138,7 @@ async function runDoublonsLoop(fromResume = false) {
 
     let allCandidats: Candidat[] = []
     try {
-      const res = await fetch('/api/candidats?limit=1000')
+      const res = await fetch('/api/candidats?per_page=5000')
       const data = await res.json()
       allCandidats = data.candidats || []
     } catch {
