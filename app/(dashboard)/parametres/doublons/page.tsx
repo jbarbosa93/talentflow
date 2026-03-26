@@ -86,7 +86,26 @@ const MERGE_FIELDS: MergeFieldDef[] = [
   { key: 'telephone', label: 'Telephone', getValue: c => c.telephone || '—' },
   { key: 'titre_poste', label: 'Poste', getValue: c => c.titre_poste || '—' },
   { key: 'localisation', label: 'Localisation', getValue: c => c.localisation || '—' },
-  { key: 'competences', label: 'Competences', getValue: c => (c.competences || []).slice(0, 8).join(', ') || '—' },
+  { key: 'date_naissance', label: 'Date de naissance', getValue: c => c.date_naissance || '—' },
+  { key: 'annees_exp', label: 'Annees exp.', getValue: c => c.annees_exp ? `${c.annees_exp} ans` : '—' },
+  { key: 'competences', label: 'Competences', getValue: c => {
+    const comps = c.competences || []
+    return comps.length > 0 ? `${comps.join(', ')} (${comps.length})` : '—'
+  }},
+  { key: 'experiences', label: 'Experiences', getValue: c => {
+    const exps = c.experiences || []
+    if (exps.length === 0) return '—'
+    return exps.map((e: any) => `${e.poste} — ${e.entreprise} (${e.periode})`).join(' | ')
+  }},
+  { key: 'formations_details', label: 'Formations', getValue: c => {
+    const forms = c.formations_details || []
+    if (forms.length === 0) return '—'
+    return forms.map((f: any) => `${f.diplome} — ${f.etablissement} (${f.annee})`).join(' | ')
+  }},
+  { key: 'langues', label: 'Langues', getValue: c => (c.langues || []).join(', ') || '—' },
+  { key: 'resume_ia', label: 'Resume IA', getValue: c => c.resume_ia ? c.resume_ia.slice(0, 200) : '—' },
+  { key: 'permis_conduire', label: 'Permis', getValue: c => c.permis_conduire ? 'Oui' : '—' },
+  { key: 'linkedin', label: 'LinkedIn', getValue: c => c.linkedin || '—' },
   { key: 'cv', label: 'CV', getValue: c => c.cv_nom_fichier || (c.cv_url ? 'CV present' : '—') },
 ]
 
@@ -674,7 +693,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }} onClick={onCancel}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: '24px', maxWidth: 780, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: '24px', maxWidth: 960, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Merge size={22} color="#16A34A" />
           <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Fusionner les candidats</h3>
@@ -738,31 +757,32 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
             const vB = field.getValue(b)
             const choice = fieldChoices[field.key] || 'a'
             const bothSame = vA === vB
+            const isLong = ['competences', 'experiences', 'formations_details', 'resume_ia'].includes(field.key)
             return (
-              <div key={field.key} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 40px 1fr', padding: '8px 14px', borderBottom: '1px solid var(--border)', alignItems: 'center', fontSize: 12 }}>
-                <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{field.label}</span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
+              <div key={field.key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 30px 1fr', padding: '8px 14px', borderBottom: '1px solid var(--border)', alignItems: isLong ? 'flex-start' : 'center', fontSize: 12 }}>
+                <span style={{ fontWeight: 700, color: 'var(--foreground)', paddingTop: isLong ? 4 : 0 }}>{field.label}</span>
+                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
                     name={`merge-field-${field.key}`}
                     checked={choice === 'a'}
                     onChange={() => onChangeFieldChoice(field.key, 'a')}
                     disabled={merging}
-                    style={{ accentColor: '#2563EB' }}
+                    style={{ accentColor: '#2563EB', marginTop: isLong ? 2 : 0, flexShrink: 0 }}
                   />
-                  <span style={{ color: vA === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'a' ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vA}</span>
+                  <span style={{ color: vA === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'a' ? 700 : 400, lineHeight: 1.4, wordBreak: 'break-word' }}>{vA}</span>
                 </label>
-                <span style={{ textAlign: 'center', fontSize: 10, color: 'var(--muted)' }}>{bothSame ? '=' : 'vs'}</span>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'b' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
+                <span style={{ textAlign: 'center', fontSize: 10, color: 'var(--muted)', paddingTop: isLong ? 4 : 0 }}>{bothSame ? '=' : 'vs'}</span>
+                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'b' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
                     name={`merge-field-${field.key}`}
                     checked={choice === 'b'}
                     onChange={() => onChangeFieldChoice(field.key, 'b')}
                     disabled={merging}
-                    style={{ accentColor: '#2563EB' }}
+                    style={{ accentColor: '#2563EB', marginTop: isLong ? 2 : 0, flexShrink: 0 }}
                   />
-                  <span style={{ color: vB === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'b' ? 700 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{vB}</span>
+                  <span style={{ color: vB === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'b' ? 700 : 400, lineHeight: 1.4, wordBreak: 'break-word' }}>{vB}</span>
                 </label>
               </div>
             )
@@ -859,10 +879,14 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
       )}
 
       {!isMerged && (
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={() => onVoir(pair)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
-            <Eye size={13} />Voir
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => window.open(`/candidats/${pair.candidat_a.id}`, '_blank')}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
+            <Eye size={12} />{pair.candidat_a.prenom || 'A'}
+          </button>
+          <button onClick={() => window.open(`/candidats/${pair.candidat_b.id}`, '_blank')}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
+            <Eye size={12} />{pair.candidat_b.prenom || 'B'}
           </button>
           <div style={{ flex: 1 }} />
           <button onClick={() => onDifferents(pair.id)}
