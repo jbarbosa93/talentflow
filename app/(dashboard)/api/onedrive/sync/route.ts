@@ -188,12 +188,29 @@ export async function POST() {
             throw new Error(`Format non supporté: .${ext}`)
           }
 
+          // ── Vérification analyse vide (CV rotaté / illisible) ──────────────────
+          // Si l'analyse ne retourne ni nom, ni prénom, ni titre → réessayer avec vision PDF
+          const analyseVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
+          if (analyseVide && isPDF) {
+            console.log(`[OneDrive Sync] Analyse vide pour "${filename}" → retry forcé avec vision PDF (CV peut-être rotaté)`)
+            try { analyse = await analyserCVDepuisPDF(buffer) } catch { /* si ça échoue aussi, on continue avec le vide */ }
+          }
+          if (analyseVide && isImage) {
+            console.log(`[OneDrive Sync] Analyse vide pour "${filename}" → image illisible, sera retentée`)
+            throw new Error('Image illisible — analyse vide')
+          }
+
           const candidatEmail = analyse.email || null
           const candidatNom = (analyse.nom || '').trim()
           const candidatPrenom = (analyse.prenom || '').trim()
           const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
           const docType = analyse.document_type || 'cv'
           const isNotCV = docType && docType !== 'cv'
+
+          // ── Si toujours vide après retry → erreur (traite: false → sera retenté) ──
+          if (!candidatNom && !candidatPrenom && !candidatEmail && candidatTel.length < 8 && !isNotCV) {
+            throw new Error('CV illisible — aucune donnée extraite (rotaté ou scan de mauvaise qualité)')
+          }
 
           // e-bis. Si c'est un document non-CV (permis, certificat, etc.) SANS nom identifiable → skip
           if (isNotCV && !candidatNom && !candidatEmail && candidatTel.length < 8) {
