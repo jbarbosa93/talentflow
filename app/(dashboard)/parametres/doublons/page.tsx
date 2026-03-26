@@ -844,9 +844,9 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
         {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'stretch', marginBottom: 16 }}>
         <CandidatMiniProfile candidat={pair.candidat_a} />
-        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--muted)', textAlign: 'center', padding: '0 4px' }}>vs</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--muted)', textAlign: 'center', padding: '0 4px', display: 'flex', alignItems: 'center' }}>vs</div>
         <CandidatMiniProfile candidat={pair.candidat_b} />
       </div>
 
@@ -888,7 +888,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
   const formCount = ((c as any).formations_details || []).length
 
   return (
-    <div style={{ padding: 14, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+    <div style={{ padding: 14, borderRadius: 10, background: 'var(--background)', border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Header avec avatar/photo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
         {c.photo_url ? (
@@ -899,9 +899,11 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
           </div>
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <a href={`/candidats/${c.id}`} target="_blank" rel="noopener" style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#2563EB')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--foreground)')}>
             {c.prenom} {c.nom}
-          </div>
+          </a>
           {c.titre_poste && (
             <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {c.titre_poste}
