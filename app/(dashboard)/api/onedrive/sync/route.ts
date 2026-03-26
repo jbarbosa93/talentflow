@@ -119,6 +119,7 @@ export async function POST() {
     const created: string[] = []
     const updatedNames: string[] = []
     const reactivatedNames: string[] = []
+    const errorFiles: string[] = []
 
     // 5. Pour chaque fichier CV NON traité (max 20 par batch, 5 en parallèle)
     const MAX_NEW = 20 // 20 CVs par batch (Vercel Pro 300s)
@@ -563,7 +564,7 @@ export async function POST() {
           })
         }
         else if (r.status === 'skipped') skipped++
-        else if (r.status === 'error') errors++
+        else if (r.status === 'error') { errors++; if (r.filename) errorFiles.push(r.filename) }
       }
 
       // Log individual activities (batch insert)
@@ -600,6 +601,7 @@ export async function POST() {
       created,
       updatedNames,
       reactivatedNames,
+      errorFiles,
     }
 
     console.log(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${updated} mis à jour, ${reactivated} réactivés, ${skipped} ignorés, ${errors} erreurs`)

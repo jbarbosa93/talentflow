@@ -37,6 +37,7 @@ function IntegrationsContent() {
     const allCreatedNames: string[] = []
     const allUpdatedNames: string[] = []
     const allReactivatedNames: string[] = []
+    const allErrorFiles: string[] = []
 
     while (!onedriveStopRef.current) {
       try {
@@ -58,6 +59,7 @@ function IntegrationsContent() {
         if (data.created) allCreatedNames.push(...data.created)
         if (data.updatedNames) allUpdatedNames.push(...data.updatedNames)
         if (data.reactivatedNames) allReactivatedNames.push(...data.reactivatedNames)
+        if (data.errorFiles) allErrorFiles.push(...data.errorFiles)
         setOnedriveProgress({ total: totalProcessed, created: totalCreated, updated: totalUpdated, reactivated: totalReactivated, errors: totalErrors, batch: batchNum })
 
         // Rafraichir les stats apres chaque batch
@@ -96,6 +98,7 @@ function IntegrationsContent() {
       reactivated: totalReactivated,
       reactivatedNames: [...new Set(allReactivatedNames)].slice(0, 30),
       errors: totalErrors,
+      errorFiles: allErrorFiles,
       skipped: totalSkipped,
     })
 
@@ -735,6 +738,22 @@ function IntegrationsContent() {
                     <div key={i} style={{ fontSize: 12, color: '#92400E', padding: '2px 0' }}>• {name}</div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Fichiers en erreur */}
+            {syncReport.errors > 0 && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', border: '1.5px solid #FECACA' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', marginBottom: syncReport.errorFiles?.length ? 6 : 0 }}>
+                  ⚠️ {syncReport.errors} fichier{syncReport.errors > 1 ? 's' : ''} non traité{syncReport.errors > 1 ? 's' : ''} — seront retentés au prochain sync
+                </p>
+                {syncReport.errorFiles?.length > 0 && (
+                  <div style={{ maxHeight: 100, overflowY: 'auto' }}>
+                    {syncReport.errorFiles.map((f: string, i: number) => (
+                      <div key={i} style={{ fontSize: 11, color: '#B91C1C', padding: '1px 0' }}>• {f}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
