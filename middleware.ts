@@ -146,6 +146,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // SÉCURITÉ : /integrations réservé exclusivement à l'administrateur
+  const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
+  if (user && pathname.startsWith('/integrations') && user.email !== ADMIN_EMAIL) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
   // Si authentifié avec email confirmé et sur une page auth → redirection dashboard
   if (user && user.email_confirmed_at && isAuthPage) {
     const url = request.nextUrl.clone()
