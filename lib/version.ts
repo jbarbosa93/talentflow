@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.16.1'
+export const APP_VERSION = 'v0.20.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,59 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.20.0',
+    date: '2026-03-26',
+    label: 'Outlook per-user, Securite & Fixes',
+    features: [
+      'Outlook per-user : chaque utilisateur connecte son propre compte Outlook dans Parametres',
+      'Envois : chaque user envoie depuis sa propre adresse (plus de compte partage)',
+      'Securite : page Integrations (OneDrive) bloquee au niveau middleware pour j.barbosa uniquement',
+      'Securite : blocage URL directe /integrations pour tous sauf admin',
+      'Sidebar : Integrations masquee pour les non-admins',
+      'Re-analyser IA : correction contrainte genre (M/F → homme/femme)',
+      'Re-analyser IA : date de naissance isolee dans coordonnees suisses maintenant detectee',
+      'Retour aux candidats : plus besoin de double-clic apres re-analyse',
+      'CV personnalise : style section redesigne (ligne fine, categorie au-dessus)',
+      'Doublons : plus dinformations dans la carte (experiences, formations, age)',
+      'Fusion : explication claire du role du profil principal vs choix des champs',
+      'Activite imports : fix affichage onglet Imports OneDrive',
+    ],
+  },
+  {
+    version: 'v0.19.0',
+    date: '2026-03-26',
+    label: 'OneDrive Sync & Activite',
+    features: [
+      'Sync OneDrive : log individuel par CV importe/actualise dans Activite',
+      'Activite : onglet Imports affiche les 90+ imports OneDrive en detail',
+      'Fix type error candidatId/filename dans la route sync OneDrive',
+      'Historique candidat : correction affichage (photo vs formations)',
+    ],
+  },
+  {
+    version: 'v0.18.0',
+    date: '2026-03-26',
+    label: 'Doublons enrichis & Fusion',
+    features: [
+      'Doublons : carte enrichie avec experiences, formations, age, badges exp/form',
+      'Doublons : boutons Profil A et Profil B pour ouvrir les deux fiches',
+      'Doublons : image cassee remplacee par initiales',
+      'Fusion : score de certitude et raisons de similarite dans la modale',
+      'Fusion : champs supplementaires (date de naissance, annees exp)',
+    ],
+  },
+  {
+    version: 'v0.17.0',
+    date: '2026-03-26',
+    label: 'CV Brande & Fix Build',
+    features: [
+      'CV personnalise : sections avec ligne fine jaune (plus de bandeau plein)',
+      'CV personnalise : categorie positionnee au-dessus de la ligne',
+      'Fix build Vercel : erreur TypeScript route sync OneDrive',
+      'Tag v0.20.0-stable pointe sur le dernier commit stable',
+    ],
+  },
   {
     version: 'v0.16.1',
     date: '2026-03-26',
