@@ -1026,6 +1026,11 @@ export default function CandidatsList() {
             <option value={0}>Tous</option>
           </select>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>/ {candidatesTries.length}</span>
+          {totalPages > 1 && (
+            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginLeft: 8 }}>
+              Page {page} / {totalPages}
+            </span>
+          )}
         </div>
       </div>
 
