@@ -51,6 +51,8 @@ function extractDateFromFilename(filename: string): string | null {
   const [, dd, mm, yyyy] = match
   const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10)
   if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
+  const daysInMonth = new Date(y, m, 0).getDate()
+  if (d > daysInMonth) return null
   return `${yyyy}-${mm}-${dd}T12:00:00.000Z`
 }
 
