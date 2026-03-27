@@ -98,7 +98,7 @@ export async function POST() {
 
       // UPDATE direct via admin client (service_role bypasse RLS)
       // Le trigger trg_candidats_updated_at ne touche que updated_at → created_at est librement modifiable
-      const PARALLEL = 50
+      const PARALLEL = 5
       for (let i = 0; i < updates.length; i += PARALLEL) {
         const chunk = updates.slice(i, i + PARALLEL)
         const results = await Promise.all(

@@ -125,7 +125,7 @@ function SyncDatesCard({ index }: { index: number }) {
             </p>
             {result.firstErrors && result.firstErrors.length > 0 && (
               <p style={{ fontSize: 11, color: '#EF4444', margin: '4px 0 0', lineHeight: 1.5 }}>
-                Erreurs : {result.firstErrors[0]}
+                {result.firstErrors.length} erreur(s) — ex: {result.firstErrors[0].replace(/<[^>]*>/g, '').slice(0, 80)}
               </p>
             )}
           </div>
