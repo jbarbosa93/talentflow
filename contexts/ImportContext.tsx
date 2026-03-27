@@ -99,10 +99,14 @@ export function useImport() {
 export function ImportProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobsState]  = useState<FileJob[]>(() => _jobs)
   const [statut, setStatut]   = useState<PipelineEtape>('nouveau')
-  const [useFilenameDate, _setUseFilenameDate] = useState(false)
+  const [useFilenameDate, _setUseFilenameDate] = useState<boolean>(() => {
+    try { return localStorage.getItem('import_use_filename_date') === 'true' } catch { return false }
+  })
   // Notifie le worker immédiatement quand l'option change (même en cours d'import)
+  // et persiste le choix en localStorage pour survivre aux rechargements de page
   const setUseFilenameDate = useCallback((v: boolean) => {
     _setUseFilenameDate(v)
+    try { localStorage.setItem('import_use_filename_date', v ? 'true' : 'false') } catch {}
     _worker?.postMessage({ type: 'SET_OPTION', payload: { useFilenameDate: v } })
   }, [])
   const [running, setRunning]           = useState(() => _workerRunning)
