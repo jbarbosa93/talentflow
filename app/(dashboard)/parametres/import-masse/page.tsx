@@ -5,9 +5,9 @@ import Link from 'next/link'
 import {
   Upload, FolderOpen, Play, Pause, RotateCcw, Download,
   CheckCircle, XCircle, Loader2, FileText, AlertTriangle,
-  Zap, Clock, X, Tag, Copy, CheckSquare, Square, HardDriveDownload, ChevronDown,
+  Zap, Clock, X, Copy, HardDriveDownload, ChevronDown,
 } from 'lucide-react'
-import { useImport, getCatColor, type FileJob } from '@/contexts/ImportContext'
+import { useImport, type FileJob } from '@/contexts/ImportContext'
 import { CalendarClock } from 'lucide-react'
 
 /** Traverse récursive d'un FileSystemDirectoryEntry */
@@ -77,7 +77,6 @@ const CAT_LABELS: Record<string, string> = {
 export default function ImportMassePage() {
   const ctx = useImport()
   const [dragOver, setDragOver]   = useState(false)
-  const [catFilter, setCatFilter]     = useState<string | null>(null)
 
   const inputRef  = useRef<HTMLInputElement>(null)
   const folderRef = useRef<HTMLInputElement>(null)
@@ -112,11 +111,7 @@ export default function ImportMassePage() {
 
   const isPaused = !running && !done && completed > 0 && pending > 0
 
-  const filteredJobs = (() => {
-    let list = jobs
-    if (catFilter) list = list.filter(j => j.categorie === catFilter)
-    return list.slice(-100).reverse()
-  })()
+  const filteredJobs = jobs.slice(-100).reverse()
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
@@ -185,42 +180,6 @@ export default function ImportMassePage() {
         </div>
       )}
 
-      {/* Catégories détectées */}
-      {categories.length > 0 && (
-        <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <Tag size={13} color="var(--muted)" />
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>Dossiers détectés :</span>
-          </div>
-          <button
-            onClick={() => setCatFilter(null)}
-            style={{
-              padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-              border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit',
-              borderColor: catFilter === null ? 'var(--foreground)' : 'var(--border)',
-              background: catFilter === null ? 'var(--foreground)' : 'white',
-              color: catFilter === null ? 'white' : 'var(--muted)',
-            }}
-          >Tous ({total})</button>
-          {categories.map(cat => {
-            const count = jobs.filter(j => j.categorie === cat).length
-            const color = getCatColor(cat)
-            return (
-              <button
-                key={cat}
-                onClick={() => setCatFilter(catFilter === cat ? null : cat)}
-                style={{
-                  padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                  border: `1.5px solid ${color}`,
-                  background: catFilter === cat ? color : `${color}18`,
-                  color: catFilter === cat ? 'white' : color,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >{cat} <span style={{ opacity: 0.8 }}>({count})</span></button>
-            )
-          })}
-        </div>
-      )}
 
       {/* Bannière crédit épuisé */}
       {creditExhausted && (
@@ -481,6 +440,8 @@ function ImportLog({ jobs, resolveDoublon }: {
 }) {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
 
+  const pendingDoublons = jobs.filter(j => j.status === 'doublon' && j.candidatExistant)
+
   const toggleGroup = (key: string) => {
     setOpenGroups(prev => {
       const next = new Set(prev)
@@ -512,7 +473,28 @@ function ImportLog({ jobs, resolveDoublon }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Log d&apos;activité</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Log d&apos;activité</div>
+        {pendingDoublons.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: '#D97706', fontWeight: 700 }}>
+              {pendingDoublons.length} doublon{pendingDoublons.length > 1 ? 's' : ''} en attente —
+            </span>
+            <button
+              onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'ignorer'))}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Tout ignorer
+            </button>
+            <button
+              onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'remplacer'))}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              Tout remplacer
+            </button>
+          </div>
+        )}
+      </div>
       {groups.map(group => {
         const gSucceeded = group.jobs.filter(j => j.status === 'success').length
         const gFailed = group.jobs.filter(j => j.status === 'error').length

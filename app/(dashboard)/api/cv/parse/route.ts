@@ -803,12 +803,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (candidat && useFilenameDate) {
     const postInsertDate = extractDateFromFilename(file.name)
     if (postInsertDate) {
-      await adminClient
+      console.log(`[CV Parse] Tentative UPDATE created_at : candidat.id=${candidat.id} date=${postInsertDate} fichier=${file.name}`)
+      const { error: updateDateError } = await adminClient
         .from('candidats')
         .update({ created_at: postInsertDate } as any)
         .eq('id', candidat.id)
-      ;(candidat as any).created_at = postInsertDate
-      console.log(`[CV Parse] Date fichier appliquée (post-insert UPDATE) : ${file.name} → ${postInsertDate}`)
+      if (updateDateError) {
+        console.error(`[CV Parse] ERREUR update created_at : ${updateDateError.message}`, { id: candidat.id, date: postInsertDate, code: updateDateError.code })
+      } else {
+        ;(candidat as any).created_at = postInsertDate
+        console.log(`[CV Parse] Date fichier appliquée (post-insert UPDATE) : ${file.name} → ${postInsertDate}`)
+      }
     } else {
       console.log(`[CV Parse] Aucune date DD.MM.YYYY dans le fichier : ${file.name}`)
     }
