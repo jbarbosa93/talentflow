@@ -19,41 +19,47 @@ function extractDateFromFilename(filename: string): string | null {
 // Pagination Supabase + updates parallèles par batch de 50 pour tenir dans les 300s
 export async function GET() {
   const supabase = createAdminClient()
-  // Test: fetch first candidate with a date filename, update, read back
+
+  // Récupère n'importe quel candidat pour tester l'update de created_at
   const { data: sample } = await supabase
     .from('candidats')
     .select('id, cv_nom_fichier, created_at')
     .not('cv_nom_fichier', 'is', null)
-    .ilike('cv_nom_fichier', '%[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9]%')
     .limit(1)
     .maybeSingle()
 
-  if (!sample) {
-    // fallback: just pick any candidate
-    const { data: any1 } = await supabase.from('candidats').select('id, cv_nom_fichier, created_at').not('cv_nom_fichier', 'is', null).limit(1).maybeSingle()
-    return NextResponse.json({ noDateCandidate: true, sample: any1 })
-  }
+  if (!sample) return NextResponse.json({ error: 'Aucun candidat trouvé' })
 
-  const testDate = '2020-01-15T12:00:00.000Z'
+  const testDate = '2020-06-15T12:00:00.000Z'
   const before = sample.created_at
 
-  const { error: upErr, data: upData } = await supabase
+  // Tente l'update et lit le résultat directement
+  const { data: upData, error: upErr } = await supabase
     .from('candidats')
     .update({ created_at: testDate } as any)
     .eq('id', sample.id)
     .select('id, created_at')
+    .single()
 
-  const { data: after } = await supabase.from('candidats').select('created_at').eq('id', sample.id).maybeSingle()
+  // Lecture indépendante pour confirmer la valeur en DB
+  const { data: verify } = await supabase
+    .from('candidats')
+    .select('created_at')
+    .eq('id', sample.id)
+    .single()
+
+  // Restaurer la valeur originale
+  await supabase.from('candidats').update({ created_at: before } as any).eq('id', sample.id)
 
   return NextResponse.json({
     id: sample.id,
     filename: sample.cv_nom_fichier,
     before,
     attempted: testDate,
-    upData,
     upError: upErr?.message ?? null,
-    afterDB: after?.created_at,
-    changed: after?.created_at !== before,
+    afterUpdate: (upData as any)?.created_at,
+    afterVerify: verify?.created_at,
+    updateWorked: verify?.created_at?.startsWith('2020-06-15'),
   })
 }
 
