@@ -159,7 +159,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (useFilenameDate) {
         const filenameDate = extractDateFromFilename(file.name)
         if (filenameDate) {
-          await adminClient.rpc('admin_set_created_at', { p_id: existingByFile.id, p_date: filenameDate })
+          await supabase.rpc('admin_set_created_at' as any, { p_id: existingByFile.id, p_date: filenameDate } as any)
           console.log(`[CV Parse] Date fichier appliquée via RPC (doublon fichier) : ${file.name} → ${filenameDate}`)
         }
       }
@@ -653,7 +653,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
       if (resolvedCreatedAt) {
-        await adminClient.rpc('admin_set_created_at', { p_id: candidatExistant.id, p_date: resolvedCreatedAt })
+        await adminClient.rpc('admin_set_created_at' as any, { p_id: candidatExistant.id, p_date: resolvedCreatedAt } as any)
       }
 
       console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
@@ -672,7 +672,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
       if (resolvedCreatedAt) {
-        await adminClient.rpc('admin_set_created_at', { p_id: candidatExistant.id, p_date: resolvedCreatedAt })
+        await adminClient.rpc('admin_set_created_at' as any, { p_id: candidatExistant.id, p_date: resolvedCreatedAt } as any)
       }
 
       console.log(`[CV Parse] Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
@@ -808,10 +808,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const postInsertDate = extractDateFromFilename(file.name)
     if (postInsertDate) {
       console.log(`[CV Parse] Tentative RPC admin_set_created_at : candidat.id=${candidat.id} date=${postInsertDate}`)
-      const { error: rpcError } = await adminClient.rpc('admin_set_created_at', {
+      const { error: rpcError } = await adminClient.rpc('admin_set_created_at' as any, {
         p_id: candidat.id,
         p_date: postInsertDate,
-      })
+      } as any)
       if (rpcError) {
         console.error(`[CV Parse] ERREUR RPC admin_set_created_at : ${rpcError.message}`, { id: candidat.id, date: postInsertDate })
       } else {

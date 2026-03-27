@@ -60,7 +60,7 @@ export async function POST() {
         const chunk = updates.slice(i, i + PARALLEL)
         const results = await Promise.all(
           chunk.map(u =>
-            supabase.rpc('admin_set_created_at', { p_id: u.id, p_date: u.isoDate })
+            supabase.rpc('admin_set_created_at' as any, { p_id: u.id, p_date: u.isoDate } as any)
           )
         )
         for (let j = 0; j < results.length; j++) {
