@@ -847,8 +847,15 @@ export default function PipelinePage() {
         .select('value')
         .eq('key', 'pipeline_stages')
         .single()
-      if (!error && data?.value && Array.isArray(data.value)) {
-        setStages(data.value as Stage[])
+      if (!error && data?.value) {
+        // value peut être string JSON ou objet selon la colonne DB
+        let parsed: unknown = data.value
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed) } catch { parsed = null }
+        }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setStages(parsed as Stage[])
+        }
       }
       setStagesLoaded(true)
     }
@@ -858,9 +865,11 @@ export default function PipelinePage() {
   const visibleStages = useMemo(() => stages.filter(s => s.visible), [stages])
 
   const saveStages = useCallback(async (newStages: Stage[]) => {
+    // Stocker comme string JSON pour un round-trip cohérent
+    const valueToStore = JSON.stringify(newStages)
     const { error } = await supabase
       .from('app_settings')
-      .upsert({ key: 'pipeline_stages', value: newStages as unknown as never })
+      .upsert({ key: 'pipeline_stages', value: valueToStore as unknown as never })
     if (error) {
       toast.error(`Erreur lors de la sauvegarde : ${error.message}`)
       return
