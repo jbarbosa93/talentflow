@@ -15,6 +15,46 @@ function extractDateFromFilename(filename: string): string | null {
 
 // POST : Met à jour created_at de chaque candidat selon la date dans le nom du fichier CV
 // Pagination Supabase + updates parallèles par batch de 50 pour tenir dans les 300s
+export async function GET() {
+  const supabase = createAdminClient()
+  // Test: fetch first candidate with a date filename, update, read back
+  const { data: sample } = await supabase
+    .from('candidats')
+    .select('id, cv_nom_fichier, created_at')
+    .not('cv_nom_fichier', 'is', null)
+    .ilike('cv_nom_fichier', '%[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9]%')
+    .limit(1)
+    .maybeSingle()
+
+  if (!sample) {
+    // fallback: just pick any candidate
+    const { data: any1 } = await supabase.from('candidats').select('id, cv_nom_fichier, created_at').not('cv_nom_fichier', 'is', null).limit(1).maybeSingle()
+    return NextResponse.json({ noDateCandidate: true, sample: any1 })
+  }
+
+  const testDate = '2020-01-15T12:00:00.000Z'
+  const before = sample.created_at
+
+  const { error: upErr, data: upData } = await supabase
+    .from('candidats')
+    .update({ created_at: testDate } as any)
+    .eq('id', sample.id)
+    .select('id, created_at')
+
+  const { data: after } = await supabase.from('candidats').select('created_at').eq('id', sample.id).maybeSingle()
+
+  return NextResponse.json({
+    id: sample.id,
+    filename: sample.cv_nom_fichier,
+    before,
+    attempted: testDate,
+    upData,
+    upError: upErr?.message ?? null,
+    afterDB: after?.created_at,
+    changed: after?.created_at !== before,
+  })
+}
+
 export async function POST() {
   const supabase = createAdminClient()
 
