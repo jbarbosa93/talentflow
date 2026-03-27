@@ -167,7 +167,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         if (filenameDate) {
           const { error: upErr } = await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
           if (upErr) console.error(`[CV Parse] ERREUR update created_at (doublon fichier) : ${upErr.message}`)
-          else console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
+          else {
+            existingByFile.created_at = filenameDate  // Mettre à jour en mémoire pour la réponse
+            console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
+          }
         }
       }
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
@@ -662,6 +665,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (resolvedCreatedAt) {
         const { error: upErr } = await adminClient.from('candidats').update({ created_at: resolvedCreatedAt } as any).eq('id', candidatExistant.id)
         if (upErr) console.error(`[CV Parse] ERREUR update created_at (cv mis à jour) : ${upErr.message}`)
+        else candidatExistant.created_at = resolvedCreatedAt  // Sync en mémoire pour la réponse
       }
 
       console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
@@ -670,7 +674,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         isDuplicate: true,
         updated: true,
         candidatExistant,
-        candidat: { ...candidatExistant, created_at: resolvedCreatedAt },
+        candidat: candidatExistant,
         analyse,
         message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
@@ -682,6 +686,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (resolvedCreatedAt) {
         const { error: upErr } = await adminClient.from('candidats').update({ created_at: resolvedCreatedAt } as any).eq('id', candidatExistant.id)
         if (upErr) console.error(`[CV Parse] ERREUR update created_at (réactivé) : ${upErr.message}`)
+        else candidatExistant.created_at = resolvedCreatedAt  // Sync en mémoire pour la réponse
       }
 
       console.log(`[CV Parse] Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
@@ -690,7 +695,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         isDuplicate: true,
         reactivated: true,
         candidatExistant,
-        candidat: { ...candidatExistant, created_at: resolvedCreatedAt },
+        candidat: candidatExistant,
         analyse,
         message: `Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom} (date mise à jour)`,
       })
