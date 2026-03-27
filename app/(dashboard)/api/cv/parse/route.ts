@@ -41,18 +41,22 @@ function mapDocumentType(type: string): DocumentType {
 }
 
 /**
- * Extrait une date au format DD.MM.YYYY du nom de fichier.
+ * Extrait une date au format D.M.YYYY ou DD.MM.YYYY du nom de fichier.
  * Retourne une chaîne ISO 8601 (midi UTC) ou null si non trouvée / invalide.
- * Exemples : "Jean Dupont 15.03.2024.pdf" → "2024-03-15T12:00:00.000Z"
+ * Exemples :
+ *   "Jean Dupont 15.03.2024.pdf"  → "2024-03-15T12:00:00.000Z"
+ *   "BOYA 1.10.2024.pdf"          → "2024-10-01T12:00:00.000Z"
  */
 function extractDateFromFilename(filename: string): string | null {
-  const match = filename.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+  const match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
   if (!match) return null
-  const [, dd, mm, yyyy] = match
-  const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10)
+  const [, ddRaw, mmRaw, yyyy] = match
+  const d = parseInt(ddRaw, 10), m = parseInt(mmRaw, 10), y = parseInt(yyyy, 10)
   if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
   const daysInMonth = new Date(y, m, 0).getDate()
   if (d > daysInMonth) return null
+  const dd = String(d).padStart(2, '0')
+  const mm = String(m).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}T12:00:00.000Z`
 }
 
