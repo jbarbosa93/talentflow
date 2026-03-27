@@ -161,16 +161,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     if (existingByFile) {
       console.log(`[CV Parse] Fichier déjà importé : ${file.name} → skip analyse IA`)
-      // Mettre à jour created_at si l'option "date du nom de fichier" est activée
-      if (useFilenameDate) {
-        const filenameDate = extractDateFromFilename(file.name)
-        if (filenameDate) {
-          const { error: upErr } = await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
-          if (upErr) console.error(`[CV Parse] ERREUR update created_at (doublon fichier) : ${upErr.message}`)
-          else {
-            existingByFile.created_at = filenameDate  // Mettre à jour en mémoire pour la réponse
-            console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
-          }
+      // TOUJOURS appliquer la date du nom de fichier si présente (pas besoin du flag)
+      const filenameDate = extractDateFromFilename(file.name)
+      if (filenameDate) {
+        const { error: upErr } = await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
+        if (upErr) console.error(`[CV Parse] ERREUR update created_at (doublon fichier) : ${upErr.message}`)
+        else {
+          existingByFile.created_at = filenameDate
+          console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
         }
       }
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
@@ -630,10 +628,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       return false
     })()
 
-    // Extraire la date du nom de fichier si option activée (DD.MM.YYYY)
-    const filenameDate = useFilenameDate ? extractDateFromFilename(file.name) : null
+    // TOUJOURS extraire la date du nom de fichier si présente (DD.MM.YYYY)
+    const filenameDate = extractDateFromFilename(file.name)
     if (filenameDate) console.log(`[CV Parse] Date fichier extraite : ${file.name} → ${filenameDate}`)
-    const resolvedCreatedAt = filenameDate ?? new Date().toISOString()
+    const resolvedCreatedAt = filenameDate || null  // null = ne pas toucher à created_at
 
     if (hasNewContent && existingFull) {
       // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
@@ -745,14 +743,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // Genre (pas dans le type mais dans la table)
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
-  // Appliquer la date du fichier directement sur l'insert si option activée
-  // (pas de trigger BEFORE INSERT sur candidats — created_at est librement définissable)
-  if (useFilenameDate) {
-    const insertDate = extractDateFromFilename(file.name)
-    if (insertDate) {
-      ;(nouveauCandidat as any).created_at = insertDate
-      console.log(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)
-    }
+  // TOUJOURS appliquer la date du nom de fichier si présente (DD.MM.YYYY)
+  // Pas besoin du flag useFilenameDate — si le nom contient une date, on l'utilise
+  const insertDate = extractDateFromFilename(file.name)
+  if (insertDate) {
+    ;(nouveauCandidat as any).created_at = insertDate
+    console.log(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient
@@ -821,27 +817,26 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 9c. Appliquer la date du nom de fichier via UPDATE direct (service_role bypasse RLS)
-  // L'INSERT ne peut pas forcer created_at (DEFAULT now()) → on corrige juste après l'insert.
-  if (candidat && useFilenameDate) {
-    const postInsertDate = extractDateFromFilename(file.name)
-    if (postInsertDate) {
-      console.log(`[CV Parse] Tentative update created_at : candidat.id=${candidat.id} date=${postInsertDate}`)
+  // 9c. Fallback : si l'INSERT n'a pas pris le created_at, forcer via UPDATE
+  if (candidat && insertDate) {
+    const dbCreatedAt = (candidat as any).created_at
+    // Vérifier si l'INSERT a bien appliqué la date (compare juste la date, pas l'heure)
+    if (!dbCreatedAt || !dbCreatedAt.startsWith(insertDate.slice(0, 10))) {
+      console.log(`[CV Parse] INSERT n'a pas pris created_at (got ${dbCreatedAt}), fallback UPDATE...`)
       const { data: upData, error: upErr } = await adminClient
         .from('candidats')
-        .update({ created_at: postInsertDate } as any)
+        .update({ created_at: insertDate } as any)
         .eq('id', candidat.id)
         .select('id, created_at')
         .single()
       if (upErr) {
-        console.error(`[CV Parse] ERREUR update created_at : ${upErr.message}`, { id: candidat.id, date: postInsertDate })
+        console.error(`[CV Parse] ERREUR fallback update created_at : ${upErr.message}`)
       } else {
-        const actualDate = (upData as any)?.created_at
-        ;(candidat as any).created_at = actualDate ?? postInsertDate
-        console.log(`[CV Parse] Date fichier appliquée : ${file.name} → voulu=${postInsertDate} DB=${actualDate}`)
+        ;(candidat as any).created_at = (upData as any)?.created_at ?? insertDate
+        console.log(`[CV Parse] Fallback OK : ${file.name} → ${(candidat as any).created_at}`)
       }
     } else {
-      console.log(`[CV Parse] Aucune date DD.MM.YYYY dans le fichier : ${file.name}`)
+      console.log(`[CV Parse] Date fichier appliquée via INSERT : ${file.name} → ${dbCreatedAt}`)
     }
   }
 
