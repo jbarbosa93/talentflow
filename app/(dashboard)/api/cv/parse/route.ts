@@ -727,16 +727,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // Genre (pas dans le type mais dans la table)
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
-  // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
-  if (useFilenameDate) {
-    const candidatFilenameDate = extractDateFromFilename(file.name)
-    if (candidatFilenameDate) {
-      ;(nouveauCandidat as any).created_at = candidatFilenameDate
-      console.log(`[CV Parse] Date fichier appliquée (nouveau candidat) : ${file.name} → ${candidatFilenameDate}`)
-    } else {
-      console.log(`[CV Parse] Aucune date DD.MM.YYYY trouvée dans le fichier : ${file.name}`)
-    }
-  }
+  // Note : created_at N'est PAS défini sur l'insert — un trigger Supabase BEFORE INSERT
+  // force created_at = now() et écrase toute valeur explicite.
+  // La date du fichier est appliquée via UPDATE après l'insert (voir section 9c).
 
   let { data: candidatRaw, error: dbError } = await adminClient
     .from('candidats')
@@ -801,6 +794,23 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         analyse,
         message: `Doublon : ${analyse.prenom} ${analyse.nom} existe déjà`,
       })
+    }
+  }
+
+  // 9c. Appliquer la date du nom de fichier via UPDATE (bypass le trigger BEFORE INSERT)
+  // L'INSERT ne peut pas forcer created_at car Supabase l'écrase côté DB.
+  // Le UPDATE fonctionne — même logique que le chemin "doublon mis à jour".
+  if (candidat && useFilenameDate) {
+    const postInsertDate = extractDateFromFilename(file.name)
+    if (postInsertDate) {
+      await adminClient
+        .from('candidats')
+        .update({ created_at: postInsertDate } as any)
+        .eq('id', candidat.id)
+      ;(candidat as any).created_at = postInsertDate
+      console.log(`[CV Parse] Date fichier appliquée (post-insert UPDATE) : ${file.name} → ${postInsertDate}`)
+    } else {
+      console.log(`[CV Parse] Aucune date DD.MM.YYYY dans le fichier : ${file.name}`)
     }
   }
 
