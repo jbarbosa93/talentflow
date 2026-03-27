@@ -159,8 +159,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (useFilenameDate) {
         const filenameDate = extractDateFromFilename(file.name)
         if (filenameDate) {
-          await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
-          console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
+          await adminClient.rpc('admin_set_created_at', { p_id: existingByFile.id, p_date: filenameDate })
+          console.log(`[CV Parse] Date fichier appliquée via RPC (doublon fichier) : ${file.name} → ${filenameDate}`)
         }
       }
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
@@ -650,9 +650,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         cv_url: cvUrl || existingFull.cv_url,
         cv_nom_fichier: file.name,
         documents: existingDocs,
-        created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
+      if (resolvedCreatedAt) {
+        await adminClient.rpc('admin_set_created_at', { p_id: candidatExistant.id, p_date: resolvedCreatedAt })
+      }
 
       console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
@@ -667,9 +669,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     } else {
       // Même CV — juste réactiver la date d'ajout
       await adminClient.from('candidats').update({
-        created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
+      if (resolvedCreatedAt) {
+        await adminClient.rpc('admin_set_created_at', { p_id: candidatExistant.id, p_date: resolvedCreatedAt })
+      }
 
       console.log(`[CV Parse] Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'reactive_date' } })
@@ -797,22 +801,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 9c. Appliquer la date du nom de fichier via UPDATE (bypass le trigger BEFORE INSERT)
-  // L'INSERT ne peut pas forcer created_at car Supabase l'écrase côté DB.
-  // Le UPDATE fonctionne — même logique que le chemin "doublon mis à jour".
+  // 9c. Appliquer la date du nom de fichier via RPC SECURITY DEFINER
+  // L'INSERT ne peut pas forcer created_at (DEFAULT now()).
+  // La fonction admin_set_created_at bypasse tous les triggers et restrictions.
   if (candidat && useFilenameDate) {
     const postInsertDate = extractDateFromFilename(file.name)
     if (postInsertDate) {
-      console.log(`[CV Parse] Tentative UPDATE created_at : candidat.id=${candidat.id} date=${postInsertDate} fichier=${file.name}`)
-      const { error: updateDateError } = await adminClient
-        .from('candidats')
-        .update({ created_at: postInsertDate } as any)
-        .eq('id', candidat.id)
-      if (updateDateError) {
-        console.error(`[CV Parse] ERREUR update created_at : ${updateDateError.message}`, { id: candidat.id, date: postInsertDate, code: updateDateError.code })
+      console.log(`[CV Parse] Tentative RPC admin_set_created_at : candidat.id=${candidat.id} date=${postInsertDate}`)
+      const { error: rpcError } = await adminClient.rpc('admin_set_created_at', {
+        p_id: candidat.id,
+        p_date: postInsertDate,
+      })
+      if (rpcError) {
+        console.error(`[CV Parse] ERREUR RPC admin_set_created_at : ${rpcError.message}`, { id: candidat.id, date: postInsertDate })
       } else {
         ;(candidat as any).created_at = postInsertDate
-        console.log(`[CV Parse] Date fichier appliquée (post-insert UPDATE) : ${file.name} → ${postInsertDate}`)
+        console.log(`[CV Parse] Date fichier appliquée via RPC : ${file.name} → ${postInsertDate}`)
       }
     } else {
       console.log(`[CV Parse] Aucune date DD.MM.YYYY dans le fichier : ${file.name}`)
