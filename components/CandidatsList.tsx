@@ -15,45 +15,9 @@ import { useMetiers } from '@/hooks/useMetiers'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
-// Un candidat est "nouveau/non-vu" tant que :
-// 1. Sa fiche n'a pas été ouverte
-// 2. Son statut_pipeline est encore 'nouveau'
-const VIEWED_KEY = 'talentflow_viewed_candidats'
-const SEUIL_JOURS_NOUVEAU = 30 // badge actif si créé/modifié depuis moins de 30j
-
-function getViewedSet(): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  try { return new Set(JSON.parse(localStorage.getItem(VIEWED_KEY) || '[]')) }
-  catch { return new Set() }
-}
-export function markCandidatVu(id: string) {
-  if (typeof window === 'undefined') return
-  try {
-    const set = getViewedSet()
-    set.add(id)
-    localStorage.setItem(VIEWED_KEY, JSON.stringify([...set]))
-  } catch { /* ignore */ }
-}
-
-function getCandidatsLastSeen(): string | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const data = JSON.parse(localStorage.getItem('talentflow_last_seen') || '{}')
-    return data.candidats || null
-  } catch { return null }
-}
-
-export function markTousVus() {
-  if (typeof window === 'undefined') return
-  try {
-    // Avancer le "dernier vu" à maintenant → plus aucun candidat n'est "après la dernière visite"
-    const data = JSON.parse(localStorage.getItem('talentflow_last_seen') || '{}')
-    data.candidats = new Date().toISOString()
-    localStorage.setItem('talentflow_last_seen', JSON.stringify(data))
-    // Vider aussi la liste des candidats vus individuellement (propre)
-    localStorage.removeItem(VIEWED_KEY)
-  } catch { /* ignore */ }
-}
+// Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
+import { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet } from '@/lib/badge-candidats'
+export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
   nouveau:   'neo-badge neo-badge-nouveau',
@@ -233,7 +197,14 @@ export default function CandidatsList() {
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
-  const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render après markTousVus
+  const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
+
+  // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
+  useEffect(() => {
+    const handler = () => setBadgeTick(t => t + 1)
+    window.addEventListener('talentflow:badges-changed', handler)
+    return () => window.removeEventListener('talentflow:badges-changed', handler)
+  }, [])
   // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
@@ -648,31 +619,30 @@ export default function CandidatsList() {
     setAiInterpreted('')
   }
 
-  // badgeTick force la re-lecture de localStorage après markTousVus
+  // badgeTick force la re-lecture du localStorage à chaque changement de badge
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   void badgeTick
-  const candidatsLastSeen = getCandidatsLastSeen()
   const viewedSet = getViewedSet()
+  const now = Date.now()
+  const SEUIL_MS = 30 * 24 * 60 * 60 * 1000
 
   // Compter les badges actifs (pour le bouton "Tout marquer vu")
   const badgeCount = useMemo(() => {
-    return sorted.filter(c => {
-      const isAfterLastSeen = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
-      return isAfterLastSeen && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
-    }).length
+    return sorted.filter(c =>
+      !viewedSet.has(c.id) &&
+      c.created_at &&
+      now - new Date(c.created_at).getTime() < SEUIL_MS
+    ).length
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorted, candidatsLastSeen, badgeTick])
+  }, [sorted, badgeTick])
 
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    // Badge rouge si :
-    // 1. Le candidat est apparu APRÈS la dernière visite de la liste
-    // 2. ET sa fiche n'a pas été ouverte
-    // 3. ET son statut est encore 'nouveau'
-    const isAfterLastSeen = candidatsLastSeen && c.created_at ? new Date(c.created_at) > new Date(candidatsLastSeen) : false
-    const isNewCandidat = isAfterLastSeen && !viewedSet.has(c.id) && (!c.statut_pipeline || c.statut_pipeline === 'nouveau')
+    // Badge rouge si : créé dans les 30 derniers jours ET fiche jamais ouverte
+    const isNewCandidat = !viewedSet.has(c.id) && !!c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS
 
     return (
       <div
@@ -893,7 +863,13 @@ export default function CandidatsList() {
           )}
           {badgeCount > 0 && (
             <button
-              onClick={() => { markTousVus(); setBadgeTick(t => t + 1) }}
+              onClick={() => {
+                // Marquer comme vus tous les candidats avec badge actif
+                const idsAvecBadge = sorted
+                  .filter(c => !viewedSet.has(c.id) && c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS)
+                  .map(c => c.id)
+                markTousVus(idsAvecBadge)
+              }}
               className="neo-btn-ghost"
               style={{ fontSize: 13, gap: 6, position: 'relative' }}
               title="Marquer tous les nouveaux candidats comme vus"

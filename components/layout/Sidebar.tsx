@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -85,27 +85,35 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const userRole: string = user?.user_metadata?.role || 'Consultant'
   const isSecretaire = userRole === 'Secrétaire'
 
-  // Badge : compter uniquement les candidats ajoutés APRÈS la dernière visite
-  const [lastSeenCandidats, setLastSeenCandidats] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('candidats_last_seen') || ''
-    return ''
-  })
+  // Badge sidebar : candidats créés dans les 30 derniers jours et pas encore vus
+  const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
 
-  const { data: aTraiterCount, refetch: refetchCount } = useQuery({
-    queryKey: ['candidats-a-traiter-count', lastSeenCandidats],
-    queryFn: async () => {
+  useEffect(() => {
+    const computeBadgeCount = async () => {
       try {
-        const params = lastSeenCandidats ? `?since=${encodeURIComponent(lastSeenCandidats)}` : ''
-        const res = await fetch(`/api/candidats/count-new${params}`)
-        if (!res.ok) return 0
-        const data = await res.json()
-        return data.count || 0
-      } catch { return 0 }
-    },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    placeholderData: 0,
-  })
+        const res = await fetch('/api/candidats/count-new')
+        if (!res.ok) return
+        const { ids } = await res.json() as { ids: string[] }
+        // Lire les fiches vues depuis localStorage (par utilisateur)
+        const viewed = new Set<string>(
+          JSON.parse(localStorage.getItem('talentflow_viewed_candidats') || '[]')
+        )
+        setSidebarBadgeCount(ids.filter(id => !viewed.has(id)).length)
+      } catch { /* silencieux */ }
+    }
+
+    computeBadgeCount()
+
+    // Rafraîchir quand une fiche est ouverte / marquée vue
+    window.addEventListener('talentflow:badges-changed', computeBadgeCount)
+    // Rafraîchir toutes les minutes (sync OneDrive peut ajouter de nouveaux candidats)
+    const interval = setInterval(computeBadgeCount, 60_000)
+
+    return () => {
+      window.removeEventListener('talentflow:badges-changed', computeBadgeCount)
+      clearInterval(interval)
+    }
+  }, [])
 
   // Compteur demandes d'accès en attente
   const { data: demandesCount } = useQuery({
@@ -391,21 +399,13 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       sessionStorage.removeItem('candidats_page')
                       sessionStorage.removeItem('candidats_import_status')
                     }
-                    // Quand on clique sur Candidats → marquer comme vu après 3s
-                    if (item.href === '/candidats') {
-                      setTimeout(() => {
-                        const now = new Date().toISOString()
-                        localStorage.setItem('candidats_last_seen', now)
-                        setLastSeenCandidats(now)
-                        refetchCount()
-                      }, 3000)
-                    }
+                    // Rien à faire de spécial pour /candidats — les badges sont gérés par fiche
                   }}
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
                   {/* Badge nombre de nouveaux candidats depuis dernière visite */}
-                  {item.href === '/candidats' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
+                  {item.href === '/candidats' && sidebarBadgeCount > 0 && (
                     <span style={{
                       marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
                       padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -413,7 +413,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1,
                     }}>
-                      {aTraiterCount > 99 ? '99+' : aTraiterCount}
+                      {sidebarBadgeCount > 99 ? '99+' : sidebarBadgeCount}
                     </span>
                   )}
                   {/* Petit rond rouge — nouveaux éléments (autres sections) */}

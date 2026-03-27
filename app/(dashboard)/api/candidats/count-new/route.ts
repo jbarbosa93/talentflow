@@ -1,26 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
-export async function GET(request: NextRequest) {
+// Retourne les IDs des candidats créés/mis à jour dans les 30 derniers jours
+// La sidebar calcule les non-vus en soustrayant le localStorage viewedSet
+export async function GET() {
   try {
     const supabase = createAdminClient()
-    const since = request.nextUrl.searchParams.get('since')
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-    let query = supabase
+    const { data } = await supabase
       .from('candidats')
-      .select('id', { count: 'exact', head: true })
-      .eq('import_status' as string, 'a_traiter')
+      .select('id')
+      .gte('created_at', since)
 
-    // Si un timestamp "since" est fourni, ne compter que les candidats ajoutés après
-    if (since) {
-      query = query.gt('created_at', since)
-    }
-
-    const { count } = await query
-    return NextResponse.json({ count: count || 0 })
+    return NextResponse.json({ ids: (data || []).map((c: { id: string }) => c.id) })
   } catch {
-    return NextResponse.json({ count: 0 })
+    return NextResponse.json({ ids: [] })
   }
 }

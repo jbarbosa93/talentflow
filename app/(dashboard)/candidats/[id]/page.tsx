@@ -19,7 +19,7 @@ import { useMetiers } from '@/hooks/useMetiers'
 import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { markCandidatVu } from '@/components/CandidatsList'
+import { markCandidatVu, markCandidatNonVu, getViewedSet } from '@/lib/badge-candidats'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 
@@ -238,9 +238,17 @@ export default function CandidatDetailPage() {
 
   const candidat = data as any
 
-  // Fermer menu 3 points quand clic dehors
   // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
   useEffect(() => { if (id) markCandidatVu(id) }, [id])
+
+  // État "vu" pour afficher le bon libellé dans le menu
+  const [isVu, setIsVu] = useState(() => id ? getViewedSet().has(id) : false)
+  // Re-sync quand le badge change (ex: on vient d'ouvrir = vu)
+  useEffect(() => {
+    const handler = () => setIsVu(id ? getViewedSet().has(id) : false)
+    window.addEventListener('talentflow:badges-changed', handler)
+    return () => window.removeEventListener('talentflow:badges-changed', handler)
+  }, [id])
 
   useEffect(() => {
     if (!showMenu) return
@@ -781,6 +789,20 @@ export default function CandidatDetailPage() {
                 <button onClick={() => { setShowActivityHistory(true); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Activity size={14} color="var(--primary)" /> Historique d&apos;activité
+                </button>
+                <button onClick={() => {
+                    if (isVu) {
+                      markCandidatNonVu(id)
+                      setIsVu(false)
+                    } else {
+                      markCandidatVu(id)
+                      setIsVu(true)
+                    }
+                    setShowMenu(false)
+                  }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: isVu ? '#F59E0B' : 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                  <Eye size={14} color={isVu ? '#F59E0B' : 'var(--muted)'} />
+                  {isVu ? 'Marquer comme non vu' : 'Marquer comme vu'}
                 </button>
                 <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
