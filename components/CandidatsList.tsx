@@ -182,6 +182,7 @@ export default function CandidatsList() {
   }
 
   const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'a_traiter'))
+  const [filterNonVu, setFilterNonVu] = useState(false)
 
   const { metiers: agenceMetiers } = useMetiers()
   const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
@@ -407,15 +408,24 @@ export default function CandidatsList() {
 
   // Tri côté serveur — seul le tri par distance reste côté client
   const sorted = useMemo(() => {
+    let result = candidatsFiltres
+    // Filtre "non vu" — client-side
+    if (filterNonVu) {
+      const vs = getViewedSet()
+      const seuil = 30 * 24 * 60 * 60 * 1000
+      const n = Date.now()
+      result = result.filter((c: any) => !vs.has(c.id) && c.created_at && n - new Date(c.created_at).getTime() < seuil)
+    }
     if (sortBy === 'distance') {
-      return [...candidatsFiltres].sort((a, b) => {
+      return [...result].sort((a, b) => {
         const da = distances[a.localisation] ?? 99999
         const db = distances[b.localisation] ?? 99999
         return da - db
       })
     }
-    return candidatsFiltres // Déjà trié par le serveur
-  }, [candidatsFiltres, sortBy, distances])
+    return result
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidatsFiltres, sortBy, distances, filterNonVu, badgeTick])
 
   // Pagination : client-side quand filtre âge actif, sinon serveur
   const candidatesTries = sorted
@@ -861,27 +871,52 @@ export default function CandidatsList() {
               <X size={14} /> Nouvelle recherche
             </button>
           )}
+          {/* Filtre "Non vus" */}
           {badgeCount > 0 && (
             <button
-              onClick={() => {
-                // Marquer comme vus tous les candidats avec badge actif
-                const idsAvecBadge = sorted
-                  .filter(c => !viewedSet.has(c.id) && c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS)
-                  .map(c => c.id)
-                markTousVus(idsAvecBadge)
-              }}
+              onClick={() => setFilterNonVu(v => !v)}
               className="neo-btn-ghost"
-              style={{ fontSize: 13, gap: 6, position: 'relative' }}
-              title="Marquer tous les nouveaux candidats comme vus"
+              style={{
+                fontSize: 13, gap: 6,
+                borderColor: filterNonVu ? '#EF4444' : undefined,
+                color: filterNonVu ? '#EF4444' : undefined,
+                background: filterNonVu ? 'rgba(239,68,68,0.06)' : undefined,
+              }}
+              title="Voir uniquement les profils non consultés"
             >
               <Eye size={14} />
-              Tout marquer vu
+              {filterNonVu ? 'Tous les profils' : 'Non vus'}
               <span style={{
                 background: '#EF4444', color: 'white', borderRadius: 100,
                 fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: 1.4,
               }}>
                 {badgeCount}
               </span>
+            </button>
+          )}
+          {/* Tout marquer vu — marque TOUS les récents (pas juste la page visible) */}
+          {badgeCount > 0 && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/candidats/count-new')
+                  const { ids } = await res.json() as { ids: string[] }
+                  markTousVus(ids)
+                  if (filterNonVu) setFilterNonVu(false)
+                } catch {
+                  // Fallback : marquer seulement ceux visibles
+                  const idsAvecBadge = sorted
+                    .filter((c: any) => !viewedSet.has(c.id) && c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS)
+                    .map((c: any) => c.id)
+                  markTousVus(idsAvecBadge)
+                }
+              }}
+              className="neo-btn-ghost"
+              style={{ fontSize: 13, gap: 6 }}
+              title="Marquer tous les nouveaux candidats comme vus"
+            >
+              <CheckCircle size={14} />
+              Tout marquer vu
             </button>
           )}
           <button onClick={() => openUpload()} className="neo-btn-yellow">
@@ -913,6 +948,21 @@ export default function CandidatsList() {
               <X size={8} color="#fff" />
             </span>
             Tout désélectionner
+          </button>
+          {/* Marquer vu / non vu — toujours disponible */}
+          <button
+            onClick={() => { markTousVus(Array.from(selectedIds)); setSelectedIds(new Set()) }}
+            className="neo-btn neo-btn-sm"
+            style={{ background: '#10B981', color: 'white', boxShadow: 'none' }}
+          >
+            <Eye size={13} /> Marquer vu ({selCount})
+          </button>
+          <button
+            onClick={() => { Array.from(selectedIds).forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }}
+            className="neo-btn neo-btn-sm"
+            style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}
+          >
+            <Eye size={13} /> Marquer non vu ({selCount})
           </button>
           {importStatusFilter === 'a_traiter' && (
             <>
