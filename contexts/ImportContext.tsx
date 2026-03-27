@@ -341,6 +341,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       if (action === 'remplacer' && job.candidatExistant) formData.append('replace_id', job.candidatExistant.id)
       if (action === 'garder_les_deux') formData.append('force_insert', 'true')
       if (job.categorie) formData.append('categorie', job.categorie)
+      if (useFilenameDate) formData.append('use_filename_date', 'true')
       try {
         const res = await fetch('/api/cv/parse', { method: 'POST', body: formData })
         const data = await res.json()
@@ -351,7 +352,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
         setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'error', error: 'Erreur résolution doublon' } : j))
       }
     }
-  }, [statut])
+  }, [statut, useFilenameDate])
 
   const exportCSV = useCallback(() => {
     const rows = [['Fichier', 'Catégorie', 'Statut', 'Candidat', 'Durée', 'Erreur']]

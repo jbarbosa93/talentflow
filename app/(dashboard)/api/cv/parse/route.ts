@@ -40,6 +40,20 @@ function mapDocumentType(type: string): DocumentType {
   return mapping[type] || 'autre'
 }
 
+/**
+ * Extrait une date au format DD.MM.YYYY du nom de fichier.
+ * Retourne une chaîne ISO 8601 (midi UTC) ou null si non trouvée / invalide.
+ * Exemples : "Jean Dupont 15.03.2024.pdf" → "2024-03-15T12:00:00.000Z"
+ */
+function extractDateFromFilename(filename: string): string | null {
+  const match = filename.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+  if (!match) return null
+  const [, dd, mm, yyyy] = match
+  const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10)
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
+  return `${yyyy}-${mm}-${dd}T12:00:00.000Z`
+}
+
 export async function POST(request: NextRequest) {
   // Enveloppe globale : répond toujours en < 55s même si pdf-parse ou Claude bloque
   const timeout = new Promise<never>((_, reject) =>
@@ -141,6 +155,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     if (existingByFile) {
       console.log(`[CV Parse] Fichier déjà importé : ${file.name} → skip analyse IA`)
+      // Mettre à jour created_at si l'option "date du nom de fichier" est activée
+      if (useFilenameDate) {
+        const filenameDate = extractDateFromFilename(file.name)
+        if (filenameDate) {
+          await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
+          console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
+        }
+      }
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
       return NextResponse.json({
         isDuplicate: true,
@@ -599,17 +621,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     })()
 
     // Extraire la date du nom de fichier si option activée (DD.MM.YYYY)
-    let resolvedCreatedAt = new Date().toISOString()
-    if (useFilenameDate && file.name) {
-      const dateMatch = file.name.match(/(\d{2})\.(\d{2})\.(\d{4})/)
-      if (dateMatch) {
-        const [, dd, mm, yyyy] = dateMatch
-        const d = parseInt(dd), m = parseInt(mm), y = parseInt(yyyy)
-        if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2030) {
-          resolvedCreatedAt = `${yyyy}-${mm}-${dd}T12:00:00.000Z`
-        }
-      }
-    }
+    const filenameDate = useFilenameDate ? extractDateFromFilename(file.name) : null
+    if (filenameDate) console.log(`[CV Parse] Date fichier extraite : ${file.name} → ${filenameDate}`)
+    const resolvedCreatedAt = filenameDate ?? new Date().toISOString()
 
     if (hasNewContent && existingFull) {
       // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
@@ -714,14 +728,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
   // Si l'option "date depuis nom de fichier" est activée, extraire DD.MM.YYYY du nom
-  if (useFilenameDate && file.name) {
-    const dateMatch = file.name.match(/(\d{2})\.(\d{2})\.(\d{4})/)
-    if (dateMatch) {
-      const [, dd, mm, yyyy] = dateMatch
-      const d = parseInt(dd), m = parseInt(mm), y = parseInt(yyyy)
-      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2030) {
-        ;(nouveauCandidat as any).created_at = `${yyyy}-${mm}-${dd}T12:00:00.000Z`
-      }
+  if (useFilenameDate) {
+    const candidatFilenameDate = extractDateFromFilename(file.name)
+    if (candidatFilenameDate) {
+      ;(nouveauCandidat as any).created_at = candidatFilenameDate
+      console.log(`[CV Parse] Date fichier appliquée (nouveau candidat) : ${file.name} → ${candidatFilenameDate}`)
+    } else {
+      console.log(`[CV Parse] Aucune date DD.MM.YYYY trouvée dans le fichier : ${file.name}`)
     }
   }
 
