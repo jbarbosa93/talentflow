@@ -179,6 +179,8 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           completedRef.current++
           _completedCount = completedRef.current
           updateSpeedEta()
+          // Mettre à jour le badge sidebar en temps réel
+          window.dispatchEvent(new CustomEvent('talentflow:badges-changed'))
           break
         case 'JOB_DUPLICATE':
           setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'doublon', candidatExistant, analyseNouv: analyse, duration } : j))

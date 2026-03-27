@@ -598,6 +598,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       return false
     })()
 
+    // Extraire la date du nom de fichier si option activée (DD.MM.YYYY)
+    let resolvedCreatedAt = new Date().toISOString()
+    if (useFilenameDate && file.name) {
+      const dateMatch = file.name.match(/(\d{2})\.(\d{2})\.(\d{4})/)
+      if (dateMatch) {
+        const [, dd, mm, yyyy] = dateMatch
+        const d = parseInt(dd), m = parseInt(mm), y = parseInt(yyyy)
+        if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1950 && y <= 2030) {
+          resolvedCreatedAt = `${yyyy}-${mm}-${dd}T12:00:00.000Z`
+        }
+      }
+    }
+
     if (hasNewContent && existingFull) {
       // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
       const existingDocs = (existingFull.documents as any[]) || []
@@ -623,7 +636,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         cv_url: cvUrl || existingFull.cv_url,
         cv_nom_fichier: file.name,
         documents: existingDocs,
-        created_at: new Date().toISOString(), // Date d'ajout = aujourd'hui
+        created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
 
@@ -633,14 +646,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         isDuplicate: true,
         updated: true,
         candidatExistant,
-        candidat: { ...candidatExistant, created_at: new Date().toISOString() },
+        candidat: { ...candidatExistant, created_at: resolvedCreatedAt },
         analyse,
         message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     } else {
       // Même CV — juste réactiver la date d'ajout
       await adminClient.from('candidats').update({
-        created_at: new Date().toISOString(),
+        created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
 
@@ -650,7 +663,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         isDuplicate: true,
         reactivated: true,
         candidatExistant,
-        candidat: { ...candidatExistant, created_at: new Date().toISOString() },
+        candidat: { ...candidatExistant, created_at: resolvedCreatedAt },
         analyse,
         message: `Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom} (date mise à jour)`,
       })
