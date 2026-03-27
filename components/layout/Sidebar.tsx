@@ -89,12 +89,14 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
     const computeBadgeCount = async () => {
       try {
-        const res = await fetch('/api/candidats/count-new')
+        // cache-bust pour éviter la réponse mise en cache
+        const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
         if (!res.ok) return
         const { ids } = await res.json() as { ids: string[] }
-        // Lire les fiches vues depuis localStorage (par utilisateur)
         const viewed = new Set<string>(
           JSON.parse(localStorage.getItem('talentflow_viewed_candidats') || '[]')
         )
@@ -102,16 +104,22 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       } catch { /* silencieux */ }
     }
 
+    // Debounce : pendant un import de 2000 CVs l'event se déclenche souvent
+    // On attend 3s d'inactivité avant de refetch
+    const debouncedCompute = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(computeBadgeCount, 3000)
+    }
+
     computeBadgeCount()
 
-    // Rafraîchir quand une fiche est ouverte / marquée vue
-    window.addEventListener('talentflow:badges-changed', computeBadgeCount)
-    // Rafraîchir toutes les minutes (sync OneDrive peut ajouter de nouveaux candidats)
+    window.addEventListener('talentflow:badges-changed', debouncedCompute)
     const interval = setInterval(computeBadgeCount, 60_000)
 
     return () => {
-      window.removeEventListener('talentflow:badges-changed', computeBadgeCount)
+      window.removeEventListener('talentflow:badges-changed', debouncedCompute)
       clearInterval(interval)
+      if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [])
 

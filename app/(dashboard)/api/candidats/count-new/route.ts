@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 // Retourne les IDs des candidats créés/mis à jour dans les 30 derniers jours
 // La sidebar calcule les non-vus en soustrayant le localStorage viewedSet
