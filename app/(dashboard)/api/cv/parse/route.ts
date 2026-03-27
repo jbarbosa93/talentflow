@@ -736,9 +736,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // Genre (pas dans le type mais dans la table)
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
-  // Note : created_at N'est PAS défini sur l'insert — un trigger Supabase BEFORE INSERT
-  // force created_at = now() et écrase toute valeur explicite.
-  // La date du fichier est appliquée via UPDATE après l'insert (voir section 9c).
+  // Appliquer la date du fichier directement sur l'insert si option activée
+  // (pas de trigger BEFORE INSERT sur candidats — created_at est librement définissable)
+  if (useFilenameDate) {
+    const insertDate = extractDateFromFilename(file.name)
+    if (insertDate) {
+      ;(nouveauCandidat as any).created_at = insertDate
+      console.log(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)
+    }
+  }
 
   let { data: candidatRaw, error: dbError } = await adminClient
     .from('candidats')
