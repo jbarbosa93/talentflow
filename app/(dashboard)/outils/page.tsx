@@ -53,7 +53,7 @@ const cardVariants = {
 
 function SyncDatesCard({ index }: { index: number }) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ updated: number; skipped: number; total: number } | null>(null)
+  const [result, setResult] = useState<{ updated: number; skipped: number; total: number; firstErrors?: string[] } | null>(null)
 
   const handleSync = async () => {
     if (state === 'loading') return
@@ -119,9 +119,16 @@ function SyncDatesCard({ index }: { index: number }) {
 
         {/* Description / Result */}
         {state === 'done' && result ? (
-          <p style={{ fontSize: 13, color: '#16A34A', lineHeight: 1.6, margin: 0, marginBottom: 20, fontWeight: 600 }}>
-            ✓ {result.updated} candidat{result.updated > 1 ? 's' : ''} mis à jour · {result.skipped} sans date dans le nom du fichier
-          </p>
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: result.updated > 0 ? '#16A34A' : '#EF4444', lineHeight: 1.6, margin: 0, fontWeight: 600 }}>
+              {result.updated > 0 ? '✓' : '⚠'} {result.updated} candidat{result.updated > 1 ? 's' : ''} mis à jour · {result.skipped} sans date dans le nom du fichier
+            </p>
+            {result.firstErrors && result.firstErrors.length > 0 && (
+              <p style={{ fontSize: 11, color: '#EF4444', margin: '4px 0 0', lineHeight: 1.5 }}>
+                Erreurs : {result.firstErrors[0]}
+              </p>
+            )}
+          </div>
         ) : state === 'error' ? (
           <p style={{ fontSize: 13, color: '#EF4444', lineHeight: 1.6, margin: 0, marginBottom: 20 }}>
             Erreur lors de la synchronisation. Cliquez pour réessayer.

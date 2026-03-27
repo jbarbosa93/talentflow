@@ -22,6 +22,7 @@ export async function POST() {
     let updated = 0
     let skipped = 0
     let totalFetched = 0
+    const errors: string[] = []
 
     const PAGE_SIZE = 1000
     let offset = 0
@@ -53,21 +54,22 @@ export async function POST() {
 
       console.log(`[sync-dates] Batch offset=${offset} : ${candidats.length} candidats fetched, ${updates.length} à mettre à jour, ${skipped} sans date`)
 
-      // Exécuter via RPC admin_set_created_at en parallèle par batch de 50
-      // La fonction RPC tourne en SECURITY DEFINER et bypasse tous les triggers/restrictions
+      // UPDATE direct via admin client (service_role bypasse RLS)
+      // Le trigger trg_candidats_updated_at ne touche que updated_at → created_at est librement modifiable
       const PARALLEL = 50
       for (let i = 0; i < updates.length; i += PARALLEL) {
         const chunk = updates.slice(i, i + PARALLEL)
         const results = await Promise.all(
           chunk.map(u =>
-            supabase.rpc('admin_set_created_at' as any, { p_id: u.id, p_date: u.isoDate } as any)
+            supabase.from('candidats').update({ created_at: u.isoDate } as any).eq('id', u.id)
           )
         )
         for (let j = 0; j < results.length; j++) {
           const r = results[j]
           const u = chunk[j]
           if (r.error) {
-            console.error(`[sync-dates] ERREUR RPC id=${u.id} fichier=${u.filename} : ${r.error.message}`)
+            console.error(`[sync-dates] ERREUR UPDATE id=${u.id} fichier=${u.filename} : ${r.error.message}`)
+            errors.push(`${u.filename}: ${r.error.message}`)
             skipped++
           } else {
             updated++
@@ -80,7 +82,13 @@ export async function POST() {
     }
 
     console.log(`[sync-dates] Terminé : ${updated} mis à jour, ${skipped} ignorés, total=${totalFetched}`)
-    return NextResponse.json({ success: true, updated, skipped, total: totalFetched })
+    return NextResponse.json({
+      success: true,
+      updated,
+      skipped,
+      total: totalFetched,
+      ...(errors.length > 0 && { firstErrors: errors.slice(0, 5) }),
+    })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Erreur inconnue'
     console.error('[sync-dates] Exception:', msg)
