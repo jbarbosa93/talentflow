@@ -30,6 +30,11 @@ self.onmessage = function (e) {
 
     case 'RESUME':
       paused = false
+      if (payload && payload.useFilenameDate !== undefined) useFilenameDate = !!payload.useFilenameDate
+      break
+
+    case 'SET_OPTION':
+      if (payload && payload.useFilenameDate !== undefined) useFilenameDate = !!payload.useFilenameDate
       break
 
     case 'STOP':

@@ -99,7 +99,12 @@ export function useImport() {
 export function ImportProvider({ children }: { children: React.ReactNode }) {
   const [jobs, setJobsState]  = useState<FileJob[]>(() => _jobs)
   const [statut, setStatut]   = useState<PipelineEtape>('nouveau')
-  const [useFilenameDate, setUseFilenameDate] = useState(false)
+  const [useFilenameDate, _setUseFilenameDate] = useState(false)
+  // Notifie le worker immédiatement quand l'option change (même en cours d'import)
+  const setUseFilenameDate = useCallback((v: boolean) => {
+    _setUseFilenameDate(v)
+    _worker?.postMessage({ type: 'SET_OPTION', payload: { useFilenameDate: v } })
+  }, [])
   const [running, setRunning]           = useState(() => _workerRunning)
   const [done, setDone]                 = useState(() => _done)
   const [creditExhausted, setCreditExhausted] = useState(false)
@@ -294,7 +299,10 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   }, [statut, useFilenameDate, bindWorker])
 
   const pause  = useCallback(() => { _worker?.postMessage({ type: 'PAUSE' });  _workerRunning = false; _workerPaused = true; setRunning(false) }, [])
-  const resume = useCallback(() => { _worker?.postMessage({ type: 'RESUME' }); _workerRunning = true;  _workerPaused = false; setRunning(true); setCreditExhausted(false) }, [])
+  const resume = useCallback(() => {
+    _worker?.postMessage({ type: 'RESUME', payload: { useFilenameDate } })
+    _workerRunning = true; _workerPaused = false; setRunning(true); setCreditExhausted(false)
+  }, [useFilenameDate])
   const stop   = useCallback(() => {
     _worker?.postMessage({ type: 'STOP' })
     _worker?.terminate()
