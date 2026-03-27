@@ -199,6 +199,7 @@ export default function CandidatsList() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
+  const [nonVusTotal, setNonVusTotal]     = useState(0) // total non-vus tous pages confondus
 
   // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
   useEffect(() => {
@@ -206,6 +207,17 @@ export default function CandidatsList() {
     window.addEventListener('talentflow:badges-changed', handler)
     return () => window.removeEventListener('talentflow:badges-changed', handler)
   }, [])
+
+  // Calculer le total "non vus" réel depuis l'API (tous les candidats, pas juste la page)
+  useEffect(() => {
+    fetch(`/api/candidats/count-new?t=${Date.now()}`)
+      .then(r => r.json())
+      .then(({ ids }: { ids: string[] }) => {
+        const vs = getViewedSet()
+        setNonVusTotal(ids.filter((id: string) => !vs.has(id)).length)
+      })
+      .catch(() => {})
+  }, [badgeTick])
   // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
@@ -297,16 +309,17 @@ export default function CandidatsList() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     setPage(1)
     setSelectedIds(new Set())
-  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier])
+  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu])
 
-  // Si filtre âge actif → fetch tout (client-side, car date_naissance a des formats mixtes)
+  // Si filtre âge ou "non vus" actif → fetch tout (client-side)
   const ageFilterActive = filterAgeMin !== '' || filterAgeMax !== ''
+  const clientSideFilter = ageFilterActive || filterNonVu
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
     import_status: importStatusFilter as ImportStatus,
     search: debouncedSearch || undefined,
-    page: ageFilterActive ? 1 : page,
-    per_page: ageFilterActive ? 0 : perPage, // 0 = fetch all (max 10000)
+    page: clientSideFilter ? 1 : page,
+    per_page: clientSideFilter ? 0 : perPage, // 0 = fetch all (max 10000)
     sort: sortBy,
     genre: filterGenre || undefined,
     langue: filterLangue || undefined,
@@ -427,9 +440,9 @@ export default function CandidatsList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidatsFiltres, sortBy, distances, filterNonVu, badgeTick])
 
-  // Pagination : client-side quand filtre âge actif, sinon serveur
+  // Pagination : client-side quand filtre âge ou "non vus" actif, sinon serveur
   const candidatesTries = sorted
-  const clientPaginated = ageFilterActive
+  const clientPaginated = clientSideFilter
   const candidatesPagines = clientPaginated
     ? candidatesTries.slice((page - 1) * perPage, page * perPage)
     : candidatesTries
@@ -872,9 +885,9 @@ export default function CandidatsList() {
             </button>
           )}
           {/* Filtre "Non vus" */}
-          {badgeCount > 0 && (
+          {nonVusTotal > 0 && (
             <button
-              onClick={() => setFilterNonVu(v => !v)}
+              onClick={() => { setFilterNonVu(v => !v); setPage(1) }}
               className="neo-btn-ghost"
               style={{
                 fontSize: 13, gap: 6,
@@ -890,23 +903,27 @@ export default function CandidatsList() {
                 background: '#EF4444', color: 'white', borderRadius: 100,
                 fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: 1.4,
               }}>
-                {badgeCount}
+                {nonVusTotal}
               </span>
             </button>
           )}
           {/* Tout marquer vu — marque TOUS les récents (pas juste la page visible) */}
-          {badgeCount > 0 && (
+          {nonVusTotal > 0 && (
             <button
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/candidats/count-new')
+                  const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
                   const { ids } = await res.json() as { ids: string[] }
                   markTousVus(ids)
+                  setNonVusTotal(0)
                   if (filterNonVu) setFilterNonVu(false)
                 } catch {
-                  // Fallback : marquer seulement ceux visibles
+                  // Fallback : marquer ceux avec badge sur la page courante
+                  const vs = getViewedSet()
+                  const n = Date.now()
+                  const seuil = 30 * 24 * 60 * 60 * 1000
                   const idsAvecBadge = sorted
-                    .filter((c: any) => !viewedSet.has(c.id) && c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS)
+                    .filter((c: any) => !vs.has(c.id) && c.created_at && n - new Date(c.created_at).getTime() < seuil)
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
                 }
