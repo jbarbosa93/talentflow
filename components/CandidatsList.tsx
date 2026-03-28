@@ -326,21 +326,24 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('fGenre', filterGenre) }, [filterGenre])
   useEffect(() => { ssSet('fStarsMin', filterStarsMin) }, [filterStarsMin])
 
-  // CV hover preview
-  const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
+  // CV hover preview — always mounted, show/hide via CSS for instant open/close
+  const [previewVisible, setPreviewVisible] = useState(false)
+  const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
   const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
   const previewPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
   const previewScrollRef = useRef<HTMLDivElement>(null)
+  // Keep hoveredCv as alias for backward compat in JSX
+  const hoveredCv = previewData
   useEffect(() => {
-    if (hoveredCv && hoveredCv.url !== prevHoveredCvUrl.current) {
+    if (previewData && previewData.url !== prevHoveredCvUrl.current) {
       setPreviewZoom(1)
-      prevHoveredCvUrl.current = hoveredCv.url
+      prevHoveredCvUrl.current = previewData.url
     }
-    if (!hoveredCv) prevHoveredCvUrl.current = null
-  }, [hoveredCv])
+    if (!previewData) prevHoveredCvUrl.current = null
+  }, [previewData])
 
 
   // Persist search, filtreMetier, filtreLocalisation in sessionStorage (consolidated key)
@@ -879,12 +882,13 @@ export default function CandidatsList() {
               hoveredCvTimeout.current = setTimeout(() => {
                 const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
                 const rotation = savedRot ? parseInt(savedRot, 10) : 0
-                setHoveredCv({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation })
-              }, 250)
+                setPreviewData({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation })
+                setPreviewVisible(true)
+              }, 120)
             }}
             onMouseLeave={() => {
               if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-              hoveredCvTimeout.current = setTimeout(() => setHoveredCv(null), 400)
+              hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
             }}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
@@ -1525,18 +1529,16 @@ export default function CandidatsList() {
         </div>
       )}
 
-      {/* CV Preview Overlay (hover) */}
+      {/* CV Preview Overlay — always mounted, shown/hidden via CSS for instant open/close */}
       {hoveredCv && (
         <div
           onMouseEnter={() => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+            setPreviewVisible(true)
           }}
           onMouseLeave={() => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-            hoveredCvTimeout.current = setTimeout(() => {
-              setHoveredCv(null)
-              if (previewZoom < 1) setPreviewZoom(1)
-            }, 900)
+            hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
           }}
           style={{
             position: 'fixed',
@@ -1552,7 +1554,9 @@ export default function CandidatsList() {
             boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
             overflow: 'hidden',
             zIndex: 500,
-            pointerEvents: 'auto',
+            pointerEvents: previewVisible ? 'auto' : 'none',
+            opacity: previewVisible ? 1 : 0,
+            transition: 'opacity 0.1s ease',
           }}
         >
           {/* Header */}
@@ -1579,7 +1583,7 @@ export default function CandidatsList() {
                 onClick={e => {
                   e.stopPropagation()
                   const r = ((hoveredCv.rotation || 0) + 90) % 360
-                  setHoveredCv({ ...hoveredCv, rotation: r })
+                  setPreviewData({ ...hoveredCv, rotation: r })
                 }}
                 style={{ width: 24, height: 24, borderRadius: 5, border: '1px solid var(--border)', background: 'var(--background)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title="Rotation 90°"
