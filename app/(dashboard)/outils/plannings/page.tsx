@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Plus, Trash2, ExternalLink, ArrowRightLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Calendar, Plus, Trash2, ExternalLink, ArrowRightLeft, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,6 +24,8 @@ type Planning = {
   statut: 'actif' | 'inactif'
   semaine: number
   annee: number
+  semaine_fin: number | null
+  annee_fin: number | null
   candidats: CandidatRef | null
 }
 
@@ -71,232 +73,262 @@ function candidatDisplayName(c: CandidatRef | null): string {
   return [c.prenom, c.nom].filter(Boolean).join(' ')
 }
 
-// ── Inline editable cell ───────────────────────────────────────────────────────
-
-type EditableCellProps = {
-  value: string
-  placeholder?: string
-  onSave: (v: string) => void
-  width?: number | string
-  type?: 'text' | 'number'
-  step?: string
-  min?: string
-  max?: string
+function initials(nom: string, prenom: string | null): string {
+  return [prenom, nom].filter(Boolean).map(p => p![0]).join('').toUpperCase().slice(0, 2)
 }
 
-function EditableCell({ value, placeholder, onSave, width, type = 'text', step, min, max }: EditableCellProps) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const ref = useRef<HTMLInputElement>(null)
+// ── Badge ─────────────────────────────────────────────────────────────────────
 
-  useEffect(() => { setDraft(value) }, [value])
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-
-  const commit = () => {
-    setEditing(false)
-    if (draft !== value) onSave(draft)
-  }
-
-  if (editing) {
-    return (
-      <input
-        ref={ref}
-        type={type}
-        value={draft}
-        step={step}
-        min={min}
-        max={max}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => {
-          if (e.key === 'Enter') commit()
-          if (e.key === 'Escape') { setDraft(value); setEditing(false) }
-        }}
-        style={{
-          width: width || '100%',
-          background: 'var(--surface)',
-          border: '1.5px solid var(--primary)',
-          borderRadius: 6,
-          padding: '4px 8px',
-          fontSize: 13,
-          color: 'var(--foreground)',
-          outline: 'none',
-          boxSizing: 'border-box',
-        }}
-      />
-    )
-  }
-
+function Badge({ label }: { label: string }) {
+  if (!label) return <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>
   return (
-    <span
-      onClick={() => setEditing(true)}
-      style={{
-        display: 'block',
-        width: width || '100%',
-        padding: '4px 8px',
-        borderRadius: 6,
-        cursor: 'text',
-        fontSize: 13,
-        color: value ? 'var(--foreground)' : 'var(--muted)',
-        minHeight: 28,
-        lineHeight: '20px',
-        transition: 'background 0.15s',
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-    >
-      {value || placeholder || '—'}
+    <span style={{
+      display: 'inline-block',
+      padding: '2px 10px',
+      borderRadius: 100,
+      fontSize: 12,
+      fontWeight: 600,
+      background: hashColorSoft(label),
+      color: hashColor(label),
+      border: `1px solid ${hashColor(label)}30`,
+      whiteSpace: 'nowrap',
+    }}>
+      {label}
     </span>
   )
 }
 
-// ── Candidat autocomplete cell ────────────────────────────────────────────────
+// ── Candidat Modal ────────────────────────────────────────────────────────────
 
-type CandidatCellProps = {
-  value: string
-  onSave: (nom: string, id: string | null, cv_url: string | null, titre_poste: string | null) => void
-}
-
-function CandidatCell({ value, onSave }: CandidatCellProps) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
+function CandidatModal({ current, onPick, onClose }: {
+  current: string
+  onPick: (nom: string, id: string | null, cv_url: string | null, titre_poste: string | null) => void
+  onClose: () => void
+}) {
+  const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<AutocompleteSuggestion[]>([])
   const [loading, setLoading] = useState(false)
-  const ref = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => { setDraft(value) }, [value])
-  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
-
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (!q || q.length < 2) { setSuggestions([]); return }
     setLoading(true)
     try {
-      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&limit=8&per_page=8`)
+      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&limit=12&per_page=12`)
       const data = await res.json()
-      setSuggestions((data.candidats ?? []).slice(0, 8))
-    } catch {
-      setSuggestions([])
-    } finally {
-      setLoading(false)
-    }
+      setSuggestions((data.candidats ?? []).slice(0, 12))
+    } catch { setSuggestions([]) }
+    finally { setLoading(false) }
   }, [])
 
+  useEffect(() => {
+    inputRef.current?.focus()
+    fetchSuggestions('')
+  }, [fetchSuggestions])
+
   const handleChange = (v: string) => {
-    setDraft(v)
+    setQuery(v)
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => fetchSuggestions(v), 200)
+    timerRef.current = setTimeout(() => fetchSuggestions(v), 220)
   }
 
-  const pick = (s: AutocompleteSuggestion) => {
-    const name = [s.prenom, s.nom].filter(Boolean).join(' ')
-    setDraft(name)
-    setSuggestions([])
-    setEditing(false)
-    onSave(name, s.id, s.cv_url ?? null, s.titre_poste ?? null)
-  }
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(2px)',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--surface)',
+          borderRadius: 18,
+          padding: 20,
+          width: 440,
+          maxHeight: '72vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+          gap: 12,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Choisir un candidat</span>
+          <button
+            onClick={onClose}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, borderRadius: 6, display: 'flex' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-  const commitManual = () => {
-    setSuggestions([])
-    setEditing(false)
-    if (draft !== value) onSave(draft, null, null, null)
-  }
-
-  if (editing) {
-    return (
-      <div style={{ position: 'relative' }}>
+        {/* Search */}
         <input
-          ref={ref}
+          ref={inputRef}
           type="text"
-          value={draft}
+          value={query}
           onChange={e => handleChange(e.target.value)}
-          onBlur={() => setTimeout(commitManual, 150)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') commitManual()
-            if (e.key === 'Escape') { setDraft(value); setSuggestions([]); setEditing(false) }
-          }}
+          placeholder="Rechercher un candidat…"
+          onKeyDown={e => { if (e.key === 'Escape') onClose() }}
           style={{
-            width: '100%',
-            background: 'var(--surface)',
-            border: '1.5px solid var(--primary)',
-            borderRadius: 6,
-            padding: '4px 8px',
+            border: '1.5px solid var(--border)',
+            borderRadius: 10,
+            padding: '9px 14px',
             fontSize: 13,
-            color: 'var(--foreground)',
             outline: 'none',
+            background: 'var(--background)',
+            color: 'var(--foreground)',
+            width: '100%',
             boxSizing: 'border-box',
           }}
         />
-        {(suggestions.length > 0 || loading) && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            zIndex: 100,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-            minWidth: 220,
-            overflow: 'hidden',
-            marginTop: 2,
-          }}>
-            {loading && (
-              <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Recherche…
-              </div>
-            )}
-            {suggestions.map(s => (
+
+        {/* Remove current */}
+        {current && (
+          <button
+            onClick={() => { onPick('', null, null, null); onClose() }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 8,
+              border: '1px solid rgba(239,68,68,0.3)',
+              background: 'rgba(239,68,68,0.06)',
+              color: '#EF4444',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontWeight: 600,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <X size={12} /> Retirer {current}
+          </button>
+        )}
+
+        {/* Results */}
+        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {loading && (
+            <div style={{ padding: 20, textAlign: 'center' }}>
+              <Loader2 size={18} style={{ color: 'var(--muted)', animation: 'spin 1s linear infinite' }} />
+            </div>
+          )}
+          {!loading && suggestions.length === 0 && (
+            <div style={{ padding: 20, fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+              Aucun résultat
+            </div>
+          )}
+          {suggestions.map(s => {
+            const name = [s.prenom, s.nom].filter(Boolean).join(' ')
+            const init = initials(s.nom, s.prenom)
+            const col  = hashColor(s.nom)
+            return (
               <div
                 key={s.id}
-                onMouseDown={() => pick(s)}
+                onClick={() => { onPick(name, s.id, s.cv_url ?? null, s.titre_poste ?? null); onClose() }}
                 style={{
-                  padding: '8px 12px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 10,
                   cursor: 'pointer',
-                  fontSize: 13,
-                  borderBottom: '1px solid var(--border)',
+                  border: '1px solid var(--border)',
+                  transition: 'all 0.12s',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.background = 'var(--secondary)'
+                  el.style.borderColor = col
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.background = 'transparent'
+                  el.style.borderColor = 'var(--border)'
+                }}
               >
-                <div style={{ fontWeight: 600, color: 'var(--foreground)' }}>
-                  {[s.prenom, s.nom].filter(Boolean).join(' ')}
+                <div style={{
+                  width: 38, height: 38, borderRadius: '50%',
+                  background: col,
+                  color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {init}
                 </div>
-                {s.titre_poste && (
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{s.titre_poste}</div>
-                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--foreground)' }}>{name}</div>
+                  {s.titre_poste && (
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{s.titre_poste}</div>
+                  )}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+            )
+          })}
+        </div>
       </div>
-    )
-  }
-
-  return (
-    <span
-      onClick={() => setEditing(true)}
-      style={{
-        display: 'block',
-        padding: '4px 8px',
-        borderRadius: 6,
-        cursor: 'text',
-        fontSize: 13,
-        fontWeight: value ? 600 : 400,
-        color: value ? 'var(--foreground)' : 'var(--muted)',
-        minHeight: 28,
-        lineHeight: '20px',
-        transition: 'background 0.15s',
-      }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-    >
-      {value || 'Candidat…'}
-    </span>
+    </div>
   )
 }
 
-// ── Entreprise autocomplete cell ──────────────────────────────────────────────
+// ── CandidatCell ──────────────────────────────────────────────────────────────
+
+function CandidatCell({ value, candidat, onSave }: {
+  value: string
+  candidat: CandidatRef | null
+  onSave: (nom: string, id: string | null, cv_url: string | null, titre_poste: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const nom = candidat?.nom ?? value.split(' ').pop() ?? value
+
+  return (
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '4px 8px',
+          borderRadius: 8,
+          cursor: 'pointer',
+          fontSize: 13,
+          minHeight: 32,
+          transition: 'background 0.12s',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+      >
+        {value ? (
+          <>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: hashColor(nom),
+              color: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontWeight: 700, flexShrink: 0,
+            }}>
+              {initials(nom, candidat?.prenom ?? null)}
+            </div>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{value}</span>
+          </>
+        ) : (
+          <span style={{ color: 'var(--muted)', fontSize: 13 }}>Choisir…</span>
+        )}
+      </div>
+      {open && (
+        <CandidatModal
+          current={value}
+          onPick={onSave}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ── EntrepriseCell ────────────────────────────────────────────────────────────
 
 function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false)
@@ -310,7 +342,6 @@ function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) 
   useEffect(() => { if (editing) ref.current?.focus() }, [editing])
 
   const fetchClients = useCallback(async (q: string) => {
-    if (!q || q.length < 1) { setSuggestions([]); return }
     setLoading(true)
     try {
       const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=8`)
@@ -336,7 +367,7 @@ function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) 
 
   if (!editing) return (
     <span
-      onClick={() => setEditing(true)}
+      onClick={() => { setEditing(true); fetchClients(value || '') }}
       style={{ display: 'block', padding: '4px 8px', borderRadius: 6, cursor: 'text', fontSize: 13, minHeight: 28, lineHeight: '20px' }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
@@ -379,25 +410,166 @@ function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) 
   )
 }
 
-// ── Badge ─────────────────────────────────────────────────────────────────────
+// ── Inline editable cell ───────────────────────────────────────────────────────
 
-function Badge({ label }: { label: string }) {
-  if (!label) return <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>
+function EditableCell({ value, placeholder, onSave, width, type = 'text', step, min, max }: {
+  value: string; placeholder?: string; onSave: (v: string) => void
+  width?: number | string; type?: 'text' | 'number'; step?: string; min?: string; max?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setDraft(value) }, [value])
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft !== value) onSave(draft)
+  }
+
+  if (editing) return (
+    <input
+      ref={ref} type={type} value={draft} step={step} min={min} max={max}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') commit()
+        if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+      }}
+      style={{
+        width: width || '100%', background: 'var(--surface)',
+        border: '1.5px solid var(--primary)', borderRadius: 6,
+        padding: '4px 8px', fontSize: 13, color: 'var(--foreground)',
+        outline: 'none', boxSizing: 'border-box',
+      }}
+    />
+  )
+
   return (
-    <span style={{
-      display: 'inline-block',
-      padding: '2px 10px',
-      borderRadius: 100,
-      fontSize: 12,
-      fontWeight: 600,
-      background: hashColorSoft(label),
-      color: hashColor(label),
-      border: `1px solid ${hashColor(label)}30`,
-      whiteSpace: 'nowrap',
-    }}>
-      {label}
+    <span
+      onClick={() => setEditing(true)}
+      style={{
+        display: 'block', width: width || '100%', padding: '4px 8px',
+        borderRadius: 6, cursor: 'text', fontSize: 13,
+        color: value ? 'var(--foreground)' : 'var(--muted)',
+        minHeight: 28, lineHeight: '20px', transition: 'background 0.15s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+    >
+      {value || placeholder || '—'}
     </span>
   )
+}
+
+// ── PériodeCell ───────────────────────────────────────────────────────────────
+
+function PeriodeCell({ semaine, annee, semaineFin, anneeFin, onSave }: {
+  semaine: number; annee: number
+  semaineFin: number | null; anneeFin: number | null
+  onSave: (fields: { semaine?: number; annee?: number; semaine_fin: number | null; annee_fin: number | null }) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draftDebS, setDraftDebS] = useState(semaine)
+  const [draftDebA, setDraftDebA] = useState(annee)
+  const [draftFinS, setDraftFinS] = useState(semaineFin ?? semaine)
+  const [draftFinA, setDraftFinA] = useState(anneeFin ?? annee)
+  const [noFin, setNoFin] = useState(semaineFin === null)
+
+  useEffect(() => {
+    setDraftDebS(semaine); setDraftDebA(annee)
+    setDraftFinS(semaineFin ?? semaine); setDraftFinA(anneeFin ?? annee)
+    setNoFin(semaineFin === null)
+  }, [semaine, annee, semaineFin, anneeFin])
+
+  const commit = () => {
+    setEditing(false)
+    onSave({
+      semaine: draftDebS,
+      annee: draftDebA,
+      semaine_fin: noFin ? null : draftFinS,
+      annee_fin:   noFin ? null : draftFinA,
+    })
+  }
+
+  const COLOR = '#6366F1'
+
+  if (!editing) return (
+    <div
+      onClick={() => setEditing(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
+        fontSize: 12, color: 'var(--foreground)',
+        whiteSpace: 'nowrap', transition: 'background 0.12s',
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+    >
+      <span style={{ fontWeight: 700, color: COLOR }}>S.{semaine}</span>
+      <span style={{ color: 'var(--muted)' }}>{annee}</span>
+      <span style={{ color: 'var(--muted)', margin: '0 2px' }}>→</span>
+      {semaineFin
+        ? <><span style={{ fontWeight: 700, color: '#10B981' }}>S.{semaineFin}</span><span style={{ color: 'var(--muted)' }}>{anneeFin}</span></>
+        : <span style={{ color: 'var(--muted)', fontWeight: 600 }}>∞</span>
+      }
+    </div>
+  )
+
+  return (
+    <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Début</div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <input type="number" value={draftDebS} min={1} max={53}
+          onChange={e => setDraftDebS(Math.max(1, Math.min(53, parseInt(e.target.value) || 1)))}
+          style={miniInput(64)} placeholder="S."
+        />
+        <input type="number" value={draftDebA} min={2020} max={2099}
+          onChange={e => setDraftDebA(parseInt(e.target.value) || new Date().getFullYear())}
+          style={miniInput(72)}
+        />
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8 }}>
+        Fin
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500, textTransform: 'none', letterSpacing: 0, cursor: 'pointer' }}>
+          <input type="checkbox" checked={noFin} onChange={e => setNoFin(e.target.checked)} style={{ margin: 0 }} />
+          Sans fin (∞)
+        </label>
+      </div>
+      {!noFin && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          <input type="number" value={draftFinS} min={1} max={53}
+            onChange={e => setDraftFinS(Math.max(1, Math.min(53, parseInt(e.target.value) || 1)))}
+            style={miniInput(64)} placeholder="S."
+          />
+          <input type="number" value={draftFinA} min={2020} max={2099}
+            onChange={e => setDraftFinA(parseInt(e.target.value) || new Date().getFullYear())}
+            style={miniInput(72)}
+          />
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+        <button onClick={commit} style={{
+          flex: 1, padding: '5px 0', borderRadius: 7, border: 'none',
+          background: COLOR, color: 'white', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+        }}>OK</button>
+        <button onClick={() => setEditing(false)} style={{
+          padding: '5px 10px', borderRadius: 7, border: '1px solid var(--border)',
+          background: 'transparent', fontSize: 12, cursor: 'pointer', color: 'var(--muted)',
+        }}>Annuler</button>
+      </div>
+    </div>
+  )
+}
+
+function miniInput(w: number): React.CSSProperties {
+  return {
+    width: w, border: '1.5px solid var(--border)', borderRadius: 6,
+    padding: '4px 6px', fontSize: 12, outline: 'none',
+    background: 'var(--background)', color: 'var(--foreground)',
+    boxSizing: 'border-box',
+  }
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
@@ -413,12 +585,22 @@ export default function PlanningsPage() {
   const [tab, setTab]         = useState<'actif' | 'inactif'>('actif')
   const [plannings, setPlannings] = useState<Planning[]>([])
   const [loading, setLoading]     = useState(false)
-  const [saving, setSaving]       = useState<string | null>(null) // id of row being saved
+  const [saving, setSaving]       = useState<string | null>(null)
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null)
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3000)
+  }
+
+  // ── Navigate week ──
+  const prevWeek = () => {
+    if (semaine === 1) { setSemaine(52); setAnnee(a => a - 1) }
+    else setSemaine(s => s - 1)
+  }
+  const nextWeek = () => {
+    if (semaine === 52) { setSemaine(1); setAnnee(a => a + 1) }
+    else setSemaine(s => s + 1)
   }
 
   // ── Load ──
@@ -438,17 +620,14 @@ export default function PlanningsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Filtered rows ──
   const rows = plannings.filter(p => p.statut === tab)
 
   // ── Stats ──
-  const uniqueCandidats = new Set(
-    rows.map(p => p.candidat_id ?? (p.candidats ? candidatDisplayName(p.candidats) : p.client_nom ?? '')).filter(Boolean)
-  ).size
+  const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
   const uniqueEntreprises = new Set(rows.map(p => p.client_nom ?? '').filter(Boolean)).size
-  const totalETP = rows.reduce((acc, p) => acc + Number(p.pourcentage), 0)
+  const totalETP          = rows.reduce((acc, p) => acc + Number(p.pourcentage), 0)
 
-  // ── Add row ──
+  // ── Add ──
   const handleAdd = async () => {
     try {
       const res = await fetch('/api/plannings', {
@@ -464,8 +643,8 @@ export default function PlanningsPage() {
     }
   }
 
-  // ── Patch row ──
-  const handlePatch = async (id: string, fields: Partial<Planning>) => {
+  // ── Patch ──
+  const handlePatch = async (id: string, fields: Record<string, unknown>) => {
     setSaving(id)
     try {
       const res = await fetch('/api/plannings', {
@@ -483,7 +662,7 @@ export default function PlanningsPage() {
     }
   }
 
-  // ── Delete row ──
+  // ── Delete ──
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cette entrée ?')) return
     try {
@@ -500,19 +679,16 @@ export default function PlanningsPage() {
   }
 
   // ── Toggle statut ──
-  const handleToggleStatut = async (p: Planning) => {
+  const handleToggleStatut = (p: Planning) => {
     const next = p.statut === 'actif' ? 'inactif' : 'actif'
-    await handlePatch(p.id, { statut: next })
+    handlePatch(p.id, { statut: next })
   }
 
   return (
-    <div className="d-page" style={{ maxWidth: 1200, paddingBottom: 80 }}>
+    <div className="d-page" style={{ maxWidth: 1300, paddingBottom: 80 }}>
       {/* Back */}
       <div style={{ marginBottom: 16 }}>
-        <Link
-          href="/outils"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}
-        >
+        <Link href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}>
           <ArrowLeft size={14} /> Outils
         </Link>
       </div>
@@ -520,11 +696,7 @@ export default function PlanningsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 12,
-            background: COLOR_SOFT,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: COLOR_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Calendar size={22} style={{ color: COLOR }} />
           </div>
           <div>
@@ -533,66 +705,60 @@ export default function PlanningsPage() {
           </div>
         </div>
 
-        {/* Week selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Semaine</label>
-          <input
-            type="number"
-            className="neo-input"
-            value={semaine}
-            onChange={e => setSemaine(Math.max(1, Math.min(53, parseInt(e.target.value) || 1)))}
-            min={1}
-            max={53}
-            style={{ width: 72, textAlign: 'center' }}
-          />
-          <input
-            type="number"
-            className="neo-input"
-            value={annee}
-            onChange={e => setAnnee(parseInt(e.target.value) || new Date().getFullYear())}
-            min={2020}
-            max={2099}
-            style={{ width: 80, textAlign: 'center' }}
-          />
+        {/* Week navigator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={prevWeek} style={navBtn()}>
+            <ChevronLeft size={16} />
+          </button>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '6px 12px',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Semaine</span>
+            <input
+              type="number" className="neo-input" value={semaine}
+              onChange={e => setSemaine(Math.max(1, Math.min(53, parseInt(e.target.value) || 1)))}
+              min={1} max={53}
+              style={{ width: 56, textAlign: 'center', padding: '3px 6px', fontSize: 15, fontWeight: 700, color: COLOR }}
+            />
+            <input
+              type="number" className="neo-input" value={annee}
+              onChange={e => setAnnee(parseInt(e.target.value) || new Date().getFullYear())}
+              min={2020} max={2099}
+              style={{ width: 72, textAlign: 'center', padding: '3px 6px', fontSize: 13 }}
+            />
+          </div>
+          <button onClick={nextWeek} style={navBtn()}>
+            <ChevronRight size={16} />
+          </button>
+          {(semaine !== defaultSemaine || annee !== defaultAnnee) && (
+            <button
+              onClick={() => { setSemaine(defaultSemaine); setAnnee(defaultAnnee) }}
+              style={{ fontSize: 11, fontWeight: 700, color: COLOR, background: COLOR_SOFT, border: 'none', borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}
+            >
+              Aujourd'hui
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Tabs + Add button */}
+      {/* Tabs + Add */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        {/* Tab toggle */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 10,
-          padding: 3,
-          gap: 2,
-        }}>
+        <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 2 }}>
           {(['actif', 'inactif'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                padding: '6px 18px',
-                borderRadius: 8,
-                border: 'none',
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                background: tab === t ? COLOR : 'transparent',
-                color: tab === t ? 'white' : 'var(--muted)',
-              }}
-            >
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '6px 18px', borderRadius: 8, border: 'none',
+              fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
+              background: tab === t ? COLOR : 'transparent',
+              color: tab === t ? 'white' : 'var(--muted)',
+            }}>
               {t === 'actif' ? 'Au travail' : 'Sans travail'}
               <span style={{
-                marginLeft: 6,
-                fontSize: 11,
-                fontWeight: 700,
+                marginLeft: 6, fontSize: 11, fontWeight: 700,
                 background: tab === t ? 'rgba(255,255,255,0.25)' : 'var(--border)',
                 color: tab === t ? 'white' : 'var(--muted)',
-                padding: '1px 6px',
-                borderRadius: 100,
+                padding: '1px 6px', borderRadius: 100,
               }}>
                 {plannings.filter(p => p.statut === t).length}
               </span>
@@ -602,22 +768,12 @@ export default function PlanningsPage() {
 
         <div style={{ flex: 1 }} />
 
-        <button
-          onClick={handleAdd}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px',
-            borderRadius: 10,
-            border: 'none',
-            background: COLOR,
-            color: 'white',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          <Plus size={15} />
-          Nouveau
+        <button onClick={handleAdd} style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '8px 16px', borderRadius: 10, border: 'none',
+          background: COLOR, color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+        }}>
+          <Plus size={15} /> Nouveau
         </button>
       </div>
 
@@ -636,23 +792,24 @@ export default function PlanningsPage() {
             </p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ background: `${COLOR}0d` }}>
-                <th style={th('left', 200)}>Candidat</th>
-                <th style={th('left', 160)}>Entreprise</th>
-                <th style={th('left', 140)}>Métier</th>
-                <th style={th('center', 70)}>%</th>
+                <th style={th('left', 190)}>Candidat</th>
+                <th style={th('left', 150)}>Entreprise</th>
+                <th style={th('left', 120)}>Métier</th>
+                <th style={th('center', 60)}>%</th>
+                <th style={th('left', 180)}>Période</th>
                 <th style={th('left')}>Remarques</th>
-                <th style={th('center', 40)}>CV</th>
-                <th style={th('center', 88)}>Actions</th>
+                <th style={th('center', 36)}>CV</th>
+                <th style={th('center', 80)}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((p, i) => {
                 const candidatNom = p.candidats ? candidatDisplayName(p.candidats) : ''
-                const cvUrl = p.candidats?.cv_url ?? null
-                const isSaving = saving === p.id
+                const cvUrl       = p.candidats?.cv_url ?? null
+                const isSaving    = saving === p.id
                 return (
                   <tr
                     key={p.id}
@@ -666,30 +823,27 @@ export default function PlanningsPage() {
                     <td style={td()}>
                       <CandidatCell
                         value={candidatNom}
+                        candidat={p.candidats}
                         onSave={(nom, id, cv_url, titre_poste) => {
-                          // Patch candidat_id + métier auto-rempli depuis titre_poste
-                          const patchData: Partial<Planning> & { candidat_id?: string | null } = {
+                          setPlannings(prev => prev.map(row =>
+                            row.id === p.id ? {
+                              ...row,
+                              candidat_id: id,
+                              metier: titre_poste ?? row.metier,
+                              candidats: id
+                                ? { id, nom: nom.split(' ').slice(-1)[0] ?? nom, prenom: nom.split(' ').slice(0, -1).join(' ') || null, cv_url, titre_poste }
+                                : null,
+                            } : row
+                          ))
+                          handlePatch(p.id, {
                             candidat_id: id,
                             ...(titre_poste ? { metier: titre_poste } : {}),
-                          }
-                          setPlannings(prev => prev.map(row =>
-                            row.id === p.id
-                              ? {
-                                  ...row,
-                                  candidat_id: id,
-                                  metier: titre_poste ?? row.metier,
-                                  candidats: id
-                                    ? { id, nom: nom.split(' ').slice(-1)[0] ?? nom, prenom: nom.split(' ').slice(0, -1).join(' ') || null, cv_url: cv_url, titre_poste }
-                                    : null,
-                                }
-                              : row
-                          ))
-                          handlePatch(p.id, patchData)
+                          })
                         }}
                       />
                     </td>
 
-                    {/* Entreprise — autocomplete depuis /api/clients */}
+                    {/* Entreprise */}
                     <td style={td()}>
                       <EntrepriseCell
                         value={p.client_nom ?? ''}
@@ -697,27 +851,32 @@ export default function PlanningsPage() {
                       />
                     </td>
 
-                    {/* Métier — vient de la fiche candidat, éditable si besoin */}
+                    {/* Métier */}
                     <td style={td()}>
                       {p.metier
-                        ? <Badge label={p.metier} />
+                        ? <div style={{ padding: '4px 8px' }}><Badge label={p.metier} /></div>
                         : <span style={{ fontSize: 13, color: 'var(--muted)', padding: '4px 8px', display: 'block' }}>—</span>
                       }
                     </td>
 
-                    {/* Pourcentage */}
+                    {/* % */}
                     <td style={{ ...td(), textAlign: 'center' }}>
                       <EditableCell
                         value={String(p.pourcentage)}
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="1"
-                        onSave={v => {
-                          const n = parseFloat(v)
-                          if (!isNaN(n) && n >= 0) handlePatch(p.id, { pourcentage: n })
-                        }}
-                        width={60}
+                        type="number" step="0.1" min="0" max="2"
+                        onSave={v => { const n = parseFloat(v); if (!isNaN(n) && n >= 0) handlePatch(p.id, { pourcentage: n }) }}
+                        width={56}
+                      />
+                    </td>
+
+                    {/* Période */}
+                    <td style={{ ...td(), padding: 0 }}>
+                      <PeriodeCell
+                        semaine={p.semaine}
+                        annee={p.annee}
+                        semaineFin={p.semaine_fin}
+                        anneeFin={p.annee_fin}
+                        onSave={fields => handlePatch(p.id, fields)}
                       />
                     </td>
 
@@ -733,13 +892,8 @@ export default function PlanningsPage() {
                     {/* CV */}
                     <td style={{ ...td(), textAlign: 'center' }}>
                       {cvUrl ? (
-                        <a
-                          href={cvUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Voir le CV"
-                          style={{ display: 'inline-flex', alignItems: 'center', color: COLOR }}
-                        >
+                        <a href={cvUrl} target="_blank" rel="noopener noreferrer" title="Voir le CV"
+                          style={{ display: 'inline-flex', alignItems: 'center', color: COLOR }}>
                           <ExternalLink size={14} />
                         </a>
                       ) : (
@@ -749,18 +903,11 @@ export default function PlanningsPage() {
 
                     {/* Actions */}
                     <td style={{ ...td(), textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                         <button
                           onClick={() => handleToggleStatut(p)}
-                          title={p.statut === 'actif' ? 'Déplacer vers "Sans travail"' : 'Déplacer vers "Au travail"'}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 28, height: 28, borderRadius: 7,
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--muted)',
-                            cursor: 'pointer',
-                          }}
+                          title={p.statut === 'actif' ? 'Déplacer → Sans travail' : 'Déplacer → Au travail'}
+                          style={actionBtn()}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = COLOR_SOFT; (e.currentTarget as HTMLButtonElement).style.color = COLOR }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)' }}
                         >
@@ -769,14 +916,7 @@ export default function PlanningsPage() {
                         <button
                           onClick={() => handleDelete(p.id)}
                           title="Supprimer"
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: 28, height: 28, borderRadius: 7,
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--muted)',
-                            cursor: 'pointer',
-                          }}
+                          style={actionBtn()}
                           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#EF4444' }}
                           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)' }}
                         >
@@ -795,29 +935,15 @@ export default function PlanningsPage() {
       {/* Stats bar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
-        marginTop: 12,
-        padding: '10px 16px',
-        background: `${COLOR}0a`,
-        border: `1px solid ${COLOR}20`,
-        borderRadius: 10,
-        fontSize: 13,
-        color: 'var(--muted)',
-        fontWeight: 600,
+        marginTop: 12, padding: '10px 16px',
+        background: `${COLOR}0a`, border: `1px solid ${COLOR}20`,
+        borderRadius: 10, fontSize: 13, color: 'var(--muted)', fontWeight: 600,
       }}>
-        <span>
-          <span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueCandidats}</span>
-          {' '}candidat{uniqueCandidats > 1 ? 's' : ''} uniques
-        </span>
+        <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueCandidats}</span> candidat{uniqueCandidats > 1 ? 's' : ''} uniques</span>
         <span style={{ color: 'var(--border)' }}>·</span>
-        <span>
-          <span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueEntreprises}</span>
-          {' '}entreprise{uniqueEntreprises > 1 ? 's' : ''} uniques
-        </span>
+        <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueEntreprises}</span> entreprise{uniqueEntreprises > 1 ? 's' : ''} uniques</span>
         <span style={{ color: 'var(--border)' }}>·</span>
-        <span>
-          <span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{Math.round(totalETP * 100) / 100}</span>
-          {' '}ETP (total %)
-        </span>
+        <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{Math.round(totalETP * 100) / 100}</span> ETP (total %)</span>
       </div>
 
       {/* Toast */}
@@ -838,19 +964,14 @@ export default function PlanningsPage() {
   )
 }
 
-// ── Table style helpers ────────────────────────────────────────────────────────
+// ── Style helpers ─────────────────────────────────────────────────────────────
 
 function th(align: 'left' | 'center' | 'right', width?: number): React.CSSProperties {
   return {
-    padding: '10px 12px',
-    textAlign: align,
-    fontWeight: 700,
-    fontSize: 12,
-    color: 'var(--foreground)',
-    borderBottom: '2px solid var(--border)',
-    borderRight: '1px solid var(--border)',
-    width: width ?? undefined,
-    whiteSpace: 'nowrap',
+    padding: '10px 12px', textAlign: align,
+    fontWeight: 700, fontSize: 12, color: 'var(--foreground)',
+    borderBottom: '2px solid var(--border)', borderRight: '1px solid var(--border)',
+    width: width ?? undefined, whiteSpace: 'nowrap',
   }
 }
 
@@ -860,5 +981,23 @@ function td(): React.CSSProperties {
     borderBottom: '1px solid var(--border)',
     borderRight: '1px solid var(--border)',
     verticalAlign: 'middle',
+  }
+}
+
+function navBtn(): React.CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 8,
+    border: '1px solid var(--border)', background: 'var(--surface)',
+    cursor: 'pointer', color: 'var(--muted)', transition: 'all 0.12s',
+  }
+}
+
+function actionBtn(): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 28, height: 28, borderRadius: 7,
+    border: '1px solid var(--border)', background: 'transparent',
+    color: 'var(--muted)', cursor: 'pointer', transition: 'all 0.12s',
   }
 }

@@ -1,6 +1,6 @@
 // app/(dashboard)/api/plannings/route.ts
-// GET    /api/plannings?semaine=xx&annee=xxxx&statut=actif
-// POST   /api/plannings   body: { candidat_id?, client_nom, metier, pourcentage, remarques, statut, semaine, annee }
+// GET    /api/plannings?semaine=xx&annee=xxxx  → rows whose period spans the viewed week
+// POST   /api/plannings   body: { candidat_id?, client_nom, metier, pourcentage, remarques, statut, semaine, annee, semaine_fin?, annee_fin? }
 // PATCH  /api/plannings   body: { id, ...fields }
 // DELETE /api/plannings   body: { id }
 
@@ -8,6 +8,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
+
+const SELECT_FIELDS = `
+  id, candidat_id, client_nom, metier, pourcentage, remarques,
+  statut, semaine, annee, semaine_fin, annee_fin,
+  user_id, created_at, updated_at,
+  candidats ( id, nom, prenom, cv_url, titre_poste )
+`
 
 // ── GET ──────────────────────────────────────────────────────────────────────
 
@@ -20,26 +27,32 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const semaine = searchParams.get('semaine')
-    const annee   = searchParams.get('annee')
+    const semaine = parseInt(searchParams.get('semaine') ?? '0')
+    const annee   = parseInt(searchParams.get('annee')   ?? '0')
     const statut  = searchParams.get('statut') || ''
 
     let query = (supabase as any)
       .from('plannings')
-      .select(`
-        id, candidat_id, client_nom, metier, pourcentage, remarques,
-        statut, semaine, annee, user_id, created_at, updated_at,
-        candidats ( id, nom, prenom, cv_url, titre_poste )
-      `)
+      .select(SELECT_FIELDS)
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
 
-    if (semaine) query = query.eq('semaine', parseInt(semaine))
-    if (annee)   query = query.eq('annee', parseInt(annee))
-    if (statut)  query = query.eq('statut', statut)
+    if (statut) query = query.eq('statut', statut)
+
+    // Filter by range: only show rows whose period spans the viewed week
+    // A row is visible for week W/Y if:
+    //   start ≤ W  (annee < Y  OR  (annee = Y AND semaine ≤ W))
+    //   end   ≥ W  (semaine_fin IS NULL  OR  annee_fin > Y  OR  (annee_fin = Y AND semaine_fin ≥ W))
+    if (semaine && annee) {
+      query = query.or(
+        `annee.lt.${annee},and(annee.eq.${annee},semaine.lte.${semaine})`
+      )
+      query = query.or(
+        `semaine_fin.is.null,annee_fin.gt.${annee},and(annee_fin.eq.${annee},semaine_fin.gte.${semaine})`
+      )
+    }
 
     const { data, error } = await query
-
     if (error) throw error
     return NextResponse.json({ plannings: data ?? [] })
   } catch (e: any) {
@@ -60,14 +73,16 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const {
-      candidat_id = null,
-      client_nom = '',
-      metier = '',
-      pourcentage = 1,
-      remarques = '',
-      statut = 'actif',
+      candidat_id  = null,
+      client_nom   = '',
+      metier       = '',
+      pourcentage  = 1,
+      remarques    = '',
+      statut       = 'actif',
       semaine,
       annee,
+      semaine_fin  = null,
+      annee_fin    = null,
     } = body
 
     if (!semaine || !annee) {
@@ -77,21 +92,19 @@ export async function POST(request: NextRequest) {
     const { data, error } = await (supabase as any)
       .from('plannings')
       .insert({
-        candidat_id: candidat_id || null,
-        client_nom:  client_nom  || null,
-        metier:      metier      || null,
-        pourcentage: Number(pourcentage),
-        remarques:   remarques   || null,
+        candidat_id:  candidat_id || null,
+        client_nom:   client_nom  || null,
+        metier:       metier      || null,
+        pourcentage:  Number(pourcentage),
+        remarques:    remarques   || null,
         statut,
-        semaine:     Number(semaine),
-        annee:       Number(annee),
-        user_id:     user.id,
+        semaine:      Number(semaine),
+        annee:        Number(annee),
+        semaine_fin:  semaine_fin ? Number(semaine_fin) : null,
+        annee_fin:    annee_fin   ? Number(annee_fin)   : null,
+        user_id:      user.id,
       })
-      .select(`
-        id, candidat_id, client_nom, metier, pourcentage, remarques,
-        statut, semaine, annee, user_id, created_at, updated_at,
-        candidats ( id, nom, prenom, cv_url, titre_poste )
-      `)
+      .select(SELECT_FIELDS)
       .single()
 
     if (error) throw error
@@ -119,11 +132,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'id est requis' }, { status: 400 })
     }
 
-    // Only allow updating specific fields
     const allowed: Record<string, unknown> = {}
-    const allowedKeys = ['candidat_id', 'client_nom', 'metier', 'pourcentage', 'remarques', 'statut', 'semaine', 'annee']
+    const allowedKeys = [
+      'candidat_id', 'client_nom', 'metier', 'pourcentage', 'remarques',
+      'statut', 'semaine', 'annee', 'semaine_fin', 'annee_fin',
+    ]
     for (const key of allowedKeys) {
-      if (key in fields) allowed[key] = fields[key]
+      if (key in fields) allowed[key] = fields[key] === '' ? null : fields[key]
     }
     allowed.updated_at = new Date().toISOString()
 
@@ -132,11 +147,7 @@ export async function PATCH(request: NextRequest) {
       .update(allowed)
       .eq('id', id)
       .eq('user_id', user.id)
-      .select(`
-        id, candidat_id, client_nom, metier, pourcentage, remarques,
-        statut, semaine, annee, user_id, created_at, updated_at,
-        candidats ( id, nom, prenom, cv_url, titre_poste )
-      `)
+      .select(SELECT_FIELDS)
       .single()
 
     if (error) throw error
