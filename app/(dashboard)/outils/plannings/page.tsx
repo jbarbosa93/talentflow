@@ -684,11 +684,11 @@ export default function PlanningsPage() {
     else setSemaine(s => s + 1)
   }
 
-  // ── Load ──
+  // ── Load — charge tout, le filtre de semaine est côté client ──
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/plannings?semaine=${semaine}&annee=${annee}`)
+      const res = await fetch('/api/plannings')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
       setPlannings(data.plannings ?? [])
@@ -697,9 +697,19 @@ export default function PlanningsPage() {
     } finally {
       setLoading(false)
     }
-  }, [semaine, annee])
+  }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Filtre par plage de semaine côté client
+  const viewKey = annee * 53 + semaine
+  const planningsVisible = plannings.filter(p => {
+    const startKey = p.annee * 53 + p.semaine
+    const endKey   = p.semaine_fin != null && p.annee_fin != null
+      ? p.annee_fin * 53 + p.semaine_fin
+      : Infinity
+    return startKey <= viewKey && viewKey <= endKey
+  })
 
   const [sortBy, setSortBy] = useState<'candidat' | 'entreprise' | 'metier' | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -709,7 +719,7 @@ export default function PlanningsPage() {
     else { setSortBy(col); setSortDir('asc') }
   }
 
-  const rows = [...plannings].sort((a, b) => {
+  const rows = [...planningsVisible].sort((a, b) => {
     if (!sortBy) return 0
     let va = '', vb = ''
     if (sortBy === 'candidat') {

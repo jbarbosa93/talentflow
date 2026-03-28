@@ -31,28 +31,11 @@ export async function GET(request: NextRequest) {
     const annee   = parseInt(searchParams.get('annee')   ?? '0')
     const statut  = searchParams.get('statut') || ''
 
-    let query = (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('plannings')
       .select(SELECT_FIELDS)
       .eq('user_id', user.id)
       .order('created_at', { ascending: true })
-
-    if (statut) query = query.eq('statut', statut)
-
-    // Filter by range: only show rows whose period spans the viewed week
-    // A row is visible for week W/Y if:
-    //   start ≤ W  (annee < Y  OR  (annee = Y AND semaine ≤ W))
-    //   end   ≥ W  (semaine_fin IS NULL  OR  annee_fin > Y  OR  (annee_fin = Y AND semaine_fin ≥ W))
-    if (semaine && annee) {
-      query = query.or(
-        `annee.lt.${annee},and(annee.eq.${annee},semaine.lte.${semaine})`
-      )
-      query = query.or(
-        `semaine_fin.is.null,annee_fin.gt.${annee},and(annee_fin.eq.${annee},semaine_fin.gte.${semaine})`
-      )
-    }
-
-    const { data, error } = await query
     if (error) throw error
     return NextResponse.json({ plannings: data ?? [] })
   } catch (e: any) {
