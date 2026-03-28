@@ -1540,24 +1540,30 @@ export default function CandidatsList() {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
             hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
           }}
-          style={{
-            position: 'fixed',
-            top: 20,
-            bottom: 20,
-            ...(hoveredCv.x + 680 > (typeof window !== 'undefined' ? window.innerWidth : 1400)
-              ? { right: (typeof window !== 'undefined' ? window.innerWidth : 1400) - hoveredCv.x + 12 }
-              : { left: hoveredCv.x + 12 }),
-            width: 640,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-            overflow: 'hidden',
-            zIndex: 500,
-            pointerEvents: previewVisible ? 'auto' : 'none',
-            opacity: previewVisible ? 1 : 0,
-            transition: 'opacity 0.1s ease',
-          }}
+          style={(() => {
+            const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
+            const spaceRight = screenW - hoveredCv.x - 24
+            const spaceLeft  = hoveredCv.x - 24
+            const panelW     = Math.min(820, Math.max(480, spaceRight > spaceLeft ? spaceRight : spaceLeft) - 8)
+            const goLeft     = spaceRight < panelW && spaceLeft > spaceRight
+            return {
+              position: 'fixed' as const,
+              top: 20, bottom: 20,
+              ...(goLeft
+                ? { right: screenW - hoveredCv.x + 12 }
+                : { left: hoveredCv.x + 12 }),
+              width: panelW,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+              overflow: 'hidden',
+              zIndex: 500,
+              pointerEvents: (previewVisible ? 'auto' : 'none') as React.CSSProperties['pointerEvents'],
+              opacity: previewVisible ? 1 : 0,
+              transition: 'opacity 0.1s ease',
+            }
+          })()}
         >
           {/* Header */}
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--background)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1624,22 +1630,22 @@ export default function CandidatsList() {
                 </div>
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                  <iframe
-                    key={`preview-${previewZoom}`}
-                    src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&zoom=page-width` : `${hoveredCv.url}#toolbar=0&navpanes=0&zoom=page-width`}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
-                    title="Aperçu CV"
-                  />
+              <div style={{ width: '100%', height: `${Math.round(previewZoom * 5000)}px`, minHeight: '100%', position: 'relative' }}>
+                <iframe
+                  key={`preview-${hoveredCv.url}-${hoveredCv.rotation}`}
+                  src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : `${hoveredCv.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', zoom: previewZoom } as React.CSSProperties}
+                  title="Aperçu CV"
+                />
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                  <iframe
-                    key={`preview-doc-${previewZoom}`}
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
-                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
-                    title="Aperçu CV"
-                  />
+              <div style={{ width: '100%', height: `${Math.round(previewZoom * 5000)}px`, minHeight: '100%', position: 'relative' }}>
+                <iframe
+                  key={`preview-doc-${hoveredCv.url}`}
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', zoom: previewZoom } as React.CSSProperties}
+                  title="Aperçu CV"
+                />
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>
