@@ -328,7 +328,7 @@ export default function CandidatsList() {
 
   // CV hover preview — always mounted, show/hide via CSS for instant open/close
   const [previewVisible, setPreviewVisible] = useState(false)
-  const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
+  const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number; panelW: number } | null>(null)
   const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
@@ -338,11 +338,8 @@ export default function CandidatsList() {
   // Keep hoveredCv as alias for backward compat in JSX
   const hoveredCv = previewData
   useEffect(() => {
-    if (previewData && previewData.url !== prevHoveredCvUrl.current) {
-      setPreviewZoom(1)
-      prevHoveredCvUrl.current = previewData.url
-    }
     if (!previewData) prevHoveredCvUrl.current = null
+    else prevHoveredCvUrl.current = previewData.url
   }, [previewData])
 
 
@@ -882,7 +879,14 @@ export default function CandidatsList() {
               hoveredCvTimeout.current = setTimeout(() => {
                 const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
                 const rotation = savedRot ? parseInt(savedRot, 10) : 0
-                setPreviewData({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation })
+                const screenW = window.innerWidth
+                const spaceRight = screenW - rect.right - 24
+                const spaceLeft  = rect.right - 24
+                const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
+                // A4 portrait PDF native render ≈ 816px — calc initial zoom to fit panel
+                const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
+                setPreviewData({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation, panelW })
+                setPreviewZoom(initZoom)
                 setPreviewVisible(true)
               }, 120)
             }}
@@ -1542,10 +1546,10 @@ export default function CandidatsList() {
           }}
           style={(() => {
             const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
+            const panelW  = hoveredCv.panelW ?? 820
             const spaceRight = screenW - hoveredCv.x - 24
             const spaceLeft  = hoveredCv.x - 24
-            const panelW     = Math.min(820, Math.max(480, spaceRight > spaceLeft ? spaceRight : spaceLeft) - 8)
-            const goLeft     = spaceRight < panelW && spaceLeft > spaceRight
+            const goLeft  = spaceRight < panelW && spaceLeft > spaceRight
             return {
               position: 'fixed' as const,
               top: 20, bottom: 20,
@@ -1630,20 +1634,22 @@ export default function CandidatsList() {
                 </div>
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: '100%', height: `${Math.round(previewZoom * 5000)}px`, minHeight: '100%', position: 'relative' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                 <iframe
                   key={`preview-${hoveredCv.url}-${hoveredCv.rotation}`}
-                  src={hoveredCv.rotation ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : `${hoveredCv.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', zoom: previewZoom } as React.CSSProperties}
+                  src={hoveredCv.rotation
+                    ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
+                    : `${hoveredCv.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                   title="Aperçu CV"
                 />
               </div>
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
-              <div style={{ width: '100%', height: `${Math.round(previewZoom * 5000)}px`, minHeight: '100%', position: 'relative' }}>
+              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                 <iframe
                   key={`preview-doc-${hoveredCv.url}`}
                   src={`https://docs.google.com/viewer?url=${encodeURIComponent(hoveredCv.url)}&embedded=true`}
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none', zoom: previewZoom } as React.CSSProperties}
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
                   title="Aperçu CV"
                 />
               </div>
