@@ -46,8 +46,9 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
     try {
       setLoading(true)
 
-      // Télécharger via fetch pour éviter les problèmes CORS
-      const fetchRes = await fetch(cvUrl)
+      // Passer par le proxy serveur → évite CORS + auth SharePoint/Supabase
+      const proxyUrl = `/api/cv/print?url=${encodeURIComponent(cvUrl)}`
+      const fetchRes = await fetch(proxyUrl)
       if (!fetchRes.ok) throw new Error('Téléchargement échoué')
       const arrayBuffer = await fetchRes.arrayBuffer()
 
