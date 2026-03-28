@@ -701,7 +701,7 @@ export default function PlanningsPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Filtre par plage de semaine côté client
+  // Tous les candidats toujours visibles — la semaine n'affecte que les stats ETP
   const viewKey = annee * 53 + semaine
   const planningsVisible = plannings.filter(p => {
     const startKey = p.annee * 53 + p.semaine
@@ -719,7 +719,9 @@ export default function PlanningsPage() {
     else { setSortBy(col); setSortDir('asc') }
   }
 
-  const rows = [...planningsVisible].sort((a, b) => {
+  // rows = TOUS les candidats pour l'affichage/édition
+  // planningsVisible = filtrés par semaine pour les stats ETP uniquement
+  const rows = [...plannings].sort((a, b) => {
     if (!sortBy) return 0
     let va = '', vb = ''
     if (sortBy === 'candidat') {
@@ -735,11 +737,11 @@ export default function PlanningsPage() {
     return sortDir === 'asc' ? va.localeCompare(vb, 'fr') : vb.localeCompare(va, 'fr')
   })
 
-  // ── Stats ──
-  const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? p.candidat_nom ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
-  const uniqueEntreprises = new Set(rows.map(p => p.client_nom ?? '').filter(Boolean)).size
-  const totalETP          = rows.reduce((acc, p) => acc + Number(p.pourcentage), 0)
-  const margesAvecValeur  = rows.filter(p => p.marge_horaire != null && p.marge_horaire > 0)
+  // ── Stats — basées sur la semaine en cours (planningsVisible) ──
+  const uniqueCandidats   = new Set(planningsVisible.map(p => p.candidat_id ?? p.candidat_nom ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
+  const uniqueEntreprises = new Set(planningsVisible.map(p => p.client_nom ?? '').filter(Boolean)).size
+  const totalETP          = planningsVisible.reduce((acc, p) => acc + Number(p.pourcentage), 0)
+  const margesAvecValeur  = planningsVisible.filter(p => p.marge_horaire != null && p.marge_horaire > 0)
   const moyenneMarge      = margesAvecValeur.length > 0
     ? margesAvecValeur.reduce((acc, p) => acc + Number(p.marge_horaire), 0) / margesAvecValeur.length
     : null

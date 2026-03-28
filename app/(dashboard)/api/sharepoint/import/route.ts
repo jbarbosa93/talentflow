@@ -68,6 +68,25 @@ export async function POST(request: NextRequest) {
 
     console.log(`[SharePoint Import] Analyse terminée : ${analyse.nom} ${analyse.prenom}`)
 
+    // Validation : diplôme/certificat détecté si nom présent mais aucun contenu CV
+    const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
+    const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
+    const hasContact     = !!(analyse.email || analyse.telephone)
+    const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
+    const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
+    const hasName        = !!(analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1)
+
+    if (hasName && cvScore === 0) {
+      const nomComplet = [analyse.prenom, analyse.nom].filter(Boolean).join(' ')
+      console.warn(`[SharePoint Import] Diplôme/certificat détecté : ${filename} pour ${nomComplet}`)
+      return NextResponse.json({
+        isDiplome: true,
+        error: `"${filename}" ressemble à un diplôme ou certificat, pas à un CV (aucune expérience, compétence ni coordonnée). Importez d'abord le CV de ${nomComplet}, puis ajoutez ce document depuis sa fiche.`,
+        nom: analyse.nom,
+        prenom: analyse.prenom,
+      }, { status: 422 })
+    }
+
     // Upload vers Supabase Storage
     const supabase = createAdminClient()
     const timestamp = Date.now()

@@ -256,6 +256,30 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
 
+  // 6a-pre. Détection diplôme/certificat : si le fichier a un nom mais aucun contenu CV typique
+  // (pas d'expériences, pas de compétences, pas de contact, pas de titre)
+  // → c'est probablement un diplôme ou certificat, pas un CV → on refuse l'import
+  if (!updateId && !replaceId && !mode) {
+    const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
+    const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
+    const hasContact     = !!(analyse.email || analyse.telephone)
+    const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
+    const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
+    const hasName        = !!(analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1)
+
+    if (hasName && cvScore === 0) {
+      const nomComplet = [analyse.prenom, analyse.nom].filter(Boolean).join(' ')
+      console.warn(`[CV Parse] Diplôme/certificat détecté pour ${nomComplet} — aucun contenu CV`)
+      await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: 'diplome_detecte', candidat: nomComplet } })
+      return NextResponse.json({
+        isDiplome: true,
+        error: `Ce fichier ressemble à un diplôme ou certificat (pas à un CV) : aucune expérience, compétence ni coordonnée trouvée pour ${nomComplet}. Importez d'abord le CV, puis ajoutez ce document depuis la fiche candidat.`,
+        nom: analyse.nom,
+        prenom: analyse.prenom,
+      }, { status: 422 })
+    }
+  }
+
   // 6a. Fallback : si l'analyse retourne un résultat quasi-vide sur un PDF,
   // le CV est peut-être à l'envers → essayer avec le PDF retourné à 180°
   if (isPDF && analyse) {
