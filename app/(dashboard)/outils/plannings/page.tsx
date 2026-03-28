@@ -567,6 +567,52 @@ function PeriodeCell({ semaine, annee, semaineFin, anneeFin, onSave }: {
   )
 }
 
+// ── MetierCell — badge cliquable éditable ─────────────────────────────────────
+
+function MetierCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setDraft(value) }, [value])
+  useEffect(() => { if (editing) ref.current?.focus() }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft !== value) onSave(draft)
+  }
+
+  if (editing) return (
+    <input
+      ref={ref} type="text" value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') commit()
+        if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+      }}
+      placeholder="Métier…"
+      style={{
+        width: '100%', background: 'var(--surface)',
+        border: '1.5px solid var(--primary)', borderRadius: 6,
+        padding: '4px 8px', fontSize: 13, color: 'var(--foreground)',
+        outline: 'none', boxSizing: 'border-box',
+      }}
+    />
+  )
+
+  return (
+    <div
+      onClick={() => setEditing(true)}
+      style={{ padding: '4px 8px', cursor: 'text', minHeight: 28, display: 'flex', alignItems: 'center', borderRadius: 6, transition: 'background 0.12s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+    >
+      {value ? <Badge label={value} /> : <span style={{ fontSize: 13, color: 'var(--muted)' }}>Métier…</span>}
+    </div>
+  )
+}
+
 function miniInput(w: number): React.CSSProperties {
   return {
     width: w, border: '1.5px solid var(--border)', borderRadius: 6,
@@ -827,12 +873,12 @@ export default function PlanningsPage() {
                       />
                     </td>
 
-                    {/* Métier */}
+                    {/* Métier — toujours éditable */}
                     <td style={td()}>
-                      {p.metier
-                        ? <div style={{ padding: '4px 8px' }}><Badge label={p.metier} /></div>
-                        : <span style={{ fontSize: 13, color: 'var(--muted)', padding: '4px 8px', display: 'block' }}>—</span>
-                      }
+                      <MetierCell
+                        value={p.metier ?? ''}
+                        onSave={v => handlePatch(p.id, { metier: v || null })}
+                      />
                     </td>
 
                     {/* % */}
