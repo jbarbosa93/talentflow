@@ -5,6 +5,7 @@ import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, Check
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories, type MetierCategory } from '@/hooks/useMetierCategories'
 
 const labelStyle: React.CSSProperties = {
   fontSize: 10, fontWeight: 700, color: 'var(--muted)',
@@ -761,9 +762,6 @@ function MetiersSection() {
   const [saved, setSaved] = useState(false)
   const [dirty, setDirty] = useState(false)
 
-  // Sync local state when remote data loads (or after save)
-  // !isLoading : attendre la fin du chargement initial avant de sync
-  // !dirty     : ne pas écraser les modifications locales en cours
   useEffect(() => {
     if (!isLoading && !dirty) {
       setMetiers(remoteMetiers)
@@ -801,43 +799,256 @@ function MetiersSection() {
   }
 
   return (
-    <SectionCard title="Métiers de l'agence" description="Définissez vos catégories de métiers pour classer les candidats" onSave={handleSave} saving={isSaving} saved={saved}>
-      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
-        Ces métiers sont partagés entre tous les utilisateurs. Toute modification sera visible par l&apos;ensemble de l&apos;équipe.
-      </p>
+    <>
+      <SectionCard title="Métiers de l'agence" description="Définissez vos catégories de métiers pour classer les candidats" onSave={handleSave} saving={isSaving} saved={saved}>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+          Ces métiers sont partagés entre tous les utilisateurs. Toute modification sera visible par l&apos;ensemble de l&apos;équipe.
+        </p>
+        {isLoading ? (
+          <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+            Chargement des métiers...
+          </p>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <input
+                className="neo-input"
+                style={{ flex: 1, height: 36, fontSize: 13 }}
+                placeholder="Ajouter un métier (ex: Électricien, Ventilateur...)"
+                value={newMetier}
+                onChange={e => setNewMetier(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') add() }}
+              />
+              <button onClick={add} disabled={!newMetier.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+                Ajouter
+              </button>
+            </div>
+            {metiers.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+                Aucun métier défini. Ajoutez vos catégories ci-dessus.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {metiers.map(m => (
+                  <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+                    {m}
+                    <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </SectionCard>
+
+      <CategoriesMetiersSection metiers={metiers} />
+    </>
+  )
+}
+
+// ─── Catégories de métiers avec couleurs ─────────────────────────────────────
+
+const PRESET_COLORS = [
+  '#EAB308', '#F97316', '#EF4444', '#EC4899', '#A855F7',
+  '#6366F1', '#3B82F6', '#06B6D4', '#14B8A6', '#22C55E',
+  '#84CC16', '#78716C', '#64748B', '#0EA5E9', '#D946EF',
+]
+
+function CategoriesMetiersSection({ metiers }: { metiers: string[] }) {
+  const { categories: remoteCategories, isLoading, saveCategories, isSaving } = useMetierCategories()
+  const [categories, setCategories] = useState<MetierCategory[]>([])
+  const [newCatName, setNewCatName] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
+
+  useEffect(() => {
+    if (!isLoading && !dirty) {
+      setCategories(remoteCategories)
+    }
+  }, [remoteCategories, isLoading, dirty])
+
+  // Métiers non assignés à aucune catégorie
+  const assignedMetiers = new Set(categories.flatMap(c => c.metiers))
+  const unassignedMetiers = metiers.filter(m => !assignedMetiers.has(m))
+
+  const addCategory = () => {
+    const trimmed = newCatName.trim()
+    if (!trimmed || categories.some(c => c.name === trimmed)) return
+    // Prendre une couleur pas encore utilisée
+    const usedColors = new Set(categories.map(c => c.color))
+    const availableColor = PRESET_COLORS.find(c => !usedColors.has(c)) || PRESET_COLORS[0]
+    setCategories([...categories, { name: trimmed, color: availableColor, metiers: [] }])
+    setNewCatName('')
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const removeCategory = (name: string) => {
+    setCategories(prev => prev.filter(c => c.name !== name))
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const updateCategoryColor = (name: string, color: string) => {
+    setCategories(prev => prev.map(c => c.name === name ? { ...c, color } : c))
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const addMetierToCategory = (catName: string, metier: string) => {
+    setCategories(prev => prev.map(c => {
+      if (c.name === catName && !c.metiers.includes(metier)) {
+        return { ...c, metiers: [...c.metiers, metier] }
+      }
+      return c
+    }))
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const removeMetierFromCategory = (catName: string, metier: string) => {
+    setCategories(prev => prev.map(c => {
+      if (c.name === catName) {
+        return { ...c, metiers: c.metiers.filter(m => m !== metier) }
+      }
+      return c
+    }))
+    setDirty(true)
+    setSaved(false)
+  }
+
+  const handleSave = () => {
+    saveCategories(categories, {
+      onSuccess: () => {
+        setSaved(true)
+        setDirty(false)
+        toast.success('Catégories enregistrées')
+        setTimeout(() => setSaved(false), 3000)
+      },
+      onError: () => {
+        toast.error('Erreur lors de la sauvegarde des catégories')
+      },
+    })
+  }
+
+  return (
+    <SectionCard title="Catégories de métiers" description="Regroupez vos métiers par catégorie avec une couleur pour mieux les identifier" onSave={handleSave} saving={isSaving} saved={saved}>
       {isLoading ? (
         <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
-          Chargement des métiers...
+          Chargement...
         </p>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+          {/* Ajouter une catégorie */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
             <input
               className="neo-input"
               style={{ flex: 1, height: 36, fontSize: 13 }}
-              placeholder="Ajouter un métier (ex: Électricien, Ventilateur...)"
-              value={newMetier}
-              onChange={e => setNewMetier(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') add() }}
+              placeholder="Nouvelle catégorie (ex: Second oeuvre, Gros oeuvre...)"
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addCategory() }}
             />
-            <button onClick={add} disabled={!newMetier.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+            <button onClick={addCategory} disabled={!newCatName.trim()} className="neo-btn-yellow" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
               Ajouter
             </button>
           </div>
-          {metiers.length === 0 ? (
+
+          {/* Liste des catégories */}
+          {categories.length === 0 ? (
             <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
-              Aucun métier défini. Ajoutez vos catégories ci-dessus.
+              Aucune catégorie. Créez-en une pour regrouper vos métiers par couleur.
             </p>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {metiers.map(m => (
-                <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                  {m}
-                  <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
-                    <X size={13} />
-                  </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {categories.map(cat => (
+                <div key={cat.name} style={{
+                  border: `2px solid ${cat.color}`,
+                  borderRadius: 12,
+                  padding: 14,
+                  background: `${cat.color}08`,
+                }}>
+                  {/* Header catégorie */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    {/* Sélecteur de couleur */}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {PRESET_COLORS.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => updateCategoryColor(cat.name, color)}
+                          style={{
+                            width: 20, height: 20, borderRadius: '50%',
+                            background: color, border: cat.color === color ? '2px solid var(--foreground)' : '2px solid transparent',
+                            cursor: 'pointer', padding: 0, transition: 'transform 0.1s',
+                          }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
+                      {cat.name}
+                    </span>
+                    <button onClick={() => removeCategory(cat.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#EF4444' }} title="Supprimer la catégorie">
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {/* Métiers dans cette catégorie */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {cat.metiers.map(m => (
+                      <span key={m} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                        background: cat.color, color: 'white',
+                      }}>
+                        {m}
+                        <button onClick={() => removeMetierFromCategory(cat.name, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'white', opacity: 0.8 }}>
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                    {cat.metiers.length === 0 && (
+                      <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>
+                        Aucun métier — ajoutez-en depuis la liste ci-dessous
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Dropdown pour ajouter un métier */}
+                  {unassignedMetiers.length > 0 && (
+                    <select
+                      className="neo-input-soft"
+                      style={{ height: 32, fontSize: 12, width: 'auto', minWidth: 180 }}
+                      value=""
+                      onChange={e => { if (e.target.value) addMetierToCategory(cat.name, e.target.value) }}
+                    >
+                      <option value="">+ Ajouter un métier...</option>
+                      {unassignedMetiers.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Métiers non assignés */}
+          {unassignedMetiers.length > 0 && categories.length > 0 && (
+            <div style={{ marginTop: 16, padding: 12, background: 'var(--secondary)', borderRadius: 10 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase' }}>
+                Métiers sans catégorie ({unassignedMetiers.length})
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {unassignedMetiers.map(m => (
+                  <span key={m} style={{
+                    padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                    background: 'var(--surface)', border: '1px dashed var(--border)', color: 'var(--muted)',
+                  }}>
+                    {m}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </>

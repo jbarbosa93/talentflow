@@ -60,6 +60,7 @@ export function useCandidat(id: string) {
       return candidat
     },
     enabled: !!id,
+    staleTime: 60_000, // données fraîches 1 min → affichage immédiat si déjà en cache
   })
 }
 

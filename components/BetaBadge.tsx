@@ -1,15 +1,45 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { APP_VERSION, APP_ENV, CHANGELOG } from '@/lib/version'
 import { X, Bug } from 'lucide-react'
 import { toast } from 'sonner'
+
+const SEEN_VERSION_KEY = 'talentflow_seen_version'
+
+function getSeenVersion(): string | null {
+  try { return localStorage.getItem(SEEN_VERSION_KEY) } catch { return null }
+}
+
+function markVersionSeen() {
+  try { localStorage.setItem(SEEN_VERSION_KEY, APP_VERSION) } catch {}
+}
 
 export default function BetaBadge({ inline }: { inline?: boolean }) {
   const [showChangelog, setShowChangelog] = useState(false)
   const [showBugReport, setShowBugReport] = useState(false)
   const [bugText, setBugText] = useState('')
   const [bugSending, setBugSending] = useState(false)
+  const [hasNewVersion, setHasNewVersion] = useState(false)
+
+  // Vérifier si l'utilisateur a vu la version actuelle
+  useEffect(() => {
+    const seen = getSeenVersion()
+    if (seen !== APP_VERSION) {
+      setHasNewVersion(true)
+      // Auto-ouvrir le changelog à la première visite après une MAJ
+      setShowChangelog(true)
+    }
+  }, [])
+
+  // Quand l'utilisateur ferme le changelog, marquer comme vu
+  const handleCloseChangelog = () => {
+    setShowChangelog(false)
+    if (hasNewVersion) {
+      markVersionSeen()
+      setHasNewVersion(false)
+    }
+  }
 
   const handleBugSubmit = async () => {
     if (!bugText.trim()) return
@@ -93,7 +123,14 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
           }}
         >
           {envBadge}
-          {APP_VERSION}
+          <span style={{ flex: 1 }}>{APP_VERSION}</span>
+          {hasNewVersion && (
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: '#EF4444', flexShrink: 0,
+              animation: 'pulse 2s infinite',
+            }} />
+          )}
         </button>
         <button
           onClick={() => setShowBugReport(true)}
@@ -166,7 +203,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
       {/* Changelog modal — portail pour sortir du stacking context sidebar */}
       {showChangelog && typeof document !== 'undefined' && createPortal(
         <div
-          onClick={() => setShowChangelog(false)}
+          onClick={handleCloseChangelog}
           style={{
             position: 'fixed',
             inset: 0,
@@ -210,7 +247,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                 </p>
               </div>
               <button
-                onClick={() => setShowChangelog(false)}
+                onClick={handleCloseChangelog}
                 style={{
                   width: 32, height: 32, borderRadius: 8,
                   border: '1px solid #E2E8F0', background: 'white',
@@ -263,7 +300,18 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                           {entry.label}
                         </span>
                       )}
-                      {isCurrent && (
+                      {isCurrent && hasNewVersion && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 800,
+                          padding: '2px 6px', borderRadius: 8,
+                          background: '#EF4444', color: 'white',
+                          textTransform: 'uppercase', letterSpacing: '0.05em',
+                          animation: 'pulse 2s infinite',
+                        }}>
+                          Nouveau
+                        </span>
+                      )}
+                      {isCurrent && !hasNewVersion && (
                         <span style={{
                           fontSize: 9, fontWeight: 800,
                           padding: '2px 6px', borderRadius: 8,

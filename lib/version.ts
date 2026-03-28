@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.20.0'
+export const APP_VERSION = 'v0.22.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.22.0',
+    date: '2026-03-28',
+    label: 'Recherche avancee, Categories & UX',
+    features: [
+      'Recherche booleenne : ET/AND, OU/OR, SAUF/NOT pour affiner les recherches',
+      'Bouton aide (i) avec popup explicatif pour la recherche avancee',
+      'Filtre par etoiles minimum dans les filtres avances (1+ a 5)',
+      'Categories de metiers avec couleurs personnalisables (ex: Second oeuvre, Gros oeuvre)',
+      'Couleurs des categories visibles dans le dropdown, le popover et les badges metier',
+      'Badge CFC affiche dans la liste candidats pour les candidats avec CFC',
+      'Date d\'ajout plus visible dans la liste candidats (police agrandie)',
+      'Badge OneDrive supprime de la liste candidats (reste dans la fiche)',
+      'Import en masse : plus de deconnexion automatique pendant un import en cours',
+      'Import en masse : date du nom de fichier toujours appliquee automatiquement (DD.MM.YYYY)',
+      'Changelog : badge rouge de notification pour les nouvelles mises a jour',
+      'Changelog : ouverture automatique a la premiere visite apres une mise a jour',
+    ],
+  },
   {
     version: 'v0.20.0',
     date: '2026-03-26',

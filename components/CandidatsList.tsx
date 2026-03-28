@@ -5,13 +5,14 @@ import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive, Briefcase,
+  CheckCircle, Archive, Briefcase, Info,
 } from 'lucide-react'
 
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
@@ -84,6 +85,41 @@ const calculerAge = (dateNaissance: string | null): number | null => {
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
+// ─── Recherche booléenne (ET/AND, OU/OR, SAUF/NOT) ───
+function parseBooleanSearch(query: string): ((text: string) => boolean) | null {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+
+  // Détecter si la requête contient des opérateurs booléens
+  const hasBooleanOps = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(trimmed)
+  if (!hasBooleanOps) return null
+
+  // Séparer par OU/OR d'abord (priorité la plus basse)
+  const orParts = trimmed.split(/\b(?:OU|OR)\b/i).map(s => s.trim()).filter(Boolean)
+
+  return (text: string) => {
+    const normalizedText = normalize(text)
+    // Au moins un des groupes OU doit matcher
+    return orParts.some(orPart => {
+      // Dans chaque groupe OU, séparer par SAUF/NOT
+      const saufParts = orPart.split(/\b(?:SAUF|NOT)\b/i).map(s => s.trim()).filter(Boolean)
+      const mustInclude = saufParts[0] || ''
+      const mustExclude = saufParts.slice(1)
+
+      // Séparer les termes "must include" par ET/AND
+      const andTerms = mustInclude.split(/\b(?:ET|AND)\b/i).map(s => s.trim()).filter(Boolean)
+
+      // Tous les termes ET doivent être présents
+      const allAndMatch = andTerms.every(term => normalizedText.includes(normalize(term)))
+
+      // Aucun terme SAUF ne doit être présent
+      const noExcluded = mustExclude.every(term => !normalizedText.includes(normalize(term)))
+
+      return allAndMatch && noExcluded
+    })
+  }
+}
+
 const IMPORT_STATUS_OPTS = [
   { value: 'a_traiter', label: 'À traiter' },
   { value: 'traite',    label: 'Actif' },
@@ -99,9 +135,35 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
 }) {
   const [selected, setSelected] = useState<string[]>(currentTags)
   const { metiers } = useMetiers()
+  const { categories, getColorForMetier } = useMetierCategories()
 
   const toggle = (m: string) => {
     setSelected(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
+  }
+
+  // Grouper les métiers par catégorie
+  const assignedSet = new Set(categories.flatMap(c => c.metiers))
+  const unassigned = metiers.filter(m => !assignedSet.has(m))
+
+  const renderMetierItem = (m: string) => {
+    const color = getColorForMetier(m) || '#3B82F6'
+    return (
+      <label key={m} style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '5px 8px', borderRadius: 6, cursor: 'pointer',
+        background: selected.includes(m) ? `${color}14` : 'transparent',
+        fontSize: 12, fontWeight: selected.includes(m) ? 600 : 400,
+      }}>
+        <input
+          type="checkbox"
+          checked={selected.includes(m)}
+          onChange={() => toggle(m)}
+          style={{ accentColor: color }}
+        />
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+        {m}
+      </label>
+    )
   }
 
   return (
@@ -109,7 +171,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
       position: 'absolute', top: '100%', right: 0, zIndex: 100,
       background: 'white', borderRadius: 10, padding: 10,
       boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-      border: '1px solid var(--border)', minWidth: 200, maxHeight: 280, overflowY: 'auto',
+      border: '1px solid var(--border)', minWidth: 220, maxHeight: 320, overflowY: 'auto',
     }}
       onClick={e => e.stopPropagation()}
     >
@@ -120,24 +182,32 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
         <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
           Aucun métier configuré.<br />Allez dans Paramètres pour en ajouter.
         </p>
+      ) : categories.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {categories.map(cat => {
+            const catMetiers = cat.metiers.filter(m => metiers.includes(m))
+            if (catMetiers.length === 0) return null
+            return (
+              <div key={cat.name}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: cat.color, margin: '6px 0 2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {cat.name}
+                </div>
+                {catMetiers.map(renderMetierItem)}
+              </div>
+            )
+          })}
+          {unassigned.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', margin: '6px 0 2px 8px', textTransform: 'uppercase' }}>
+                Autres
+              </div>
+              {unassigned.map(renderMetierItem)}
+            </div>
+          )}
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {metiers.map(m => (
-            <label key={m} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '5px 8px', borderRadius: 6, cursor: 'pointer',
-              background: selected.includes(m) ? 'rgba(59,130,246,0.08)' : 'transparent',
-              fontSize: 12, fontWeight: selected.includes(m) ? 600 : 400,
-            }}>
-              <input
-                type="checkbox"
-                checked={selected.includes(m)}
-                onChange={() => toggle(m)}
-                style={{ accentColor: '#3B82F6' }}
-              />
-              {m}
-            </label>
-          ))}
+          {metiers.map(renderMetierItem)}
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
@@ -182,9 +252,10 @@ export default function CandidatsList() {
   }
 
   const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'a_traiter'))
-  const [filterNonVu, setFilterNonVu] = useState(false)
+  const [filterNonVu, setFilterNonVu] = useState(() => sessionStorage.getItem('candidats_filter_nonvu') === '1')
 
   const { metiers: agenceMetiers } = useMetiers()
+  const { categories: metierCategories, getColorForMetier } = useMetierCategories()
   const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
   const [search, setSearch]               = useState(() => ssGet('search', ''))
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
@@ -239,6 +310,8 @@ export default function CandidatsList() {
   const [filterPermis, setFilterPermis] = useState<boolean | null>(() => ssGet('fPermis', null))
   const [filterExpMin, setFilterExpMin] = useState<number | ''>(() => ssGet('fExpMin', ''))
   const [filterGenre, setFilterGenre] = useState<string>(() => ssGet('fGenre', ''))
+  const [filterStarsMin, setFilterStarsMin] = useState<number | ''>(() => ssGet('fStarsMin', ''))
+  const [showBooleanHelp, setShowBooleanHelp] = useState(false)
 
   // Persister les filtres dans sessionStorage
   useEffect(() => { ssSet('sort', sortBy) }, [sortBy])
@@ -251,6 +324,7 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('fPermis', filterPermis) }, [filterPermis])
   useEffect(() => { ssSet('fExpMin', filterExpMin) }, [filterExpMin])
   useEffect(() => { ssSet('fGenre', filterGenre) }, [filterGenre])
+  useEffect(() => { ssSet('fStarsMin', filterStarsMin) }, [filterStarsMin])
 
   // CV hover preview
   const [hoveredCv, setHoveredCv] = useState<{ url: string; ext: string; x: number; y: number; rotation: number } | null>(null)
@@ -406,8 +480,22 @@ export default function CandidatsList() {
       })
     }
 
+    // Filtre étoiles minimum
+    if (filterStarsMin !== '') {
+      filtered = filtered.filter(c => (c.rating || 0) >= filterStarsMin)
+    }
+
+    // Recherche booléenne côté client (ET/OU/SAUF)
+    const booleanMatcher = parseBooleanSearch(search)
+    if (booleanMatcher) {
+      filtered = filtered.filter(c => {
+        const searchable = [c.prenom, c.nom, c.titre_poste, c.email, c.localisation, c.formation, c.notes, ...(c.competences || []), ...(c.tags || [])].filter(Boolean).join(' ')
+        return booleanMatcher(searchable)
+      })
+    }
+
     return filtered
-  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin, filterAgeMin, filterAgeMax])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin, filterAgeMin, filterAgeMax, filterStarsMin, search])
 
   const activeFiltersCount = [
     filterMetier !== '',
@@ -417,6 +505,7 @@ export default function CandidatsList() {
     filterLangue !== '',
     filterPermis !== null,
     filterGenre !== '',
+    filterStarsMin !== '',
   ].filter(Boolean).length
 
   // Tri côté serveur — seul le tri par distance reste côté client
@@ -604,9 +693,25 @@ export default function CandidatsList() {
     if (selectedIds.size > 0) toggleSelect(id)
     else {
       sessionStorage.setItem('candidats_last_list', importStatusFilter === 'a_traiter' ? 'a_traiter' : 'all')
-      markCandidatVu(id) // Badge rouge disparaît quand la fiche est ouverte
+      // Persiste l'état du filtre "non vus" pour le restaurer en revenant
+      sessionStorage.setItem('candidats_filter_nonvu', filterNonVu ? '1' : '0')
+      // NE PAS marquer vu ici → la fiche le fait sur son useEffect, évite la disparition visuelle
       router.push(`/candidats/${id}`)
     }
+  }
+
+  // Prefetch des données candidat au survol pour accélérer l'ouverture
+  const handleCardHover = (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['candidat', id],
+      queryFn: async () => {
+        const res = await fetch(`/api/candidats/${id}`)
+        if (!res.ok) throw new Error('Candidat introuvable')
+        const { candidat } = await res.json()
+        return candidat
+      },
+      staleTime: 60_000,
+    })
   }
 
   const initiales = (c: any) => {
@@ -671,6 +776,7 @@ export default function CandidatsList() {
       <div
         key={c.id}
         onClick={() => handleCardClick(c.id)}
+        onMouseEnter={() => handleCardHover(c.id)}
         style={{
           display: 'flex', alignItems: 'center', gap: 14,
           background: selected ? 'var(--primary-soft)' : 'var(--surface)',
@@ -736,8 +842,8 @@ export default function CandidatsList() {
                 {'\uD83D\uDCCD'} {c.localisation}
               </span>
             )}
-            {c.source === 'ONEDRIVE' && (
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#E0F2FE', color: '#0369A1', letterSpacing: '0.02em' }}>📂 OneDrive</span>
+            {c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation) && (
+              <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
             )}
           </div>
         </div>
@@ -813,43 +919,49 @@ export default function CandidatsList() {
           </button>
         )}
 
-        {/* Métier — pastille bleue si assigné, bouton discret sinon */}
-        <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
-          <button
-            onClick={e => { e.stopPropagation(); setMetierPopoverId(metierPopoverId === c.id ? null : c.id) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '3px 9px', borderRadius: 100,
-              border: (c.tags && c.tags.length > 0) ? 'none' : '1px dashed var(--border)',
-              background: (c.tags && c.tags.length > 0) ? 'rgba(59,130,246,0.1)' : 'transparent',
-              cursor: 'pointer', fontSize: 10, fontWeight: (c.tags && c.tags.length > 0) ? 700 : 600,
-              color: (c.tags && c.tags.length > 0) ? '#3B82F6' : 'var(--muted)',
-              fontFamily: 'inherit', whiteSpace: 'nowrap',
-              opacity: (c.tags && c.tags.length > 0) ? 1 : 0.6,
-            }}
-            title={(c.tags && c.tags.length > 0) ? 'Modifier les métiers' : 'Assigner un métier'}
-          >
-            <Briefcase size={10} />
-            {(c.tags && c.tags.length > 0) ? (c.tags[0] + (c.tags.length > 1 ? ` +${c.tags.length - 1}` : '')) : 'Métier'}
-          </button>
-          {metierPopoverId === c.id && (
-            <MetierPopover
-              candidatId={c.id}
-              currentTags={c.tags || []}
-              onClose={() => setMetierPopoverId(null)}
-              onSave={async (tags) => {
-                const { createClient } = await import('@/lib/supabase/client')
-                const supabase = createClient()
-                await supabase.from('candidats').update({ tags }).eq('id', c.id)
-                setMetierPopoverId(null)
-                queryClient.invalidateQueries({ queryKey: ['candidats'] })
-              }}
-            />
-          )}
-        </div>
+        {/* Métier — pastille colorée selon catégorie si assigné, bouton discret sinon */}
+        {(() => {
+          const hasTags = c.tags && c.tags.length > 0
+          const tagColor = hasTags ? (getColorForMetier(c.tags[0]) || '#3B82F6') : '#3B82F6'
+          return (
+            <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                onClick={e => { e.stopPropagation(); setMetierPopoverId(metierPopoverId === c.id ? null : c.id) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 9px', borderRadius: 100,
+                  border: hasTags ? 'none' : '1px dashed var(--border)',
+                  background: hasTags ? `${tagColor}18` : 'transparent',
+                  cursor: 'pointer', fontSize: 10, fontWeight: hasTags ? 700 : 600,
+                  color: hasTags ? tagColor : 'var(--muted)',
+                  fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  opacity: hasTags ? 1 : 0.6,
+                }}
+                title={hasTags ? 'Modifier les métiers' : 'Assigner un métier'}
+              >
+                <Briefcase size={10} />
+                {hasTags ? (c.tags[0] + (c.tags.length > 1 ? ` +${c.tags.length - 1}` : '')) : 'Métier'}
+              </button>
+              {metierPopoverId === c.id && (
+                <MetierPopover
+                  candidatId={c.id}
+                  currentTags={c.tags || []}
+                  onClose={() => setMetierPopoverId(null)}
+                  onSave={async (tags) => {
+                    const { createClient } = await import('@/lib/supabase/client')
+                    const supabase = createClient()
+                    await supabase.from('candidats').update({ tags }).eq('id', c.id)
+                    setMetierPopoverId(null)
+                    queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  }}
+                />
+              )}
+            </div>
+          )
+        })()}
 
         {/* Date d'ajout */}
-        <span style={{ fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, opacity: 0.7 }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
           {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       </div>
@@ -1031,7 +1143,7 @@ export default function CandidatsList() {
       {/* Filters + Sort + Group */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
         {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 500, display: 'flex', gap: 6 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 500, display: 'flex', gap: 6, alignItems: 'center' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
             <input
@@ -1051,9 +1163,66 @@ export default function CandidatsList() {
               </button>
             )}
           </div>
+          {/* Aide recherche booléenne */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowBooleanHelp(v => !v)}
+              style={{
+                background: showBooleanHelp ? 'var(--primary)' : 'none', border: '1px solid var(--border)',
+                borderRadius: '50%', width: 26, height: 26, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: showBooleanHelp ? '#0F172A' : 'var(--muted)', flexShrink: 0, transition: 'all 0.15s',
+              }}
+              title="Aide recherche avancée"
+            >
+              <Info size={14} />
+            </button>
+            {showBooleanHelp && (
+              <div style={{
+                position: 'absolute', top: '110%', right: 0, zIndex: 200,
+                background: 'white', borderRadius: 12, padding: 16,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+                border: '1px solid var(--border)', width: 340,
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                  Recherche avancée
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.6 }}>
+                  Utilisez des opérateurs pour affiner votre recherche :
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginBottom: 2 }}>ET / AND</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Les deux termes doivent être présents</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Électricien ET Genève</code>
+                  </div>
+                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#3B82F6', marginBottom: 2 }}>OU / OR</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>L&apos;un ou l&apos;autre terme</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Soudeur OU Tuyauteur</code>
+                  </div>
+                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>SAUF / NOT</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Exclure un terme</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Maçon SAUF intérimaire</code>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowBooleanHelp(false)}
+                  style={{
+                    marginTop: 12, width: '100%', padding: '6px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--bg)',
+                    fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted)',
+                  }}
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Filtre métier */}
+        {/* Filtre métier — groupé par catégorie avec couleur */}
         {agenceMetiers.length > 0 && (
           <select
             className="neo-input-soft"
@@ -1062,7 +1231,30 @@ export default function CandidatsList() {
             onChange={e => setFiltreMetier(e.target.value)}
           >
             <option value="">Tous les métiers</option>
-            {agenceMetiers.map(m => <option key={m} value={m}>{m}</option>)}
+            {metierCategories.length > 0 ? (
+              <>
+                {metierCategories.map(cat => (
+                  <optgroup key={cat.name} label={`● ${cat.name}`}>
+                    {cat.metiers.filter(m => agenceMetiers.includes(m)).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                {/* Métiers sans catégorie */}
+                {(() => {
+                  const assigned = new Set(metierCategories.flatMap(c => c.metiers))
+                  const unassigned = agenceMetiers.filter(m => !assigned.has(m))
+                  if (unassigned.length === 0) return null
+                  return (
+                    <optgroup label="Autres">
+                      {unassigned.map(m => <option key={m} value={m}>{m}</option>)}
+                    </optgroup>
+                  )
+                })()}
+              </>
+            ) : (
+              agenceMetiers.map(m => <option key={m} value={m}>{m}</option>)
+            )}
           </select>
         )}
 
@@ -1182,8 +1374,19 @@ export default function CandidatsList() {
               <option value="non">Non</option>
             </select>
           </div>
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>ÉTOILES MINIMUM</label>
+            <select value={filterStarsMin} onChange={e=>setFilterStarsMin(e.target.value?Number(e.target.value):'')} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}>
+              <option value="">Toutes</option>
+              <option value="1">⭐ 1+</option>
+              <option value="2">⭐ 2+</option>
+              <option value="3">⭐ 3+</option>
+              <option value="4">⭐ 4+</option>
+              <option value="5">⭐ 5</option>
+            </select>
+          </div>
           <div style={{display:'flex',alignItems:'flex-end'}}>
-            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('');setFilterGenre('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
+            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('');setFilterGenre('');setFilterStarsMin('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
               Réinitialiser
             </button>
           </div>

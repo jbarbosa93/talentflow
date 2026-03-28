@@ -147,6 +147,57 @@ export async function envoyerTemplate(
   return appelAPI(phoneId, token, message)
 }
 
+// ─── Envoyer un document (PDF) ────────────────────────────────────────────────
+
+/**
+ * Upload a PDF buffer to WhatsApp Media API, then send it as a document.
+ * @param telephone  International number, e.g. "+41791234567" or "41791234567"
+ * @param pdfBuffer  Raw PDF bytes
+ * @param filename   Filename shown in WhatsApp, e.g. "rapport-heures-s13.pdf"
+ * @param caption    Optional caption message
+ */
+export async function envoyerDocument(
+  telephone: string,
+  pdfBuffer: Uint8Array,
+  filename: string,
+  caption?: string,
+): Promise<WhatsAppSendResult> {
+  const phoneId = getPhoneId()
+  const token   = getToken()
+  const numero  = telephone.replace(/[\s+\-()]/g, '')
+
+  // 1 — Upload media to WhatsApp
+  const formData = new FormData()
+  formData.append('messaging_product', 'whatsapp')
+  formData.append('type', 'application/pdf')
+  formData.append('file', new Blob([pdfBuffer.buffer as ArrayBuffer], { type: 'application/pdf' }), filename)
+
+  const uploadRes = await fetch(`${WHATSAPP_API_BASE}/${phoneId}/media`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  })
+  const uploadData = await uploadRes.json()
+  if (!uploadRes.ok) {
+    const errMsg = uploadData?.error?.message || `HTTP ${uploadRes.status}`
+    throw new Error(`WhatsApp Media Upload : ${errMsg}`)
+  }
+  const mediaId: string = uploadData.id
+
+  // 2 — Send document message
+  return appelAPI(phoneId, token, {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: numero,
+    type: 'document',
+    document: {
+      id: mediaId,
+      filename,
+      ...(caption ? { caption } : {}),
+    },
+  })
+}
+
 // ─── Marquer message comme lu ─────────────────────────────────────────────────
 
 export async function marquerCommeLu(messageId: string): Promise<void> {

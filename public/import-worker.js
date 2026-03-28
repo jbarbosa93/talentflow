@@ -3,7 +3,7 @@
 
 const CONCURRENCY        = 3
 const MAX_RETRIES        = 3
-const FETCH_TIMEOUT      = 57_000   // 57s — laisse le temps à la route (55s global) de répondre
+const FETCH_TIMEOUT      = 180_000  // 3 min — la route Vercel a 300s, on laisse largement le temps
 const LARGE_FILE_LIMIT   = 3 * 1024 * 1024  // 3 Mo → upload direct Supabase au-delà
 
 let queue          = []
@@ -85,11 +85,9 @@ async function processJobDirect(job, t0) {
     } catch (err) {
       clearTimeout(timeoutId)
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout serveur (PDF trop lourd)' : (err.message || 'Erreur inconnue')
-      // Timeout → pas de retry, le PDF échoue systématiquement, inutile d'attendre
-      if (isTimeout) break
+      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = attempt * 3000
+        const wait = isTimeout ? 10_000 : attempt * 3000  // 10s de pause après un timeout
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }
@@ -147,10 +145,9 @@ async function processJobLarge(job, t0) {
 
     } catch (err) {
       const isTimeout = err.name === 'AbortError' || (err.message && err.message.includes('Timeout'))
-      lastError = err.name === 'AbortError' ? 'Timeout serveur (PDF trop lourd)' : (err.message || 'Erreur inconnue')
-      if (isTimeout) break
+      lastError = err.name === 'AbortError' ? 'Timeout serveur' : (err.message || 'Erreur inconnue')
       if (attempt < MAX_RETRIES) {
-        const wait = attempt * 3000
+        const wait = isTimeout ? 10_000 : attempt * 3000
         self.postMessage({ type: 'JOB_WAITING', id: job.id, error: `${lastError} — retry ${attempt}/${MAX_RETRIES} dans ${Math.round(wait/1000)}s` })
         await new Promise(r => setTimeout(r, wait))
       }

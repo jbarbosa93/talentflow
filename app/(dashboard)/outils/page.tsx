@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck, ScanSearch } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck, ScanSearch, ClipboardList } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -40,6 +40,15 @@ const OUTILS = [
     color: '#DC2626',
     colorSoft: 'rgba(220,38,38,0.12)',
     badge: 'IA',
+  },
+  {
+    href: '/outils/rapport-heures',
+    icon: ClipboardList,
+    title: 'Rapport d\'heures',
+    description: 'Créez et envoyez rapidement les rapports de travail hebdomadaires par WhatsApp ou email.',
+    color: '#F59E0B',
+    colorSoft: 'rgba(245,158,11,0.12)',
+    badge: null,
   },
 ]
 
