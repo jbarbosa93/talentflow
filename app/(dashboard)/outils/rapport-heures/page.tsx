@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ClipboardList, FileDown, Loader2, Mail, MessageCircle, X } from 'lucide-react'
+import { ArrowLeft, ClipboardList, FileDown, Loader2 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -75,169 +75,6 @@ function initGrid(): GridData {
   return grid
 }
 
-// ── WhatsApp Modal ─────────────────────────────────────────────────────────────
-
-function WhatsAppModal({
-  onClose,
-  onSendDirect,
-  onOpenWa,
-  sending,
-}: {
-  onClose: () => void
-  onSendDirect: (tel: string) => void
-  onOpenWa: () => void
-  sending: boolean
-}) {
-  const [tel, setTel] = useState('')
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div className="neo-card-soft" style={{ width: '100%', maxWidth: 420, padding: 28, position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
-          <X size={16} />
-        </button>
-        <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 20px' }}>
-          Envoyer sur WhatsApp
-        </h3>
-
-        {/* Option 1 — Direct API with PDF */}
-        <div style={{ padding: 16, borderRadius: 10, border: '1.5px solid var(--border)', marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>
-            📎 Envoyer le PDF directement
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
-            Le PDF est envoyé automatiquement sur le numéro indiqué.
-          </div>
-          <input
-            type="tel"
-            className="neo-input"
-            value={tel}
-            onChange={e => setTel(e.target.value)}
-            placeholder="+41 79 123 45 67"
-            style={{ width: '100%', marginBottom: 10, boxSizing: 'border-box' }}
-            onKeyDown={e => e.key === 'Enter' && tel && onSendDirect(tel)}
-            autoFocus
-          />
-          <button
-            onClick={() => tel && onSendDirect(tel)}
-            disabled={!tel || sending}
-            style={{
-              width: '100%', padding: '9px 0', borderRadius: 8, border: 'none',
-              background: tel && !sending ? '#25D366' : 'rgba(37,211,102,0.35)',
-              color: 'white', fontWeight: 700, fontSize: 13,
-              cursor: tel && !sending ? 'pointer' : 'not-allowed',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
-          >
-            {sending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MessageCircle size={14} />}
-            Envoyer le PDF
-          </button>
-        </div>
-
-        {/* Option 2 — Open WhatsApp to choose contact/group */}
-        <div style={{ padding: 16, borderRadius: 10, border: '1.5px solid var(--border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>
-            💬 Ouvrir WhatsApp (groupe ou contact)
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
-            Ouvre WhatsApp pour choisir toi-même le destinataire ou un groupe. Le PDF est à joindre manuellement.
-          </div>
-          <button
-            onClick={onOpenWa}
-            style={{
-              width: '100%', padding: '9px 0', borderRadius: 8,
-              border: '1.5px solid #25D366', background: 'transparent',
-              color: '#25D366', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}
-          >
-            Ouvrir WhatsApp →
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Email Modal ────────────────────────────────────────────────────────────────
-
-function EmailModal({
-  onClose,
-  onSend,
-  sending,
-}: {
-  onClose: () => void
-  onSend: (email: string) => void
-  sending: boolean
-}) {
-  const [email, setEmail] = useState('')
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div className="neo-card-soft" style={{
-        width: '100%', maxWidth: 400, padding: 28, position: 'relative',
-      }}>
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 12, right: 12, background: 'none', border: 'none',
-            cursor: 'pointer', color: 'var(--muted)', padding: 4,
-          }}
-        >
-          <X size={16} />
-        </button>
-        <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 16, fontWeight: 700, color: 'var(--foreground)', margin: '0 0 6px' }}>
-          Envoyer par email
-        </h3>
-        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.5 }}>
-          Le rapport PDF sera généré et envoyé à l&apos;adresse indiquée.
-        </p>
-        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
-          Adresse email
-        </label>
-        <input
-          type="email"
-          className="neo-input"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          placeholder="destinataire@exemple.com"
-          style={{ width: '100%', marginBottom: 16, boxSizing: 'border-box' }}
-          onKeyDown={e => e.key === 'Enter' && email && onSend(email)}
-          autoFocus
-        />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 16px', borderRadius: 8, border: '1.5px solid var(--border)',
-              background: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)',
-            }}
-          >
-            Annuler
-          </button>
-          <button
-            onClick={() => email && onSend(email)}
-            disabled={!email || sending}
-            style={{
-              padding: '8px 20px', borderRadius: 8, border: 'none',
-              background: '#F59E0B', color: 'white', fontWeight: 700, fontSize: 13,
-              cursor: email && !sending ? 'pointer' : 'not-allowed',
-              opacity: !email || sending ? 0.6 : 1,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            {sending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Mail size={14} />}
-            Envoyer
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function RapportHeuresPage() {
@@ -249,10 +86,6 @@ export default function RapportHeuresPage() {
   const [grid, setGrid] = useState<GridData>(initGrid())
 
   const [pdfLoading, setPdfLoading] = useState(false)
-  const [whatsappLoading, setWhatsappLoading] = useState(false)
-  const [emailLoading, setEmailLoading] = useState(false)
-  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
-  const [showEmailModal, setShowEmailModal] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
   const dates = getDatesForWeek(semaine, currentYear)
@@ -301,70 +134,6 @@ export default function RapportHeuresPage() {
       showToast(e.message || 'Erreur PDF', false)
     } finally {
       setPdfLoading(false)
-    }
-  }
-
-  // ── WhatsApp — direct API send (with PDF) ──
-  const handleWhatsAppDirect = async (tel: string) => {
-    setWhatsappLoading(true)
-    try {
-      const res = await fetch('/api/rapport-heures/send-whatsapp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telephone: tel.trim(), ...buildPayload() }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Erreur envoi WhatsApp')
-      }
-      showToast(`PDF envoyé sur WhatsApp (${tel})`, true)
-      setShowWhatsAppModal(false)
-    } catch (e: any) {
-      showToast(e.message || 'Erreur WhatsApp', false)
-    } finally {
-      setWhatsappLoading(false)
-    }
-  }
-
-  // ── WhatsApp — open wa.me to choose contact/group ──
-  const handleWhatsAppOpen = () => {
-    const msg = `Rapport de travail — Semaine N°${semaine}${collaborateur ? ` — ${collaborateur}` : ''}${entreprise ? ` — ${entreprise}` : ''}`
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank')
-  }
-
-  // ── Send Email ──
-  const handleSendEmail = async (toEmail: string) => {
-    setEmailLoading(true)
-    try {
-      // First generate PDF
-      const pdfRes = await fetch('/api/rapport-heures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildPayload()),
-      })
-      if (!pdfRes.ok) throw new Error('Erreur génération PDF')
-      const pdfBlob = await pdfRes.blob()
-      const arrayBuffer = await pdfBlob.arrayBuffer()
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
-
-      const emailRes = await fetch('/api/rapport-heures/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: toEmail,
-          collaborateur,
-          entreprise,
-          semaine,
-          pdfBase64: base64,
-        }),
-      })
-      if (!emailRes.ok) throw new Error('Erreur envoi email')
-      showToast(`Email envoyé à ${toEmail}`, true)
-      setShowEmailModal(false)
-    } catch (e: any) {
-      showToast(e.message || 'Erreur email', false)
-    } finally {
-      setEmailLoading(false)
     }
   }
 
@@ -536,51 +305,7 @@ export default function RapportHeuresPage() {
           Générer PDF
         </button>
 
-        <button
-          onClick={() => setShowWhatsAppModal(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 20px', borderRadius: 10, border: 'none',
-            background: '#25D366', color: 'white',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer',
-          }}
-        >
-          <MessageCircle size={16} />
-          Envoyer WhatsApp
-        </button>
-
-        <button
-          onClick={() => setShowEmailModal(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 20px', borderRadius: 10, border: 'none',
-            background: COLOR, color: 'white',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer',
-          }}
-        >
-          <Mail size={16} />
-          Envoyer par email
-        </button>
       </div>
-
-      {/* WhatsApp modal */}
-      {showWhatsAppModal && (
-        <WhatsAppModal
-          onClose={() => setShowWhatsAppModal(false)}
-          onSendDirect={handleWhatsAppDirect}
-          onOpenWa={handleWhatsAppOpen}
-          sending={whatsappLoading}
-        />
-      )}
-
-      {/* Email modal */}
-      {showEmailModal && (
-        <EmailModal
-          onClose={() => setShowEmailModal(false)}
-          onSend={handleSendEmail}
-          sending={emailLoading}
-        />
-      )}
 
       {/* Toast */}
       {toast && (
