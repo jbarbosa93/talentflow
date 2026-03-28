@@ -114,9 +114,13 @@ function CandidatModal({ current, onPick, onClose }: {
   const fetchSuggestions = useCallback(async (q: string) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&limit=12&per_page=12`)
+      // Fetch with or without search term — always returns results
+      const url = q.trim().length >= 2
+        ? `/api/candidats?search=${encodeURIComponent(q.trim())}&per_page=20`
+        : `/api/candidats?per_page=20&sort=date_desc`
+      const res = await fetch(url)
       const data = await res.json()
-      setSuggestions((data.candidats ?? []).slice(0, 12))
+      setSuggestions((data.candidats ?? []).slice(0, 15))
     } catch { setSuggestions([]) }
     finally { setLoading(false) }
   }, [])
@@ -129,7 +133,14 @@ function CandidatModal({ current, onPick, onClose }: {
   const handleChange = (v: string) => {
     setQuery(v)
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => fetchSuggestions(v), 220)
+    timerRef.current = setTimeout(() => fetchSuggestions(v), 250)
+  }
+
+  const useManualName = () => {
+    if (query.trim()) {
+      onPick(query.trim(), null, null, null)
+      onClose()
+    }
   }
 
   return (
@@ -148,21 +159,18 @@ function CandidatModal({ current, onPick, onClose }: {
           borderRadius: 18,
           padding: 20,
           width: 440,
-          maxHeight: '72vh',
+          maxHeight: '76vh',
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
-          gap: 12,
+          gap: 10,
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Choisir un candidat</span>
-          <button
-            onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, borderRadius: 6, display: 'flex' }}
-          >
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, borderRadius: 6, display: 'flex' }}>
             <X size={16} />
           </button>
         </div>
@@ -173,38 +181,45 @@ function CandidatModal({ current, onPick, onClose }: {
           type="text"
           value={query}
           onChange={e => handleChange(e.target.value)}
-          placeholder="Rechercher un candidat…"
-          onKeyDown={e => { if (e.key === 'Escape') onClose() }}
+          placeholder="Rechercher ou taper un nom…"
+          onKeyDown={e => {
+            if (e.key === 'Escape') onClose()
+            if (e.key === 'Enter' && query.trim() && suggestions.length === 0) useManualName()
+          }}
           style={{
-            border: '1.5px solid var(--border)',
-            borderRadius: 10,
-            padding: '9px 14px',
-            fontSize: 13,
-            outline: 'none',
-            background: 'var(--background)',
-            color: 'var(--foreground)',
-            width: '100%',
-            boxSizing: 'border-box',
+            border: '1.5px solid var(--border)', borderRadius: 10,
+            padding: '9px 14px', fontSize: 13, outline: 'none',
+            background: 'var(--background)', color: 'var(--foreground)',
+            width: '100%', boxSizing: 'border-box',
           }}
         />
+
+        {/* Use typed name (not in system) */}
+        {query.trim().length >= 2 && (
+          <button
+            onClick={useManualName}
+            style={{
+              padding: '8px 14px', borderRadius: 8,
+              border: `1.5px dashed ${COLOR}60`,
+              background: COLOR_SOFT, color: COLOR,
+              fontSize: 12, cursor: 'pointer', fontWeight: 600,
+              textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <Plus size={13} />
+            Utiliser <strong>"{query.trim()}"</strong> (hors système)
+          </button>
+        )}
 
         {/* Remove current */}
         {current && (
           <button
             onClick={() => { onPick('', null, null, null); onClose() }}
             style={{
-              padding: '7px 14px',
-              borderRadius: 8,
-              border: '1px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.06)',
-              color: '#EF4444',
-              fontSize: 12,
-              cursor: 'pointer',
-              fontWeight: 600,
-              textAlign: 'left',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
+              padding: '7px 14px', borderRadius: 8,
+              border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)',
+              color: '#EF4444', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+              textAlign: 'left', display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
             <X size={12} /> Retirer {current}
@@ -212,7 +227,7 @@ function CandidatModal({ current, onPick, onClose }: {
         )}
 
         {/* Results */}
-        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
           {loading && (
             <div style={{ padding: 20, textAlign: 'center' }}>
               <Loader2 size={18} style={{ color: 'var(--muted)', animation: 'spin 1s linear infinite' }} />
@@ -220,7 +235,7 @@ function CandidatModal({ current, onPick, onClose }: {
           )}
           {!loading && suggestions.length === 0 && (
             <div style={{ padding: 20, fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
-              Aucun résultat
+              {query.trim().length >= 2 ? 'Aucun candidat trouvé dans le système' : 'Aucun candidat'}
             </div>
           )}
           {suggestions.map(s => {
@@ -233,37 +248,22 @@ function CandidatModal({ current, onPick, onClose }: {
                 onClick={() => { onPick(name, s.id, s.cv_url ?? null, s.titre_poste ?? null); onClose() }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 12px',
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  border: '1px solid var(--border)',
-                  transition: 'all 0.12s',
+                  padding: '9px 12px', borderRadius: 10, cursor: 'pointer',
+                  border: '1px solid var(--border)', transition: 'all 0.12s',
                 }}
-                onMouseEnter={e => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = 'var(--secondary)'
-                  el.style.borderColor = col
-                }}
-                onMouseLeave={e => {
-                  const el = e.currentTarget as HTMLElement
-                  el.style.background = 'transparent'
-                  el.style.borderColor = 'var(--border)'
-                }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--secondary)'; el.style.borderColor = col }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'var(--border)' }}
               >
                 <div style={{
-                  width: 38, height: 38, borderRadius: '50%',
-                  background: col,
-                  color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700, flexShrink: 0,
+                  width: 36, height: 36, borderRadius: '50%', background: col,
+                  color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, flexShrink: 0,
                 }}>
                   {init}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--foreground)' }}>{name}</div>
-                  {s.titre_poste && (
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{s.titre_poste}</div>
-                  )}
+                  {s.titre_poste && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{s.titre_poste}</div>}
                 </div>
               </div>
             )
@@ -344,10 +344,13 @@ function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) 
   const fetchClients = useCallback(async (q: string) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/clients?search=${encodeURIComponent(q)}&limit=8`)
+      const url = q.trim()
+        ? `/api/clients?search=${encodeURIComponent(q.trim())}&per_page=10`
+        : `/api/clients?per_page=10`
+      const res = await fetch(url)
       const data = await res.json()
-      const names: string[] = (data.clients ?? data ?? []).map((c: any) => c.nom || c.name || c.entreprise || '').filter(Boolean)
-      setSuggestions([...new Set(names)].slice(0, 8))
+      const names: string[] = (data.clients ?? data ?? []).map((c: any) => c.nom_entreprise || c.nom || c.name || '').filter(Boolean)
+      setSuggestions([...new Set(names)].slice(0, 10))
     } catch { setSuggestions([]) }
     finally { setLoading(false) }
   }, [])
