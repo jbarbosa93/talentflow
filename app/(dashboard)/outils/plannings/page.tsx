@@ -701,7 +701,29 @@ export default function PlanningsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const rows = plannings
+  const [sortBy, setSortBy] = useState<'candidat' | 'entreprise' | 'metier' | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const toggleSort = (col: 'candidat' | 'entreprise' | 'metier') => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('asc') }
+  }
+
+  const rows = [...plannings].sort((a, b) => {
+    if (!sortBy) return 0
+    let va = '', vb = ''
+    if (sortBy === 'candidat') {
+      va = candidatDisplayName(a.candidats, a.candidat_nom).toLowerCase()
+      vb = candidatDisplayName(b.candidats, b.candidat_nom).toLowerCase()
+    } else if (sortBy === 'entreprise') {
+      va = (a.client_nom ?? '').toLowerCase()
+      vb = (b.client_nom ?? '').toLowerCase()
+    } else if (sortBy === 'metier') {
+      va = (a.metier ?? '').toLowerCase()
+      vb = (b.metier ?? '').toLowerCase()
+    }
+    return sortDir === 'asc' ? va.localeCompare(vb, 'fr') : vb.localeCompare(va, 'fr')
+  })
 
   // ── Stats ──
   const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? p.candidat_nom ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
@@ -850,9 +872,21 @@ export default function PlanningsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ background: `${COLOR}0d` }}>
-                <th style={th('left', 190)}>Candidat</th>
-                <th style={th('left', 150)}>Entreprise</th>
-                <th style={th('left', 110)}>Métier</th>
+                <th style={{ ...th('left', 190), cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('candidat')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Candidat <SortIcon active={sortBy === 'candidat'} dir={sortDir} />
+                  </span>
+                </th>
+                <th style={{ ...th('left', 150), cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('entreprise')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Entreprise <SortIcon active={sortBy === 'entreprise'} dir={sortDir} />
+                  </span>
+                </th>
+                <th style={{ ...th('left', 110), cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('metier')}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    Métier <SortIcon active={sortBy === 'metier'} dir={sortDir} />
+                  </span>
+                </th>
                 <th style={th('center', 55)}>%</th>
                 <th style={th('center', 90)}>CHF/h</th>
                 <th style={th('left', 210)}>Période · Durée</th>
@@ -1040,6 +1074,17 @@ export default function PlanningsPage() {
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
+  )
+}
+
+// ── SortIcon ──────────────────────────────────────────────────────────────────
+
+function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, opacity: active ? 1 : 0.3, flexShrink: 0 }}>
+      <span style={{ fontSize: 8, lineHeight: 1, color: active && dir === 'asc' ? COLOR : 'var(--muted)' }}>▲</span>
+      <span style={{ fontSize: 8, lineHeight: 1, color: active && dir === 'desc' ? COLOR : 'var(--muted)' }}>▼</span>
+    </span>
   )
 }
 
