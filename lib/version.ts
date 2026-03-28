@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.22.0'
+export const APP_VERSION = 'v0.25.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.25.0',
+    date: '2026-03-28',
+    label: 'Planning avance, Diplomes & Age IA',
+    features: [
+      'Planning : modal candidat redesigne avec avatar/initiales et recherche instantanee',
+      'Planning : ajout de candidats hors systeme (nom libre) avec metier modifiable',
+      'Planning : periode par ligne (semaine debut → fin) avec calcul automatique de duree',
+      'Planning : navigation semaine ◀ ▶ + bouton Aujourd\'hui',
+      'Planning : ETP et compteur candidats calcules selon la semaine selectionnee',
+      'Planning : tous les candidats toujours visibles dans la liste, stats filtrees par semaine',
+      'Planning : colonne Marge horaire (CHF/h) avec moyenne dans la barre de stats',
+      'Planning : tri des colonnes (candidat, entreprise, metier) avec indicateurs ▲▼',
+      'Planning : correction autocomplete entreprise (champ nom_entreprise)',
+      'Planning : suppression de l\'onglet "Sans travail"',
+      'Import CV : detection automatique diplomes/certificats — bloque l\'import si aucun signal CV',
+      'Import SharePoint : meme detection diplomes/certificats que l\'import direct',
+      'IA : extraction d\'age uniquement si ecrit avec le mot "ans" (ex: 35ans, 35 ans)',
+      'IA : prompt mis a jour pour retourner l\'age au format "35ans" et jamais un chiffre seul',
+    ],
+  },
   {
     version: 'v0.22.0',
     date: '2026-03-28',

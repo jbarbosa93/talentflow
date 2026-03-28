@@ -121,11 +121,11 @@ const calculerAge = (dateNaissance: string | null): number | null => {
     }
   }
 
-  // Âge brut : "35" ou "41" — quand l'IA extrait juste le chiffre d'âge
+  // Âge explicite avec "ans" : "35ans" ou "35 ans" — retourné par l'IA
   if (!birthDate) {
-    const rawAge = dateNaissance.trim().match(/^(\d{1,2})$/)
-    if (rawAge) {
-      const n = parseInt(rawAge[1])
+    const ageAvecAns = dateNaissance.trim().match(/^(\d{1,2})\s*ans$/i)
+    if (ageAvecAns) {
+      const n = parseInt(ageAvecAns[1])
       if (n >= 16 && n <= 80) return n
     }
   }

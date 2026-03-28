@@ -1,5 +1,32 @@
 # Changelog TalentFlow
 
+## v0.25.0 — 28 mars 2026
+
+### Planning — Refonte majeure
+
+- **Modal candidat redesigne** : overlay avec avatar/initiales, recherche instantanee a l'ouverture
+- **Candidats hors systeme** : ajout par nom libre ("Utiliser [nom] hors systeme") avec metier modifiable directement dans le tableau
+- **Periode par ligne** : date de debut et fin (semaine/annee) + option "Sans fin", calcul automatique de duree (ex : ⏱ 1 an 2 mois — en cours)
+- **Navigation semaine** : boutons ◀ ▶ + bouton "Aujourd'hui"
+- **ETP par semaine** : ETP et compteur candidats actifs refletent toujours la semaine selectionnee
+- **Liste toujours complete** : tous les candidats restent visibles peu importe la semaine — seules les stats changent
+- **Marge horaire (CHF/h)** : nouveau champ par ligne, moyenne affichee dans la barre de stats
+- **Tri des colonnes** : tri alphabetique par candidat, entreprise ou metier (indicateurs ▲▼)
+- **Autocomplete entreprise corrige** : la recherche dans les clients fonctionnait pas (mauvais champ)
+- **Suppression onglet "Sans travail"**
+- **Correction perte de donnees** : le filtre serveur par semaine causait la disparition de certains candidats — remplace par filtrage client-side
+
+### Import CV & SharePoint
+
+- **Detection diplomes/certificats** : si le fichier contient un nom mais aucun signal CV (experiences, competences, coordonnees, titre), l'import est bloque avec message explicite
+
+### Analyse IA — Age
+
+- **Extraction d'age corrigee** : l'IA retourne desormais l'age au format "35ans" (avec le mot "ans") — un chiffre seul n'est plus interprete comme un age
+- **calcAge() mis a jour** : accepte "35ans" et "35 ans", ignore les chiffres isoles
+
+---
+
 ## v0.20.0 — 26 mars 2026
 
 ### Import OneDrive — Parsing ameliore
