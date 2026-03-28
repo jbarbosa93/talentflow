@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 
 const SELECT_FIELDS = `
-  id, candidat_id, client_nom, metier, pourcentage, remarques,
+  id, candidat_id, candidat_nom, client_nom, metier, pourcentage, remarques,
   statut, semaine, annee, semaine_fin, annee_fin,
   user_id, created_at, updated_at,
   candidats ( id, nom, prenom, cv_url, titre_poste )
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       candidat_id  = null,
+      candidat_nom = '',
       client_nom   = '',
       metier       = '',
       pourcentage  = 1,
@@ -92,11 +93,12 @@ export async function POST(request: NextRequest) {
     const { data, error } = await (supabase as any)
       .from('plannings')
       .insert({
-        candidat_id:  candidat_id || null,
-        client_nom:   client_nom  || null,
-        metier:       metier      || null,
+        candidat_id:  candidat_id  || null,
+        candidat_nom: candidat_nom || null,
+        client_nom:   client_nom   || null,
+        metier:       metier       || null,
         pourcentage:  Number(pourcentage),
-        remarques:    remarques   || null,
+        remarques:    remarques    || null,
         statut,
         semaine:      Number(semaine),
         annee:        Number(annee),
@@ -134,7 +136,7 @@ export async function PATCH(request: NextRequest) {
 
     const allowed: Record<string, unknown> = {}
     const allowedKeys = [
-      'candidat_id', 'client_nom', 'metier', 'pourcentage', 'remarques',
+      'candidat_id', 'candidat_nom', 'client_nom', 'metier', 'pourcentage', 'remarques',
       'statut', 'semaine', 'annee', 'semaine_fin', 'annee_fin',
     ]
     for (const key of allowedKeys) {

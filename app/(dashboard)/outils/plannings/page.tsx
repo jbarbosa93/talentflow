@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Plus, Trash2, ExternalLink, ArrowRightLeft, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ArrowLeft, Calendar, Plus, Trash2, ExternalLink, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -17,6 +17,7 @@ type CandidatRef = {
 type Planning = {
   id: string
   candidat_id: string | null
+  candidat_nom: string | null
   client_nom: string | null
   metier: string | null
   pourcentage: number
@@ -68,9 +69,9 @@ function hashColorSoft(str: string): string {
   return `hsla(${hue}, 65%, 42%, 0.12)`
 }
 
-function candidatDisplayName(c: CandidatRef | null): string {
-  if (!c) return ''
-  return [c.prenom, c.nom].filter(Boolean).join(' ')
+function candidatDisplayName(c: CandidatRef | null, fallback?: string | null): string {
+  if (c) return [c.prenom, c.nom].filter(Boolean).join(' ')
+  return fallback ?? ''
 }
 
 function initials(nom: string, prenom: string | null): string {
@@ -585,7 +586,6 @@ export default function PlanningsPage() {
 
   const [semaine, setSemaine] = useState(defaultSemaine)
   const [annee, setAnnee]     = useState(defaultAnnee)
-  const [tab, setTab]         = useState<'actif' | 'inactif'>('actif')
   const [plannings, setPlannings] = useState<Planning[]>([])
   const [loading, setLoading]     = useState(false)
   const [saving, setSaving]       = useState<string | null>(null)
@@ -623,10 +623,10 @@ export default function PlanningsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const rows = plannings.filter(p => p.statut === tab)
+  const rows = plannings
 
   // ── Stats ──
-  const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
+  const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? p.candidat_nom ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
   const uniqueEntreprises = new Set(rows.map(p => p.client_nom ?? '').filter(Boolean)).size
   const totalETP          = rows.reduce((acc, p) => acc + Number(p.pourcentage), 0)
 
@@ -679,12 +679,6 @@ export default function PlanningsPage() {
     } catch (e: any) {
       showToast(e.message || 'Erreur suppression', false)
     }
-  }
-
-  // ── Toggle statut ──
-  const handleToggleStatut = (p: Planning) => {
-    const next = p.statut === 'actif' ? 'inactif' : 'actif'
-    handlePatch(p.id, { statut: next })
   }
 
   return (
@@ -746,31 +740,9 @@ export default function PlanningsPage() {
         </div>
       </div>
 
-      {/* Tabs + Add */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 2 }}>
-          {(['actif', 'inactif'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
-              padding: '6px 18px', borderRadius: 8, border: 'none',
-              fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all 0.15s',
-              background: tab === t ? COLOR : 'transparent',
-              color: tab === t ? 'white' : 'var(--muted)',
-            }}>
-              {t === 'actif' ? 'Au travail' : 'Sans travail'}
-              <span style={{
-                marginLeft: 6, fontSize: 11, fontWeight: 700,
-                background: tab === t ? 'rgba(255,255,255,0.25)' : 'var(--border)',
-                color: tab === t ? 'white' : 'var(--muted)',
-                padding: '1px 6px', borderRadius: 100,
-              }}>
-                {plannings.filter(p => p.statut === t).length}
-              </span>
-            </button>
-          ))}
-        </div>
-
+      {/* Add button */}
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ flex: 1 }} />
-
         <button onClick={handleAdd} style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '8px 16px', borderRadius: 10, border: 'none',
@@ -789,9 +761,7 @@ export default function PlanningsPage() {
         ) : rows.length === 0 ? (
           <div style={{ padding: '40px 24px', textAlign: 'center' }}>
             <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>
-              {tab === 'actif'
-                ? 'Aucun candidat au travail cette semaine. Cliquez sur "Nouveau" pour en ajouter.'
-                : 'Aucun candidat disponible cette semaine.'}
+              Aucun candidat au travail cette semaine. Cliquez sur "Nouveau" pour en ajouter.
             </p>
           </div>
         ) : (
@@ -810,7 +780,7 @@ export default function PlanningsPage() {
             </thead>
             <tbody>
               {rows.map((p, i) => {
-                const candidatNom = p.candidats ? candidatDisplayName(p.candidats) : ''
+                const candidatNom = candidatDisplayName(p.candidats, p.candidat_nom)
                 const cvUrl       = p.candidats?.cv_url ?? null
                 const isSaving    = saving === p.id
                 return (
@@ -828,10 +798,12 @@ export default function PlanningsPage() {
                         value={candidatNom}
                         candidat={p.candidats}
                         onSave={(nom, id, cv_url, titre_poste) => {
+                          // Optimistic update
                           setPlannings(prev => prev.map(row =>
                             row.id === p.id ? {
                               ...row,
                               candidat_id: id,
+                              candidat_nom: id ? null : (nom || null),
                               metier: titre_poste ?? row.metier,
                               candidats: id
                                 ? { id, nom: nom.split(' ').slice(-1)[0] ?? nom, prenom: nom.split(' ').slice(0, -1).join(' ') || null, cv_url, titre_poste }
@@ -839,7 +811,8 @@ export default function PlanningsPage() {
                             } : row
                           ))
                           handlePatch(p.id, {
-                            candidat_id: id,
+                            candidat_id: id || null,
+                            candidat_nom: id ? null : (nom || null),
                             ...(titre_poste ? { metier: titre_poste } : {}),
                           })
                         }}
@@ -906,26 +879,15 @@ export default function PlanningsPage() {
 
                     {/* Actions */}
                     <td style={{ ...td(), textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                        <button
-                          onClick={() => handleToggleStatut(p)}
-                          title={p.statut === 'actif' ? 'Déplacer → Sans travail' : 'Déplacer → Au travail'}
-                          style={actionBtn()}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = COLOR_SOFT; (e.currentTarget as HTMLButtonElement).style.color = COLOR }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)' }}
-                        >
-                          <ArrowRightLeft size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          title="Supprimer"
-                          style={actionBtn()}
-                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#EF4444' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        title="Supprimer"
+                        style={actionBtn()}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLButtonElement).style.color = '#EF4444' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </td>
                   </tr>
                 )
