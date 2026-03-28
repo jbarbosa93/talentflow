@@ -636,7 +636,7 @@ export default function PlanningsPage() {
       const res = await fetch('/api/plannings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ semaine, annee, statut: tab }),
+        body: JSON.stringify({ semaine, annee, statut: 'actif' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
