@@ -113,11 +113,20 @@ const calculerAge = (dateNaissance: string | null): number | null => {
     }
   }
 
-  // Année seule : "01/01/1985" (généré quand seulement âge connu) ou "1985"
+  // Année seule : "1985"
   if (!birthDate) {
     const yearOnly = dateNaissance.match(/^(\d{4})$/)
     if (yearOnly) {
       birthDate = new Date(parseInt(yearOnly[1]), 0, 1)
+    }
+  }
+
+  // Âge brut : "35" ou "41" — quand l'IA extrait juste le chiffre d'âge
+  if (!birthDate) {
+    const rawAge = dateNaissance.trim().match(/^(\d{1,2})$/)
+    if (rawAge) {
+      const n = parseInt(rawAge[1])
+      if (n >= 16 && n <= 80) return n
     }
   }
 
