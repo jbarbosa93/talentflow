@@ -10,9 +10,10 @@ type Opts = {
   onWarning: (secondsLeft: number) => void
   onLogout: () => void
   onActivity: () => void
+  disabled?: boolean  // Désactiver le timeout (ex: pendant l'import en masse)
 }
 
-export function useSessionTimeout({ onWarning, onLogout, onActivity }: Opts) {
+export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = false }: Opts) {
   const router     = useRouter()
   const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warnRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -55,6 +56,16 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity }: Opts) {
     // Déconnexion automatique après INACTIVITY_LIMIT_MS
     timerRef.current = setTimeout(doLogout, INACTIVITY_LIMIT_MS)
   }, [doLogout, onWarning, onActivity])
+
+  // Quand l'import est en cours, reset le timer toutes les 5 min pour éviter le logout
+  useEffect(() => {
+    if (!disabled) return
+    clearAll()
+    onActivity()  // Cacher le warning si affiché
+    const keepAlive = setInterval(() => resetTimer(), 5 * 60 * 1000)
+    resetTimer()
+    return () => clearInterval(keepAlive)
+  }, [disabled, resetTimer, onActivity])
 
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown']

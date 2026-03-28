@@ -2,10 +2,12 @@
 import { useState, useCallback } from 'react'
 import { Shield, LogOut, RefreshCw } from 'lucide-react'
 import { useSessionTimeout } from '@/hooks/useSessionTimeout'
+import { useImport } from '@/contexts/ImportContext'
 
 export function SessionTimeoutModal() {
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [loggingOut, setLoggingOut]   = useState(false)
+  const { running: isImporting } = useImport()
 
   const isWarning = secondsLeft !== null && secondsLeft > 0
 
@@ -25,6 +27,7 @@ export function SessionTimeoutModal() {
     onWarning: handleWarning,
     onLogout: handleLogout,
     onActivity: handleActivity,
+    disabled: isImporting,  // Désactiver le timeout pendant l'import
   })
 
   const handleContinue = () => {
