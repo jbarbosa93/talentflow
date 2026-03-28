@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck, ScanSearch, ClipboardList } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, SearchCheck, CalendarClock, Check, Loader2, UserCheck, ScanSearch, ClipboardList, Calendar } from 'lucide-react'
 
 const OUTILS = [
   {
@@ -48,6 +48,15 @@ const OUTILS = [
     description: 'Créez et envoyez rapidement les rapports de travail hebdomadaires par WhatsApp ou email.',
     color: '#F59E0B',
     colorSoft: 'rgba(245,158,11,0.12)',
+    badge: null,
+  },
+  {
+    href: '/outils/plannings',
+    icon: Calendar,
+    title: 'Planning hebdomadaire',
+    description: 'Suivez les pourcentages de travail de chaque candidat par semaine. Vue "Au travail" et "Sans travail" avec stats ETP.',
+    color: '#6366F1',
+    colorSoft: 'rgba(99,102,241,0.12)',
     badge: null,
   },
 ]
