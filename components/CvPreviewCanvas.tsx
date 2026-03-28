@@ -65,19 +65,9 @@ function PageCanvas({
     }
   }, [pageNum, pdfDoc, scale, rotation])
 
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        display: 'block',
-        maxWidth: '100%',
-        marginBottom: 8,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-        background: '#fff',
-        borderRadius: 4,
-      }}
-    />
-  )
+  // width/height CSS sont fixés dynamiquement dans le useEffect via canvas.style
+  // Ne pas mettre maxWidth:'100%' ici — ça contraint la largeur sans la hauteur → étirement
+  return <canvas ref={canvasRef} style={{ display: 'block', marginBottom: 8, boxShadow: '0 2px 12px rgba(0,0,0,0.12)', background: '#fff', borderRadius: 4 }} />
 }
 
 // ── CvPreviewCanvas ───────────────────────────────────────────────────────────
