@@ -1050,7 +1050,13 @@ export default function PlanningsPage() {
         <span style={{ color: 'var(--border)' }}>·</span>
         <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueEntreprises}</span> entreprise{uniqueEntreprises > 1 ? 's' : ''} uniques</span>
         <span style={{ color: 'var(--border)' }}>·</span>
-        <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{Math.round(totalETP * 100) / 100}</span> ETP (total %)</span>
+        <span>
+          <span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{Math.round(totalETP * 100) / 100}</span>
+          {' '}ETP
+          <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 5, fontWeight: 500 }}>
+            ({rows.length} candidat{rows.length > 1 ? 's' : ''} — S.{semaine} {annee})
+          </span>
+        </span>
         {moyenneMarge != null && (
           <>
             <span style={{ color: 'var(--border)' }}>·</span>
