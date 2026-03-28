@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server'
 export const runtime = 'nodejs'
 
 const SELECT_FIELDS = `
-  id, candidat_id, candidat_nom, client_nom, metier, pourcentage, remarques,
+  id, candidat_id, candidat_nom, client_nom, metier, pourcentage, marge_horaire, remarques,
   statut, semaine, annee, semaine_fin, annee_fin,
   user_id, created_at, updated_at,
   candidats ( id, nom, prenom, cv_url, titre_poste )
@@ -136,7 +136,7 @@ export async function PATCH(request: NextRequest) {
 
     const allowed: Record<string, unknown> = {}
     const allowedKeys = [
-      'candidat_id', 'candidat_nom', 'client_nom', 'metier', 'pourcentage', 'remarques',
+      'candidat_id', 'candidat_nom', 'client_nom', 'metier', 'pourcentage', 'marge_horaire', 'remarques',
       'statut', 'semaine', 'annee', 'semaine_fin', 'annee_fin',
     ]
     for (const key of allowedKeys) {

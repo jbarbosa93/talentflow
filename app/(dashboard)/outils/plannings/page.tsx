@@ -21,6 +21,7 @@ type Planning = {
   client_nom: string | null
   metier: string | null
   pourcentage: number
+  marge_horaire: number | null
   remarques: string | null
   statut: 'actif' | 'inactif'
   semaine: number
@@ -67,6 +68,27 @@ function hashColorSoft(str: string): string {
   }
   const hue = Math.abs(hash) % 360
   return `hsla(${hue}, 65%, 42%, 0.12)`
+}
+
+// Convertit semaine+année en nombre de semaines depuis epoch (approximatif mais cohérent)
+function toWeekIndex(semaine: number, annee: number) {
+  return annee * 53 + semaine
+}
+
+// Calcule la durée entre debut et fin (ou aujourd'hui) en semaines, puis formate
+function calcDuree(semaineDebut: number, anneeDebut: number, semaineFin: number | null, anneeFin: number | null): string {
+  const { semaine: nowS, annee: nowA } = getCurrentWeekAndYear()
+  const endS = semaineFin ?? nowS
+  const endA = anneeFin  ?? nowA
+  const totalSem = toWeekIndex(endS, endA) - toWeekIndex(semaineDebut, anneeDebut) + 1
+  if (totalSem <= 0) return ''
+  const ans    = Math.floor(totalSem / 52)
+  const moisR  = Math.floor((totalSem % 52) / 4.33)
+  const semR   = totalSem % 52
+  if (ans >= 1 && moisR > 0) return `${ans} an${ans > 1 ? 's' : ''} ${moisR} mois`
+  if (ans >= 1) return `${ans} an${ans > 1 ? 's' : ''}`
+  if (moisR >= 1) return `~${moisR} mois (${totalSem} sem.)`
+  return `${totalSem} sem.`
 }
 
 function candidatDisplayName(c: CandidatRef | null, fallback?: string | null): string {
@@ -416,9 +438,9 @@ function EntrepriseCell({ value, onSave }: { value: string; onSave: (v: string) 
 
 // ── Inline editable cell ───────────────────────────────────────────────────────
 
-function EditableCell({ value, placeholder, onSave, width, type = 'text', step, min, max }: {
+function EditableCell({ value, placeholder, onSave, width, type = 'text', step, min, max, suffix }: {
   value: string; placeholder?: string; onSave: (v: string) => void
-  width?: number | string; type?: 'text' | 'number'; step?: string; min?: string; max?: string
+  width?: number | string; type?: 'text' | 'number'; step?: string; min?: string; max?: string; suffix?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -462,7 +484,7 @@ function EditableCell({ value, placeholder, onSave, width, type = 'text', step, 
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
-      {value || placeholder || '—'}
+      {value ? (suffix ? `${value}${suffix}` : value) : (placeholder || '—')}
     </span>
   )
 }
@@ -499,25 +521,35 @@ function PeriodeCell({ semaine, annee, semaineFin, anneeFin, onSave }: {
 
   const COLOR = '#6366F1'
 
+  const duree = calcDuree(semaine, annee, semaineFin, anneeFin)
+
   if (!editing) return (
     <div
       onClick={() => setEditing(true)}
       style={{
-        display: 'flex', alignItems: 'center', gap: 4,
+        display: 'flex', flexDirection: 'column', gap: 2,
         padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
-        fontSize: 12, color: 'var(--foreground)',
-        whiteSpace: 'nowrap', transition: 'background 0.12s',
+        transition: 'background 0.12s',
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.04)' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
-      <span style={{ fontWeight: 700, color: COLOR }}>S.{semaine}</span>
-      <span style={{ color: 'var(--muted)' }}>{annee}</span>
-      <span style={{ color: 'var(--muted)', margin: '0 2px' }}>→</span>
-      {semaineFin
-        ? <><span style={{ fontWeight: 700, color: '#10B981' }}>S.{semaineFin}</span><span style={{ color: 'var(--muted)' }}>{anneeFin}</span></>
-        : <span style={{ color: 'var(--muted)', fontWeight: 600 }}>∞</span>
-      }
+      {/* Plage */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, whiteSpace: 'nowrap' }}>
+        <span style={{ fontWeight: 700, color: COLOR }}>S.{semaine}</span>
+        <span style={{ color: 'var(--muted)', fontSize: 11 }}>{annee}</span>
+        <span style={{ color: 'var(--muted)', margin: '0 1px' }}>→</span>
+        {semaineFin
+          ? <><span style={{ fontWeight: 700, color: '#10B981' }}>S.{semaineFin}</span><span style={{ color: 'var(--muted)', fontSize: 11 }}>{anneeFin}</span></>
+          : <span style={{ color: 'var(--muted)', fontWeight: 600 }}>∞</span>
+        }
+      </div>
+      {/* Durée calculée */}
+      {duree && (
+        <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+          ⏱ {duree}{semaineFin == null ? ' (en cours)' : ''}
+        </div>
+      )}
     </div>
   )
 
@@ -675,6 +707,10 @@ export default function PlanningsPage() {
   const uniqueCandidats   = new Set(rows.map(p => p.candidat_id ?? p.candidat_nom ?? candidatDisplayName(p.candidats)).filter(Boolean)).size
   const uniqueEntreprises = new Set(rows.map(p => p.client_nom ?? '').filter(Boolean)).size
   const totalETP          = rows.reduce((acc, p) => acc + Number(p.pourcentage), 0)
+  const margesAvecValeur  = rows.filter(p => p.marge_horaire != null && p.marge_horaire > 0)
+  const moyenneMarge      = margesAvecValeur.length > 0
+    ? margesAvecValeur.reduce((acc, p) => acc + Number(p.marge_horaire), 0) / margesAvecValeur.length
+    : null
 
   // ── Add ──
   const handleAdd = async () => {
@@ -816,12 +852,13 @@ export default function PlanningsPage() {
               <tr style={{ background: `${COLOR}0d` }}>
                 <th style={th('left', 190)}>Candidat</th>
                 <th style={th('left', 150)}>Entreprise</th>
-                <th style={th('left', 120)}>Métier</th>
-                <th style={th('center', 60)}>%</th>
-                <th style={th('left', 180)}>Période</th>
+                <th style={th('left', 110)}>Métier</th>
+                <th style={th('center', 55)}>%</th>
+                <th style={th('center', 90)}>CHF/h</th>
+                <th style={th('left', 210)}>Période · Durée</th>
                 <th style={th('left')}>Remarques</th>
                 <th style={th('center', 36)}>CV</th>
-                <th style={th('center', 80)}>Actions</th>
+                <th style={th('center', 50)}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -887,7 +924,22 @@ export default function PlanningsPage() {
                         value={String(p.pourcentage)}
                         type="number" step="0.1" min="0" max="2"
                         onSave={v => { const n = parseFloat(v); if (!isNaN(n) && n >= 0) handlePatch(p.id, { pourcentage: n }) }}
-                        width={56}
+                        width={52}
+                      />
+                    </td>
+
+                    {/* Marge CHF/h */}
+                    <td style={{ ...td(), textAlign: 'center' }}>
+                      <EditableCell
+                        value={p.marge_horaire != null ? String(p.marge_horaire) : ''}
+                        placeholder="—"
+                        type="number" step="0.5" min="0"
+                        onSave={v => {
+                          const n = parseFloat(v)
+                          handlePatch(p.id, { marge_horaire: isNaN(n) || v === '' ? null : n })
+                        }}
+                        width={72}
+                        suffix=" CHF"
                       />
                     </td>
 
@@ -955,6 +1007,22 @@ export default function PlanningsPage() {
         <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{uniqueEntreprises}</span> entreprise{uniqueEntreprises > 1 ? 's' : ''} uniques</span>
         <span style={{ color: 'var(--border)' }}>·</span>
         <span><span style={{ color: COLOR, fontSize: 18, fontWeight: 800 }}>{Math.round(totalETP * 100) / 100}</span> ETP (total %)</span>
+        {moyenneMarge != null && (
+          <>
+            <span style={{ color: 'var(--border)' }}>·</span>
+            <span>
+              <span style={{ color: '#10B981', fontSize: 18, fontWeight: 800 }}>
+                {Math.round(moyenneMarge * 100) / 100} CHF/h
+              </span>
+              {' '}marge moy.
+              {margesAvecValeur.length < rows.length && (
+                <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>
+                  ({margesAvecValeur.length}/{rows.length})
+                </span>
+              )}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Toast */}
