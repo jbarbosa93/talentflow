@@ -1367,14 +1367,44 @@ export default function PipelinePage() {
                         {stage.label}
                       </span>
                     </div>
-                    <span style={{
-                      fontSize: 12, fontWeight: 800, color: stage.color,
-                      background: `${stage.color}18`,
-                      padding: '2px 10px', borderRadius: 8,
-                      minWidth: 28, textAlign: 'center',
-                    }}>
-                      {stageCandidats.length}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        fontSize: 12, fontWeight: 800, color: stage.color,
+                        background: `${stage.color}18`,
+                        padding: '2px 10px', borderRadius: 8,
+                        minWidth: 28, textAlign: 'center',
+                      }}>
+                        {stageCandidats.length}
+                      </span>
+                      {stageCandidats.length > 0 && (
+                        <button
+                          title="Vider cette colonne"
+                          onClick={async () => {
+                            if (!confirm(`Vider la colonne "${stage.label}" (${stageCandidats.length} candidats) ?`)) return
+                            const res = await fetch('/api/pipeline/clear', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ etape_id: stage.id }),
+                            })
+                            if (res.ok) {
+                              const d = await res.json()
+                              toast.success(`${d.cleared} candidats retirés`)
+                              queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+                            } else {
+                              toast.error('Erreur lors du vidage')
+                            }
+                          }}
+                          style={{
+                            width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
+                            background: 'var(--background)', cursor: 'pointer', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
+                            fontSize: 12, flexShrink: 0, opacity: 0.7,
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Droppable area */}

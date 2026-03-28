@@ -27,7 +27,8 @@ function getMimeTypeForImage(ext: string): 'image/jpeg' | 'image/png' | 'image/w
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { integration_id, drive_id, item_id, filename, offre_id, statut = 'nouveau' } = body
+    const { integration_id, drive_id, item_id, filename, offre_id } = body
+    // statut_pipeline JAMAIS défini lors d'un import — uniquement via action manuelle
 
     if (!integration_id || !drive_id || !item_id || !filename) {
       return NextResponse.json(
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       cv_nom_fichier: filename,
       resume_ia: analyse.resume || null,
       cv_texte_brut: null,
-      statut_pipeline: statut as any,
+      statut_pipeline: null,
       tags: [],
       notes: null,
       source: 'sharepoint',
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
       await supabase.from('pipeline').insert({
         candidat_id: candidat.id,
         offre_id,
-        etape: statut as any,
+        etape: 'nouveau',
         score_ia: null,
       })
     }

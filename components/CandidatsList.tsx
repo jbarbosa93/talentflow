@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { CvPreviewCanvas } from './CvPreviewCanvas'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
@@ -1634,16 +1635,12 @@ export default function CandidatsList() {
                 </div>
               </div>
             ) : hoveredCv.ext === 'pdf' ? (
-              <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
-                <iframe
-                  key={`preview-${hoveredCv.url}-${hoveredCv.rotation}`}
-                  src={hoveredCv.rotation
-                    ? `/api/cv/rotate?rotation=${hoveredCv.rotation}&url=${encodeURIComponent(hoveredCv.url)}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`
-                    : `${hoveredCv.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                  style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: 'none' }}
-                  title="Aperçu CV"
-                />
-              </div>
+              <CvPreviewCanvas
+                url={hoveredCv.url}
+                zoom={previewZoom}
+                rotation={hoveredCv.rotation ?? 0}
+                containerWidth={hoveredCv.panelW ?? 820}
+              />
             ) : ['doc', 'docx'].includes(hoveredCv.ext) ? (
               <div style={{ width: `${previewZoom * 100}%`, height: `${Math.round(previewZoom * 5000)}px`, minWidth: '100%', minHeight: '100%', position: 'relative', flexShrink: 0 }}>
                 <iframe
