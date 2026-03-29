@@ -349,6 +349,25 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     }
   }
 
+  const handleForceCreate = async (fileIdx: number) => {
+    const f = filesRef.current[fileIdx]
+    if (!f || !f.storagePath) return
+    updateFile(fileIdx, { status: 'parsing' })
+    try {
+      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', force_insert: true }
+      const res = await fetch('/api/cv/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+      const nom = `${data.candidat?.prenom || ''} ${data.candidat?.nom || ''}`.trim()
+      updateFile(fileIdx, { status: 'success', candidatNom: nom || 'Candidat créé', multipleMatches: undefined })
+      setManualSearchIdx(null)
+      setManualSearchQuery('')
+      setManualSearchResults([])
+    } catch (err: any) {
+      updateFile(fileIdx, { status: 'error', error: err.message || 'Erreur', multipleMatches: undefined })
+    }
+  }
+
   const handleManualSearch = (query: string) => {
     setManualSearchQuery(query)
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
@@ -373,7 +392,9 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return `Importé — ${item.candidatNom}`
       case 'doc_added': return `Document ajouté — ${item.candidatNom}`
       case 'doublon_updated': return `CV actualisé — ${item.candidatNom}`
-      case 'multiple_matches': return 'Choisissez le candidat :'
+      case 'multiple_matches': return item.multipleMatches?.length === 1
+        ? 'Même personne ? Confirmez ou créez un nouveau :'
+        : 'Choisissez le candidat :'
       case 'error': return `Erreur — ${item.error}`
     }
   }
@@ -698,12 +719,18 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                         <button onClick={() => { setManualSearchIdx(null); setManualSearchQuery(''); setManualSearchResults([]) }} style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, fontFamily: 'inherit' }}>Fermer</button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handleForceCreate(i)}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#16A34A', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
+                        >
+                          <UserPlus size={10} /> Nouveau candidat
+                        </button>
                         <button
                           onClick={() => { setManualSearchIdx(i); setManualSearchQuery(''); setManualSearchResults([]) }}
                           style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #C4B5FD', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 3 }}
                         >
-                          <UserPlus size={10} /> Autre candidat
+                          <Search size={10} /> Chercher
                         </button>
                         <button
                           onClick={() => updateFile(i, { status: 'error', error: 'Ignoré', multipleMatches: undefined, storagePath: undefined })}

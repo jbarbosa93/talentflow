@@ -565,6 +565,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     // Essai 2 : match flexible — le nom parsé contient le nom en base ou vice versa
     // Utile pour les certificats où le nom est "FERREIRA GONÇALVES" mais en base c'est "Gonçalves"
+    // IMPORTANT : ce match partiel demande TOUJOURS confirmation à l'utilisateur (même 1 seul résultat)
+    // car il peut faire des faux positifs (ex: 2 personnes différentes nommées "José Gonçalves")
     if (!candidatExistant) {
       const lastNamePart = analyse.nom.split(/\s+/).pop() || analyse.nom
       if (lastNamePart.length >= 3) {
@@ -578,19 +580,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
             const cPrenom = (c.prenom || '').toLowerCase()
             return cPrenom.includes(firstPrenom) || firstPrenom.includes(cPrenom.split(/\s+/)[0])
           })
-          if (matches.length === 1) {
-            // Un seul match → on l'utilise directement
-            candidatExistant = matches[0]
-          } else if (matches.length > 1) {
-            // Plusieurs candidats avec le même nom → demander à l'utilisateur
-            console.log(`[CV Parse] Plusieurs candidats matchent: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')}`)
+          if (matches.length >= 1) {
+            // Match partiel (1 ou plusieurs) → toujours demander confirmation à l'utilisateur
+            // On ne confirme JAMAIS automatiquement un match partiel de nom
+            console.log(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
             return NextResponse.json({
               isDuplicate: true,
               multipleMatches: true,
               candidatsMatches: matches,
               analyse,
               cv_url: cvUrl,
-              message: `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon`,
+              message: matches.length === 1
+                ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?`
+                : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon`,
             })
           }
         }
