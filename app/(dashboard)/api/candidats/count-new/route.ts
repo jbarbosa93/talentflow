@@ -1,20 +1,30 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Retourne les IDs des candidats créés/mis à jour dans les 30 derniers jours
-// La sidebar calcule les non-vus en soustrayant le localStorage viewedSet
+// Retourne les IDs des candidats créés dans les 30 derniers jours
+// Filtre automatiquement par candidats_viewed_all_at (persisté dans user metadata cross-device)
 export async function GET() {
   try {
-    const supabase = createAdminClient()
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const { data } = await supabase
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const viewedAllAt: string | undefined = user?.user_metadata?.candidats_viewed_all_at
+
+    // Si l'utilisateur a cliqué "Tout marquer vu" plus récemment que 30j, utiliser cette date
+    const effectiveSince = (viewedAllAt && viewedAllAt > thirtyDaysAgo)
+      ? viewedAllAt
+      : thirtyDaysAgo
+
+    const admin = createAdminClient()
+    const { data } = await admin
       .from('candidats')
       .select('id')
-      .gte('created_at', since)
+      .gte('created_at', effectiveSince)
 
     return NextResponse.json({ ids: (data || []).map((c: { id: string }) => c.id) })
   } catch {

@@ -851,7 +851,7 @@ export default function CandidatsList() {
 
         {/* Star rating — à gauche de l'âge */}
         {c.rating > 0 && (
-          <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+          <div className="clist-stars" style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
             {[1, 2, 3, 4, 5].map(star => (
               <Star
                 key={star}
@@ -895,6 +895,7 @@ export default function CandidatsList() {
               if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
               hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
             }}
+            className="clist-cv-btn"
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '4px 9px', borderRadius: 7,
@@ -970,7 +971,7 @@ export default function CandidatsList() {
         })()}
 
         {/* Date d'ajout */}
-        <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
+        <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
           {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       </div>
@@ -1047,6 +1048,9 @@ export default function CandidatsList() {
                     .filter((c: any) => !vs.has(c.id) && c.created_at && n - new Date(c.created_at).getTime() < seuil)
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
+                } finally {
+                  // Persister cross-device dans Supabase user metadata
+                  fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
                 }
               }}
               className="neo-btn-ghost"

@@ -1007,4 +1007,12 @@ body {
     width: 36px !important;
     height: 36px !important;
   }
+
+  /* ── Liste candidats — carte responsive ── */
+  /* Cacher la date et le bouton CV hover (inutile sans souris) */
+  .clist-date,
+  .clist-cv-btn,
+  .clist-stars {
+    display: none !important;
+  }
 }
