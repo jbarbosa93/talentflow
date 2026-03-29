@@ -28,5 +28,10 @@ export async function POST(request: Request) {
   await supabase.auth.signOut({ scope: 'local' })
 
   const url = new URL('/login', request.url)
-  return NextResponse.redirect(url, { status: 302 })
+  const res = NextResponse.redirect(url, { status: 302 })
+  // Supprimer le cookie de grâce OTP (forcer re-vérification au prochain login)
+  res.cookies.set('talentflow_otp_grace', '', {
+    httpOnly: true, secure: true, sameSite: 'strict', maxAge: 0, path: '/',
+  })
+  return res
 }

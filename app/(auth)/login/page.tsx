@@ -96,6 +96,19 @@ function LoginForm() {
       return
     }
 
+    // Vérifier si la grâce OTP est active (login récent < 4h)
+    try {
+      const graceRes = await fetch(`/api/auth/otp-grace?email=${encodeURIComponent(email)}`)
+      const graceData = await graceRes.json()
+      if (graceData.skip) {
+        // Grâce active — pas besoin du code, connecter directement
+        logAccess('login_success_grace')
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+    } catch { /* ignore — continuer avec OTP si erreur */ }
+
     // ✅ SÉCURITÉ : Déconnecter immédiatement après vérification du mot de passe
     // La session ne sera recréée qu'après vérification du code OTP
     await supabase.auth.signOut()
@@ -186,7 +199,12 @@ function LoginForm() {
       return
     }
 
-    // 3. Session créée avec succès → log + rediriger vers le dashboard
+    // 3. Session créée avec succès → définir cookie de grâce 4h + log + rediriger
+    fetch('/api/auth/otp-grace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => {})
     logAccess('login_success')
     router.push('/dashboard')
     router.refresh()
