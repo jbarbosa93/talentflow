@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.25.1'
+export const APP_VERSION = 'v0.25.3'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.25.3',
+    date: '2026-03-29',
+    label: 'Fixes mobiles : hamburger, TopBar, handle, documents',
+    features: [
+      'Mobile : double bouton hamburger supprime sur la fiche candidat',
+      'Mobile : TopBar — nom et entreprise masques sur petit ecran (avatar seul)',
+      'Mobile : poignee de redimensionnement masquee (n\'etait pas liee a la colonne CV cachee)',
+      'Mobile : panel Documents affiché pleine largeur (100vw) sur smartphone',
+      'Mobile : badge age masque dans la liste candidats (colonne trop etroite)',
+      'Non-vus cross-device : badge "504 non vus" synchronise entre desktop et smartphone',
+      'OTP grace 4h : pas de nouveau code email si login dans les 4 dernieres heures',
+    ],
+  },
   {
     version: 'v0.25.1',
     date: '2026-03-29',

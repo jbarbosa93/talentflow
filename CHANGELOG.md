@@ -1,5 +1,19 @@
 # Changelog TalentFlow
 
+## v0.25.3 — 29 mars 2026
+
+### Fixes mobiles & Cross-device
+
+- **Double hamburger supprimé** : le bouton flottant du shell ne s'affichait plus sur `/candidats/[id]` en doublon avec celui du TopBar
+- **TopBar responsive** : nom et société masqués sur mobile, seul l'avatar reste visible — plus de débordement
+- **Poignée resize masquée** : la barre jaune de redimensionnement n'est plus visible sur mobile
+- **Panel Documents pleine largeur** : s'ouvre en `100vw` sur smartphone (plus de coupure à gauche)
+- **Badge âge masqué** sur la liste candidats sur mobile
+- **Non-vus cross-device** : "Tout marquer vu" sur desktop synchronise maintenant le badge sur smartphone (via Supabase user metadata)
+- **OTP grace 4h** : si connexion dans les 4 dernières heures, pas de code email demandé (cookie httpOnly signé HMAC-SHA256)
+
+---
+
 ## v0.25.1 — 29 mars 2026
 
 ### Mobile — Responsive & Photo photothèque

@@ -323,6 +323,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
             setShowUpload(true)
           }
         }}
+        className="documents-panel"
         style={{
           position: 'absolute', top: 0, right: 0,
           width: 480, height: '100%',

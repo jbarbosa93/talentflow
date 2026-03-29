@@ -865,7 +865,7 @@ export default function CandidatsList() {
 
         {/* Âge (calculé depuis date_naissance) */}
         {age !== null && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
+          <span className="clist-age" style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
             {age} ans
           </span>
         )}

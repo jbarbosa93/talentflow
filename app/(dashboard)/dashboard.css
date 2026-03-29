@@ -1009,10 +1009,33 @@ body {
   }
 
   /* ── Liste candidats — carte responsive ── */
-  /* Cacher la date et le bouton CV hover (inutile sans souris) */
+  /* Cacher la date, le bouton CV hover, les étoiles et l'âge (trop chargé) */
   .clist-date,
   .clist-cv-btn,
-  .clist-stars {
+  .clist-stars,
+  .clist-age {
     display: none !important;
+  }
+
+  /* ── TopBar — profil compact sur mobile (avatar seul) ── */
+  .d-topbar-profile-text,
+  .d-topbar-profile-text + span {
+    display: none !important;
+  }
+  /* Réduire padding du bouton profil sur mobile */
+  .d-topbar-actions button[style*="padding: 6px 12px"] {
+    padding: 4px !important;
+  }
+
+  /* ── Fiche candidat — cacher resize handle ── */
+  .candidat-resize-handle {
+    display: none !important;
+  }
+
+  /* ── Documents panel — plein écran sur mobile ── */
+  .documents-panel {
+    width: 100vw !important;
+    left: 0 !important;
+    right: 0 !important;
   }
 }

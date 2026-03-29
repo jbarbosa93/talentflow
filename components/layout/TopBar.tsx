@@ -205,7 +205,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: avatarUrl ? 'transparent' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#0F172A', overflow: 'hidden' }}>
                 {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initiales}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <div className="d-topbar-profile-text" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>{fullName}</span>
                 {entreprise && <span style={{ fontSize: 11, color: 'var(--primary)', marginTop: 2, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>}
               </div>

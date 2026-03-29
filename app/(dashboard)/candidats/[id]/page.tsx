@@ -1434,6 +1434,7 @@ export default function CandidatDetailPage() {
         {/* ══ Resize handle ══ */}
         {showCV && (
           <div
+            className="candidat-resize-handle"
             onMouseDown={handleResizeStart}
             style={{
               width: 6, flexShrink: 0, cursor: 'col-resize',

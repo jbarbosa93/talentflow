@@ -51,16 +51,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Floating hamburger — only on candidats pages where TopBar is hidden */}
-      {isOnCandidats && (
-        <button
-          className="d-mobile-menu-btn"
-          onClick={() => setSidebarOpen(prev => !prev)}
-          aria-label="Ouvrir le menu"
-        >
-          <Menu size={20} />
-        </button>
-      )}
+      {/* Floating hamburger — supprimé : la TopBar gère le hamburger sur toutes les pages */}
     </>
   )
 }
