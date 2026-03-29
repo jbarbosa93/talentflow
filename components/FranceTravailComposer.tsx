@@ -1,8 +1,11 @@
 'use client'
-import { useState } from 'react'
-import { Send, FileText, CheckCircle2, AlertCircle, Loader2, Info, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Send, FileText, CheckCircle2, AlertCircle, Loader2, Info, ChevronDown, Clock, History } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 import { FT_TEMPLATES, FT_TEMPLATE_VIDE, type FTTemplate } from '@/lib/ft-templates'
+
+const supabase = createClient()
 
 // Fixe — ne change jamais
 const NOMBRE_POSTES = '2'
@@ -28,6 +31,19 @@ export default function FranceTravailComposer() {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [historique, setHistorique] = useState<any[]>([])
+  const [showHistorique, setShowHistorique] = useState(false)
+
+  useEffect(() => {
+    ;(supabase as any)
+      .from('activites')
+      .select('id, titre, description, created_at, metadata')
+      .eq('type', 'email_envoye')
+      .filter('metadata->>source', 'eq', 'france_travail')
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data }: { data: any[] | null }) => { if (data) setHistorique(data) })
+  }, [sent])
 
   const set = (k: keyof FTForm, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
@@ -261,6 +277,49 @@ export default function FranceTravailComposer() {
         {lbl('Nom du client final et secteur d\'activité (cabinet de recrutement)')}
         <input className="neo-input" style={inp} placeholder="ex: Client : Société ABC — Secteur : Industrie métallurgique" value={form.infos_complementaires} onChange={e => set('infos_complementaires', e.target.value)} />
       </div>
+
+      {/* ── HISTORIQUE ──────────────────────────────────────────────────── */}
+      {historique.length > 0 && (
+        <div className="neo-card" style={{ padding: '14px 20px', marginBottom: 24 }}>
+          <button
+            type="button"
+            onClick={() => setShowHistorique(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%' }}
+          >
+            <History size={14} style={{ color: 'var(--muted)' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+              Historique des envois ({historique.length})
+            </span>
+            <ChevronDown size={13} style={{ color: 'var(--muted)', marginLeft: 'auto', transform: showHistorique ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          </button>
+          {showHistorique && (
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {historique.map((h: any) => (
+                <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--background)', border: '1.5px solid var(--border)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.metadata?.titre || h.titre?.replace('Offre France Travail envoyée — ', '')}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                      {h.metadata?.lieu && <span>{h.metadata.lieu} · </span>}
+                      {h.metadata?.nombre_postes && <span>{h.metadata.nombre_postes} postes · </span>}
+                      <span style={{ color: '#4F46E5' }}>envoyé à pei.74041@pole-emploi.fr</span>
+                    </div>
+                  </div>
+                  <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clock size={11} style={{ color: 'var(--muted)' }} />
+                    <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(h.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' '}
+                      {new Date(h.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '10px 14px', borderRadius: 8, background: '#FEE2E2', border: '1.5px solid #FECACA', marginBottom: 16 }}>

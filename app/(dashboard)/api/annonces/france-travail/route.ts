@@ -11,7 +11,7 @@ import {
 export const runtime = 'nodejs'
 
 const FT_TO = 'pei.74041@pole-emploi.fr'
-const FT_CC = 'andre.bonier@pole-emploi.fr'
+const FT_CC = ['andre.bonier@pole-emploi.fr', 'info@l-agence.ch']
 
 const COMPANY = {
   nom:      'L-Agence SA',
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           from: 'TalentFlow <noreply@talent-flow.ch>',
           to: [FT_TO],
-          cc: [FT_CC],
+          cc: FT_CC,
           subject,
           html: htmlBody,
           attachments: [{ filename, content: docBase64 }],
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
       await transporter.sendMail({
         from: smtpConfig.nom ? `"${smtpConfig.nom}" <${smtpConfig.email}>` : smtpConfig.email,
         to: FT_TO,
-        cc: FT_CC,
+        cc: FT_CC.join(', '),
         subject,
         html: htmlBody,
         attachments: [{ filename, content: docBuffer, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }],
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
         type: 'email_envoye',
         titre: `Offre France Travail envoyée — ${data.titre}`,
         description: `${data.nombre_postes || 1} poste(s) — ${data.lieu} — envoi vers ${FT_TO}`,
-        metadata: { titre: data.titre, lieu: data.lieu, contrat: data.contrat },
+        metadata: { source: 'france_travail', titre: data.titre, lieu: data.lieu, contrat: data.contrat, nombre_postes: data.nombre_postes || 2, filename },
       })
     } catch {}
 
