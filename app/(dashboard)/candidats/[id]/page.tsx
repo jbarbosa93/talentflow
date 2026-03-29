@@ -991,20 +991,35 @@ export default function CandidatDetailPage() {
                 {agenceMetiers.length > 0 && (
                   <div>
                     <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 5 }}>Métiers</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                      {agenceMetiers.map(m => {
-                        const active = (editData.metiers || []).includes(m)
-                        return (
-                          <button key={m} type="button" onClick={() => {
-                            const current = editData.metiers || []
-                            set('metiers', active ? current.filter((x: string) => x !== m) : [...current, m])
-                          }}
-                            style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: active ? 700 : 500, cursor: 'pointer', border: active ? '2px solid #3B82F6' : '1px solid var(--border)', background: active ? 'rgba(59,130,246,0.1)' : 'white', color: active ? '#3B82F6' : 'var(--muted)', transition: 'all 0.15s' }}>
+                    {/* Métiers sélectionnés */}
+                    {(editData.metiers || []).length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                        {(editData.metiers || []).map((m: string) => (
+                          <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: '1.5px solid #3B82F6' }}>
                             {m}
-                          </button>
-                        )
-                      })}
-                    </div>
+                            <button type="button" onClick={() => set('metiers', (editData.metiers || []).filter((x: string) => x !== m))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: 0, lineHeight: 1, fontSize: 13, display: 'flex', alignItems: 'center' }}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Dropdown pour ajouter un métier */}
+                    <select
+                      className="neo-input"
+                      style={{ height: 30, fontSize: 12 }}
+                      value=""
+                      onChange={e => {
+                        const val = e.target.value
+                        if (!val) return
+                        const current = editData.metiers || []
+                        if (!current.includes(val)) set('metiers', [...current, val])
+                      }}
+                    >
+                      <option value="">+ Ajouter un métier…</option>
+                      {agenceMetiers
+                        .filter((m: string) => !(editData.metiers || []).includes(m))
+                        .map((m: string) => <option key={m} value={m}>{m}</option>)}
+                    </select>
                   </div>
                 )}
               </div>

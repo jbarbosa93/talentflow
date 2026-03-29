@@ -597,9 +597,13 @@ function IntegrationsContent() {
                               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
                                 {f.erreur}
                               </span>
+                            ) : f.erreur?.startsWith('Document') || f.erreur?.startsWith('Certificat') || f.erreur?.startsWith('Diplôme') || f.erreur?.startsWith('Formation') || f.erreur?.startsWith('Attestation') || f.erreur?.startsWith('Permis') ? (
+                              <span title={f.erreur} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                ⚠️ {f.erreur}
+                              </span>
                             ) : f.erreur ? (
-                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>
-                                Erreur
+                              <span title={f.erreur} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B', border: '1.5px solid #FECACA', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                                ❌ {f.erreur}
                               </span>
                             ) : null}
                           </div>
