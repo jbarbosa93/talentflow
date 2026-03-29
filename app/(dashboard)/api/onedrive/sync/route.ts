@@ -267,6 +267,17 @@ export async function POST() {
             existingCandidat = data
           }
 
+          // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
+          // Ne pas créer un candidat depuis un certificat — logguer erreur pour correction manuelle
+          if (isNotCV && !existingCandidat) {
+            const nameStr = [candidatPrenom, candidatNom].filter(Boolean).join(' ') || 'inconnu'
+            const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'formation' ? 'Formation' : docType === 'attestation' ? 'Attestation' : docType === 'permis' ? 'Permis' : `Document (${docType})`
+            throw new Error(
+              `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. ` +
+              `Importez d'abord le CV de ce candidat, puis ce fichier sera rattaché automatiquement.`
+            )
+          }
+
           if (existingCandidat) {
             // Smart update: fetch full existing candidate data
             const { data: candidatExistant } = await supabase.from('candidats')
@@ -451,6 +462,14 @@ export async function POST() {
                 }
               }
             } catch { /* photo extraction failed */ }
+          }
+
+          // ── Validation minimum avant création (évite les "Candidat" vides) ──
+          // Un candidat DOIT avoir au minimum un nom OU un prénom OU un email OU un téléphone
+          const aDesInfosBase = candidatNom || candidatPrenom || candidatEmail || candidatTel.length >= 8
+          const aDesInfosCV = analyse.titre_poste || (analyse.competences?.length > 0) || (analyse.experiences?.length > 0)
+          if (!aDesInfosBase && !aDesInfosCV) {
+            throw new Error(`Document vide ou illisible — aucune donnée exploitable extraite (${filename}). Vérifiez que le fichier contient bien un CV.`)
           }
 
           // h. Crée le candidat
