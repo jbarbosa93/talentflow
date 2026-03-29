@@ -27,165 +27,155 @@ const COMPANY = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const BLUE = '003399'
-const BORDER_NONE = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
-const BORDERS_NONE = { top: BORDER_NONE, bottom: BORDER_NONE, left: BORDER_NONE, right: BORDER_NONE }
-const BORDER_GRAY = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' }
-const BORDERS_GRAY = { top: BORDER_GRAY, bottom: BORDER_GRAY, left: BORDER_GRAY, right: BORDER_GRAY }
+const F = 'Arial'
+const S = 20  // 10pt
+const SB = 20
 
-function sectionHeader(title: string): Paragraph {
+function p(children: TextRun[], spacing = 80): Paragraph {
+  return new Paragraph({ spacing: { after: spacing }, children })
+}
+function t(text: string, opts: any = {}): TextRun {
+  return new TextRun({ text, font: F, size: S, ...opts })
+}
+function tb(text: string): TextRun { return t(text, { bold: true }) }
+function tul(text: string): TextRun { return t(text, { underline: {} }) }
+
+function sectionTitle(text: string): Paragraph {
   return new Paragraph({
-    spacing: { before: 320, after: 120 },
-    shading: { type: ShadingType.CLEAR, fill: BLUE },
-    indent: { left: 160, right: 160 },
-    children: [new TextRun({ text: title, bold: true, size: 22, color: 'FFFFFF', font: 'Calibri' })],
+    spacing: { before: 280, after: 100 },
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '003399', space: 4 } },
+    children: [new TextRun({ text, font: F, size: 22, bold: true, underline: {} })],
   })
 }
 
-function field(label: string, value: string): Paragraph[] {
-  const lines = (value || '—').split('\n').filter(l => l.trim())
-  return lines.map((line, i) => new Paragraph({
-    spacing: { after: i < lines.length - 1 ? 40 : 120 },
-    indent: { left: 160 },
-    children: [
-      ...(i === 0 ? [new TextRun({ text: `${label} : `, bold: true, size: 19, font: 'Calibri' })] : [
-        new TextRun({ text: '  ', size: 19 })
-      ]),
-      new TextRun({ text: line, size: 19, font: 'Calibri' }),
-    ],
-  }))
+function fieldLine(label: string, value: string): Paragraph {
+  return p([tb(label + ' : '), t(value || '')])
 }
 
-function infoRow(label: string, value: string): TableRow {
-  return new TableRow({
-    children: [
-      new TableCell({
-        width: { size: 3600, type: WidthType.DXA },
-        borders: BORDERS_GRAY,
-        shading: { type: ShadingType.CLEAR, fill: 'EEF2FF' },
-        margins: { top: 60, bottom: 60, left: 120, right: 120 },
-        children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 18, font: 'Calibri' })] })],
-      }),
-      new TableCell({
-        width: { size: 5760, type: WidthType.DXA },
-        borders: BORDERS_GRAY,
-        margins: { top: 60, bottom: 60, left: 120, right: 120 },
-        children: [new Paragraph({ children: [new TextRun({ text: value || '—', size: 18, font: 'Calibri' })] })],
-      }),
-    ],
-  })
-}
-
-// ─── Génération DOCX ─────────────────────────────────────────────────────────
+// ─── Génération DOCX (format proche de l'original) ──────────────────────────
 
 async function generateDocx(data: any): Promise<Buffer> {
   const {
     titre, nombre_postes, description,
     qualification, formation, connaissances, experience, debutant, exp_type, exp_annees,
     contrat, duree_cdd, horaire, heures_hebdo, temps_partiel, precision_horaires,
-    lieu, salaire_de, salaire_a, prise_de_poste,
-    contact_direct, contact_info, infos_complementaires,
+    lieu, prise_de_poste, contact_info, infos_complementaires,
   } = data
 
-  const expStr = debutant
-    ? 'Débutant accepté'
-    : `${exp_type === 'exigee' ? 'Exigée' : 'Souhaitée'} — ${exp_annees || '?'} an(s)`
+  const isCdi = contrat !== 'cdd'
+  const isTempsPlein = !temps_partiel
+  const isContactDirect = true
+  const isContactFT = false
 
-  const salStr = (salaire_de || salaire_a)
-    ? `De ${salaire_de || '?'} à ${salaire_a || '?'} CHF`
-    : '—'
+  const prisDe = prise_de_poste
+    ? new Date(prise_de_poste).toLocaleDateString('fr-FR')
+    : '…… / …………… / ……………'
 
-  const contratStr = contrat === 'cdi' ? 'CDI' : `CDD — durée : ${duree_cdd || '?'}`
-  const tempsStr = `${heures_hebdo || '?'} h/sem — ${temps_partiel ? 'Temps partiel' : 'Temps plein'}`
-
-  const contactStr = contact_direct
-    ? `Candidats contactent directement — ${contact_info || COMPANY.tel}`
-    : 'Les candidats répondent à France Travail'
+  const descLines: string[] = (description || '')
+    .split('\n')
+    .map((l: string) => l.trim())
+    .filter((l: string) => l.length > 0)
 
   const doc = new Document({
     sections: [{
       properties: {
         page: {
           size: { width: 11906, height: 16838 },
-          margin: { top: 1080, bottom: 1080, left: 1134, right: 1134 },
+          margin: { top: 900, bottom: 900, left: 1000, right: 1000 },
         },
       },
       children: [
-        // En-tête
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 120 },
-          children: [new TextRun({ text: 'FORMULAIRE DÉPÔT D\'OFFRE EN SUISSE', bold: true, size: 28, color: BLUE, font: 'Calibri' })],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 80 },
-          children: [new TextRun({ text: `À retourner par email : ${FT_TO} et en copie à ${FT_CC}`, size: 17, color: '555555', font: 'Calibri' })],
-        }),
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 400 },
-          children: [new TextRun({ text: 'Ligne directe employeur : 0033 450 84 89 58', size: 17, color: '555555', font: 'Calibri' })],
-        }),
 
-        // ── VOTRE ENTREPRISE ──────────────────────────────────────────────────
-        sectionHeader('VOTRE ENTREPRISE'),
-        new Paragraph({ spacing: { after: 100 } }),
-        new Table({
-          width: { size: 9360, type: WidthType.DXA },
-          columnWidths: [3600, 5760],
-          rows: [
-            infoRow('Nom de la société', COMPANY.nom),
-            infoRow('Activité', COMPANY.activite),
-            infoRow('Adresse', COMPANY.adresse),
-            infoRow('Site internet', COMPANY.site),
-            infoRow('Email', COMPANY.email),
-            infoRow('Personne à joindre', `${COMPANY.contact} — ${COMPANY.fonction}`),
-            infoRow('Téléphone', `${COMPANY.tel} / ${COMPANY.natel}`),
-          ],
-        }),
+        // ── EN-TÊTE ──────────────────────────────────────────────────────────
+        p([tb('FORMULAIRE DÉPÔT D\'OFFRE EN SUISSE 2021')], 60),
+        p([
+          t('À retourner par email : '),
+          tul('pei.74041@pole-emploi.fr'),
+          t(' et en copie à '),
+          tul('andre.bonier@pole-emploi.fr'),
+          t(' — Ligne directe employeur : '),
+          tb('0033 450 84 89 58'),
+        ], 60),
+        p([t('Merci de nous retourner ce document au format Word. Tout document incomplet ne sera pas traité. Pas d\'abréviation et d\'anglais dans le titre. Merci', { italics: true, size: 18 })], 200),
 
-        // ── L'EMPLOI OFFERT ───────────────────────────────────────────────────
-        sectionHeader('L\'EMPLOI OFFERT'),
-        ...field('Intitulé du poste', titre),
-        ...field('Nombre de postes à pourvoir', String(nombre_postes || '1')),
-        new Paragraph({
-          spacing: { after: 60 },
-          indent: { left: 160 },
-          children: [new TextRun({ text: 'Descriptif des tâches :', bold: true, size: 19, font: 'Calibri' })],
-        }),
-        ...(description || '—').split('\n').filter((l: string) => l.trim()).map((line: string) =>
-          new Paragraph({
-            spacing: { after: 60 },
-            indent: { left: 320 },
-            bullet: { level: 0 },
-            children: [new TextRun({ text: line.replace(/^[-•]\s*/, ''), size: 19, font: 'Calibri' })],
-          })
-        ),
-        new Paragraph({ spacing: { after: 120 } }),
+        // ── VOTRE ENTREPRISE ─────────────────────────────────────────────────
+        sectionTitle('Votre Entreprise'),
+        p([tb('NOM de la SOCIÉTÉ : '), t(COMPANY.nom), t('     '), tb('Activité : '), t(COMPANY.activite)]),
+        p([tb('NUMÉRO DE SIRET (entreprise française) : '), t('(non applicable – entreprise suisse)')]),
+        p([tb('ADRESSE : '), t('Avenue des Alpes 3, 1870 Monthey – Suisse')]),
+        p([tb('ADRESSE SITE INTERNET : '), t(COMPANY.site), t('     '), tb('Effectif : '), t('')]),
+        p([tb('ADRESSE COURRIEL : '), t(COMPANY.email)]),
+        p([tb('PERSONNE À JOINDRE : '), t(COMPANY.contact), t('     '), tb('FONCTION : '), t(COMPANY.fonction)]),
+        p([tb('TÉLÉPHONE : '), t(COMPANY.tel), t('     '), tb('Natel : '), t(COMPANY.natel)], 200),
 
-        // ── LE PROFIL RECHERCHÉ ────────────────────────────────────────────────
-        sectionHeader('LE PROFIL RECHERCHÉ'),
-        ...field('Qualification', qualification),
-        ...field('Formation initiale et continue', formation),
-        ...field('Connaissances particulières (langues, permis, informatique…)', connaissances),
-        ...field('Expérience professionnelle', experience),
-        ...field('Niveau d\'expérience', expStr),
+        // ── L'EMPLOI OFFERT ──────────────────────────────────────────────────
+        sectionTitle('L\'emploi offert'),
+        p([
+          tb('INTITULÉ DU POSTE : '), t(titre || ''),
+          t('          '),
+          tb('Nombre de postes : '), t(String(nombre_postes || '2')),
+        ]),
+        p([tb('DESCRIPTIF DES TÂCHES et responsabilités (maximum 1000 caractères)')]),
+        ...descLines.map((line: string) => p([t('– ' + line)], 40)),
+        new Paragraph({ spacing: { after: 160 } }),
+
+        // ── LE PROFIL RECHERCHÉ ───────────────────────────────────────────────
+        sectionTitle('Le profil recherché'),
+        fieldLine('QUALIFICATION', qualification || ''),
+        fieldLine('FORMATION INITIALE et CONTINUE (diplômes exigés ou niveau)', formation || ''),
+        fieldLine('CONNAISSANCES PARTICULIÈRES (langues, informatique, permis…)', connaissances || ''),
+        fieldLine('EXPÉRIENCE PROFESSIONNELLE (domaines et durée)', experience || ''),
+        p([
+          tb('DÉBUTANT '), t(debutant ? '☑' : '☐'),
+          t('     '),
+          tb('EXPÉRIENCE '),
+          t('exigée '), t((!debutant && exp_type === 'exigee') ? '☑' : '☐'),
+          t('   Souhaitée '), t((!debutant && exp_type === 'souhaitee') ? '☑' : '☐'),
+          t(`   ${exp_annees || ''} an(s)`),
+        ], 200),
 
         // ── LES CONDITIONS D'EMPLOI ───────────────────────────────────────────
-        sectionHeader('LES CONDITIONS D\'EMPLOI'),
-        ...field('Type de contrat', contratStr),
-        ...field('Horaire de travail (Début – Fin)', horaire),
-        ...field('Durée du travail', tempsStr),
-        ...field('Précisions sur les horaires', precision_horaires),
-        ...field('Lieu de travail', lieu),
-        ...field('Salaire', salStr),
-        ...field('Prise de poste', prise_de_poste),
+        sectionTitle('Les conditions d\'emploi'),
+        p([
+          t('CDI '), t(isCdi ? '☑' : '☐'),
+          t('     CDD '), t(!isCdi ? '☑' : '☐'),
+          t('     '),
+          tb('Si CDD, pour quelle durée : '), t(!isCdi ? (duree_cdd || '') : 'Poste à l\'année'),
+        ]),
+        fieldLine('HORAIRE DE TRAVAIL (Début – Fin)', horaire || ''),
+        p([
+          tb('DURÉE DU TRAVAIL : '), t(heures_hebdo || '40-45'),
+          t(' Heures hebdomadaires     '),
+          t('temps plein '), t(isTempsPlein ? '☑' : '☐'),
+          t('     temps partiel '), t(!isTempsPlein ? '☑' : '☐'),
+        ]),
+        fieldLine('PRÉCISION SUR LES HORAIRES (3×8, week-end, nuit…)', precision_horaires || ''),
+        fieldLine('LIEU DE TRAVAIL', lieu || ''),
+        p([tb('SALAIRE (précision indispensable) : '), t('DE ………… A ………… CHF')]),
+        p([tb('PRISE DE POSTE LE : '), t(prisDe)], 200),
 
         // ── SERVICE ATTENDU ───────────────────────────────────────────────────
-        sectionHeader('LE SERVICE ATTENDU'),
-        ...field('Mode de mise en relation', contactStr),
-        ...field('Informations complémentaires (client final, secteur)', infos_complementaires),
+        sectionTitle('Le service attendu pour le traitement de votre offre'),
+        p([t('Mode de mise en relation des candidats : répondez seulement à l\'une ou l\'autre des 2 possibilités mais pas les 2', { italics: true, size: 18 })]),
+        p([
+          t('1) Les candidats vous contactent directement : '),
+          tb('oui '), t(isContactDirect ? '☑' : '☐'),
+          t('   non '), t(!isContactDirect ? '☑' : '☐'),
+        ]),
+        p([
+          t('   Si oui : par téléphone, par courrier, par email : '),
+          t(contact_info || `${COMPANY.tel}  ${COMPANY.email}`),
+        ]),
+        p([
+          t('2) Les candidats répondent à Pôle emploi : '),
+          tb('oui '), t(isContactFT ? '☑' : '☐'),
+          t('   non '), t(!isContactFT ? '☑' : '☐'),
+        ]),
+        p([
+          tb('Informations complémentaires '),
+          t('(Pour les cabinets de recrutement, merci de préciser le nom de votre client final et son secteur d\'activité) : '),
+          t(infos_complementaires || ''),
+        ]),
       ],
     }],
   })

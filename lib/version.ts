@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.25.3'
+export const APP_VERSION = 'v0.25.4'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.25.4',
+    date: '2026-03-29',
+    label: 'France Travail : format Word fidèle + envoi Resend + historique',
+    features: [
+      'France Travail : document Word fidèle au formulaire original (titres soulignés, cases ☑/☐, format LABEL : valeur)',
+      'France Travail : envoi via Resend (sans configuration SMTP requise)',
+      'France Travail : CC automatique à info@l-agence.ch en plus de andre.bonier@pole-emploi.fr',
+      'France Travail : historique des envois avec date, heure, poste et lieu',
+      'France Travail : 2 postes et sans salaire toujours fixes',
+    ],
+  },
   {
     version: 'v0.25.3',
     date: '2026-03-29',

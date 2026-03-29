@@ -1,5 +1,17 @@
 # Changelog TalentFlow
 
+## v0.25.4 — 29 mars 2026
+
+### France Travail — Formulaire Word + Envoi
+
+- **Format Word fidèle à l'original** : titres soulignés, format `LABEL : valeur`, cases à cocher ☑/☐ pour CDI/CDD, débutant/expérience, temps plein/partiel
+- **Envoi via Resend** : fonctionne sans configuration SMTP — utilise la clé Resend déjà en place
+- **CC automatique** à `info@l-agence.ch` en plus de `andre.bonier@pole-emploi.fr`
+- **2 postes toujours fixés**, salaire jamais rempli (conforme au workflow L-Agence)
+- **Historique des envois** : liste dépliable avec date, heure, poste et lieu pour chaque envoi
+
+---
+
 ## v0.25.3 — 29 mars 2026
 
 ### Fixes mobiles & Cross-device
