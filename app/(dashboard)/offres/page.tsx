@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Offre, OffreStatut } from '@/types/database'
+import FranceTravailComposer from '@/components/FranceTravailComposer'
 
 const supabase = createClient()
 
@@ -37,7 +38,7 @@ function useDeleteOffre() {
 }
 
 export default function OffresPage() {
-  const [activeTab, setActiveTab] = useState<'offres' | 'analyse' | 'facebook'>('offres')
+  const [activeTab, setActiveTab] = useState<'offres' | 'analyse' | 'facebook' | 'france-travail'>('offres')
   const [showCreate, setShowCreate] = useState(false)
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -100,6 +101,10 @@ export default function OffresPage() {
               <span style={{ fontSize: 13 }}>🌐</span>
               job-room.ch
             </button>
+            <button style={tabStyle(activeTab === 'france-travail')} onClick={() => setActiveTab('france-travail')}>
+              <span style={{ fontSize: 13 }}>🇫🇷</span>
+              France Travail
+            </button>
           </div>
           {activeTab === 'offres' && (
             <button onClick={() => setShowCreate(true)} className="neo-btn-yellow">
@@ -112,6 +117,7 @@ export default function OffresPage() {
 
       {activeTab === 'facebook' && <JobRoomComposer offres={offres || []} />}
       {activeTab === 'analyse' && <AnalyseCDC onCommandeCreated={() => setActiveTab('offres')} />}
+      {activeTab === 'france-travail' && <FranceTravailComposer />}
       {activeTab === 'offres' && (<>
 
       {isLoading ? (
