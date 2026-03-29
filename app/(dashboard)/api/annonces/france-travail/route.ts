@@ -203,47 +203,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Titre, description et lieu sont obligatoires' }, { status: 400 })
     }
 
-    // Lire config SMTP
-    const supabase = createAdminClient()
-    const { data: settingsRow } = await (supabase as any)
-      .from('app_settings').select('value').eq('key', 'smtp_config').single()
-
-    if (!settingsRow) {
-      return NextResponse.json({ error: 'SMTP non configuré. Allez dans Messages → Paramètres.' }, { status: 404 })
-    }
-
-    const smtpConfig = JSON.parse(settingsRow.value)
-
     // Générer le Word doc
     const docBuffer = await generateDocx(data)
     const filename = `Annonce_${(data.titre || 'poste').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.docx`
 
-    // Envoyer par email
-    const transporter = nodemailer.createTransport({
-      host: smtpConfig.host || 'smtp.office365.com',
-      port: smtpConfig.port || 587,
-      secure: false,
-      auth: { user: smtpConfig.email, pass: smtpConfig.password },
-      tls: { ciphers: 'SSLv3', rejectUnauthorized: false },
-    })
+    const subject = `Dépôt d'offre — ${data.titre} (${data.nombre_postes || 2} postes) — L-Agence SA`
+    const htmlBody = `
+      <p>Bonjour,</p>
+      <p>Veuillez trouver ci-joint notre formulaire de dépôt d'offre pour le poste de <strong>${data.titre}</strong>
+      (${data.nombre_postes || 2} postes) — ${data.lieu}.</p>
+      <p>Cordialement,<br>${COMPANY.contact}<br>${COMPANY.nom}<br>${COMPANY.tel}</p>
+    `
+    const docBase64 = docBuffer.toString('base64')
 
-    await transporter.sendMail({
-      from: smtpConfig.nom ? `"${smtpConfig.nom}" <${smtpConfig.email}>` : smtpConfig.email,
-      to: FT_TO,
-      cc: FT_CC,
-      subject: `Dépôt d'offre — ${data.titre} (${data.nombre_postes || 1} poste${(data.nombre_postes || 1) > 1 ? 's' : ''}) — L-Agence SA`,
-      html: `
-        <p>Bonjour,</p>
-        <p>Veuillez trouver ci-joint notre formulaire de dépôt d'offre pour le poste de <strong>${data.titre}</strong>
-        (${data.nombre_postes || 1} poste${(data.nombre_postes || 1) > 1 ? 's' : ''}) — ${data.lieu}.</p>
-        <p>Cordialement,<br>${COMPANY.contact}<br>${COMPANY.nom}<br>${COMPANY.tel}</p>
-      `,
-      attachments: [{
-        filename,
-        content: docBuffer,
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      }],
-    })
+    // ── Essai 1 : Resend (toujours disponible, pas besoin de config SMTP) ──────
+    const RESEND_API_KEY = process.env.RESEND_API_KEY
+    if (RESEND_API_KEY) {
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'TalentFlow <noreply@talent-flow.ch>',
+          to: [FT_TO],
+          cc: [FT_CC],
+          subject,
+          html: htmlBody,
+          attachments: [{ filename, content: docBase64 }],
+        }),
+      })
+      if (!resendRes.ok) {
+        const err = await resendRes.text()
+        throw new Error(`Resend: ${err}`)
+      }
+    } else {
+      // ── Essai 2 : SMTP configuré ──────────────────────────────────────────────
+      const supabase = createAdminClient()
+      const { data: settingsRow } = await (supabase as any)
+        .from('app_settings').select('value').eq('key', 'smtp_config').single()
+
+      if (!settingsRow) {
+        return NextResponse.json({ error: 'Aucune méthode d\'envoi disponible. Configurez le SMTP dans Messages → Paramètres.' }, { status: 404 })
+      }
+
+      const smtpConfig = JSON.parse(settingsRow.value)
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host || 'smtp.office365.com',
+        port: smtpConfig.port || 587,
+        secure: false,
+        auth: { user: smtpConfig.email, pass: smtpConfig.password },
+        tls: { ciphers: 'SSLv3', rejectUnauthorized: false },
+      })
+      await transporter.sendMail({
+        from: smtpConfig.nom ? `"${smtpConfig.nom}" <${smtpConfig.email}>` : smtpConfig.email,
+        to: FT_TO,
+        cc: FT_CC,
+        subject,
+        html: htmlBody,
+        attachments: [{ filename, content: docBuffer, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }],
+      })
+    }
 
     // Log activité
     try {
