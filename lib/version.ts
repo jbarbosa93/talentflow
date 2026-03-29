@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.25.0'
+export const APP_VERSION = 'v0.25.1'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.25.1',
+    date: '2026-03-29',
+    label: 'Mobile responsive & Photo photothèque',
+    features: [
+      'Mobile : layout fiche candidat responsive (3 colonnes → 1 colonne sur smartphone)',
+      'Mobile : viewer CV masque sur mobile (trop petit pour etre utile)',
+      'Mobile : bouton photo (appareil photo / photothèque) toujours visible sans mode edition',
+      'Mobile : support HEIC/HEIF (format iPhone) pour upload photo depuis photothèque',
+      'Mobile : viewport corrige (meta viewport width=device-width)',
+      'Mobile : boutons photo agrandis pour le touch (36×36)',
+      'Mobile : bouton "Re-analyser IA" affiche seulement l\'icone sur petit ecran',
+      'Mobile : header fiche candidat wrap automatiquement sur petit ecran',
+      'PWA : viewport export Viewport Next.js (standard App Router)',
+    ],
+  },
   {
     version: 'v0.25.0',
     date: '2026-03-28',

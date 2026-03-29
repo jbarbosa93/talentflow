@@ -974,4 +974,37 @@ body {
   .neo-kpi-grid {
     grid-template-columns: repeat(2, 1fr) !important;
   }
+
+  /* ── Candidat detail — responsive ── */
+  .candidat-grid {
+    flex-direction: column !important;
+    overflow-x: visible !important;
+  }
+  .candidat-col-info {
+    width: 100% !important;
+    flex-shrink: 1 !important;
+  }
+  .candidat-col-main {
+    width: 100% !important;
+  }
+  /* Cacher le viewer CV sur mobile */
+  .candidat-col-cv {
+    display: none !important;
+  }
+
+  /* Header candidat — wrap sur mobile */
+  .candidat-detail-header {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  /* Masquer le texte "Ré-analyser IA" sur très petit écran, garder l'icône */
+  .candidat-btn-reanalyse-label {
+    display: none !important;
+  }
+
+  /* Touch targets — boutons photo plus grands */
+  .candidat-photo-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
 }

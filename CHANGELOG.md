@@ -1,5 +1,20 @@
 # Changelog TalentFlow
 
+## v0.25.1 — 29 mars 2026
+
+### Mobile — Responsive & Photo photothèque
+
+- **Fiche candidat responsive** : layout 3 colonnes → 1 colonne sur smartphone, pas de scroll horizontal
+- **Viewer CV masqué sur mobile** : caché automatiquement sous 768px
+- **Bouton photo toujours visible** : accès à la photothèque ou à l'appareil photo sans passer en mode édition
+- **Support HEIC/HEIF** : format natif iPhone correctement reconnu dans le sélecteur de fichier
+- **Meta viewport** : correction du rendu mobile (width=device-width manquant)
+- **Boutons photo agrandis (36×36)** pour le touch sur mobile
+- **Bouton Ré-analyser IA** : icône seule sur petit écran, pas de débordement
+- **Header fiche candidat** : wrap automatique des boutons sur petit écran
+
+---
+
 ## v0.25.0 — 28 mars 2026
 
 ### Planning — Refonte majeure

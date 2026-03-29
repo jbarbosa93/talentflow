@@ -709,7 +709,7 @@ export default function CandidatDetailPage() {
     <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
         <button onClick={() => fromPipeline ? router.push('/pipeline') : router.push('/candidats')} className="neo-btn-ghost neo-btn-sm">
           <ArrowLeft size={14} /> {fromPipeline ? 'Retour au pipeline' : 'Retour aux candidats'}
         </button>
@@ -746,7 +746,7 @@ export default function CandidatDetailPage() {
               title="Ré-analyser le CV avec l'IA pour mettre à jour le profil"
             >
               {reanalyseLoading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={13} />}
-              {reanalyseLoading ? 'Analyse en cours...' : 'Ré-analyser IA'}
+              <span className="candidat-btn-reanalyse-label">{reanalyseLoading ? 'Analyse en cours...' : 'Ré-analyser IA'}</span>
             </button>
           )}
           {!isEditing ? (
@@ -824,10 +824,10 @@ export default function CandidatDetailPage() {
       </div>
 
       {/* ── Grid 3 colonnes ── */}
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', overflowX: 'auto', minWidth: 0 }}>
+      <div className="candidat-grid" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', minWidth: 0 }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="candidat-col-info" style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
@@ -844,32 +844,32 @@ export default function CandidatDetailPage() {
                     <Loader2 size={20} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
                   </div>
                 )}
-                {/* Photo action buttons — visible uniquement en mode édition */}
-                {isEditing && (
+                {/* Photo action buttons — visible en mode édition + bouton upload toujours visible */}
                 <div style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', gap: 3 }}>
                   <button
                     onClick={() => photoInputRef.current?.click()}
-                    title="Changer la photo"
+                    title="Changer la photo (photothèque ou appareil photo)"
+                    className="candidat-photo-btn"
                     style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                   >
                     <Camera size={11} color="#0F172A" />
                   </button>
-                  {candidat.cv_url && (
-                    <>
-                      <button
-                        onClick={() => setShowCropModal(true)}
-                        title="Sélectionner manuellement une zone du CV"
-                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}
-                      >
-                        ✂️
-                      </button>
-                    </>
+                  {isEditing && candidat.cv_url && (
+                    <button
+                      onClick={() => setShowCropModal(true)}
+                      title="Sélectionner manuellement une zone du CV"
+                      className="candidat-photo-btn"
+                      style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}
+                    >
+                      ✂️
+                    </button>
                   )}
-                  {candidat.photo_url && candidat.photo_url !== 'checked' && (
+                  {isEditing && candidat.photo_url && candidat.photo_url !== 'checked' && (
                     <>
                       <button
                         onClick={handlePhotoRotate}
                         title="Tourner la photo 90°"
+                        className="candidat-photo-btn"
                         style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#EFF6FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                       >
                         <RotateCw size={11} color="#3B82F6" />
@@ -877,6 +877,7 @@ export default function CandidatDetailPage() {
                       <button
                         onClick={handlePhotoDelete}
                         title="Supprimer la photo"
+                        className="candidat-photo-btn"
                         style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                       >
                         <X size={11} color="#DC2626" />
@@ -884,8 +885,7 @@ export default function CandidatDetailPage() {
                     </>
                   )}
                 </div>
-                )}
-                <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                <input ref={photoInputRef} type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} style={{ display: 'none' }} />
                 {showCropModal && candidat.cv_url && (
                   <PhotoCropModal
                     cvUrl={candidat.cv_url}
@@ -1224,7 +1224,7 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="candidat-col-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Résumé IA */}
           <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', order: sectionsOrder.indexOf('resume') }}>
@@ -1450,7 +1450,7 @@ export default function CandidatDetailPage() {
 
         {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
         {showCV && (
-        <div style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
+        <div className="candidat-col-cv" style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
             {/* Header du viewer */}
