@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle, Mail, Plug, XCircle } from 'lucide-react'
+import { Save, Key, Bell, Palette, Activity, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle, Mail, Plug, XCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useMetiers } from '@/hooks/useMetiers'
@@ -843,7 +843,11 @@ function MetiersSection() {
         )}
       </SectionCard>
 
-      <CategoriesMetiersSection metiers={metiers} />
+      <CategoriesMetiersSection metiers={metiers} onRenameMetier={(oldName, newName) => {
+        setMetiers(prev => prev.map(m => m === oldName ? newName : m))
+        setDirty(true)
+        setSaved(false)
+      }} />
     </>
   )
 }
@@ -856,12 +860,16 @@ const PRESET_COLORS = [
   '#84CC16', '#78716C', '#64748B', '#0EA5E9', '#D946EF',
 ]
 
-function CategoriesMetiersSection({ metiers }: { metiers: string[] }) {
+function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string[]; onRenameMetier?: (oldName: string, newName: string) => void }) {
   const { categories: remoteCategories, isLoading, saveCategories, isSaving } = useMetierCategories()
   const [categories, setCategories] = useState<MetierCategory[]>([])
   const [newCatName, setNewCatName] = useState('')
   const [saved, setSaved] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [renamingCat, setRenamingCat] = useState<{ name: string; value: string } | null>(null)
+  const [renamingMetier, setRenamingMetier] = useState<{ catName: string; metier: string; value: string } | null>(null)
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null)
+  const dragRef = useRef<{ catName: string; metier: string } | null>(null)
 
   useEffect(() => {
     if (!isLoading && !dirty) {
@@ -873,50 +881,85 @@ function CategoriesMetiersSection({ metiers }: { metiers: string[] }) {
   const assignedMetiers = new Set(categories.flatMap(c => c.metiers))
   const unassignedMetiers = metiers.filter(m => !assignedMetiers.has(m))
 
+  const mark = () => { setDirty(true); setSaved(false) }
+
   const addCategory = () => {
     const trimmed = newCatName.trim()
     if (!trimmed || categories.some(c => c.name === trimmed)) return
-    // Prendre une couleur pas encore utilisée
     const usedColors = new Set(categories.map(c => c.color))
     const availableColor = PRESET_COLORS.find(c => !usedColors.has(c)) || PRESET_COLORS[0]
     setCategories([...categories, { name: trimmed, color: availableColor, metiers: [] }])
     setNewCatName('')
-    setDirty(true)
-    setSaved(false)
+    mark()
   }
 
   const removeCategory = (name: string) => {
     setCategories(prev => prev.filter(c => c.name !== name))
-    setDirty(true)
-    setSaved(false)
+    mark()
   }
 
   const updateCategoryColor = (name: string, color: string) => {
     setCategories(prev => prev.map(c => c.name === name ? { ...c, color } : c))
-    setDirty(true)
-    setSaved(false)
+    mark()
+  }
+
+  const moveCategory = (name: string, dir: -1 | 1) => {
+    const idx = categories.findIndex(c => c.name === name)
+    const next = [...categories]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    setCategories(next)
+    mark()
+  }
+
+  const renameCategory = (oldName: string, newName: string) => {
+    const trimmed = newName.trim()
+    setRenamingCat(null)
+    if (!trimmed || trimmed === oldName) return
+    if (categories.some(c => c.name === trimmed)) { toast.error('Ce nom existe déjà'); return }
+    setCategories(prev => prev.map(c => c.name === oldName ? { ...c, name: trimmed } : c))
+    mark()
+  }
+
+  const renameMetierInCat = (catName: string, oldMetier: string, newMetier: string) => {
+    const trimmed = newMetier.trim()
+    setRenamingMetier(null)
+    if (!trimmed || trimmed === oldMetier) return
+    setCategories(prev => prev.map(c =>
+      c.name === catName ? { ...c, metiers: c.metiers.map(m => m === oldMetier ? trimmed : m) } : c
+    ))
+    onRenameMetier?.(oldMetier, trimmed)
+    mark()
   }
 
   const addMetierToCategory = (catName: string, metier: string) => {
     setCategories(prev => prev.map(c => {
-      if (c.name === catName && !c.metiers.includes(metier)) {
-        return { ...c, metiers: [...c.metiers, metier] }
-      }
+      if (c.name === catName && !c.metiers.includes(metier)) return { ...c, metiers: [...c.metiers, metier] }
       return c
     }))
-    setDirty(true)
-    setSaved(false)
+    mark()
   }
 
   const removeMetierFromCategory = (catName: string, metier: string) => {
+    setCategories(prev => prev.map(c =>
+      c.name === catName ? { ...c, metiers: c.metiers.filter(m => m !== metier) } : c
+    ))
+    mark()
+  }
+
+  const handleDrop = (toCat: string) => {
+    if (!dragRef.current) return
+    const { catName: fromCat, metier } = dragRef.current
+    dragRef.current = null
+    setDragOverCat(null)
+    if (fromCat === toCat) return
     setCategories(prev => prev.map(c => {
-      if (c.name === catName) {
-        return { ...c, metiers: c.metiers.filter(m => m !== metier) }
-      }
+      if (c.name === fromCat) return { ...c, metiers: c.metiers.filter(m => m !== metier) }
+      if (c.name === toCat && !c.metiers.includes(metier)) return { ...c, metiers: [...c.metiers, metier] }
       return c
     }))
-    setDirty(true)
-    setSaved(false)
+    mark()
   }
 
   const handleSave = () => {
@@ -963,23 +1006,30 @@ function CategoriesMetiersSection({ metiers }: { metiers: string[] }) {
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {categories.map(cat => (
-                <div key={cat.name} style={{
-                  border: `2px solid ${cat.color}`,
-                  borderRadius: 12,
-                  padding: 14,
-                  background: `${cat.color}08`,
-                }}>
+              {categories.map((cat, catIdx) => (
+                <div
+                  key={cat.name}
+                  onDragOver={e => { e.preventDefault(); setDragOverCat(cat.name) }}
+                  onDragLeave={() => setDragOverCat(null)}
+                  onDrop={() => handleDrop(cat.name)}
+                  style={{
+                    border: `2px solid ${dragOverCat === cat.name ? cat.color : cat.color}`,
+                    borderRadius: 12,
+                    padding: 14,
+                    background: dragOverCat === cat.name ? `${cat.color}22` : `${cat.color}08`,
+                    transition: 'background 0.15s',
+                  }}
+                >
                   {/* Header catégorie */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     {/* Sélecteur de couleur */}
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                       {PRESET_COLORS.map(color => (
                         <button
                           key={color}
                           onClick={() => updateCategoryColor(cat.name, color)}
                           style={{
-                            width: 20, height: 20, borderRadius: '50%',
+                            width: 18, height: 18, borderRadius: '50%',
                             background: color, border: cat.color === color ? '2px solid var(--foreground)' : '2px solid transparent',
                             cursor: 'pointer', padding: 0, transition: 'transform 0.1s',
                           }}
@@ -987,31 +1037,119 @@ function CategoriesMetiersSection({ metiers }: { metiers: string[] }) {
                         />
                       ))}
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
-                      {cat.name}
-                    </span>
-                    <button onClick={() => removeCategory(cat.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#EF4444' }} title="Supprimer la catégorie">
-                      <X size={16} />
-                    </button>
+
+                    {/* Nom — éditable */}
+                    {renamingCat?.name === cat.name ? (
+                      <input
+                        autoFocus
+                        value={renamingCat.value}
+                        onChange={e => setRenamingCat({ name: cat.name, value: e.target.value })}
+                        onBlur={() => renameCategory(cat.name, renamingCat.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') renameCategory(cat.name, renamingCat.value)
+                          if (e.key === 'Escape') setRenamingCat(null)
+                        }}
+                        style={{
+                          flex: 1, fontSize: 14, fontWeight: 700, height: 30, padding: '0 8px',
+                          borderRadius: 6, border: '2px solid var(--primary)', background: 'var(--background)',
+                          color: 'var(--foreground)', fontFamily: 'inherit', outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
+                        {cat.name}
+                      </span>
+                    )}
+
+                    {/* Actions: rename, reorder, delete */}
+                    <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexShrink: 0 }}>
+                      <button
+                        onClick={() => setRenamingCat(renamingCat?.name === cat.name ? null : { name: cat.name, value: cat.name })}
+                        title="Renommer"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: 'var(--muted)' }}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => moveCategory(cat.name, -1)}
+                        disabled={catIdx === 0}
+                        title="Monter"
+                        style={{ background: 'none', border: 'none', cursor: catIdx === 0 ? 'default' : 'pointer', padding: 4, display: 'flex', color: 'var(--muted)', opacity: catIdx === 0 ? 0.3 : 1 }}
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <button
+                        onClick={() => moveCategory(cat.name, 1)}
+                        disabled={catIdx === categories.length - 1}
+                        title="Descendre"
+                        style={{ background: 'none', border: 'none', cursor: catIdx === categories.length - 1 ? 'default' : 'pointer', padding: 4, display: 'flex', color: 'var(--muted)', opacity: catIdx === categories.length - 1 ? 0.3 : 1 }}
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                      <button
+                        onClick={() => removeCategory(cat.name)}
+                        title="Supprimer"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#EF4444' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Métiers dans cette catégorie */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 28 }}>
                     {cat.metiers.map(m => (
-                      <span key={m} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                        background: cat.color, color: 'white',
-                      }}>
-                        {m}
-                        <button onClick={() => removeMetierFromCategory(cat.name, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'white', opacity: 0.8 }}>
-                          <X size={11} />
+                      <span
+                        key={m}
+                        draggable
+                        onDragStart={() => { dragRef.current = { catName: cat.name, metier: m } }}
+                        onDragEnd={() => { dragRef.current = null; setDragOverCat(null) }}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          padding: '3px 8px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                          background: cat.color, color: 'white', cursor: 'grab',
+                        }}
+                      >
+                        {renamingMetier?.catName === cat.name && renamingMetier.metier === m ? (
+                          <input
+                            autoFocus
+                            value={renamingMetier.value}
+                            onChange={e => setRenamingMetier({ catName: cat.name, metier: m, value: e.target.value })}
+                            onBlur={() => renameMetierInCat(cat.name, m, renamingMetier.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') renameMetierInCat(cat.name, m, renamingMetier.value)
+                              if (e.key === 'Escape') setRenamingMetier(null)
+                            }}
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              fontSize: 12, fontWeight: 600, height: 20, padding: '0 4px',
+                              borderRadius: 4, border: '1.5px solid white', background: 'transparent',
+                              color: 'white', fontFamily: 'inherit', outline: 'none', width: Math.max(60, renamingMetier.value.length * 8),
+                            }}
+                          />
+                        ) : (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <span style={{ userSelect: 'none' }}>{m}</span>
+                            <button
+                              draggable={false}
+                              title="Renommer"
+                              onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
+                              onClick={e => { e.stopPropagation(); setRenamingMetier({ catName: cat.name, metier: m, value: m }) }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'white', opacity: 0.75, flexShrink: 0 }}
+                            >
+                              <Pencil size={9} />
+                            </button>
+                          </span>
+                        )}
+                        <button onClick={() => removeMetierFromCategory(cat.name, m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'white', opacity: 0.8, flexShrink: 0 }}>
+                          <X size={10} />
                         </button>
                       </span>
                     ))}
                     {cat.metiers.length === 0 && (
                       <span style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>
-                        Aucun métier — ajoutez-en depuis la liste ci-dessous
+                        Aucun métier — ajoutez-en ou déposez-en depuis une autre catégorie
                       </span>
                     )}
                   </div>

@@ -18,6 +18,8 @@ export function useCandidats(filters?: {
   permis?: boolean | null
   lieu?: string
   metier?: string
+  cfc?: 'true' | undefined
+  engage?: 'true' | undefined
 }) {
   return useQuery({
     queryKey: ['candidats', filters],
@@ -34,6 +36,8 @@ export function useCandidats(filters?: {
       if (filters?.permis !== undefined && filters.permis !== null) params.set('permis', filters.permis ? 'true' : 'false')
       if (filters?.lieu) params.set('lieu', filters.lieu)
       if (filters?.metier) params.set('metier', filters.metier)
+      if (filters?.cfc) params.set('cfc', filters.cfc)
+      if (filters?.engage) params.set('engage', filters.engage)
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
       const data = await res.json()

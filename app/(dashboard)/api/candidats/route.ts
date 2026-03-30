@@ -17,6 +17,7 @@ const LIST_COLUMNS = [
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'linkedin', 'permis_conduire', 'date_naissance',
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
+  'cfc', 'deja_engage',
   'created_at', 'updated_at',
 ].join(', ')
 
@@ -38,6 +39,8 @@ export async function GET(request: NextRequest) {
     const permis = searchParams.get('permis') || ''
     const lieu = searchParams.get('lieu') || ''
     const metier = searchParams.get('metier') || ''
+    const cfc = searchParams.get('cfc') || ''
+    const engage = searchParams.get('engage') || ''
 
     // Construire la requête de base
     let query = supabase
@@ -55,6 +58,8 @@ export async function GET(request: NextRequest) {
     if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
     if (metier) query = query.contains('tags', [metier] as any)
     if (langue) query = query.contains('langues', [langue] as any)
+    if (cfc === 'true') query = (query as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
+    if (engage === 'true') query = query.eq('deja_engage', true as any)
     // Note : le filtre âge reste côté client (date_naissance a des formats mixtes : "54", "15/03/1990", etc.)
 
     // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
@@ -65,33 +70,59 @@ export async function GET(request: NextRequest) {
         filter_import_status: effectiveImportStatus || null,
         filter_statut: effectiveStatut || null,
         result_limit: 10000,
-      })
+      }).limit(10000) // override le plafond PostgREST par défaut (1000 lignes)
       const searchIds = rpcResult.data as { id: string }[] | null
       const searchError = rpcResult.error
 
       if (!searchError && searchIds && searchIds.length > 0) {
-        const ids = searchIds.map((r: { id: string }) => r.id)
+        let ids = searchIds.map((r: { id: string }) => r.id)
+
+        // Si des filtres colonne sont actifs (lieu, genre, langue, permis, metier),
+        // la RPC ne les connaît pas — il faut affiner les IDs par batches pour éviter l'overflow URL.
+        const hasColumnFilters = !!(lieu || genre || langue || permis || metier || cfc || engage)
+        if (hasColumnFilters) {
+          const BATCH = 200
+          const filtered: string[] = []
+          for (let i = 0; i < ids.length; i += BATCH) {
+            const batch = ids.slice(i, i + BATCH)
+            let bq = supabase.from('candidats').select('id').in('id', batch)
+            if (lieu)             bq = (bq as any).ilike('localisation', `%${lieu}%`)
+            if (genre)            bq = (bq as any).eq('genre', genre)
+            if (langue)           bq = (bq as any).contains('langues', [langue])
+            if (permis === 'true') bq = (bq as any).eq('permis_conduire', true)
+            if (permis === 'false') bq = (bq as any).eq('permis_conduire', false)
+            if (metier)           bq = (bq as any).contains('tags', [metier])
+            if (cfc === 'true')   bq = (bq as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
+            if (engage === 'true') bq = (bq as any).eq('deja_engage', true)
+            const { data: batchData } = await bq
+            if (batchData) filtered.push(...(batchData as { id: string }[]).map(r => r.id))
+          }
+          ids = filtered
+        }
+
         const totalFound = ids.length
         const totalPages = Math.ceil(totalFound / perPage)
 
-        // Récupérer TOUS les candidats trouvés avec le tri appliqué, puis paginer
+        // Paginer les IDs filtrés — évite l'overflow d'URL (>16KB)
+        const from = (page - 1) * perPage
+        const pageIds = ids.slice(from, from + perPage)
+
+        if (pageIds.length === 0) {
+          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+        }
+
         let searchQuery = supabase
           .from('candidats')
           .select(LIST_COLUMNS)
-          .in('id', ids)
+          .in('id', pageIds)
 
-        // Appliquer le tri
+        // Tri dans la page
         switch (sort) {
           case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }); break
           case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }); break
           case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }); break
           default:          searchQuery = searchQuery.order('created_at', { ascending: false })
         }
-
-        // Pagination
-        const from = (page - 1) * perPage
-        const to = from + perPage - 1
-        searchQuery = searchQuery.range(from, to)
 
         const { data, error: searchFetchError } = await searchQuery
         if (searchFetchError) throw searchFetchError
@@ -170,10 +201,9 @@ export async function GET(request: NextRequest) {
       total_pages: Math.ceil((count || 0) / perPage),
     })
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
-      { status: 500 }
-    )
+    const msg = error instanceof Error ? error.message : JSON.stringify(error)
+    console.error('[candidats GET]', msg, error)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
 

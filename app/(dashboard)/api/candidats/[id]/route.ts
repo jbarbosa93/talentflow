@@ -39,7 +39,7 @@ const ALLOWED_COLS = new Set([
   'nom','prenom','email','telephone','localisation','titre_poste','annees_exp',
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
   'langues','linkedin','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
-  'cv_url','cv_nom_fichier','created_at',
+  'cv_url','cv_nom_fichier','created_at','cfc','deja_engage',
 ])
 
 // Labels français pour le suivi des modifications

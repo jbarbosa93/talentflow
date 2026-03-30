@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.25.4'
+export const APP_VERSION = 'v0.26.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.26.0',
+    date: '2026-03-30',
+    label: 'Recherche & Filtres — corrections majeures',
+    features: [
+      'Recherche + Lieu combinés : fix URL overflow (650+ IDs → batch par 200 avant pagination)',
+      'Recherche + Lieu : filtre localisation correctement appliqué sur le chemin RPC',
+      'Limite PostgREST : .limit(10000) sur la RPC pour dépasser le plafond 1000 résultats',
+      'Filtre CFC : maintenant serveur-side (cfc=true OU formation contient "CFC"/"Certificat fédéral")',
+      'Filtre Déjà engagé : maintenant serveur-side (plus de fetch de tous les 6356 candidats)',
+      'Toggle CFC/Engagé : fix ALLOWED_COLS — cfc et deja_engage étaient ignorés par le PATCH',
+      'Badge CFC dans la liste : visible si toggle ON OU si formation contient "CFC"',
+      'Sélectionnés en haut : popover métier affiche les métiers cochés tout en haut',
+      'Nouvelle recherche : efface barre ET filtres — Tout effacer : efface filtres seulement',
+      'Tout sélectionner : bouton orange pour meilleure visibilité',
+      'Slider âge : revenu à la taille d\'origine (4px/16px/20px)',
+      'Paramètres métiers : bouton crayon pour renommer (drag empêchait le clic)',
+      'Supabase max_rows : augmenté à 10 000 pour les grandes bases de données',
+    ],
+  },
   {
     version: 'v0.25.4',
     date: '2026-03-29',

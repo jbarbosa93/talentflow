@@ -4,7 +4,7 @@ import { CvPreviewCanvas } from './CvPreviewCanvas'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
-  LayoutGrid, Check, X, SortAsc, Sparkles, Loader2,
+  Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
   CheckCircle, Archive, Briefcase, Info,
 } from 'lucide-react'
@@ -137,14 +137,38 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   const [selected, setSelected] = useState<string[]>(currentTags)
   const { metiers } = useMetiers()
   const { categories, getColorForMetier } = useMetierCategories()
+  const ref = useRef<HTMLDivElement>(null)
 
-  const toggle = (m: string) => {
+  // Fermer + sauvegarder sur clic dehors ou ESC — ne garder que les métiers configurés
+  const handleClose = useCallback(() => {
+    onSave(selected.filter(t => metiers.includes(t)))
+    onClose()
+  }, [selected, metiers, onSave, onClose])
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) handleClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    document.addEventListener('mousedown', handleClick)
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.removeEventListener('mousedown', handleClick)
+    }
+  }, [handleClose])
+
+  const toggle = (m: string) =>
     setSelected(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
-  }
 
-  // Grouper les métiers par catégorie
   const assignedSet = new Set(categories.flatMap(c => c.metiers))
   const unassigned = metiers.filter(m => !assignedSet.has(m))
+
+  // Sélectionnés en premier dans chaque liste
+  const sortSelected = (arr: string[]) => [
+    ...arr.filter(m => selected.includes(m)),
+    ...arr.filter(m => !selected.includes(m)),
+  ]
 
   const renderMetierItem = (m: string) => {
     const color = getColorForMetier(m) || '#3B82F6'
@@ -155,12 +179,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
         background: selected.includes(m) ? `${color}14` : 'transparent',
         fontSize: 12, fontWeight: selected.includes(m) ? 600 : 400,
       }}>
-        <input
-          type="checkbox"
-          checked={selected.includes(m)}
-          onChange={() => toggle(m)}
-          style={{ accentColor: color }}
-        />
+        <input type="checkbox" checked={selected.includes(m)} onChange={() => toggle(m)} style={{ accentColor: color }} />
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
         {m}
       </label>
@@ -168,7 +187,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   }
 
   return (
-    <div style={{
+    <div ref={ref} style={{
       position: 'absolute', top: '100%', right: 0, zIndex: 100,
       background: 'white', borderRadius: 10, padding: 10,
       boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
@@ -183,10 +202,21 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
         <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
           Aucun métier configuré.<br />Allez dans Paramètres pour en ajouter.
         </p>
-      ) : categories.length > 0 ? (
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Sélectionnés tout en haut, quelle que soit leur catégorie */}
+          {selected.filter(m => metiers.includes(m)).length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary, #F5A623)', margin: '0 0 2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Sélectionnés
+              </div>
+              {selected.filter(m => metiers.includes(m)).map(renderMetierItem)}
+              <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
+            </div>
+          )}
+          {/* Toutes les catégories sans les déjà sélectionnés */}
           {categories.map(cat => {
-            const catMetiers = cat.metiers.filter(m => metiers.includes(m))
+            const catMetiers = cat.metiers.filter(m => metiers.includes(m) && !selected.includes(m))
             if (catMetiers.length === 0) return null
             return (
               <div key={cat.name}>
@@ -197,31 +227,20 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
               </div>
             )
           })}
-          {unassigned.length > 0 && (
+          {unassigned.filter(m => !selected.includes(m)).length > 0 && (
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', margin: '6px 0 2px 8px', textTransform: 'uppercase' }}>
-                Autres
-              </div>
-              {unassigned.map(renderMetierItem)}
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', margin: '6px 0 2px 8px', textTransform: 'uppercase' }}>Autres</div>
+              {unassigned.filter(m => !selected.includes(m)).map(renderMetierItem)}
             </div>
           )}
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {metiers.map(renderMetierItem)}
-        </div>
       )}
-      <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
-        <button onClick={onClose} style={{
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+        <button onClick={handleClose} style={{
           padding: '4px 10px', fontSize: 11, borderRadius: 6,
           border: '1px solid var(--border)', background: 'white',
           cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-        }}>Annuler</button>
-        <button onClick={() => onSave(selected)} style={{
-          padding: '4px 10px', fontSize: 11, borderRadius: 6,
-          border: 'none', background: '#3B82F6', color: 'white',
-          cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700,
-        }}>Enregistrer</button>
+        }}>Fermer</button>
       </div>
     </div>
   )
@@ -265,7 +284,7 @@ export default function CandidatsList() {
   })
   const [filtreLocalisation, setFiltreLocalisation] = useState(() => ssGet('filtreLocalisation', ''))
 
-  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance'>(() => ssGet('sort', 'date_desc'))
+  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az'>(() => ssGet('sort', 'date_desc'))
   const [groupByMetier, setGroupByMetier] = useState(false)
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
@@ -312,6 +331,8 @@ export default function CandidatsList() {
   const [filterExpMin, setFilterExpMin] = useState<number | ''>(() => ssGet('fExpMin', ''))
   const [filterGenre, setFilterGenre] = useState<string>(() => ssGet('fGenre', ''))
   const [filterStarsMin, setFilterStarsMin] = useState<number | ''>(() => ssGet('fStarsMin', ''))
+  const [filterCfc, setFilterCfc] = useState<boolean | null>(() => ssGet('fCfc', null))
+  const [filterEngage, setFilterEngage] = useState<boolean | null>(() => ssGet('fEngage', null))
   const [showBooleanHelp, setShowBooleanHelp] = useState(false)
 
   // Persister les filtres dans sessionStorage
@@ -326,6 +347,8 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('fExpMin', filterExpMin) }, [filterExpMin])
   useEffect(() => { ssSet('fGenre', filterGenre) }, [filterGenre])
   useEffect(() => { ssSet('fStarsMin', filterStarsMin) }, [filterStarsMin])
+  useEffect(() => { ssSet('fCfc', filterCfc) }, [filterCfc])
+  useEffect(() => { ssSet('fEngage', filterEngage) }, [filterEngage])
 
   // CV hover preview — always mounted, show/hide via CSS for instant open/close
   const [previewVisible, setPreviewVisible] = useState(false)
@@ -349,16 +372,6 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('filtreMetier', filtreMetier) }, [filtreMetier])
   useEffect(() => { ssSet('filtreLocalisation', filtreLocalisation) }, [filtreLocalisation])
 
-  // Distance depuis Monthey, Suisse — cache par localisation
-  const [distances, setDistances] = useState<Record<string, number>>(() => {
-    try {
-      const s = typeof localStorage !== 'undefined' ? localStorage.getItem('talentflow_distances_monthey') : null
-      return s ? JSON.parse(s) : {}
-    } catch { return {} }
-  })
-  const geocacheRef = useRef<Record<string, { lat: number; lon: number } | null>>({})
-  const geocodingRef = useRef<Set<string>>(new Set())
-
   // Pipeline dropdown inline (only used in 'all' mode)
   const [openPipelineId, setOpenPipelineId] = useState<string | null>(null)
   const [pipelinePos, setPipelinePos] = useState<{ top: number; left: number } | null>(null)
@@ -378,21 +391,26 @@ export default function CandidatsList() {
   // Persist page + perPage
   useEffect(() => { ssSet('page', page) }, [page])
   useEffect(() => { ssSet('perPage', perPage) }, [perPage])
+  // Détecter la recherche booléenne
+  const hasBooleanSearch = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(debouncedSearch)
+
   // Reset page + sélection quand les filtres changent (skip au premier render)
   const isFirstRender = useRef(true)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     setPage(1)
     setSelectedIds(new Set())
-  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu])
+  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu, filterCfc, filterEngage])
 
-  // Si filtre âge ou "non vus" actif → fetch tout (client-side)
+  // Si filtre âge ou recherche booléenne → fetch tout (client-side)
+  // CFC et Déjà engagé sont désormais filtrés côté serveur
   const ageFilterActive = filterAgeMin !== '' || filterAgeMax !== ''
-  const clientSideFilter = ageFilterActive || filterNonVu
+  const clientSideFilter = ageFilterActive || filterNonVu || hasBooleanSearch
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
     import_status: importStatusFilter as ImportStatus,
-    search: debouncedSearch || undefined,
+    // Recherche booléenne → pas de search serveur (géré côté client)
+    search: hasBooleanSearch ? undefined : (debouncedSearch || undefined),
     page: clientSideFilter ? 1 : page,
     per_page: clientSideFilter ? 0 : perPage, // 0 = fetch all (max 10000)
     sort: sortBy,
@@ -401,51 +419,14 @@ export default function CandidatsList() {
     permis: filterPermis,
     lieu: filterLieu || undefined,
     metier: filterMetier || undefined,
+    cfc: filterCfc === true ? 'true' : undefined,
+    engage: filterEngage === true ? 'true' : undefined,
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidatsRaw = candidatsData?.total ?? allCandidats.length
   const deleteBulk   = useDeleteCandidatsBulk()
   const updateStatut = useUpdateStatutCandidat()
   const updateImportStatus = useUpdateImportStatusBulk()
-
-  useEffect(() => {
-    if (!allCandidats.length) return
-    const locs = [...new Set(allCandidats.map((c: any) => c.localisation).filter(Boolean))] as string[]
-    // Skip locs already in distances (loaded from localStorage) or already being geocoded
-    const todo = locs.filter(loc => distances[loc] === undefined && !(loc in geocacheRef.current) && !geocodingRef.current.has(loc))
-    if (!todo.length) return
-
-    let i = 0
-    const next = () => {
-      if (i >= todo.length) return
-      const loc = todo[i++]
-      geocodingRef.current.add(loc)
-      fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(loc)}&format=json&limit=1`)
-        .then(r => r.json())
-        .then(d => {
-          if (d?.[0]) {
-            const lat2 = parseFloat(d[0].lat)
-            const lon2 = parseFloat(d[0].lon)
-            geocacheRef.current[loc] = { lat: lat2, lon: lon2 }
-            const R = 6371
-            const dLat = (lat2 - 46.2548) * Math.PI / 180
-            const dLon = (lon2 - 6.9567)  * Math.PI / 180
-            const a = Math.sin(dLat/2)**2 + Math.cos(46.2548*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2
-            const km = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))
-            setDistances(prev => {
-              const next = { ...prev, [loc]: km }
-              try { localStorage.setItem('talentflow_distances_monthey', JSON.stringify(next)) } catch {}
-              return next
-            })
-          } else {
-            geocacheRef.current[loc] = null
-          }
-          setTimeout(next, 1100) // 1 req/sec max (Nominatim limit)
-        })
-        .catch(() => { geocacheRef.current[loc] = null; setTimeout(next, 1100) })
-    }
-    next()
-  }, [allCandidats])
 
   // Fermer le dropdown pipeline en cliquant ailleurs
   useEffect(() => {
@@ -507,7 +488,27 @@ export default function CandidatsList() {
     filterPermis !== null,
     filterGenre !== '',
     filterStarsMin !== '',
+    filterExpMin !== '',
+    filterCfc !== null,
+    filterEngage !== null,
+    filtreLocalisation !== '',
+    filtreMetier !== '',
   ].filter(Boolean).length
+
+  const resetFiltersOnly = () => {
+    setFiltreStatut('tous')
+    setImportStatusFilter('a_traiter')
+    setFilterMetier(''); setFilterLieu(''); setFilterAgeMin(''); setFilterAgeMax('')
+    setFilterLangue(''); setFilterPermis(null); setFilterGenre(''); setFilterStarsMin('')
+    setFilterExpMin(''); setFilterCfc(null); setFilterEngage(null)
+    setFiltreMetier(''); setFiltreLocalisation('')
+    setFilterNonVu(false)
+  }
+
+  const resetAllFilters = () => {
+    setSearch(''); ssSet('search', '')
+    resetFiltersOnly()
+  }
 
   // Tri côté serveur — seul le tri par distance reste côté client
   const sorted = useMemo(() => {
@@ -519,16 +520,9 @@ export default function CandidatsList() {
       const n = Date.now()
       result = result.filter((c: any) => !vs.has(c.id) && c.created_at && n - new Date(c.created_at).getTime() < seuil)
     }
-    if (sortBy === 'distance') {
-      return [...result].sort((a, b) => {
-        const da = distances[a.localisation] ?? 99999
-        const db = distances[b.localisation] ?? 99999
-        return da - db
-      })
-    }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidatsFiltres, sortBy, distances, filterNonVu, badgeTick])
+  }, [candidatsFiltres, sortBy, filterNonVu, badgeTick])
 
   // Pagination : client-side quand filtre âge ou "non vus" actif, sinon serveur
   const candidatesTries = sorted
@@ -843,7 +837,7 @@ export default function CandidatsList() {
                 {'\uD83D\uDCCD'} {c.localisation}
               </span>
             )}
-            {c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation) && (
+            {(c.cfc || (c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation))) && (
               <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
             )}
           </div>
@@ -931,8 +925,9 @@ export default function CandidatsList() {
 
         {/* Métier — pastille colorée selon catégorie si assigné, bouton discret sinon */}
         {(() => {
-          const hasTags = c.tags && c.tags.length > 0
-          const tagColor = hasTags ? (getColorForMetier(c.tags[0]) || '#3B82F6') : '#3B82F6'
+          const configuredTags = (c.tags || []).filter((t: string) => agenceMetiers.includes(t))
+          const hasTags = configuredTags.length > 0
+          const tagColor = hasTags ? (getColorForMetier(configuredTags[0]) || '#3B82F6') : '#3B82F6'
           return (
             <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
               <button
@@ -950,7 +945,7 @@ export default function CandidatsList() {
                 title={hasTags ? 'Modifier les métiers' : 'Assigner un métier'}
               >
                 <Briefcase size={10} />
-                {hasTags ? (c.tags[0] + (c.tags.length > 1 ? ` +${c.tags.length - 1}` : '')) : 'Métier'}
+                {hasTags ? (configuredTags[0] + (configuredTags.length > 1 ? ` +${configuredTags.length - 1}` : '')) : 'Métier'}
               </button>
               {metierPopoverId === c.id && (
                 <MetierPopover
@@ -958,11 +953,16 @@ export default function CandidatsList() {
                   currentTags={c.tags || []}
                   onClose={() => setMetierPopoverId(null)}
                   onSave={async (tags) => {
+                    // Mise à jour optimiste — structure { candidats: [...], total, ... }
+                    queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+                      old?.candidats
+                        ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, tags } : x) }
+                        : old
+                    )
                     const { createClient } = await import('@/lib/supabase/client')
                     const supabase = createClient()
-                    await supabase.from('candidats').update({ tags }).eq('id', c.id)
-                    setMetierPopoverId(null)
-                    queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                    const { error } = await supabase.from('candidats').update({ tags }).eq('id', c.id)
+                    if (error) queryClient.invalidateQueries({ queryKey: ['candidats'] })
                   }}
                 />
               )}
@@ -1001,8 +1001,8 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {search && (
-            <button onClick={() => { setSearch(''); ssSet('search', '') }} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
+          {(search || activeFiltersCount > 0 || filtreStatut !== 'tous' || importStatusFilter !== 'a_traiter' || filterNonVu) && (
+            <button onClick={resetAllFilters} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
               <X size={14} /> Nouvelle recherche
             </button>
           )}
@@ -1077,7 +1077,12 @@ export default function CandidatsList() {
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
             {selCount} candidat{selCount > 1 ? 's' : ''} sélectionné{selCount > 1 ? 's' : ''}
           </span>
-          <button onClick={selectAll} className="neo-btn-ghost neo-btn-sm">
+          <button onClick={selectAll} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
+            background: '#F59E0B', color: '#fff', border: 'none',
+            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}>
             Tout sélectionner ({sorted.length})
           </button>
           <button onClick={deselectAll} style={{
@@ -1298,20 +1303,6 @@ export default function CandidatsList() {
           </select>
         </div>
 
-        {/* Group by métier */}
-        <button
-          onClick={() => {
-            const newVal = !groupByMetier
-            setGroupByMetier(newVal)
-            if (newVal) setGroupByLieu(false)
-            setCollapsedGroups(new Set())
-          }}
-          className={groupByMetier ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
-          style={groupByMetier ? { background: 'var(--primary)', color: '#0F172A' } : {}}
-        >
-          <LayoutGrid size={13} /> Par métier
-        </button>
-
         {/* Group by lieu */}
         <button
           onClick={() => {
@@ -1332,6 +1323,17 @@ export default function CandidatsList() {
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
         </button>
+
+        {/* Reset all filters */}
+        {(activeFiltersCount > 0 || filtreStatut !== 'tous' || importStatusFilter !== 'a_traiter' || filterNonVu) && (
+          <button
+            onClick={resetFiltersOnly}
+            title="Réinitialiser tous les filtres"
+            style={{display:'flex',alignItems:'center',gap:5,padding:'8px 12px',borderRadius:8,border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:600}}
+          >
+            <X size={13} /> Tout effacer
+          </button>
+        )}
 
         {/* Nombre de résultats par page */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
@@ -1354,19 +1356,42 @@ export default function CandidatsList() {
       {/* Advanced filters panel */}
       {showAdvancedFilters && (
         <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12}}>
-          {/* Métier filtré via le dropdown principal — supprimé ici pour éviter doublon */}
           <div>
             <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LIEU</label>
             <input value={filterLieu} onChange={e=>setFilterLieu(e.target.value)} placeholder="Ex: Genève, Lausanne..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
           </div>
-          <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>ÂGE MIN</label>
-            <input type="number" min={16} max={80} value={filterAgeMin} onChange={e=>setFilterAgeMin(e.target.value?Number(e.target.value):'')} placeholder="18" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+
+          {/* ÂGE — dual-handle range slider */}
+          <div style={{gridColumn:'span 2'}}>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6}}>
+              ÂGE &nbsp;
+              <span style={{fontWeight:700,color:'var(--text)'}}>
+                {filterAgeMin !== '' || filterAgeMax !== ''
+                  ? `${filterAgeMin !== '' ? filterAgeMin : 18} – ${filterAgeMax !== '' ? filterAgeMax : 65} ans`
+                  : 'Tous âges'}
+              </span>
+            </label>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>18</span>
+              <div className="dual-range" style={{flex:1}}>
+                <div className="dual-range-track" />
+                <div className="dual-range-fill" style={{
+                  left:`${((Number(filterAgeMin)||18)-18)/(65-18)*100}%`,
+                  right:`${(65-(Number(filterAgeMax)||65))/(65-18)*100}%`,
+                }} />
+                <input type="range" min={18} max={65} step={1}
+                  value={Number(filterAgeMin)||18}
+                  onChange={e=>{const v=Number(e.target.value);setFilterAgeMin(v===18?'':Math.min(v,(Number(filterAgeMax)||65)))}}
+                />
+                <input type="range" min={18} max={65} step={1}
+                  value={Number(filterAgeMax)||65}
+                  onChange={e=>{const v=Number(e.target.value);setFilterAgeMax(v===65?'':Math.max(v,(Number(filterAgeMin)||18)))}}
+                />
+              </div>
+              <span style={{fontSize:11,color:'var(--muted)',minWidth:20,textAlign:'center'}}>65</span>
+            </div>
           </div>
-          <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>ÂGE MAX</label>
-            <input type="number" min={16} max={80} value={filterAgeMax} onChange={e=>setFilterAgeMax(e.target.value?Number(e.target.value):'')} placeholder="65" style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
-          </div>
+
           <div>
             <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LANGUE</label>
             <input value={filterLangue} onChange={e=>setFilterLangue(e.target.value)} placeholder="Ex: Français, Anglais..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
@@ -1398,9 +1423,30 @@ export default function CandidatsList() {
               <option value="5">⭐ 5</option>
             </select>
           </div>
-          <div style={{display:'flex',alignItems:'flex-end'}}>
-            <button onClick={()=>{setFilterMetier('');setFilterLieu('');setFilterAgeMin('');setFilterAgeMax('');setFilterLangue('');setFilterPermis(null);setFilterExpMin('');setFilterGenre('');setFilterStarsMin('')}} style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,cursor:'pointer',color:'var(--muted)',fontFamily:'inherit'}}>
-              Réinitialiser
+
+          {/* CFC toggle ON/OFF */}
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6}}>CFC</label>
+            <button
+              onClick={()=>setFilterCfc(filterCfc===null?true:null)}
+              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterCfc?'#F59E0B':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'inherit',fontWeight:700,
+                background:filterCfc?'rgba(245,158,11,0.12)':'var(--bg)',color:filterCfc?'#B45309':'var(--muted)',transition:'all 0.15s'
+              }}
+            >
+              {filterCfc ? '✓ CFC actif' : 'CFC'}
+            </button>
+          </div>
+
+          {/* Déjà engagé toggle ON/OFF */}
+          <div>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6}}>DÉJÀ ENGAGÉ</label>
+            <button
+              onClick={()=>setFilterEngage(filterEngage===null?true:null)}
+              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterEngage?'#22C55E':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'inherit',fontWeight:700,
+                background:filterEngage?'rgba(34,197,94,0.12)':'var(--bg)',color:filterEngage?'#15803D':'var(--muted)',transition:'all 0.15s'
+              }}
+            >
+              {filterEngage ? '✓ Déjà engagé' : 'Déjà engagé'}
             </button>
           </div>
         </div>
