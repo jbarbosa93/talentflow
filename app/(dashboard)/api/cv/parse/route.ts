@@ -666,7 +666,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         existingDocs.push({
           name: existingFull.cv_nom_fichier || 'Ancien CV',
           url: existingFull.cv_url,
-          type: 'Ancien CV',
+          type: 'cv',
           uploaded_at: new Date().toISOString(),
         })
       }
@@ -703,25 +703,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     } else {
-      // Même CV — juste réactiver la date d'ajout
-      await adminClient.from('candidats').update({
-        updated_at: new Date().toISOString(),
-      } as any).eq('id', candidatExistant.id)
-      if (resolvedCreatedAt) {
-        const { error: upErr } = await adminClient.from('candidats').update({ created_at: resolvedCreatedAt } as any).eq('id', candidatExistant.id)
-        if (upErr) console.error(`[CV Parse] ERREUR update created_at (réactivé) : ${upErr.message}`)
-        else candidatExistant.created_at = resolvedCreatedAt  // Sync en mémoire pour la réponse
-      }
-
-      console.log(`[CV Parse] Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
-      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'reactive_date' } })
+      // Même CV — ne rien faire
+      console.log(`[CV Parse] Doublon ignoré : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       return NextResponse.json({
         isDuplicate: true,
-        reactivated: true,
+        reactivated: false,
         candidatExistant,
         candidat: candidatExistant,
         analyse,
-        message: `Réactivé : ${candidatExistant.prenom} ${candidatExistant.nom} (date mise à jour)`,
+        message: `Doublon ignoré : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     }
   }

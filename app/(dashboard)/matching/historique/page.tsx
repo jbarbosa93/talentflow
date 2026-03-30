@@ -1,10 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users } from 'lucide-react'
+import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { historyLoad, type MatchHistoryItem } from '@/contexts/MatchingContext'
 import { useMatching } from '@/contexts/MatchingContext'
+import { useEmailTemplates } from '@/hooks/useMessages'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 
 const LS_HISTORY_KEY = 'tf_matching_history'
 
@@ -100,6 +103,27 @@ function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
 // ─── ContactModal ────────────────────────────────────────────────────────────
 type HistoryCandidат = MatchHistoryItem['results'][0]['candidat']
 function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; onClose: () => void }) {
+  const [mode, setMode] = useState<'individuel' | 'sms'>('individuel')
+  const [message, setMessage] = useState('')
+  const [templateId, setTemplateId] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [opened, setOpened] = useState<Set<string>>(new Set())
+  const { data: templates } = useEmailTemplates()
+
+  const handleTemplateChange = (id: string) => {
+    setTemplateId(id)
+    const t = templates?.find((t: any) => t.id === id)
+    if (t) setMessage(t.corps)
+  }
+
+  const getPersonalized = (c: HistoryCandidат) =>
+    message
+      .replace(/\{\{prenom\}\}/gi, c.prenom || '')
+      .replace(/\{\{nom\}\}/gi, c.nom || '')
+
+  const avecTel = candidats.filter(c => toPhone(c.telephone))
+  const sansTel = candidats.filter(c => !toPhone(c.telephone))
+
   return (
     <div
       onClick={onClose}
@@ -114,71 +138,161 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--card)', borderRadius: 20,
-          width: '100%', maxWidth: 560, maxHeight: '80vh',
+          width: '100%', maxWidth: 580, maxHeight: '85vh',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
           animation: 'slideUp 0.25s ease',
         }}
       >
         {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>
-              Contacter {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
-            </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-              Choisissez le moyen de contact pour chaque candidat
-            </p>
+        <div style={{ padding: '20px 24px 0', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>
+                Contacter {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
+              </h2>
+              <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                {mode === 'individuel' ? 'Choisissez le moyen de contact pour chaque candidat' : `${avecTel.length} candidat${avecTel.length > 1 ? 's' : ''} avec numéro de téléphone`}
+              </p>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+              <X size={15} />
+            </button>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
-            <X size={15} />
-          </button>
+          {/* Onglets */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['individuel', 'sms'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setMode(tab)}
+                style={{
+                  padding: '7px 16px', fontSize: 12, fontWeight: 700,
+                  border: 'none', cursor: 'pointer', borderRadius: '8px 8px 0 0',
+                  background: mode === tab ? 'var(--card)' : 'transparent',
+                  color: mode === tab ? 'var(--foreground)' : 'var(--muted)',
+                  borderBottom: mode === tab ? '2px solid #3B82F6' : '2px solid transparent',
+                  fontFamily: 'var(--font-body)', transition: 'all 0.15s',
+                }}
+              >
+                {tab === 'individuel' ? '👤 Par candidat' : '📱 SMS groupé'}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Liste */}
-        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
-          {candidats.map(c => {
-            const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
-            const phone = toPhone(c.telephone)
-            const waPhone = phone.replace('+', '')
-            const greet = encodeURIComponent(`Bonjour ${c.prenom || ''},\n`)
-            const hasPhone = !!phone
-            const hasEmail = !!c.email
-
-            return (
-              <div key={c.id} style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '12px 8px', borderBottom: '1px solid var(--border)',
-              }}>
-                {/* Avatar */}
-                <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
-
-                {/* Nom + téléphone */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {c.prenom} {c.nom}
-                  </p>
-                  {c.telephone && (
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>
-                  )}
+        {/* Contenu */}
+        {mode === 'individuel' ? (
+          <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px' }}>
+            {candidats.map(c => {
+              const phone = toPhone(c.telephone)
+              const waPhone = phone.replace('+', '')
+              const greet = encodeURIComponent(`Bonjour ${c.prenom || ''},\n`)
+              const hasPhone = !!phone
+              const hasEmail = !!c.email
+              return (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 8px', borderBottom: '1px solid var(--border)' }}>
+                  <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</p>
+                    {c.telephone && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <ContactBtn href={hasPhone ? `tel:${phone}` : undefined} icon={Phone} label="Appeler" color="#16A34A" bg="rgba(22,163,74,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasPhone ? `sms:${phone}?body=${greet}` : undefined} icon={Smartphone} label="SMS" color="#3B82F6" bg="rgba(59,130,246,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined} icon={MessageCircle} label="WhatsApp" color="#22C55E" bg="rgba(34,197,94,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasEmail ? `mailto:${c.email}?subject=${encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)}&body=${greet}` : undefined} icon={Mail} label="E-mail" color="#6366F1" bg="rgba(99,102,241,0.1)" disabled={!hasEmail} />
+                  </div>
                 </div>
-
-                {/* Boutons contact */}
-                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                  <ContactBtn href={hasPhone ? `tel:${phone}` : undefined} icon={Phone} label="Appeler" color="#16A34A" bg="rgba(22,163,74,0.1)" disabled={!hasPhone} />
-                  <ContactBtn href={hasPhone ? `sms:${phone}?body=${greet}` : undefined} icon={Smartphone} label="SMS" color="#3B82F6" bg="rgba(59,130,246,0.1)" disabled={!hasPhone} />
-                  <ContactBtn href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined} icon={MessageCircle} label="WhatsApp" color="#22C55E" bg="rgba(34,197,94,0.1)" disabled={!hasPhone} />
-                  <ContactBtn href={hasEmail ? `mailto:${c.email}?subject=${encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)}&body=${greet}` : undefined} icon={Mail} label="E-mail" color="#6366F1" bg="rgba(99,102,241,0.1)" disabled={!hasEmail} />
+              )
+            })}
+          </div>
+        ) : (
+          <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Zone message */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 9 }}>
+                <Smartphone size={14} color="#3B82F6" style={{ flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 11, color: '#1E40AF', margin: 0, lineHeight: 1.5 }}>
+                  Cliquez <strong>Ouvrir</strong> sur chaque ligne — l&apos;app Messages s&apos;ouvre avec le message pré-rempli. Utilisez <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: 3 }}>{'{{prenom}}'}</code> et <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: 3 }}>{'{{nom}}'}</code> pour personnaliser.
+                </p>
+              </div>
+              {templates && templates.length > 0 && (
+                <Select value={templateId} onValueChange={handleTemplateChange}>
+                  <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', height: 36, fontSize: 13 }}>
+                    <SelectValue placeholder="Charger un template (optionnel)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div>
+                <Textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder={`Bonjour {{prenom}},\n\nNous avons une opportunité qui pourrait vous intéresser...`}
+                  rows={5}
+                  style={{ resize: 'none', fontSize: 13 }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{message.length} caractères</span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(message); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                    disabled={!message}
+                    style={{ fontSize: 11, color: message ? '#3B82F6' : 'var(--muted)', background: 'none', border: 'none', cursor: message ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-body)' }}
+                  >
+                    {copied ? <><Check size={11} />Copié</> : <><Copy size={11} />Copier le message</>}
+                  </button>
                 </div>
               </div>
-            )
-          })}
-        </div>
+            </div>
+            {/* Liste ligne par ligne */}
+            <div style={{ flex: 1, padding: '8px 16px' }}>
+              {avecTel.map(c => {
+                const phone = toPhone(c.telephone)
+                const smsUrl = `sms:${phone}${message ? `?body=${encodeURIComponent(getPersonalized(c))}` : ''}`
+                const isOpened = opened.has(c.id)
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderBottom: '1px solid var(--border)', opacity: isOpened ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                    <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</p>
+                      <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>
+                    </div>
+                    {isOpened && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Envoyé</span>}
+                    <a
+                      href={smsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setOpened(prev => new Set(prev).add(c.id))}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: isOpened ? 'var(--secondary)' : '#3B82F6', color: isOpened ? 'var(--muted)' : 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0, transition: 'all 0.15s' }}
+                    >
+                      <Smartphone size={12} />Ouvrir
+                    </a>
+                  </div>
+                )
+              })}
+              {sansTel.length > 0 && (
+                <div style={{ padding: '10px 8px', marginTop: 4 }}>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 6px', fontWeight: 600 }}>Sans numéro ({sansTel.length})</p>
+                  {sansTel.map(c => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', opacity: 0.4 }}>
+                      <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
+                      <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>{c.prenom} {c.nom}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', borderRadius: '0 0 20px 20px' }}>
+        <div style={{ padding: '10px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', borderRadius: '0 0 20px 20px' }}>
           <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-            📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut
+            {mode === 'individuel' ? '📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut' : `📱 Chaque clic ouvre l'app Messages avec le message personnalisé · ${opened.size}/${avecTel.length} ouvert${opened.size > 1 ? 's' : ''}`}
           </p>
         </div>
       </div>

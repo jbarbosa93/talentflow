@@ -369,7 +369,7 @@ export async function POST() {
                 existingDocs.push({
                   name: candidatExistant.cv_nom_fichier || 'Ancien CV',
                   url: candidatExistant.cv_url,
-                  type: 'Ancien CV',
+                  type: 'cv',
                   uploaded_at: new Date().toISOString(),
                 })
               }

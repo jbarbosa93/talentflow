@@ -384,7 +384,8 @@ export async function analyserCV(texteCV: string, options?: { translateToFrench?
 
 // ─── Redimensionner image si > 4.5 MB (limite Claude = 5 MB) ────────────────
 
-const IMAGE_MAX_BYTES = 4_500_000 // marge de sécurité sous la limite Claude de 5 MB
+// Limite Claude = 5 MB base64. Base64 ajoute ~33% → max brut = 5_000_000 / 1.37 ≈ 3_650_000
+const IMAGE_MAX_BYTES = 3_500_000
 
 async function resizeImageIfNeeded(
   buffer: Buffer,
