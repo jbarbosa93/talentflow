@@ -122,8 +122,8 @@ function parseBooleanSearch(query: string): ((text: string) => boolean) | null {
 }
 
 const IMPORT_STATUS_OPTS = [
-  { value: 'a_traiter', label: 'À traiter' },
   { value: 'traite',    label: 'Actif' },
+  { value: 'a_traiter', label: 'À traiter' },
   { value: 'archive',   label: 'Archivé' },
 ]
 
@@ -277,6 +277,16 @@ export default function CandidatsList() {
   const { metiers: agenceMetiers } = useMetiers()
   const { categories: metierCategories, getColorForMetier } = useMetierCategories()
   const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
+  const [metierDropdownOpen, setMetierDropdownOpen] = useState(false)
+  const metierDropdownRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!metierDropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (metierDropdownRef.current && !metierDropdownRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-metier-trigger]')) setMetierDropdownOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [metierDropdownOpen])
   const [search, setSearch]               = useState(() => ssGet('search', ''))
   const [filtreStatut, setFiltreStatut]   = useState<PipelineEtape | 'tous'>(() => {
     const s = searchParams.get('statut')
@@ -1001,7 +1011,7 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {(search || activeFiltersCount > 0 || filtreStatut !== 'tous' || importStatusFilter !== 'a_traiter' || filterNonVu) && (
+          {(search || activeFiltersCount > 0 || filtreStatut !== 'tous' || filterNonVu) && (
             <button onClick={resetAllFilters} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
               <X size={14} /> Nouvelle recherche
             </button>
@@ -1158,15 +1168,13 @@ export default function CandidatsList() {
         </div>
       )}
 
-      {/* Filters + Sort + Group */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 500, display: 'flex', gap: 6, alignItems: 'center' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+      {/* Search bar — pleine largeur */}
+      <div style={{ position: 'relative', marginBottom: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1 }}>
             <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
             <input
               className="neo-input-soft"
-              style={{ paddingLeft: 38, paddingRight: (search || aiResults !== null) ? 32 : 12, width: '100%' }}
+              style={{ paddingLeft: 38, paddingRight: (search || aiResults !== null) ? 32 : 12, width: '100%', height: 42, fontSize: 14 }}
               placeholder="Nom, métier, compétence, contenu du CV..."
               value={search}
               onChange={e => { setSearch(e.target.value); if (aiResults !== null) clearAiSearch() }}
@@ -1238,57 +1246,131 @@ export default function CandidatsList() {
               </div>
             )}
           </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Filtre métier — dropdown custom avec couleurs catégorie */}
+        {agenceMetiers.length > 0 && (() => {
+          const assigned = new Set(metierCategories.flatMap(c => c.metiers))
+          const unassigned = agenceMetiers.filter(m => !assigned.has(m))
+          return (
+            <div style={{ position: 'relative' }}>
+              <button
+                data-metier-trigger
+                onClick={() => setMetierDropdownOpen(!metierDropdownOpen)}
+                className="neo-input-soft"
+                style={{
+                  height: 38, fontSize: 13, paddingLeft: 10, paddingRight: 28, minWidth: 140,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left',
+                  color: filtreMetier ? 'var(--foreground)' : 'var(--muted)', fontWeight: filtreMetier ? 600 : 400,
+                  background: filtreMetier ? getColorForMetier(filtreMetier) + '18' : undefined,
+                  borderColor: filtreMetier ? getColorForMetier(filtreMetier) + '60' : undefined,
+                }}
+              >
+                {filtreMetier && <span style={{ width: 8, height: 8, borderRadius: '50%', background: getColorForMetier(filtreMetier), flexShrink: 0 }} />}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {filtreMetier || 'Tous les métiers'}
+                </span>
+                <ChevronDown size={13} style={{ position: 'absolute', right: 8, color: 'var(--muted)' }} />
+              </button>
+              {metierDropdownOpen && (
+                <div
+                  ref={metierDropdownRef}
+                  style={{
+                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 100,
+                    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)', width: 280, maxHeight: 400,
+                    overflowY: 'auto', padding: '6px 0',
+                  }}
+                >
+                  <button
+                    onClick={() => { setFiltreMetier(''); setMetierDropdownOpen(false) }}
+                    style={{
+                      width: '100%', padding: '8px 14px', border: 'none', background: !filtreMetier ? 'var(--surface)' : 'transparent',
+                      cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: !filtreMetier ? 700 : 400,
+                      color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    {!filtreMetier && <Check size={13} />} Tous les métiers
+                  </button>
+                  {metierCategories.map(cat => {
+                    const catMetiers = cat.metiers.filter(m => agenceMetiers.includes(m))
+                    if (catMetiers.length === 0) return null
+                    return (
+                      <div key={cat.name}>
+                        <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: cat.color, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: cat.color }} />
+                          {cat.name}
+                        </div>
+                        {catMetiers.map(m => (
+                          <button
+                            key={m}
+                            onClick={() => { setFiltreMetier(m); setMetierDropdownOpen(false) }}
+                            style={{
+                              width: '100%', padding: '6px 14px 6px 28px', border: 'none',
+                              background: filtreMetier === m ? cat.color + '15' : 'transparent',
+                              cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                              fontWeight: filtreMetier === m ? 600 : 400,
+                              color: filtreMetier === m ? cat.color : 'var(--foreground)',
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                  {unassigned.length > 0 && (
+                    <div>
+                      <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Autres</div>
+                      {unassigned.map(m => (
+                        <button
+                          key={m}
+                          onClick={() => { setFiltreMetier(m); setMetierDropdownOpen(false) }}
+                          style={{
+                            width: '100%', padding: '6px 14px 6px 28px', border: 'none',
+                            background: filtreMetier === m ? 'var(--surface)' : 'transparent',
+                            cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                            fontWeight: filtreMetier === m ? 600 : 400, color: 'var(--foreground)',
+                          }}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* Statut import — onglets (pas un filtre) */}
+        <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+          {IMPORT_STATUS_OPTS.map(o => {
+            const active = importStatusFilter === o.value
+            const colors: Record<string, { bg: string; color: string; activeBg: string }> = {
+              traite:    { bg: 'transparent', color: 'var(--muted)', activeBg: '#059669' },
+              a_traiter: { bg: 'transparent', color: 'var(--muted)', activeBg: '#D97706' },
+              archive:   { bg: 'transparent', color: 'var(--muted)', activeBg: '#6B7280' },
+            }
+            const c = colors[o.value] || colors.traite
+            return (
+              <button
+                key={o.value}
+                onClick={() => setImportStatusFilter(o.value)}
+                style={{
+                  padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: 'none', borderRight: '1px solid var(--border)',
+                  background: active ? c.activeBg : c.bg,
+                  color: active ? 'white' : c.color,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {o.label}
+              </button>
+            )
+          })}
         </div>
-
-        {/* Filtre métier — groupé par catégorie avec couleur */}
-        {agenceMetiers.length > 0 && (
-          <select
-            className="neo-input-soft"
-            style={{ height: 38, fontSize: 13, paddingLeft: 10, minWidth: 140 }}
-            value={filtreMetier}
-            onChange={e => setFiltreMetier(e.target.value)}
-          >
-            <option value="">Tous les métiers</option>
-            {metierCategories.length > 0 ? (
-              <>
-                {metierCategories.map(cat => (
-                  <optgroup key={cat.name} label={`● ${cat.name}`}>
-                    {cat.metiers.filter(m => agenceMetiers.includes(m)).map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </optgroup>
-                ))}
-                {/* Métiers sans catégorie */}
-                {(() => {
-                  const assigned = new Set(metierCategories.flatMap(c => c.metiers))
-                  const unassigned = agenceMetiers.filter(m => !assigned.has(m))
-                  if (unassigned.length === 0) return null
-                  return (
-                    <optgroup label="Autres">
-                      {unassigned.map(m => <option key={m} value={m}>{m}</option>)}
-                    </optgroup>
-                  )
-                })()}
-              </>
-            ) : (
-              agenceMetiers.map(m => <option key={m} value={m}>{m}</option>)
-            )}
-          </select>
-        )}
-
-        {/* Statut import filter */}
-        <select
-          value={importStatusFilter}
-          onChange={e => setImportStatusFilter(e.target.value)}
-          className="neo-input-soft"
-          style={{ width: 'auto', cursor: 'pointer', fontSize: 13, paddingRight: 8, fontWeight: 700,
-            color: importStatusFilter === 'a_traiter' ? '#D97706' : importStatusFilter === 'archive' ? '#6B7280' : '#059669',
-            borderColor: importStatusFilter === 'a_traiter' ? '#FDE68A' : importStatusFilter === 'archive' ? '#E5E7EB' : '#BBF7D0',
-            background: importStatusFilter === 'a_traiter' ? '#FFFBEB' : importStatusFilter === 'archive' ? '#F9FAFB' : '#F0FDF4',
-          }}
-        >
-          {IMPORT_STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
 
         {/* Sort */}
         <div style={{ position: 'relative' }}>
@@ -1325,7 +1407,7 @@ export default function CandidatsList() {
         </button>
 
         {/* Reset all filters */}
-        {(activeFiltersCount > 0 || filtreStatut !== 'tous' || importStatusFilter !== 'a_traiter' || filterNonVu) && (
+        {(activeFiltersCount > 0 || filtreStatut !== 'tous' || filterNonVu) && (
           <button
             onClick={resetFiltersOnly}
             title="Réinitialiser tous les filtres"

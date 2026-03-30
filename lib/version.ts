@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.26.0'
+export const APP_VERSION = 'v0.26.1'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.26.1',
+    date: '2026-03-30',
+    label: 'UI Candidats — Zoom CV, Statuts, Métiers',
+    features: [
+      'Zoom CV : fix bascule à droite + qualité HD préservée + navigation main (drag)',
+      'Zoom CV : suppression du useEffect centerScroll qui causait des conflits',
+      'Zoom CV : correction overflow:hidden sur d-page qui empêchait le zoom',
+      'Statut import : onglets Actif/À traiter/Archivé (boutons colorés, plus de dropdown)',
+      'Statut import : Actif en premier (statut principal), ne déclenche plus "Tout effacer"',
+      'Dropdown métier : composant custom avec couleurs par catégorie (remplace le select natif)',
+      'Dropdown métier : bullet coloré par catégorie, click-outside pour fermer',
+      'Barre de recherche : agrandie (42px, fontSize 14) sur sa propre ligne',
+    ],
+  },
   {
     version: 'v0.26.0',
     date: '2026-03-30',

@@ -222,17 +222,6 @@ export default function CandidatDetailPage() {
   }
   const cvDragEnd = () => { cvDragRef.current.active = false; if (cvScrollRef.current) cvScrollRef.current.style.cursor = 'grab' }
 
-  // Centrer le scroll horizontalement après un changement de zoom (évite la bascule à droite)
-  useEffect(() => {
-    const centerScroll = (el: HTMLDivElement | null) => {
-      if (!el) return
-      requestAnimationFrame(() => {
-        el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
-      })
-    }
-    centerScroll(cvScrollRef.current)
-    centerScroll(imgContainerRef.current)
-  }, [cvZoom])
 
   const printCV = () => {
     if (!candidat?.cv_url) return
@@ -760,7 +749,7 @@ export default function CandidatDetailPage() {
     : ''
 
   return (
-    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: '100%', overflow: 'hidden' }}>
+    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: 'none' }}>
 
       {/* ── Header ── */}
       <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
