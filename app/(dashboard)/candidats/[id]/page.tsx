@@ -748,7 +748,7 @@ export default function CandidatDetailPage() {
     : ''
 
   return (
-    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: 'none' }}>
+    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: '100%', overflow: 'hidden' }}>
 
       {/* ── Header ── */}
       <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
@@ -1691,9 +1691,11 @@ export default function CandidatDetailPage() {
                 } : undefined}
               >
                 <div style={{
-                  width: `${cvZoom * 100}%`,
-                  minWidth: '100%',
+                  width: '100%', minWidth: '100%',
                   display: 'flex', justifyContent: 'center',
+                  transformOrigin: 'top center',
+                  transform: `scale(${cvZoom})`,
+                  transition: 'transform 0.15s ease',
                 }}>
                   <img src={candidat.cv_url} alt="CV" style={{
                     width: '100%', maxWidth: 'none',
@@ -1723,13 +1725,16 @@ export default function CandidatDetailPage() {
                   }
                 }}
               >
-                {/* Container agrandi — iframe rendue en HD par Chrome PDF viewer */}
+                {/* Container zoomé via transform — pas de débordement horizontal */}
                 <div style={{
-                  width: `${cvZoom * 100}%`,
+                  width: '100%',
                   height: cvZoom === 1 ? '100%' : `${Math.round(cvZoom * 5000)}px`,
                   minWidth: '100%',
                   minHeight: '100%',
                   position: 'relative',
+                  transform: `scale(${cvZoom})`,
+                  transformOrigin: 'top center',
+                  transition: 'transform 0.15s ease',
                 }}>
                   {cvIsWord && <>
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
