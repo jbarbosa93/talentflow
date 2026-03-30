@@ -222,6 +222,18 @@ export default function CandidatDetailPage() {
   }
   const cvDragEnd = () => { cvDragRef.current.active = false; if (cvScrollRef.current) cvScrollRef.current.style.cursor = 'grab' }
 
+  // Centrer le scroll horizontalement après un changement de zoom (évite la bascule à droite)
+  useEffect(() => {
+    const centerScroll = (el: HTMLDivElement | null) => {
+      if (!el) return
+      requestAnimationFrame(() => {
+        el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
+      })
+    }
+    centerScroll(cvScrollRef.current)
+    centerScroll(imgContainerRef.current)
+  }, [cvZoom])
+
   const printCV = () => {
     if (!candidat?.cv_url) return
     const ext = (candidat.cv_nom_fichier || candidat.cv_url || '').split('.').pop()?.toLowerCase()
@@ -1691,11 +1703,9 @@ export default function CandidatDetailPage() {
                 } : undefined}
               >
                 <div style={{
-                  width: '100%', minWidth: '100%',
+                  width: `${cvZoom * 100}%`,
+                  minWidth: '100%',
                   display: 'flex', justifyContent: 'center',
-                  transformOrigin: 'top center',
-                  transform: `scale(${cvZoom})`,
-                  transition: 'transform 0.15s ease',
                 }}>
                   <img src={candidat.cv_url} alt="CV" style={{
                     width: '100%', maxWidth: 'none',
@@ -1725,16 +1735,13 @@ export default function CandidatDetailPage() {
                   }
                 }}
               >
-                {/* Container zoomé via transform — pas de débordement horizontal */}
+                {/* Container agrandi — iframe rendue en HD par Chrome PDF viewer */}
                 <div style={{
-                  width: '100%',
+                  width: `${cvZoom * 100}%`,
                   height: cvZoom === 1 ? '100%' : `${Math.round(cvZoom * 5000)}px`,
                   minWidth: '100%',
                   minHeight: '100%',
                   position: 'relative',
-                  transform: `scale(${cvZoom})`,
-                  transformOrigin: 'top center',
-                  transition: 'transform 0.15s ease',
                 }}>
                   {cvIsWord && <>
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
