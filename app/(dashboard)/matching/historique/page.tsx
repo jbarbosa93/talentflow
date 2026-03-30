@@ -1,13 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, Copy, Check } from 'lucide-react'
+import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, MessageSquare, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { historyLoad, type MatchHistoryItem } from '@/contexts/MatchingContext'
 import { useMatching } from '@/contexts/MatchingContext'
-import { useEmailTemplates } from '@/hooks/useMessages'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 
 const LS_HISTORY_KEY = 'tf_matching_history'
 
@@ -102,27 +99,46 @@ function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
 
 // ─── ContactModal ────────────────────────────────────────────────────────────
 type HistoryCandidат = MatchHistoryItem['results'][0]['candidat']
+
+function detectAndFormat(tel: string): { number: string; flag: string; country: string } {
+  const c = tel.replace(/[\s\-().]/g, '')
+  if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '🇨🇭', country: 'Suisse' }
+  if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '🇫🇷', country: 'France' }
+  if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '🇪🇸', country: 'Espagne' }
+  if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '🇵🇹', country: 'Portugal' }
+  if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '🇮🇹', country: 'Italie' }
+  if (c.startsWith('0')) {
+    const local = c.slice(1)
+    if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }
+    if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
+    return { number: c, flag: '❓', country: '' }
+  }
+  return { number: c, flag: '📱', country: '' }
+}
+
 function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; onClose: () => void }) {
   const [mode, setMode] = useState<'individuel' | 'sms'>('individuel')
-  const [message, setMessage] = useState('')
-  const [templateId, setTemplateId] = useState('')
-  const [copied, setCopied] = useState(false)
-  const [opened, setOpened] = useState<Set<string>>(new Set())
-  const { data: templates } = useEmailTemplates()
+  const [messageText, setMessageText] = useState('')
+  const [numCopied, setNumCopied] = useState(false)
 
-  const handleTemplateChange = (id: string) => {
-    setTemplateId(id)
-    const t = templates?.find((t: any) => t.id === id)
-    if (t) setMessage(t.corps)
+  const avecTel = candidats.filter(c => c.telephone)
+  const sansTel = candidats.filter(c => !c.telephone)
+  const formatted = avecTel.map(c => detectAndFormat(c.telephone!).number)
+
+  const copyNumbers = async () => {
+    await navigator.clipboard.writeText(formatted.join('\n'))
+    setNumCopied(true)
+    setTimeout(() => setNumCopied(false), 2500)
   }
 
-  const getPersonalized = (c: HistoryCandidат) =>
-    message
-      .replace(/\{\{prenom\}\}/gi, c.prenom || '')
-      .replace(/\{\{nom\}\}/gi, c.nom || '')
-
-  const avecTel = candidats.filter(c => toPhone(c.telephone))
-  const sansTel = candidats.filter(c => !toPhone(c.telephone))
+  const openMessages = async () => {
+    if (formatted.length === 0) return
+    await navigator.clipboard.writeText(formatted.join('\n'))
+    setNumCopied(true)
+    setTimeout(() => setNumCopied(false), 3000)
+    const body = encodeURIComponent(messageText || '')
+    window.open(`sms:${formatted.length === 1 ? formatted[0] : ''}${body ? `${formatted.length === 1 ? '?' : ''}body=${body}` : ''}`, '_self')
+  }
 
   return (
     <div
@@ -207,92 +223,82 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
             })}
           </div>
         ) : (
-          <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {/* Zone message */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 9 }}>
-                <Smartphone size={14} color="#3B82F6" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ fontSize: 11, color: '#1E40AF', margin: 0, lineHeight: 1.5 }}>
-                  Cliquez <strong>Ouvrir</strong> sur chaque ligne — l&apos;app Messages s&apos;ouvre avec le message pré-rempli. Utilisez <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: 3 }}>{'{{prenom}}'}</code> et <code style={{ background: '#DBEAFE', padding: '1px 4px', borderRadius: 3 }}>{'{{nom}}'}</code> pour personnaliser.
-                </p>
-              </div>
-              {templates && templates.length > 0 && (
-                <Select value={templateId} onValueChange={handleTemplateChange}>
-                  <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', height: 36, fontSize: 13 }}>
-                    <SelectValue placeholder="Charger un template (optionnel)..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div>
-                <Textarea
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder={`Bonjour {{prenom}},\n\nNous avons une opportunité qui pourrait vous intéresser...`}
-                  rows={5}
-                  style={{ resize: 'none', fontSize: 13 }}
+          <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Numéros à coller */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Numéros à coller dans Messages</div>
+              <div style={{ position: 'relative' }}>
+                <textarea readOnly value={formatted.join('\n')} rows={Math.min(formatted.length, 5)}
+                  style={{ width: '100%', padding: '10px 14px', paddingRight: 90, fontSize: 13, fontFamily: 'monospace', fontWeight: 600, border: '1.5px solid var(--border)', borderRadius: 10, resize: 'none', background: '#F8F9FA', color: 'var(--foreground)', outline: 'none', boxSizing: 'border-box', lineHeight: 1.8 }}
+                  onFocus={e => e.target.select()}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{message.length} caractères</span>
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(message); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-                    disabled={!message}
-                    style={{ fontSize: 11, color: message ? '#3B82F6' : 'var(--muted)', background: 'none', border: 'none', cursor: message ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-body)' }}
-                  >
-                    {copied ? <><Check size={11} />Copié</> : <><Copy size={11} />Copier le message</>}
-                  </button>
-                </div>
+                <button onClick={copyNumbers}
+                  style={{ position: 'absolute', right: 8, top: 8, padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700, border: '1.5px solid', borderColor: numCopied ? '#16A34A' : 'var(--border)', background: numCopied ? '#F0FDF4' : 'var(--card)', color: numCopied ? '#16A34A' : 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}>
+                  {numCopied ? '✓ Copié' : 'Copier'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 5 }}>
+                Un numéro par ligne · Ouvrez Messages → champ <strong>À :</strong> → <strong>⌘V</strong>
+              </p>
+            </div>
+            {/* Destinataires */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Destinataires — {avecTel.length} avec numéro</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                {avecTel.map(c => {
+                  const { number, flag, country } = detectAndFormat(c.telephone!)
+                  return (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
+                        {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}><Phone size={10} /> {number}</div>
+                      </div>
+                      {flag && <span style={{ fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontWeight: 600 }}>{flag} {country}</span>}
+                    </div>
+                  )
+                })}
+                {sansTel.map(c => (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
+                      {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{c.prenom} {c.nom}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}><AlertTriangle size={10} /> Pas de numéro — sera ignoré</div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-            {/* Liste ligne par ligne */}
-            <div style={{ flex: 1, padding: '8px 16px' }}>
-              {avecTel.map(c => {
-                const phone = toPhone(c.telephone)
-                const smsUrl = `sms:${phone}${message ? `?body=${encodeURIComponent(getPersonalized(c))}` : ''}`
-                const isOpened = opened.has(c.id)
-                return (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderBottom: '1px solid var(--border)', opacity: isOpened ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-                    <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</p>
-                      <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>
-                    </div>
-                    {isOpened && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} />Envoyé</span>}
-                    <a
-                      href={smsUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={() => setOpened(prev => new Set(prev).add(c.id))}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: isOpened ? 'var(--secondary)' : '#3B82F6', color: isOpened ? 'var(--muted)' : 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none', flexShrink: 0, transition: 'all 0.15s' }}
-                    >
-                      <Smartphone size={12} />Ouvrir
-                    </a>
-                  </div>
-                )
-              })}
-              {sansTel.length > 0 && (
-                <div style={{ padding: '10px 8px', marginTop: 4 }}>
-                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 6px', fontWeight: 600 }}>Sans numéro ({sansTel.length})</p>
-                  {sansTel.map(c => (
-                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', opacity: 0.4 }}>
-                      <ModalAvatar prenom={c.prenom} nom={c.nom} photo_url={c.photo_url ?? null} />
-                      <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>{c.prenom} {c.nom}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Message */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Message</div>
+              <textarea value={messageText} onChange={e => setMessageText(e.target.value)}
+                placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
+                rows={4}
+                style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '1.5px solid var(--border)', borderRadius: 10, resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)', background: 'var(--card)', outline: 'none', boxSizing: 'border-box' }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{messageText.length} caractères · Le message sera pré-rempli dans l&apos;app Messages</div>
             </div>
+            {/* Boutons */}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+              <button onClick={openMessages} disabled={avecTel.length === 0}
+                style={{ flex: 2, padding: '10px', borderRadius: 10, border: 'none', background: avecTel.length === 0 ? 'var(--secondary)' : '#007AFF', color: avecTel.length === 0 ? 'var(--muted)' : 'white', fontSize: 13, fontWeight: 700, cursor: avecTel.length === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: avecTel.length === 0 ? 0.4 : 1 }}>
+                <MessageSquare size={14} />Ouvrir Messages
+              </button>
+            </div>
+            {avecTel.length === 0 && <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>Aucun candidat sélectionné n&apos;a de numéro de téléphone.</p>}
           </div>
         )}
 
         {/* Footer */}
         <div style={{ padding: '10px 24px', borderTop: '1px solid var(--border)', background: 'var(--secondary)', borderRadius: '0 0 20px 20px' }}>
           <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-            {mode === 'individuel' ? '📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut' : `📱 Chaque clic ouvre l'app Messages avec le message personnalisé · ${opened.size}/${avecTel.length} ouvert${opened.size > 1 ? 's' : ''}`}
+            {mode === 'individuel' ? '📱 SMS / WhatsApp ouvre votre app · 📧 Mail ouvre Outlook si configuré par défaut' : '📱 Les numéros sont copiés dans le presse-papier · Collez dans le champ À : de Messages'}
           </p>
         </div>
       </div>
