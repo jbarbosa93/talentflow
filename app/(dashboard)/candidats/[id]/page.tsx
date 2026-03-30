@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -71,6 +72,16 @@ const getLangFlag = (lang: string) => {
   const key = lang.toLowerCase().replace(/[\s\-()]+/g, '').replace(/maternel.*|courant.*|b[12]|a[12]|c[12]|natif.*|bilingue.*/i, '').trim()
   return LANG_FLAGS[key] || '🌐'
 }
+
+// Catégories de métiers pour le sélecteur groupé
+const METIER_CATEGORIES: { label: string; metiers: string[] }[] = [
+  { label: 'Bâtiment', metiers: ['Maçonnerie', 'Goudron', 'Ferrailleur', 'Désamianteur', 'Peintre', 'Plâtrier', 'Carreleur', 'Paysagiste', 'Sanitaire', 'Chauffage', 'Électricien', 'Automaticien', 'Ferblantier', 'Couvreur', 'Menuisier', 'Charpentier', 'Étancheur', 'Poseur de sols', 'Storiste', 'Échafaudages', 'Pompage / Solaire'] },
+  { label: 'Technique / Industrie', metiers: ['Mécanicien', 'Soudeur', 'Tuyauteur', 'Calorifugeur', 'Serrurier', 'Polymécanicien', 'Logisticien', 'Ventilation'] },
+  { label: 'Divers', metiers: ['Chauffeur', 'Ouvrier', 'Manutentionnaire', 'Nettoyage'] },
+  { label: 'Commercial', metiers: ['Administratif'] },
+  { label: 'Architecture', metiers: ['Architecture'] },
+]
+const CFC_REGEX = /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i
 
 // Convertit n'importe quel format de téléphone en numéro WhatsApp international
 // +41 79 123 45 67 → 41791234567 | 0041... → 41... | 079... → 41... | +33 6... → 336...
@@ -156,6 +167,8 @@ export default function CandidatDetailPage() {
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
+  const [showMetierPicker, setShowMetierPicker] = useState(false)
+  const metierPickerRef = useRef<HTMLDivElement>(null)
   const [cvLightbox, setCvLightbox]       = useState(false)
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
@@ -179,6 +192,7 @@ export default function CandidatDetailPage() {
   })
   const [sectionsOrder, setSectionsOrder] = useState<string[]>(['resume','experiences','formations','candidatures','notes'])
   const { metiers: agenceMetiers } = useMetiers()
+  const { categories: metierCategories, getColorForMetier } = useMetierCategories()
   const [photoUploading, setPhotoUploading] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
   const [editModal, setEditModal]         = useState<'formation' | 'competences' | 'langues' | null>(null)
@@ -249,6 +263,30 @@ export default function CandidatDetailPage() {
 
   // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
   useEffect(() => { if (id) markCandidatVu(id) }, [id])
+
+  // Auto-allumer CFC si détecté dans le texte formation et pas encore coché
+  useEffect(() => {
+    if (!candidat) return
+    if (!candidat.cfc && candidat.formation && CFC_REGEX.test(candidat.formation)) {
+      queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: true } : old)
+      fetch(`/api/candidats/${candidat.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cfc: true }),
+      }).catch(() => queryClient.invalidateQueries({ queryKey: ['candidat', id] }))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidat?.id, candidat?.formation])
+
+  // Fermer le picker métiers en cliquant dehors
+  useEffect(() => {
+    if (!showMetierPicker) return
+    const handler = (e: MouseEvent) => {
+      if (metierPickerRef.current && !metierPickerRef.current.contains(e.target as Node)) setShowMetierPicker(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMetierPicker])
 
   // État "vu" pour afficher le bon libellé dans le menu
   const [isVu, setIsVu] = useState(() => id ? getViewedSet().has(id) : false)
@@ -324,6 +362,8 @@ export default function CandidatDetailPage() {
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),
       metiers: candidat.tags || [],
       rating: candidat.rating ?? 0,
+      cfc: candidat.cfc ?? false,
+      deja_engage: candidat.deja_engage ?? false,
     })
     setIsEditing(true)
   }
@@ -341,7 +381,7 @@ export default function CandidatDetailPage() {
 
   const cancelEdit = () => { setIsEditing(false); setEditData({}) }
   const saveEdit   = () => {
-    const { metiers, rating, ...rest } = editData
+    const { metiers, rating, cfc, deja_engage, ...rest } = editData
     const payload: Record<string, any> = {
       nom:                rest.nom,
       prenom:             rest.prenom,
@@ -362,6 +402,8 @@ export default function CandidatDetailPage() {
       formations_details: rest.formations_details || [],
       tags:               Array.isArray(metiers) ? metiers : [],
       rating:             rating > 0 ? rating : null,
+      cfc:                !!cfc,
+      deja_engage:        !!deja_engage,
     }
     // Si la date d'ajout a été modifiée, l'inclure
     if (rest.created_at) {
@@ -706,10 +748,10 @@ export default function CandidatDetailPage() {
     : ''
 
   return (
-    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column' }}>
+    <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: 'none' }}>
 
       {/* ── Header ── */}
-      <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
+      <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
         <button onClick={() => fromPipeline ? router.push('/pipeline') : router.push('/candidats')} className="neo-btn-ghost neo-btn-sm">
           <ArrowLeft size={14} /> {fromPipeline ? 'Retour au pipeline' : 'Retour aux candidats'}
         </button>
@@ -961,6 +1003,69 @@ export default function CandidatDetailPage() {
                         </button>
                       ))}
                     </div>
+                    {/* Toggles rapides CFC + Déjà engagé */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 5 }}>
+                      {/* Toggle CFC */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = !candidat.cfc
+                          queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: newVal } : old)
+                          try {
+                            await fetch(`/api/candidats/${candidat.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ cfc: newVal }),
+                            })
+                            queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                          } catch {
+                            queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                          }
+                        }}
+                        title={candidat.cfc ? 'CFC — cliquer pour désactiver' : 'CFC — cliquer pour activer'}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 3,
+                          padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
+                          border: `1.5px solid ${candidat.cfc ? '#F59E0B' : 'var(--border)'}`,
+                          background: candidat.cfc ? 'rgba(245,158,11,0.12)' : 'transparent',
+                          color: candidat.cfc ? '#F59E0B' : 'var(--muted)',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        <GraduationCap size={11} />
+                        CFC
+                      </button>
+                      {/* Toggle Déjà engagé */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newVal = !candidat.deja_engage
+                          queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, deja_engage: newVal } : old)
+                          try {
+                            await fetch(`/api/candidats/${candidat.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ deja_engage: newVal }),
+                            })
+                            queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                          } catch {
+                            queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                          }
+                        }}
+                        title={candidat.deja_engage ? 'Déjà engagé — cliquer pour désactiver' : 'Déjà engagé — cliquer pour activer'}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 3,
+                          padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
+                          border: `1.5px solid ${candidat.deja_engage ? '#22C55E' : 'var(--border)'}`,
+                          background: candidat.deja_engage ? 'rgba(34,197,94,0.12)' : 'transparent',
+                          color: candidat.deja_engage ? '#22C55E' : 'var(--muted)',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                      >
+                        <Briefcase size={11} />
+                        Engagé
+                      </button>
+                    </div>
                     {/* Pastilles métier déplacées sous la ville */}
                   </>
                 )}
@@ -989,37 +1094,107 @@ export default function CandidatDetailPage() {
                 </label>
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Localisation" value={editData.localisation} onChange={e => set('localisation', e.target.value)} />
                 {agenceMetiers.length > 0 && (
-                  <div>
-                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 5 }}>Métiers</label>
-                    {/* Métiers sélectionnés */}
+                  <div style={{ position: 'relative' }} ref={metierPickerRef}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 4 }}>Métiers</label>
+                    {/* Pastilles sélectionnées */}
                     {(editData.metiers || []).length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                        {(editData.metiers || []).map((m: string) => (
-                          <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: '1.5px solid #3B82F6' }}>
-                            {m}
-                            <button type="button" onClick={() => set('metiers', (editData.metiers || []).filter((x: string) => x !== m))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: 0, lineHeight: 1, fontSize: 13, display: 'flex', alignItems: 'center' }}>×</button>
-                          </span>
-                        ))}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 5 }}>
+                        {(editData.metiers || []).map((m: string) => {
+                          const color = getColorForMetier(m) || '#3B82F6'
+                          return (
+                            <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 100, fontSize: 11, fontWeight: 700, background: color, color: '#fff' }}>
+                              {m}
+                            </span>
+                          )
+                        })}
                       </div>
                     )}
-                    {/* Dropdown pour ajouter un métier */}
-                    <select
+                    {/* Bouton ouvrir liste */}
+                    <button
+                      type="button"
+                      onClick={() => setShowMetierPicker(v => !v)}
                       className="neo-input"
-                      style={{ height: 30, fontSize: 12 }}
-                      value=""
-                      onChange={e => {
-                        const val = e.target.value
-                        if (!val) return
-                        const current = editData.metiers || []
-                        if (!current.includes(val)) set('metiers', [...current, val])
-                      }}
+                      style={{ height: 30, fontSize: 12, width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                     >
-                      <option value="">+ Ajouter un métier…</option>
-                      {agenceMetiers
-                        .filter((m: string) => !(editData.metiers || []).includes(m))
-                        .map((m: string) => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                      <span style={{ color: 'var(--muted)' }}>
+                        {(editData.metiers || []).length === 0 ? '+ Choisir métier(s)…' : `${(editData.metiers || []).length} sélectionné(s)`}
+                      </span>
+                      <ChevronDown size={12} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                    </button>
+                    {/* Popover liste déroulante */}
+                    {showMetierPicker && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                        background: 'white', borderRadius: 10, marginTop: 4,
+                        boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                        border: '1px solid var(--border)', maxHeight: 280, overflowY: 'auto',
+                        padding: 8,
+                      }}>
+                        {(() => {
+                          const currentMetiers: string[] = editData.metiers || []
+                          const patchMetiers = async (newMetiers: string[]) => {
+                            set('metiers', newMetiers)
+                            queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, tags: newMetiers } : old)
+                            try {
+                              await fetch(`/api/candidats/${candidat.id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ tags: newMetiers }),
+                              })
+                              queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                            } catch {
+                              queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                            }
+                          }
+                          const renderItem = (m: string, color: string) => {
+                            const on = currentMetiers.includes(m)
+                            return (
+                              <label key={m} style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '5px 8px', borderRadius: 6, cursor: 'pointer',
+                                background: on ? `${color}14` : 'transparent',
+                                fontSize: 12, fontWeight: on ? 600 : 400,
+                              }}>
+                                <input type="checkbox" checked={on}
+                                  onChange={() => patchMetiers(on ? currentMetiers.filter(x => x !== m) : [...currentMetiers, m])}
+                                  style={{ accentColor: color }}
+                                />
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                {m}
+                              </label>
+                            )
+                          }
+                          const renderGroup = (name: string, color: string, items: string[]) => {
+                            const available = items.filter(m => agenceMetiers.includes(m))
+                            if (available.length === 0) return null
+                            return (
+                              <div key={name}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color, margin: '6px 0 2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{name}</div>
+                                {available.map(m => renderItem(m, color))}
+                              </div>
+                            )
+                          }
+                          if (metierCategories.length > 0) {
+                            const assignedSet = new Set(metierCategories.flatMap(c => c.metiers))
+                            const autres = agenceMetiers.filter(m => !assignedSet.has(m))
+                            return (
+                              <>
+                                {metierCategories.map(cat => renderGroup(cat.name, cat.color, cat.metiers))}
+                                {autres.length > 0 && renderGroup('Autres', '#64748B', autres)}
+                              </>
+                            )
+                          }
+                          const allKnown = new Set(METIER_CATEGORIES.flatMap(c => c.metiers))
+                          const autres = agenceMetiers.filter(m => !allKnown.has(m))
+                          return (
+                            <>
+                              {METIER_CATEGORIES.map(cat => renderGroup(cat.label, '#3B82F6', cat.metiers))}
+                              {autres.length > 0 && renderGroup('Autres', '#64748B', autres)}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1110,29 +1285,6 @@ export default function CandidatDetailPage() {
             )}
           </div>
 
-
-          {/* Formation */}
-          {(() => {
-            const hasCFC = candidat.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(candidat.formation)
-            if (!isEditing && !hasCFC) return null
-            return (
-              <div className="neo-card-soft" style={{ padding: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEditing ? 0 : undefined }}>
-                  <label style={{ ...labelStyle, marginBottom: 0 }}>Formation</label>
-                  {isEditing && (
-                    <button onClick={() => openEditModal('formation')} title="Modifier la formation"
-                      style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}>
-                      <Pencil size={10} color="var(--muted)" />
-                    </button>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6 }}>
-                  <GraduationCap size={12} style={{ color: 'var(--muted)', flexShrink: 0, marginTop: 1 }} />
-                  <span style={{ ...smallMuted, lineHeight: 1.5 }}>{isEditing ? (editData.formation || 'Aucune') : candidat.formation}</span>
-                </div>
-              </div>
-            )
-          })()}
 
           {/* Compétences */}
           <div className="neo-card-soft" style={{ padding: 14 }}>

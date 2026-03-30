@@ -344,8 +344,10 @@ export async function POST() {
               return { status: 'updated', name: `📄 ${docTypeLabel} → ${candidatDisplayName}`, candidatId: existingCandidat.id, filename }
             }
 
+            // Si même nom de fichier → même CV re-déposé, pas de mise à jour (juste réactivation)
+            const memeNomFichier = filename === candidatExistant.cv_nom_fichier
             // Compare new CV analysis with existing candidate
-            const cvHasNewContent = hasNewContent(candidatExistant, analyse)
+            const cvHasNewContent = !memeNomFichier && hasNewContent(candidatExistant, analyse)
 
             if (cvHasNewContent) {
               // Step 3a: CV has NEW content — update candidate

@@ -153,7 +153,7 @@ async function traiterUnFichier(
     photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: null,
-    statut_pipeline: statut as any,
+    statut_pipeline: null, // JAMAIS d'ajout auto en pipeline — uniquement via action manuelle
     tags: [],
     notes: null,
     source: 'upload_bulk',

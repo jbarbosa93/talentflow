@@ -49,6 +49,8 @@ export type Candidat = {
   experiences: Array<{ poste: string; entreprise: string; periode: string; description: string }> | null
   formations_details: Array<{ diplome: string; etablissement: string; annee: string }> | null
   rating: number | null
+  cfc: boolean | null
+  deja_engage: boolean | null
   genre: 'homme' | 'femme' | null
   documents: CandidatDocument[]
   import_status: ImportStatus
