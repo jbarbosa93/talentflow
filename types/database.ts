@@ -54,6 +54,7 @@ export type Candidat = {
   genre: 'homme' | 'femme' | null
   documents: CandidatDocument[]
   import_status: ImportStatus
+  notes_candidat?: NoteCandidat[]
   created_at: string
   updated_at: string
 }

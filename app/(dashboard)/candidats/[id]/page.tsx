@@ -878,15 +878,6 @@ export default function CandidatDetailPage() {
                 background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10,
                 boxShadow: '0 8px 30px rgba(0,0,0,0.12)', minWidth: 200, overflow: 'hidden',
               }}>
-                <button onClick={() => { setShowNotes(v => !v); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <MessageSquare size={14} color="var(--muted)" /> Notes
-                  {candidat?.notes_candidat?.length > 0 && (
-                    <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, background: 'var(--primary)', color: 'var(--ink, #1C1A14)', borderRadius: 99, padding: '1px 6px' }}>
-                      {candidat.notes_candidat.length}
-                    </span>
-                  )}
-                </button>
                 <button onClick={() => { setShowInfo(v => !v); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <Info size={14} color="var(--muted)" /> Informations
