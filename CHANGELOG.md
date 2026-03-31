@@ -1,5 +1,24 @@
 # Changelog TalentFlow
 
+## v0.27.0 — 31 mars 2026
+
+### Entretiens / Suivi Candidat — Rappels & Dark Mode
+
+- **Page Entretiens redessinée** : vue liste de cartes (suppression du calendrier)
+- **Candidat** : sélection depuis le système OU saisie manuelle du nom
+- **Entreprise** : liée à la base clients avec recherche, ou saisie libre
+- **Poste** : champ texte libre, non lié aux commandes
+- **Supprimé** : durée, type (visio/tel/présentiel), lien visio, intervieweur, statut, lien offre
+- **Rappels** : sélecteur de date de rappel sur chaque suivi
+- **Rappels** : popup de notification en bas à droite à l'ouverture de l'app
+- **Rappels** : badge rouge sur l'onglet "Entretiens / Suivi" dans la sidebar
+- **Sidebar** : onglet renommé "Entretiens / Suivi" + onglet Planning supprimé
+- **Notes candidat** : routes API dédiées (`/api/notes`), auteur = prénom de l'utilisateur connecté
+- **SMS** : nettoyage du numéro avant génération du lien `sms:` (fix espaces +41 79 xxx)
+- **Dark mode** : corrections dans Paramètres, Profil, Logs, Doublons, Intégrations, Documents, UploadCV
+
+---
+
 ## v0.25.4 — 29 mars 2026
 
 ### France Travail — Formulaire Word + Envoi

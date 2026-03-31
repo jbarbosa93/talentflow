@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.26.1'
+export const APP_VERSION = 'v0.27.0'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.27.0',
+    date: '2026-03-31',
+    label: 'Entretiens / Suivi Candidat — Rappels & Dark Mode',
+    features: [
+      'Entretiens : page entièrement redessinée en vue liste (suppression du calendrier)',
+      'Entretiens : candidat depuis le système OU saisie libre (nom manuel)',
+      'Entretiens : entreprise liée à la base clients OU saisie libre',
+      'Entretiens : champ Poste libre (non lié aux commandes)',
+      'Entretiens : suppression de durée, type, lien visio, intervieweur, offre, statut',
+      'Rappels : sélecteur de date de rappel sur chaque suivi',
+      'Rappels : popup de notification à l\'ouverture de l\'app si rappels en attente',
+      'Rappels : badge rouge sur l\'onglet "Entretiens / Suivi" dans la sidebar',
+      'Sidebar : onglet renommé "Entretiens / Suivi" + badge rappels actifs',
+      'Sidebar : onglet Planning supprimé',
+      'Notes candidat : routes API dédiées, contournement RLS, auteur = prénom de l\'utilisateur',
+      'SMS : nettoyage du numéro de téléphone avant génération du lien sms:',
+      'Dark mode : corrections dans Paramètres, Profil, Logs, Doublons, Intégrations, Documents, UploadCV',
+    ],
+  },
   {
     version: 'v0.26.1',
     date: '2026-03-30',
