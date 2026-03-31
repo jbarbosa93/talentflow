@@ -29,7 +29,7 @@ export function useCreateEntretien() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['entretiens'] })
-      toast.success('Entretien planifié')
+      toast.success('Suivi créé')
     },
     onError: (e: Error) => toast.error(e.message),
   })

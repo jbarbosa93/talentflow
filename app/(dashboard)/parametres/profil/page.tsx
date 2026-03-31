@@ -16,7 +16,7 @@ const labelStyle: React.CSSProperties = {
 }
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 40, padding: '0 14px', borderRadius: 8,
-  border: '1.5px solid var(--border)', background: 'white',
+  border: '1.5px solid var(--border)', background: 'var(--card)',
   fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)',
   outline: 'none', transition: 'border-color 0.15s',
 }
@@ -110,7 +110,7 @@ function ImageCropModal({ src, onSave, onCancel }: { src: string; onSave: (blob:
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }} onClick={onCancel}>
       <div style={{
-        background: 'white', borderRadius: 16, padding: 28, maxWidth: 400,
+        background: 'var(--card)', borderRadius: 16, padding: 28, maxWidth: 400,
         boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
         animation: 'slideUp 0.2s ease',
       }} onClick={e => e.stopPropagation()}>
@@ -161,7 +161,7 @@ function ImageCropModal({ src, onSave, onCancel }: { src: string; onSave: (blob:
             onClick={onCancel}
             style={{
               padding: '9px 18px', borderRadius: 8,
-              border: '1.5px solid var(--border)', background: 'white',
+              border: '1.5px solid var(--border)', background: 'var(--card)',
               fontSize: 13, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer',
               fontFamily: 'var(--font-body)',
             }}
@@ -471,7 +471,7 @@ export default function ProfilPage() {
           onClick={logout}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-            borderRadius: 8, border: '1.5px solid #FECACA', background: 'white',
+            borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
             fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
             flexShrink: 0, fontFamily: 'var(--font-body)',
           }}
@@ -629,7 +629,7 @@ export default function ProfilPage() {
               disabled={outlookLoading}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                borderRadius: 8, border: '1.5px solid #FECACA', background: 'white',
+                borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
                 fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
                 fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1,
               }}
@@ -870,7 +870,7 @@ function TwoFactorSection() {
             onClick={() => setConfirmDisable(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
-              borderRadius: 8, border: '1.5px solid #FECACA', background: 'white',
+              borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
               fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
               fontFamily: 'var(--font-body)',
             }}
@@ -908,7 +908,7 @@ function TwoFactorSection() {
               onClick={() => setConfirmDisable(false)}
               style={{
                 padding: '9px 18px', borderRadius: 8,
-                border: '1.5px solid var(--border)', background: 'white',
+                border: '1.5px solid var(--border)', background: 'var(--card)',
                 fontSize: 12, fontWeight: 700, color: 'var(--foreground)', cursor: 'pointer',
                 fontFamily: 'var(--font-body)',
               }}
@@ -948,7 +948,7 @@ function TwoFactorSection() {
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                 Scanner avec votre app
               </p>
-              <div style={{ padding: 12, background: 'white', borderRadius: 10, display: 'inline-block', border: '1.5px solid var(--border)' }}>
+              <div style={{ padding: 12, background: 'var(--card)', borderRadius: 10, display: 'inline-block', border: '1.5px solid var(--border)' }}>
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(totpUri)}`}
                   alt="QR Code 2FA"
@@ -985,7 +985,7 @@ function TwoFactorSection() {
                   placeholder="000000"
                   style={{
                     width: 140, height: 42, padding: '0 14px', borderRadius: 8,
-                    border: '1.5px solid var(--border)', background: 'white',
+                    border: '1.5px solid var(--border)', background: 'var(--card)',
                     fontSize: 20, color: 'var(--foreground)', fontFamily: 'var(--font-body)',
                     letterSpacing: '0.25em', textAlign: 'center', outline: 'none',
                   }}
@@ -1014,7 +1014,7 @@ function TwoFactorSection() {
                   onClick={() => { setTotpUri(null); setQrFactorId(null); setVerifyCode('') }}
                   style={{
                     padding: '10px 16px', borderRadius: 9,
-                    border: '1.5px solid var(--border)', background: 'white',
+                    border: '1.5px solid var(--border)', background: 'var(--card)',
                     fontSize: 12, fontWeight: 700, color: 'var(--muted)', cursor: 'pointer',
                     fontFamily: 'var(--font-body)',
                   }}

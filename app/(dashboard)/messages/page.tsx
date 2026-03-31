@@ -183,7 +183,7 @@ function CandidatSearch({
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100,
-          background: 'white', border: '1.5px solid var(--border)', borderRadius: 8,
+          background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8,
           boxShadow: '0 8px 24px rgba(0,0,0,0.1)', maxHeight: 240, overflowY: 'auto',
         }}>
           {filtered.length === 0 ? (
@@ -206,7 +206,7 @@ function CandidatSearch({
               <div style={{
                 width: 30, height: 30, borderRadius: '50%', background: 'var(--primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 800, color: '#0F172A', flexShrink: 0,
+                fontSize: 11, fontWeight: 800, color: 'var(--ink, #1C1A14)', flexShrink: 0,
               }}>
                 {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase()}
               </div>
@@ -990,7 +990,7 @@ function EmailTab() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }} onClick={() => setDoublonAlert(null)}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: 'white', borderRadius: 16, padding: 28,
+            background: 'var(--card)', borderRadius: 16, padding: 28,
             width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
           }}>
             <div style={{
@@ -1000,10 +1000,10 @@ function EmailTab() {
             }}>
               <span style={{ fontSize: 24 }}>⚠️</span>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1F2937', margin: '0 0 8px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px', textAlign: 'center' }}>
               Envoi déjà effectué
             </h3>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 16px', textAlign: 'center', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', textAlign: 'center', lineHeight: 1.5 }}>
               {doublonAlert.doublons.length === 1 ? 'Ce candidat a déjà été envoyé à ce destinataire' : `${doublonAlert.doublons.length} envois similaires détectés`} :
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
@@ -1045,7 +1045,7 @@ function EmailTab() {
         const cvCandidat = (candidats as any)?.find((cc: any) => cc.id === cvCandidatId)
         return cvCandidat ? (
           <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '95vw', maxWidth: 1200, height: '90vh', background: 'white', borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ width: '95vw', maxWidth: 1200, height: '90vh', background: 'var(--card)', borderRadius: 16, overflow: 'hidden' }}>
               <CVCustomizer
                 candidat={cvCandidat}
                 onClose={() => setCvCandidatId(null)}
@@ -1204,7 +1204,7 @@ function SmsTab() {
   const handleCandidatChange = (id: string) => {
     setCandidatId(id)
     const c = candidats?.find(c => c.id === id)
-    if (c?.telephone) setTelephone(c.telephone)
+    if (c?.telephone) setTelephone(c.telephone.replace(/[\s\-\.\(\)]/g, ''))
   }
 
   const handleTemplateChange = (id: string) => {
@@ -1218,7 +1218,8 @@ function SmsTab() {
     }
   }
 
-  const smsUrl = `sms:${telephone}${message ? `?body=${encodeURIComponent(message)}` : ''}`
+  const cleanTelephone = telephone.replace(/[\s\-\.\(\)]/g, '')
+  const smsUrl = `sms:${cleanTelephone}${message ? `?body=${encodeURIComponent(message)}` : ''}`
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message)
@@ -1279,18 +1280,18 @@ function SmsTab() {
           {copied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Copié</> : <><Copy className="w-3.5 h-3.5 mr-1.5" />Copier</>}
         </Button>
         <a
-          href={telephone ? smsUrl : '#'}
-          onClick={e => { if (!telephone) e.preventDefault() }}
+          href={cleanTelephone ? smsUrl : '#'}
+          onClick={e => { if (!cleanTelephone) e.preventDefault() }}
           style={{ marginLeft: 'auto' }}
         >
           <button
-            disabled={!telephone || !message}
+            disabled={!cleanTelephone || !message}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '9px 18px', borderRadius: 8, border: 'none',
-              background: !telephone || !message ? 'var(--secondary)' : '#34C759',
-              color: !telephone || !message ? 'var(--muted)' : 'white',
-              fontSize: 13, fontWeight: 700, cursor: !telephone || !message ? 'not-allowed' : 'pointer',
+              background: !cleanTelephone || !message ? 'var(--secondary)' : '#34C759',
+              color: !cleanTelephone || !message ? 'var(--muted)' : 'white',
+              fontSize: 13, fontWeight: 700, cursor: !cleanTelephone || !message ? 'not-allowed' : 'pointer',
               fontFamily: 'var(--font-body)',
             }}
           >

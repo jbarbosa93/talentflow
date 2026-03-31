@@ -315,7 +315,7 @@ function ProfilSection() {
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Connecté</span>
               </div>
             </div>
-            <button onClick={disconnectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1.5px solid #FECACA', background: 'white', fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1 }}>
+            <button onClick={disconnectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)', fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1 }}>
               <XCircle size={13} /> Déconnecter
             </button>
           </div>
@@ -509,7 +509,7 @@ function NotificationsSection() {
             <div style={{ width: 36, height: 20, borderRadius: 99, position: 'relative', transition: 'background 0.2s',
               background: prefs[item.key] ? 'var(--primary)' : '#CBD5E1' }}>
               <div style={{ position: 'absolute', top: 2, left: prefs[item.key] ? 18 : 2, width: 16, height: 16,
-                borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                borderRadius: '50%', background: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </div>
           </label>
         </div>
@@ -569,7 +569,7 @@ function ApparenceSection() {
             <button key={l.value} onClick={() => setLangue(l.value)} style={{
               flex: 1, padding: '9px 12px', borderRadius: 8, fontSize: 13,
               border: `1.5px solid ${langue === l.value ? 'var(--primary)' : 'var(--border)'}`,
-              background: langue === l.value ? 'var(--primary-soft)' : 'white',
+              background: langue === l.value ? 'var(--primary-soft)' : 'var(--card)',
               color: langue === l.value ? 'var(--foreground)' : 'var(--muted)',
               fontWeight: langue === l.value ? 700 : 500,
               cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
@@ -643,11 +643,11 @@ function AffichageSection() {
               <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>{sec.label}</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => move(idx, -1)} disabled={idx === 0}
-                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ChevronUp size={14} />
                 </button>
                 <button onClick={() => move(idx, 1)} disabled={idx === order.length - 1}
-                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: idx === order.length - 1 ? 'default' : 'pointer', opacity: idx === order.length - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: idx === order.length - 1 ? 'default' : 'pointer', opacity: idx === order.length - 1 ? 0.3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ChevronDown size={14} />
                 </button>
               </div>
@@ -869,6 +869,7 @@ function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string
   const [renamingCat, setRenamingCat] = useState<{ name: string; value: string } | null>(null)
   const [renamingMetier, setRenamingMetier] = useState<{ catName: string; metier: string; value: string } | null>(null)
   const [dragOverCat, setDragOverCat] = useState<string | null>(null)
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null)
   const dragRef = useRef<{ catName: string; metier: string } | null>(null)
 
   useEffect(() => {
@@ -1022,22 +1023,6 @@ function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string
                 >
                   {/* Header catégorie */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    {/* Sélecteur de couleur */}
-                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                      {PRESET_COLORS.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => updateCategoryColor(cat.name, color)}
-                          style={{
-                            width: 18, height: 18, borderRadius: '50%',
-                            background: color, border: cat.color === color ? '2px solid var(--foreground)' : '2px solid transparent',
-                            cursor: 'pointer', padding: 0, transition: 'transform 0.1s',
-                          }}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-
                     {/* Nom — éditable */}
                     {renamingCat?.name === cat.name ? (
                       <input
@@ -1061,7 +1046,7 @@ function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string
                       </span>
                     )}
 
-                    {/* Actions: rename, reorder, delete */}
+                    {/* Actions: rename, couleur, reorder, delete */}
                     <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexShrink: 0 }}>
                       <button
                         onClick={() => setRenamingCat(renamingCat?.name === cat.name ? null : { name: cat.name, value: cat.name })}
@@ -1070,6 +1055,26 @@ function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string
                       >
                         <Pencil size={13} />
                       </button>
+                      {/* Bouton couleur + popover swatches */}
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => setColorPickerOpen(colorPickerOpen === cat.name ? null : cat.name)}
+                          title="Changer la couleur"
+                          style={{ width: 20, height: 20, borderRadius: '50%', background: cat.color, border: '2px solid var(--border)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                        />
+                        {colorPickerOpen === cat.name && (
+                          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: '50%', transform: 'translateX(-50%)', zIndex: 200, background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10, padding: 10, boxShadow: '0 6px 20px rgba(0,0,0,0.15)', display: 'flex', flexWrap: 'wrap', gap: 5, width: 142 }}>
+                            {PRESET_COLORS.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => { updateCategoryColor(cat.name, color); setColorPickerOpen(null) }}
+                                style={{ width: 22, height: 22, borderRadius: '50%', background: color, border: cat.color === color ? '2.5px solid var(--foreground)' : '2px solid transparent', cursor: 'pointer', padding: 0 }}
+                                title={color}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <button
                         onClick={() => moveCategory(cat.name, -1)}
                         disabled={catIdx === 0}

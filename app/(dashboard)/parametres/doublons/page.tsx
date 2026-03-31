@@ -624,7 +624,7 @@ export default function DoublonsPage() {
                         </span>
                         <button
                           onClick={() => handleReanalyser(item)}
-                          style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#2563EB', whiteSpace: 'nowrap' }}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', color: '#2563EB', whiteSpace: 'nowrap' }}
                         >
                           <RefreshCw size={10} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />Reanalyser
                         </button>

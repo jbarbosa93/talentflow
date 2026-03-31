@@ -381,7 +381,7 @@ function IntegrationsContent() {
                       style={{
                         fontSize: 12, fontWeight: 700, padding: '7px 14px',
                         borderRadius: 8, border: '2px solid #FECACA',
-                        background: 'white', color: '#DC2626', cursor: 'pointer',
+                        background: 'var(--card)', color: '#DC2626', cursor: 'pointer',
                         fontFamily: 'var(--font-body)',
                       }}
                     >

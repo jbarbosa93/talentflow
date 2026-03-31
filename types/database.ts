@@ -16,7 +16,7 @@ export type CandidatDocument = {
 export type OffreStatut = 'active' | 'pourvue' | 'archivee'
 export type IntegrationType = 'microsoft' | 'microsoft_onedrive' | 'microsoft_outlook' | 'microsoft_email' | 'google' | 'whatsapp'
 export type EntretienType = 'visio' | 'presentiel' | 'telephone'
-export type EntretienStatut = 'planifie' | 'confirme' | 'annule' | 'complete'
+export type EntretienStatut = 'planifie' | 'confirme' | 'annule' | 'complete' | 'termine'
 export type EmailTemplateCategorie = 'invitation_entretien' | 'relance' | 'refus' | 'offre' | 'general'
 
 // ─── Types entités (pour usage dans les composants) ───────────────────────────
@@ -142,6 +142,13 @@ export type Entretien = {
   notes: string | null
   statut: EntretienStatut
   intervieweur: string | null
+  // Champs Suivi Candidat
+  candidat_nom_manuel: string | null
+  entreprise_id: string | null
+  entreprise_nom: string | null
+  poste: string | null
+  rappel_date: string | null
+  rappel_vu: boolean
   created_at: string
   updated_at: string
 }

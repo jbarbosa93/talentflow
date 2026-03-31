@@ -288,14 +288,14 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
       title={title}
       style={{
         width: 28, height: 28, borderRadius: 6,
-        border: '1px solid var(--border)', background: 'white',
+        border: '1px solid var(--border)', background: 'var(--card)',
         cursor: disabled ? 'default' : 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 0, opacity: disabled ? 0.4 : 1,
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = '#F8FAFC' }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'white' }}
+      onMouseEnter={e => { if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--card)' }}
     >
       {icon}
     </button>
@@ -400,7 +400,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                     style={{
                       padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600,
                       border: `1.5px solid ${selectedType === t.value ? t.color : t.border}`,
-                      background: selectedType === t.value ? t.bg : 'white',
+                      background: selectedType === t.value ? t.bg : 'var(--card)',
                       color: selectedType === t.value ? t.color : '#6B7280',
                       cursor: 'pointer', fontFamily: 'inherit',
                       transition: 'all 0.15s',
@@ -424,7 +424,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                       style={{
                         flex: 1, padding: '7px 10px', borderRadius: 7, fontSize: 12,
                         border: '1.5px solid var(--border)', fontFamily: 'inherit',
-                        outline: 'none', background: 'white',
+                        outline: 'none', background: 'var(--surface)',
                       }}
                       autoFocus
                       onKeyDown={e => { if (e.key === 'Enter') handleConfirmUpload() }}
@@ -451,7 +451,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                       disabled={uploading}
                       style={{
                         padding: '8px 14px', borderRadius: 7, fontSize: 12, fontWeight: 700,
-                        border: '1px solid var(--border)', background: 'white',
+                        border: '1px solid var(--border)', background: 'var(--card)',
                         color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
                       }}
                     >
@@ -466,7 +466,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     padding: '8px 0', borderRadius: 7, fontSize: 12, fontWeight: 700,
-                    border: '1.5px solid var(--border)', background: 'white',
+                    border: '1.5px solid var(--border)', background: 'var(--card)',
                     color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
                     opacity: uploading ? 0.5 : 1,
                   }}
@@ -571,7 +571,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                   style={{
                                     flex: 1, fontSize: 12, padding: '3px 6px', borderRadius: 5,
                                     border: '1px solid var(--border)', fontFamily: 'inherit', outline: 'none',
-                                    minWidth: 0, background: 'white',
+                                    minWidth: 0, background: 'var(--surface)',
                                   }}
                                 />
                                 <button onClick={() => handleRenameDoc(realIdx, editNameValue)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
@@ -634,13 +634,13 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                             )}
                             {actionBtn(
                               () => handlePrintDoc(doc),
-                              <Printer size={12} style={{ color: '#6B7280' }} />,
+                              <Printer size={12} style={{ color: 'var(--muted)' }} />,
                               'Imprimer',
                               '#6B7280',
                             )}
                             {actionBtn(
                               () => handleDownload(doc),
-                              <Download size={12} style={{ color: '#6B7280' }} />,
+                              <Download size={12} style={{ color: 'var(--muted)' }} />,
                               'Télécharger',
                               '#6B7280',
                             )}
@@ -659,7 +659,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                   {openMoveMenu === menuKey && (
                                     <div style={{
                                       position: 'absolute', top: '100%', right: 0, zIndex: 100,
-                                      background: 'white', border: '1px solid var(--border)',
+                                      background: 'var(--card)', border: '1px solid var(--border)',
                                       borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                                       padding: '4px 0', minWidth: 170, marginTop: 4,
                                     }}>
@@ -697,7 +697,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                             {isRealDoc && (
                               actionBtn(
                                 () => { setEditingNameIdx(realIdx); setEditNameValue(doc.name.replace(/\.[^.]+$/, '')) },
-                                <Pencil size={12} style={{ color: '#6B7280' }} />,
+                                <Pencil size={12} style={{ color: 'var(--muted)' }} />,
                                 'Renommer',
                                 '#6B7280',
                               )
@@ -730,7 +730,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                       onClick={() => setConfirmDeleteIdx(null)}
                                       style={{
                                         padding: '3px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700,
-                                        border: '1px solid var(--border)', background: 'white',
+                                        border: '1px solid var(--border)', background: 'var(--card)',
                                         color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
                                       }}
                                     >

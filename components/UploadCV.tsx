@@ -313,7 +313,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const statusIcon = (s: FileStatus) => {
     switch (s) {
       case 'pending':
-        return <Clock size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+        return <Clock size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
       case 'uploading':
       case 'parsing':
         return <Loader2 size={14} style={{ color: '#3B82F6', flexShrink: 0, animation: 'spin 1s linear infinite' }} />
@@ -419,7 +419,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'doublon_updated': return '#FFFBEB'
       case 'multiple_matches': return '#F5F3FF'
       case 'error': return '#FEF2F2'
-      default: return '#FFFFFF'
+      default: return 'var(--secondary)'
     }
   }
 
@@ -430,7 +430,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'doublon_updated': return '#FDE68A'
       case 'multiple_matches': return '#C4B5FD'
       case 'error': return '#FECACA'
-      default: return '#E5E7EB'
+      default: return 'var(--border)'
     }
   }
 
@@ -451,8 +451,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     return (
       <div style={{
         position: 'fixed', bottom: 20, right: 20, zIndex: 9000,
-        background: 'white', borderRadius: 12, padding: '10px 16px',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB',
+        background: 'var(--card)', borderRadius: 12, padding: '10px 16px',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.15)', border: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
         minWidth: 280,
       }} onClick={() => setMinimized(false)}>
@@ -466,7 +466,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
             {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${succeeded + doublonsUpdated + docsAdded} traités`}
           </p>
           {uploading && (
-            <div style={{ height: 3, background: '#E5E7EB', borderRadius: 10, marginTop: 4 }}>
+            <div style={{ height: 3, background: 'var(--border)', borderRadius: 10, marginTop: 4 }}>
               <div style={{ height: '100%', width: `${progress}%`, background: '#3B82F6', borderRadius: 10, transition: 'width 0.3s' }} />
             </div>
           )}
@@ -487,28 +487,28 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     {/* Panel */}
     <div style={{
       position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-      zIndex: 8501, background: 'white', borderRadius: 16,
+      zIndex: 8501, background: 'var(--card)', borderRadius: 16,
       boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
       width: 440, maxHeight: '85vh', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
     }}>
     {/* Header */}
-    <div style={{ padding: '18px 22px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Importer Candidat/s</h2>
+    <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--foreground)' }}>Importer Candidat/s</h2>
       <div style={{ display: 'flex', gap: 4 }}>
         {uploading && (
           <button onClick={() => setMinimized(true)} title="Minimiser" style={{
-            width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-            background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)',
+            background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontSize: 16, lineHeight: 1, color: '#6B7280' }}>—</span>
+            <span style={{ fontSize: 16, lineHeight: 1, color: 'var(--muted)' }}>—</span>
           </button>
         )}
         <button onClick={handleClose} title="Fermer" style={{
-          width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB',
-          background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)',
+          background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <X size={14} style={{ color: '#6B7280' }} />
+          <X size={14} style={{ color: 'var(--muted)' }} />
         </button>
       </div>
     </div>
@@ -529,12 +529,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
           style={{
-            border: `2px dashed ${dragOver ? '#3B82F6' : '#D1D5DB'}`,
+            border: `2px dashed ${dragOver ? '#3B82F6' : 'var(--border)'}`,
             borderRadius: 12,
             padding: '36px 20px',
             textAlign: 'center',
             cursor: 'pointer',
-            background: dragOver ? '#EFF6FF' : '#FAFAFA',
+            background: dragOver ? '#EFF6FF' : 'var(--secondary)',
             transition: 'all 0.2s ease',
           }}
         >
@@ -568,7 +568,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               {done && `${progress}%`}
             </span>
           </div>
-          <div style={{ height: 6, background: '#E5E7EB', borderRadius: 100, overflow: 'hidden' }}>
+          <div style={{ height: 6, background: 'var(--border)', borderRadius: 100, overflow: 'hidden' }}>
             <div style={{
               height: '100%',
               width: `${progress}%`,
@@ -649,7 +649,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                   }}>
                     {item.file.name}
                   </p>
-                  <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
                     {formatSize(item.file.size)}
                   </span>
                 </div>

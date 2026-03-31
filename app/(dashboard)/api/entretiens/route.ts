@@ -6,8 +6,8 @@ export async function GET() {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('entretiens')
-    .select('*, candidats(nom, prenom, email, titre_poste), offres(titre)')
-    .order('date_heure', { ascending: true })
+    .select('*, candidats(nom, prenom, email, titre_poste), clients(nom_entreprise)')
+    .order('date_heure', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ entretiens: data || [] })
 }
@@ -16,28 +16,34 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const supabase = createAdminClient()
+
+    // Auto-générer le titre si absent
+    if (!body.titre) {
+      const candidatNom = body.candidat_nom_manuel || 'Sans nom'
+      const poste = body.poste || ''
+      body.titre = poste ? `${candidatNom} — ${poste}` : candidatNom
+    }
+
     const { data, error } = await supabase
       .from('entretiens')
       .insert(body)
-      .select('*, candidats(nom, prenom, email), offres(titre)')
+      .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Log activité équipe
     try {
       const routeUser = await getRouteUser()
       const d = data as any
       const candidatNom = d?.candidats
         ? `${d.candidats.prenom || ''} ${d.candidats.nom}`.trim()
-        : undefined
+        : (body.candidat_nom_manuel || undefined)
       await logActivityServer({
         ...routeUser,
         type: 'entretien_planifie',
-        titre: `Entretien planifié — ${body.titre || 'Sans titre'}`,
+        titre: `Entretien planifié — ${body.titre}`,
         description: candidatNom ? `Candidat: ${candidatNom}` : undefined,
         candidat_id: body.candidat_id || undefined,
         candidat_nom: candidatNom,
-        offre_id: body.offre_id || undefined,
       })
     } catch {}
 
@@ -55,7 +61,7 @@ export async function PATCH(request: NextRequest) {
       .from('entretiens')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select()
+      .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ entretien: data })

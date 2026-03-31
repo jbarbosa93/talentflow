@@ -158,7 +158,7 @@ export default function LogsPage() {
               padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
               border: '1.5px solid',
               borderColor: vue === tab.key ? (tab.key === 'erreurs' ? '#EF4444' : 'var(--foreground)') : 'var(--border)',
-              background: vue === tab.key ? (tab.key === 'erreurs' ? '#FEF2F2' : 'var(--foreground)') : 'white',
+              background: vue === tab.key ? (tab.key === 'erreurs' ? '#FEF2F2' : 'var(--foreground)') : 'var(--card)',
               color: vue === tab.key ? (tab.key === 'erreurs' ? '#EF4444' : 'white') : 'var(--muted)',
               cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', gap: 5,
@@ -265,7 +265,7 @@ export default function LogsPage() {
               {logs.length} sur {total} affiché{logs.length > 1 ? 's' : ''}
             </span>
             {hasMore && (
-              <button onClick={loadMore} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'white', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button onClick={loadMore} style={{ padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <ChevronDown size={14} /> Charger 100 de plus
               </button>
             )}

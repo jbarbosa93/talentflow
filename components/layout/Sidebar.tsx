@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2, X, Wrench, Building2, Activity, CalendarRange,
+  Upload, Loader2, X, Wrench, Building2, Activity,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -23,10 +23,9 @@ const NAV_ITEMS = [
   { href: '/clients',    label: 'Clients',           icon: Building2 },
   { href: '/offres',     label: 'Commandes',         icon: Briefcase },
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
-  { href: '/entretiens', label: 'Entretiens',        icon: Calendar },
+  { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar },
   { href: '/messages',   label: 'Envois',              icon: Mail },
   { href: '/matching',              label: 'Matching IA',  icon: Sparkles },
-  { href: '/outils/plannings',      label: 'Planning',     icon: CalendarRange },
   { href: '/activites',             label: 'Activite',     icon: Activity },
 ]
 
@@ -85,6 +84,21 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const entreprise = user?.user_metadata?.entreprise || ''
   const userRole: string = user?.user_metadata?.role || 'Consultant'
   const isSecretaire = userRole === 'Secrétaire'
+
+  // Badge rappels entretiens actifs
+  const { data: rappelsCount } = useQuery({
+    queryKey: ['entretiens-rappels-count'],
+    queryFn: async () => {
+      try {
+        const res = await fetch('/api/entretiens/rappels')
+        const d = await res.json()
+        return (d.rappels as any[])?.length || 0
+      } catch { return 0 }
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    placeholderData: 0,
+  })
 
   // Badge sidebar : candidats créés dans les 30 derniers jours et pas encore vus
   const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
@@ -439,6 +453,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       }} />
                     )
                   })()}
+                  {/* Badge rappels entretiens */}
+                  {item.href === '/entretiens' && typeof rappelsCount === 'number' && rappelsCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#EF4444', color: 'white',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {rappelsCount > 9 ? '9+' : rappelsCount}
+                    </span>
+                  )}
                   {showMatchingDot && (
                     <span style={{
                       marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
