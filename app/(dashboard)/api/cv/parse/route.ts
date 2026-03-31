@@ -93,6 +93,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let updateId: string | null = null
   let useFilenameDate = false
   let mode: string | null = null // 'reanalyse' = écrasement total sauf nom/prénom/photo
+  let fileDate: string | null = null // date de dernière modification du fichier (lastModified)
 
   if (ct.includes('application/json')) {
     const body = await request.json()
@@ -105,6 +106,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     categorie        = body.categorie || null
     useFilenameDate  = body.use_filename_date === true
     mode             = body.mode || null
+    fileDate         = body.file_date || null
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -117,6 +119,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     categorie        = formData.get('categorie') as string | null
     useFilenameDate  = formData.get('use_filename_date') === 'true'
     mode             = formData.get('mode') as string | null
+    fileDate         = formData.get('file_date') as string | null
   }
 
   // Si storage_path fourni → télécharger depuis Supabase
@@ -160,9 +163,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .maybeSingle()
 
     if (existingByFile) {
-      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date uniquement`)
-      // Mettre à jour updated_at pour que le candidat remonte dans la liste
-      await supabase.from('candidats').update({ updated_at: new Date().toISOString() } as any).eq('id', existingByFile.id)
+      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date`)
+      // Mettre à jour created_at (date d'ajout) avec lastModified du fichier
+      const dateToUse = fileDate || new Date().toISOString()
+      await supabase.from('candidats').update({ created_at: dateToUse, updated_at: new Date().toISOString() } as any).eq('id', existingByFile.id)
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
       return NextResponse.json({
         isDuplicate: true,
@@ -523,11 +527,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     const now = new Date().toISOString()
     updateData.updated_at = now
-    // Si c'est un nouveau CV (pas juste un document), mettre à jour created_at
-    // pour que le candidat remonte dans le tri "Plus récent"
-    if (updateData.cv_url) {
-      updateData.created_at = now
-    }
+    // created_at = lastModified du fichier (date la plus fiable)
+    updateData.created_at = fileDate || now
 
     const { data: updated, error: updateError } = await adminClient
       .from('candidats')
@@ -639,7 +640,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       } else {
         console.log(`[CV Parse] Document déjà présent: ${file.name}, skip`)
       }
-      await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
+      const docDateToUse = fileDate || new Date().toISOString()
+      await adminClient.from('candidats').update({ documents: docs, created_at: docDateToUse, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
       console.log(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
       return NextResponse.json({
@@ -675,10 +677,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       return false
     })()
 
-    // TOUJOURS extraire la date du nom de fichier si présente (DD.MM.YYYY)
+    // Date d'ajout : lastModified du fichier > date dans le nom > maintenant
     const filenameDate = extractDateFromFilename(file.name)
-    if (filenameDate) console.log(`[CV Parse] Date fichier extraite : ${file.name} → ${filenameDate}`)
-    const resolvedCreatedAt = filenameDate || null  // null = ne pas toucher à created_at
+    const resolvedCreatedAt = fileDate || filenameDate || new Date().toISOString()
 
     if (hasNewContent && existingFull) {
       // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
@@ -706,13 +707,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         cv_url: cvUrl || existingFull.cv_url,
         cv_nom_fichier: file.name,
         documents: existingDocs,
+        created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
-      if (resolvedCreatedAt) {
-        const { error: upErr } = await adminClient.from('candidats').update({ created_at: resolvedCreatedAt } as any).eq('id', candidatExistant.id)
-        if (upErr) console.error(`[CV Parse] ERREUR update created_at (cv mis à jour) : ${upErr.message}`)
-        else candidatExistant.created_at = resolvedCreatedAt  // Sync en mémoire pour la réponse
-      }
 
       console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
@@ -726,15 +723,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     } else {
-      // Même CV — ne rien faire
-      console.log(`[CV Parse] Doublon ignoré : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      // Même CV — mettre à jour la date d'ajout
+      await adminClient.from('candidats').update({
+        created_at: resolvedCreatedAt,
+        updated_at: new Date().toISOString(),
+      } as any).eq('id', candidatExistant.id)
+      console.log(`[CV Parse] Même CV, date mise à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       return NextResponse.json({
         isDuplicate: true,
-        reactivated: false,
+        sameFile: true,
         candidatExistant,
         candidat: candidatExistant,
         analyse,
-        message: `Doublon ignoré : ${candidatExistant.prenom} ${candidatExistant.nom}`,
+        message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     }
   }
@@ -782,9 +783,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // Genre (pas dans le type mais dans la table)
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
-  // TOUJOURS appliquer la date du nom de fichier si présente (DD.MM.YYYY)
-  // Pas besoin du flag useFilenameDate — si le nom contient une date, on l'utilise
-  const insertDate = extractDateFromFilename(file.name)
+  // Date d'ajout : lastModified > date dans le nom de fichier > maintenant
+  const insertDate = fileDate || extractDateFromFilename(file.name)
   if (insertDate) {
     ;(nouveauCandidat as any).created_at = insertDate
     console.log(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)

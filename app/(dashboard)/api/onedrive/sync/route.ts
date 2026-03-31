@@ -364,6 +364,7 @@ export async function POST() {
 
               await (supabase as any).from('candidats').update({
                 documents: existingDocs,
+                created_at: fileDate,
                 updated_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
 

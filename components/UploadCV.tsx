@@ -158,8 +158,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       const path = storagePath || await uploadToStorage(item.file)
       updateFile(idx, { status: 'parsing', storagePath: path })
 
-      // 2. Call parse API
-      const body: Record<string, any> = { storage_path: path, statut: 'nouveau' }
+      // 2. Call parse API — file_date = lastModified du fichier (date la plus fiable)
+      const body: Record<string, any> = { storage_path: path, statut: 'nouveau', file_date: new Date(item.file.lastModified).toISOString() }
       if (offreId) body.offre_id = offreId
 
       const res = await fetch('/api/cv/parse', {
@@ -215,7 +215,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         } else {
           // CV doublon → auto-actualiser
           updateFile(idx, { status: 'parsing' })
-          const updateBody: Record<string, any> = { storage_path: path, statut: 'nouveau', update_id: data.candidatExistant.id }
+          const updateBody: Record<string, any> = { storage_path: path, statut: 'nouveau', update_id: data.candidatExistant.id, file_date: new Date(item.file.lastModified).toISOString() }
           if (offreId) updateBody.offre_id = offreId
 
           const res2 = await fetch('/api/cv/parse', {
@@ -346,7 +346,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     if (!f || !f.storagePath) return
     updateFile(fileIdx, { status: 'parsing' })
     try {
-      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', update_id: candidatId }
+      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', update_id: candidatId, file_date: f.file ? new Date(f.file.lastModified).toISOString() : undefined }
       const res = await fetch('/api/cv/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
@@ -365,7 +365,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     if (!f || !f.storagePath) return
     updateFile(fileIdx, { status: 'parsing' })
     try {
-      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', force_insert: true }
+      const body: Record<string, any> = { storage_path: f.storagePath, statut: 'nouveau', force_insert: true, file_date: f.file ? new Date(f.file.lastModified).toISOString() : undefined }
       const res = await fetch('/api/cv/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
