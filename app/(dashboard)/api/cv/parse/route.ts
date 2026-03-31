@@ -160,17 +160,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .maybeSingle()
 
     if (existingByFile) {
-      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → skip analyse IA`)
-      // TOUJOURS appliquer la date du nom de fichier si présente (pas besoin du flag)
-      const filenameDate = extractDateFromFilename(file.name)
-      if (filenameDate) {
-        const { error: upErr } = await supabase.from('candidats').update({ created_at: filenameDate } as any).eq('id', existingByFile.id)
-        if (upErr) console.error(`[CV Parse] ERREUR update created_at (doublon fichier) : ${upErr.message}`)
-        else {
-          existingByFile.created_at = filenameDate
-          console.log(`[CV Parse] Date fichier appliquée (doublon fichier) : ${file.name} → ${filenameDate}`)
-        }
-      }
+      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date uniquement`)
+      // Mettre à jour updated_at pour que le candidat remonte dans la liste
+      await supabase.from('candidats').update({ updated_at: new Date().toISOString() } as any).eq('id', existingByFile.id)
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
       return NextResponse.json({
         isDuplicate: true,
