@@ -364,6 +364,7 @@ export default function CandidatsList() {
   const [previewVisible, setPreviewVisible] = useState(false)
   const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number; panelW: number } | null>(null)
   const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
+  const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
@@ -919,25 +920,29 @@ export default function CandidatsList() {
         {c.notes_candidat && c.notes_candidat.length > 0 && (() => {
           const lastNote = [...c.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
           return (
-            <div style={{ position: 'relative' }} className="note-badge-wrapper">
+            <div
+              style={{ position: 'relative', flexShrink: 0 }}
+              onMouseEnter={e => { e.stopPropagation(); setHoveredNoteId(c.id) }}
+              onMouseLeave={() => setHoveredNoteId(null)}
+            >
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '4px 8px', borderRadius: 7,
                 border: '1px solid rgba(99,102,241,0.3)',
                 background: 'rgba(99,102,241,0.08)',
                 cursor: 'default', fontSize: 11, fontWeight: 700,
-                color: '#6366F1', flexShrink: 0,
+                color: '#6366F1',
               }}>
                 <MessageSquare size={11} />
                 {c.notes_candidat.length}
               </div>
-              <div className="note-tooltip" style={{
-                position: 'absolute', bottom: 'calc(100% + 6px)', right: 0,
+              {hoveredNoteId === c.id && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
                 background: 'var(--card)', border: '1px solid var(--border)',
                 borderRadius: 10, padding: 12, width: 260,
                 boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                zIndex: 200, pointerEvents: 'none',
-                opacity: 0, transition: 'opacity 0.15s',
+                zIndex: 9999, pointerEvents: 'none',
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
                   Dernière note · {new Date(lastNote.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -949,6 +954,7 @@ export default function CandidatsList() {
                   <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6 }}>+ {c.notes_candidat.length - 1} autre{c.notes_candidat.length > 2 ? 's' : ''} note{c.notes_candidat.length > 2 ? 's' : ''}</div>
                 )}
               </div>
+              )}
             </div>
           )
         })()}
