@@ -269,14 +269,15 @@ export async function POST() {
               .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
             existingCandidat = data
           }
-          // 4. Match partiel nom (dernière partie) + prénom + AU MOINS UN signal confirmant
-          //    (téléphone OU localisation OU date_naissance) — évite les faux positifs
+          // 4. Match partiel nom (dernière partie) + prénom + téléphone OU email confirmé
+          //    Email et téléphone sont uniques → seuls signaux fiables pour confirmer l'identité
+          //    Localisation / date_naissance volontairement exclues (pas uniques)
           if (!existingCandidat && candidatNom && candidatPrenom) {
             const lastNamePart = candidatNom.split(/\s+/).pop()! // ex: "TAVARES" depuis "Vieira Tavares"
             const firstNamePart = candidatPrenom.split(/\s+/)[0].toLowerCase()
             if (lastNamePart.length >= 4) {
               const { data: byPartialName } = await supabase.from('candidats')
-                .select('id, nom, prenom, telephone, localisation, date_naissance')
+                .select('id, nom, prenom, telephone, email')
                 .ilike('nom', `%${lastNamePart}%`)
                 .limit(30)
               if (byPartialName) {
@@ -285,20 +286,12 @@ export async function POST() {
                   const cPrenom = (c.prenom || '').toLowerCase()
                   const prenomOk = cPrenom.includes(firstNamePart) || firstNamePart.includes(cPrenom.split(/\s+/)[0])
                   if (!prenomOk) return false
-                  // 2. Au moins un signal confirmant supplémentaire
-                  let confirm = 0
-                  if (candidatTel.length >= 8 && c.telephone) {
-                    const stored = c.telephone.replace(/\D/g, '')
-                    if (stored.length >= 8 && stored.slice(-9) === candidatTel.slice(-9)) confirm++
-                  }
-                  if (analyse.localisation && c.localisation) {
-                    const locA = analyse.localisation.toLowerCase().split(/[,\s]+/)[0]
-                    const locB = c.localisation.toLowerCase()
-                    if (locA.length >= 3 && locB.includes(locA)) confirm++
-                  }
-                  if (analyse.date_naissance && c.date_naissance &&
-                      analyse.date_naissance === c.date_naissance) confirm++
-                  return confirm >= 1
+                  // 2. Obligatoirement : téléphone OU email correspondent
+                  const telOk = candidatTel.length >= 8 && c.telephone &&
+                    c.telephone.replace(/\D/g, '').slice(-9) === candidatTel.slice(-9)
+                  const emailOk = candidatEmail && c.email &&
+                    candidatEmail.toLowerCase() === c.email.toLowerCase()
+                  return telOk || emailOk
                 })
                 if (match) existingCandidat = match
               }
