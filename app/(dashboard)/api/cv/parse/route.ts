@@ -398,10 +398,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8a. Actualiser l'existant si "actualiser"
   if (updateId) {
-    // Récupérer le candidat existant
+    // Récupérer le candidat existant (inclure cv_url pour archivage)
     const { data: existing } = await adminClient
       .from('candidats')
-      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url, documents')
+      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url, documents, cv_url, cv_nom_fichier')
       .eq('id', updateId)
       .single()
 
@@ -487,7 +487,21 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // Classification du document (commun aux deux modes)
     const isCV = !analyse.document_type || analyse.document_type === 'cv'
     if (isCV && mode !== 'reanalyse') {
-      // C'est un CV → mettre à jour cv_url, cv_nom_fichier
+      // C'est un CV → archiver l'ancien CV dans les documents, mettre à jour cv_url
+      if (cvUrl && existing?.cv_url && existing.cv_url !== cvUrl) {
+        const existingDocs = (existing.documents as any[]) || []
+        const oldName = existing.cv_nom_fichier || 'Ancien CV'
+        // Ne pas archiver si déjà présent (éviter les doublons d'archive)
+        if (!existingDocs.some((d: any) => d.url === existing.cv_url)) {
+          existingDocs.push({
+            name: `[Ancien] ${oldName}`,
+            url: existing.cv_url,
+            type: 'cv',
+            uploaded_at: new Date().toISOString(),
+          })
+          updateData.documents = existingDocs
+        }
+      }
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
       // Photo : seulement si le candidat n'en a PAS déjà une
@@ -670,9 +684,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (hasNewContent && existingFull) {
       // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
       const existingDocs = (existingFull.documents as any[]) || []
-      if (existingFull.cv_url) {
+      if (existingFull.cv_url && !existingDocs.some((d: any) => d.url === existingFull.cv_url)) {
+        const oldName = existingFull.cv_nom_fichier || 'Ancien CV'
         existingDocs.push({
-          name: existingFull.cv_nom_fichier || 'Ancien CV',
+          name: `[Ancien] ${oldName}`,
           url: existingFull.cv_url,
           type: 'cv',
           uploaded_at: new Date().toISOString(),

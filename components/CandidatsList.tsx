@@ -189,7 +189,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   return (
     <div ref={ref} style={{
       position: 'absolute', top: '100%', right: 0, zIndex: 100,
-      background: 'white', borderRadius: 10, padding: 10,
+      background: 'var(--card)', borderRadius: 10, padding: 10,
       boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
       border: '1px solid var(--border)', minWidth: 220, maxHeight: 320, overflowY: 'auto',
     }}
@@ -238,7 +238,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
         <button onClick={handleClose} style={{
           padding: '4px 10px', fontSize: 11, borderRadius: 6,
-          border: '1px solid var(--border)', background: 'white',
+          border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)',
           cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
         }}>Fermer</button>
       </div>
@@ -915,6 +915,44 @@ export default function CandidatsList() {
           </div>
         )}
 
+        {/* Badge note avec tooltip hover */}
+        {c.notes_candidat && c.notes_candidat.length > 0 && (() => {
+          const lastNote = [...c.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          return (
+            <div style={{ position: 'relative' }} className="note-badge-wrapper">
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 8px', borderRadius: 7,
+                border: '1px solid rgba(99,102,241,0.3)',
+                background: 'rgba(99,102,241,0.08)',
+                cursor: 'default', fontSize: 11, fontWeight: 700,
+                color: '#6366F1', flexShrink: 0,
+              }}>
+                <MessageSquare size={11} />
+                {c.notes_candidat.length}
+              </div>
+              <div className="note-tooltip" style={{
+                position: 'absolute', bottom: 'calc(100% + 6px)', right: 0,
+                background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: 10, padding: 12, width: 260,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                zIndex: 200, pointerEvents: 'none',
+                opacity: 0, transition: 'opacity 0.15s',
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
+                  Dernière note · {new Date(lastNote.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {lastNote.contenu}
+                </p>
+                {c.notes_candidat.length > 1 && (
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6 }}>+ {c.notes_candidat.length - 1} autre{c.notes_candidat.length > 2 ? 's' : ''} note{c.notes_candidat.length > 2 ? 's' : ''}</div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Quick validate button (a_traiter mode only) */}
         {importStatusFilter === 'a_traiter' && (
           <button
@@ -980,9 +1018,9 @@ export default function CandidatsList() {
           )
         })()}
 
-        {/* Date d'ajout */}
+        {/* Date — updated_at si CV mis à jour récemment, sinon created_at */}
         <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
-          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+          {new Date(c.updated_at && c.updated_at !== c.created_at ? c.updated_at : c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       </div>
     )
@@ -1197,7 +1235,7 @@ export default function CandidatsList() {
                 background: showBooleanHelp ? 'var(--primary)' : 'none', border: '1px solid var(--border)',
                 borderRadius: '50%', width: 26, height: 26, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: showBooleanHelp ? '#0F172A' : 'var(--muted)', flexShrink: 0, transition: 'all 0.15s',
+                color: showBooleanHelp ? 'var(--foreground)' : 'var(--muted)', flexShrink: 0, transition: 'all 0.15s',
               }}
               title="Aide recherche avancée"
             >
@@ -1206,7 +1244,7 @@ export default function CandidatsList() {
             {showBooleanHelp && (
               <div style={{
                 position: 'absolute', top: '110%', right: 0, zIndex: 200,
-                background: 'white', borderRadius: 12, padding: 16,
+                background: 'var(--card)', borderRadius: 12, padding: 16,
                 boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
                 border: '1px solid var(--border)', width: 340,
               }}>
@@ -1394,7 +1432,7 @@ export default function CandidatsList() {
             setCollapsedGroups(new Set())
           }}
           className={groupByLieu ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
-          style={groupByLieu ? { background: 'var(--primary)', color: '#0F172A' } : {}}
+          style={groupByLieu ? { background: 'var(--primary)', color: 'var(--ink, #1C1A14)' } : {}}
         >
           <MapPin size={13} /> Par lieu
         </button>
