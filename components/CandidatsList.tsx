@@ -1024,9 +1024,9 @@ export default function CandidatsList() {
           )
         })()}
 
-        {/* Date — updated_at si CV mis à jour récemment, sinon created_at */}
+        {/* Date d'ajout — toujours created_at (modifiable manuellement) */}
         <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
-          {new Date(c.updated_at && c.updated_at !== c.created_at ? c.updated_at : c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
       </div>
     )
