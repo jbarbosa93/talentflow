@@ -19,6 +19,7 @@ const LIST_COLUMNS = [
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
   'cfc', 'deja_engage',
   'created_at', 'updated_at',
+  'notes_candidat(id, contenu, created_at, auteur)',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
@@ -118,10 +119,10 @@ export async function GET(request: NextRequest) {
 
         // Tri dans la page
         switch (sort) {
-          case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }); break
+          case 'date_asc':  searchQuery = searchQuery.order('updated_at', { ascending: true }); break
           case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }); break
           case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }); break
-          default:          searchQuery = searchQuery.order('created_at', { ascending: false })
+          default:          searchQuery = searchQuery.order('updated_at', { ascending: false })
         }
 
         const { data, error: searchFetchError } = await searchQuery
@@ -152,7 +153,7 @@ export async function GET(request: NextRequest) {
         query = query.order('titre_poste', { ascending: true })
         break
       default: // date_desc
-        query = query.order('created_at', { ascending: false })
+        query = query.order('updated_at', { ascending: false })
     }
 
     // Pagination — pour les gros volumes (>1000), paginer côté serveur
@@ -180,7 +181,7 @@ export async function GET(request: NextRequest) {
         if (effectiveImportStatus) (batchQuery as any).eq('import_status', effectiveImportStatus)
         if (effectiveStatut) (batchQuery as any).eq('statut_pipeline', effectiveStatut)
         const { data: batch } = await (batchQuery as any)
-          .order('created_at', { ascending: sort === 'date_asc' })
+          .order('updated_at', { ascending: sort === 'date_asc' })
           .range(offset, Math.min(offset + 999, perPage - 1))
         if (batch) allData.push(...batch)
         else break
