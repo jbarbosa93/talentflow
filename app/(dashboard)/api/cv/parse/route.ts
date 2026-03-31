@@ -174,6 +174,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
       return NextResponse.json({
         isDuplicate: true,
+        sameFile: true,
         candidatExistant: existingByFile,
         analyse: { prenom: existingByFile.prenom, nom: existingByFile.nom, email: existingByFile.email, titre_poste: existingByFile.titre_poste },
         message: `Déjà importé : ${existingByFile.prenom} ${existingByFile.nom}`,

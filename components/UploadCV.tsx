@@ -18,7 +18,7 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'doc_added' | 'multiple_matches' | 'error'
+type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'already_imported' | 'doc_added' | 'multiple_matches' | 'error'
 
 interface FileItem {
   file: File
@@ -196,6 +196,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
       // 4b. Doublon détecté (un seul match)
       if (data.isDuplicate && data.candidatExistant?.id) {
+        if (data.sameFile) {
+          // Exactement le même fichier déjà en base → rien à faire
+          const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
+          updateFile(idx, { status: 'already_imported', candidatNom: nom })
+          return { success: true, candidat: data.candidatExistant }
+        }
         if (data.updated) {
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
           if (data.cvUpdated) {
@@ -395,6 +401,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'uploading': return 'Upload en cours...'
       case 'parsing': return 'Analyse IA en cours...'
       case 'success': return `Importé — ${item.candidatNom}`
+      case 'already_imported': return `Déjà importé — ${item.candidatNom}`
       case 'doc_added': return `Document ajouté — ${item.candidatNom}`
       case 'doublon_updated': return `CV actualisé — ${item.candidatNom}`
       case 'multiple_matches': return item.multipleMatches?.length === 1
@@ -410,6 +417,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'uploading':
       case 'parsing': return '#3B82F6'
       case 'success': return '#16A34A'
+      case 'already_imported': return '#9CA3AF'
       case 'doc_added': return '#3B82F6'
       case 'doublon_updated': return '#F59E0B'
       case 'multiple_matches': return '#8B5CF6'
@@ -420,6 +428,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const rowBg = (s: FileStatus) => {
     switch (s) {
       case 'success': return '#F0FDF4'
+      case 'already_imported': return '#F9FAFB'
       case 'doc_added': return '#EFF6FF'
       case 'doublon_updated': return '#FFFBEB'
       case 'multiple_matches': return '#F5F3FF'
