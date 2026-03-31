@@ -485,14 +485,21 @@ export async function POST() {
             cvUrl = urlData?.signedUrl || null
           }
 
-          // Extraction photo du PDF (timeout 20s — Vercel Pro)
+          // Extraction photo du PDF ou DOCX (timeout 20s — Vercel Pro)
           let photoUrl: string | null = null
-          if (isPDF) {
+          const fileExt = filename.toLowerCase().split('.').pop() || ''
+          const isDOCX = fileExt === 'docx'
+          if (isPDF || isDOCX) {
             try {
-              const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-              const photoPromise = extractPhotoFromPDF(buffer)
               const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000))
-              const photoBuffer = await Promise.race([photoPromise, timeoutPromise])
+              let photoBuffer: Buffer | null = null
+              if (isPDF) {
+                const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+                photoBuffer = await Promise.race([extractPhotoFromPDF(buffer), timeoutPromise])
+              } else if (isDOCX) {
+                const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
+                photoBuffer = await Promise.race([extractPhotoFromDOCX(buffer), timeoutPromise])
+              }
               if (photoBuffer) {
                 const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
                 const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })

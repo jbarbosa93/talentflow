@@ -359,6 +359,32 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // 6c. Extraction photo DOCX (Word) — si c'est un CV et pas un PDF
+  const isDOCX = ext === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  if (isDOCX && !photoUrl && analyse && docType === 'cv') {
+    try {
+      const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
+      console.log('[CV Parse] Extraction photo DOCX en cours...')
+      const photoBuffer = await extractPhotoFromDOCX(buffer)
+      console.log(`[CV Parse] Photo DOCX buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
+      if (photoBuffer) {
+        const photoTimestamp = Date.now()
+        const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+        const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, photoBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        })
+        if (photoData?.path) {
+          const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+          photoUrl = photoUrlData?.signedUrl || null
+          if (photoUrl) console.log('[CV Parse] Photo DOCX extraite et stockée')
+        }
+      }
+    } catch (photoErr) {
+      console.warn('[CV Parse] DOCX photo extraction skipped:', (photoErr as Error).message)
+    }
+  }
+
   // 7. Upload Supabase Storage — timeout 15s
   const adminClient = createAdminClient()
   const timestamp = Date.now()
