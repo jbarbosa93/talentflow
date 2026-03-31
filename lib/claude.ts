@@ -123,6 +123,7 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
 
 Règles :
 - annees_exp : entier estimé (0 si non déterminable)
+- localisation : CHERCHER l'adresse ou la ville dans tout le document (en-tête, coordonnées, pied de page). Formats suisses courants : "1873 Val D'Illiez", "Rue XX 12, 1950 Sion", "Genève", "Sion, Valais". Inclure le NPA si présent (ex: "1873 Val D'Illiez, Suisse"). Si seul le NPA est visible sans ville, utiliser "NPA Suisse". Si aucune localisation trouvée → ""
 - competences : maximum 15, technologies/outils/méthodes clés uniquement
 - langues : toutes les langues mentionnées dans le CV
 - permis_conduire : true si le CV mentionne le permis B ou permis de conduire, sinon false
