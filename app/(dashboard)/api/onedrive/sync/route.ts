@@ -247,11 +247,21 @@ export async function POST() {
               .ilike('email', candidatEmail).maybeSingle()
             existingCandidat = data
           }
-          // 2. Par téléphone (derniers 9 chiffres)
+          // 2. Par téléphone — comparaison normalisée côté JS (évite le problème des espaces/formats)
+          //    Ex: "+41 77 423 99 95" en DB ne contient pas "774239995" en ilike → on normalise les deux
           if (!existingCandidat && candidatTel.length >= 8) {
-            const { data } = await supabase.from('candidats').select('id, nom, prenom')
-              .ilike('telephone', `%${candidatTel.slice(-9)}%`).maybeSingle()
-            existingCandidat = data
+            const tel9 = candidatTel.slice(-9)
+            const prenomFilter = candidatPrenom ? candidatPrenom.split(/\s+/)[0] : null
+            let telQuery = supabase.from('candidats').select('id, nom, prenom, telephone').not('telephone', 'is', null)
+            if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
+            const { data: telCandidats } = await telQuery.limit(150)
+            if (telCandidats) {
+              const telMatch = telCandidats.find((c: any) => {
+                const stored = (c.telephone || '').replace(/\D/g, '')
+                return stored.length >= 8 && stored.slice(-9) === tel9
+              })
+              if (telMatch) existingCandidat = telMatch
+            }
           }
           // 3. Par nom + prénom exact (les deux doivent correspondre exactement)
           if (!existingCandidat && candidatNom && candidatPrenom) {
@@ -259,7 +269,41 @@ export async function POST() {
               .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
             existingCandidat = data
           }
-          // 4. SUPPRIMÉ — matching partiel trop risqué (ex: "OLIVEIRA" → mauvaise personne)
+          // 4. Match partiel nom (dernière partie) + prénom + AU MOINS UN signal confirmant
+          //    (téléphone OU localisation OU date_naissance) — évite les faux positifs
+          if (!existingCandidat && candidatNom && candidatPrenom) {
+            const lastNamePart = candidatNom.split(/\s+/).pop()! // ex: "TAVARES" depuis "Vieira Tavares"
+            const firstNamePart = candidatPrenom.split(/\s+/)[0].toLowerCase()
+            if (lastNamePart.length >= 4) {
+              const { data: byPartialName } = await supabase.from('candidats')
+                .select('id, nom, prenom, telephone, localisation, date_naissance')
+                .ilike('nom', `%${lastNamePart}%`)
+                .limit(30)
+              if (byPartialName) {
+                const match = byPartialName.find((c: any) => {
+                  // 1. Prénom doit correspondre (premier mot)
+                  const cPrenom = (c.prenom || '').toLowerCase()
+                  const prenomOk = cPrenom.includes(firstNamePart) || firstNamePart.includes(cPrenom.split(/\s+/)[0])
+                  if (!prenomOk) return false
+                  // 2. Au moins un signal confirmant supplémentaire
+                  let confirm = 0
+                  if (candidatTel.length >= 8 && c.telephone) {
+                    const stored = c.telephone.replace(/\D/g, '')
+                    if (stored.length >= 8 && stored.slice(-9) === candidatTel.slice(-9)) confirm++
+                  }
+                  if (analyse.localisation && c.localisation) {
+                    const locA = analyse.localisation.toLowerCase().split(/[,\s]+/)[0]
+                    const locB = c.localisation.toLowerCase()
+                    if (locA.length >= 3 && locB.includes(locA)) confirm++
+                  }
+                  if (analyse.date_naissance && c.date_naissance &&
+                      analyse.date_naissance === c.date_naissance) confirm++
+                  return confirm >= 1
+                })
+                if (match) existingCandidat = match
+              }
+            }
+          }
           // 5. Par nom de fichier exact (même nom de fichier = même candidat)
           if (!existingCandidat && filename) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
