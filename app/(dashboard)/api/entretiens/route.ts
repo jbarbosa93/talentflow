@@ -4,9 +4,12 @@ import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export async function GET() {
   const supabase = createAdminClient()
+  const { user_id } = await getRouteUser()
+
   const { data, error } = await supabase
     .from('entretiens')
     .select('*, candidats(nom, prenom, email, titre_poste), clients(nom_entreprise)')
+    .eq('user_id', user_id)
     .order('date_heure', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ entretiens: data || [] })
@@ -16,6 +19,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const supabase = createAdminClient()
+    const { user_id } = await getRouteUser()
 
     // Auto-générer le titre si absent
     if (!body.titre) {
@@ -26,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('entretiens')
-      .insert(body)
+      .insert({ ...body, user_id })
       .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -57,10 +61,12 @@ export async function PATCH(request: NextRequest) {
   try {
     const { id, ...updates } = await request.json()
     const supabase = createAdminClient()
+    const { user_id } = await getRouteUser()
     const { data, error } = await supabase
       .from('entretiens')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('user_id', user_id)
       .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -75,7 +81,8 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
   const supabase = createAdminClient()
-  const { error } = await supabase.from('entretiens').delete().eq('id', id)
+  const { user_id } = await getRouteUser()
+  const { error } = await supabase.from('entretiens').delete().eq('id', id).eq('user_id', user_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
