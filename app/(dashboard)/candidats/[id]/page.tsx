@@ -12,7 +12,7 @@ import CVCustomizerModal from '@/components/CVCustomizer'
 import ActivityHistory from '@/components/ActivityHistory'
 import {
   useCandidat, useUpdateCandidat, useUpdateStatutCandidat,
-  useAjouterNote, useDeleteCandidat,
+  useAjouterNote, useDeleteNote, useUpdateNote, useDeleteCandidat,
 } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetiers } from '@/hooks/useMetiers'
@@ -163,6 +163,8 @@ export default function CandidatDetailPage() {
   const fromPipeline = searchParams.get('from') === 'pipeline'
   const queryClient = useQueryClient()
   const [note, setNote]                   = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isEditing, setIsEditing]         = useState(false)
   const [editData, setEditData]           = useState<Record<string, any>>({})
@@ -172,6 +174,7 @@ export default function CandidatDetailPage() {
   const [cvLightbox, setCvLightbox]       = useState(false)
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
+  const [showNotesTooltip, setShowNotesTooltip] = useState(false)
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
@@ -258,6 +261,8 @@ export default function CandidatDetailPage() {
   const updateCandidat  = useUpdateCandidat()
   const updateStatut    = useUpdateStatutCandidat()
   const ajouterNote     = useAjouterNote()
+  const deleteNote      = useDeleteNote()
+  const updateNote      = useUpdateNote()
   const deleteCandidat  = useDeleteCandidat()
 
   const candidat = data as any
@@ -338,6 +343,17 @@ export default function CandidatDetailPage() {
       })
       .catch(() => {})
   }, [candidat?.localisation])
+
+  // Centrer le scroll horizontal après un changement de zoom CV
+  useEffect(() => {
+    const el = cvScrollRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.scrollTop = 0
+      const excess = el.scrollWidth - el.clientWidth
+      el.scrollLeft = excess > 0 ? Math.round(excess / 2) : 0
+    })
+  }, [cvZoom])
 
   const set = (field: string, value: any) => setEditData(prev => ({ ...prev, [field]: value }))
 
@@ -807,6 +823,46 @@ export default function CandidatDetailPage() {
               </button>
             </>
           )}
+          {/* Bouton Notes avec tooltip au survol */}
+          <div style={{ position: 'relative' }}
+            onMouseEnter={() => setShowNotesTooltip(true)}
+            onMouseLeave={() => setShowNotesTooltip(false)}
+          >
+            <button
+              onClick={() => { setShowNotes(true); setShowNotesTooltip(false) }}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ padding: '6px 8px', minWidth: 0, position: 'relative' }}
+              title="Notes internes"
+            >
+              <MessageSquare size={15} />
+              {(candidat?.notes_candidat?.length ?? 0) > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: 2, width: 14, height: 14, borderRadius: '50%', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                  {candidat.notes_candidat.length}
+                </span>
+              )}
+            </button>
+            {showNotesTooltip && (candidat?.notes_candidat?.length ?? 0) > 0 && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500, width: 300, background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.15)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes internes</p>
+                {[...candidat.notes_candidat]
+                  .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 3)
+                  .map((n: any) => (
+                    <div key={n.id} style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                        <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--foreground)', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{n.contenu}</p>
+                    </div>
+                  ))}
+                {candidat.notes_candidat.length > 3 && (
+                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, textAlign: 'center' }}>+{candidat.notes_candidat.length - 3} autre{candidat.notes_candidat.length - 3 > 1 ? 's' : ''} — cliquer pour tout voir</p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Menu 3 points */}
           <div style={{ position: 'relative' }} ref={menuRef}>
             <button
@@ -825,6 +881,11 @@ export default function CandidatDetailPage() {
                 <button onClick={() => { setShowNotes(v => !v); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
                   <MessageSquare size={14} color="var(--muted)" /> Notes
+                  {candidat?.notes_candidat?.length > 0 && (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, background: 'var(--primary)', color: 'var(--ink, #1C1A14)', borderRadius: 99, padding: '1px 6px' }}>
+                      {candidat.notes_candidat.length}
+                    </span>
+                  )}
                 </button>
                 <button onClick={() => { setShowInfo(v => !v); setShowMenu(false) }}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
@@ -1126,7 +1187,7 @@ export default function CandidatDetailPage() {
                     {showMetierPicker && (
                       <div style={{
                         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
-                        background: 'white', borderRadius: 10, marginTop: 4,
+                        background: 'var(--card)', borderRadius: 10, marginTop: 4,
                         boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
                         border: '1px solid var(--border)', maxHeight: 280, overflowY: 'auto',
                         padding: 8,
@@ -1582,8 +1643,6 @@ export default function CandidatDetailPage() {
           )}
           </div>
 
-          {/* Notes déplacées dans colonne 1 (boutons ronds) */}
-
           {/* Texte brut */}
           {candidat.cv_texte_brut && (
             <details className="neo-card-soft" style={{ padding: 0 }}>
@@ -1649,14 +1708,9 @@ export default function CandidatDetailPage() {
                   <button onClick={() => { const r = (cvRotation + 90) % 360; setCvRotation(r); localStorage.setItem(`cv_rotation_${id}`, r.toString()) }} title="Rotation droite" className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}>
                     <RotateCw size={13} />
                   </button>
-                  {[{ label: '−', action: () => setCvZoom(z => Math.max(0.4, parseFloat((z - 0.2).toFixed(1)))) },
-                    { label: Math.round(cvZoom * 100) + '%', action: () => setCvZoom(1.0) },
-                    { label: '+', action: () => setCvZoom(z => Math.min(3.0, parseFloat((z + 0.2).toFixed(1)))) }
-                  ].map(btn => (
-                    <button key={btn.label} onClick={btn.action} className="d-icon-btn" style={{ minWidth: btn.label.includes('%') ? 42 : 28, height: 28, borderRadius: 7, fontSize: 12, fontWeight: 700 }}>
-                      {btn.label}
-                    </button>
-                  ))}
+                  <button onClick={() => setCvZoom(z => Math.max(0.4, Math.round((z - 0.2) * 10) / 10))} className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, fontSize: 14, fontWeight: 700 }}>−</button>
+                  <button onClick={() => setCvZoom(1.0)} className="d-icon-btn" style={{ minWidth: 42, height: 28, borderRadius: 7, fontSize: 12, fontWeight: 700 }}>{Math.round(cvZoom * 100)}%</button>
+                  <button onClick={() => setCvZoom(z => Math.min(3.0, Math.round((z + 0.2) * 10) / 10))} className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, fontSize: 14, fontWeight: 700 }}>+</button>
                 </div>
               )}
               <button onClick={() => setShowCV(false)} title="Masquer le CV"
@@ -1733,16 +1787,16 @@ export default function CandidatDetailPage() {
                   position: 'relative',
                 }}>
                   {cvIsWord && <>
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'var(--background)', zIndex: 10 }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'var(--background)', zIndex: 10 }} />
                   </>}
                   <iframe
                     key={`cv-iframe-${cvRotation}-${cvZoom}`}
                     src={
                       cvIsPDF && cvRotation !== 0
-                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
+                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
                         : cvIsPDF
-                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=page-width`
+                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
                           : docViewerUrl
                     }
                     style={{
@@ -1798,7 +1852,7 @@ export default function CandidatDetailPage() {
         onClick={e => { if (e.target === e.currentTarget) setEditModal(null) }}
         >
           <div style={{
-            background: 'white', borderRadius: 16, padding: 0,
+            background: 'var(--card)', borderRadius: 16, padding: 0,
             width: '90%', maxWidth: 520, boxShadow: '0 20px 60px rgba(15,23,42,0.2)',
             animation: 'slideUp 0.2s ease',
             overflow: 'hidden',
@@ -1935,16 +1989,23 @@ export default function CandidatDetailPage() {
 
       {/* ── Panneau Notes (slide-in) ── */}
       {showNotes && (
-        <div onClick={() => setShowNotes(false)} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 380, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
+        <div onClick={() => { setShowNotes(false); setEditingNoteId(null) }} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 400, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><MessageSquare size={16} color="var(--primary)" /> Notes</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MessageSquare size={16} color="var(--primary)" /> Notes
+                {candidat.notes_candidat?.length > 0 && (
+                  <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: 'var(--ink, #1C1A14)', borderRadius: 99, padding: '1px 7px' }}>
+                    {candidat.notes_candidat.length}
+                  </span>
+                )}
+              </h3>
               <button onClick={() => setShowNotes(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="var(--muted)" /></button>
             </div>
             <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                <textarea className="neo-input" placeholder="Ajouter une note... (Cmd+Entrée)" value={note} onChange={e => setNote(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendNote() }}
+                <textarea className="neo-input" placeholder="Ajouter une note... (Entrée)" value={note} onChange={e => setNote(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendNote() } }}
                   style={{ height: 'auto', minHeight: 70, padding: '10px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13, flex: 1 }} />
                 <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '10px 12px' }}>
                   <Send size={13} />
@@ -1956,13 +2017,58 @@ export default function CandidatDetailPage() {
                 <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: 40 }}>Aucune note pour le moment</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[...candidat.notes_candidat].reverse().map((n: any) => (
+                  {[...candidat.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((n: any) => (
                     <div key={n.id} style={{ background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button
+                            onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.contenu) }}
+                            title="Modifier"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          <button
+                            onClick={() => { if (confirm('Supprimer cette note ?')) deleteNote.mutate({ note_id: n.id, candidat_id: id }) }}
+                            title="Supprimer"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: '#EF4444', display: 'flex', alignItems: 'center' }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
-                      <p style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>{n.contenu}</p>
+                      {editingNoteId === n.id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <textarea
+                            value={editingNoteText}
+                            onChange={e => setEditingNoteText(e.target.value)}
+                            className="neo-input"
+                            style={{ fontSize: 13, lineHeight: 1.5, resize: 'none', minHeight: 60, padding: '8px 10px', fontFamily: 'inherit' }}
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Escape') setEditingNoteId(null)
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && editingNoteText.trim()) {
+                                updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) })
+                              }
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setEditingNoteId(null)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+                            <button
+                              onClick={() => { if (editingNoteText.trim()) updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) }) }}
+                              disabled={!editingNoteText.trim() || updateNote.isPending}
+                              className="neo-btn neo-btn-sm"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                            >Enregistrer</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>{n.contenu}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2011,7 +2117,7 @@ export default function CandidatDetailPage() {
           animation: 'fadeIn 0.15s ease',
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: 'white', borderRadius: 16, padding: '28px 32px',
+            background: 'var(--card)', borderRadius: 16, padding: '28px 32px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             maxWidth: 440, width: '90%', textAlign: 'center',
           }}>
@@ -2025,7 +2131,7 @@ export default function CandidatDetailPage() {
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button onClick={() => setShowReanalyseConfirm(false)}
-                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 Annuler
               </button>
               <button onClick={confirmReanalyse}
@@ -2046,7 +2152,7 @@ export default function CandidatDetailPage() {
           animation: 'fadeIn 0.15s ease',
         }}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: 'white', borderRadius: 16, padding: '28px 32px',
+            background: 'var(--card)', borderRadius: 16, padding: '28px 32px',
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             maxWidth: 400, width: '90%', textAlign: 'center',
           }}>
@@ -2059,7 +2165,7 @@ export default function CandidatDetailPage() {
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button onClick={() => setShowDeleteConfirm(false)}
-                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'white', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 Annuler
               </button>
               <button onClick={handleDelete} disabled={deleteCandidat.isPending}

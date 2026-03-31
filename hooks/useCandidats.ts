@@ -117,14 +117,60 @@ export function useAjouterNote() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ candidat_id, contenu, offre_id }: { candidat_id: string; contenu: string; offre_id?: string }) => {
-      const { data, error } = await supabase.from('notes_candidat').insert({ candidat_id, contenu, offre_id: offre_id || null, auteur: 'Recruteur' }).select().single()
-      if (error) throw error
-      return data
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidat_id, contenu, offre_id: offre_id || null, auteur: 'Recruteur' }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Erreur ajout note')
+      return json.note
     },
     onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ['candidat', variables.candidat_id] })
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
       toast.success('Note ajoutée')
     },
+    onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
+  })
+}
+
+export function useDeleteNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ note_id, candidat_id }: { note_id: string; candidat_id: string }) => {
+      const res = await fetch(`/api/notes/${note_id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Erreur suppression note')
+    },
+    onSuccess: (_: any, variables: any) => {
+      queryClient.invalidateQueries({ queryKey: ['candidat', variables.candidat_id] })
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      toast.success('Note supprimée')
+    },
+    onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
+  })
+}
+
+export function useUpdateNote() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ note_id, candidat_id, contenu }: { note_id: string; candidat_id: string; contenu: string }) => {
+      const res = await fetch(`/api/notes/${note_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenu }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Erreur modification note')
+      return json.note
+    },
+    onSuccess: (_: any, variables: any) => {
+      queryClient.invalidateQueries({ queryKey: ['candidat', variables.candidat_id] })
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      toast.success('Note modifiée')
+    },
+    onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
   })
 }
 
