@@ -521,7 +521,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    updateData.updated_at = new Date().toISOString()
+    const now = new Date().toISOString()
+    updateData.updated_at = now
+    // Si c'est un nouveau CV (pas juste un document), mettre à jour created_at
+    // pour que le candidat remonte dans le tri "Plus récent"
+    if (updateData.cv_url) {
+      updateData.created_at = now
+    }
 
     const { data: updated, error: updateError } = await adminClient
       .from('candidats')
