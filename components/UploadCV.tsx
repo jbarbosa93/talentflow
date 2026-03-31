@@ -197,9 +197,14 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       // 4b. Doublon détecté (un seul match)
       if (data.isDuplicate && data.candidatExistant?.id) {
         if (data.updated) {
-          // Document non-CV auto-ajouté
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
-          updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
+          if (data.cvUpdated) {
+            // CV mis à jour — nouveau principal, ancien archivé
+            updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV mis à jour' })
+          } else {
+            // Document non-CV auto-ajouté
+            updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
+          }
           return { success: true, candidat: data.candidat || data.candidatExistant }
         } else {
           // CV doublon → auto-actualiser

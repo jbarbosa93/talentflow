@@ -547,13 +547,21 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     candidatExistant = byEmail
   }
   if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.telephone) {
-    // Normaliser le téléphone : garder uniquement les chiffres pour comparaison
+    // Normaliser le téléphone des deux côtés — ilike('%digits%') échoue sur "+41 77 423 99 95" (espaces)
     const telNormalise = analyse.telephone.replace(/\D/g, '')
     if (telNormalise.length >= 8) {
-      const { data: byPhone } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-        .ilike('telephone', `%${telNormalise.slice(-9)}%`).maybeSingle()
-      candidatExistant = byPhone
+      const tel9 = telNormalise.slice(-9)
+      const prenomFilter = analyse.prenom ? analyse.prenom.split(/\s+/)[0] : null
+      let telQuery = adminClient.from('candidats').select('id, prenom, nom, email, titre_poste, created_at, telephone').not('telephone', 'is', null)
+      if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
+      const { data: telCandidats } = await telQuery.limit(150)
+      if (telCandidats) {
+        const telMatch = telCandidats.find((c: any) => {
+          const stored = (c.telephone || '').replace(/\D/g, '')
+          return stored.length >= 8 && stored.slice(-9) === tel9
+        })
+        if (telMatch) candidatExistant = telMatch
+      }
     }
   }
   if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.nom && analyse.prenom) {
@@ -697,6 +705,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({
         isDuplicate: true,
         updated: true,
+        cvUpdated: true,
         candidatExistant,
         candidat: candidatExistant,
         analyse,
