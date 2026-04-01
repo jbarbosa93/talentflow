@@ -1,0 +1,5390 @@
+[
+  {
+    "code": "101001",
+    "label": "Officier de carrière"
+  },
+  {
+    "code": "101002",
+    "label": "Sous-officier de carrière"
+  },
+  {
+    "code": "101003",
+    "label": "Militaire de carrière"
+  },
+  {
+    "code": "101004",
+    "label": "Diplomate"
+  },
+  {
+    "code": "101005",
+    "label": "Directeur administratif (administration publique)"
+  },
+  {
+    "code": "101007",
+    "label": "Expert en conduite organisationnelle"
+  },
+  {
+    "code": "101008",
+    "label": "Spécialiste en gestion de PME"
+  },
+  {
+    "code": "101009",
+    "label": "Gérant de caisses de pension"
+  },
+  {
+    "code": "101010",
+    "label": "Chef des finances et des services"
+  },
+  {
+    "code": "101012",
+    "label": "Investment Manager"
+  },
+  {
+    "code": "101013",
+    "label": "Business Developer"
+  },
+  {
+    "code": "101014",
+    "label": "Corporate Strategy Manager"
+  },
+  {
+    "code": "101015",
+    "label": "Economiste d'entreprise, Facility Management"
+  },
+  {
+    "code": "101017",
+    "label": "Key Account Manager"
+  },
+  {
+    "code": "101018",
+    "label": "Chef de service après-vente"
+  },
+  {
+    "code": "101019",
+    "label": "Chef d'exportation"
+  },
+  {
+    "code": "101020",
+    "label": "Chef de vente"
+  },
+  {
+    "code": "101021",
+    "label": "Responsable du commerce international"
+  },
+  {
+    "code": "101022",
+    "label": "Marketing manager"
+  },
+  {
+    "code": "101023",
+    "label": "Chef de marketing"
+  },
+  {
+    "code": "101024",
+    "label": "PR-Manager"
+  },
+  {
+    "code": "101026",
+    "label": "Chef du service de développement"
+  },
+  {
+    "code": "101027",
+    "label": "Chef boulanger-pâtissier"
+  },
+  {
+    "code": "101028",
+    "label": "Chef confiseur-pâtissier-glacier"
+  },
+  {
+    "code": "101030",
+    "label": "Chef de production dans l'industrie horlogère"
+  },
+  {
+    "code": "101031",
+    "label": "Chef technique"
+  },
+  {
+    "code": "101032",
+    "label": "Chef de fabrication"
+  },
+  {
+    "code": "101033",
+    "label": "Quality Manager"
+  },
+  {
+    "code": "101034",
+    "label": "Maître sculpteur sur bois"
+  },
+  {
+    "code": "101035",
+    "label": "Chef d'exploitation caviste"
+  },
+  {
+    "code": "101036",
+    "label": "Maître cordonnier"
+  },
+  {
+    "code": "101037",
+    "label": "Packaging Manager"
+  },
+  {
+    "code": "101038",
+    "label": "Sertisseur en joaillerie, maître"
+  },
+  {
+    "code": "101040",
+    "label": "Chef de production de l'industrie du bois"
+  },
+  {
+    "code": "101041",
+    "label": "Maître caviste"
+  },
+  {
+    "code": "101042",
+    "label": "Maître fromager et laitier"
+  },
+  {
+    "code": "101043",
+    "label": "Chef boulanger-pâtissier-confiseur"
+  },
+  {
+    "code": "101044",
+    "label": "Maître boucher-charcutier"
+  },
+  {
+    "code": "101045",
+    "label": "Maître menuisier/ébéniste"
+  },
+  {
+    "code": "101046",
+    "label": "Maître constructeur naval"
+  },
+  {
+    "code": "101048",
+    "label": "Maître mécanicien en machines agricoles"
+  },
+  {
+    "code": "101049",
+    "label": "Maître coutelier"
+  },
+  {
+    "code": "101050",
+    "label": "Maître orfèvre en argenterie"
+  },
+  {
+    "code": "101051",
+    "label": "Maître sérigraphe"
+  },
+  {
+    "code": "101052",
+    "label": "Maître forgeron"
+  },
+  {
+    "code": "101053",
+    "label": "Economiste en textile"
+  },
+  {
+    "code": "101054",
+    "label": "Maître tourneur"
+  },
+  {
+    "code": "101055",
+    "label": "Maître maréchal-forgeron"
+  },
+  {
+    "code": "101056",
+    "label": "Maître bottier-orthopédiste"
+  },
+  {
+    "code": "101057",
+    "label": "Maître du cuir et du textile"
+  },
+  {
+    "code": "101058",
+    "label": "Maître fourreur"
+  },
+  {
+    "code": "101059",
+    "label": "Maître horloger"
+  },
+  {
+    "code": "101060",
+    "label": "Maître mécanicien d'appareils à moteur"
+  },
+  {
+    "code": "101061",
+    "label": "Maître marbrier"
+  },
+  {
+    "code": "101062",
+    "label": "Spécialiste en impression et emballage"
+  },
+  {
+    "code": "101063",
+    "label": "Manager en publications"
+  },
+  {
+    "code": "101064",
+    "label": "Chef de production en menuiserie/ébénisterie"
+  },
+  {
+    "code": "101065",
+    "label": "Chef d'exploitation économie carnée"
+  },
+  {
+    "code": "101066",
+    "label": "Chef d'entreprise en boulangerie-pâtisserie-confiserie"
+  },
+  {
+    "code": "101067",
+    "label": "Chef d’entreprise dans la branche deux-roues"
+  },
+  {
+    "code": "101068",
+    "label": "Chef d'exploitation de carrosserie"
+  },
+  {
+    "code": "101069",
+    "label": "Entrepreneur en bâtiment"
+  },
+  {
+    "code": "101070",
+    "label": "Responsable technique en conduite des travaux"
+  },
+  {
+    "code": "101071",
+    "label": "Maître paveur"
+  },
+  {
+    "code": "101072",
+    "label": "Entrepreneur-construction"
+  },
+  {
+    "code": "101073",
+    "label": "Maître plâtrier"
+  },
+  {
+    "code": "101074",
+    "label": "Maître ferblantier"
+  },
+  {
+    "code": "101075",
+    "label": "Maître sanitaire"
+  },
+  {
+    "code": "101076",
+    "label": "Maître peintre"
+  },
+  {
+    "code": "101077",
+    "label": "Maître chauffagiste"
+  },
+  {
+    "code": "101078",
+    "label": "Maître polybâtisseur"
+  },
+  {
+    "code": "101079",
+    "label": "Maître ramoneur"
+  },
+  {
+    "code": "101080",
+    "label": "Maître carreleur"
+  },
+  {
+    "code": "101081",
+    "label": "Maître charpentier"
+  },
+  {
+    "code": "101082",
+    "label": "Maître poêlier-fumiste"
+  },
+  {
+    "code": "101083",
+    "label": "Maître calorifugeur-tôlier"
+  },
+  {
+    "code": "101084",
+    "label": "Maître vitrier"
+  },
+  {
+    "code": "101085",
+    "label": "Maître constructeur métallique"
+  },
+  {
+    "code": "101086",
+    "label": "Maître poseur de revêtements de sols"
+  },
+  {
+    "code": "101087",
+    "label": "Maître sculpteur sur pierre"
+  },
+  {
+    "code": "101088",
+    "label": "Manager en systèmes de transports publics"
+  },
+  {
+    "code": "101089",
+    "label": "Chef d'importation"
+  },
+  {
+    "code": "101090",
+    "label": "Manager de remontées mécanique"
+  },
+  {
+    "code": "101091",
+    "label": "Responsable en transport et logistique"
+  },
+  {
+    "code": "101092",
+    "label": "Supply Chain Manager"
+  },
+  {
+    "code": "101093",
+    "label": "Chef de logistique"
+  },
+  {
+    "code": "101094",
+    "label": "Responsable achats"
+  },
+  {
+    "code": "101095",
+    "label": "Spécialiste en transports publics"
+  },
+  {
+    "code": "101096",
+    "label": "Responsable du management de portefeuille de projets ICT"
+  },
+  {
+    "code": "101097",
+    "label": "Responsable de l’exploitation ICT"
+  },
+  {
+    "code": "101098",
+    "label": "Responsable du développement des systèmes"
+  },
+  {
+    "code": "101099",
+    "label": "Responsable de la stratégie et de la planification ICT"
+  },
+  {
+    "code": "101100",
+    "label": "Responsable informatique"
+  },
+  {
+    "code": "101101",
+    "label": "Directeur d'institution sociale et médico-sociale"
+  },
+  {
+    "code": "101102",
+    "label": "Directeur de crèche"
+  },
+  {
+    "code": "101103",
+    "label": "Medical Manager"
+  },
+  {
+    "code": "101105",
+    "label": "Directeur d'une communauté d'habitation"
+  },
+  {
+    "code": "101106",
+    "label": "Directeur d'école"
+  },
+  {
+    "code": "101107",
+    "label": "Administrateur d'école"
+  },
+  {
+    "code": "101108",
+    "label": "Manager de banque"
+  },
+  {
+    "code": "101109",
+    "label": "Agent général d'assurances"
+  },
+  {
+    "code": "101110",
+    "label": "Economiste d'assurance"
+  },
+  {
+    "code": "101111",
+    "label": "Chef de laboratoire"
+  },
+  {
+    "code": "101112",
+    "label": "Editeur"
+  },
+  {
+    "code": "101113",
+    "label": "Directeur de musée"
+  },
+  {
+    "code": "101114",
+    "label": "Chef au service de sécurité"
+  },
+  {
+    "code": "101115",
+    "label": "Responsable en documentation technique"
+  },
+  {
+    "code": "101117",
+    "label": "Food and Beverage Manager"
+  },
+  {
+    "code": "101118",
+    "label": "Chef de la restauration"
+  },
+  {
+    "code": "101119",
+    "label": "Chef de la restauration collective"
+  },
+  {
+    "code": "101120",
+    "label": "Chef d'entreprise/d'établissement de l'hôtellerie et de la restauration"
+  },
+  {
+    "code": "101121",
+    "label": "Gérant de station-service"
+  },
+  {
+    "code": "101122",
+    "label": "Spécialiste du commerce de détail"
+  },
+  {
+    "code": "101123",
+    "label": "Gestionnaire d'entreprise de la branche automobile"
+  },
+  {
+    "code": "101124",
+    "label": "Gestionnaire culturel"
+  },
+  {
+    "code": "101125",
+    "label": "Responsable de centres de loisirs"
+  },
+  {
+    "code": "101126",
+    "label": "Manager en tourisme"
+  },
+  {
+    "code": "101127",
+    "label": "Gestionnaire en tourisme de santé et d'activité physique"
+  },
+  {
+    "code": "101128",
+    "label": "Assistant scientifique"
+  },
+  {
+    "code": "101129",
+    "label": "Astronome"
+  },
+  {
+    "code": "101130",
+    "label": "Physicien"
+  },
+  {
+    "code": "101131",
+    "label": "Acousticien"
+  },
+  {
+    "code": "101132",
+    "label": "Ingénieur en photonique"
+  },
+  {
+    "code": "101133",
+    "label": "Assistant-météorologiste"
+  },
+  {
+    "code": "101134",
+    "label": "Météorologue"
+  },
+  {
+    "code": "101135",
+    "label": "Collaborateur-météorologiste"
+  },
+  {
+    "code": "101136",
+    "label": "Chimiste"
+  },
+  {
+    "code": "101137",
+    "label": "Biochimiste"
+  },
+  {
+    "code": "101138",
+    "label": "Chimiste en denrées alimentaires"
+  },
+  {
+    "code": "101139",
+    "label": "Paléontologue"
+  },
+  {
+    "code": "101140",
+    "label": "Minéralogiste"
+  },
+  {
+    "code": "101141",
+    "label": "Géologue"
+  },
+  {
+    "code": "101142",
+    "label": "Océanographe"
+  },
+  {
+    "code": "101143",
+    "label": "Géophysicien"
+  },
+  {
+    "code": "101144",
+    "label": "Pétrographe"
+  },
+  {
+    "code": "101145",
+    "label": "Analyste de données"
+  },
+  {
+    "code": "101146",
+    "label": "Démographe"
+  },
+  {
+    "code": "101147",
+    "label": "Mathématicien"
+  },
+  {
+    "code": "101148",
+    "label": "Statisticien"
+  },
+  {
+    "code": "101149",
+    "label": "Data Scientist"
+  },
+  {
+    "code": "101151",
+    "label": "Clinical Research Scientist"
+  },
+  {
+    "code": "101152",
+    "label": "Biologiste"
+  },
+  {
+    "code": "101153",
+    "label": "Zoologiste"
+  },
+  {
+    "code": "101154",
+    "label": "Toxicologue"
+  },
+  {
+    "code": "101156",
+    "label": "Neuroscientifique"
+  },
+  {
+    "code": "101157",
+    "label": "Conseiller agricole"
+  },
+  {
+    "code": "101158",
+    "label": "Oenologue"
+  },
+  {
+    "code": "101159",
+    "label": "Agronome"
+  },
+  {
+    "code": "101161",
+    "label": "Ingénieur forestier"
+  },
+  {
+    "code": "101162",
+    "label": "Conseiller en environnement"
+  },
+  {
+    "code": "101163",
+    "label": "Spécialiste de la nature et de l'environnement"
+  },
+  {
+    "code": "101164",
+    "label": "Spécialiste en protection de l'environnement"
+  },
+  {
+    "code": "101166",
+    "label": "Ingénieur en énergie et techniques environnementales"
+  },
+  {
+    "code": "101167",
+    "label": "Development Engineer"
+  },
+  {
+    "code": "101168",
+    "label": "Ingénieur en processus"
+  },
+  {
+    "code": "101169",
+    "label": "Quality Engineer"
+  },
+  {
+    "code": "101170",
+    "label": "Ingénieur de gestion et de production"
+  },
+  {
+    "code": "101171",
+    "label": "Ingénieur de gestion"
+  },
+  {
+    "code": "101172",
+    "label": "Ingénieur du bâtiment"
+  },
+  {
+    "code": "101173",
+    "label": "Ingénieur en génie civil"
+  },
+  {
+    "code": "101174",
+    "label": "Ingénieur en technique des bâtiments"
+  },
+  {
+    "code": "101175",
+    "label": "Ingénieur en environnement"
+  },
+  {
+    "code": "101176",
+    "label": "Ingénieur-mécanicien"
+  },
+  {
+    "code": "101178",
+    "label": "Ingénieur, mécatronique"
+  },
+  {
+    "code": "101179",
+    "label": "Ingénieur en systèmes industriels"
+  },
+  {
+    "code": "101180",
+    "label": "Ingénieur-chimiste"
+  },
+  {
+    "code": "101181",
+    "label": "Ingénieur en technologie alimentaire"
+  },
+  {
+    "code": "101182",
+    "label": "Ingénieur en sciences et technologies du vivant"
+  },
+  {
+    "code": "101183",
+    "label": "Ingénieur en technologies du vivant (chimie, nature, alimentation)"
+  },
+  {
+    "code": "101184",
+    "label": "Aromaticien parfumeur"
+  },
+  {
+    "code": "101185",
+    "label": "Ingénieur-physicien nucléaire"
+  },
+  {
+    "code": "101186",
+    "label": "Ingénieur en science des matériaux"
+  },
+  {
+    "code": "101187",
+    "label": "Ingénieur du bois"
+  },
+  {
+    "code": "101189",
+    "label": "Ingénieur en électricité"
+  },
+  {
+    "code": "101190",
+    "label": "Ingénieur électronicien"
+  },
+  {
+    "code": "101191",
+    "label": "Ingénieur en télécommunications"
+  },
+  {
+    "code": "101192",
+    "label": "Ingénieur des médias"
+  },
+  {
+    "code": "101193",
+    "label": "Architecte"
+  },
+  {
+    "code": "101194",
+    "label": "Architecte d'intérieur"
+  },
+  {
+    "code": "101197",
+    "label": "Fashiondesigner"
+  },
+  {
+    "code": "101198",
+    "label": "Conseiller en couleurs et en style de mode"
+  },
+  {
+    "code": "101199",
+    "label": "Fashion Assistant"
+  },
+  {
+    "code": "101201",
+    "label": "Designer en design industriel et de produits"
+  },
+  {
+    "code": "101202",
+    "label": "Ingénieur en design industriel"
+  },
+  {
+    "code": "101203",
+    "label": "Expert concepteur dans l'artisanat"
+  },
+  {
+    "code": "101204",
+    "label": "Fashion spécialiste"
+  },
+  {
+    "code": "101205",
+    "label": "Coloriste"
+  },
+  {
+    "code": "101206",
+    "label": "Planificateur en aménagement du territoire"
+  },
+  {
+    "code": "101207",
+    "label": "Aménagiste"
+  },
+  {
+    "code": "101208",
+    "label": "Ingénieur du trafic"
+  },
+  {
+    "code": "101209",
+    "label": "Ingénieur en transports"
+  },
+  {
+    "code": "101210",
+    "label": "Ingénieur en génie rural"
+  },
+  {
+    "code": "101211",
+    "label": "Ingénieur en géomatique"
+  },
+  {
+    "code": "101212",
+    "label": "Auteur multimédia"
+  },
+  {
+    "code": "101213",
+    "label": "Multimedia Designer"
+  },
+  {
+    "code": "101214",
+    "label": "Illustrateur"
+  },
+  {
+    "code": "101215",
+    "label": "Graphiste"
+  },
+  {
+    "code": "101216",
+    "label": "Designer en communication visuelle"
+  },
+  {
+    "code": "101217",
+    "label": "Interactive Media Designer"
+  },
+  {
+    "code": "101218",
+    "label": "Designer graphique"
+  },
+  {
+    "code": "101220",
+    "label": "Médecin généraliste"
+  },
+  {
+    "code": "101221",
+    "label": "Médecin spécialiste"
+  },
+  {
+    "code": "101222",
+    "label": "Psychiatre"
+  },
+  {
+    "code": "101223",
+    "label": "Chef du service des soins"
+  },
+  {
+    "code": "101224",
+    "label": "Infirmier"
+  },
+  {
+    "code": "101225",
+    "label": "Puériculteur de la petite enfance"
+  },
+  {
+    "code": "101226",
+    "label": "Infirmier de salle d'opération"
+  },
+  {
+    "code": "101227",
+    "label": "Spécialiste en sciences infirmières"
+  },
+  {
+    "code": "101228",
+    "label": "Spécialiste clinique"
+  },
+  {
+    "code": "101229",
+    "label": "Expert en soins d'urgence"
+  },
+  {
+    "code": "101230",
+    "label": "Assistant spécialisé en soins de longue durée et accompagnement"
+  },
+  {
+    "code": "101231",
+    "label": "Expert domaine opératoire"
+  },
+  {
+    "code": "101232",
+    "label": "Expert en soins d'anesthésie"
+  },
+  {
+    "code": "101233",
+    "label": "Expert en soins intensifs"
+  },
+  {
+    "code": "101234",
+    "label": "Sage-femme"
+  },
+  {
+    "code": "101235",
+    "label": "Homéopathe"
+  },
+  {
+    "code": "101236",
+    "label": "Kinésiologue"
+  },
+  {
+    "code": "101237",
+    "label": "Acupuncteur"
+  },
+  {
+    "code": "101238",
+    "label": "Thérapeute en médecine complémentaire"
+  },
+  {
+    "code": "101239",
+    "label": "Naturopathe"
+  },
+  {
+    "code": "101240",
+    "label": "Vétérinaire"
+  },
+  {
+    "code": "101241",
+    "label": "Physiothérapeute pour animaux"
+  },
+  {
+    "code": "101242",
+    "label": "Assistant en anesthésie vétérinaire"
+  },
+  {
+    "code": "101243",
+    "label": "Conseiller en psychologie animale"
+  },
+  {
+    "code": "101244",
+    "label": "Médecin-dentiste"
+  },
+  {
+    "code": "101245",
+    "label": "Médecin-dentiste spécialiste"
+  },
+  {
+    "code": "101246",
+    "label": "Pharmacien"
+  },
+  {
+    "code": "101247",
+    "label": "Inspecteur des denrées alimentaires"
+  },
+  {
+    "code": "101248",
+    "label": "Contrôleur en radioprotection"
+  },
+  {
+    "code": "101249",
+    "label": "Physiothérapeute"
+  },
+  {
+    "code": "101250",
+    "label": "Diététicien"
+  },
+  {
+    "code": "101251",
+    "label": "Nutritionniste"
+  },
+  {
+    "code": "101252",
+    "label": "Logopédiste"
+  },
+  {
+    "code": "101253",
+    "label": "Optométriste"
+  },
+  {
+    "code": "101254",
+    "label": "Orthoptiste"
+  },
+  {
+    "code": "101255",
+    "label": "Spécialiste en réadaptation de personnes malvoyantes et aveugles"
+  },
+  {
+    "code": "101256",
+    "label": "Expert en réadaptation de personnes malvoyantes et aveugles"
+  },
+  {
+    "code": "101257",
+    "label": "Ergothérapeute"
+  },
+  {
+    "code": "101258",
+    "label": "Chiropraticien"
+  },
+  {
+    "code": "101259",
+    "label": "Musicothérapeute"
+  },
+  {
+    "code": "101260",
+    "label": "Art thérapeute"
+  },
+  {
+    "code": "101261",
+    "label": "Ostéopathe"
+  },
+  {
+    "code": "101262",
+    "label": "Spécialiste en activation"
+  },
+  {
+    "code": "101263",
+    "label": "Expert en sciences du mouvement et du sport"
+  },
+  {
+    "code": "101264",
+    "label": "Thérapeute par le mouvement"
+  },
+  {
+    "code": "101265",
+    "label": "Spécialiste en kinesthétique appliquée"
+  },
+  {
+    "code": "101266",
+    "label": "Expert en promotion de l’activité physique et de la santé"
+  },
+  {
+    "code": "101267",
+    "label": "Réflexologue"
+  },
+  {
+    "code": "101268",
+    "label": "Formateur d'adultes"
+  },
+  {
+    "code": "101269",
+    "label": "Professeur d'université"
+  },
+  {
+    "code": "101270",
+    "label": "Professeur d'haute école spécialisée"
+  },
+  {
+    "code": "101271",
+    "label": "Professeur de haute école"
+  },
+  {
+    "code": "101272",
+    "label": "Enseignant en école supérieure"
+  },
+  {
+    "code": "101273",
+    "label": "Maître d'enseignement commercial"
+  },
+  {
+    "code": "101274",
+    "label": "Enseignant spécialiste en information scolaire et professionnelle"
+  },
+  {
+    "code": "101275",
+    "label": "Enseignant secondaire II"
+  },
+  {
+    "code": "101276",
+    "label": "Enseignant en école professionnelle"
+  },
+  {
+    "code": "101277",
+    "label": "Maître d'enseignement pré-professionnel"
+  },
+  {
+    "code": "101278",
+    "label": "Enseignant en connaissances des religions"
+  },
+  {
+    "code": "101279",
+    "label": "Enseignant secondaire I"
+  },
+  {
+    "code": "101280",
+    "label": "Enseignant primaire"
+  },
+  {
+    "code": "101281",
+    "label": "Animateur d'un groupe de jeux d'enfants"
+  },
+  {
+    "code": "101283",
+    "label": "Enseignant préscolaire"
+  },
+  {
+    "code": "101284",
+    "label": "Pédagogue"
+  },
+  {
+    "code": "101285",
+    "label": "Responsable de formation"
+  },
+  {
+    "code": "101286",
+    "label": "Thérapeute en techniques d'apprentissage"
+  },
+  {
+    "code": "101287",
+    "label": "Pédagogue curatif"
+  },
+  {
+    "code": "101288",
+    "label": "Enseignant pour mal-entendants"
+  },
+  {
+    "code": "101289",
+    "label": "Thérapeute avec le cheval"
+  },
+  {
+    "code": "101290",
+    "label": "Enseignant spécialisé pour enfants sourds"
+  },
+  {
+    "code": "101291",
+    "label": "Pédagogue spécialisé"
+  },
+  {
+    "code": "101292",
+    "label": "Professeur de langues"
+  },
+  {
+    "code": "101293",
+    "label": "Enseignant de musique"
+  },
+  {
+    "code": "101294",
+    "label": "Maître d'eurythmie"
+  },
+  {
+    "code": "101295",
+    "label": "Pédagogue de la danse"
+  },
+  {
+    "code": "101296",
+    "label": "Animateur pédagogique de théâtre"
+  },
+  {
+    "code": "101297",
+    "label": "Maître d'informatique"
+  },
+  {
+    "code": "101298",
+    "label": "Conseiller d'éducation"
+  },
+  {
+    "code": "101299",
+    "label": "Conseiller aux parents"
+  },
+  {
+    "code": "101300",
+    "label": "Formateur"
+  },
+  {
+    "code": "101301",
+    "label": "Contrôleur financier"
+  },
+  {
+    "code": "101302",
+    "label": "Conseiller fiscal"
+  },
+  {
+    "code": "101303",
+    "label": "Agent fiduciaire"
+  },
+  {
+    "code": "101304",
+    "label": "Compliance Officer"
+  },
+  {
+    "code": "101305",
+    "label": "Expert-comptable"
+  },
+  {
+    "code": "101306",
+    "label": "Expert fiduciaire"
+  },
+  {
+    "code": "101307",
+    "label": "Expert fiscal"
+  },
+  {
+    "code": "101308",
+    "label": "Conseiller de banque"
+  },
+  {
+    "code": "101309",
+    "label": "Conseiller en gestion de patrimoine"
+  },
+  {
+    "code": "101310",
+    "label": "Conseiller financier"
+  },
+  {
+    "code": "101311",
+    "label": "Expert en finance de PME"
+  },
+  {
+    "code": "101312",
+    "label": "Expert en finance et investissements"
+  },
+  {
+    "code": "101313",
+    "label": "Conseiller d'entreprise"
+  },
+  {
+    "code": "101314",
+    "label": "Conseiller en organisation"
+  },
+  {
+    "code": "101315",
+    "label": "Economiste d'entreprise"
+  },
+  {
+    "code": "101316",
+    "label": "Conseiller gastronomique"
+  },
+  {
+    "code": "101317",
+    "label": "Expert en management de l'organisation"
+  },
+  {
+    "code": "101318",
+    "label": "Risk Controller"
+  },
+  {
+    "code": "101319",
+    "label": "Conseiller d'orientation professionnelle, universitaire et de carrière"
+  },
+  {
+    "code": "101320",
+    "label": "Spécialiste en ressources humaines"
+  },
+  {
+    "code": "101321",
+    "label": "Mentor d'entreprise"
+  },
+  {
+    "code": "101322",
+    "label": "Inspecteur du travail"
+  },
+  {
+    "code": "101323",
+    "label": "Instructeur de la protection civile"
+  },
+  {
+    "code": "101324",
+    "label": "Formateur professionnel"
+  },
+  {
+    "code": "101325",
+    "label": "Superviseur-coach"
+  },
+  {
+    "code": "101326",
+    "label": "Spécialiste en marketing"
+  },
+  {
+    "code": "101327",
+    "label": "Product Manager"
+  },
+  {
+    "code": "101328",
+    "label": "Spécialiste en étude de marché"
+  },
+  {
+    "code": "101329",
+    "label": "Chargé de communication"
+  },
+  {
+    "code": "101330",
+    "label": "Manager en médias"
+  },
+  {
+    "code": "101331",
+    "label": "Spécialiste des médias"
+  },
+  {
+    "code": "101332",
+    "label": "Planificateur en communication"
+  },
+  {
+    "code": "101333",
+    "label": "Revenue Manager"
+  },
+  {
+    "code": "101334",
+    "label": "Communicateur"
+  },
+  {
+    "code": "101335",
+    "label": "Spécialiste en relations publiques"
+  },
+  {
+    "code": "101336",
+    "label": "Conseiller en relations publiques"
+  },
+  {
+    "code": "101337",
+    "label": "Ingénieur de vente"
+  },
+  {
+    "code": "101338",
+    "label": "Agent technico-commercial"
+  },
+  {
+    "code": "101339",
+    "label": "Spécialiste de service technique après-vente"
+  },
+  {
+    "code": "101340",
+    "label": "Délégué médical"
+  },
+  {
+    "code": "101341",
+    "label": "Informaticien"
+  },
+  {
+    "code": "101342",
+    "label": "Ingénieur informaticien"
+  },
+  {
+    "code": "101343",
+    "label": "ICT Controller"
+  },
+  {
+    "code": "101344",
+    "label": "ICT Architect"
+  },
+  {
+    "code": "101345",
+    "label": "ICT Business Analyst"
+  },
+  {
+    "code": "101346",
+    "label": "ICT Auditor"
+  },
+  {
+    "code": "101347",
+    "label": "ICT Requirements Engineer"
+  },
+  {
+    "code": "101348",
+    "label": "ICT Sourcing Manager"
+  },
+  {
+    "code": "101349",
+    "label": "Consultant ICT"
+  },
+  {
+    "code": "101350",
+    "label": "Software Engineer"
+  },
+  {
+    "code": "101351",
+    "label": "ICT User Experience Architect"
+  },
+  {
+    "code": "101352",
+    "label": "Informaticien de gestion"
+  },
+  {
+    "code": "101353",
+    "label": "ICT System Engineer"
+  },
+  {
+    "code": "101354",
+    "label": "ICT Program Manager"
+  },
+  {
+    "code": "101355",
+    "label": "ICT Project Manager"
+  },
+  {
+    "code": "101356",
+    "label": "ICT Project Management Officer"
+  },
+  {
+    "code": "101357",
+    "label": "Médiamaticien"
+  },
+  {
+    "code": "101358",
+    "label": "ICT Application Engineer"
+  },
+  {
+    "code": "101359",
+    "label": "ICT Quality Manager"
+  },
+  {
+    "code": "101360",
+    "label": "ICT Test Engineer"
+  },
+  {
+    "code": "101361",
+    "label": "ICT Test Manager"
+  },
+  {
+    "code": "101362",
+    "label": "Database Administrator"
+  },
+  {
+    "code": "101363",
+    "label": "Database Engineer"
+  },
+  {
+    "code": "101364",
+    "label": "ICT System Administrator"
+  },
+  {
+    "code": "101365",
+    "label": "ICT System Specialist"
+  },
+  {
+    "code": "101366",
+    "label": "Spécialiste en réseaux informatiques"
+  },
+  {
+    "code": "101367",
+    "label": "Network Administrator"
+  },
+  {
+    "code": "101368",
+    "label": "Network Engineer"
+  },
+  {
+    "code": "101369",
+    "label": "ICT Security Expert"
+  },
+  {
+    "code": "101370",
+    "label": "Cyber Security Specialist"
+  },
+  {
+    "code": "101371",
+    "label": "ICT Security Operations Manager"
+  },
+  {
+    "code": "101372",
+    "label": "ICT Security Officer"
+  },
+  {
+    "code": "101373",
+    "label": "Juriste"
+  },
+  {
+    "code": "101374",
+    "label": "Avocat et notaire"
+  },
+  {
+    "code": "101375",
+    "label": "Avocat"
+  },
+  {
+    "code": "101376",
+    "label": "Juge"
+  },
+  {
+    "code": "101377",
+    "label": "Secrétaire juridique"
+  },
+  {
+    "code": "101378",
+    "label": "Criminaliste"
+  },
+  {
+    "code": "101379",
+    "label": "Notaire"
+  },
+  {
+    "code": "101380",
+    "label": "Archiviste"
+  },
+  {
+    "code": "101381",
+    "label": "Conservateur de musée"
+  },
+  {
+    "code": "101382",
+    "label": "Conservateur-restaurateur"
+  },
+  {
+    "code": "101383",
+    "label": "Bibliothécaire scientifique"
+  },
+  {
+    "code": "101384",
+    "label": "Bibliothécaire"
+  },
+  {
+    "code": "101385",
+    "label": "Spécialiste en information et en documentation"
+  },
+  {
+    "code": "101386",
+    "label": "Economiste"
+  },
+  {
+    "code": "101387",
+    "label": "Criminologue"
+  },
+  {
+    "code": "101388",
+    "label": "Scientifique en matière d'éducation"
+  },
+  {
+    "code": "101389",
+    "label": "Sociologue"
+  },
+  {
+    "code": "101390",
+    "label": "Ethnologue"
+  },
+  {
+    "code": "101391",
+    "label": "Folkloriste"
+  },
+  {
+    "code": "101392",
+    "label": "Archéologue"
+  },
+  {
+    "code": "101393",
+    "label": "Anthropologue"
+  },
+  {
+    "code": "101394",
+    "label": "Musicologue"
+  },
+  {
+    "code": "101395",
+    "label": "Géographe"
+  },
+  {
+    "code": "101396",
+    "label": "Spécialiste en études théâtrales"
+  },
+  {
+    "code": "101397",
+    "label": "Politologue"
+  },
+  {
+    "code": "101398",
+    "label": "Historien"
+  },
+  {
+    "code": "101399",
+    "label": "Historien de l'art"
+  },
+  {
+    "code": "101400",
+    "label": "Héraldiste"
+  },
+  {
+    "code": "101401",
+    "label": "Philosophe"
+  },
+  {
+    "code": "101402",
+    "label": "Psychothérapeute"
+  },
+  {
+    "code": "101403",
+    "label": "Psychanalyste"
+  },
+  {
+    "code": "101404",
+    "label": "Thérapeute en psychomotricité"
+  },
+  {
+    "code": "101405",
+    "label": "Psychologue"
+  },
+  {
+    "code": "101406",
+    "label": "Graphologue"
+  },
+  {
+    "code": "101407",
+    "label": "Sexologue"
+  },
+  {
+    "code": "101408",
+    "label": "Educateur en santé sexuelle et reproductive"
+  },
+  {
+    "code": "101409",
+    "label": "Conseiller conjugal"
+  },
+  {
+    "code": "101410",
+    "label": "Délégué CICR"
+  },
+  {
+    "code": "101411",
+    "label": "Médiateur"
+  },
+  {
+    "code": "101412",
+    "label": "Assistant social"
+  },
+  {
+    "code": "101414",
+    "label": "Spécialiste de la migration"
+  },
+  {
+    "code": "101415",
+    "label": "Théologien"
+  },
+  {
+    "code": "101416",
+    "label": "Pasteur"
+  },
+  {
+    "code": "101417",
+    "label": "Prêtre/Curé"
+  },
+  {
+    "code": "101418",
+    "label": "Rabbin"
+  },
+  {
+    "code": "101419",
+    "label": "Imam"
+  },
+  {
+    "code": "101420",
+    "label": "Diacre"
+  },
+  {
+    "code": "101421",
+    "label": "Ecrivain"
+  },
+  {
+    "code": "101422",
+    "label": "Auteur"
+  },
+  {
+    "code": "101423",
+    "label": "Scénariste"
+  },
+  {
+    "code": "101424",
+    "label": "Rédacteur en relations publiques"
+  },
+  {
+    "code": "101425",
+    "label": "Rédacteur technique"
+  },
+  {
+    "code": "101426",
+    "label": "Rédacteur publicitaire"
+  },
+  {
+    "code": "101427",
+    "label": "Journaliste"
+  },
+  {
+    "code": "101428",
+    "label": "Rédacteur"
+  },
+  {
+    "code": "101429",
+    "label": "Directeur de rédaction"
+  },
+  {
+    "code": "101430",
+    "label": "Traducteur"
+  },
+  {
+    "code": "101431",
+    "label": "Interprète en langue des signes"
+  },
+  {
+    "code": "101433",
+    "label": "Philologue"
+  },
+  {
+    "code": "101434",
+    "label": "Linguiste"
+  },
+  {
+    "code": "101435",
+    "label": "Interprète de conférences"
+  },
+  {
+    "code": "101436",
+    "label": "Expert en oeuvres d'art"
+  },
+  {
+    "code": "101437",
+    "label": "Sculpteur sur pierre"
+  },
+  {
+    "code": "101438",
+    "label": "Artiste peintre"
+  },
+  {
+    "code": "101439",
+    "label": "Artiste plasticien"
+  },
+  {
+    "code": "101440",
+    "label": "Compositeur"
+  },
+  {
+    "code": "101441",
+    "label": "Musicien"
+  },
+  {
+    "code": "101442",
+    "label": "Chef d'orchestre"
+  },
+  {
+    "code": "101443",
+    "label": "Chanteur"
+  },
+  {
+    "code": "101444",
+    "label": "Chorégraphe"
+  },
+  {
+    "code": "101445",
+    "label": "Danseur interprète"
+  },
+  {
+    "code": "101446",
+    "label": "Directeur de la création"
+  },
+  {
+    "code": "101447",
+    "label": "Régisseur de théâtre"
+  },
+  {
+    "code": "101448",
+    "label": "Dramaturge"
+  },
+  {
+    "code": "101449",
+    "label": "Régisseur"
+  },
+  {
+    "code": "101450",
+    "label": "Cinéaste"
+  },
+  {
+    "code": "101451",
+    "label": "Producteur de musique"
+  },
+  {
+    "code": "101452",
+    "label": "Régisseur de production TV"
+  },
+  {
+    "code": "101453",
+    "label": "Producteur en audiovisuel"
+  },
+  {
+    "code": "101454",
+    "label": "Médiateur en art et design"
+  },
+  {
+    "code": "101455",
+    "label": "Acteur"
+  },
+  {
+    "code": "101456",
+    "label": "Comédien"
+  },
+  {
+    "code": "101457",
+    "label": "Animateur (radio et télévision)"
+  },
+  {
+    "code": "101458",
+    "label": "Artiste de variétés"
+  },
+  {
+    "code": "101459",
+    "label": "Disc-jockey"
+  },
+  {
+    "code": "101460",
+    "label": "Marionnettiste"
+  },
+  {
+    "code": "101461",
+    "label": "Clown"
+  },
+  {
+    "code": "101462",
+    "label": "Dompteur"
+  },
+  {
+    "code": "101463",
+    "label": "Cadre des organisations de secours"
+  },
+  {
+    "code": "101464",
+    "label": "Spécialiste de la conduite d'équipe"
+  },
+  {
+    "code": "101465",
+    "label": "Laborantin"
+  },
+  {
+    "code": "101466",
+    "label": "Technicien en chimie"
+  },
+  {
+    "code": "101467",
+    "label": "Laborantin en physique"
+  },
+  {
+    "code": "101468",
+    "label": "Technicien de laboratoire en sciences naturelles"
+  },
+  {
+    "code": "101469",
+    "label": "Conservateur de monuments"
+  },
+  {
+    "code": "101471",
+    "label": "Contrôleur de matériaux de construction"
+  },
+  {
+    "code": "101472",
+    "label": "Conseiller en constructions"
+  },
+  {
+    "code": "101473",
+    "label": "Technicien en bâtiment"
+  },
+  {
+    "code": "101474",
+    "label": "Conducteur de travaux"
+  },
+  {
+    "code": "101475",
+    "label": "Inspecteur de chantier"
+  },
+  {
+    "code": "101476",
+    "label": "Chef de projet de construction"
+  },
+  {
+    "code": "101477",
+    "label": "Protecteur de chantier"
+  },
+  {
+    "code": "101478",
+    "label": "Spécialiste pour la sécurité des citernes"
+  },
+  {
+    "code": "101479",
+    "label": "Directeur des travaux en génie civil"
+  },
+  {
+    "code": "101480",
+    "label": "Directeur des travaux de bâtiment"
+  },
+  {
+    "code": "101481",
+    "label": "Technicien en conduite des travaux"
+  },
+  {
+    "code": "101482",
+    "label": "Technicien en planification des travaux"
+  },
+  {
+    "code": "101483",
+    "label": "Technicien en géomatique"
+  },
+  {
+    "code": "101484",
+    "label": "Technicien en constructions métalliques"
+  },
+  {
+    "code": "101486",
+    "label": "Spécialiste en installations solaires"
+  },
+  {
+    "code": "101487",
+    "label": "Chef de projet systèmes de sécurité"
+  },
+  {
+    "code": "101488",
+    "label": "Expert en constructions techniverrières"
+  },
+  {
+    "code": "101489",
+    "label": "Chef de projet en technique du bâtiment"
+  },
+  {
+    "code": "101490",
+    "label": "Chef de projet en automatisation du bâtiment"
+  },
+  {
+    "code": "101491",
+    "label": "Spécialiste en protection incendie"
+  },
+  {
+    "code": "101492",
+    "label": "Expert protection incendie"
+  },
+  {
+    "code": "101493",
+    "label": "Technicien en technique des bâtiments"
+  },
+  {
+    "code": "101495",
+    "label": "Constructeur électricien"
+  },
+  {
+    "code": "101496",
+    "label": "Expert en installation et sécurité électrique"
+  },
+  {
+    "code": "101497",
+    "label": "Planificateur-électricien"
+  },
+  {
+    "code": "101498",
+    "label": "Chef de projet et chef d'atelier en construction de tableaux électriques"
+  },
+  {
+    "code": "101499",
+    "label": "Planificateur éclairagiste"
+  },
+  {
+    "code": "101500",
+    "label": "Technicien en génie électrique"
+  },
+  {
+    "code": "101501",
+    "label": "Expert en planification électrique"
+  },
+  {
+    "code": "101502",
+    "label": "Technicien en électronique"
+  },
+  {
+    "code": "101504",
+    "label": "Dessinateur-constructeur industriel"
+  },
+  {
+    "code": "101505",
+    "label": "Technicien en microtechnique"
+  },
+  {
+    "code": "101510",
+    "label": "Maître mécanicien en machines de chantier"
+  },
+  {
+    "code": "101511",
+    "label": "Technicien en exploitation d'une grande installation"
+  },
+  {
+    "code": "101515",
+    "label": "Maître tableaux électriques et automation"
+  },
+  {
+    "code": "101516",
+    "label": "Technicien en systèmes industriels"
+  },
+  {
+    "code": "101517",
+    "label": "Technicien de méthodes"
+  },
+  {
+    "code": "101520",
+    "label": "Technicien en processus d'entreprise"
+  },
+  {
+    "code": "101521",
+    "label": "Technicien de recouvrement"
+  },
+  {
+    "code": "101522",
+    "label": "Technicien de fouilles archéologiques"
+  },
+  {
+    "code": "101523",
+    "label": "Dessinateur technique"
+  },
+  {
+    "code": "101524",
+    "label": "Dessinateur en construction microtechnique"
+  },
+  {
+    "code": "101525",
+    "label": "Dessinateur-paysagiste"
+  },
+  {
+    "code": "101526",
+    "label": "Dessinateur-constructeur en génie civil"
+  },
+  {
+    "code": "101527",
+    "label": "Dessinateur, planification du territoire"
+  },
+  {
+    "code": "101528",
+    "label": "Dessinateur, architecture paysagère"
+  },
+  {
+    "code": "101529",
+    "label": "Dessinateur, génie civil"
+  },
+  {
+    "code": "101530",
+    "label": "Dessinateur, architecture"
+  },
+  {
+    "code": "101531",
+    "label": "Projeteur constructeur sur métal"
+  },
+  {
+    "code": "101532",
+    "label": "Projeteur frigoriste"
+  },
+  {
+    "code": "101533",
+    "label": "Projeteur en technique du bâtiment sanitaire"
+  },
+  {
+    "code": "101534",
+    "label": "Projeteur en technique du bâtiment ventilation"
+  },
+  {
+    "code": "101535",
+    "label": "Projeteur en technique du bâtiment chauffage"
+  },
+  {
+    "code": "101536",
+    "label": "Projeteur en sanitaire"
+  },
+  {
+    "code": "101537",
+    "label": "Spécialiste en aération douce"
+  },
+  {
+    "code": "101538",
+    "label": "Géomaticien"
+  },
+  {
+    "code": "101539",
+    "label": "Technicien de sécurité"
+  },
+  {
+    "code": "101540",
+    "label": "Technicien en radioprotection"
+  },
+  {
+    "code": "101541",
+    "label": "Expert de la qualité"
+  },
+  {
+    "code": "101542",
+    "label": "Responsable de projets, préparateur du travail"
+  },
+  {
+    "code": "101543",
+    "label": "Conseiller en matière de sécurité"
+  },
+  {
+    "code": "101544",
+    "label": "Technicien en matériaux"
+  },
+  {
+    "code": "101545",
+    "label": "Visiteur ferroviaire"
+  },
+  {
+    "code": "101546",
+    "label": "Conseiller en énergie et en efficacité énergétique"
+  },
+  {
+    "code": "101547",
+    "label": "Techno-polygraphe"
+  },
+  {
+    "code": "101548",
+    "label": "Technicien en textile"
+  },
+  {
+    "code": "101549",
+    "label": "Chef de projet verre"
+  },
+  {
+    "code": "101550",
+    "label": "Spécialiste de traitement des matières premières"
+  },
+  {
+    "code": "101551",
+    "label": "Technicien en énergie et environnement"
+  },
+  {
+    "code": "101552",
+    "label": "Conseiller énergétique des bâtiments"
+  },
+  {
+    "code": "101553",
+    "label": "Process Manager"
+  },
+  {
+    "code": "101554",
+    "label": "Dirigeant de maintenance"
+  },
+  {
+    "code": "101555",
+    "label": "Chef de montage"
+  },
+  {
+    "code": "101556",
+    "label": "Chef d'atelier"
+  },
+  {
+    "code": "101557",
+    "label": "Maître garnisseur de meubles industriels"
+  },
+  {
+    "code": "101559",
+    "label": "Chef d'atelier de carrosserie"
+  },
+  {
+    "code": "101561",
+    "label": "Coordinateur d'atelier automobile"
+  },
+  {
+    "code": "101562",
+    "label": "Maître dans l'industrie"
+  },
+  {
+    "code": "101564",
+    "label": "Expert en production"
+  },
+  {
+    "code": "101565",
+    "label": "Chef cantonnier"
+  },
+  {
+    "code": "101566",
+    "label": "Chef-monteur en échafaudage"
+  },
+  {
+    "code": "101567",
+    "label": "Contremaître en génie civil"
+  },
+  {
+    "code": "101568",
+    "label": "Contremaître du bâtiment"
+  },
+  {
+    "code": "101569",
+    "label": "Contremaître de voies ferrées"
+  },
+  {
+    "code": "101570",
+    "label": "Contremaître de construction de sols industriels et de chapes"
+  },
+  {
+    "code": "101571",
+    "label": "Contremaître paveur"
+  },
+  {
+    "code": "101572",
+    "label": "Contremaître d'entretien des routes"
+  },
+  {
+    "code": "101573",
+    "label": "Contremaître de construction de routes"
+  },
+  {
+    "code": "101574",
+    "label": "Contremaître de construction de fondations"
+  },
+  {
+    "code": "101575",
+    "label": "Contremaître de sciage d'édifice"
+  },
+  {
+    "code": "101576",
+    "label": "Contremaître maçon"
+  },
+  {
+    "code": "101577",
+    "label": "Chef poseur de revêtements de sols"
+  },
+  {
+    "code": "101578",
+    "label": "Chef-monteur électricien"
+  },
+  {
+    "code": "101579",
+    "label": "Contremaître menuisier ou contremaître ébéniste"
+  },
+  {
+    "code": "101581",
+    "label": "Contremaître peintre"
+  },
+  {
+    "code": "101582",
+    "label": "Contremaître plâtrier"
+  },
+  {
+    "code": "101583",
+    "label": "Chef de projet en aménagement d'intérieur"
+  },
+  {
+    "code": "101584",
+    "label": "Contremaître plâtrier-constructeur à sec"
+  },
+  {
+    "code": "101585",
+    "label": "Chef carreleur"
+  },
+  {
+    "code": "101586",
+    "label": "Contremaître en ferblanterie"
+  },
+  {
+    "code": "101587",
+    "label": "Chef de projet en montage solaire"
+  },
+  {
+    "code": "101588",
+    "label": "Maître électricien de réseau"
+  },
+  {
+    "code": "101589",
+    "label": "Contremaître charpentier"
+  },
+  {
+    "code": "101590",
+    "label": "Contremaître sanitaire"
+  },
+  {
+    "code": "101591",
+    "label": "Contremaître en ventilation"
+  },
+  {
+    "code": "101592",
+    "label": "Chef monteur-frigoriste"
+  },
+  {
+    "code": "101593",
+    "label": "Contremaître en chauffage"
+  },
+  {
+    "code": "101594",
+    "label": "Chef de projet en menuiserie/ébénisterie"
+  },
+  {
+    "code": "101595",
+    "label": "Spécialiste en bois"
+  },
+  {
+    "code": "101596",
+    "label": "Contremaître vitrier"
+  },
+  {
+    "code": "101597",
+    "label": "Chef de production et de montage en construction métallique"
+  },
+  {
+    "code": "101598",
+    "label": "Chef de projet en construction métallique"
+  },
+  {
+    "code": "101599",
+    "label": "Conducteur de travaux enveloppe des édifices"
+  },
+  {
+    "code": "101600",
+    "label": "Opérateur d'installations de centrale nucléaire"
+  },
+  {
+    "code": "101601",
+    "label": "Spécialiste pour installations de traitement des déchets"
+  },
+  {
+    "code": "101602",
+    "label": "Exploitant de station d'épuration"
+  },
+  {
+    "code": "101603",
+    "label": "Fontainier"
+  },
+  {
+    "code": "101604",
+    "label": "Opérateur du centre de distribution d'énergie et d'eau"
+  },
+  {
+    "code": "101605",
+    "label": "Biotechnologue"
+  },
+  {
+    "code": "101607",
+    "label": "Agro-technicien"
+  },
+  {
+    "code": "101608",
+    "label": "Forestier"
+  },
+  {
+    "code": "101609",
+    "label": "Spécialiste câble-grue"
+  },
+  {
+    "code": "101610",
+    "label": "Expert de la circulation"
+  },
+  {
+    "code": "101612",
+    "label": "Capitaine"
+  },
+  {
+    "code": "101613",
+    "label": "Officier de marine"
+  },
+  {
+    "code": "101614",
+    "label": "Pilote"
+  },
+  {
+    "code": "101615",
+    "label": "Pilote d'hélicoptère"
+  },
+  {
+    "code": "101616",
+    "label": "Instructeur de vol"
+  },
+  {
+    "code": "101617",
+    "label": "Contrôleur de la circulation aérienne"
+  },
+  {
+    "code": "101618",
+    "label": "Spécialiste des services de la navigation aérienne"
+  },
+  {
+    "code": "101619",
+    "label": "Agent technique d'exploitation"
+  },
+  {
+    "code": "101620",
+    "label": "Technicien de la sécurité aérienne"
+  },
+  {
+    "code": "101621",
+    "label": "Conseiller en santé et hygiène de vie"
+  },
+  {
+    "code": "101622",
+    "label": "Promoteur de la santé"
+  },
+  {
+    "code": "101623",
+    "label": "Technicien en salle d'opération"
+  },
+  {
+    "code": "101624",
+    "label": "Technicien en radiologie médicale"
+  },
+  {
+    "code": "101625",
+    "label": "Spécialiste en diagnostic neurophysiologique"
+  },
+  {
+    "code": "101626",
+    "label": "Technicien en analyses biomédicales"
+  },
+  {
+    "code": "101627",
+    "label": "Spécialiste en technologies de réadaptation"
+  },
+  {
+    "code": "101628",
+    "label": "Expert en cytodiagnostic"
+  },
+  {
+    "code": "101629",
+    "label": "Expert en analyses biomédicales et gestion de laboratoire"
+  },
+  {
+    "code": "101630",
+    "label": "Préparateur en pharmacie"
+  },
+  {
+    "code": "101632",
+    "label": "Spécialiste pharmaceutique"
+  },
+  {
+    "code": "101633",
+    "label": "Assistant de gestion en pharmacie"
+  },
+  {
+    "code": "101634",
+    "label": "Orthopédiste"
+  },
+  {
+    "code": "101635",
+    "label": "Technicien-dentiste"
+  },
+  {
+    "code": "101636",
+    "label": "Acousticien en systèmes auditifs"
+  },
+  {
+    "code": "101637",
+    "label": "Technicien-dentiste spécialisé en orthopédie dento-faciale ODF"
+  },
+  {
+    "code": "101639",
+    "label": "Audioprothésiste"
+  },
+  {
+    "code": "101640",
+    "label": "Assistant en soins et santé communautaire"
+  },
+  {
+    "code": "101641",
+    "label": "Aide en soins et accompagnement"
+  },
+  {
+    "code": "101642",
+    "label": "Conseiller en préparation à la naissance"
+  },
+  {
+    "code": "101643",
+    "label": "Consultant en lactation"
+  },
+  {
+    "code": "101644",
+    "label": "Sophrologue"
+  },
+  {
+    "code": "101645",
+    "label": "Herboriste"
+  },
+  {
+    "code": "101646",
+    "label": "Technicien en insémination artificielle"
+  },
+  {
+    "code": "101647",
+    "label": "Samaritain pour chevaux"
+  },
+  {
+    "code": "101648",
+    "label": "Assistant en médecine vétérinaire"
+  },
+  {
+    "code": "101649",
+    "label": "Assistant dentaire"
+  },
+  {
+    "code": "101650",
+    "label": "Assistant en prophylaxie"
+  },
+  {
+    "code": "101651",
+    "label": "Hygiéniste dentaire"
+  },
+  {
+    "code": "101652",
+    "label": "Ingénieur en informatique médicale"
+  },
+  {
+    "code": "101653",
+    "label": "Conseiller de santé"
+  },
+  {
+    "code": "101654",
+    "label": "Opticien"
+  },
+  {
+    "code": "101655",
+    "label": "Podologue"
+  },
+  {
+    "code": "101656",
+    "label": "Masseur"
+  },
+  {
+    "code": "101657",
+    "label": "Audiométriste"
+  },
+  {
+    "code": "101658",
+    "label": "Thérapeute par la respiration"
+  },
+  {
+    "code": "101659",
+    "label": "Masseur médical"
+  },
+  {
+    "code": "101660",
+    "label": "Assistant médical"
+  },
+  {
+    "code": "101661",
+    "label": "Technologue en dispositifs médicaux"
+  },
+  {
+    "code": "101662",
+    "label": "Coordinateur en médecine ambulatoire"
+  },
+  {
+    "code": "101663",
+    "label": "Spécialiste de la sécurité au travail et de la protection de la santé"
+  },
+  {
+    "code": "101664",
+    "label": "Spécialiste de la sécurité dans les institutions de santé et du social"
+  },
+  {
+    "code": "101665",
+    "label": "Expert en prévention des infections associées aux soins"
+  },
+  {
+    "code": "101666",
+    "label": "Spécialiste du service de pistes et de sauvetage"
+  },
+  {
+    "code": "101667",
+    "label": "Ambulancier"
+  },
+  {
+    "code": "101668",
+    "label": "Technicien ambulancier"
+  },
+  {
+    "code": "101669",
+    "label": "Conseiller en affections respiratoires et tuberculose"
+  },
+  {
+    "code": "101670",
+    "label": "Technicien en opérations des marchés financiers"
+  },
+  {
+    "code": "101671",
+    "label": "Broker"
+  },
+  {
+    "code": "101672",
+    "label": "Négociant en titres"
+  },
+  {
+    "code": "101673",
+    "label": "Conseiller en crédits"
+  },
+  {
+    "code": "101674",
+    "label": "Expert en finance et en controlling"
+  },
+  {
+    "code": "101675",
+    "label": "Spécialiste en finance et comptabilité"
+  },
+  {
+    "code": "101676",
+    "label": "Expert en sinistres"
+  },
+  {
+    "code": "101677",
+    "label": "Gemmologue"
+  },
+  {
+    "code": "101678",
+    "label": "Expert en estimations immobilières"
+  },
+  {
+    "code": "101679",
+    "label": "Conseiller en assurances"
+  },
+  {
+    "code": "101680",
+    "label": "Spécialiste en assurance"
+  },
+  {
+    "code": "101681",
+    "label": "Spécialiste en assurance-maladie"
+  },
+  {
+    "code": "101682",
+    "label": "Collaborateur au service externe"
+  },
+  {
+    "code": "101683",
+    "label": "Agent commercial de l'imprimerie"
+  },
+  {
+    "code": "101684",
+    "label": "Spécialiste de vente"
+  },
+  {
+    "code": "101685",
+    "label": "Spécialiste des marchés publics"
+  },
+  {
+    "code": "101686",
+    "label": "Spécialiste d'achat/approvisionnement"
+  },
+  {
+    "code": "101687",
+    "label": "Spécialiste en importation"
+  },
+  {
+    "code": "101688",
+    "label": "Négociant de vins"
+  },
+  {
+    "code": "101690",
+    "label": "Employé spécialisé dans l'exportation"
+  },
+  {
+    "code": "101691",
+    "label": "Déclarant en douane"
+  },
+  {
+    "code": "101692",
+    "label": "Spécialiste en expédition et logistique internationale"
+  },
+  {
+    "code": "101693",
+    "label": "Spécialiste du commerce international"
+  },
+  {
+    "code": "101694",
+    "label": "Event Manager"
+  },
+  {
+    "code": "101695",
+    "label": "Agent de placement"
+  },
+  {
+    "code": "101696",
+    "label": "Courtier en immeubles"
+  },
+  {
+    "code": "101697",
+    "label": "Développeur immobilier"
+  },
+  {
+    "code": "101698",
+    "label": "Gérant d'immeubles"
+  },
+  {
+    "code": "101699",
+    "label": "Administrateur de biens immobiliers"
+  },
+  {
+    "code": "101700",
+    "label": "Contact Center Supervisor"
+  },
+  {
+    "code": "101701",
+    "label": "Employé dans un bureau de notaire"
+  },
+  {
+    "code": "101702",
+    "label": "Assistant de direction"
+  },
+  {
+    "code": "101703",
+    "label": "Secrétaire communal"
+  },
+  {
+    "code": "101704",
+    "label": "Collaborateur consulaire"
+  },
+  {
+    "code": "101705",
+    "label": "Spécialiste en administration publique"
+  },
+  {
+    "code": "101706",
+    "label": "Secrétaire médical"
+  },
+  {
+    "code": "101708",
+    "label": "Garde-frontière"
+  },
+  {
+    "code": "101709",
+    "label": "Spécialiste de douane"
+  },
+  {
+    "code": "101710",
+    "label": "Enquêteur de douane"
+  },
+  {
+    "code": "101711",
+    "label": "Expert en douane"
+  },
+  {
+    "code": "101712",
+    "label": "Secrétaire à l'office des contributions"
+  },
+  {
+    "code": "101713",
+    "label": "Taxateur fiscal"
+  },
+  {
+    "code": "101714",
+    "label": "Expert en matière de prévoyance professionnelle"
+  },
+  {
+    "code": "101715",
+    "label": "Spécialiste en assurances sociales"
+  },
+  {
+    "code": "101716",
+    "label": "Expert en assurances sociales"
+  },
+  {
+    "code": "101717",
+    "label": "Spécialiste de la prévoyance en faveur du personnel"
+  },
+  {
+    "code": "101718",
+    "label": "Officier d'état civil"
+  },
+  {
+    "code": "101719",
+    "label": "Employé spécialisé en assurances sociales"
+  },
+  {
+    "code": "101720",
+    "label": "Agent de la police criminelle"
+  },
+  {
+    "code": "101721",
+    "label": "Agent de recherche"
+  },
+  {
+    "code": "101722",
+    "label": "Essayeur juré"
+  },
+  {
+    "code": "101723",
+    "label": "Vérificateur des poids et mesures"
+  },
+  {
+    "code": "101724",
+    "label": "Conservateur du registre foncier"
+  },
+  {
+    "code": "101725",
+    "label": "Détective privé"
+  },
+  {
+    "code": "101726",
+    "label": "Préposé à la protection des données"
+  },
+  {
+    "code": "101727",
+    "label": "Greffier"
+  },
+  {
+    "code": "101728",
+    "label": "Greffier de tribunal"
+  },
+  {
+    "code": "101729",
+    "label": "Spécialiste en matière de poursuite pour dettes et de faillite"
+  },
+  {
+    "code": "101730",
+    "label": "Spécialiste en droit"
+  },
+  {
+    "code": "101731",
+    "label": "Sociothérapeute"
+  },
+  {
+    "code": "101732",
+    "label": "Spécialiste en matière d'intégration sociale et professionnelle"
+  },
+  {
+    "code": "101733",
+    "label": "Accompagnant socioprofessionnel"
+  },
+  {
+    "code": "101734",
+    "label": "Animateur socioculturel"
+  },
+  {
+    "code": "101736",
+    "label": "Educateur social"
+  },
+  {
+    "code": "101737",
+    "label": "Spécialiste de l’accompagnement de personnes en situation de handicap"
+  },
+  {
+    "code": "101738",
+    "label": "Animateur communautaire"
+  },
+  {
+    "code": "101739",
+    "label": "Responsable d'équipe dans des institutions sociales et médico-sociales"
+  },
+  {
+    "code": "101740",
+    "label": "Accompagnateur social"
+  },
+  {
+    "code": "101741",
+    "label": "Conseiller dans le domaine psychosocial"
+  },
+  {
+    "code": "101742",
+    "label": "Assistant pastoral"
+  },
+  {
+    "code": "101743",
+    "label": "Vicaire pastoral"
+  },
+  {
+    "code": "101744",
+    "label": "Religieux"
+  },
+  {
+    "code": "101745",
+    "label": "Sportif professionnel"
+  },
+  {
+    "code": "101746",
+    "label": "Assistant en promotion de l'activité physique et de la santé"
+  },
+  {
+    "code": "101747",
+    "label": "Maître d'éducation physique et de sport"
+  },
+  {
+    "code": "101748",
+    "label": "Entraîneur de sport de performance"
+  },
+  {
+    "code": "101749",
+    "label": "Guide de montagne"
+  },
+  {
+    "code": "101750",
+    "label": "Animateur de vacances"
+  },
+  {
+    "code": "101751",
+    "label": "Ludothécaire"
+  },
+  {
+    "code": "101752",
+    "label": "Maître de méditation"
+  },
+  {
+    "code": "101753",
+    "label": "Instructeur de fitness"
+  },
+  {
+    "code": "101754",
+    "label": "Moniteur/Animateur de sport pour handicapés"
+  },
+  {
+    "code": "101755",
+    "label": "Moniteur/Animateur de sport des aînés"
+  },
+  {
+    "code": "101756",
+    "label": "Spécialiste en promotion de l'activité physique et de la santé"
+  },
+  {
+    "code": "101757",
+    "label": "Photographe"
+  },
+  {
+    "code": "101758",
+    "label": "Photodesigner"
+  },
+  {
+    "code": "101759",
+    "label": "Peintre en décors de théâtre"
+  },
+  {
+    "code": "101760",
+    "label": "Conseiller-ensemblier"
+  },
+  {
+    "code": "101762",
+    "label": "Décorateur de théâtre"
+  },
+  {
+    "code": "101763",
+    "label": "Courtepointier"
+  },
+  {
+    "code": "101764",
+    "label": "Dessinateur, architecture d'intérieur"
+  },
+  {
+    "code": "101765",
+    "label": "Polydesigner 3D"
+  },
+  {
+    "code": "101767",
+    "label": "Préparateur en sciences naturelles"
+  },
+  {
+    "code": "101768",
+    "label": "Sous-chef de cuisine"
+  },
+  {
+    "code": "101769",
+    "label": "Chef de cuisine"
+  },
+  {
+    "code": "101770",
+    "label": "Chef cuisinier"
+  },
+  {
+    "code": "101772",
+    "label": "Régisseur de scène"
+  },
+  {
+    "code": "101773",
+    "label": "Accessoiriste"
+  },
+  {
+    "code": "101774",
+    "label": "Eclairagiste"
+  },
+  {
+    "code": "101775",
+    "label": "Tatoueur"
+  },
+  {
+    "code": "101776",
+    "label": "Maquilleur de scène"
+  },
+  {
+    "code": "101777",
+    "label": "ICT Operator"
+  },
+  {
+    "code": "101778",
+    "label": "ICT System Controller"
+  },
+  {
+    "code": "101779",
+    "label": "ICT Application Manager"
+  },
+  {
+    "code": "101780",
+    "label": "ICT Change Coordinator"
+  },
+  {
+    "code": "101781",
+    "label": "ICT Production Planner"
+  },
+  {
+    "code": "101782",
+    "label": "ICT Supporter"
+  },
+  {
+    "code": "101783",
+    "label": "ICT Service Manager"
+  },
+  {
+    "code": "101784",
+    "label": "ICT Helpdesk Staff"
+  },
+  {
+    "code": "101785",
+    "label": "ICT Technician"
+  },
+  {
+    "code": "101786",
+    "label": "Télématicien"
+  },
+  {
+    "code": "101787",
+    "label": "ICT Network Technician"
+  },
+  {
+    "code": "101788",
+    "label": "Webmaster"
+  },
+  {
+    "code": "101789",
+    "label": "Régisseur musical"
+  },
+  {
+    "code": "101790",
+    "label": "Illustrateur sonore"
+  },
+  {
+    "code": "101791",
+    "label": "Technicien du son"
+  },
+  {
+    "code": "101792",
+    "label": "Cameraman"
+  },
+  {
+    "code": "101793",
+    "label": "Monteur vidéo"
+  },
+  {
+    "code": "101794",
+    "label": "Video Editor"
+  },
+  {
+    "code": "101795",
+    "label": "Technicien d'exploitation vidéo"
+  },
+  {
+    "code": "101796",
+    "label": "Scripte"
+  },
+  {
+    "code": "101797",
+    "label": "Techniscéniste"
+  },
+  {
+    "code": "101798",
+    "label": "Technicien en télécommunications"
+  },
+  {
+    "code": "101799",
+    "label": "Commerçant en textiles"
+  },
+  {
+    "code": "101800",
+    "label": "Assistant de bureau"
+  },
+  {
+    "code": "101801",
+    "label": "Employé d'administration"
+  },
+  {
+    "code": "101802",
+    "label": "Employé de commerce"
+  },
+  {
+    "code": "101803",
+    "label": "Employé postal"
+  },
+  {
+    "code": "101804",
+    "label": "Employé de banque"
+  },
+  {
+    "code": "101805",
+    "label": "Collaborateur au service clientèle, banque"
+  },
+  {
+    "code": "101806",
+    "label": "Collaborateur front support banque"
+  },
+  {
+    "code": "101807",
+    "label": "Economiste bancaire"
+  },
+  {
+    "code": "101808",
+    "label": "Croupier"
+  },
+  {
+    "code": "101809",
+    "label": "Gestionnaire en tourisme"
+  },
+  {
+    "code": "101810",
+    "label": "Expert en opérations des marchés financiers"
+  },
+  {
+    "code": "101811",
+    "label": "Assistant en tourisme"
+  },
+  {
+    "code": "101813",
+    "label": "Conseiller en tourisme"
+  },
+  {
+    "code": "101814",
+    "label": "Agent de voyages"
+  },
+  {
+    "code": "101815",
+    "label": "Call Center Agent"
+  },
+  {
+    "code": "101816",
+    "label": "Agent relation client"
+  },
+  {
+    "code": "101817",
+    "label": "Téléphoniste"
+  },
+  {
+    "code": "101818",
+    "label": "Secrétaire d'hôtel"
+  },
+  {
+    "code": "101819",
+    "label": "Réceptionniste d'hôtel"
+  },
+  {
+    "code": "101820",
+    "label": "Chef de réception (hôtel)"
+  },
+  {
+    "code": "101821",
+    "label": "Spécialiste en communication hôtelière"
+  },
+  {
+    "code": "101822",
+    "label": "Concierge d'hôtel"
+  },
+  {
+    "code": "101823",
+    "label": "Hôtesse"
+  },
+  {
+    "code": "101824",
+    "label": "Hôtesse d'accueil"
+  },
+  {
+    "code": "101825",
+    "label": "Réceptionniste"
+  },
+  {
+    "code": "101826",
+    "label": "Portier"
+  },
+  {
+    "code": "101827",
+    "label": "Collaborateur spécialisé en comptabilité"
+  },
+  {
+    "code": "101828",
+    "label": "Collaborateur spécialisé de fiduciaire"
+  },
+  {
+    "code": "101829",
+    "label": "Collaborateur spécialisé en fiscalité"
+  },
+  {
+    "code": "101830",
+    "label": "Employé spécialisé en assurances"
+  },
+  {
+    "code": "101831",
+    "label": "Comptable préposé aux salaires"
+  },
+  {
+    "code": "101832",
+    "label": "Spécialiste de logistique"
+  },
+  {
+    "code": "101833",
+    "label": "Logisticien"
+  },
+  {
+    "code": "101835",
+    "label": "Agent de transports publics"
+  },
+  {
+    "code": "101836",
+    "label": "Agent de transport et logistique"
+  },
+  {
+    "code": "101837",
+    "label": "Employé de bibliothèque"
+  },
+  {
+    "code": "101838",
+    "label": "Facteur postal"
+  },
+  {
+    "code": "101839",
+    "label": "Correcteur"
+  },
+  {
+    "code": "101840",
+    "label": "Lecteur"
+  },
+  {
+    "code": "101841",
+    "label": "Agent en information documentaire"
+  },
+  {
+    "code": "101842",
+    "label": "Assistant du personnel"
+  },
+  {
+    "code": "101843",
+    "label": "Collaborateur spécialisé marketing"
+  },
+  {
+    "code": "101844",
+    "label": "Collaborateur spécialisé vente"
+  },
+  {
+    "code": "101845",
+    "label": "Employé de transports aériens"
+  },
+  {
+    "code": "101846",
+    "label": "Cabin Crew Member"
+  },
+  {
+    "code": "101847",
+    "label": "Accompagnateur de train"
+  },
+  {
+    "code": "101848",
+    "label": "Steward de train"
+  },
+  {
+    "code": "101849",
+    "label": "Guide de voyages"
+  },
+  {
+    "code": "101850",
+    "label": "Médiateur culturel de musée"
+  },
+  {
+    "code": "101851",
+    "label": "Guide-interprète du patrimoine"
+  },
+  {
+    "code": "101852",
+    "label": "Chef pâtissier"
+  },
+  {
+    "code": "101853",
+    "label": "Cuisinier"
+  },
+  {
+    "code": "101855",
+    "label": "Cuisinier unique"
+  },
+  {
+    "code": "101856",
+    "label": "Chef de partie (cuisinier)"
+  },
+  {
+    "code": "101857",
+    "label": "Saucier"
+  },
+  {
+    "code": "101858",
+    "label": "Commis de cuisine"
+  },
+  {
+    "code": "101859",
+    "label": "Employé en cuisine"
+  },
+  {
+    "code": "101860",
+    "label": "Chef de rang"
+  },
+  {
+    "code": "101861",
+    "label": "Chef de service (restauration)"
+  },
+  {
+    "code": "101862",
+    "label": "Responsable de la restauration"
+  },
+  {
+    "code": "101863",
+    "label": "Sommelier en bière"
+  },
+  {
+    "code": "101864",
+    "label": "Sommelier"
+  },
+  {
+    "code": "101865",
+    "label": "Employé en restauration"
+  },
+  {
+    "code": "101866",
+    "label": "Spécialiste en restauration"
+  },
+  {
+    "code": "101867",
+    "label": "Gestionnaire en restauration de système"
+  },
+  {
+    "code": "101870",
+    "label": "Auxiliaire de service (restauration)"
+  },
+  {
+    "code": "101871",
+    "label": "Chef de bar"
+  },
+  {
+    "code": "101872",
+    "label": "Barkeeper"
+  },
+  {
+    "code": "101873",
+    "label": "Barista"
+  },
+  {
+    "code": "101874",
+    "label": "Coiffeur"
+  },
+  {
+    "code": "101875",
+    "label": "Maître coiffeur"
+  },
+  {
+    "code": "101876",
+    "label": "Esthéticien"
+  },
+  {
+    "code": "101877",
+    "label": "Maquilleur professionnel"
+  },
+  {
+    "code": "101878",
+    "label": "Styliste d'ongles"
+  },
+  {
+    "code": "101879",
+    "label": "Dermapigmentologue"
+  },
+  {
+    "code": "101880",
+    "label": "Employé d'établissements de bains"
+  },
+  {
+    "code": "101881",
+    "label": "Gouvernant d'hôtel"
+  },
+  {
+    "code": "101882",
+    "label": "Majordome"
+  },
+  {
+    "code": "101883",
+    "label": "Chef du secteur hôtelier-intendance"
+  },
+  {
+    "code": "101884",
+    "label": "Gouvernant de maison"
+  },
+  {
+    "code": "101885",
+    "label": "Responsable du secteur hôtelier-intendance"
+  },
+  {
+    "code": "101886",
+    "label": "Employé en intendance"
+  },
+  {
+    "code": "101887",
+    "label": "Gestionnaire en intendance"
+  },
+  {
+    "code": "101888",
+    "label": "Employé en hôtellerie"
+  },
+  {
+    "code": "101889",
+    "label": "Spécialiste en hôtellerie"
+  },
+  {
+    "code": "101890",
+    "label": "Sacristain"
+  },
+  {
+    "code": "101891",
+    "label": "Concierge"
+  },
+  {
+    "code": "101892",
+    "label": "Employé d'exploitation"
+  },
+  {
+    "code": "101893",
+    "label": "Agent de propreté"
+  },
+  {
+    "code": "101894",
+    "label": "Agent d'exploitation (manutention)"
+  },
+  {
+    "code": "101895",
+    "label": "Spécialiste en nettoyage de bâtiments"
+  },
+  {
+    "code": "101896",
+    "label": "Astrologue"
+  },
+  {
+    "code": "101897",
+    "label": "Employé de pompes funèbres"
+  },
+  {
+    "code": "101898",
+    "label": "Préparateur humains"
+  },
+  {
+    "code": "101899",
+    "label": "Entrepreneur de pompes funèbres"
+  },
+  {
+    "code": "101900",
+    "label": "Toiletteur pour chiens"
+  },
+  {
+    "code": "101901",
+    "label": "Gardien d'animaux"
+  },
+  {
+    "code": "101902",
+    "label": "Conducteur de chiens"
+  },
+  {
+    "code": "101903",
+    "label": "Instructeur de chiens guides d'aveugles"
+  },
+  {
+    "code": "101904",
+    "label": "Expert du domaine équin"
+  },
+  {
+    "code": "101905",
+    "label": "Moniteur de conduite de motocycles"
+  },
+  {
+    "code": "101906",
+    "label": "Moniteur de conduite de camions"
+  },
+  {
+    "code": "101907",
+    "label": "Moniteur de conduite"
+  },
+  {
+    "code": "101908",
+    "label": "Professeur en navigation de bateau moteur"
+  },
+  {
+    "code": "101909",
+    "label": "Libraire"
+  },
+  {
+    "code": "101910",
+    "label": "Antiquaire"
+  },
+  {
+    "code": "101911",
+    "label": "Gérant d'un commerce de détail"
+  },
+  {
+    "code": "101912",
+    "label": "Spécialiste des branches de la boulangerie-pâtisserie-confiserie"
+  },
+  {
+    "code": "101913",
+    "label": "Spécialiste en commerce de textile"
+  },
+  {
+    "code": "101915",
+    "label": "Manager en commerce de détail"
+  },
+  {
+    "code": "101916",
+    "label": "Assistant du commerce de détail"
+  },
+  {
+    "code": "101917",
+    "label": "Gestionnaire du commerce de détail"
+  },
+  {
+    "code": "101918",
+    "label": "Droguiste"
+  },
+  {
+    "code": "101919",
+    "label": "Employé du commerce de détail"
+  },
+  {
+    "code": "101920",
+    "label": "Conseiller de vente automobile"
+  },
+  {
+    "code": "101921",
+    "label": "Conseiller de service à la clientèle dans la branche automobile"
+  },
+  {
+    "code": "101922",
+    "label": "Conseiller de vente en horlogerie"
+  },
+  {
+    "code": "101923",
+    "label": "Caissier"
+  },
+  {
+    "code": "101924",
+    "label": "Mannequin"
+  },
+  {
+    "code": "101925",
+    "label": "Promoteur"
+  },
+  {
+    "code": "101926",
+    "label": "Praticien en pneumatiques"
+  },
+  {
+    "code": "101927",
+    "label": "Spécialiste en pneumatiques"
+  },
+  {
+    "code": "101928",
+    "label": "Assistant socio-éducatif, accompagnement des enfants"
+  },
+  {
+    "code": "101929",
+    "label": "Assistant d'enseignement"
+  },
+  {
+    "code": "101930",
+    "label": "Auxiliaire de santé"
+  },
+  {
+    "code": "101931",
+    "label": "Aide-soignant"
+  },
+  {
+    "code": "101932",
+    "label": "Aide à domicile (spitex)"
+  },
+  {
+    "code": "101933",
+    "label": "Aide familial"
+  },
+  {
+    "code": "101934",
+    "label": "Assistant socio-éducatif"
+  },
+  {
+    "code": "101935",
+    "label": "Sapeur-pompier professionnel"
+  },
+  {
+    "code": "101936",
+    "label": "Agent de police"
+  },
+  {
+    "code": "101937",
+    "label": "Agent de sécurité d'aéroport"
+  },
+  {
+    "code": "101939",
+    "label": "Agent de détention"
+  },
+  {
+    "code": "101940",
+    "label": "Gardien"
+  },
+  {
+    "code": "101941",
+    "label": "Veilleur de nuit"
+  },
+  {
+    "code": "101942",
+    "label": "Employé de sécurité"
+  },
+  {
+    "code": "101943",
+    "label": "Agent professionnel de sécurité"
+  },
+  {
+    "code": "101944",
+    "label": "Garde-pêche"
+  },
+  {
+    "code": "101945",
+    "label": "Surveillant de bains"
+  },
+  {
+    "code": "101946",
+    "label": "Secouriste routier"
+  },
+  {
+    "code": "101947",
+    "label": "Garde faune"
+  },
+  {
+    "code": "101948",
+    "label": "Spécialiste établissements de bains"
+  },
+  {
+    "code": "101949",
+    "label": "Maraîcher"
+  },
+  {
+    "code": "101950",
+    "label": "Maître maraîcher"
+  },
+  {
+    "code": "101951",
+    "label": "Chef d'exploitation maraîchère"
+  },
+  {
+    "code": "101952",
+    "label": "Chef d'exploitation arboricole"
+  },
+  {
+    "code": "101953",
+    "label": "Arboriculteur"
+  },
+  {
+    "code": "101954",
+    "label": "Maître arboriculteur"
+  },
+  {
+    "code": "101955",
+    "label": "Viticulteur"
+  },
+  {
+    "code": "101956",
+    "label": "Technicien vitivinicole"
+  },
+  {
+    "code": "101957",
+    "label": "Maître viticulteur"
+  },
+  {
+    "code": "101958",
+    "label": "Chef d'exploitation viticole"
+  },
+  {
+    "code": "101959",
+    "label": "Horticulteur"
+  },
+  {
+    "code": "101960",
+    "label": "Maître jardinier"
+  },
+  {
+    "code": "101961",
+    "label": "Paysagiste, conducteur de travaux"
+  },
+  {
+    "code": "101962",
+    "label": "Spécialiste en soin aux arbres"
+  },
+  {
+    "code": "101963",
+    "label": "Berger"
+  },
+  {
+    "code": "101964",
+    "label": "Gardien de chevaux"
+  },
+  {
+    "code": "101965",
+    "label": "Professionnel du cheval"
+  },
+  {
+    "code": "101966",
+    "label": "Aviculteur"
+  },
+  {
+    "code": "101967",
+    "label": "Maître aviculteur"
+  },
+  {
+    "code": "101968",
+    "label": "Chef d'exploitation avicole"
+  },
+  {
+    "code": "101969",
+    "label": "Apiculteur"
+  },
+  {
+    "code": "101970",
+    "label": "Eleveur de chiens"
+  },
+  {
+    "code": "101971",
+    "label": "Agriculteur"
+  },
+  {
+    "code": "101972",
+    "label": "Chef d'exploitation agricole"
+  },
+  {
+    "code": "101973",
+    "label": "Responsable de ménage agricole"
+  },
+  {
+    "code": "101974",
+    "label": "Agropraticien"
+  },
+  {
+    "code": "101975",
+    "label": "Maître agriculteur"
+  },
+  {
+    "code": "101976",
+    "label": "Forestier-bûcheron"
+  },
+  {
+    "code": "101977",
+    "label": "Praticien forestier"
+  },
+  {
+    "code": "101978",
+    "label": "Pisciculteur"
+  },
+  {
+    "code": "101979",
+    "label": "Pêcheur professionnel"
+  },
+  {
+    "code": "101980",
+    "label": "Artisan en conservation des monuments historiques"
+  },
+  {
+    "code": "101981",
+    "label": "Concepteur dans l'artisanat"
+  },
+  {
+    "code": "101982",
+    "label": "Maçon"
+  },
+  {
+    "code": "101983",
+    "label": "Constructeur de sols industriels et de chapes"
+  },
+  {
+    "code": "101984",
+    "label": "Aide-maçon"
+  },
+  {
+    "code": "101985",
+    "label": "Poêlier-fumiste"
+  },
+  {
+    "code": "101986",
+    "label": "Tailleur de pierre"
+  },
+  {
+    "code": "101987",
+    "label": "Marbrier du bâtiment"
+  },
+  {
+    "code": "101988",
+    "label": "Marbrier"
+  },
+  {
+    "code": "101989",
+    "label": "Opérateur de sciage d'édifice"
+  },
+  {
+    "code": "101990",
+    "label": "Coffreur"
+  },
+  {
+    "code": "101991",
+    "label": "Ferrailleur"
+  },
+  {
+    "code": "101992",
+    "label": "Charpentier"
+  },
+  {
+    "code": "101993",
+    "label": "Menuisier en bâtiment"
+  },
+  {
+    "code": "101994",
+    "label": "Ebéniste, Menuisier"
+  },
+  {
+    "code": "101995",
+    "label": "Aide-menuisier"
+  },
+  {
+    "code": "101996",
+    "label": "Storiste"
+  },
+  {
+    "code": "101997",
+    "label": "Praticien en stores"
+  },
+  {
+    "code": "101998",
+    "label": "Constructeur de bateaux"
+  },
+  {
+    "code": "101999",
+    "label": "Praticien en échafaudage"
+  },
+  {
+    "code": "102000",
+    "label": "Echafaudeur"
+  },
+  {
+    "code": "102001",
+    "label": "Spécialiste assainissement d'ouvrage"
+  },
+  {
+    "code": "102002",
+    "label": "Assainisseur en amiante"
+  },
+  {
+    "code": "102003",
+    "label": "Aide-polybâtisseur"
+  },
+  {
+    "code": "102004",
+    "label": "Aide en technique du bâtiment"
+  },
+  {
+    "code": "102005",
+    "label": "Couvreur"
+  },
+  {
+    "code": "102006",
+    "label": "Constructeur de toitures plates"
+  },
+  {
+    "code": "102008",
+    "label": "Praticien en couverture"
+  },
+  {
+    "code": "102009",
+    "label": "Carreleur"
+  },
+  {
+    "code": "102010",
+    "label": "Aide-carreleur"
+  },
+  {
+    "code": "102011",
+    "label": "Assistant-constructeur de sols industriels et de chapes"
+  },
+  {
+    "code": "102012",
+    "label": "Poseur de sol et de parquet"
+  },
+  {
+    "code": "102013",
+    "label": "Conseiller en revêtements de sols"
+  },
+  {
+    "code": "102015",
+    "label": "Aide-plâtrier"
+  },
+  {
+    "code": "102016",
+    "label": "Etancheur"
+  },
+  {
+    "code": "102017",
+    "label": "Praticien en étanchéité"
+  },
+  {
+    "code": "102018",
+    "label": "Façadier"
+  },
+  {
+    "code": "102019",
+    "label": "Praticien en façades"
+  },
+  {
+    "code": "102020",
+    "label": "Calorifugeur-tôlier"
+  },
+  {
+    "code": "102021",
+    "label": "Vitrier"
+  },
+  {
+    "code": "102022",
+    "label": "Contrôleur de combustion"
+  },
+  {
+    "code": "102023",
+    "label": "Spécialiste en systèmes thermiques"
+  },
+  {
+    "code": "102024",
+    "label": "Installateur en chauffage"
+  },
+  {
+    "code": "102025",
+    "label": "Ferblantier"
+  },
+  {
+    "code": "102026",
+    "label": "Monteur de réseaux eau et gaz"
+  },
+  {
+    "code": "102027",
+    "label": "Installateur sanitaire"
+  },
+  {
+    "code": "102028",
+    "label": "Agent d'entretien en assainissement"
+  },
+  {
+    "code": "102029",
+    "label": "Technologue en assainissement"
+  },
+  {
+    "code": "102030",
+    "label": "Constructeur d'installations de ventilation"
+  },
+  {
+    "code": "102031",
+    "label": "Monteur frigoriste"
+  },
+  {
+    "code": "102032",
+    "label": "Aide-monteur frigoriste"
+  },
+  {
+    "code": "102033",
+    "label": "Peintre"
+  },
+  {
+    "code": "102034",
+    "label": "Aide-peintre"
+  },
+  {
+    "code": "102035",
+    "label": "Vernisseur industriel"
+  },
+  {
+    "code": "102036",
+    "label": "Assistant vernisseur"
+  },
+  {
+    "code": "102037",
+    "label": "Spécialiste en vernissage industriel"
+  },
+  {
+    "code": "102038",
+    "label": "Carrossier-peintre"
+  },
+  {
+    "code": "102039",
+    "label": "Ramoneur"
+  },
+  {
+    "code": "102040",
+    "label": "Polymécanicien"
+  },
+  {
+    "code": "102041",
+    "label": "Mécanicien de production"
+  },
+  {
+    "code": "102042",
+    "label": "Constructeur d'appareils industriels"
+  },
+  {
+    "code": "102043",
+    "label": "Mouleur de fonderie"
+  },
+  {
+    "code": "102044",
+    "label": "Fondeur d'art"
+  },
+  {
+    "code": "102045",
+    "label": "Mouleur"
+  },
+  {
+    "code": "102046",
+    "label": "Expert-soudeur"
+  },
+  {
+    "code": "102047",
+    "label": "Carrossier-tôlier"
+  },
+  {
+    "code": "102048",
+    "label": "Constructeur métallique"
+  },
+  {
+    "code": "102049",
+    "label": "Aide-constructeur métallique"
+  },
+  {
+    "code": "102050",
+    "label": "Forgeron"
+  },
+  {
+    "code": "102051",
+    "label": "Maréchal-ferrant"
+  },
+  {
+    "code": "102052",
+    "label": "Coutelier"
+  },
+  {
+    "code": "102053",
+    "label": "Armurier"
+  },
+  {
+    "code": "102054",
+    "label": "Fraiseur"
+  },
+  {
+    "code": "102055",
+    "label": "Tourneur"
+  },
+  {
+    "code": "102056",
+    "label": "Graveur"
+  },
+  {
+    "code": "102057",
+    "label": "Programmeur CNC"
+  },
+  {
+    "code": "102058",
+    "label": "Opérateur CNC"
+  },
+  {
+    "code": "102059",
+    "label": "Praticien en mécanique"
+  },
+  {
+    "code": "102060",
+    "label": "Polisseur"
+  },
+  {
+    "code": "102061",
+    "label": "Serrurier sur véhicules"
+  },
+  {
+    "code": "102062",
+    "label": "Agent d'entretien de bateaux"
+  },
+  {
+    "code": "102063",
+    "label": "Mécanicien en motocycles"
+  },
+  {
+    "code": "102064",
+    "label": "Mécanicien en motocycles de petite cylindrée et cycles"
+  },
+  {
+    "code": "102065",
+    "label": "Diagnosticien d'automobiles"
+  },
+  {
+    "code": "102066",
+    "label": "Mécatronicien d'automobiles"
+  },
+  {
+    "code": "102067",
+    "label": "Mécanicien en maintenance d'automobiles"
+  },
+  {
+    "code": "102068",
+    "label": "Assistant en maintenance d'automobiles"
+  },
+  {
+    "code": "102069",
+    "label": "Restaurateur de véhicules"
+  },
+  {
+    "code": "102070",
+    "label": "Mécanicien sur aéronefs"
+  },
+  {
+    "code": "102071",
+    "label": "Hydraulicien"
+  },
+  {
+    "code": "102072",
+    "label": "Agent de maintenance"
+  },
+  {
+    "code": "102073",
+    "label": "Mécanicien en machines de chantier"
+  },
+  {
+    "code": "102074",
+    "label": "Mécanicien d'appareils à moteur"
+  },
+  {
+    "code": "102075",
+    "label": "Mécanicien en machines agricoles"
+  },
+  {
+    "code": "102076",
+    "label": "Technicien de maintenance"
+  },
+  {
+    "code": "102077",
+    "label": "Mécanicien en cycles"
+  },
+  {
+    "code": "102078",
+    "label": "Horloger"
+  },
+  {
+    "code": "102079",
+    "label": "Termineur en habillage horloger"
+  },
+  {
+    "code": "102080",
+    "label": "Horloger de production"
+  },
+  {
+    "code": "102081",
+    "label": "Visiteur dans l'horlogerie"
+  },
+  {
+    "code": "102082",
+    "label": "Cadranographe"
+  },
+  {
+    "code": "102083",
+    "label": "Opérateur en horlogerie"
+  },
+  {
+    "code": "102084",
+    "label": "Micromécanicien"
+  },
+  {
+    "code": "102085",
+    "label": "Luthier"
+  },
+  {
+    "code": "102086",
+    "label": "Facteur d'instruments de musique"
+  },
+  {
+    "code": "102088",
+    "label": "Bijoutier-joaillier"
+  },
+  {
+    "code": "102089",
+    "label": "Modeleur-céramiste"
+  },
+  {
+    "code": "102090",
+    "label": "Céramiste"
+  },
+  {
+    "code": "102092",
+    "label": "Peintre sur céramique"
+  },
+  {
+    "code": "102093",
+    "label": "Peintre verrier"
+  },
+  {
+    "code": "102094",
+    "label": "Réalisateur publicitaire"
+  },
+  {
+    "code": "102095",
+    "label": "Doreur-encadreur"
+  },
+  {
+    "code": "102096",
+    "label": "Graveur aquafortiste sur verre"
+  },
+  {
+    "code": "102097",
+    "label": "Sculpteur sur bois"
+  },
+  {
+    "code": "102098",
+    "label": "Vannier créateur"
+  },
+  {
+    "code": "102099",
+    "label": "Créateur en tissage"
+  },
+  {
+    "code": "102100",
+    "label": "Créateur de tissu"
+  },
+  {
+    "code": "102101",
+    "label": "Opérateur prépresse"
+  },
+  {
+    "code": "102102",
+    "label": "Electronic Publisher"
+  },
+  {
+    "code": "102103",
+    "label": "Polygraphe"
+  },
+  {
+    "code": "102104",
+    "label": "Technologue en impression, reprographie"
+  },
+  {
+    "code": "102106",
+    "label": "Flexographe"
+  },
+  {
+    "code": "102107",
+    "label": "Employé d'imprimerie"
+  },
+  {
+    "code": "102108",
+    "label": "Assistant en médias imprimés"
+  },
+  {
+    "code": "102109",
+    "label": "Technologue en impression"
+  },
+  {
+    "code": "102111",
+    "label": "Spécialiste en finition des médias imprimés"
+  },
+  {
+    "code": "102112",
+    "label": "Installateur-électricien"
+  },
+  {
+    "code": "102113",
+    "label": "Electricien de montage"
+  },
+  {
+    "code": "102114",
+    "label": "Conseiller en sécurité électrique"
+  },
+  {
+    "code": "102115",
+    "label": "Monteur d'ascenseurs"
+  },
+  {
+    "code": "102116",
+    "label": "Equipeur, branche électrique"
+  },
+  {
+    "code": "102117",
+    "label": "Monteur automaticien"
+  },
+  {
+    "code": "102118",
+    "label": "Automaticien"
+  },
+  {
+    "code": "102119",
+    "label": "Electricien de réseau"
+  },
+  {
+    "code": "102120",
+    "label": "Spécialiste de réseau (électricité)"
+  },
+  {
+    "code": "102121",
+    "label": "Electronicien"
+  },
+  {
+    "code": "102122",
+    "label": "Technicien Audiovisuel"
+  },
+  {
+    "code": "102123",
+    "label": "Electronicien en multimédia"
+  },
+  {
+    "code": "102124",
+    "label": "Assistant en audiovision"
+  },
+  {
+    "code": "102125",
+    "label": "Boucher-charcutier"
+  },
+  {
+    "code": "102126",
+    "label": "Assistant en boucherie et charcuterie"
+  },
+  {
+    "code": "102127",
+    "label": "Boulanger-pâtissier"
+  },
+  {
+    "code": "102128",
+    "label": "Pâtissier-confiseur"
+  },
+  {
+    "code": "102129",
+    "label": "Boulanger-pâtissier-confiseur"
+  },
+  {
+    "code": "102130",
+    "label": "Technologue en industrie laitière"
+  },
+  {
+    "code": "102131",
+    "label": "Employé en industrie laitière"
+  },
+  {
+    "code": "102132",
+    "label": "Dégustateur"
+  },
+  {
+    "code": "102133",
+    "label": "Artisan du bois"
+  },
+  {
+    "code": "102134",
+    "label": "Praticien sur bois"
+  },
+  {
+    "code": "102135",
+    "label": "Tonnelier"
+  },
+  {
+    "code": "102136",
+    "label": "Charron"
+  },
+  {
+    "code": "102137",
+    "label": "Constructeur de ski"
+  },
+  {
+    "code": "102138",
+    "label": "Maquettiste en architecture"
+  },
+  {
+    "code": "102139",
+    "label": "Artisan du bois, tournage sur bois"
+  },
+  {
+    "code": "102140",
+    "label": "Confectionneur"
+  },
+  {
+    "code": "102141",
+    "label": "Tailleur de théâtre"
+  },
+  {
+    "code": "102142",
+    "label": "Créateur de vêtements"
+  },
+  {
+    "code": "102143",
+    "label": "Couseur"
+  },
+  {
+    "code": "102144",
+    "label": "Couturier d'intérieur"
+  },
+  {
+    "code": "102146",
+    "label": "Garnisseur de meubles"
+  },
+  {
+    "code": "102147",
+    "label": "Cordonnier"
+  },
+  {
+    "code": "102148",
+    "label": "Bottier-orthopédiste"
+  },
+  {
+    "code": "102149",
+    "label": "Artisan du cuir et du textile"
+  },
+  {
+    "code": "102150",
+    "label": "Plongeur professionnel"
+  },
+  {
+    "code": "102151",
+    "label": "Spécialiste de minage"
+  },
+  {
+    "code": "102152",
+    "label": "Employé au contrôle de qualité"
+  },
+  {
+    "code": "102153",
+    "label": "Destructeur de parasites"
+  },
+  {
+    "code": "102154",
+    "label": "Fleuriste"
+  },
+  {
+    "code": "102155",
+    "label": "Opticien en instruments de précision"
+  },
+  {
+    "code": "102156",
+    "label": "Surveillant d'installations"
+  },
+  {
+    "code": "102157",
+    "label": "Opérateur de machines"
+  },
+  {
+    "code": "102158",
+    "label": "Opérateur de machines automatisées"
+  },
+  {
+    "code": "102159",
+    "label": "Constructeur d'éléments en béton préfabriqués"
+  },
+  {
+    "code": "102160",
+    "label": "Technologue de fonderie"
+  },
+  {
+    "code": "102161",
+    "label": "Zingueur"
+  },
+  {
+    "code": "102162",
+    "label": "Assistant en traitement de surface"
+  },
+  {
+    "code": "102163",
+    "label": "Electroplaste"
+  },
+  {
+    "code": "102164",
+    "label": "Opérateur en salle blanche"
+  },
+  {
+    "code": "102165",
+    "label": "Technologue en production chimique et pharmaceutique"
+  },
+  {
+    "code": "102166",
+    "label": "Technologue en chimie"
+  },
+  {
+    "code": "102167",
+    "label": "Agent en production chimique et pharmaceutique"
+  },
+  {
+    "code": "102168",
+    "label": "Spécialiste en photographie"
+  },
+  {
+    "code": "102171",
+    "label": "Technologue en emballage"
+  },
+  {
+    "code": "102172",
+    "label": "Technologue en textile"
+  },
+  {
+    "code": "102173",
+    "label": "Agent en produits textiles"
+  },
+  {
+    "code": "102174",
+    "label": "Tisseur"
+  },
+  {
+    "code": "102175",
+    "label": "Nettoyeur de textiles"
+  },
+  {
+    "code": "102176",
+    "label": "Employé de blanchisserie"
+  },
+  {
+    "code": "102177",
+    "label": "Gestionnaire en entretien des textiles"
+  },
+  {
+    "code": "102178",
+    "label": "Technologue en denrées alimentaires"
+  },
+  {
+    "code": "102179",
+    "label": "Meunier"
+  },
+  {
+    "code": "102180",
+    "label": "Technologue en meunerie"
+  },
+  {
+    "code": "102181",
+    "label": "Praticien en denrées alimentaires"
+  },
+  {
+    "code": "102182",
+    "label": "Caviste"
+  },
+  {
+    "code": "102183",
+    "label": "Papetier"
+  },
+  {
+    "code": "102185",
+    "label": "Céramiste industriel"
+  },
+  {
+    "code": "102186",
+    "label": "Remplisseur"
+  },
+  {
+    "code": "102187",
+    "label": "Ajusteur-monteur"
+  },
+  {
+    "code": "102188",
+    "label": "Chauffeur"
+  },
+  {
+    "code": "102189",
+    "label": "Pilote de locomotive"
+  },
+  {
+    "code": "102190",
+    "label": "Chef de circulation des trains"
+  },
+  {
+    "code": "102191",
+    "label": "Conducteur de taxi"
+  },
+  {
+    "code": "102192",
+    "label": "Conducteur de véhicules légers"
+  },
+  {
+    "code": "102193",
+    "label": "Conducteur de tramways"
+  },
+  {
+    "code": "102194",
+    "label": "Chauffeur (bus, autocar)"
+  },
+  {
+    "code": "102195",
+    "label": "Chauffeur poids lourd"
+  },
+  {
+    "code": "102196",
+    "label": "Conducteur de véhicules lourds"
+  },
+  {
+    "code": "102197",
+    "label": "Conducteur d'engins forestiers"
+  },
+  {
+    "code": "102198",
+    "label": "Constructeur de routes"
+  },
+  {
+    "code": "102199",
+    "label": "Mineur"
+  },
+  {
+    "code": "102200",
+    "label": "Sondeur"
+  },
+  {
+    "code": "102201",
+    "label": "Constructeur de fondations"
+  },
+  {
+    "code": "102202",
+    "label": "Constructeur de voies ferrées"
+  },
+  {
+    "code": "102203",
+    "label": "Constructeur spécialisé de tunnel"
+  },
+  {
+    "code": "102204",
+    "label": "Assistant-constructeur de fondations"
+  },
+  {
+    "code": "102205",
+    "label": "Poseur de pierres"
+  },
+  {
+    "code": "102206",
+    "label": "Paveur"
+  },
+  {
+    "code": "102207",
+    "label": "Assistant-constructeur de routes"
+  },
+  {
+    "code": "102208",
+    "label": "Assistant-constructeur de voies ferrées"
+  },
+  {
+    "code": "102209",
+    "label": "Conducteur de machines de chantier"
+  },
+  {
+    "code": "102210",
+    "label": "Conducteur de véhicules d'entretien des pistes"
+  },
+  {
+    "code": "102211",
+    "label": "Grutier"
+  },
+  {
+    "code": "102212",
+    "label": "Employé de chemin de fer de montagne"
+  },
+  {
+    "code": "102213",
+    "label": "Spécialiste des installations de transport à câble"
+  },
+  {
+    "code": "102214",
+    "label": "Employé de remontées mécaniques"
+  },
+  {
+    "code": "102215",
+    "label": "Mécatronicien de remontées mécaniques"
+  },
+  {
+    "code": "102216",
+    "label": "Conducteur d'élévateur"
+  },
+  {
+    "code": "102217",
+    "label": "Marin (flotte maritime)"
+  },
+  {
+    "code": "102218",
+    "label": "Employé de bateaux sur les lacs"
+  },
+  {
+    "code": "102219",
+    "label": "Matelot de la navigation intérieure"
+  },
+  {
+    "code": "102221",
+    "label": "Employé de nettoyage"
+  },
+  {
+    "code": "102222",
+    "label": "Garçon de chambre"
+  },
+  {
+    "code": "102223",
+    "label": "Manoeuvre, culture maraîchère et arboricole"
+  },
+  {
+    "code": "102224",
+    "label": "Manoeuvre de l'élevage"
+  },
+  {
+    "code": "102225",
+    "label": "Manoeuvre agricole (activités mixtes)"
+  },
+  {
+    "code": "102226",
+    "label": "Manoeuvre, services d'aménagement paysager"
+  },
+  {
+    "code": "102227",
+    "label": "Cantonnier"
+  },
+  {
+    "code": "102228",
+    "label": "Ouvrier de tunnel"
+  },
+  {
+    "code": "102229",
+    "label": "Manoeuvre, génie civil"
+  },
+  {
+    "code": "102230",
+    "label": "Manoeuvre, bâtiment"
+  },
+  {
+    "code": "102231",
+    "label": "Ouvrier de la construction, secteur principal de la construction"
+  },
+  {
+    "code": "102232",
+    "label": "Ouvrier de la construction, second oeuvre"
+  },
+  {
+    "code": "102233",
+    "label": "Employé de conditionnement"
+  },
+  {
+    "code": "102234",
+    "label": "Ouvrier d'exploitation"
+  },
+  {
+    "code": "102235",
+    "label": "Aide-mouleur"
+  },
+  {
+    "code": "102236",
+    "label": "Manoeuvre, industrie de l'habillement"
+  },
+  {
+    "code": "102237",
+    "label": "Manoeuvre, industrie de l'électronique"
+  },
+  {
+    "code": "102238",
+    "label": "Manoeuvre, industrie du plastique"
+  },
+  {
+    "code": "102239",
+    "label": "Manoeuvre, métallurgie et fabrication des produits métalliques"
+  },
+  {
+    "code": "102240",
+    "label": "Manoeuvre, industrie mécanique"
+  },
+  {
+    "code": "102241",
+    "label": "Manoeuvre, entretien et réparation de véhicules à moteur"
+  },
+  {
+    "code": "102242",
+    "label": "Manoeuvre, industrie horlogère"
+  },
+  {
+    "code": "102243",
+    "label": "Manoeuvre, industrie textile"
+  },
+  {
+    "code": "102244",
+    "label": "Manoeuvre, industrie du bois"
+  },
+  {
+    "code": "102245",
+    "label": "Manoeuvre, industrie chimique et pharmaceutique"
+  },
+  {
+    "code": "102246",
+    "label": "Manoeuvre, industrie alimentaire"
+  },
+  {
+    "code": "102247",
+    "label": "Déménageur"
+  },
+  {
+    "code": "102248",
+    "label": "Manoeuvre, logistique"
+  },
+  {
+    "code": "102249",
+    "label": "Pizzaiolo"
+  },
+  {
+    "code": "102250",
+    "label": "Aide-cuisinier"
+  },
+  {
+    "code": "102251",
+    "label": "Casserolier"
+  },
+  {
+    "code": "102252",
+    "label": "Eboueur"
+  },
+  {
+    "code": "102253",
+    "label": "Recycleur"
+  },
+  {
+    "code": "102254",
+    "label": "Ouvrier de canal"
+  },
+  {
+    "code": "102256",
+    "label": "Surveillant de distributeurs automatiques"
+  },
+  {
+    "code": "102300",
+    "label": "Spécialiste en faux-plafonds"
+  },
+  {
+    "code": "102301",
+    "label": "Spécialiste d'aménagement intérieur"
+  },
+  {
+    "code": "102302",
+    "label": "Typographe pour la communication visuelle"
+  },
+  {
+    "code": "102303",
+    "label": "Ingénieur en techniques médicales"
+  },
+  {
+    "code": "102304",
+    "label": "Techno-diagnosticien en machines agricoles"
+  },
+  {
+    "code": "102305",
+    "label": "Techno-diagnosticien d'appareils à moteur"
+  },
+  {
+    "code": "102306",
+    "label": "Techno-diagnosticien en machines de chantier"
+  },
+  {
+    "code": "102307",
+    "label": "Souffleur de verre pour appareils scientifiques"
+  },
+  {
+    "code": "102308",
+    "label": "Secrétaire syndical"
+  },
+  {
+    "code": "102309",
+    "label": "Expert en management du domaine des privations de liberté"
+  },
+  {
+    "code": "102310",
+    "label": "Ecobiologiste de la construction"
+  },
+  {
+    "code": "102311",
+    "label": "Manœuvre, technique du bâtiment"
+  },
+  {
+    "code": "102312",
+    "label": "Auxiliaire, intendance (ménage privé)"
+  },
+  {
+    "code": "102313",
+    "label": "Chef d'équipe charpentier"
+  },
+  {
+    "code": "102314",
+    "label": "Ethologue"
+  },
+  {
+    "code": "102315",
+    "label": "Cuisinier en diététique"
+  },
+  {
+    "code": "102316",
+    "label": "Ingénieur en aviation"
+  },
+  {
+    "code": "102318",
+    "label": "Plâtrier constructeur à sec"
+  },
+  {
+    "code": "102319",
+    "label": "Coursier"
+  },
+  {
+    "code": "102320",
+    "label": "Ingénieur en technique automobile"
+  },
+  {
+    "code": "102321",
+    "label": "Ingénieur en architecture du paysage"
+  },
+  {
+    "code": "102322",
+    "label": "Ingénieur en microtechniques"
+  },
+  {
+    "code": "102323",
+    "label": "Directeur des ressources humaines"
+  },
+  {
+    "code": "102324",
+    "label": "Employé de nettoyage (ménage privé)"
+  },
+  {
+    "code": "102325",
+    "label": "Auxiliaire, bureau"
+  },
+  {
+    "code": "102326",
+    "label": "Dirigeant de production industrielle"
+  },
+  {
+    "code": "102327",
+    "label": "Dirigeant en facility management et maintenance"
+  },
+  {
+    "code": "102328",
+    "label": "Spécialiste en technologie textile"
+  },
+  {
+    "code": "102329",
+    "label": "Responsable de la communication"
+  },
+  {
+    "code": "102330",
+    "label": "Agent de processus"
+  },
+  {
+    "code": "102331",
+    "label": "Collaborateur de la coopération internationale"
+  },
+  {
+    "code": "103000",
+    "label": "Chef d’expédition et de logistique internationale"
+  },
+  {
+    "code": "103001",
+    "label": "Expert en gestion d'institutions de santé"
+  },
+  {
+    "code": "103002",
+    "label": "Spécialiste en gestion d'institutions de santé"
+  },
+  {
+    "code": "103003",
+    "label": "Hôtelier-restaurateur"
+  },
+  {
+    "code": "103004",
+    "label": "Designer d'interaction"
+  },
+  {
+    "code": "103005",
+    "label": "Éducateur de l'enfance"
+  },
+  {
+    "code": "103006",
+    "label": "Enseignant de langue des signes"
+  },
+  {
+    "code": "103007",
+    "label": "Spécialiste en organisation d'entreprise"
+  },
+  {
+    "code": "103008",
+    "label": "Spécialiste en formation professionnelle"
+  },
+  {
+    "code": "103009",
+    "label": "Spécialiste en réalisation publicitaire"
+  },
+  {
+    "code": "103010",
+    "label": "Économiste-juriste d'entreprise"
+  },
+  {
+    "code": "103011",
+    "label": "Interprète"
+  },
+  {
+    "code": "103012",
+    "label": "Designer en arts visuels"
+  },
+  {
+    "code": "103013",
+    "label": "Contrôleur des installations de gaz et d'eau potable"
+  },
+  {
+    "code": "103014",
+    "label": "Maître en planification dans la thermique du bâtiment"
+  },
+  {
+    "code": "103015",
+    "label": "Technicien en technique du bois"
+  },
+  {
+    "code": "103016",
+    "label": "Technicien en génie mécanique"
+  },
+  {
+    "code": "103017",
+    "label": "Technicien au contrôle des métaux"
+  },
+  {
+    "code": "103018",
+    "label": "Technicien des médias"
+  },
+  {
+    "code": "103019",
+    "label": "Thermiste"
+  },
+  {
+    "code": "103020",
+    "label": "Biotechnicien"
+  },
+  {
+    "code": "103021",
+    "label": "Technicien en agroalimentaire"
+  },
+  {
+    "code": "103022",
+    "label": "Contremaître forestier"
+  },
+  {
+    "code": "103023",
+    "label": "Assistant en pharmacie"
+  },
+  {
+    "code": "103024",
+    "label": "Technicien en production chimique et pharmaceutique"
+  },
+  {
+    "code": "103025",
+    "label": "Spécialiste en systèmes auditifs"
+  },
+  {
+    "code": "103026",
+    "label": "Consultant petite enfance"
+  },
+  {
+    "code": "103027",
+    "label": "Opérateur de centrale d'appels d'urgence"
+  },
+  {
+    "code": "103028",
+    "label": "Conseiller en maladies respiratoires"
+  },
+  {
+    "code": "103029",
+    "label": "Spécialiste du e-commerce"
+  },
+  {
+    "code": "103030",
+    "label": "Agro-commerçant"
+  },
+  {
+    "code": "103031",
+    "label": "Digital Collaboration Specialist"
+  },
+  {
+    "code": "103032",
+    "label": "Paralegal"
+  },
+  {
+    "code": "103033",
+    "label": "Spécialiste en insertion professionnelle"
+  },
+  {
+    "code": "103034",
+    "label": "Maître socioprofessionnel"
+  },
+  {
+    "code": "103035",
+    "label": "Éducateur du mouvement"
+  },
+  {
+    "code": "103036",
+    "label": "Spécialiste en photomédias"
+  },
+  {
+    "code": "103037",
+    "label": "Tapissier-décorateur"
+  },
+  {
+    "code": "103038",
+    "label": "Régisseur technique de spectacle"
+  },
+  {
+    "code": "103039",
+    "label": "Esthéticien en esthétique médicale"
+  },
+  {
+    "code": "103040",
+    "label": "Spécialiste en agriculture biodynamique"
+  },
+  {
+    "code": "103041",
+    "label": "Carrossier réparateur"
+  },
+  {
+    "code": "103042",
+    "label": "Sertisseur de pierres précieuses"
+  },
+  {
+    "code": "103043",
+    "label": "Orfèvre"
+  },
+  {
+    "code": "103044",
+    "label": "Technicien en réalisation publicitaire"
+  },
+  {
+    "code": "103045",
+    "label": "Technologue en reliure"
+  },
+  {
+    "code": "103046",
+    "label": "Façonneur de produits imprimés"
+  },
+  {
+    "code": "103047",
+    "label": "Agent en automatique"
+  },
+  {
+    "code": "103048",
+    "label": "Praticien en matières plastiques"
+  },
+  {
+    "code": "103049",
+    "label": "Technologue en matières plastiques"
+  },
+  {
+    "code": "103050",
+    "label": "Spécialiste en industrie du bois"
+  },
+  {
+    "code": "104000",
+    "label": "Conseiller de service automobile"
+  },
+  {
+    "code": "104001",
+    "label": "Technicien en conduite de travaux de construction en bois"
+  },
+  {
+    "code": "104002",
+    "label": "Responsable d'équipe dans des organisations sociales et médico-sociales"
+  },
+  {
+    "code": "104003",
+    "label": "Qualiticien en microtechnique"
+  },
+  {
+    "code": "104004",
+    "label": "Facteur de tuyaux d’orgues"
+  },
+  {
+    "code": "104005",
+    "label": "Aide en installations de ventilation, technique du bâtiment"
+  },
+  {
+    "code": "104006",
+    "label": "Aide en chauffage, technique du bâtiment"
+  },
+  {
+    "code": "104007",
+    "label": "Facteur de pianos"
+  },
+  {
+    "code": "104008",
+    "label": "Aide en ferblanterie, technique du bâtiment"
+  },
+  {
+    "code": "104009",
+    "label": "Facteur d’orgues"
+  },
+  {
+    "code": "104010",
+    "label": "Responsable d'exploitation en facility management"
+  },
+  {
+    "code": "104011",
+    "label": "Facteur d'instruments de musique à vent"
+  },
+  {
+    "code": "104012",
+    "label": "Ingénieur en sciences de la vie (chimie, nature, alimentation)"
+  },
+  {
+    "code": "104013",
+    "label": "Spécialiste en douane et sécurité des frontières"
+  },
+  {
+    "code": "104014",
+    "label": "Responsable des services de propreté"
+  },
+  {
+    "code": "104015",
+    "label": "Expert de la sécurité au travail et de la protection de la santé (STPS)"
+  },
+  {
+    "code": "104016",
+    "label": "Gestionnaire en hôtellerie-intendance"
+  },
+  {
+    "code": "104017",
+    "label": "Employé en hôtellerie-intendance"
+  },
+  {
+    "code": "104018",
+    "label": "User Experience / User Interface Designer (UX/UI-Designer)"
+  },
+  {
+    "code": "104019",
+    "label": "Installateur solaire"
+  },
+  {
+    "code": "104020",
+    "label": "ICT Application Development Specialist"
+  },
+  {
+    "code": "104021",
+    "label": "ICT Platform Development Specialist"
+  },
+  {
+    "code": "104022",
+    "label": "Monteur solaire"
+  },
+  {
+    "code": "104023",
+    "label": "Chef d’équipe construction"
+  },
+  {
+    "code": "104024",
+    "label": "Agent de transport ferroviaire"
+  },
+  {
+    "code": "104025",
+    "label": "Responsable d'atelier dans les domaines de l'horlogerie"
+  },
+  {
+    "code": "104026",
+    "label": "Agent commercial de l'imprimerie et des médias"
+  },
+  {
+    "code": "104027",
+    "label": "Projeteur en enveloppe du bâtiment"
+  },
+  {
+    "code": "104028",
+    "label": "Spécialiste en technique orthopédique de chaussures"
+  },
+  {
+    "code": "104029",
+    "label": "Maréchal-ferrant orthopédique"
+  },
+  {
+    "code": "104030",
+    "label": "Information Security Manager"
+  },
+  {
+    "code": "104031",
+    "label": "Technicien frigoriste"
+  },
+  {
+    "code": "104032",
+    "label": "Entraîneur animalier"
+  },
+  {
+    "code": "104033",
+    "label": "Contremaître en plâtrerie et en technique d’isolation"
+  },
+  {
+    "code": "104034",
+    "label": "Opérateur en informatique"
+  },
+  {
+    "code": "104035",
+    "label": "Développeur de business numérique"
+  },
+  {
+    "code": "104036",
+    "label": "Informaticien du bâtiment"
+  },
+  {
+    "code": "104037",
+    "label": "ICT Change Manager"
+  },
+  {
+    "code": "104038",
+    "label": "Database Specialist"
+  },
+  {
+    "code": "104039",
+    "label": "ICT Security Specialist"
+  },
+  {
+    "code": "104040",
+    "label": "Network Specialist"
+  },
+  {
+    "code": "104041",
+    "label": "Business Information Specialist"
+  },
+  {
+    "code": "104042",
+    "label": "ICT Project Head"
+  },
+  {
+    "code": "104043",
+    "label": "ICT Organizational Manager"
+  },
+  {
+    "code": "104044",
+    "label": "ICT Business Organizer"
+  },
+  {
+    "code": "104045",
+    "label": "Product Owner"
+  },
+  {
+    "code": "104046",
+    "label": "Release Train Engineer"
+  },
+  {
+    "code": "104047",
+    "label": "Scrum Master"
+  },
+  {
+    "code": "104048",
+    "label": "DevOps Engineer"
+  },
+  {
+    "code": "104049",
+    "label": "Professeur de gymnase"
+  },
+  {
+    "code": "104050",
+    "label": "Dessinateur"
+  },
+  {
+    "code": "104051",
+    "label": "Responsable tapissier-décorateur"
+  },
+  {
+    "code": "104052",
+    "label": "Directeur d'organisations sociale et médico-sociale"
+  },
+  {
+    "code": "104053",
+    "label": "Maître tapissier-décorateur"
+  },
+  {
+    "code": "104054",
+    "label": "Responsable d’équipe service clients"
+  },
+  {
+    "code": "104055",
+    "label": "Aide en sanitaire"
+  },
+  {
+    "code": "104056",
+    "label": "Technicien paysagiste"
+  },
+  {
+    "code": "104057",
+    "label": "Technicien en construction métallique et de façades"
+  },
+  {
+    "code": "104058",
+    "label": "Designer en design de produit"
+  },
+  {
+    "code": "104059",
+    "label": "Technicien en processus"
+  },
+  {
+    "code": "104060",
+    "label": "Manager en textile et mode"
+  },
+  {
+    "code": "104061",
+    "label": "Compliance manager"
+  },
+  {
+    "code": "104062",
+    "label": "Automaticien du bâtiment"
+  },
+  {
+    "code": "104063",
+    "label": "Conducteur de travaux dans le secteur principal de la construction"
+  },
+  {
+    "code": "104064",
+    "label": "HR Business Partner"
+  },
+  {
+    "code": "104065",
+    "label": "Game Master"
+  },
+  {
+    "code": "104066",
+    "label": "Game Designer"
+  },
+  {
+    "code": "104067",
+    "label": "Technologue en médias"
+  },
+  {
+    "code": "104068",
+    "label": "Professionnel de la navigation intérieure"
+  },
+  {
+    "code": "104069",
+    "label": "Imprimeur d’emballage"
+  },
+  {
+    "code": "105000",
+    "label": "Assistant en maintenance des deux-roues"
+  },
+  {
+    "code": "105001",
+    "label": "Négociant en matières premières"
+  },
+  {
+    "code": "105002",
+    "label": "Technologue du brassage et des boissons"
+  },
+  {
+    "code": "105003",
+    "label": "Employé en restauration de système"
+  },
+  {
+    "code": "105004",
+    "label": "Business AI Specialist"
+  },
+  {
+    "code": "105005",
+    "label": "Ingénieur automobile et du véhicule"
+  },
+  {
+    "code": "105006",
+    "label": "Chief Information Officer"
+  }
+]

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -754,8 +754,24 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
 
   // Profession (AVAM)
   const [avamCode, setAvamCode] = useState('')
+  const [avamQuery, setAvamQuery] = useState('')       // texte saisi par l'utilisateur
+  const [avamLabel, setAvamLabel] = useState('')       // label affiché après sélection
+  const [avamResults, setAvamResults] = useState<{ code: string; label: string }[]>([])
+  const [avamOpen, setAvamOpen] = useState(false)
   const [workExp, setWorkExp] = useState('MORE_THAN_1_YEAR')
   const [eduCode, setEduCode] = useState('132')
+
+  // Autocomplete AVAM — recherche dès 2 caractères
+  useEffect(() => {
+    if (avamQuery.length < 2) { setAvamResults([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/avam/search?q=${encodeURIComponent(avamQuery)}`)
+        if (res.ok) setAvamResults(await res.json())
+      } catch { /* silencieux */ }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [avamQuery])
 
   // Entreprise mandante (client)
   const [employerName, setEmployerName] = useState('')
@@ -922,9 +938,55 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         {/* Profession */}
         <div style={sStyle}>
           <p style={sTitle}>🎓 Profession (AVAM)</p>
-          <div>
-            <label style={lStyle}>Code AVAM * <a href="https://www.arbeit.swiss/secoalv/fr/home.html" target="_blank" rel="noreferrer" style={{ fontWeight: 400, color: '#3B82F6', textDecoration: 'none', fontSize: 10 }}>Trouver le code ↗</a></label>
-            <input style={iStyle} value={avamCode} onChange={e => setAvamCode(e.target.value)} placeholder="ex: 102231 (Électricien)" />
+          <div style={{ position: 'relative' }}>
+            <label style={lStyle}>Profession * <span style={{ fontWeight: 400, color: 'var(--muted)', textTransform: 'none' }}>— tapez pour rechercher</span></label>
+            <input
+              style={iStyle}
+              value={avamLabel || avamQuery}
+              onChange={e => {
+                setAvamQuery(e.target.value)
+                setAvamLabel('')
+                setAvamCode('')
+                setAvamOpen(true)
+              }}
+              onFocus={() => { if (avamQuery.length >= 2) setAvamOpen(true) }}
+              onBlur={() => setTimeout(() => setAvamOpen(false), 150)}
+              placeholder="ex: Électricien, Maçon, Aide-soignant…"
+            />
+            {avamCode && (
+              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%) translateY(10px)', fontSize: 10, color: 'var(--muted)', background: 'var(--surface)', padding: '1px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                {avamCode}
+              </span>
+            )}
+            {avamOpen && avamResults.length > 0 && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+                background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 240, overflowY: 'auto',
+              }}>
+                {avamResults.map(item => (
+                  <div
+                    key={item.code}
+                    onMouseDown={() => {
+                      setAvamCode(item.code)
+                      setAvamLabel(item.label)
+                      setAvamQuery('')
+                      setAvamOpen(false)
+                    }}
+                    style={{
+                      padding: '8px 12px', cursor: 'pointer', fontSize: 13,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span style={{ color: 'var(--foreground)' }}>{item.label}</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{item.code}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{ ...grid2, marginTop: 10 }}>
             <div>
