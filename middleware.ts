@@ -92,8 +92,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/integrations') ||
     pathname.startsWith('/parametres')
 
-  // Dev bypass — accès direct sans auth sur localhost (NODE_ENV=development uniquement)
-  if (process.env.NODE_ENV === 'development' && isProtectedRoute && !user) {
+  // Dev bypass — accès direct sans auth sur localhost UNIQUEMENT si ALLOW_DEV_BYPASS=true dans .env.local
+  // Ne jamais activer en production — Vercel définit NODE_ENV='production' par défaut
+  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_BYPASS === 'true' && isProtectedRoute && !user) {
     return supabaseResponse
   }
 
@@ -147,7 +148,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // SÉCURITÉ : /integrations réservé exclusivement à l'administrateur
-  const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
   if (user && pathname.startsWith('/integrations') && user.email !== ADMIN_EMAIL) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'

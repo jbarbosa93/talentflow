@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+
+/** Vérifie que l'appelant est authentifié et administrateur.
+ *  Retourne un NextResponse 401/403 si non autorisé, null si OK. */
+async function requireAdmin(): Promise<NextResponse | null> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    }
+    if (user.email !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: 'Accès réservé à l\'administrateur' }, { status: 403 })
+    }
+    return null
+  } catch {
+    return NextResponse.json({ error: 'Erreur d\'authentification' }, { status: 500 })
+  }
+}
 
 // GET - Liste tous les utilisateurs
 export async function GET() {
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const supabase = createAdminClient()
     const { data: { users }, error } = await supabase.auth.admin.listUsers()
@@ -26,6 +49,8 @@ export async function GET() {
 
 // POST - Inviter un nouvel utilisateur (ou renvoyer le lien si déjà existant)
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const { email, prenom, nom, role = 'Consultant', entreprise = '' } = await request.json()
     if (!email) return NextResponse.json({ error: 'Email requis' }, { status: 400 })
@@ -81,6 +106,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Modifier le rôle d'un utilisateur
 export async function PATCH(request: NextRequest) {
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const { userId, role } = await request.json()
     if (!userId) return NextResponse.json({ error: 'userId requis' }, { status: 400 })
@@ -104,6 +131,8 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
+  const denied = await requireAdmin()
+  if (denied) return denied
   try {
     const { userId } = await request.json()
     if (!userId) return NextResponse.json({ error: 'userId requis' }, { status: 400 })
