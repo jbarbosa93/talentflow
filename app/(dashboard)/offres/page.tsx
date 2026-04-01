@@ -791,6 +791,27 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
   const [publicDisplay, setPublicDisplay] = useState(true)
   const [reportToAvam, setReportToAvam] = useState(false)
 
+  // Informations générales
+  const [numberOfJobs, setNumberOfJobs] = useState('1')
+  const [externalReference, setExternalReference] = useState('')
+  const [externalUrl, setExternalUrl] = useState('')
+
+  // Conditions d'emploi complémentaires
+  const [shortEmployment, setShortEmployment] = useState(false)
+
+  // Lieu — remarques
+  const [locationRemarks, setLocationRemarks] = useState('')
+
+  // Langues requises (max 5)
+  const [languageSkills, setLanguageSkills] = useState<{ languageIsoCode: string; spokenLevel: string; writtenLevel: string }[]>([])
+
+  // Contact concernant le poste (publicContact — publié sur Job-Room)
+  const [pubContactSal, setPubContactSal] = useState('MR')
+  const [pubContactFirst, setPubContactFirst] = useState('')
+  const [pubContactLast, setPubContactLast] = useState('')
+  const [pubContactPhone, setPubContactPhone] = useState('')
+  const [pubContactEmail, setPubContactEmail] = useState('')
+
   const fillFromOffre = () => {
     const o = offres.find(x => x.id === selectedOffre)
     if (!o) return
@@ -826,15 +847,19 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
     setPublishing(true)
     const body = {
       reportToAvam,
-      numberOfJobs: 1,
+      numberOfJobs: parseInt(numberOfJobs) || 1,
+      ...(externalReference ? { externalReference } : {}),
+      ...(externalUrl ? { externalUrl } : {}),
       contact: { languageIsoCode: contactLang, salutation: contactSal, firstName: contactFirst, lastName: contactLast, phone: contactPhone, email: contactEmail },
       jobDescriptions: [{ languageIsoCode: jobLang, title: jobTitle, description: jobDesc }],
       company: { name: 'L-Agence SA', street: 'Rue du Bourg', houseNumber: '4', postalCode: '1870', city: 'Monthey', countryIsoCode: 'CH', surrogate: showEmployer },
       ...(showEmployer && employerName ? { employer: { name: employerName, postalCode: employerPostal, city: employerCity, countryIsoCode: 'CH' } } : {}),
-      employment: { immediately, permanent, shortEmployment: false, workloadPercentageMin: parseInt(workMin), workloadPercentageMax: parseInt(workMax), ...(startDate && !immediately ? { startDate } : {}), workForms: [] },
-      location: { postalCode: locPostal, city: locCity, countryIsoCode: 'CH' },
+      employment: { immediately, permanent, shortEmployment, workloadPercentageMin: parseInt(workMin), workloadPercentageMax: parseInt(workMax), ...(startDate && !immediately ? { startDate } : {}), workForms: [] },
+      location: { postalCode: locPostal, city: locCity, countryIsoCode: 'CH', remarks: locationRemarks || null },
       occupation: { avamOccupationCode: avamCode, workExperience: workExp, educationCode: eduCode },
+      ...(languageSkills.length > 0 ? { languageSkills } : {}),
       applyChannel: { emailAddress: applyEmail || null, phoneNumber: applyPhone || null, formUrl: applyForm || null },
+      ...(pubContactFirst && pubContactLast ? { publicContact: { salutation: pubContactSal, firstName: pubContactFirst, lastName: pubContactLast, phone: pubContactPhone || null, email: pubContactEmail || null } } : {}),
       publication: { startDate: pubStart, endDate: pubEnd, euresDisplay: eures, publicDisplay },
     }
     try {
@@ -865,6 +890,25 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
           </div>
         )}
 
+        {/* Informations générales */}
+        <div style={sStyle}>
+          <p style={sTitle}>ℹ️ Informations générales</p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Nombre de postes</label>
+              <input style={iStyle} type="number" min={1} max={999} value={numberOfJobs} onChange={e => setNumberOfJobs(e.target.value)} placeholder="1" />
+            </div>
+            <div>
+              <label style={lStyle}>Référence interne</label>
+              <input style={iStyle} value={externalReference} onChange={e => setExternalReference(e.target.value)} placeholder="ex: 111217.1297" />
+            </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <label style={lStyle}>Lien web de l&apos;annonce</label>
+            <input style={iStyle} type="url" value={externalUrl} onChange={e => setExternalUrl(e.target.value)} placeholder="https://..." />
+          </div>
+        </div>
+
         {/* Description du poste */}
         <div style={sStyle}>
           <p style={sTitle}>📋 Description du poste</p>
@@ -889,7 +933,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
           </div>
         </div>
 
-        {/* Lieu + Emploi */}
+        {/* Lieu de travail */}
         <div style={sStyle}>
           <p style={sTitle}>📍 Lieu de travail</p>
           <div style={grid2}>
@@ -901,6 +945,10 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
               <label style={lStyle}>Ville *</label>
               <input style={iStyle} value={locCity} onChange={e => setLocCity(e.target.value)} placeholder="Monthey" />
             </div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <label style={lStyle}>Détails sur le lieu de travail</label>
+            <input style={iStyle} value={locationRemarks} onChange={e => setLocationRemarks(e.target.value)} placeholder="ex: Zone industrielle, bâtiment B, accès par..." />
           </div>
         </div>
 
@@ -925,6 +973,10 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={permanent} onChange={e => setPermanent(e.target.checked)} />
               CDI (permanent)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={shortEmployment} onChange={e => setShortEmployment(e.target.checked)} />
+              Emploi court terme (&le; 14 jours)
             </label>
           </div>
           {!immediately && (
@@ -1014,6 +1066,54 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
           </div>
         </div>
 
+        {/* Langues requises */}
+        <div style={sStyle}>
+          <p style={sTitle}>🌐 Langues requises <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', color: 'var(--muted)' }}>— optionnel, max 5</span></p>
+          {languageSkills.map((ls, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'end' }}>
+              <div>
+                {i === 0 && <label style={lStyle}>Langue</label>}
+                <select value={ls.languageIsoCode} onChange={e => setLanguageSkills(prev => prev.map((x, j) => j === i ? { ...x, languageIsoCode: e.target.value } : x))} style={iStyle}>
+                  <option value="fr">Français</option>
+                  <option value="de">Allemand</option>
+                  <option value="it">Italien</option>
+                  <option value="en">Anglais</option>
+                  <option value="es">Espagnol</option>
+                  <option value="pt">Portugais</option>
+                  <option value="ar">Arabe</option>
+                  <option value="zh">Chinois</option>
+                  <option value="nl">Néerlandais</option>
+                  <option value="pl">Polonais</option>
+                </select>
+              </div>
+              <div>
+                {i === 0 && <label style={lStyle}>Niveau oral</label>}
+                <select value={ls.spokenLevel} onChange={e => setLanguageSkills(prev => prev.map((x, j) => j === i ? { ...x, spokenLevel: e.target.value } : x))} style={iStyle}>
+                  <option value="NONE">Aucun</option>
+                  <option value="BASIC">Élémentaire</option>
+                  <option value="INTERMEDIATE">Intermédiaire</option>
+                  <option value="PROFICIENT">Courant</option>
+                </select>
+              </div>
+              <div>
+                {i === 0 && <label style={lStyle}>Niveau écrit</label>}
+                <select value={ls.writtenLevel} onChange={e => setLanguageSkills(prev => prev.map((x, j) => j === i ? { ...x, writtenLevel: e.target.value } : x))} style={iStyle}>
+                  <option value="NONE">Aucun</option>
+                  <option value="BASIC">Élémentaire</option>
+                  <option value="INTERMEDIATE">Intermédiaire</option>
+                  <option value="PROFICIENT">Courant</option>
+                </select>
+              </div>
+              <button onClick={() => setLanguageSkills(prev => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--muted)', padding: '6px 8px', fontSize: 13 }}>✕</button>
+            </div>
+          ))}
+          {languageSkills.length < 5 && (
+            <button onClick={() => setLanguageSkills(prev => [...prev, { languageIsoCode: 'fr', spokenLevel: 'PROFICIENT', writtenLevel: 'INTERMEDIATE' }])} style={{ fontSize: 12, color: 'var(--primary-text, #1C1A14)', background: 'var(--primary)', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontWeight: 700 }}>
+              + Ajouter une langue
+            </button>
+          )}
+        </div>
+
         {/* Entreprise mandante */}
         <div style={sStyle}>
           <p style={{ ...sTitle, marginBottom: 10 }}>🏢 Entreprise mandante (client)</p>
@@ -1081,6 +1181,38 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
                 <option value="en">English</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Contact concernant le poste */}
+        <div style={sStyle}>
+          <p style={sTitle}>👤 Contact concernant le poste <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', color: 'var(--muted)' }}>— publié sur job-room.ch</span></p>
+          <div style={grid2}>
+            <div>
+              <label style={lStyle}>Prénom</label>
+              <input style={iStyle} value={pubContactFirst} onChange={e => setPubContactFirst(e.target.value)} placeholder="João" />
+            </div>
+            <div>
+              <label style={lStyle}>Nom</label>
+              <input style={iStyle} value={pubContactLast} onChange={e => setPubContactLast(e.target.value)} placeholder="Barbosa" />
+            </div>
+          </div>
+          <div style={{ ...grid2, marginTop: 10 }}>
+            <div>
+              <label style={lStyle}>Téléphone</label>
+              <input style={iStyle} value={pubContactPhone} onChange={e => setPubContactPhone(e.target.value)} placeholder="+41791234567" />
+            </div>
+            <div>
+              <label style={lStyle}>Email</label>
+              <input style={iStyle} type="email" value={pubContactEmail} onChange={e => setPubContactEmail(e.target.value)} placeholder="contact@lagence.ch" />
+            </div>
+          </div>
+          <div style={{ marginTop: 10, maxWidth: 200 }}>
+            <label style={lStyle}>Civilité</label>
+            <select value={pubContactSal} onChange={e => setPubContactSal(e.target.value)} style={iStyle}>
+              <option value="MR">M.</option>
+              <option value="MS">Mme</option>
+            </select>
           </div>
         </div>
 
