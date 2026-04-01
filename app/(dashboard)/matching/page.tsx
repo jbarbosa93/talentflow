@@ -313,7 +313,7 @@ export default function MatchingPage() {
             </button>
             <button
               onClick={() => setShowContactModal(true)}
-              style={{ height: 36, padding: '0 20px', background: 'var(--primary)', color: '#0F172A', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 8 }}
+              style={{ height: 36, padding: '0 20px', background: 'var(--primary)', color: 'var(--ink, #1C1A14)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 8 }}
             >
               <Phone size={14} />Contacter
             </button>
@@ -422,7 +422,7 @@ function CandidatMatchCard({ result, rank, selected, onToggle }: { result: Match
             width: 44, height: 44, borderRadius: 10, flexShrink: 0,
             background: showPhoto ? 'transparent' : 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+            fontSize: 15, fontWeight: 800, color: 'var(--ink, #1C1A14)', overflow: 'hidden',
           }}>
             {showPhoto
               ? <img
@@ -510,7 +510,7 @@ function AvatarWithFallback({ prenom, nom, photo_url }: { prenom?: string | null
       width: 40, height: 40, borderRadius: 10, flexShrink: 0,
       background: show ? 'transparent' : 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+      fontSize: 13, fontWeight: 800, color: 'var(--ink, #1C1A14)', overflow: 'hidden',
     }}>
       {show
         ? <img src={photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setErr(true)} />

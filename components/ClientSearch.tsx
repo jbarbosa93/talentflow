@@ -120,7 +120,7 @@ export default function ClientSearch({
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100,
-          background: 'white', border: '1.5px solid var(--border)', borderRadius: 8,
+          background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8,
           boxShadow: '0 8px 24px rgba(0,0,0,0.1)', maxHeight: 260, overflowY: 'auto',
         }}>
           {filtered.length === 0 ? (
@@ -155,7 +155,7 @@ export default function ClientSearch({
                 <div style={{
                   width: 30, height: 30, borderRadius: 6, background: 'var(--primary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 800, color: '#0F172A', flexShrink: 0,
+                  fontSize: 12, fontWeight: 800, color: 'var(--ink, #1C1A14)', flexShrink: 0,
                 }}>
                   {(c.nom_entreprise?.[0] || '?').toUpperCase()}
                 </div>

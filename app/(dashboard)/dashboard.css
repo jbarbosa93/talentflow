@@ -829,6 +829,13 @@ body {
 [data-theme="dark"] .neo-kpi.kpi-violet .neo-kpi-icon { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.3); }
 
 /* ══════════════════════════════════════
+   NOTE BADGE — tooltip hover liste candidats
+   ══════════════════════════════════════ */
+.note-badge-wrapper:hover .note-tooltip {
+  opacity: 1 !important;
+}
+
+/* ══════════════════════════════════════
    SHIMMER — loading skeleton
    ══════════════════════════════════════ */
 @keyframes shimmer {
