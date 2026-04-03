@@ -548,7 +548,6 @@ export async function POST() {
               import_status: 'a_traiter',
               source: 'ONEDRIVE',
               tags: [],
-              notes: `Importé depuis OneDrive — dossier: ${folderName}\nFichier: ${filename}`,
               created_at: fileDate, // Date de modification du fichier OneDrive
             } as any)
             .select()

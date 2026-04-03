@@ -836,6 +836,9 @@ export default function PipelinePage() {
   // Notes modal state (lifted to page level to avoid DnD z-index issues)
   const [notesModal, setNotesModal] = useState<{ candidatId: string; name: string; notes: string } | null>(null)
 
+  // Stage picker for add-to-pipeline (null = aucun, string = candidat.id en cours de sélection)
+  const [stagePickerId, setStagePickerId] = useState<string | null>(null)
+
   // ── Load stages from app_settings ──
   const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES)
   const [stagesLoaded, setStagesLoaded] = useState(false)
@@ -935,6 +938,7 @@ export default function PipelinePage() {
       setAddSearch('')
       setAddResults([])
       setShowAddDropdown(false)
+      setStagePickerId(null)
       logActivity({
         type: 'statut_change',
         titre: `${candidat.prenom || ''} ${candidat.nom} ajouté au pipeline — ${etapeLabel}`,
@@ -1196,18 +1200,49 @@ export default function PipelinePage() {
                             {c.titre_poste || ''}{c.localisation ? ` · ${c.localisation}` : ''}
                           </div>
                         </div>
-                        <button
-                          onClick={() => addCandidatToPipeline(c, visibleStages[0]?.id || 'nouveau')}
-                          style={{
-                            padding: '5px 12px', borderRadius: 6,
-                            background: 'var(--primary)', border: 'none',
-                            color: 'white', fontSize: 11, fontWeight: 700,
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          + Ajouter
-                        </button>
+                        {stagePickerId === c.id ? (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {visibleStages.map(s => (
+                              <button
+                                key={s.id}
+                                onClick={() => { setStagePickerId(null); addCandidatToPipeline(c, s.id) }}
+                                style={{
+                                  padding: '3px 8px', borderRadius: 6,
+                                  background: s.color, border: 'none',
+                                  color: 'white', fontSize: 10, fontWeight: 700,
+                                  cursor: 'pointer', fontFamily: 'inherit',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {s.label}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setStagePickerId(null)}
+                              style={{
+                                padding: '3px 6px', borderRadius: 6,
+                                background: 'var(--muted)', border: 'none',
+                                color: 'var(--muted-foreground)', fontSize: 10,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setStagePickerId(c.id)}
+                            style={{
+                              padding: '5px 12px', borderRadius: 6,
+                              background: 'var(--primary)', border: 'none',
+                              color: 'white', fontSize: 11, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'inherit',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            + Ajouter
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
