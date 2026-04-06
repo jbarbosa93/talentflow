@@ -135,9 +135,11 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   onSave: (tags: string[]) => void
 }) {
   const [selected, setSelected] = useState<string[]>(currentTags)
+  const [search, setSearch] = useState('')
   const { metiers } = useMetiers()
   const { categories, getColorForMetier } = useMetierCategories()
   const ref = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   // Fermer + sauvegarder sur clic dehors ou ESC — ne garder que les métiers configurés
   const handleClose = useCallback(() => {
@@ -146,6 +148,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   }, [selected, metiers, onSave, onClose])
 
   useEffect(() => {
+    searchRef.current?.focus()
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
     const handleClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) handleClose()
@@ -161,16 +164,15 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   const toggle = (m: string) =>
     setSelected(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m])
 
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const q = norm(search.trim())
+  const matches = (m: string) => !q || norm(m).includes(q)
+
   const assignedSet = new Set(categories.flatMap(c => c.metiers))
   const unassigned = metiers.filter(m => !assignedSet.has(m))
 
-  // Sélectionnés en premier dans chaque liste
-  const sortSelected = (arr: string[]) => [
-    ...arr.filter(m => selected.includes(m)),
-    ...arr.filter(m => !selected.includes(m)),
-  ]
-
   const renderMetierItem = (m: string) => {
+    if (!matches(m)) return null
     const color = getColorForMetier(m) || '#3B82F6'
     return (
       <label key={m} style={{
@@ -191,21 +193,31 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
       position: 'absolute', top: '100%', right: 0, zIndex: 100,
       background: 'var(--card)', borderRadius: 10, padding: 10,
       boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-      border: '1px solid var(--border)', minWidth: 220, maxHeight: 320, overflowY: 'auto',
+      border: '1px solid var(--border)', minWidth: 230,
     }}
       onClick={e => e.stopPropagation()}
     >
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase' }}>
-        Métier(s)
-      </div>
+      {/* Barre de recherche */}
+      <input
+        ref={searchRef}
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Rechercher un métier…"
+        style={{
+          width: '100%', padding: '5px 8px', fontSize: 12, borderRadius: 6,
+          border: '1px solid var(--border)', background: 'var(--secondary)',
+          color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit',
+          marginBottom: 6, boxSizing: 'border-box',
+        }}
+      />
       {metiers.length === 0 ? (
         <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
           Aucun métier configuré.<br />Allez dans Paramètres pour en ajouter.
         </p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {/* Sélectionnés tout en haut, quelle que soit leur catégorie */}
-          {selected.filter(m => metiers.includes(m)).length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 280, overflowY: 'auto' }}>
+          {/* Sélectionnés tout en haut (si pas de recherche active) */}
+          {!q && selected.filter(m => metiers.includes(m)).length > 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary, #F5A623)', margin: '0 0 2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Sélectionnés
@@ -214,9 +226,9 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
               <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
             </div>
           )}
-          {/* Toutes les catégories sans les déjà sélectionnés */}
+          {/* Toutes les catégories */}
           {categories.map(cat => {
-            const catMetiers = cat.metiers.filter(m => metiers.includes(m) && !selected.includes(m))
+            const catMetiers = cat.metiers.filter(m => metiers.includes(m) && (!q || matches(m)) && (q || !selected.includes(m)))
             if (catMetiers.length === 0) return null
             return (
               <div key={cat.name}>
@@ -227,11 +239,14 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
               </div>
             )
           })}
-          {unassigned.filter(m => !selected.includes(m)).length > 0 && (
+          {unassigned.filter(m => !selected.includes(m) && matches(m)).length > 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', margin: '6px 0 2px 8px', textTransform: 'uppercase' }}>Autres</div>
-              {unassigned.filter(m => !selected.includes(m)).map(renderMetierItem)}
+              {unassigned.filter(m => !selected.includes(m) && matches(m)).map(renderMetierItem)}
             </div>
+          )}
+          {q && metiers.filter(matches).length === 0 && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 8px' }}>Aucun résultat</p>
           )}
         </div>
       )}

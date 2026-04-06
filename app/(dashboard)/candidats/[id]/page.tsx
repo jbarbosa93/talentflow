@@ -170,7 +170,9 @@ export default function CandidatDetailPage() {
   const [editData, setEditData]           = useState<Record<string, any>>({})
   const [showCV, setShowCV]               = useState(true)
   const [showMetierPicker, setShowMetierPicker] = useState(false)
+  const [metierSearch, setMetierSearch] = useState('')
   const metierPickerRef = useRef<HTMLDivElement>(null)
+  const metierSearchRef = useRef<HTMLInputElement>(null)
   const [cvLightbox, setCvLightbox]       = useState(false)
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
@@ -288,7 +290,7 @@ export default function CandidatDetailPage() {
   useEffect(() => {
     if (!showMetierPicker) return
     const handler = (e: MouseEvent) => {
-      if (metierPickerRef.current && !metierPickerRef.current.contains(e.target as Node)) setShowMetierPicker(false)
+      if (metierPickerRef.current && !metierPickerRef.current.contains(e.target as Node)) { setShowMetierPicker(false); setMetierSearch('') }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -1180,11 +1182,29 @@ export default function CandidatDetailPage() {
                         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
                         background: 'var(--card)', borderRadius: 10, marginTop: 4,
                         boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-                        border: '1px solid var(--border)', maxHeight: 280, overflowY: 'auto',
+                        border: '1px solid var(--border)',
                         padding: 8,
                       }}>
+                        {/* Barre de recherche */}
+                        <input
+                          ref={metierSearchRef}
+                          autoFocus
+                          value={metierSearch}
+                          onChange={e => setMetierSearch(e.target.value)}
+                          placeholder="Rechercher un métier…"
+                          style={{
+                            width: '100%', padding: '5px 8px', fontSize: 12, borderRadius: 6,
+                            border: '1px solid var(--border)', background: 'var(--secondary)',
+                            color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit',
+                            marginBottom: 6, boxSizing: 'border-box',
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        />
                         {(() => {
                           const currentMetiers: string[] = editData.metiers || []
+                          const normM = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+                          const qM = normM(metierSearch.trim())
+                          const matchesM = (m: string) => !qM || normM(m).includes(qM)
                           const patchMetiers = async (newMetiers: string[]) => {
                             set('metiers', newMetiers)
                             queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, tags: newMetiers } : old)
@@ -1218,7 +1238,7 @@ export default function CandidatDetailPage() {
                             )
                           }
                           const renderGroup = (name: string, color: string, items: string[]) => {
-                            const available = items.filter(m => agenceMetiers.includes(m))
+                            const available = items.filter(m => agenceMetiers.includes(m) && matchesM(m))
                             if (available.length === 0) return null
                             return (
                               <div key={name}>
@@ -1227,23 +1247,26 @@ export default function CandidatDetailPage() {
                               </div>
                             )
                           }
+                          const noResults = agenceMetiers.filter(matchesM).length === 0
                           if (metierCategories.length > 0) {
                             const assignedSet = new Set(metierCategories.flatMap(c => c.metiers))
                             const autres = agenceMetiers.filter(m => !assignedSet.has(m))
                             return (
-                              <>
+                              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
                                 {metierCategories.map(cat => renderGroup(cat.name, cat.color, cat.metiers))}
                                 {autres.length > 0 && renderGroup('Autres', '#64748B', autres)}
-                              </>
+                                {noResults && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 8px' }}>Aucun résultat</p>}
+                              </div>
                             )
                           }
                           const allKnown = new Set(METIER_CATEGORIES.flatMap(c => c.metiers))
                           const autres = agenceMetiers.filter(m => !allKnown.has(m))
                           return (
-                            <>
+                            <div style={{ maxHeight: 260, overflowY: 'auto' }}>
                               {METIER_CATEGORIES.map(cat => renderGroup(cat.label, '#3B82F6', cat.metiers))}
                               {autres.length > 0 && renderGroup('Autres', '#64748B', autres)}
-                            </>
+                              {noResults && <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 8px' }}>Aucun résultat</p>}
+                            </div>
                           )
                         })()}
                       </div>
