@@ -6,7 +6,7 @@ import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive, Briefcase, Info,
+  CheckCircle, Archive, Briefcase, Info, GraduationCap,
 } from 'lucide-react'
 
 import { useUpload } from '@/contexts/UploadContext'
@@ -843,36 +843,90 @@ export default function CandidatsList() {
             {c.titre_poste && (
               <span style={{ fontSize: 15, color: 'var(--foreground)', fontWeight: 400 }}>{c.titre_poste}</span>
             )}
-            {c.localisation && (
-              <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                {'\uD83D\uDCCD'} {c.localisation}
-              </span>
-            )}
-            {(c.cfc || (c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation))) && (
-              <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
+            {/* En mode à-traiter, lieu + âge sur la même ligne sous le titre */}
+            {importStatusFilter === 'a_traiter' ? (
+              <>
+                {c.localisation && (
+                  <span style={{ fontSize: 13, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                    {'\uD83D\uDCCD'} {c.localisation}
+                  </span>
+                )}
+                {age !== null && (
+                  <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                    · {age} ans
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                {c.localisation && (
+                  <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    {'\uD83D\uDCCD'} {c.localisation}
+                  </span>
+                )}
+                {/* Badges CFC + Engagée (hors à-traiter) */}
+                {(c.cfc || (c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation))) && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
+                )}
+                {c.deja_engage && (
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>Engagé</span>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Star rating — à gauche de l'âge */}
-        {c.rating > 0 && (
-          <div className="clist-stars" style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+        {/* Étoiles : interactives en à-traiter, lecture seule sinon */}
+        {importStatusFilter === 'a_traiter' ? (
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ display: 'flex', gap: 2, flexShrink: 0 }}
+          >
             {[1, 2, 3, 4, 5].map(star => (
-              <Star
+              <button
                 key={star}
-                size={13}
-                color="#EAB308"
-                fill={star <= c.rating ? '#EAB308' : 'none'}
-              />
+                onClick={async e => {
+                  e.stopPropagation()
+                  const newRating = c.rating === star ? null : star
+                  queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+                    old?.candidats
+                      ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, rating: newRating } : x) }
+                      : old
+                  )
+                  try {
+                    await fetch(`/api/candidats/${c.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ rating: newRating }),
+                    })
+                  } catch {
+                    queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  }
+                }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, flexShrink: 0 }}
+                title={`${star} étoile${star > 1 ? 's' : ''}`}
+              >
+                <Star size={15} color="#EAB308" fill={star <= (c.rating || 0) ? '#EAB308' : 'none'} />
+              </button>
             ))}
           </div>
-        )}
-
-        {/* Âge (calculé depuis date_naissance) */}
-        {age !== null && (
-          <span className="clist-age" style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
-            {age} ans
-          </span>
+        ) : (
+          <>
+            {/* Star rating lecture seule */}
+            {c.rating > 0 && (
+              <div className="clist-stars" style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <Star key={star} size={13} color="#EAB308" fill={star <= c.rating ? '#EAB308' : 'none'} />
+                ))}
+              </div>
+            )}
+            {/* Âge (calculé depuis date_naissance) */}
+            {age !== null && (
+              <span className="clist-age" style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
+                {age} ans
+              </span>
+            )}
+          </>
         )}
 
         {/* Bouton CV hover preview */}
@@ -958,6 +1012,80 @@ export default function CandidatsList() {
             </div>
           )
         })()}
+
+        {/* Toggles CFC + Engagée (a_traiter mode only) */}
+        {importStatusFilter === 'a_traiter' && (
+          <>
+            <button
+              onClick={async e => {
+                e.stopPropagation()
+                const newVal = !c.cfc
+                queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+                  old?.candidats
+                    ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, cfc: newVal } : x) }
+                    : old
+                )
+                try {
+                  const res = await fetch(`/api/candidats/${c.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cfc: newVal }),
+                  })
+                  if (!res.ok) throw new Error()
+                } catch {
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                }
+              }}
+              title={c.cfc ? 'CFC — désactiver' : 'CFC — activer'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
+                border: `1.5px solid ${c.cfc ? '#F59E0B' : 'var(--border)'}`,
+                background: c.cfc ? 'rgba(245,158,11,0.12)' : 'transparent',
+                color: c.cfc ? '#B45309' : 'var(--muted)',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <GraduationCap size={10} />
+              CFC
+            </button>
+            <button
+              onClick={async e => {
+                e.stopPropagation()
+                const newVal = !c.deja_engage
+                queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+                  old?.candidats
+                    ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, deja_engage: newVal } : x) }
+                    : old
+                )
+                try {
+                  const res = await fetch(`/api/candidats/${c.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deja_engage: newVal }),
+                  })
+                  if (!res.ok) throw new Error()
+                } catch {
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                }
+              }}
+              title={c.deja_engage ? 'Engagé — désactiver' : 'Engagé — activer'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
+                border: `1.5px solid ${c.deja_engage ? '#22C55E' : 'var(--border)'}`,
+                background: c.deja_engage ? 'rgba(34,197,94,0.12)' : 'transparent',
+                color: c.deja_engage ? '#15803D' : 'var(--muted)',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Briefcase size={10} />
+              Engagé
+            </button>
+          </>
+        )}
 
         {/* Quick validate button (a_traiter mode only) */}
         {importStatusFilter === 'a_traiter' && (

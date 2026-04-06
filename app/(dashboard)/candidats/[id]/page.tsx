@@ -270,10 +270,10 @@ export default function CandidatDetailPage() {
   // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
   useEffect(() => { if (id) markCandidatVu(id) }, [id])
 
-  // Auto-allumer CFC si détecté dans le texte formation et pas encore coché
+  // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
   useEffect(() => {
     if (!candidat) return
-    if (!candidat.cfc && candidat.formation && CFC_REGEX.test(candidat.formation)) {
+    if (candidat.cfc === null && candidat.formation && CFC_REGEX.test(candidat.formation)) {
       queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: true } : old)
       fetch(`/api/candidats/${candidat.id}`, {
         method: 'PATCH',
