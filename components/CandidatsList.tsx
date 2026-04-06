@@ -6,7 +6,7 @@ import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive, Briefcase, Info, GraduationCap,
+  CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil,
 } from 'lucide-react'
 
 import { useUpload } from '@/contexts/UploadContext'
@@ -392,6 +392,9 @@ export default function CandidatsList() {
   const [noteText, setNoteText] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [editNoteId, setEditNoteId] = useState<string | null>(null)
+  const [editNoteText, setEditNoteText] = useState('')
+  const [editNoteSaving, setEditNoteSaving] = useState(false)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
@@ -764,7 +767,6 @@ export default function CandidatsList() {
       })
       if (!res.ok) throw new Error()
       const { note } = await res.json()
-      // Mise à jour optimiste du cache
       queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
         old?.candidats
           ? { ...old, candidats: old.candidats.map((x: any) =>
@@ -775,11 +777,59 @@ export default function CandidatsList() {
           : old
       )
       setNoteText('')
-      setNotePopoverId(null)
+      setTimeout(() => noteTextareaRef.current?.focus(), 50)
     } catch {
-      // silencieux — la note sera visible au prochain reload
+      // silencieux
     } finally {
       setNoteSaving(false)
+    }
+  }
+
+  const deleteNote = async (noteId: string, candidatId: string) => {
+    // Optimiste : retirer immédiatement du cache
+    queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+      old?.candidats
+        ? { ...old, candidats: old.candidats.map((x: any) =>
+            x.id === candidatId
+              ? { ...x, notes_candidat: (x.notes_candidat || []).filter((n: any) => n.id !== noteId) }
+              : x
+          )}
+        : old
+    )
+    try {
+      await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+    }
+  }
+
+  const updateNote = async (noteId: string, candidatId: string) => {
+    if (!editNoteText.trim()) return
+    setEditNoteSaving(true)
+    // Optimiste
+    queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+      old?.candidats
+        ? { ...old, candidats: old.candidats.map((x: any) =>
+            x.id === candidatId
+              ? { ...x, notes_candidat: (x.notes_candidat || []).map((n: any) =>
+                  n.id === noteId ? { ...n, contenu: editNoteText.trim() } : n
+                )}
+              : x
+          )}
+        : old
+    )
+    try {
+      await fetch(`/api/notes/${noteId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contenu: editNoteText.trim() }),
+      })
+      setEditNoteId(null)
+      setEditNoteText('')
+    } catch {
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+    } finally {
+      setEditNoteSaving(false)
     }
   }
 
@@ -1048,21 +1098,89 @@ export default function CandidatsList() {
             >
               <MessageSquare size={13} />
             </button>
-            {notePopoverId === c.id && (
+            {notePopoverId === c.id && (() => {
+              const sortedNotes = [...(c.notes_candidat || [])].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              return (
               <div
+                onClick={e => e.stopPropagation()}
                 style={{
                   position: 'absolute', bottom: '100%', right: 0, marginBottom: 6,
                   background: 'var(--card)', border: '1.5px solid #6366F1',
-                  borderRadius: 10, padding: 10, width: 240, zIndex: 200,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  borderRadius: 10, padding: 10, width: 268, zIndex: 200,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                  maxHeight: 420, overflowY: 'auto',
                 }}
               >
+                {/* Notes existantes */}
+                {sortedNotes.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    {sortedNotes.map((note: any) => (
+                      <div key={note.id} style={{
+                        borderRadius: 7, padding: '6px 8px', marginBottom: 6,
+                        background: 'var(--secondary)', border: '1px solid var(--border)',
+                      }}>
+                        {editNoteId === note.id ? (
+                          <>
+                            <textarea
+                              autoFocus
+                              value={editNoteText}
+                              onChange={e => setEditNoteText(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) updateNote(note.id, c.id) }}
+                              rows={3}
+                              style={{
+                                width: '100%', fontSize: 12, borderRadius: 6,
+                                border: '1px solid #6366F1', background: 'var(--card)',
+                                color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit',
+                                padding: '5px 7px', resize: 'none', boxSizing: 'border-box',
+                              }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4 }}>
+                              <button onClick={() => { setEditNoteId(null); setEditNoteText('') }}
+                                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 5, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Annuler
+                              </button>
+                              <button onClick={() => updateNote(note.id, c.id)} disabled={!editNoteText.trim() || editNoteSaving}
+                                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 5, border: 'none', background: editNoteText.trim() ? '#6366F1' : 'var(--border)', color: 'white', cursor: editNoteText.trim() ? 'pointer' : 'default', fontFamily: 'inherit', fontWeight: 700 }}>
+                                {editNoteSaving ? '…' : 'Sauvegarder'}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                              <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600 }}>
+                                {note.auteur || 'Recruteur'} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                              </span>
+                              <div style={{ display: 'flex', gap: 3 }}>
+                                <button
+                                  onClick={() => { setEditNoteId(note.id); setEditNoteText(note.contenu) }}
+                                  title="Modifier"
+                                  style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 4, border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' }}
+                                ><Pencil size={10} /></button>
+                                <button
+                                  onClick={() => deleteNote(note.id, c.id)}
+                                  title="Supprimer"
+                                  style={{ display: 'flex', alignItems: 'center', padding: 3, borderRadius: 4, border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
+                                ><Trash2 size={10} /></button>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: 12, color: 'var(--foreground)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                              {note.contenu}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                    <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+                  </div>
+                )}
+                {/* Ajouter une note */}
                 <textarea
                   ref={noteTextareaRef}
                   value={noteText}
                   onChange={e => setNoteText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveNote(c.id) }}
-                  placeholder="Ajouter une note…"
+                  placeholder="Nouvelle note…"
                   rows={3}
                   style={{
                     width: '100%', fontSize: 12, borderRadius: 6,
@@ -1073,9 +1191,9 @@ export default function CandidatsList() {
                 />
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 6 }}>
                   <button
-                    onClick={() => { setNotePopoverId(null); setNoteText('') }}
+                    onClick={() => { setNotePopoverId(null); setNoteText(''); setEditNoteId(null) }}
                     style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >Annuler</button>
+                  >Fermer</button>
                   <button
                     onClick={() => saveNote(c.id)}
                     disabled={!noteText.trim() || noteSaving}
@@ -1085,10 +1203,11 @@ export default function CandidatsList() {
                       color: 'white', cursor: noteText.trim() ? 'pointer' : 'default',
                       fontFamily: 'inherit', fontWeight: 700,
                     }}
-                  >{noteSaving ? '…' : 'Sauvegarder'}</button>
+                  >{noteSaving ? '…' : 'Ajouter'}</button>
                 </div>
               </div>
-            )}
+              )
+            })()}
           </div>
         )}
 
