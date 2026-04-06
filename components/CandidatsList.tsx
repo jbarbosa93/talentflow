@@ -910,7 +910,7 @@ export default function CandidatsList() {
                 )}
                 {age !== null && (
                   <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
-                    · {age} ans
+                    {age} ans
                   </span>
                 )}
               </>
