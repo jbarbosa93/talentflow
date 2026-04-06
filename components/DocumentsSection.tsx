@@ -535,7 +535,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                       // CV principal (virtuel, pas dans documents[]) → realIdx = -1
                       // Anciens CVs (dans documents[] avec type 'cv') → vrai index
                       const isCvPrincipalItem = isCvCategory && localIdx === 0 && cvUrl && doc.url === cvUrl
-                      const realIdx = isCvPrincipalItem ? -1 : getRealIndex(cat.key, isCvCategory ? localIdx - (cvUrl ? 1 : 0) : localIdx)
+                      const realIdx = isCvPrincipalItem ? -1 : getRealIndex(cat.key, localIdx)
                       const isRealDoc = realIdx >= 0 // Document réel dans documents[] (pas CV principal virtuel)
                       const isEditingThis = isRealDoc && editingNameIdx === realIdx
                       const isDeleting = isRealDoc && deletingIdx === realIdx

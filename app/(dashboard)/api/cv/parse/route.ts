@@ -612,11 +612,34 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8b. Vérifier les doublons (email → téléphone → nom+prénom)
   let candidatExistant: any = null
+  // Helper : vérifier si deux personnes ont des noms suffisamment similaires
+  // Évite les faux positifs quand deux personnes différentes partagent un email/téléphone
+  const nomsSimilaires = (analyse: any, existant: any): boolean => {
+    if (!analyse.nom || !existant.nom) return true // pas de nom parsé → on laisse passer
+    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    const pNom = norm(analyse.nom), eNom = norm(existant.nom)
+    const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
+      pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((e: string) => e.includes(p) || p.includes(e)))
+    if (nomOk) return true
+    // Noms différents → vérifier le prénom comme dernier recours
+    const pPrenom = norm(analyse.prenom || ''), ePrenom = norm(existant.prenom || '')
+    return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
+  }
+
   if (!forceInsert && !replaceId && !updateId && analyse.email) {
     const { data: byEmail } = await adminClient
       .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
       .eq('email', analyse.email).maybeSingle()
-    candidatExistant = byEmail
+    if (byEmail) {
+      if (!nomsSimilaires(analyse, byEmail)) {
+        return NextResponse.json({
+          isDuplicate: true, multipleMatches: true,
+          candidatsMatches: [byEmail], analyse, cv_url: cvUrl,
+          message: `L'email est déjà utilisé par ${byEmail.prenom} ${byEmail.nom} — est-ce la même personne ?`,
+        })
+      }
+      candidatExistant = byEmail
+    }
   }
   if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.telephone) {
     // Normaliser le téléphone des deux côtés — ilike('%digits%') échoue sur "+41 77 423 99 95" (espaces)
@@ -632,7 +655,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           const stored = (c.telephone || '').replace(/\D/g, '')
           return stored.length >= 8 && stored.slice(-9) === tel9
         })
-        if (telMatch) candidatExistant = telMatch
+        if (telMatch) {
+          if (!nomsSimilaires(analyse, telMatch)) {
+            return NextResponse.json({
+              isDuplicate: true, multipleMatches: true,
+              candidatsMatches: [telMatch], analyse, cv_url: cvUrl,
+              message: `Le téléphone est déjà utilisé par ${telMatch.prenom} ${telMatch.nom} — est-ce la même personne ?`,
+            })
+          }
+          candidatExistant = telMatch
+        }
       }
     }
   }
