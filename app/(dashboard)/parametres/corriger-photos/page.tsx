@@ -128,10 +128,10 @@ export default function CorrigerPhotosPage() {
     photos.start()
   }
 
-  function handleStartAuto() {
+  function handleStartAuto(force = false) {
     setApproved(0)
     setRejected(0)
-    photos.startAuto()
+    photos.startAuto(force)
   }
 
   function handleRestart(force = false) {
@@ -243,12 +243,21 @@ export default function CorrigerPhotosPage() {
 
           {/* Ré-analyser tout */}
           {photos.phase !== 'running' && (
-            <button
-              onClick={() => { if (confirm('Ré-analyser tous les CVs depuis le début (même ceux déjà traités) ?')) handleRestart(true) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <RotateCcw size={14} /> Ré-analyser tout
-            </button>
+            <>
+              <button
+                onClick={() => { if (confirm('Ré-analyser tous les CVs depuis le début (même ceux déjà traités) ?')) handleRestart(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                <RotateCcw size={14} /> Ré-analyser tout
+              </button>
+              <button
+                onClick={() => { if (confirm('Ré-analyser tous les CVs automatiquement (même ceux déjà traités) ?')) handleStartAuto(true) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontFamily: 'inherit' }}
+                title="Ré-analyse tous les CVs automatiquement sans validation manuelle"
+              >
+                <Zap size={14} /> Auto (tout)
+              </button>
+            </>
           )}
 
           {photos.phase === 'running' && (

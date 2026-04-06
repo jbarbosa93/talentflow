@@ -37,7 +37,7 @@ interface PhotosState {
 interface PhotosContextType extends PhotosState {
   progress: number
   start: () => void
-  startAuto: () => void
+  startAuto: (force?: boolean) => void
   pause: () => void
   resume: () => void
   restart: (force?: boolean) => void
@@ -209,11 +209,11 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Start fresh — auto mode (processes all, no review queue)
-  const startAuto = useCallback(() => {
+  const startAuto = useCallback((force = false) => {
     if (_phase === 'running') return
     _abortFlag = false
     _phase = 'running'
-    _forceMode = false
+    _forceMode = force
     _autoMode = true
     _forceOffset = 0
     _processed = 0
@@ -221,8 +221,8 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: true, reviewQueue: [], processedLog: [] })
-    runPhotosLoop(false)
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: true, reviewQueue: [], processedLog: [] })
+    runPhotosLoop(force)
   }, [])
 
   // Pause — stops the loop, preserves progress
