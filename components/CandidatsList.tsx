@@ -887,11 +887,11 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {c.localisation}
                   </span>
                 )}
-                {/* Badges CFC + Engagée (hors à-traiter) */}
-                {(c.cfc || (c.formation && /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i.test(c.formation))) && (
+                {/* Badges CFC + Engagée (hors à-traiter) — uniquement basé sur le champ DB */}
+                {c.cfc === true && (
                   <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
                 )}
-                {c.deja_engage && (
+                {c.deja_engage === true && (
                   <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>Engagé</span>
                 )}
               </>
