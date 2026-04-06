@@ -922,7 +922,7 @@ export default function CandidatsList() {
             )}
             {/* Âge (calculé depuis date_naissance) */}
             {age !== null && (
-              <span className="clist-age" style={{ fontSize: 14, fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8 }}>
+              <span className="clist-age" style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
                 {age} ans
               </span>
             )}
@@ -1040,9 +1040,9 @@ export default function CandidatsList() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 3,
                 padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
-                border: `1.5px solid ${c.cfc ? '#F59E0B' : 'var(--border)'}`,
-                background: c.cfc ? 'rgba(245,158,11,0.12)' : 'transparent',
-                color: c.cfc ? '#B45309' : 'var(--muted)',
+                border: `1.5px solid ${c.cfc ? '#22C55E' : 'var(--border)'}`,
+                background: c.cfc ? 'rgba(34,197,94,0.12)' : 'transparent',
+                color: c.cfc ? '#15803D' : 'var(--muted)',
                 cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
                 whiteSpace: 'nowrap',
               }}
@@ -1085,24 +1085,6 @@ export default function CandidatsList() {
               Engagé
             </button>
           </>
-        )}
-
-        {/* Quick validate button (a_traiter mode only) */}
-        {importStatusFilter === 'a_traiter' && (
-          <button
-            onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
-            title="Valider ce candidat"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #16A34A',
-              background: '#16A34A', cursor: 'pointer', flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-            onMouseOver={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.borderColor = '#15803D' }}
-            onMouseOut={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.borderColor = '#16A34A' }}
-          >
-            <CheckCircle size={15} color="white" />
-          </button>
         )}
 
         {/* Métier — pastille colorée selon catégorie si assigné, bouton discret sinon */}
@@ -1156,6 +1138,24 @@ export default function CandidatsList() {
         <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
           {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
         </span>
+
+        {/* Quick validate button (a_traiter mode only) — après la date */}
+        {importStatusFilter === 'a_traiter' && (
+          <button
+            onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
+            title="Valider ce candidat"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #16A34A',
+              background: '#16A34A', cursor: 'pointer', flexShrink: 0,
+              transition: 'all 0.15s',
+            }}
+            onMouseOver={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.borderColor = '#15803D' }}
+            onMouseOut={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.borderColor = '#16A34A' }}
+          >
+            <CheckCircle size={15} color="white" />
+          </button>
+        )}
       </div>
     )
   }
