@@ -388,6 +388,10 @@ export default function CandidatsList() {
   const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number; panelW: number } | null>(null)
   const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
+  const [notePopoverId, setNotePopoverId] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
   const prevHoveredCvUrl = useRef<string | null>(null)
@@ -749,6 +753,36 @@ export default function CandidatsList() {
     return `${p[0] || ''}${n[0] || ''}`.toUpperCase() || '?'
   }
 
+  const saveNote = async (candidatId: string) => {
+    if (!noteText.trim()) return
+    setNoteSaving(true)
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidat_id: candidatId, contenu: noteText.trim() }),
+      })
+      if (!res.ok) throw new Error()
+      const { note } = await res.json()
+      // Mise à jour optimiste du cache
+      queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+        old?.candidats
+          ? { ...old, candidats: old.candidats.map((x: any) =>
+              x.id === candidatId
+                ? { ...x, notes_candidat: [...(x.notes_candidat || []), note] }
+                : x
+            )}
+          : old
+      )
+      setNoteText('')
+      setNotePopoverId(null)
+    } catch {
+      // silencieux — la note sera visible au prochain reload
+    } finally {
+      setNoteSaving(false)
+    }
+  }
+
   const handleAiSearch = async () => {
     if (!search.trim()) return
     setAiSearching(true)
@@ -990,6 +1024,71 @@ export default function CandidatsList() {
             title="Survoler pour prévisualiser le CV"
           >
             <Eye size={11} /> CV
+          </div>
+        )}
+
+        {/* Bouton ajouter note (à-traiter uniquement) */}
+        {importStatusFilter === 'a_traiter' && (
+          <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                if (notePopoverId === c.id) { setNotePopoverId(null); setNoteText('') }
+                else { setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50) }
+              }}
+              title="Ajouter une note"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 8, cursor: 'pointer', flexShrink: 0,
+                border: `1.5px solid ${notePopoverId === c.id ? '#6366F1' : 'var(--border)'}`,
+                background: notePopoverId === c.id ? 'rgba(99,102,241,0.1)' : 'transparent',
+                color: notePopoverId === c.id ? '#6366F1' : 'var(--muted)',
+                transition: 'all 0.15s',
+              }}
+            >
+              <MessageSquare size={13} />
+            </button>
+            {notePopoverId === c.id && (
+              <div
+                style={{
+                  position: 'absolute', bottom: '100%', right: 0, marginBottom: 6,
+                  background: 'var(--card)', border: '1.5px solid #6366F1',
+                  borderRadius: 10, padding: 10, width: 240, zIndex: 200,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                }}
+              >
+                <textarea
+                  ref={noteTextareaRef}
+                  value={noteText}
+                  onChange={e => setNoteText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveNote(c.id) }}
+                  placeholder="Ajouter une note…"
+                  rows={3}
+                  style={{
+                    width: '100%', fontSize: 12, borderRadius: 6,
+                    border: '1px solid var(--border)', background: 'var(--secondary)',
+                    color: 'var(--foreground)', outline: 'none', fontFamily: 'inherit',
+                    padding: '6px 8px', resize: 'none', boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 6 }}>
+                  <button
+                    onClick={() => { setNotePopoverId(null); setNoteText('') }}
+                    style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Annuler</button>
+                  <button
+                    onClick={() => saveNote(c.id)}
+                    disabled={!noteText.trim() || noteSaving}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, borderRadius: 6, border: 'none',
+                      background: noteText.trim() ? '#6366F1' : 'var(--border)',
+                      color: 'white', cursor: noteText.trim() ? 'pointer' : 'default',
+                      fontFamily: 'inherit', fontWeight: 700,
+                    }}
+                  >{noteSaving ? '…' : 'Sauvegarder'}</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
