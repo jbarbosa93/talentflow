@@ -1,5 +1,5 @@
 // hooks/useCandidats.ts
-import { useQuery, useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useRef } from 'react'
 import type { Candidat, PipelineEtape, ImportStatus } from '@/types/database'
