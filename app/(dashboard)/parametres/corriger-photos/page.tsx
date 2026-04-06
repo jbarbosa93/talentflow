@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Play, Pause, CheckCircle, Camera, Loader2, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw, ArrowLeft, Zap } from 'lucide-react'
+import { Play, Pause, CheckCircle, Camera, Loader2, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw, ArrowLeft, Zap, RefreshCw, X } from 'lucide-react'
 import { usePhotos } from '@/contexts/PhotosContext'
 import type { ProcessedLogItem } from '@/contexts/PhotosContext'
 
@@ -89,6 +89,11 @@ export default function CorrigerPhotosPage() {
     } catch {}
   }
 
+  function handleReset() {
+    photos.reset()
+    fetchStats()
+  }
+
   function updateHistoryStatus(id: string, status: 'approved' | 'rejected') {
     setHistory(prev => {
       const updated = prev.map(h => h.id === id ? { ...h, status } : h)
@@ -173,11 +178,18 @@ export default function CorrigerPhotosPage() {
 
       {/* Stats */}
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+        <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <button onClick={fetchStats} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            <RefreshCw size={11} /> Actualiser
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           <StatCard label="Avec photo" value={stats.withPhoto} color="#10B981" icon="📸" />
           <StatCard label="À analyser" value={stats.withoutPhoto} color="#F59E0B" icon="📄" />
           <StatCard label="Total CVs" value={stats.total} color="#64748B" icon="📁" />
           <StatCard label="Historique" value={history.length} color="#6366F1" icon="📋" />
+        </div>
         </div>
       )}
 
@@ -234,9 +246,9 @@ export default function CorrigerPhotosPage() {
               <button
                 onClick={() => handleStartAuto(false)}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontFamily: 'inherit' }}
-                title="Traite tous les CVs automatiquement sans demander de validation pour chaque photo"
+                title="Traite uniquement les candidats SANS photo automatiquement"
               >
-                <Zap size={14} /> Mode automatique
+                <Zap size={14} /> Auto (sans photo)
               </button>
             </>
           )}
@@ -280,6 +292,16 @@ export default function CorrigerPhotosPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
               <CheckCircle size={15} /> {photos.autoMode ? `Terminé — ${photos.found} photo${photos.found > 1 ? 's' : ''} enregistrée${photos.found > 1 ? 's' : ''}` : 'Tout validé'}
             </div>
+          )}
+          {/* Bouton reset — efface la progression stale et rafraîchit les stats */}
+          {(photos.phase === 'done' || photos.phase === 'paused') && (
+            <button
+              onClick={handleReset}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}
+              title="Réinitialiser l'affichage et actualiser les stats"
+            >
+              <X size={12} /> Réinitialiser
+            </button>
           )}
         </div>
       </div>

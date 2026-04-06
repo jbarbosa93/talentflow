@@ -42,6 +42,7 @@ interface PhotosContextType extends PhotosState {
   resume: () => void
   restart: (force?: boolean) => void
   stop: () => void
+  reset: () => void
   approvePhoto: (id: string) => void
   rejectPhoto: (id: string) => Promise<void>
 }
@@ -260,6 +261,21 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _abortFlag = true
   }, [])
 
+  // Reset to idle — clears stale progress without restarting
+  const reset = useCallback(() => {
+    _abortFlag = true
+    _phase = 'idle'
+    _forceMode = false
+    _autoMode = false
+    _forceOffset = 0
+    _processed = 0
+    _found = 0
+    _remaining = 0
+    _reviewQueue = []
+    _processedLog = []
+    setState({ phase: 'idle', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [] })
+  }, [])
+
   const approvePhoto = useCallback((id: string) => {
     _reviewQueue = _reviewQueue.filter(item => item.id !== id)
     setState(prev => ({ ...prev, reviewQueue: _reviewQueue }))
@@ -280,7 +296,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   const progress = state.total > 0 ? Math.min(100, Math.round((state.processed / state.total) * 100)) : 0
 
   return (
-    <PhotosContext.Provider value={{ ...state, progress, start, startAuto, pause, resume, restart, stop, approvePhoto, rejectPhoto }}>
+    <PhotosContext.Provider value={{ ...state, progress, start, startAuto, pause, resume, restart, stop, reset, approvePhoto, rejectPhoto }}>
       {children}
     </PhotosContext.Provider>
   )
