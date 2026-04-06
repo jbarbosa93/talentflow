@@ -117,12 +117,12 @@ export async function GET(request: NextRequest) {
           .select(LIST_COLUMNS)
           .in('id', pageIds)
 
-        // Tri dans la page
+        // Tri dans la page — id en secondaire pour ordre stable quand created_at identiques
         switch (sort) {
-          case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }); break
-          case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }); break
-          case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }); break
-          default:          searchQuery = searchQuery.order('created_at', { ascending: false })
+          case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }).order('id', { ascending: true }); break
+          case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }).order('id', { ascending: true }); break
+          case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }).order('id', { ascending: true }); break
+          default:          searchQuery = searchQuery.order('created_at', { ascending: false }).order('id', { ascending: true })
         }
 
         const { data, error: searchFetchError } = await searchQuery
@@ -141,19 +141,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Tri
+    // Tri — id en secondaire pour ordre stable quand created_at identiques
     switch (sort) {
       case 'date_asc':
-        query = query.order('created_at', { ascending: true })
+        query = query.order('created_at', { ascending: true }).order('id', { ascending: true })
         break
       case 'nom_az':
-        query = query.order('prenom', { ascending: true }).order('nom', { ascending: true })
+        query = query.order('prenom', { ascending: true }).order('nom', { ascending: true }).order('id', { ascending: true })
         break
       case 'titre_az':
-        query = query.order('titre_poste', { ascending: true })
+        query = query.order('titre_poste', { ascending: true }).order('id', { ascending: true })
         break
       default: // date_desc
-        query = query.order('created_at', { ascending: false })
+        query = query.order('created_at', { ascending: false }).order('id', { ascending: true })
     }
 
     // Pagination — pour les gros volumes (>1000), paginer côté serveur
