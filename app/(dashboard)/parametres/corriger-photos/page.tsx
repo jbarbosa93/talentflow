@@ -245,10 +245,11 @@ export default function CorrigerPhotosPage() {
               </button>
               <button
                 onClick={() => handleStartAuto(false)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontFamily: 'inherit' }}
-                title="Traite uniquement les candidats SANS photo automatiquement"
+                disabled={remainingCount === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: remainingCount === 0 ? '#F8FAFC' : '#EEF2FF', color: remainingCount === 0 ? '#94A3B8' : '#4338CA', cursor: remainingCount === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+                title={remainingCount === 0 ? 'Tous les CVs ont déjà été analysés — utilise "Auto (tout)" pour ré-analyser' : 'Traite uniquement les candidats SANS photo automatiquement'}
               >
-                <Zap size={14} /> Auto (sans photo)
+                <Zap size={14} /> Auto (sans photo){remainingCount === 0 ? ' ✓' : ''}
               </button>
             </>
           )}
