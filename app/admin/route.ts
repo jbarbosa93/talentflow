@@ -1,32 +1,29 @@
-// Accès direct sans saisie — DÉVELOPPEMENT LOCAL UNIQUEMENT
-// Visite localhost:3001/admin → connecte automatiquement et redirige vers le dashboard
-// Nécessite DEV_ADMIN_EMAIL + DEV_ADMIN_PASSWORD dans .env.local
+// Accès direct sans mot de passe — DÉVELOPPEMENT LOCAL UNIQUEMENT
+// Visite localhost:3001/admin → génère un magic link pour l'admin et redirige
 // Bloqué en production (NODE_ENV !== 'development')
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET() {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
   }
 
-  const email = process.env.DEV_ADMIN_EMAIL
-  const password = process.env.DEV_ADMIN_PASSWORD
+  const adminEmail = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+  const supabase = createAdminClient()
 
-  if (!email || !password) {
-    return NextResponse.json(
-      { error: 'DEV_ADMIN_EMAIL et DEV_ADMIN_PASSWORD manquants dans .env.local' },
-      { status: 500 }
-    )
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: 'magiclink',
+    email: adminEmail,
+    options: {
+      redirectTo: 'http://localhost:3001/api/auth/callback?next=/dashboard',
+    },
+  })
+
+  if (error || !data?.properties?.action_link) {
+    return NextResponse.json({ error: error?.message || 'Impossible de générer le lien' }, { status: 500 })
   }
 
-  const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 })
-  }
-
-  return NextResponse.redirect(new URL('/dashboard', 'http://localhost:3001'))
+  return NextResponse.redirect(data.properties.action_link)
 }
