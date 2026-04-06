@@ -241,11 +241,23 @@ export async function POST() {
           // f. Vérifie doublon candidat (5 méthodes)
           let existingCandidat: any = null
 
+          // Helper : évite les faux positifs quand deux personnes différentes partagent un email/tel
+          const nomsSimilaires = (parsed: any, existing: any): boolean => {
+            if (!parsed?.nom || !existing?.nom) return true
+            const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+            const pNom = norm(parsed.nom), eNom = norm(existing.nom)
+            const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
+              pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((e: string) => e.includes(p) || p.includes(e)))
+            if (nomOk) return true
+            const pPrenom = norm(parsed.prenom || ''), ePrenom = norm(existing.prenom || '')
+            return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
+          }
+
           // 1. Par email
           if (candidatEmail && !existingCandidat) {
             const { data } = await supabase.from('candidats').select('id, nom, prenom')
               .ilike('email', candidatEmail).maybeSingle()
-            existingCandidat = data
+            if (data && nomsSimilaires(analyse, data)) existingCandidat = data
           }
           // 2. Par téléphone — comparaison normalisée côté JS (évite le problème des espaces/formats)
           //    Ex: "+41 77 423 99 95" en DB ne contient pas "774239995" en ilike → on normalise les deux
@@ -260,7 +272,7 @@ export async function POST() {
                 const stored = (c.telephone || '').replace(/\D/g, '')
                 return stored.length >= 8 && stored.slice(-9) === tel9
               })
-              if (telMatch) existingCandidat = telMatch
+              if (telMatch && nomsSimilaires(analyse, telMatch)) existingCandidat = telMatch
             }
           }
           // 3. Par nom + prénom exact (les deux doivent correspondre exactement)
