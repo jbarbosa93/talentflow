@@ -424,8 +424,9 @@ export default function CandidatDetailPage() {
       cfc:                !!cfc,
       deja_engage:        !!deja_engage,
     }
-    // Si la date d'ajout a été modifiée, l'inclure
-    if (rest.created_at) {
+    // Inclure created_at SEULEMENT si l'utilisateur a changé la date manuellement
+    const originalDate = candidat.created_at ? new Date(candidat.created_at).toISOString().slice(0, 10) : ''
+    if (rest.created_at && rest.created_at !== originalDate) {
       payload.created_at = `${rest.created_at}T12:00:00.000Z`
     }
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
