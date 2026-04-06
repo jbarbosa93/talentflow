@@ -397,7 +397,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   const statusText = (item: FileItem) => {
     switch (item.status) {
-      case 'pending': return 'En attente'
+      case 'pending': return item.needsRetry ? 'En attente (2ème tentative)' : 'En attente'
       case 'uploading': return 'Upload en cours...'
       case 'parsing': return 'Analyse IA en cours...'
       case 'success': return `Importé — ${item.candidatNom}`

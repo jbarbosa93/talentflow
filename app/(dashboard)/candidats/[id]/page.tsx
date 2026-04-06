@@ -474,6 +474,7 @@ export default function CandidatDetailPage() {
           update_id: candidat.id,
           force_insert: true,
           mode: 'reanalyse', // Mode écrasement : remplace tout sauf nom/prénom/photo
+          cv_rotation: cvRotation || 0, // rotation appliquée dans le viewer → appliquée au PDF avant parsing
         }),
         signal: controller.signal,
       })

@@ -94,6 +94,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let useFilenameDate = false
   let mode: string | null = null // 'reanalyse' = écrasement total sauf nom/prénom/photo
   let fileDate: string | null = null // date de dernière modification du fichier (lastModified)
+  let cvRotationHint = 0 // rotation appliquée dans le viewer (0/90/180/270) — à appliquer au PDF
 
   if (ct.includes('application/json')) {
     const body = await request.json()
@@ -107,6 +108,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     useFilenameDate  = body.use_filename_date === true
     mode             = body.mode || null
     fileDate         = body.file_date || null
+    cvRotationHint   = typeof body.cv_rotation === 'number' ? body.cv_rotation : 0
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -181,6 +183,27 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 4. Convertir en Buffer
   const arrayBuffer = await file.arrayBuffer()
   let buffer: Buffer = Buffer.from(arrayBuffer)
+
+  // 4c. Appliquer la rotation du viewer si fournie (cv_rotation) — pour les PDFs physiquement tournés
+  // Le viewer stocke la rotation en localStorage (cosmétique uniquement). Ici on l'inscrit dans les
+  // métadonnées du PDF pour que limitPDFPages (claude.ts) la corrige avant envoi à Claude.
+  const isPDF0pre = (file.name.toLowerCase().split('.').pop() || '') === 'pdf' || file.type === 'application/pdf'
+  if (cvRotationHint !== 0 && isPDF0pre) {
+    try {
+      const { PDFDocument, degrees } = await import('pdf-lib')
+      const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+      for (let i = 0; i < srcDoc.getPageCount(); i++) {
+        const page = srcDoc.getPage(i)
+        const existing = page.getRotation().angle
+        const total = (existing + cvRotationHint) % 360
+        page.setRotation(degrees(total))
+      }
+      buffer = Buffer.from(await srcDoc.save())
+      console.log(`[CV Parse] Rotation viewer ${cvRotationHint}° inscrite dans les métadonnées PDF`)
+    } catch (rotErr) {
+      console.warn('[CV Parse] Impossible d\'appliquer la rotation viewer:', (rotErr as Error).message)
+    }
+  }
 
   // 4b. Détection multi-documents (PDFs uniquement, > 100 KB pour éviter les PDFs vides)
   const ext0    = file.name.toLowerCase().split('.').pop() || ''
@@ -277,13 +300,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 6a. Fallback : si l'analyse retourne un résultat quasi-vide sur un PDF,
+  // 6a. Fallback : si l'analyse retourne un résultat quasi-vide OU un document non-CV sur un import frais,
   // le CV est peut-être à l'envers → essayer avec le PDF retourné à 180°
   if (isPDF && analyse) {
     const hasName = analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1
     const hasAnyInfo = analyse.email || analyse.telephone || (analyse.competences && analyse.competences.length > 0)
-    if (!hasName && !hasAnyInfo) {
-      console.log('[CV Parse] Analyse quasi-vide → tentative avec PDF retourné à 180°...')
+    // Déclencher aussi si Claude classifie comme non-CV sur un import frais (nom de fichier contient des lettres
+    // majuscules consécutives typiques d'un patronyme → probablement un CV à l'envers mal classifié)
+    const isNonCV = analyse.document_type && analyse.document_type !== 'cv'
+    const isFreshImport = !updateId && !replaceId && mode !== 'reanalyse'
+    const shouldTry180 = (!hasName && !hasAnyInfo) || (isNonCV && isFreshImport)
+    if (shouldTry180) {
+      console.log(`[CV Parse] ${isNonCV ? `Classifié non-CV (${analyse.document_type}) sur import frais` : 'Analyse quasi-vide'} → tentative avec PDF retourné à 180°...`)
       try {
         // Retourner le PDF à 180° avec pdf-lib
         const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
@@ -297,9 +325,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const retryAnalyse = await withTimeout(analyserCVDepuisPDF(rotatedBuffer), 55_000, 'analyse PDF 180° fallback')
         const retryHasName = retryAnalyse.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1
         const retryHasInfo = retryAnalyse.email || retryAnalyse.telephone || (retryAnalyse.competences && retryAnalyse.competences.length > 0)
-        if (retryHasName || retryHasInfo) {
+        const retryIsCV = !retryAnalyse.document_type || retryAnalyse.document_type === 'cv'
+        if ((retryHasName || retryHasInfo) && retryIsCV) {
           console.log(`[CV Parse] Fallback 180° réussi : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
           analyse = retryAnalyse
+        } else if (retryHasName || retryHasInfo) {
+          console.log(`[CV Parse] Fallback 180° retourne infos mais type=${retryAnalyse.document_type}`)
+          analyse = retryAnalyse // On prend quand même le résultat amélioré
         } else {
           console.log('[CV Parse] Fallback 180° aussi quasi-vide')
         }
