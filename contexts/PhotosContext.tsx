@@ -29,6 +29,7 @@ interface PhotosState {
   total: number
   remaining: number
   forceMode: boolean
+  autoMode: boolean
   reviewQueue: ReviewItem[]
   processedLog: ProcessedLogItem[]
 }
@@ -36,6 +37,7 @@ interface PhotosState {
 interface PhotosContextType extends PhotosState {
   progress: number
   start: () => void
+  startAuto: () => void
   pause: () => void
   resume: () => void
   restart: (force?: boolean) => void
@@ -52,6 +54,7 @@ let _found = 0
 let _total = 0
 let _remaining = 0
 let _forceMode = false
+let _autoMode = false
 let _forceOffset = 0
 let _reviewQueue: ReviewItem[] = []
 let _processedLog: ProcessedLogItem[] = []
@@ -77,7 +80,7 @@ async function runPhotosLoop(force = false) {
 
   while (!_abortFlag) {
     try {
-      const body: Record<string, unknown> = { batchSize: 3, force }
+      const body: Record<string, unknown> = { batchSize: _autoMode ? 15 : 3, force }
       if (force) body.offset = _forceOffset
 
       const res = await fetch('/api/cv/extract-photos', {
@@ -99,7 +102,7 @@ async function runPhotosLoop(force = false) {
       _remaining = data.remaining || 0
       if (force) _forceOffset += batchProcessed
 
-      if (data.foundCandidats?.length > 0) {
+      if (!_autoMode && data.foundCandidats?.length > 0) {
         _reviewQueue = [..._reviewQueue, ...data.foundCandidats]
         _onUpdate?.({ reviewQueue: [..._reviewQueue] })
       }
@@ -151,6 +154,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     total: _total,
     remaining: _remaining,
     forceMode: _forceMode,
+    autoMode: _autoMode,
     reviewQueue: _reviewQueue,
     processedLog: _processedLog,
   })
@@ -171,7 +175,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
         return next
       })
     }
-    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, forceMode: _forceMode, reviewQueue: _reviewQueue, processedLog: _processedLog })
+    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, forceMode: _forceMode, autoMode: _autoMode, reviewQueue: _reviewQueue, processedLog: _processedLog })
     return () => { _onUpdate = null }
   }, [])
 
@@ -193,13 +197,31 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _abortFlag = false
     _phase = 'running'
     _forceMode = false
+    _autoMode = false
     _forceOffset = 0
     _processed = 0
     _found = 0
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [] })
+    runPhotosLoop(false)
+  }, [])
+
+  // Start fresh — auto mode (processes all, no review queue)
+  const startAuto = useCallback(() => {
+    if (_phase === 'running') return
+    _abortFlag = false
+    _phase = 'running'
+    _forceMode = false
+    _autoMode = true
+    _forceOffset = 0
+    _processed = 0
+    _found = 0
+    _remaining = 0
+    _reviewQueue = []
+    _processedLog = []
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: true, reviewQueue: [], processedLog: [] })
     runPhotosLoop(false)
   }, [])
 
@@ -229,7 +251,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: _autoMode, reviewQueue: [], processedLog: [] })
     runPhotosLoop(force)
   }, [])
 
@@ -258,7 +280,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
   const progress = state.total > 0 ? Math.min(100, Math.round((state.processed / state.total) * 100)) : 0
 
   return (
-    <PhotosContext.Provider value={{ ...state, progress, start, pause, resume, restart, stop, approvePhoto, rejectPhoto }}>
+    <PhotosContext.Provider value={{ ...state, progress, start, startAuto, pause, resume, restart, stop, approvePhoto, rejectPhoto }}>
       {children}
     </PhotosContext.Provider>
   )

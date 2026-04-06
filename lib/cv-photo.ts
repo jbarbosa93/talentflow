@@ -22,11 +22,21 @@ interface ImageCandidate {
 function scoreHeadshot(img: ImageCandidate): number {
   let score = 0
 
+  // --- Détection photo N&B / niveaux de gris ---
+  // Une photo N&B a peu de couleurs uniques (R=G=B → max ~16 bins) MAIS
+  // a quand même des pixels "face" en luminance moyenne (skinRatio partiel > 0.04).
+  // Un logo a aussi peu de couleurs mais skinRatio ≈ 0.
+  const likelyBW = img.uniqueColors <= 20 && img.skinRatio >= 0.04
+
   // --- COLOR DIVERSITY is the strongest discriminator ---
-  if (img.uniqueColors <= 10) score -= 80
-  else if (img.uniqueColors <= 20) score -= 40
-  else if (img.uniqueColors >= 80) score += 25
-  else if (img.uniqueColors >= 40) score += 15
+  if (likelyBW) {
+    score += 5 // photo N&B confirmée — pas de pénalité couleur
+  } else {
+    if (img.uniqueColors <= 10) score -= 80
+    else if (img.uniqueColors <= 20) score -= 40
+    else if (img.uniqueColors >= 80) score += 25
+    else if (img.uniqueColors >= 40) score += 15
+  }
 
   // --- RATIO ---
   if (img.ratio >= 1.2 && img.ratio <= 1.55) score += 50
@@ -66,11 +76,12 @@ function scoreHeadshot(img: ImageCandidate): number {
   else score -= 5
 
   // --- SKIN TONE detection ---
-  // Portraits have 10-50% skin-tone pixels. Logos/icons have ~0%.
-  // Works for all skin colors (light to dark) via HSV analysis
-  if (img.skinRatio >= 0.10 && img.skinRatio <= 0.55) score += 30
-  else if (img.skinRatio >= 0.05 && img.skinRatio < 0.10) score += 10
-  else if (img.skinRatio < 0.02) score -= 15 // No skin at all → likely a logo/icon
+  // Pour les photos N&B : detectSkinRatio donne 0.3× crédit par pixel de face.
+  // On ramène à crédit plein (÷ 0.3) pour équivalence avec les photos couleur.
+  const effectiveSkinRatio = likelyBW ? Math.min(img.skinRatio / 0.3, 1.0) : img.skinRatio
+  if (effectiveSkinRatio >= 0.10 && effectiveSkinRatio <= 0.55) score += 30
+  else if (effectiveSkinRatio >= 0.05 && effectiveSkinRatio < 0.10) score += 10
+  else if (effectiveSkinRatio < 0.02) score -= 15 // Pas de peau → logo/icône
 
   return score
 }

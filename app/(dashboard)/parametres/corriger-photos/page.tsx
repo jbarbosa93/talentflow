@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Play, Pause, Square, CheckCircle, XCircle, Camera, Loader2, RefreshCw, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw, ArrowLeft } from 'lucide-react'
+import { Play, Pause, CheckCircle, Camera, Loader2, ThumbsUp, ThumbsDown, User, ChevronDown, ChevronUp, Trash2, RotateCcw, ArrowLeft, Zap } from 'lucide-react'
 import { usePhotos } from '@/contexts/PhotosContext'
 import type { ProcessedLogItem } from '@/contexts/PhotosContext'
 
@@ -128,6 +128,12 @@ export default function CorrigerPhotosPage() {
     photos.start()
   }
 
+  function handleStartAuto() {
+    setApproved(0)
+    setRejected(0)
+    photos.startAuto()
+  }
+
   function handleRestart(force = false) {
     setApproved(0)
     setRejected(0)
@@ -218,12 +224,21 @@ export default function CorrigerPhotosPage() {
               <Play size={14} fill="#0F172A" /> Continuer
             </button>
           ) : (
-            <button onClick={handleStart} className="neo-btn-yellow">
-              {remainingCount > 0
-                ? <><Play size={14} fill="#0F172A" /> Analyser ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
-                : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>
-              }
-            </button>
+            <>
+              <button onClick={handleStart} className="neo-btn-yellow">
+                {remainingCount > 0
+                  ? <><Play size={14} fill="#0F172A" /> Analyser ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
+                  : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>
+                }
+              </button>
+              <button
+                onClick={handleStartAuto}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontFamily: 'inherit' }}
+                title="Traite tous les CVs automatiquement sans demander de validation pour chaque photo"
+              >
+                <Zap size={14} /> Mode automatique
+              </button>
+            </>
           )}
 
           {/* Ré-analyser tout */}
@@ -239,7 +254,7 @@ export default function CorrigerPhotosPage() {
           {photos.phase === 'running' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
               <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-              Analyse en cours… (continue en arrière-plan si vous naviguez)
+              {photos.autoMode ? 'Mode automatique — traitement en cours…' : 'Analyse en cours… (continue en arrière-plan si vous naviguez)'}
             </div>
           )}
           {photos.phase === 'paused' && (
@@ -254,14 +269,14 @@ export default function CorrigerPhotosPage() {
           )}
           {photos.phase === 'done' && pendingCount === 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
-              <CheckCircle size={15} /> Tout validé
+              <CheckCircle size={15} /> {photos.autoMode ? `Terminé — ${photos.found} photo${photos.found > 1 ? 's' : ''} enregistrée${photos.found > 1 ? 's' : ''}` : 'Tout validé'}
             </div>
           )}
         </div>
       </div>
 
-      {/* Review zone */}
-      {(current || pendingCount > 0) && (
+      {/* Review zone — masquée en mode automatique */}
+      {!photos.autoMode && (current || pendingCount > 0) && (
         <div style={{ marginBottom: 20 }}>
           {pendingCount > 1 && (
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 10 }}>
@@ -337,7 +352,7 @@ export default function CorrigerPhotosPage() {
       )}
 
       {/* Running but no photo yet */}
-      {photos.phase === 'running' && !current && pendingCount === 0 && photos.processed > 0 && (
+      {!photos.autoMode && photos.phase === 'running' && !current && pendingCount === 0 && photos.processed > 0 && (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)', fontSize: 13, marginBottom: 20 }}>
           <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: 10, color: 'var(--primary)' }} />
           <div>Analyse en cours — les photos trouvées apparaîtront ici</div>
@@ -345,7 +360,7 @@ export default function CorrigerPhotosPage() {
       )}
 
       {/* Done, all validated */}
-      {photos.phase !== 'idle' && photos.phase !== 'running' && pendingCount === 0 && (approved + rejected) > 0 && (
+      {!photos.autoMode && photos.phase !== 'idle' && photos.phase !== 'running' && pendingCount === 0 && (approved + rejected) > 0 && (
         <div style={{ marginBottom: 20, padding: '20px 24px', borderRadius: 12, background: '#F0FDF4', border: '1.5px solid #BBF7D0' }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#16A34A', marginBottom: 4 }}>✅ Validation terminée</div>
           <div style={{ fontSize: 13, color: '#166534' }}>
