@@ -1,6 +1,7 @@
 // hooks/useCandidats.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, useIsFetching } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { useEffect, useRef } from 'react'
 import type { Candidat, PipelineEtape, ImportStatus } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -232,4 +233,35 @@ export function useDeleteCandidatsBulk() {
     },
     onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
   })
+}
+
+// ── Realtime sync candidats ──────────────────────────────────────────────────
+// Écoute les changements Supabase sur la table candidats et invalide le cache
+// React Query — permet à plusieurs utilisateurs de travailler en même temps
+// sans se marcher dessus (liste se met à jour automatiquement).
+export function useCandidatsRealtime() {
+  const queryClient = useQueryClient()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('candidats-collab')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'candidats' },
+        () => {
+          // Debounce 400ms pour regrouper les rafales de changements
+          if (debounceRef.current) clearTimeout(debounceRef.current)
+          debounceRef.current = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['candidats'] })
+          }, 400)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [queryClient])
 }
