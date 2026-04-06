@@ -2200,11 +2200,17 @@ export default function CandidatDetailPage() {
         documents={(candidat.documents as CandidatDocument[]) || []}
         cvUrl={candidat.cv_url}
         cvFileName={candidat.cv_nom_fichier}
-        onUpdate={(docs) => {
-          updateCandidat.mutate({ id, data: { documents: docs } as any })
+        onUpdate={async (docs) => {
+          // PATCH silencieux — les toasts sont gérés par DocumentsPanel
+          await fetch(`/api/candidats/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documents: docs }),
+          })
+          queryClient.invalidateQueries({ queryKey: ['candidat', id] })
         }}
         onCvChange={async (url, fileName) => {
-          // 0. Mise à jour du CV (ou suppression si URL vide)
+          // 0. Mise à jour du CV (ou suppression si URL vide) — PATCH silencieux
           const updatePayload: Record<string, any> = {
             cv_url: url || null,
             cv_nom_fichier: fileName || null,
@@ -2221,9 +2227,12 @@ export default function CandidatDetailPage() {
             const currentDocs = (candidat.documents as any[]) || []
             updatePayload.documents = [...currentDocs, oldDoc]
           }
-          await new Promise<void>((resolve) => {
-            updateCandidat.mutate({ id, data: updatePayload as any }, { onSettled: () => resolve() })
+          await fetch(`/api/candidats/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatePayload),
           })
+          queryClient.invalidateQueries({ queryKey: ['candidat', id] })
 
           // 1. Re-parser seulement si on a un nouveau CV (pas une suppression)
           if (!url) {
