@@ -181,7 +181,12 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
         background: selected.includes(m) ? `${color}14` : 'transparent',
         fontSize: 12, fontWeight: selected.includes(m) ? 600 : 400,
       }}>
-        <input type="checkbox" checked={selected.includes(m)} onChange={() => toggle(m)} style={{ accentColor: color }} />
+        <input
+          type="checkbox"
+          checked={selected.includes(m)}
+          onChange={() => { toggle(m); setSearch(''); searchRef.current?.focus() }}
+          style={{ accentColor: color }}
+        />
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
         {m}
       </label>
@@ -228,7 +233,9 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
           )}
           {/* Toutes les catégories */}
           {categories.map(cat => {
-            const catMetiers = cat.metiers.filter(m => metiers.includes(m) && (!q || matches(m)) && (q || !selected.includes(m)))
+            const catMetiers = cat.metiers
+              .filter(m => metiers.includes(m) && (!q || matches(m)) && (q || !selected.includes(m)))
+              .sort((a, b) => a.localeCompare(b, 'fr'))
             if (catMetiers.length === 0) return null
             return (
               <div key={cat.name}>
@@ -242,7 +249,7 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
           {unassigned.filter(m => !selected.includes(m) && matches(m)).length > 0 && (
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', margin: '6px 0 2px 8px', textTransform: 'uppercase' }}>Autres</div>
-              {unassigned.filter(m => !selected.includes(m) && matches(m)).map(renderMetierItem)}
+              {unassigned.filter(m => !selected.includes(m) && matches(m)).sort((a, b) => a.localeCompare(b, 'fr')).map(renderMetierItem)}
             </div>
           )}
           {q && metiers.filter(matches).length === 0 && (

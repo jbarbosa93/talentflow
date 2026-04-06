@@ -1229,7 +1229,7 @@ export default function CandidatDetailPage() {
                                 fontSize: 12, fontWeight: on ? 600 : 400,
                               }}>
                                 <input type="checkbox" checked={on}
-                                  onChange={() => patchMetiers(on ? currentMetiers.filter(x => x !== m) : [...currentMetiers, m])}
+                                  onChange={() => { patchMetiers(on ? currentMetiers.filter(x => x !== m) : [...currentMetiers, m]); setMetierSearch(''); metierSearchRef.current?.focus() }}
                                   style={{ accentColor: color }}
                                 />
                                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
@@ -1238,7 +1238,7 @@ export default function CandidatDetailPage() {
                             )
                           }
                           const renderGroup = (name: string, color: string, items: string[]) => {
-                            const available = items.filter(m => agenceMetiers.includes(m) && matchesM(m))
+                            const available = items.filter(m => agenceMetiers.includes(m) && matchesM(m)).sort((a, b) => a.localeCompare(b, 'fr'))
                             if (available.length === 0) return null
                             return (
                               <div key={name}>
