@@ -118,16 +118,18 @@ export async function POST() {
     // Re-lire après reset orphelins pour avoir l'état à jour
     const { data: allFichiersUpdated } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('onedrive_item_id, traite, created_at, erreur, candidat_id')
+      .select('onedrive_item_id, traite, traite_le, created_at, erreur, candidat_id')
       .limit(10000)
 
     for (const row of (allFichiersUpdated || [])) {
-      const rowDate = new Date(row.created_at)
+      // traite_le = date du traitement réel (colonne dédiée)
+      // created_at = date création ligne DB — peut avoir été réinitialisé par orphan-reset → NE PAS utiliser pour doneMap
+      const traiteDate = row.traite_le ? new Date(row.traite_le) : new Date(row.created_at)
       if (row.traite === true) {
         const existing = doneMap.get(row.onedrive_item_id)
-        if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
+        if (!existing || traiteDate > existing) doneMap.set(row.onedrive_item_id, traiteDate)
       } else {
-        errorDateMap.set(row.onedrive_item_id, rowDate)
+        errorDateMap.set(row.onedrive_item_id, new Date(row.created_at))
       }
     }
 
@@ -294,6 +296,7 @@ export async function POST() {
             onedrive_item_id: fichier.id,
             nom_fichier: fichier.name,
             traite: true,
+            traite_le: new Date().toISOString(),
             erreur: `Abandonné — bloqué depuis ${daysSince} jours, vérifier manuellement`,
           })
           return { status: 'skipped', filename: fichier.name }
@@ -404,6 +407,7 @@ export async function POST() {
                 onedrive_item_id: fichier.id,
                 nom_fichier: filename,
                 traite: true,
+            traite_le: new Date().toISOString(),
                 erreur: `Document "${docType}" — aucun candidat identifiable`,
               })
             } catch { /* ignore */ }
@@ -523,6 +527,7 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
+            traite_le: new Date().toISOString(),
                   candidat_id: existingCandidat.id,
                   erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
                 })
@@ -569,6 +574,7 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
+            traite_le: new Date().toISOString(),
                   candidat_id: existingCandidat.id,
                   erreur: `${docTypeLabel} ajouté — ${candidatDisplayName}`,
                 })
@@ -637,6 +643,7 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
+            traite_le: new Date().toISOString(),
                   candidat_id: existingCandidat.id,
                   erreur: `Mis à jour — ${candidatDisplayName}`,
                 })
@@ -656,6 +663,7 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
+            traite_le: new Date().toISOString(),
                   candidat_id: existingCandidat.id,
                   erreur: `Réactivé — ${candidatDisplayName}`,
                 })
@@ -759,6 +767,7 @@ export async function POST() {
               onedrive_item_id: fichier.id,
               nom_fichier: filename,
               traite: true,
+            traite_le: new Date().toISOString(),
               candidat_id: candidatId,
             })
           } catch (tableErr: any) {
