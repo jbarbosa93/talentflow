@@ -486,9 +486,7 @@ export default function CandidatsList() {
       const loc = normalize(filtreLocalisation)
       filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
     }
-    if (filtreMetier) {
-      filtered = filtered.filter((c: any) => (c.tags || []).includes(filtreMetier))
-    }
+    // filtreMetier est désormais synchronisé avec filterMetier (serveur) — pas de double filtre client
     if (filterExpMin !== '') {
       filtered = filtered.filter(c => (c.annees_exp || 0) >= filterExpMin)
     }
@@ -521,7 +519,7 @@ export default function CandidatsList() {
   }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin, filterAgeMin, filterAgeMax, filterStarsMin, search])
 
   const activeFiltersCount = [
-    filterMetier !== '',
+    filterMetier !== '',   // filtreMetier est synchronisé avec filterMetier — un seul comptage
     filterLieu !== '',
     filterAgeMin !== '',
     filterAgeMax !== '',
@@ -533,7 +531,6 @@ export default function CandidatsList() {
     filterCfc !== null,
     filterEngage !== null,
     filtreLocalisation !== '',
-    filtreMetier !== '',
   ].filter(Boolean).length
 
   const resetFiltersOnly = () => {
@@ -1696,7 +1693,7 @@ export default function CandidatsList() {
                   }}
                 >
                   <button
-                    onClick={() => { setFiltreMetier(''); setMetierDropdownOpen(false) }}
+                    onClick={() => { setFiltreMetier(''); setFilterMetier(''); setMetierDropdownOpen(false) }}
                     style={{
                       width: '100%', padding: '8px 14px', border: 'none', background: !filtreMetier ? 'var(--surface)' : 'transparent',
                       cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: !filtreMetier ? 700 : 400,
@@ -1717,7 +1714,7 @@ export default function CandidatsList() {
                         {catMetiers.map(m => (
                           <button
                             key={m}
-                            onClick={() => { setFiltreMetier(m); setMetierDropdownOpen(false) }}
+                            onClick={() => { setFiltreMetier(m); setFilterMetier(m); setFiltreStatut('actif'); setMetierDropdownOpen(false) }}
                             style={{
                               width: '100%', padding: '6px 14px 6px 28px', border: 'none',
                               background: filtreMetier === m ? cat.color + '15' : 'transparent',
@@ -1738,7 +1735,7 @@ export default function CandidatsList() {
                       {unassigned.map(m => (
                         <button
                           key={m}
-                          onClick={() => { setFiltreMetier(m); setMetierDropdownOpen(false) }}
+                          onClick={() => { setFiltreMetier(m); setFilterMetier(m); setFiltreStatut('actif'); setMetierDropdownOpen(false) }}
                           style={{
                             width: '100%', padding: '6px 14px 6px 28px', border: 'none',
                             background: filtreMetier === m ? 'var(--surface)' : 'transparent',
