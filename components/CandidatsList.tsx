@@ -301,11 +301,14 @@ export default function CandidatsList() {
   const { categories: metierCategories, getColorForMetier } = useMetierCategories()
   const [filtreMetier, setFiltreMetier]   = useState<string>(() => ssGet('filtreMetier', ''))
   const [metierDropdownOpen, setMetierDropdownOpen] = useState(false)
+  const [metierSearch, setMetierSearch] = useState('')
   const metierDropdownRef = useRef<HTMLDivElement>(null)
+  const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const metierSearchNorm = norm(metierSearch.trim())
   useEffect(() => {
     if (!metierDropdownOpen) return
     const handler = (e: MouseEvent) => {
-      if (metierDropdownRef.current && !metierDropdownRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-metier-trigger]')) setMetierDropdownOpen(false)
+      if (metierDropdownRef.current && !metierDropdownRef.current.contains(e.target as Node) && !(e.target as HTMLElement).closest('[data-metier-trigger]')) { setMetierDropdownOpen(false); setMetierSearch('') }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -1688,12 +1691,28 @@ export default function CandidatsList() {
                   style={{
                     position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 100,
                     background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)', width: 280, maxHeight: 400,
-                    overflowY: 'auto', padding: '6px 0',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)', width: 280,
                   }}
                 >
+                  {/* Barre de recherche */}
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Rechercher un métier…"
+                      value={metierSearch}
+                      onChange={e => setMetierSearch(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)',
+                        fontSize: 12, background: 'var(--secondary)', color: 'var(--foreground)',
+                        outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <div style={{ maxHeight: 340, overflowY: 'auto', padding: '6px 0' }}>
                   <button
-                    onClick={() => { setFiltreMetier(''); setFilterMetier(''); setMetierDropdownOpen(false) }}
+                    onClick={() => { setFiltreMetier(''); setFilterMetier(''); setMetierSearch(''); setMetierDropdownOpen(false) }}
                     style={{
                       width: '100%', padding: '8px 14px', border: 'none', background: !filtreMetier ? 'var(--surface)' : 'transparent',
                       cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: !filtreMetier ? 700 : 400,
@@ -1703,7 +1722,7 @@ export default function CandidatsList() {
                     {!filtreMetier && <Check size={13} />} Tous les métiers
                   </button>
                   {metierCategories.map(cat => {
-                    const catMetiers = cat.metiers.filter(m => agenceMetiers.includes(m))
+                    const catMetiers = cat.metiers.filter(m => agenceMetiers.includes(m) && (metierSearchNorm ? norm(m).includes(metierSearchNorm) : true))
                     if (catMetiers.length === 0) return null
                     return (
                       <div key={cat.name}>
@@ -1714,7 +1733,7 @@ export default function CandidatsList() {
                         {catMetiers.map(m => (
                           <button
                             key={m}
-                            onClick={() => { setFiltreMetier(m); setFilterMetier(m); setFiltreStatut('actif'); setMetierDropdownOpen(false) }}
+                            onClick={() => { setFiltreMetier(m); setFilterMetier(m); setMetierSearch(''); setImportStatusFilter('traite'); setMetierDropdownOpen(false) }}
                             style={{
                               width: '100%', padding: '6px 14px 6px 28px', border: 'none',
                               background: filtreMetier === m ? cat.color + '15' : 'transparent',
@@ -1729,13 +1748,13 @@ export default function CandidatsList() {
                       </div>
                     )
                   })}
-                  {unassigned.length > 0 && (
+                  {unassigned.filter(m => metierSearchNorm ? norm(m).includes(metierSearchNorm) : true).length > 0 && (
                     <div>
                       <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Autres</div>
-                      {unassigned.map(m => (
+                      {unassigned.filter(m => metierSearchNorm ? norm(m).includes(metierSearchNorm) : true).map(m => (
                         <button
                           key={m}
-                          onClick={() => { setFiltreMetier(m); setFilterMetier(m); setFiltreStatut('actif'); setMetierDropdownOpen(false) }}
+                          onClick={() => { setFiltreMetier(m); setFilterMetier(m); setMetierSearch(''); setImportStatusFilter('traite'); setMetierDropdownOpen(false) }}
                           style={{
                             width: '100%', padding: '6px 14px 6px 28px', border: 'none',
                             background: filtreMetier === m ? 'var(--surface)' : 'transparent',
@@ -1748,6 +1767,7 @@ export default function CandidatsList() {
                       ))}
                     </div>
                   )}
+                  </div>
                 </div>
               )}
             </div>
