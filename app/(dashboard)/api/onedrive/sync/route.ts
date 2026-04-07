@@ -77,23 +77,43 @@ export async function POST() {
       )
     }
 
-    // 3. Charger uniquement les IDs RÉUSSIS — les erreurs (traite: false) seront retentées
-    const { data: alreadyDone } = await (supabase as any).from('onedrive_fichiers').select('onedrive_item_id').eq('traite', true)
-    const doneIds = new Set<string>((alreadyDone || []).map((r: any) => r.onedrive_item_id))
+    // 3. Charger les fichiers déjà traités avec leur date de traitement
+    // Un fichier modifié dans OneDrive APRÈS sa dernière date de traitement sera retraité
+    const { data: alreadyDone } = await (supabase as any)
+      .from('onedrive_fichiers')
+      .select('onedrive_item_id, created_at')
+      .eq('traite', true)
+    // Map: item_id → date de traitement la plus récente
+    const doneMap = new Map<string, Date>()
+    for (const row of (alreadyDone || [])) {
+      const existing = doneMap.get(row.onedrive_item_id)
+      const rowDate = new Date(row.created_at)
+      if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
+    }
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
-    async function scanFolderRecursive(scanDriveId: string, scanFolderId: string, scanToken: string, scanDoneIds: Set<string>, depth = 0): Promise<any[]> {
+    // Inclut les fichiers jamais traités ET ceux modifiés depuis leur dernier traitement
+    async function scanFolderRecursive(scanDriveId: string, scanFolderId: string, scanToken: string, depth = 0): Promise<any[]> {
       if (depth > 5) return []
       const data = await callGraph(scanToken, `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`)
       let result: any[] = []
       for (const item of (data.value || [])) {
-        if (item.file && !scanDoneIds.has(item.id)) {
+        if (item.file) {
           const ext = item.name.split('.').pop()?.toLowerCase()
-          if (['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) result.push(item)
+          if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
+          const lastDone = doneMap.get(item.id)
+          if (!lastDone) {
+            // Jamais traité → inclure
+            result.push(item)
+          } else {
+            // Déjà traité → inclure seulement si modifié depuis
+            const lastModified = new Date(item.lastModifiedDateTime)
+            if (lastModified > lastDone) result.push(item)
+          }
         }
         if (item.folder) {
           try {
-            const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, scanDoneIds, depth + 1)
+            const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, depth + 1)
             result.push(...subFiles)
           } catch { /* ignore sub-folder errors */ }
         }
@@ -103,7 +123,7 @@ export async function POST() {
 
     let fichiers: any[] = []
     try {
-      fichiers = await scanFolderRecursive(driveId, folderId, accessToken, doneIds)
+      fichiers = await scanFolderRecursive(driveId, folderId, accessToken)
     } catch (err) {
       return NextResponse.json(
         { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },
