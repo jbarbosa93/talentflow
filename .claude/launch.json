@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "talentflow",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000,
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["node_modules/.bin/next", "dev", "--port", "3001", "--webpack"],
+      "port": 3001,
       "autoPort": false
     }
   ]
