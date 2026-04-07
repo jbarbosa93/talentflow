@@ -10,6 +10,51 @@ import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
 
+function DiagnostiquerOrphansButton({ disabled, onSuccess }: { disabled: boolean; onSuccess: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  const handleClick = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/onedrive/reset-orphans', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        toast.error(data.error || 'Erreur lors du diagnostic')
+        return
+      }
+      if (data.reset === 0) {
+        toast.success('Aucun fichier orphelin — tout est à jour')
+      } else {
+        toast.success(`${data.reset} fichier(s) remis en file — clique sur Synchroniser tout`)
+        onSuccess()
+      }
+    } catch {
+      toast.error('Erreur réseau — diagnostic échoué')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={disabled || loading}
+      style={{
+        fontSize: 12, fontWeight: 600, padding: '7px 14px',
+        borderRadius: 8, border: '2px solid var(--border)',
+        background: 'var(--card)', color: 'var(--foreground)',
+        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+        opacity: disabled || loading ? 0.5 : 1,
+        fontFamily: 'var(--font-body)',
+        display: 'flex', alignItems: 'center', gap: 5,
+      }}
+    >
+      {loading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+      Diagnostiquer
+    </button>
+  )
+}
+
 function IntegrationsContent() {
   const searchParams  = useSearchParams()
   const queryClient   = useQueryClient()
@@ -376,6 +421,10 @@ function IntegrationsContent() {
                         Synchroniser tout
                       </button>
                     )}
+                    <DiagnostiquerOrphansButton
+                      disabled={onedriveSyncing}
+                      onSuccess={() => queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })}
+                    />
                     <button
                       onClick={() => disconnectMutation.mutate(onedriveIntegration.id)}
                       style={{
