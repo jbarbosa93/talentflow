@@ -77,25 +77,34 @@ export async function POST() {
       )
     }
 
-    // 3. Charger tous les enregistrements onedrive_fichiers pour ce batch
+    // 3. Charger tous les enregistrements onedrive_fichiers
     const { data: allFichiers } = await (supabase as any)
       .from('onedrive_fichiers')
       .select('onedrive_item_id, traite, created_at, erreur')
 
-    // Map: item_id → date de traitement la plus récente (traite: true)
+    // Map: item_id → date de traitement la plus récente (traite: true uniquement)
     const doneMap = new Map<string, Date>()
-    // Map: item_id → nombre d'erreurs consécutives (traite: false)
-    const errorCountMap = new Map<string, number>()
-    const MAX_RETRIES = 5
+    // Map: item_id → date du premier échec (traite: false) — UNIQUE grâce à l'index
+    const errorDateMap = new Map<string, Date>()
+    const MAX_ERROR_DAYS = 7 // Abandon après 7 jours sans succès
 
     for (const row of (allFichiers || [])) {
+      const rowDate = new Date(row.created_at)
       if (row.traite === true) {
         const existing = doneMap.get(row.onedrive_item_id)
-        const rowDate = new Date(row.created_at)
         if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
       } else {
-        errorCountMap.set(row.onedrive_item_id, (errorCountMap.get(row.onedrive_item_id) || 0) + 1)
+        // Unique index → 1 seule ligne par fichier en erreur, on garde la date
+        errorDateMap.set(row.onedrive_item_id, rowDate)
       }
+    }
+
+    // Helper upsert onedrive_fichiers — évite les violations de l'index UNIQUE sur onedrive_item_id
+    // INSERT si nouveau, UPDATE si déjà présent (retry réussi, nouvel état, etc.)
+    const upsertFichier = async (payload: Record<string, any>) => {
+      try {
+        await (supabase as any).from('onedrive_fichiers').upsert(payload, { onConflict: 'onedrive_item_id' })
+      } catch { /* ignore */ }
     }
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
@@ -109,10 +118,13 @@ export async function POST() {
           const ext = item.name.split('.').pop()?.toLowerCase()
           if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
           const lastDone = doneMap.get(item.id)
-          const errCount = errorCountMap.get(item.id) || 0
-          if (errCount >= MAX_RETRIES) {
-            // Trop d'erreurs — abandonner proprement (sera marqué traite:true avec message)
-            result.push({ ...item, _abandoned: true, _errCount: errCount })
+          const errorDate = errorDateMap.get(item.id)
+          const ageMs = errorDate ? Date.now() - errorDate.getTime() : 0
+          const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
+
+          if (isStuck) {
+            // Bloqué depuis plus de MAX_ERROR_DAYS jours → abandonner (marque traite:true)
+            result.push({ ...item, _abandoned: true, _errorDate: errorDate })
           } else if (!lastDone) {
             // Jamais traité avec succès → inclure
             result.push(item)
@@ -163,17 +175,16 @@ export async function POST() {
         // Date de modification du fichier OneDrive = date d'ajout du candidat
         const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
 
-        // Fichier abandonné après MAX_RETRIES échecs → marquer traite:true pour stopper les retries
+        // Fichier bloqué depuis MAX_ERROR_DAYS jours → marquer traite:true pour stopper les retries
         if (fichier._abandoned) {
-          try {
-            await (supabase as any).from('onedrive_fichiers').insert({
-              integration_id: integrationId,
-              onedrive_item_id: fichier.id,
-              nom_fichier: fichier.name,
-              traite: true,
-              erreur: `Abandonné après ${fichier._errCount} tentatives — vérifier manuellement`,
-            })
-          } catch { /* ignore */ }
+          const daysSince = fichier._errorDate ? Math.round((Date.now() - new Date(fichier._errorDate).getTime()) / 86400000) : '?'
+          await upsertFichier({
+            integration_id: integrationId,
+            onedrive_item_id: fichier.id,
+            nom_fichier: fichier.name,
+            traite: true,
+            erreur: `Abandonné — bloqué depuis ${daysSince} jours, vérifier manuellement`,
+          })
           return { status: 'skipped', filename: fichier.name }
         }
 
@@ -261,7 +272,7 @@ export async function POST() {
           if (isNotCV && !candidatNom && !candidatEmail && candidatTel.length < 8) {
             console.log(`[OneDrive Sync] Document "${docType}" sans candidat identifiable: ${filename}`)
             try {
-              await (supabase as any).from('onedrive_fichiers').insert({
+              await upsertFichier({
                 integration_id: integrationId,
                 onedrive_item_id: fichier.id,
                 nom_fichier: filename,
@@ -380,7 +391,7 @@ export async function POST() {
             if (!candidatExistant) {
               // Candidate disappeared, skip
               try {
-                await (supabase as any).from('onedrive_fichiers').insert({
+                await upsertFichier({
                   integration_id: integrationId,
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
@@ -426,7 +437,7 @@ export async function POST() {
               }).eq('id', candidatExistant.id)
 
               try {
-                await (supabase as any).from('onedrive_fichiers').insert({
+                await upsertFichier({
                   integration_id: integrationId,
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
@@ -494,7 +505,7 @@ export async function POST() {
               }).eq('id', candidatExistant.id)
 
               try {
-                await (supabase as any).from('onedrive_fichiers').insert({
+                await upsertFichier({
                   integration_id: integrationId,
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
@@ -513,7 +524,7 @@ export async function POST() {
               }).eq('id', candidatExistant.id)
 
               try {
-                await (supabase as any).from('onedrive_fichiers').insert({
+                await upsertFichier({
                   integration_id: integrationId,
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
@@ -616,7 +627,7 @@ export async function POST() {
 
           // i. Insert dans onedrive_fichiers
           try {
-            await (supabase as any).from('onedrive_fichiers').insert({
+            await upsertFichier({
               integration_id: integrationId,
               onedrive_item_id: fichier.id,
               nom_fichier: filename,
@@ -647,15 +658,14 @@ export async function POST() {
           console.error(`[OneDrive Sync] Erreur fichier ${fichier.name}:`, errMsg)
 
           // Enregistre l'erreur dans onedrive_fichiers (traite: false → sera retenté)
-          try {
-            await (supabase as any).from('onedrive_fichiers').insert({
-              integration_id: integrationId,
-              onedrive_item_id: fichier.id,
-              nom_fichier: fichier.name,
-              traite: false,
-              erreur: errMsg,
-            })
-          } catch { /* ignore */ }
+          // upsert : met à jour le message si le fichier avait déjà une entrée en erreur
+          await upsertFichier({
+            integration_id: integrationId,
+            onedrive_item_id: fichier.id,
+            nom_fichier: fichier.name,
+            traite: false,
+            erreur: errMsg,
+          })
           return { status: 'error', filename: fichier.name }
         }
       }))
