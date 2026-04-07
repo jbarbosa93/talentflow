@@ -70,7 +70,10 @@ export async function POST() {
     const folderId = meta.sharepoint_folder_id || meta.onedrive?.sharepoint_folder_id
     const folderName = meta.sharepoint_folder_name || meta.onedrive?.sharepoint_folder_name || DEFAULT_FOLDER_NAME
 
+    console.log(`[OneDrive Sync] Config: driveId=${driveId || 'MANQUANT'}, folderId=${folderId || 'MANQUANT'}, folderName=${folderName}`)
+
     if (!driveId || !folderId) {
+      console.error('[OneDrive Sync] driveId ou folderId manquant dans metadata:', JSON.stringify(meta))
       return NextResponse.json(
         { error: 'Aucun dossier SharePoint configuré. Configurez dans Intégrations.' },
         { status: 400 }
@@ -141,22 +144,45 @@ export async function POST() {
     // rawCount = total fichiers CV trouvés dans OneDrive AVANT filtrage doneMap/errorMap
     let rawScannedCount = 0
 
+    // Helper : appel Graph avec support pagination (@odata.nextLink est une URL absolue complète)
+    // callGraph() préfixe toujours le base URL — il ne faut donc passer que le chemin relatif
+    async function callGraphWithNextLink(token: string, relativeOrAbsolute: string): Promise<any> {
+      // Si c'est une URL absolue (@odata.nextLink), extraire le chemin + query
+      if (relativeOrAbsolute.startsWith('https://')) {
+        const parsed = new URL(relativeOrAbsolute)
+        // Enlever le préfixe https://graph.microsoft.com/v1.0
+        const path = parsed.pathname.replace('/v1.0', '') + parsed.search
+        return callGraph(token, path)
+      }
+      return callGraph(token, relativeOrAbsolute)
+    }
+
     async function scanFolderRecursive(scanDriveId: string, scanFolderId: string, scanToken: string, depth = 0): Promise<any[]> {
       if (depth > 5) return []
       let result: any[] = []
 
       // Pagination : suivre @odata.nextLink jusqu'à la fin
       let url: string | null = `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`
-      while (url) {
-        const data = await callGraph(scanToken, url)
-        url = data['@odata.nextLink'] || null  // page suivante si elle existe
+      console.log(`[OneDrive Scan] Dossier: /drives/${scanDriveId}/items/${scanFolderId}/children (depth=${depth})`)
 
-        for (const item of (data.value || [])) {
+      while (url) {
+        const data = await callGraphWithNextLink(scanToken, url)
+        const items: any[] = data?.value || []
+        console.log(`[OneDrive Scan] Réponse Graph: ${items.length} items (nextLink: ${!!data?.['@odata.nextLink']})`)
+
+        // nextLink est une URL absolue — garder telle quelle pour callGraphWithNextLink
+        url = data?.['@odata.nextLink'] || null
+
+        for (const item of items) {
           if (item.file) {
             const ext = item.name.split('.').pop()?.toLowerCase()
-            if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
+            console.log(`[OneDrive Scan] Fichier trouvé: "${item.name}" (ext: ${ext})`)
+            if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) {
+              console.log(`[OneDrive Scan] Extension ignorée: ${ext} — "${item.name}"`)
+              continue
+            }
 
-            rawScannedCount++ // compte AVANT filtrage
+            rawScannedCount++ // compte AVANT filtrage doneMap
 
             const lastDone = doneMap.get(item.id)
             const errorDate = errorDateMap.get(item.id)
@@ -164,22 +190,33 @@ export async function POST() {
             const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
 
             if (isStuck) {
+              console.log(`[OneDrive Scan] Abandonné (>7j): "${item.name}"`)
               result.push({ ...item, _abandoned: true, _errorDate: errorDate })
             } else if (!lastDone) {
+              console.log(`[OneDrive Scan] À traiter (nouveau): "${item.name}"`)
               result.push(item)
             } else {
               const lastModified = new Date(item.lastModifiedDateTime)
-              if (lastModified > lastDone) result.push(item)
+              if (lastModified > lastDone) {
+                console.log(`[OneDrive Scan] À traiter (modifié): "${item.name}"`)
+                result.push(item)
+              } else {
+                console.log(`[OneDrive Scan] Ignoré (déjà traité, non modifié): "${item.name}"`)
+              }
             }
           }
           if (item.folder) {
+            console.log(`[OneDrive Scan] Sous-dossier: "${item.name}" — scan récursif`)
             try {
               const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, depth + 1)
               result.push(...subFiles)
-            } catch { /* ignore sub-folder errors */ }
+            } catch (subErr) {
+              console.error(`[OneDrive Scan] Erreur sous-dossier "${item.name}":`, subErr)
+            }
           }
         }
       }
+      console.log(`[OneDrive Scan] Total à traiter (depth=${depth}): ${result.length} | rawScanned total: ${rawScannedCount}`)
       return result
     }
 
