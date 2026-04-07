@@ -181,6 +181,9 @@ export async function POST() {
       )
     }
 
+    // IDs trouvés dans le scan OneDrive ce tour-ci
+    const scannedItemIds = new Set(fichiers.map((f: any) => f.id))
+
     // Pré-enregistrer TOUS les fichiers découverts qui ne sont pas encore dans la DB
     // Permet de les voir dans l'historique même si le traitement est en attente ou échoue
     const knownItemIds = new Set((allFichiersUpdated || []).map((f: any) => f.onedrive_item_id))
@@ -195,6 +198,22 @@ export async function POST() {
           erreur: null,
         })
       }
+    }
+
+    // Détecter les fichiers en attente (traite:false) qui NE SONT PLUS dans le dossier OneDrive
+    // → Fichier déplacé ou supprimé manuellement → marquer avec erreur explicite
+    const missingFromOneDrive = (allFichiersUpdated || []).filter((f: any) => {
+      if (f.traite !== false) return false          // déjà traités → ignorer
+      const err = f.erreur || ''
+      if (err.startsWith('Abandonné') || err.startsWith('Fichier introuvable')) return false // déjà marqués
+      return !scannedItemIds.has(f.onedrive_item_id)  // pas trouvé dans le scan
+    })
+    if (missingFromOneDrive.length > 0) {
+      const missingIds = missingFromOneDrive.map((f: any) => f.id)
+      await (supabase as any)
+        .from('onedrive_fichiers')
+        .update({ erreur: 'Fichier introuvable dans OneDrive — déplacé ou supprimé du dossier surveillé' })
+        .in('id', missingIds)
     }
 
     let processed = 0
