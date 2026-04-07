@@ -21,7 +21,7 @@ function IntegrationsContent() {
 
   // Boucle auto sync OneDrive
   const [onedriveSyncing, setOnedriveSyncing] = useState(false)
-  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, updated: 0, reactivated: 0, errors: 0, batch: 0 })
+  const [onedriveProgress, setOnedriveProgress] = useState({ total: 0, created: 0, updated: 0, reactivated: 0, errors: 0, batch: 0, rawScanned: 0 })
   const onedriveStopRef = useRef(false)
   const [onedriveStopping, setOnedriveStopping] = useState(false)
 
@@ -61,7 +61,8 @@ function IntegrationsContent() {
         if (data.updatedNames) allUpdatedNames.push(...data.updatedNames)
         if (data.reactivatedNames) allReactivatedNames.push(...data.reactivatedNames)
         if (data.errorFiles) allErrorFiles.push(...data.errorFiles)
-        setOnedriveProgress({ total: totalProcessed, created: totalCreated, updated: totalUpdated, reactivated: totalReactivated, errors: totalErrors, batch: batchNum })
+        const totalRawScanned = (data.rawScanned || 0)
+        setOnedriveProgress({ total: totalProcessed, created: totalCreated, updated: totalUpdated, reactivated: totalReactivated, errors: totalErrors, batch: batchNum, rawScanned: totalRawScanned })
 
         // Rafraichir les stats apres chaque batch
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
@@ -83,6 +84,7 @@ function IntegrationsContent() {
     setSyncReport({
       type: 'onedrive',
       totalAnalysed: totalProcessed,
+      rawScanned: onedriveProgress.rawScanned,
       created: totalCreated,
       createdNames: allCreatedNames,
       updated: totalUpdated,
@@ -365,7 +367,7 @@ function IntegrationsContent() {
                         }}
                         style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
-                        ⏹ Stop ({onedriveProgress.created} importes, batch {onedriveProgress.batch})
+                        ⏹ Stop ({onedriveProgress.created} importés / {onedriveProgress.rawScanned} trouvés)
                       </button>
                     ) : (
                       <button
@@ -722,7 +724,12 @@ function IntegrationsContent() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 20 }}>
               <div style={{ background: 'var(--background)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid var(--border)' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{syncReport.totalAnalysed}</p>
-                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>Fichiers analyses</p>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>
+                  Fichiers traités
+                  {syncReport.rawScanned > 0 && syncReport.rawScanned !== syncReport.totalAnalysed && (
+                    <span style={{ color: '#D97706' }}> ({syncReport.rawScanned} dans OneDrive)</span>
+                  )}
+                </p>
               </div>
               <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BBF7D0' }}>
                 <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{syncReport.created}</p>
@@ -777,6 +784,30 @@ function IntegrationsContent() {
                     <div key={i} style={{ fontSize: 12, color: '#92400E', padding: '2px 0' }}>• {name}</div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Cas : dossier OneDrive vide — 0 fichiers trouvés */}
+            {syncReport.rawScanned === 0 && syncReport.totalAnalysed === 0 && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#FEF3C7', border: '1.5px solid #FDE68A' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E' }}>
+                  ⚠️ Aucun fichier CV trouvé dans le dossier OneDrive
+                </p>
+                <p style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>
+                  Le dossier surveillé est vide ou ne contient que des fichiers déjà traités. Déposez des CVs (PDF, DOCX, images) dans le dossier configuré.
+                </p>
+              </div>
+            )}
+
+            {/* Cas : fichiers trouvés mais tous déjà traités */}
+            {syncReport.rawScanned > 0 && syncReport.totalAnalysed === 0 && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#EFF6FF', border: '1.5px solid #BFDBFE' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}>
+                  ✓ {syncReport.rawScanned} fichier{syncReport.rawScanned > 1 ? 's' : ''} trouvé{syncReport.rawScanned > 1 ? 's' : ''} dans OneDrive — tous déjà traités
+                </p>
+                <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4 }}>
+                  Tous les CVs du dossier ont déjà été importés et n&apos;ont pas été modifiés depuis.
+                </p>
               </div>
             )}
 

@@ -81,6 +81,7 @@ export async function POST() {
     const { data: allFichiers } = await (supabase as any)
       .from('onedrive_fichiers')
       .select('id, onedrive_item_id, traite, created_at, erreur, candidat_id')
+      .limit(10000)
 
     // Auto-reset des fichiers orphelins : traite:true mais candidat_id IS NULL
     // (marqués "traités" mais aucun candidat créé — ancien bug insert unique)
@@ -115,6 +116,7 @@ export async function POST() {
     const { data: allFichiersUpdated } = await (supabase as any)
       .from('onedrive_fichiers')
       .select('onedrive_item_id, traite, created_at, erreur, candidat_id')
+      .limit(10000)
 
     for (const row of (allFichiersUpdated || [])) {
       const rowDate = new Date(row.created_at)
@@ -136,36 +138,46 @@ export async function POST() {
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
     // Inclut les fichiers jamais traités ET ceux modifiés depuis leur dernier traitement
+    // rawCount = total fichiers CV trouvés dans OneDrive AVANT filtrage doneMap/errorMap
+    let rawScannedCount = 0
+
     async function scanFolderRecursive(scanDriveId: string, scanFolderId: string, scanToken: string, depth = 0): Promise<any[]> {
       if (depth > 5) return []
-      const data = await callGraph(scanToken, `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`)
       let result: any[] = []
-      for (const item of (data.value || [])) {
-        if (item.file) {
-          const ext = item.name.split('.').pop()?.toLowerCase()
-          if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
-          const lastDone = doneMap.get(item.id)
-          const errorDate = errorDateMap.get(item.id)
-          const ageMs = errorDate ? Date.now() - errorDate.getTime() : 0
-          const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
 
-          if (isStuck) {
-            // Bloqué depuis plus de MAX_ERROR_DAYS jours → abandonner (marque traite:true)
-            result.push({ ...item, _abandoned: true, _errorDate: errorDate })
-          } else if (!lastDone) {
-            // Jamais traité avec succès → inclure
-            result.push(item)
-          } else {
-            // Déjà traité → inclure seulement si modifié depuis
-            const lastModified = new Date(item.lastModifiedDateTime)
-            if (lastModified > lastDone) result.push(item)
+      // Pagination : suivre @odata.nextLink jusqu'à la fin
+      let url: string | null = `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`
+      while (url) {
+        const data = await callGraph(scanToken, url)
+        url = data['@odata.nextLink'] || null  // page suivante si elle existe
+
+        for (const item of (data.value || [])) {
+          if (item.file) {
+            const ext = item.name.split('.').pop()?.toLowerCase()
+            if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
+
+            rawScannedCount++ // compte AVANT filtrage
+
+            const lastDone = doneMap.get(item.id)
+            const errorDate = errorDateMap.get(item.id)
+            const ageMs = errorDate ? Date.now() - errorDate.getTime() : 0
+            const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
+
+            if (isStuck) {
+              result.push({ ...item, _abandoned: true, _errorDate: errorDate })
+            } else if (!lastDone) {
+              result.push(item)
+            } else {
+              const lastModified = new Date(item.lastModifiedDateTime)
+              if (lastModified > lastDone) result.push(item)
+            }
           }
-        }
-        if (item.folder) {
-          try {
-            const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, depth + 1)
-            result.push(...subFiles)
-          } catch { /* ignore sub-folder errors */ }
+          if (item.folder) {
+            try {
+              const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, depth + 1)
+              result.push(...subFiles)
+            } catch { /* ignore sub-folder errors */ }
+          }
         }
       }
       return result
@@ -825,8 +837,9 @@ export async function POST() {
     const result = {
       success: true,
       folder: folderName,
-      found: fichiers.length,      // total découvert ce scan
-      remaining,                   // reste à traiter dans les prochains batchs
+      rawScanned: rawScannedCount,  // total CV trouvés dans OneDrive (avant filtrage doneMap)
+      found: fichiers.length,       // après filtrage — à traiter réellement
+      remaining,                    // reste à traiter dans les prochains batchs
       processed,
       skipped,
       updated,
