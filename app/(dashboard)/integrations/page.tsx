@@ -78,16 +78,6 @@ function IntegrationsContent() {
       }
     }
 
-    // Fetch updated files to get names
-    try {
-      const filesRes = await fetch('/api/onedrive/sync')
-      const filesJson = await filesRes.json()
-      const updatedFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Mis à jour'))
-      allUpdatedNames.push(...updatedFiles.map((f: any) => f.erreur.replace('Mis à jour — ', '')).slice(0, 50))
-      const reactivatedFiles = (filesJson.fichiers || []).filter((f: any) => f.erreur?.startsWith('Réactivé'))
-      allReactivatedNames.push(...reactivatedFiles.map((f: any) => f.erreur.replace('Réactivé — ', '')).slice(0, 50))
-    } catch { /* ignore */ }
-
     setSyncReport({
       type: 'onedrive',
       totalAnalysed: totalProcessed,
