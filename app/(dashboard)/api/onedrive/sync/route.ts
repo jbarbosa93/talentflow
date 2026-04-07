@@ -15,28 +15,6 @@ export const maxDuration = 300
 const DEFAULT_FOLDER_NAME = 'CVs TalentFlow'
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
 
-function hasNewContent(existing: any, newAnalysis: any): boolean {
-  // Check if new analysis has more experiences
-  const oldExpCount = (existing.experiences || []).length
-  const newExpCount = (newAnalysis.experiences || []).length
-  if (newExpCount > oldExpCount) return true
-
-  // Check if titre_poste changed meaningfully
-  if (newAnalysis.titre_poste && existing.titre_poste &&
-      newAnalysis.titre_poste.toLowerCase() !== existing.titre_poste.toLowerCase()) return true
-
-  // Check new competences
-  const oldComp = new Set((existing.competences || []).map((s: string) => s.toLowerCase()))
-  const newComp = (newAnalysis.competences || []).filter((s: string) => !oldComp.has(s.toLowerCase()))
-  if (newComp.length >= 3) return true
-
-  // Check new formations
-  const oldFormCount = (existing.formations_details || []).length
-  const newFormCount = (newAnalysis.formations_details || []).length
-  if (newFormCount > oldFormCount) return true
-
-  return false
-}
 
 export async function POST() {
   try {
@@ -118,16 +96,20 @@ export async function POST() {
     // Re-lire après reset orphelins pour avoir l'état à jour
     const { data: allFichiersUpdated } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('onedrive_item_id, traite, traite_le, created_at, erreur, candidat_id')
+      .select('onedrive_item_id, traite, traite_le, last_modified_at, created_at, erreur, candidat_id')
       .limit(10000)
 
     for (const row of (allFichiersUpdated || [])) {
-      // traite_le = date du traitement réel (colonne dédiée)
-      // created_at = date création ligne DB — peut avoir été réinitialisé par orphan-reset → NE PAS utiliser pour doneMap
-      const traiteDate = row.traite_le ? new Date(row.traite_le) : new Date(row.created_at)
       if (row.traite === true) {
+        // Utiliser last_modified_at (date du fichier OneDrive connue au dernier traitement)
+        // Fallback sur traite_le puis created_at pour les anciennes lignes sans last_modified_at
+        const knownDate = row.last_modified_at
+          ? new Date(row.last_modified_at)
+          : row.traite_le
+            ? new Date(row.traite_le)
+            : new Date(row.created_at)
         const existing = doneMap.get(row.onedrive_item_id)
-        if (!existing || traiteDate > existing) doneMap.set(row.onedrive_item_id, traiteDate)
+        if (!existing || knownDate > existing) doneMap.set(row.onedrive_item_id, knownDate)
       } else {
         errorDateMap.set(row.onedrive_item_id, new Date(row.created_at))
       }
@@ -232,6 +214,11 @@ export async function POST() {
       )
     }
 
+    // Trier du plus récent au plus ancien avant traitement (Règle 5)
+    fichiers.sort((a, b) =>
+      new Date(b.lastModifiedDateTime || 0).getTime() - new Date(a.lastModifiedDateTime || 0).getTime()
+    )
+
     // IDs trouvés dans le scan OneDrive ce tour-ci
     const scannedItemIds = new Set(fichiers.map((f: any) => f.id))
 
@@ -246,6 +233,7 @@ export async function POST() {
           onedrive_item_id: f.id,
           nom_fichier: f.name,
           traite: false,
+          last_modified_at: f.lastModifiedDateTime || null,
           erreur: null,
         })
       }
@@ -297,6 +285,7 @@ export async function POST() {
             nom_fichier: fichier.name,
             traite: true,
             traite_le: new Date().toISOString(),
+            last_modified_at: fichier.lastModifiedDateTime || null,
             erreur: `Abandonné — bloqué depuis ${daysSince} jours, vérifier manuellement`,
           })
           return { status: 'skipped', filename: fichier.name }
@@ -311,6 +300,7 @@ export async function POST() {
               onedrive_item_id: fichier.id,
               nom_fichier: fichier.name,
               traite: false,
+              last_modified_at: fichier.lastModifiedDateTime || null,
               erreur: `Fichier trop volumineux (${sizeMB} MB — max 10 MB)`,
             })
             return { status: 'error', filename: fichier.name }
@@ -326,6 +316,7 @@ export async function POST() {
               onedrive_item_id: fichier.id,
               nom_fichier: fichier.name,
               traite: false,
+              last_modified_at: fichier.lastModifiedDateTime || null,
               erreur: `Échec téléchargement OneDrive (HTTP ${dlRes.status}) — vérifier les permissions`,
             })
             return { status: 'error', filename: fichier.name }
@@ -407,7 +398,8 @@ export async function POST() {
                 onedrive_item_id: fichier.id,
                 nom_fichier: filename,
                 traite: true,
-            traite_le: new Date().toISOString(),
+                traite_le: new Date().toISOString(),
+                last_modified_at: fichier.lastModifiedDateTime || null,
                 erreur: `Document "${docType}" — aucun candidat identifiable`,
               })
             } catch { /* ignore */ }
@@ -496,13 +488,6 @@ export async function POST() {
               }
             }
           }
-          // 5. Par nom de fichier exact (même nom de fichier = même candidat)
-          if (!existingCandidat && filename) {
-            const { data } = await supabase.from('candidats').select('id, nom, prenom')
-              .eq('cv_nom_fichier', filename).maybeSingle()
-            existingCandidat = data
-          }
-
           // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
           // Ne pas créer un candidat depuis un certificat — logguer erreur pour correction manuelle
           if (isNotCV && !existingCandidat) {
@@ -527,7 +512,8 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
-            traite_le: new Date().toISOString(),
+                  traite_le: new Date().toISOString(),
+                  last_modified_at: fichier.lastModifiedDateTime || null,
                   candidat_id: existingCandidat.id,
                   erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
                 })
@@ -574,7 +560,8 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
-            traite_le: new Date().toISOString(),
+                  traite_le: new Date().toISOString(),
+                  last_modified_at: fichier.lastModifiedDateTime || null,
                   candidat_id: existingCandidat.id,
                   erreur: `${docTypeLabel} ajouté — ${candidatDisplayName}`,
                 })
@@ -583,13 +570,12 @@ export async function POST() {
               return { status: 'updated', name: `📄 ${docTypeLabel} → ${candidatDisplayName}`, candidatId: existingCandidat.id, filename }
             }
 
-            // Si même nom de fichier → même CV re-déposé, pas de mise à jour (juste réactivation)
+            // Règle 2 : tout CV avec un nom de fichier différent → nouveau CV principal
+            // (le fichier est ici car scanFolderRecursive a détecté une modification → on traite toujours)
             const memeNomFichier = filename === candidatExistant.cv_nom_fichier
-            // Compare new CV analysis with existing candidate
-            const cvHasNewContent = !memeNomFichier && hasNewContent(candidatExistant, analyse)
 
-            if (cvHasNewContent) {
-              // Step 3a: CV has NEW content — update candidate
+            if (!memeNomFichier) {
+              // Nouveau CV (nom différent) → devient CV principal, ancien conservé dans documents[]
               const timestamp = Date.now()
               const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
               const { data: storageData } = await supabase.storage
@@ -643,7 +629,8 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
-            traite_le: new Date().toISOString(),
+                  traite_le: new Date().toISOString(),
+                  last_modified_at: fichier.lastModifiedDateTime || null,
                   candidat_id: existingCandidat.id,
                   erreur: `Mis à jour — ${candidatDisplayName}`,
                 })
@@ -663,7 +650,8 @@ export async function POST() {
                   onedrive_item_id: fichier.id,
                   nom_fichier: filename,
                   traite: true,
-            traite_le: new Date().toISOString(),
+                  traite_le: new Date().toISOString(),
+                  last_modified_at: fichier.lastModifiedDateTime || null,
                   candidat_id: existingCandidat.id,
                   erreur: `Réactivé — ${candidatDisplayName}`,
                 })
@@ -767,7 +755,8 @@ export async function POST() {
               onedrive_item_id: fichier.id,
               nom_fichier: filename,
               traite: true,
-            traite_le: new Date().toISOString(),
+              traite_le: new Date().toISOString(),
+              last_modified_at: fichier.lastModifiedDateTime || null,
               candidat_id: candidatId,
             })
           } catch (tableErr: any) {
@@ -800,6 +789,7 @@ export async function POST() {
             onedrive_item_id: fichier.id,
             nom_fichier: fichier.name,
             traite: false,
+            last_modified_at: fichier.lastModifiedDateTime || null,
             erreur: errMsg,
           })
           return { status: 'error', filename: fichier.name }

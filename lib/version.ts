@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: v0.X.Y — X = feature group, Y = bugfix/polish
 
-export const APP_VERSION = 'v0.27.0'
+export const APP_VERSION = 'v0.27.1'
 export const APP_ENV: 'beta' | 'production' = 'beta'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.27.1',
+    date: '2026-04-07',
+    label: 'OneDrive Sync — Refonte logique traitement fichiers',
+    features: [
+      'OneDrive : tri du plus récent au plus ancien (lastModifiedDateTime DESC) avant traitement',
+      'OneDrive : colonne last_modified_at dans onedrive_fichiers — comparaison date fichier vs date connue',
+      'OneDrive : doneMap utilise last_modified_at au lieu de traite_le — détection fiable des vrais changements',
+      'OneDrive : candidat existant + CV différent → toujours remplacer le CV principal (plus de test hasNewContent)',
+      'OneDrive : ancien CV conservé dans documents[] lors de la mise à jour',
+      'OneDrive : suppression déduplication par nom de fichier (méthode 5) — le nom ne veut rien dire',
+      'OneDrive : indentation traite_le uniformisée dans tous les appels upsertFichier',
+    ],
+  },
   {
     version: 'v0.27.0',
     date: '2026-03-31',

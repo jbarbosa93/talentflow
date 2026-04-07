@@ -1,5 +1,19 @@
 # Changelog TalentFlow
 
+## v0.27.1 — 7 avril 2026
+
+### OneDrive Sync — Refonte logique traitement fichiers
+
+- **Tri DESC** : fichiers traités du plus récent au plus ancien (`lastModifiedDateTime DESC`)
+- **`last_modified_at`** : nouvelle colonne dans `onedrive_fichiers` — stocke la date OneDrive connue au moment du traitement
+- **`doneMap` corrigé** : compare `last_modified_at` (date du fichier) et non `traite_le` (date du traitement) — évite les faux "déjà traités"
+- **Règle 2** : candidat existant + nouveau nom de fichier → CV principal remplacé systématiquement, ancien CV conservé dans `documents[]`
+- **Suppression `hasNewContent`** : plus de test de contenu — si le fichier est modifié dans OneDrive, il est toujours retraité
+- **Déduplication** : suppression méthode 5 (par nom de fichier) — générait des faux positifs
+- **Nettoyage** : indentation `traite_le` uniformisée dans tous les `upsertFichier`
+
+---
+
 ## v0.27.0 — 31 mars 2026
 
 ### Entretiens / Suivi Candidat — Rappels & Dark Mode
