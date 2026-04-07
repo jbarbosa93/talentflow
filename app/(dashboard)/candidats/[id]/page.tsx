@@ -1812,7 +1812,7 @@ export default function CandidatDetailPage() {
                       cvIsPDF && cvRotation !== 0
                         ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
                         : cvIsPDF
-                          ? `${candidat.cv_url}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                          ? `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
                           : docViewerUrl
                     }
                     style={{

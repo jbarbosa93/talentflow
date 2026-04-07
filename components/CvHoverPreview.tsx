@@ -44,15 +44,20 @@ export function useCvHoverPreview(): UseCvHoverPreviewReturn {
 
 interface CvHoverTriggerProps {
   cvUrl: string
+  cvNomFichier?: string | null
   candidatId: string
   children: React.ReactNode
   hook: UseCvHoverPreviewReturn
 }
 
-export function CvHoverTrigger({ cvUrl, candidatId, children, hook }: CvHoverTriggerProps) {
+export function CvHoverTrigger({ cvUrl, cvNomFichier, candidatId, children, hook }: CvHoverTriggerProps) {
   const { hoveredCvTimeout, setPreviewData, setPreviewZoom, setPreviewVisible } = hook
 
-  const ext = (cvUrl || '').toLowerCase().split('.').pop() || 'pdf'
+  // Utilise le nom de fichier d'abord (plus fiable), puis l'URL en fallback
+  const sourceForExt = (cvNomFichier || cvUrl || '').toLowerCase().split('?')[0]
+  const rawExtCandidate = sourceForExt.split('.').pop() || ''
+  const knownExts = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp']
+  const ext = knownExts.includes(rawExtCandidate) ? rawExtCandidate : 'pdf'
 
   return (
     <div

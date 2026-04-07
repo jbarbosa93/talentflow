@@ -303,7 +303,7 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
             {item.cv_url && (
-              <CvHoverTrigger cvUrl={item.cv_url} candidatId={item.id} hook={cvHook}>
+              <CvHoverTrigger cvUrl={item.cv_url} cvNomFichier={item.cv_nom_fichier} candidatId={item.id} hook={cvHook}>
                 <QuickAction icon={Eye} label="Aperçu CV" color="#10B981" onClick={() => {}} />
               </CvHoverTrigger>
             )}
