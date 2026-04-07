@@ -105,4 +105,12 @@ supabase/migrations/      — SQL migrations versionnées
 - Modifications des routes API existantes → vérifier les usages côté client avant
 - Ajout de dépendances npm lourdes → signaler l'impact sur le bundle Vercel
 
+**Déploiement Vercel** : ne jamais lancer `vercel --prod` ou toute autre commande de déploiement automatiquement. À la fin de chaque session ou tâche importante, afficher ce récap et attendre confirmation explicite :
+
+```
+✅ Tâches terminées : [liste]
+⚠️ Points d'attention : [liste si applicable]
+🚀 Prêt à déployer sur Vercel — tu confirmes ? (oui / non)
+```
+
 **Style de réponses** : concis, direct, pas de résumé en fin de réponse.
