@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
     if (metier) query = query.contains('tags', [metier] as any)
     if (langue) query = query.contains('langues', [langue] as any)
-    if (cfc === 'true') query = (query as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
+    if (cfc === 'true') query = query.eq('cfc', true as any)
     if (engage === 'true') query = query.eq('deja_engage', true as any)
     // Note : le filtre âge reste côté client (date_naissance a des formats mixtes : "54", "15/03/1990", etc.)
 
