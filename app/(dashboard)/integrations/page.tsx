@@ -10,50 +10,6 @@ import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
 
-function DiagnostiquerOrphansButton({ disabled, onSuccess }: { disabled: boolean; onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleClick = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/onedrive/reset-orphans', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok || data.error) {
-        toast.error(data.error || 'Erreur lors du diagnostic')
-        return
-      }
-      if (data.reset === 0) {
-        toast.success('Aucun fichier orphelin — tout est à jour')
-      } else {
-        toast.success(`${data.reset} fichier(s) remis en file — clique sur Synchroniser tout`)
-        onSuccess()
-      }
-    } catch {
-      toast.error('Erreur réseau — diagnostic échoué')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <button
-      onClick={handleClick}
-      disabled={disabled || loading}
-      style={{
-        fontSize: 12, fontWeight: 600, padding: '7px 14px',
-        borderRadius: 8, border: '2px solid var(--border)',
-        background: 'var(--card)', color: 'var(--foreground)',
-        cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        opacity: disabled || loading ? 0.5 : 1,
-        fontFamily: 'var(--font-body)',
-        display: 'flex', alignItems: 'center', gap: 5,
-      }}
-    >
-      {loading ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-      Diagnostiquer
-    </button>
-  )
-}
 
 function IntegrationsContent() {
   const searchParams  = useSearchParams()
@@ -111,8 +67,9 @@ function IntegrationsContent() {
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
+        // Continuer si : activité ce batch OU fichiers restants dans le scan
         const batchActivity2 = (data.created?.length || 0) + (data.updated || 0) + (data.reactivated || 0) + (data.errors || 0)
-        if (batchActivity2 === 0) {
+        if (batchActivity2 === 0 && (data.remaining || 0) === 0) {
           break
         }
 
@@ -421,10 +378,6 @@ function IntegrationsContent() {
                         Synchroniser tout
                       </button>
                     )}
-                    <DiagnostiquerOrphansButton
-                      disabled={onedriveSyncing}
-                      onSuccess={() => queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })}
-                    />
                     <button
                       onClick={() => disconnectMutation.mutate(onedriveIntegration.id)}
                       style={{
@@ -634,64 +587,67 @@ function IntegrationsContent() {
                 )}
 
                 {/* Historique fichiers OneDrive */}
-                {onedriveFichiers.length > 0 && (
-                  <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
-                      Derniers fichiers importes ({onedriveFichiers.length})
-                    </h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-                      {onedriveFichiers.map((f: any) => (
-                        <div key={f.id} style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                          padding: '8px 12px', borderRadius: 8,
-                          background: 'var(--background)', border: '1.5px solid var(--border)',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                            <FileText size={13} style={{ color: '#0078D4', flexShrink: 0 }} />
-                            <div style={{ minWidth: 0 }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {f.nom_fichier || '—'}
+                {onedriveFichiers.length > 0 && (() => {
+                  const sorted = [...onedriveFichiers].sort((a: any, b: any) =>
+                    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                  )
+                  const getStatus = (f: any): { label: string; bg: string; color: string; border: string } => {
+                    const err = f.erreur || ''
+                    if (f.traite === false) {
+                      if (err.startsWith('Abandonné')) return { label: '⏭ Abandonné', bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
+                      if (err.includes('Remis en file') || err.includes('re-sync')) return { label: '🔄 En attente re-sync', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
+                      if (err) return { label: `❌ Erreur — ${err}`, bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' }
+                      return { label: '⏳ En attente', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
+                    }
+                    if (err.startsWith('Mis à jour')) return { label: err, bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' }
+                    if (err.startsWith('Réactivé')) return { label: err, bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
+                    if (err.includes('Doublon')) return { label: err, bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
+                    if (err.startsWith('Document') || err.startsWith('Certificat') || err.startsWith('Diplôme') || err.startsWith('Formation') || err.startsWith('Attestation') || err.startsWith('Permis')) return { label: `⏭ ${err}`, bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
+                    if (err) return { label: `❌ ${err}`, bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' }
+                    if (f.candidat_id) return { label: `✅ Importé${f.candidats ? ` — ${f.candidats.prenom} ${f.candidats.nom}` : ''}`, bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' }
+                    return { label: '⏳ En attente', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
+                  }
+                  return (
+                    <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                        Historique fichiers ({sorted.length})
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 320, overflowY: 'auto' }}>
+                        {sorted.map((f: any) => {
+                          const st = getStatus(f)
+                          return (
+                            <div key={f.id} style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                              padding: '7px 12px', borderRadius: 8,
+                              background: 'var(--background)', border: '1.5px solid var(--border)',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                                <FileText size={12} style={{ color: '#0078D4', flexShrink: 0 }} />
+                                <div style={{ minWidth: 0 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {f.nom_fichier || '—'}
+                                  </span>
+                                  {f.created_at && (
+                                    <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', marginTop: 1 }}>
+                                      {new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span title={st.label} style={{
+                                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0,
+                                background: st.bg, color: st.color, border: `1.5px solid ${st.border}`,
+                                maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block',
+                              }}>
+                                {st.label}
                               </span>
-                              {f.created_at && (
-                                <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', marginTop: 1 }}>
-                                  {new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
                             </div>
-                          </div>
-                          <div style={{ flexShrink: 0 }}>
-                            {f.candidat_id && !f.erreur ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>
-                                {f.candidats?.prenom} {f.candidats?.nom}
-                              </span>
-                            ) : f.erreur?.startsWith('Mis à jour') ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#DBEAFE', color: '#1D4ED8', border: '1.5px solid #BFDBFE' }}>
-                                {f.erreur}
-                              </span>
-                            ) : f.erreur?.startsWith('Réactivé') ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
-                                {f.erreur}
-                              </span>
-                            ) : f.erreur?.includes('Doublon') ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A' }}>
-                                {f.erreur}
-                              </span>
-                            ) : f.erreur?.startsWith('Document') || f.erreur?.startsWith('Certificat') || f.erreur?.startsWith('Diplôme') || f.erreur?.startsWith('Formation') || f.erreur?.startsWith('Attestation') || f.erreur?.startsWith('Permis') ? (
-                              <span title={f.erreur} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1.5px solid #FDE68A', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                                ⚠️ {f.erreur}
-                              </span>
-                            ) : f.erreur ? (
-                              <span title={f.erreur} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B', border: '1.5px solid #FECACA', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
-                                ❌ {f.erreur}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
+                          )
+                        })}
+                      </div>
                     </div>
-                    {/* Historique conserve pour eviter les re-doublons */}
-                  </div>
-                )}
+                  )
+                })()}
               </>
             )}
 

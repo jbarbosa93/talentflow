@@ -181,6 +181,22 @@ export async function POST() {
       )
     }
 
+    // Pré-enregistrer TOUS les fichiers découverts qui ne sont pas encore dans la DB
+    // Permet de les voir dans l'historique même si le traitement est en attente ou échoue
+    const knownItemIds = new Set((allFichiersUpdated || []).map((f: any) => f.onedrive_item_id))
+    const brandNewFiles = fichiers.filter((f: any) => !f._abandoned && !knownItemIds.has(f.id))
+    if (brandNewFiles.length > 0) {
+      for (const f of brandNewFiles) {
+        await upsertFichier({
+          integration_id: integrationId,
+          onedrive_item_id: f.id,
+          nom_fichier: f.name,
+          traite: false,
+          erreur: null,
+        })
+      }
+    }
+
     let processed = 0
     let skipped = 0
     let errors = 0
@@ -218,15 +234,31 @@ export async function POST() {
         try {
           // b. Vérifie taille < 10MB
           if (fichier.size > MAX_FILE_SIZE) {
-            console.warn(`[OneDrive Sync] Fichier trop volumineux (${fichier.size} bytes): ${fichier.name}`)
-            return { status: 'skipped' }
+            const sizeMB = (fichier.size / 1024 / 1024).toFixed(1)
+            await upsertFichier({
+              integration_id: integrationId,
+              onedrive_item_id: fichier.id,
+              nom_fichier: fichier.name,
+              traite: false,
+              erreur: `Fichier trop volumineux (${sizeMB} MB — max 10 MB)`,
+            })
+            return { status: 'error', filename: fichier.name }
           }
 
           // c. Télécharge le fichier
           const dlRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${fichier.id}/content`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           })
-          if (!dlRes.ok) return { status: 'error' }
+          if (!dlRes.ok) {
+            await upsertFichier({
+              integration_id: integrationId,
+              onedrive_item_id: fichier.id,
+              nom_fichier: fichier.name,
+              traite: false,
+              erreur: `Échec téléchargement OneDrive (HTTP ${dlRes.status}) — vérifier les permissions`,
+            })
+            return { status: 'error', filename: fichier.name }
+          }
           const buffer = Buffer.from(await dlRes.arrayBuffer())
           const filename = fichier.name
           const ext = filename.toLowerCase().split('.').pop() || ''
@@ -769,9 +801,13 @@ export async function POST() {
       .eq('id', integrationId)
 
     // 7. Retourne les stats
+    // `remaining` = fichiers trouvés dans le scan mais non traités ce batch (sera traité au prochain appel)
+    const remaining = Math.max(0, fichiers.length - fichiersToProcess.length)
     const result = {
       success: true,
       folder: folderName,
+      found: fichiers.length,      // total découvert ce scan
+      remaining,                   // reste à traiter dans les prochains batchs
       processed,
       skipped,
       updated,
