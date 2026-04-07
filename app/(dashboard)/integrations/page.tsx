@@ -215,6 +215,16 @@ function IntegrationsContent() {
   const onedriveAutoSync     = onedriveMeta?.onedrive_auto_sync !== false // true par defaut
   const onedriveFichiers     = onedriveFilesData?.fichiers || []
   const onedriveImported     = onedriveFichiers.filter((f: any) => f.candidat_id && !f.erreur)
+  // Fichiers en erreur = traite: false, dédupliqués par nom de fichier (garde le plus récent)
+  const onedriveEnErreur     = Object.values(
+    onedriveFichiers
+      .filter((f: any) => f.traite === false)
+      .reduce((acc: any, f: any) => {
+        const key = f.nom_fichier || f.onedrive_item_id
+        if (!acc[key] || new Date(f.created_at) > new Date(acc[key].created_at)) acc[key] = f
+        return acc
+      }, {})
+  ) as any[]
 
   return (
     <div className="d-page" style={{ maxWidth: 860, paddingBottom: 60 }}>
@@ -543,6 +553,36 @@ function IntegrationsContent() {
                     </div>
                   )
                 })()}
+
+                {/* Fichiers en erreur — seront retentés au prochain sync */}
+                {onedriveEnErreur.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: '2px solid #FECACA', paddingTop: 14 }}>
+                    <h4 style={{ fontSize: 12, fontWeight: 800, color: '#DC2626', marginBottom: 10 }}>
+                      ⚠️ Fichiers en erreur ({onedriveEnErreur.length}) — seront retentés automatiquement
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                      {onedriveEnErreur.map((f: any) => (
+                        <div key={f.id} style={{
+                          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8,
+                          padding: '8px 12px', borderRadius: 8,
+                          background: '#FEF2F2', border: '1.5px solid #FECACA',
+                        }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {f.nom_fichier || 'Fichier inconnu'}
+                            </p>
+                            {f.erreur && (
+                              <p style={{ fontSize: 11, color: '#B91C1C', marginTop: 2 }}>{f.erreur}</p>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 10, color: '#EF4444', whiteSpace: 'nowrap', marginTop: 2 }}>
+                            {f.created_at ? new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Historique fichiers OneDrive */}
                 {onedriveFichiers.length > 0 && (
