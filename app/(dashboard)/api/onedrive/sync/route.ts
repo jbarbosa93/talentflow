@@ -80,21 +80,44 @@ export async function POST() {
     // 3. Charger tous les enregistrements onedrive_fichiers
     const { data: allFichiers } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('onedrive_item_id, traite, created_at, erreur')
+      .select('id, onedrive_item_id, traite, created_at, erreur, candidat_id')
+
+    // Auto-reset des fichiers orphelins : traite:true mais candidat_id IS NULL
+    // (marqués "traités" mais aucun candidat créé — ancien bug insert unique)
+    const EXCLUSIONS = ['Abandonné', 'Document', 'Doublon', 'non-CV', 'sans candidat', 'Remis en file']
+    const orphanIds = (allFichiers || [])
+      .filter((f: any) => {
+        if (!f.traite || f.candidat_id) return false
+        const err = f.erreur || ''
+        return !EXCLUSIONS.some(e => err.startsWith(e) || err.includes(e))
+      })
+      .map((f: any) => f.id)
+
+    if (orphanIds.length > 0) {
+      await (supabase as any)
+        .from('onedrive_fichiers')
+        .update({ traite: false, erreur: 'Remis en file — re-sync auto (orphelin détecté)' })
+        .in('id', orphanIds)
+      console.log(`[OneDrive Sync] ${orphanIds.length} fichier(s) orphelin(s) remis en file automatiquement`)
+    }
 
     // Map: item_id → date de traitement la plus récente (traite: true uniquement)
     const doneMap = new Map<string, Date>()
-    // Map: item_id → date du premier échec (traite: false) — UNIQUE grâce à l'index
+    // Map: item_id → date du premier échec (traite: false)
     const errorDateMap = new Map<string, Date>()
     const MAX_ERROR_DAYS = 7 // Abandon après 7 jours sans succès
 
-    for (const row of (allFichiers || [])) {
+    // Re-lire après reset orphelins pour avoir l'état à jour
+    const { data: allFichiersUpdated } = await (supabase as any)
+      .from('onedrive_fichiers')
+      .select('onedrive_item_id, traite, created_at, erreur, candidat_id')
+
+    for (const row of (allFichiersUpdated || [])) {
       const rowDate = new Date(row.created_at)
       if (row.traite === true) {
         const existing = doneMap.get(row.onedrive_item_id)
         if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
       } else {
-        // Unique index → 1 seule ligne par fichier en erreur, on garde la date
         errorDateMap.set(row.onedrive_item_id, rowDate)
       }
     }
