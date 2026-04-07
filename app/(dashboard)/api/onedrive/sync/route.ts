@@ -101,13 +101,10 @@ export async function POST() {
 
     for (const row of (allFichiersUpdated || [])) {
       if (row.traite === true) {
-        // Utiliser last_modified_at (date du fichier OneDrive connue au dernier traitement)
-        // Fallback sur traite_le puis created_at pour les anciennes lignes sans last_modified_at
-        const knownDate = row.last_modified_at
-          ? new Date(row.last_modified_at)
-          : row.traite_le
-            ? new Date(row.traite_le)
-            : new Date(row.created_at)
+        // Si last_modified_at est NULL → ancienne ligne sans date connue → ne pas ajouter au doneMap
+        // → sera retraité au prochain sync (évite le skip aveugle sur fallback traite_le)
+        if (!row.last_modified_at) continue
+        const knownDate = new Date(row.last_modified_at)
         const existing = doneMap.get(row.onedrive_item_id)
         if (!existing || knownDate > existing) doneMap.set(row.onedrive_item_id, knownDate)
       } else {
