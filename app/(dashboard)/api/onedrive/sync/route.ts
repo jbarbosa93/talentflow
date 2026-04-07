@@ -77,18 +77,25 @@ export async function POST() {
       )
     }
 
-    // 3. Charger les fichiers déjà traités avec leur date de traitement
-    // Un fichier modifié dans OneDrive APRÈS sa dernière date de traitement sera retraité
-    const { data: alreadyDone } = await (supabase as any)
+    // 3. Charger tous les enregistrements onedrive_fichiers pour ce batch
+    const { data: allFichiers } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('onedrive_item_id, created_at')
-      .eq('traite', true)
-    // Map: item_id → date de traitement la plus récente
+      .select('onedrive_item_id, traite, created_at, erreur')
+
+    // Map: item_id → date de traitement la plus récente (traite: true)
     const doneMap = new Map<string, Date>()
-    for (const row of (alreadyDone || [])) {
-      const existing = doneMap.get(row.onedrive_item_id)
-      const rowDate = new Date(row.created_at)
-      if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
+    // Map: item_id → nombre d'erreurs consécutives (traite: false)
+    const errorCountMap = new Map<string, number>()
+    const MAX_RETRIES = 5
+
+    for (const row of (allFichiers || [])) {
+      if (row.traite === true) {
+        const existing = doneMap.get(row.onedrive_item_id)
+        const rowDate = new Date(row.created_at)
+        if (!existing || rowDate > existing) doneMap.set(row.onedrive_item_id, rowDate)
+      } else {
+        errorCountMap.set(row.onedrive_item_id, (errorCountMap.get(row.onedrive_item_id) || 0) + 1)
+      }
     }
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
@@ -102,8 +109,12 @@ export async function POST() {
           const ext = item.name.split('.').pop()?.toLowerCase()
           if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) continue
           const lastDone = doneMap.get(item.id)
-          if (!lastDone) {
-            // Jamais traité → inclure
+          const errCount = errorCountMap.get(item.id) || 0
+          if (errCount >= MAX_RETRIES) {
+            // Trop d'erreurs — abandonner proprement (sera marqué traite:true avec message)
+            result.push({ ...item, _abandoned: true, _errCount: errCount })
+          } else if (!lastDone) {
+            // Jamais traité avec succès → inclure
             result.push(item)
           } else {
             // Déjà traité → inclure seulement si modifié depuis
@@ -151,6 +162,20 @@ export async function POST() {
       const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string; candidatId?: string; filename?: string }> => {
         // Date de modification du fichier OneDrive = date d'ajout du candidat
         const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
+
+        // Fichier abandonné après MAX_RETRIES échecs → marquer traite:true pour stopper les retries
+        if (fichier._abandoned) {
+          try {
+            await (supabase as any).from('onedrive_fichiers').insert({
+              integration_id: integrationId,
+              onedrive_item_id: fichier.id,
+              nom_fichier: fichier.name,
+              traite: true,
+              erreur: `Abandonné après ${fichier._errCount} tentatives — vérifier manuellement`,
+            })
+          } catch { /* ignore */ }
+          return { status: 'skipped', filename: fichier.name }
+        }
 
         try {
           // b. Vérifie taille < 10MB
@@ -608,19 +633,30 @@ export async function POST() {
           return { status: 'created', name: `${candidatPrenom} ${candidatNom}`.trim() || 'Candidat', candidatId, filename }
 
         } catch (err) {
-          console.error(`[OneDrive Sync] Erreur fichier ${fichier.name}:`, err)
+          // Sérialisation robuste — capture tous les types d'erreurs
+          const errMsg = err instanceof Error
+            ? err.message
+            : typeof err === 'string'
+              ? err
+              : (err as any)?.message
+                ? (err as any).message
+                : (err as any)?.error
+                  ? String((err as any).error)
+                  : JSON.stringify(err) || 'Erreur non sérialisable'
 
-          // Enregistre l'erreur dans onedrive_fichiers
+          console.error(`[OneDrive Sync] Erreur fichier ${fichier.name}:`, errMsg)
+
+          // Enregistre l'erreur dans onedrive_fichiers (traite: false → sera retenté)
           try {
             await (supabase as any).from('onedrive_fichiers').insert({
               integration_id: integrationId,
               onedrive_item_id: fichier.id,
               nom_fichier: fichier.name,
               traite: false,
-              erreur: err instanceof Error ? err.message : 'Erreur inconnue',
+              erreur: errMsg,
             })
           } catch { /* ignore */ }
-          return { status: 'error' }
+          return { status: 'error', filename: fichier.name }
         }
       }))
 
