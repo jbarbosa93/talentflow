@@ -294,7 +294,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       w.postMessage({
         type: 'START',
         payload: {
-          jobs: pendingJobs.map(j => ({ id: j.id, file: j.file, statut, categorie: j.categorie })),
+          jobs: pendingJobs.map(j => ({ id: j.id, file: j.file, statut: null, categorie: j.categorie })),
           useFilenameDate,
         },
       })
@@ -349,7 +349,7 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       setJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: 'processing' } : j))
       const formData = new FormData()
       formData.append('cv', job.file)
-      formData.append('statut', statut)
+      // statut intentionnellement absent — statut_pipeline doit rester null à l'import
       if (action === 'remplacer' && job.candidatExistant) formData.append('replace_id', job.candidatExistant.id)
       if (action === 'garder_les_deux') formData.append('force_insert', 'true')
       if (job.categorie) formData.append('categorie', job.categorie)

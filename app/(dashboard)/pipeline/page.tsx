@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { logActivity } from '@/hooks/useActivites'
+import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
 
 const supabase = createClient()
 
@@ -133,11 +134,12 @@ function DroppableColumn({ stage, children, isActive }: { stage: Stage; children
 
 // ─── Draggable Card ───────────────────────────────────────────────────────────
 
-function DraggableCard({ item, stage, onRemove, onNote }: {
+function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
   item: any
   stage: Stage
   onRemove: () => void
   onNote: (candidatId: string, name: string, notes: string) => void
+  cvHook: ReturnType<typeof useCvHoverPreview>
 }) {
   const {
     attributes,
@@ -300,6 +302,11 @@ function DraggableCard({ item, stage, onRemove, onNote }: {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
+            {item.cv_url && (
+              <CvHoverTrigger cvUrl={item.cv_url} candidatId={item.id} hook={cvHook}>
+                <QuickAction icon={Eye} label="Aperçu CV" color="#10B981" onClick={() => {}} />
+              </CvHoverTrigger>
+            )}
             <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
             <QuickAction
               icon={MessageSquare}
@@ -833,6 +840,9 @@ export default function PipelinePage() {
   const [showStageManager, setShowStageManager] = useState(false)
   const queryClient = useQueryClient()
 
+  // CV hover preview
+  const cvHook = useCvHoverPreview()
+
   // Notes modal state (lifted to page level to avoid DnD z-index issues)
   const [notesModal, setNotesModal] = useState<{ candidatId: string; name: string; notes: string } | null>(null)
 
@@ -957,7 +967,7 @@ export default function PipelinePage() {
       if (offreFilter === 'tous') {
         const { data, error } = await supabase
           .from('candidats')
-          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes')
+          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier')
           .not('statut_pipeline', 'is', null)
           .order('updated_at', { ascending: false })
           .limit(500)
@@ -966,7 +976,7 @@ export default function PipelinePage() {
       } else {
         const { data: pipelineData, error } = await supabase
           .from('pipeline')
-          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes)')
+          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier)')
           .eq('offre_id', offreFilter)
         if (error) throw error
         return (pipelineData || []).map((p: any) => ({
@@ -1455,6 +1465,7 @@ export default function PipelinePage() {
                           stage={stage}
                           onRemove={() => handleRemoveFromPipeline(item.id)}
                           onNote={handleNoteOpen}
+                          cvHook={cvHook}
                         />
                       ))}
                     </SortableContext>
@@ -1482,6 +1493,9 @@ export default function PipelinePage() {
           </DragOverlay>
         </DndContext>
       )}
+
+      {/* ─── CV Hover Preview (page-level, above DnD) ─── */}
+      <CvHoverPanel hook={cvHook} />
 
       {/* ─── Notes Modal (page-level, above DnD) ─── */}
       {notesModal && (

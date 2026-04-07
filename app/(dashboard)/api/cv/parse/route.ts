@@ -857,7 +857,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     photo_url: photoUrl,
     resume_ia: analyse.resume || null,
     cv_texte_brut: texteCV.slice(0, 10000),
-    statut_pipeline: statutPipeline as any,
+    statut_pipeline: null, // JAMAIS d'ajout auto en pipeline — uniquement via action manuelle
     tags: [],
     notes: null,
     source: 'upload',
