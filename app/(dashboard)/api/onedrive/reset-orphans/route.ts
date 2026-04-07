@@ -34,10 +34,11 @@ export async function POST() {
     }
 
     // Remettre à traite:false pour forcer le re-traitement
+    // created_at reset à NOW pour éviter l'abandon immédiat (logique 7 jours)
     const ids = toReset.map((f: any) => f.id)
     const { error: updateError } = await (supabase as any)
       .from('onedrive_fichiers')
-      .update({ traite: false, erreur: 'Remis en file — re-sync forcé' })
+      .update({ traite: false, erreur: 'Remis en file — re-sync forcé', created_at: new Date().toISOString() })
       .in('id', ids)
 
     if (updateError) throw updateError

@@ -96,7 +96,11 @@ export async function POST() {
     if (orphanIds.length > 0) {
       await (supabase as any)
         .from('onedrive_fichiers')
-        .update({ traite: false, erreur: 'Remis en file — re-sync auto (orphelin détecté)' })
+        .update({
+          traite: false,
+          erreur: 'Remis en file — re-sync auto (orphelin détecté)',
+          created_at: new Date().toISOString(), // Reset du timer — évite l'abandon immédiat
+        })
         .in('id', orphanIds)
       console.log(`[OneDrive Sync] ${orphanIds.length} fichier(s) orphelin(s) remis en file automatiquement`)
     }
