@@ -251,7 +251,7 @@ body {
 .d-search-input:focus {
   border-color: var(--primary);
   background: white;
-  box-shadow: 0 0 0 3px rgba(245,167,35,0.15);
+  box-shadow: 0 0 0 3px rgba(245,167,35,0.12);
 }
 .d-topbar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .d-icon-btn {
@@ -575,7 +575,8 @@ body {
   outline: none;
   transition: all 0.15s;
 }
-.neo-input-soft:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(245,167,35,0.12); background: white; }
+.neo-input-soft:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(245,167,35,0.12); background: var(--card); }
+.search-wrapper:focus-within svg { color: var(--muted) !important; }
 .neo-input-soft::placeholder { color: #94A3B8; }
 
 /* ══════════════════════════════════════
@@ -839,13 +840,28 @@ body {
    SHIMMER — loading skeleton
    ══════════════════════════════════════ */
 @keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
 }
 .shimmer {
-  background: linear-gradient(90deg, var(--border) 25%, var(--secondary) 50%, var(--border) 75%);
-  background-size: 800px 100%;
-  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,0.06) 50%, var(--surface) 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 6px;
+}
+[data-theme="light"] .shimmer {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 1200px 100%;
+}
+/* Skeleton card */
+.skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
 }
 
 /* ══════════════════════════════════════
@@ -1099,4 +1115,23 @@ body {
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+}
+
+/* ══════════════════════════════════════
+   PIPELINE — Board scroll
+   ══════════════════════════════════════ */
+.pipeline-board-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.pipeline-board-scroll::-webkit-scrollbar-track {
+  background: var(--secondary);
+  border-radius: 99px;
+}
+.pipeline-board-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+  transition: background 0.2s;
+}
+.pipeline-board-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
 }

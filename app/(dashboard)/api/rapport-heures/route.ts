@@ -278,6 +278,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (e: any) {
     console.error('[rapport-heures] Error generating PDF:', e)
-    return NextResponse.json({ error: e.message || 'Erreur g\u00e9n\u00e9ration PDF' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur g\u00e9n\u00e9ration PDF' }, { status: 500 })
   }
 }

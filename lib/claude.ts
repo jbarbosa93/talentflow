@@ -17,20 +17,40 @@ function getClient(): Anthropic {
   return anthropicClient
 }
 
+// ─── Circuit breaker ─────────────────────────────────────────────────────────
+
+const circuitBreaker = {
+  failures: 0,
+  openedAt: 0,
+  MAX_FAILURES: 3,
+  RESET_MS: 60_000,
+  isOpen(): boolean {
+    if (this.failures < this.MAX_FAILURES) return false
+    if (Date.now() - this.openedAt > this.RESET_MS) { this.failures = 0; return false }
+    return true
+  },
+  recordFailure() { this.failures++; if (this.failures >= this.MAX_FAILURES) this.openedAt = Date.now() },
+  recordSuccess() { this.failures = 0 },
+}
+
 // ─── Retry avec backoff pour les erreurs transitoires ────────────────────────
 
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  if (circuitBreaker.isOpen()) throw new Error('Claude API indisponible — réessayez dans une minute')
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn()
+      const result = await fn()
+      circuitBreaker.recordSuccess()
+      return result
     } catch (err: any) {
       const status = err?.status || err?.statusCode || 0
       const isRetryable = status === 429 || status === 529 || status >= 500
 
+      if (isRetryable) circuitBreaker.recordFailure()
       if (!isRetryable || attempt === maxRetries) throw err
 
       const waitMs = Math.min(2000 * (attempt + 1), 8000)
-      console.log(`[Claude] Erreur ${status} — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
+      console.warn(`[Claude] Erreur ${status} — retry ${attempt + 1}/${maxRetries} dans ${waitMs}ms...`)
       await new Promise(r => setTimeout(r, waitMs))
     }
   }
@@ -202,7 +222,7 @@ function parseCV(text: string): CVAnalyse {
 async function limitPDFPages(buffer: Buffer, maxPages = 5): Promise<Buffer> {
   try {
     const { PDFDocument, degrees } = await import('pdf-lib')
-    const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+    const srcDoc = await PDFDocument.load(buffer)
     const totalPages = srcDoc.getPageCount()
     const pagesCount = Math.min(totalPages, maxPages)
 
@@ -306,7 +326,7 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer, options?: { transla
       console.log('[Claude] ⚠️ Haiku n\'a rien extrait — tentative rotation 180°...')
       try {
         const { PDFDocument, degrees } = await import('pdf-lib')
-        const pdfDoc = await PDFDocument.load(trimmedBuffer, { ignoreEncryption: true })
+        const pdfDoc = await PDFDocument.load(trimmedBuffer)
         for (let i = 0; i < pdfDoc.getPageCount(); i++) {
           const p = pdfDoc.getPage(i)
           p.setRotation(degrees((p.getRotation().angle + 180) % 360))

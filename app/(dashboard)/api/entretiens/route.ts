@@ -11,7 +11,7 @@ export async function GET() {
     .select('*, candidats(nom, prenom, email, titre_poste), clients(nom_entreprise)')
     .eq('user_id', user_id)
     .order('date_heure', { ascending: false })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ entretiens: data || [] })
 }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       .insert({ ...body, user_id })
       .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
 
     try {
       const routeUser = await getRouteUser()
@@ -69,7 +69,7 @@ export async function PATCH(request: NextRequest) {
       .eq('user_id', user_id)
       .select('*, candidats(nom, prenom, email), clients(nom_entreprise)')
       .single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ entretien: data })
   } catch (err) {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
@@ -83,6 +83,6 @@ export async function DELETE(request: NextRequest) {
   const supabase = createAdminClient()
   const { user_id } = await getRouteUser()
   const { error } = await supabase.from('entretiens').delete().eq('id', id).eq('user_id', user_id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ success: true })
 }

@@ -269,7 +269,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
           transition={{ duration: 0.15 }}
         >
           <div style={{ padding: '0 10px 0 12px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Search size={14} style={{ color: focused ? 'var(--primary)' : 'var(--muted)', transition: 'color 0.15s' }} />
+            <Search size={14} style={{ color: 'var(--muted)' }} />
           </div>
           <input
             ref={inputRef}

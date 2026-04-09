@@ -212,6 +212,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (e: any) {
     console.error('[send-whatsapp] Error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur envoi WhatsApp' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur envoi WhatsApp' }, { status: 500 })
   }
 }

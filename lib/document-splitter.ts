@@ -80,7 +80,7 @@ async function compterPagesPDF(buffer: Buffer): Promise<number> {
     // En cas d'erreur, on essaie avec pdf-lib
     try {
       const { PDFDocument } = await import('pdf-lib')
-      const doc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+      const doc = await PDFDocument.load(buffer)
       return doc.getPageCount()
     } catch {
       return 1 // fallback conservateur
@@ -200,7 +200,7 @@ function grouperPages(pages: PageInfo[]): DocumentGroup[] {
 
 async function extrairePagesPDF(buffer: Buffer, pageIndices: number[]): Promise<Buffer> {
   const { PDFDocument } = await import('pdf-lib')
-  const srcDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+  const srcDoc = await PDFDocument.load(buffer)
   const newDoc = await PDFDocument.create()
 
   const copied = await newDoc.copyPages(srcDoc, pageIndices)

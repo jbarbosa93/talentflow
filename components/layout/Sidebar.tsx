@@ -111,11 +111,11 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         // cache-bust pour éviter la réponse mise en cache
         const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
         if (!res.ok) return
-        const { ids } = await res.json() as { ids: string[] }
+        const { ids } = await res.json() as { ids: { id: string; import_status: string }[] }
         const viewed = new Set<string>(
           JSON.parse(localStorage.getItem('talentflow_viewed_candidats') || '[]')
         )
-        setSidebarBadgeCount(ids.filter(id => !viewed.has(id)).length)
+        setSidebarBadgeCount(ids.filter(item => !viewed.has(item.id)).length)
       } catch { /* silencieux */ }
     }
 
@@ -201,15 +201,23 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       >
         <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 28, height: 28, borderRadius: 8,
-              background: '#F7C948', flexShrink: 0,
-            }}>
+            <motion.span
+              whileHover={{ scale: 1.15, rotate: 5 }}
+              animate={{ boxShadow: ['0 0 0 0px rgba(255,232,0,0)', '0 0 14px 5px rgba(255,232,0,0.45)', '0 0 0 0px rgba(255,232,0,0)'] }}
+              transition={{
+                boxShadow: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+                scale: { type: 'spring', stiffness: 400, damping: 20 },
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: 8,
+                background: '#F5A623', flexShrink: 0, cursor: 'pointer',
+              }}
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#000000"/>
               </svg>
-            </span>
+            </motion.span>
             TalentFlow
           </div>
           {entreprise && (
@@ -391,6 +399,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 key={item.href}
                 custom={i}
                 variants={navItemVariants}
+                whileTap={{ scale: 0.97 }}
                 style={{ position: 'relative' }}
               >
                 {/* Active indicator bar */}
@@ -421,8 +430,12 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       sessionStorage.removeItem('candidats_search')
                       sessionStorage.removeItem('candidats_page')
                       sessionStorage.removeItem('candidats_import_status')
+                    } else if (item.href === '/candidats') {
+                      // Clic sidebar = retour état initial, vider tous les filtres persistés
+                      sessionStorage.removeItem('candidats_filters')
+                      sessionStorage.removeItem('candidats_filter_nonvu')
+                      sessionStorage.removeItem('candidats_status_before_nonvu')
                     }
-                    // Rien à faire de spécial pour /candidats — les badges sont gérés par fiche
                   }}
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
@@ -432,7 +445,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                     <span style={{
                       marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
                       padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: 'white',
+                      background: '#EF4444', color: '#FFFFFF',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1,
                     }}>
@@ -501,6 +514,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 key={item.href}
                 custom={NAV_ITEMS.length + i}
                 variants={navItemVariants}
+                whileTap={{ scale: 0.97 }}
                 style={{ position: 'relative' }}
               >
                 <Link
@@ -512,6 +526,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                         sessionStorage.removeItem('candidats_search')
                         sessionStorage.removeItem('candidats_page')
                         sessionStorage.removeItem('candidats_import_status')
+                      } else if (item.href === '/candidats') {
+                        sessionStorage.removeItem('candidats_filters')
+                        sessionStorage.removeItem('candidats_filter_nonvu')
+                        sessionStorage.removeItem('candidats_status_before_nonvu')
                       }
                     }}
                   >

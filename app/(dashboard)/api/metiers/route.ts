@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
 
   if (error) {
     console.error('[metiers] PUT error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 
   return NextResponse.json({ metiers, saved: true })

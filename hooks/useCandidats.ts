@@ -50,8 +50,9 @@ export function useCandidats(filters?: {
         total_pages: data.total_pages || 1,
       }
     },
-    staleTime: 30_000,
-    placeholderData: (prev: any) => prev, // Keep previous data while loading
+    staleTime: filters?.search ? 60_000 : 30_000, // recherche active : 1 min, liste : 30s
+    gcTime: 5 * 60_000,                           // garder en mémoire 5 min
+    placeholderData: (prev: any) => prev,
   })
 }
 
@@ -65,7 +66,8 @@ export function useCandidat(id: string) {
       return candidat
     },
     enabled: !!id,
-    staleTime: 60_000, // données fraîches 1 min → affichage immédiat si déjà en cache
+    staleTime: 2 * 60_000,  // fiche candidat : 2 min (change rarement)
+    gcTime: 10 * 60_000,    // garder 10 min en mémoire
   })
 }
 

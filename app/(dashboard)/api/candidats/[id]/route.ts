@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ candidat: data })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
@@ -39,7 +39,7 @@ const ALLOWED_COLS = new Set([
   'nom','prenom','email','telephone','localisation','titre_poste','annees_exp',
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
   'langues','linkedin','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
-  'cv_url','cv_nom_fichier','created_at','cfc','deja_engage',
+  'cv_url','cv_nom_fichier','cfc','deja_engage',
 ])
 
 // Labels français pour le suivi des modifications
@@ -125,7 +125,7 @@ export async function PATCH(
 
     if (error) {
       console.error('[PATCH candidat] update error:', error.message, error.details)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     }
 
     // Log activité équipe avec suivi des modifications
@@ -205,7 +205,7 @@ export async function PATCH(
     return NextResponse.json({ candidat: data })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
@@ -220,11 +220,11 @@ export async function DELETE(
     const supabase = createAdminClient()
 
     const { error } = await supabase.from('candidats').delete().eq('id', id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }

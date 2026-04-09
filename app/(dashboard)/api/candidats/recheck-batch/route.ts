@@ -5,6 +5,8 @@ import { analyserCVDepuisPDF, analyserCV } from '@/lib/claude'
 
 export const maxDuration = 300
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 // Nombre de candidats traités par batch (Vercel Pro 300s)
 const BATCH_SIZE = 10
 
@@ -156,7 +158,7 @@ async function processCandidat(admin: ReturnType<typeof createAdminClient>, cand
       }
     } catch (err: any) {
       if (attempt < maxRetries) {
-        console.log(`[Recheck] Retry ${attempt + 1} pour ${candidat.id}: ${err.message}`)
+        dbg(`[Recheck] Retry ${attempt + 1} pour ${candidat.id}: ${err.message}`)
         await new Promise(r => setTimeout(r, 2000)) // Wait 2s before retry
         continue
       }
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
   if (action === 'start') {
     // Reset : supprimer les anciens résultats
     await (admin as any).from('recheck_results').delete().gte('created_at', '2000-01-01')
-    console.log('[Recheck] Démarrage analyse complète...')
+    dbg('[Recheck] Démarrage analyse complète...')
   }
 
   // ─── PROCESS BATCH ───
@@ -225,11 +227,11 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error('[Recheck] Erreur fetch candidats:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 
   if (!candidats?.length) {
-    console.log(`[Recheck] ✅ Terminé ! ${offset} candidats traités.`)
+    dbg(`[Recheck] ✅ Terminé ! ${offset} candidats traités.`)
     return NextResponse.json({ done: true, total_processed: offset })
   }
 
@@ -239,7 +241,7 @@ export async function POST(request: NextRequest) {
   const nextOffset = offset + candidats.length
   const hasMore = candidats.length === BATCH_SIZE
 
-  console.log(`[Recheck] Batch ${offset}-${nextOffset}: ${results.filter(r => r?.saved).length} avec diffs, ${results.filter(r => r?.error).length} erreurs`)
+  dbg(`[Recheck] Batch ${offset}-${nextOffset}: ${results.filter(r => r?.saved).length} avec diffs, ${results.filter(r => r?.error).length} erreurs`)
 
   const response = NextResponse.json({
     processed: nextOffset,

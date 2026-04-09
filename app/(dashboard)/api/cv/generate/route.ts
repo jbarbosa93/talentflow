@@ -19,10 +19,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Fetch candidate with all fields
+    // Fetch candidate with fields needed by generateBrandedCV
     const { data, error } = await supabase
       .from('candidats')
-      .select('*')
+      .select('id, nom, prenom, titre_poste, localisation, date_naissance, resume_ia, competences, experiences, formations_details, formation, langues, permis_conduire, email, telephone')
       .eq('id', candidat_id)
       .single()
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('candidats')
-    .select('*')
+    .select('id, nom, prenom, titre_poste, localisation, date_naissance, resume_ia, competences, experiences, formations_details, formation, langues, permis_conduire, email, telephone')
     .eq('id', candidat_id)
     .single()
 

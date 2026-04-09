@@ -16,6 +16,8 @@ export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (
 export const maxDuration = 300         // 300s max (Vercel Pro)
 export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 // ─── Timeout utilitaire ───────────────────────────────────────────────────────
 // Garantit qu'on répond TOUJOURS avant que Vercel coupe la connexion TCP à 60s.
 // Sans ça, certains PDFs lourds font raccrocher Vercel silencieusement → "Failed to fetch"
@@ -48,19 +50,46 @@ function mapDocumentType(type: string): DocumentType {
  *   "BOYA 1.10.2024.pdf"          → "2024-10-01T12:00:00.000Z"
  */
 function extractDateFromFilename(filename: string): string | null {
-  const match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
-  if (!match) return null
-  const [, ddRaw, mmRaw, yyyy] = match
-  const d = parseInt(ddRaw, 10), m = parseInt(mmRaw, 10), y = parseInt(yyyy, 10)
-  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
-  const daysInMonth = new Date(y, m, 0).getDate()
-  if (d > daysInMonth) return null
-  const dd = String(d).padStart(2, '0')
-  const mm = String(m).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}T12:00:00.000Z`
+  function toISO(d: number, m: number, y: number): string | null {
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
+    if (d > new Date(y, m, 0).getDate()) return null
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00.000Z`
+  }
+  // DD.MM.YYYY
+  let match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  // DD/MM/YYYY
+  match = filename.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  // YYYY-MM-DD
+  match = filename.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return toISO(parseInt(match[3], 10), parseInt(match[2], 10), parseInt(match[1], 10))
+  return null
+}
+
+// ─── Rate limiter (in-memory, 10 req/min par IP) ─────────────────────────────
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 60_000
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT) return false
+  entry.count++
+  return true
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: 'Trop de requêtes — réessayez dans une minute' }, { status: 429 })
+  }
+
   // Enveloppe globale : répond toujours en < 55s même si pdf-parse ou Claude bloque
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Timeout global 55s — réessayez')), 55_000)
@@ -70,8 +99,7 @@ export async function POST(request: NextRequest) {
     return await Promise.race([handlePOST(request), timeout])
   } catch (error) {
     console.error('[CV Parse] Erreur ou timeout:', error)
-    const message = error instanceof Error ? error.message : 'Erreur serveur inattendue'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur inattendue' }, { status: 500 })
   }
 }
 
@@ -152,7 +180,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: validation.error }, { status: 400 })
   }
 
-  console.log(`[CV Parse] Début : ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
+  dbg(`[CV Parse] Début : ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
 
   // 3b. Vérification rapide : fichier déjà importé ? (par nom de fichier)
   //     Évite de consommer l'API Claude pour des CVs déjà en base
@@ -165,7 +193,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .maybeSingle()
 
     if (existingByFile) {
-      console.log(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date`)
+      dbg(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date`)
       // Mettre à jour created_at (date d'ajout) avec lastModified du fichier
       const dateToUse = fileDate || new Date().toISOString()
       await supabase.from('candidats').update({ created_at: dateToUse, updated_at: new Date().toISOString() } as any).eq('id', existingByFile.id)
@@ -199,7 +227,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         page.setRotation(degrees(total))
       }
       buffer = Buffer.from(await srcDoc.save())
-      console.log(`[CV Parse] Rotation viewer ${cvRotationHint}° inscrite dans les métadonnées PDF`)
+      dbg(`[CV Parse] Rotation viewer ${cvRotationHint}° inscrite dans les métadonnées PDF`)
     } catch (rotErr) {
       console.warn('[CV Parse] Impossible d\'appliquer la rotation viewer:', (rotErr as Error).message)
     }
@@ -215,7 +243,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     try {
       const multiDocResult = await analyserDocumentMultiType(buffer, file.name)
       if (multiDocResult.estMultiDocument) {
-        console.log(`[Multi-Doc] PDF multi-type détecté dans ${file.name} → ${multiDocResult.autresDocuments.length} document(s) séparé(s)`)
+        dbg(`[Multi-Doc] PDF multi-type détecté dans ${file.name} → ${multiDocResult.autresDocuments.length} document(s) séparé(s)`)
         buffer = multiDocResult.cvBuffer
         filenameEffectif = multiDocResult.cvFilename
         autresDocumentsMultiType = multiDocResult.autresDocuments
@@ -227,11 +255,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 5. Extraire le texte — timeout 10s (pdf-parse peut bloquer sur des PDFs corrompus)
-  console.log('[CV Parse] Extraction texte...')
-  const texteCV = await withTimeout(
-    extractTextFromCV(buffer, filenameEffectif, file.type),
-    10_000, 'extraction texte'
-  ).catch(() => '')  // si extraction timeout → traiter comme PDF scanné
+  dbg('[CV Parse] Extraction texte...')
+  let texteCV = ''
+  try {
+    texteCV = await withTimeout(extractTextFromCV(buffer, filenameEffectif, file.type), 10_000, 'extraction texte')
+  } catch (err: any) {
+    if (err?.message === 'PDF_ENCRYPTED') {
+      return NextResponse.json({ error: 'Ce PDF est protégé par mot de passe. Ouvrez-le, enregistrez-le sans protection, puis réimportez-le.' }, { status: 422 })
+    }
+    // timeout ou autre erreur → traiter comme PDF scanné
+  }
 
   const ext      = filenameEffectif.toLowerCase().split('.').pop() || ''
   const isPDF    = ext === 'pdf' || file.type === 'application/pdf'
@@ -240,16 +273,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const isScanned = !texteCV || texteCV.trim().length < 50
 
   // 6. Analyse Claude — timeout 45s
-  console.log('[CV Parse] Analyse Claude IA...')
+  dbg('[CV Parse] Analyse Claude IA...')
   let analyse
 
   try {
     if (isImage) {
-      console.log(`[CV Parse] Image (${ext}) → vision Claude...`)
+      dbg(`[CV Parse] Image (${ext}) → vision Claude...`)
       const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
       analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
     } else if (isScanned && isPDF) {
-      console.log('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
+      dbg('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
       analyse = await withTimeout(analyserCVDepuisPDF(buffer), 55_000, 'analyse PDF scanné')
     } else if (isScanned && isDoc) {
       // .doc (Word 97-2003) : si word-extractor n'a pas pu extraire le texte,
@@ -264,7 +297,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         { status: 422 }
       )
     } else {
-      console.log(`[CV Parse] Texte : ${texteCV.length} chars`)
+      dbg(`[CV Parse] Texte : ${texteCV.length} chars`)
       analyse = await withTimeout(analyserCV(texteCV), 50_000, 'analyse texte')
     }
   } catch (analyseErr: any) {
@@ -274,7 +307,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     throw analyseErr
   }
 
-  console.log(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
+  dbg(`[CV Parse] Analyse OK : ${analyse.nom} ${analyse.prenom}`)
 
   // 6a-pre. Détection diplôme/certificat : si le fichier a un nom mais aucun contenu CV typique
   // (pas d'expériences, pas de compétences, pas de contact, pas de titre)
@@ -311,7 +344,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const isFreshImport = !updateId && !replaceId && mode !== 'reanalyse'
     const shouldTry180 = (!hasName && !hasAnyInfo) || (isNonCV && isFreshImport)
     if (shouldTry180) {
-      console.log(`[CV Parse] ${isNonCV ? `Classifié non-CV (${analyse.document_type}) sur import frais` : 'Analyse quasi-vide'} → tentative avec PDF retourné à 180°...`)
+      dbg(`[CV Parse] ${isNonCV ? `Classifié non-CV (${analyse.document_type}) sur import frais` : 'Analyse quasi-vide'} → tentative avec PDF retourné à 180°...`)
       try {
         // Retourner le PDF à 180° avec pdf-lib
         const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
@@ -327,13 +360,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const retryHasInfo = retryAnalyse.email || retryAnalyse.telephone || (retryAnalyse.competences && retryAnalyse.competences.length > 0)
         const retryIsCV = !retryAnalyse.document_type || retryAnalyse.document_type === 'cv'
         if ((retryHasName || retryHasInfo) && retryIsCV) {
-          console.log(`[CV Parse] Fallback 180° réussi : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
+          dbg(`[CV Parse] Fallback 180° réussi : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
           analyse = retryAnalyse
         } else if (retryHasName || retryHasInfo) {
-          console.log(`[CV Parse] Fallback 180° retourne infos mais type=${retryAnalyse.document_type}`)
+          dbg(`[CV Parse] Fallback 180° retourne infos mais type=${retryAnalyse.document_type}`)
           analyse = retryAnalyse // On prend quand même le résultat amélioré
         } else {
-          console.log('[CV Parse] Fallback 180° aussi quasi-vide')
+          dbg('[CV Parse] Fallback 180° aussi quasi-vide')
         }
       } catch (fallbackErr) {
         console.warn('[CV Parse] Fallback 180° échoué:', (fallbackErr as Error).message)
@@ -345,18 +378,18 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // le nom est probablement dans un bandeau graphique → envoyer à Claude Vision
   if (isPDF && analyse && (!analyse.nom || analyse.nom === 'Candidat') &&
       (analyse.competences?.length > 0 || analyse.experiences?.length > 0)) {
-    console.log('[CV Parse] Nom "Candidat" avec infos → fallback Claude Vision pour trouver le nom...')
+    dbg('[CV Parse] Nom "Candidat" avec infos → fallback Claude Vision pour trouver le nom...')
     try {
       const visionResult = await withTimeout(analyserCVDepuisPDF(buffer), 50_000, 'vision nom fallback')
       if (visionResult.nom && visionResult.nom !== 'Candidat' && visionResult.nom.length > 1) {
-        console.log(`[CV Parse] Vision a trouvé le nom : ${visionResult.prenom} ${visionResult.nom}`)
+        dbg(`[CV Parse] Vision a trouvé le nom : ${visionResult.prenom} ${visionResult.nom}`)
         analyse.nom = visionResult.nom
         analyse.prenom = visionResult.prenom || analyse.prenom
         // Aussi récupérer email/tel si manquants
         if (!analyse.email && visionResult.email) analyse.email = visionResult.email
         if (!analyse.telephone && visionResult.telephone) analyse.telephone = visionResult.telephone
       } else {
-        console.log('[CV Parse] Vision n\'a pas trouvé le nom non plus')
+        dbg('[CV Parse] Vision n\'a pas trouvé le nom non plus')
       }
     } catch (visionErr) {
       console.warn('[CV Parse] Fallback Vision échoué:', (visionErr as Error).message)
@@ -366,13 +399,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
   let photoUrl: string | null = null
   const docType = analyse?.document_type || 'cv'
-  console.log(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
+  dbg(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
   if (isPDF && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
-      console.log('[CV Parse] Extraction photo en cours...')
+      dbg('[CV Parse] Extraction photo en cours...')
       const photoBuffer = await extractPhotoFromPDF(buffer)
-      console.log(`[CV Parse] Photo buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
+      dbg(`[CV Parse] Photo buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
       if (photoBuffer) {
         const photoTimestamp = Date.now()
         const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
@@ -383,7 +416,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         if (photoData?.path) {
           const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
           photoUrl = photoUrlData?.signedUrl || null
-          if (photoUrl) console.log('[CV Parse] Photo extraite et stockée')
+          if (photoUrl) dbg('[CV Parse] Photo extraite et stockée')
         }
       }
     } catch (photoErr) {
@@ -396,9 +429,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (isDOCX && !photoUrl && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
-      console.log('[CV Parse] Extraction photo DOCX en cours...')
+      dbg('[CV Parse] Extraction photo DOCX en cours...')
       const photoBuffer = await extractPhotoFromDOCX(buffer)
-      console.log(`[CV Parse] Photo DOCX buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
+      dbg(`[CV Parse] Photo DOCX buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
       if (photoBuffer) {
         const photoTimestamp = Date.now()
         const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
@@ -409,11 +442,36 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         if (photoData?.path) {
           const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
           photoUrl = photoUrlData?.signedUrl || null
-          if (photoUrl) console.log('[CV Parse] Photo DOCX extraite et stockée')
+          if (photoUrl) dbg('[CV Parse] Photo DOCX extraite et stockée')
         }
       }
     } catch (photoErr) {
       console.warn('[CV Parse] DOCX photo extraction skipped:', (photoErr as Error).message)
+    }
+  }
+
+  // 6d. Extraction photo DOC (Word 97-2003) — si c'est un CV et pas encore de photo
+  if (isDoc && !photoUrl && analyse && docType === 'cv') {
+    try {
+      const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
+      dbg('[CV Parse] Extraction photo DOC en cours...')
+      const photoBuffer = await extractPhotoFromDOC(buffer)
+      dbg(`[CV Parse] Photo DOC buffer: ${photoBuffer ? `${photoBuffer.length} bytes` : 'null'}`)
+      if (photoBuffer) {
+        const photoTimestamp = Date.now()
+        const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+        const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, photoBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        })
+        if (photoData?.path) {
+          const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+          photoUrl = photoUrlData?.signedUrl || null
+          if (photoUrl) dbg('[CV Parse] Photo DOC extraite et stockée')
+        }
+      }
+    } catch (photoErr) {
+      console.warn('[CV Parse] DOC photo extraction skipped:', (photoErr as Error).message)
     }
   }
 
@@ -422,7 +480,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const timestamp = Date.now()
   const nomFichierStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
-  console.log('[CV Parse] Upload storage...')
+  dbg('[CV Parse] Upload storage...')
   const { data: storageData, error: storageError } = await withTimeout(
     adminClient.storage.from('cvs').upload(nomFichierStorage, buffer, {
       contentType: file.type || 'application/octet-stream',
@@ -489,7 +547,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (photoUrl && !existing?.photo_url) {
         updateData.photo_url = photoUrl
       }
-      console.log(`[CV Parse] Ré-analyse (écrasement) : ${file.name}`)
+      dbg(`[CV Parse] Ré-analyse (écrasement) : ${file.name}`)
     } else {
       // ═══ MODE MERGE : ajouter sans remplacer (import normal) ═══
       // Nom/prénom : mettre à jour seulement si le nom actuel est "Candidat" ou vide
@@ -564,16 +622,16 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const { data: photoCheck } = await adminClient.from('candidats').select('photo_url').eq('id', updateId).single()
         if (!photoCheck?.photo_url) {
           updateData.photo_url = photoUrl
-          console.log('[CV Parse] Photo ajoutée (candidat sans photo)')
+          dbg('[CV Parse] Photo ajoutée (candidat sans photo)')
         } else {
-          console.log('[CV Parse] Photo existante conservée')
+          dbg('[CV Parse] Photo existante conservée')
         }
       }
-      console.log(`[CV Parse] Actualisation CV: ${file.name}`)
+      dbg(`[CV Parse] Actualisation CV: ${file.name}`)
     } else if (!isCV && mode !== 'reanalyse') {
       // Ce n'est PAS un CV et ce n'est PAS une ré-analyse → ajouter aux documents
       // En mode ré-analyse, on ne crée JAMAIS de documents "Autre" (c'est le CV principal)
-      console.log(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
+      dbg(`[CV Parse] Document classifié comme: ${analyse.document_type}`)
       const mappedType = mapDocumentType(analyse.document_type)
       const existingDocs = (existing?.documents as any[]) || []
       // Éviter les doublons par nom de fichier
@@ -585,8 +643,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     const now = new Date().toISOString()
     updateData.updated_at = now
-    // created_at = lastModified du fichier (date la plus fiable)
-    updateData.created_at = fileDate || now
+    // Ne jamais toucher created_at en mode update — cela déplacerait le candidat dans la liste
 
     const { data: updated, error: updateError } = await adminClient
       .from('candidats')
@@ -695,7 +752,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           if (matches.length >= 1) {
             // Match partiel (1 ou plusieurs) → toujours demander confirmation à l'utilisateur
             // On ne confirme JAMAIS automatiquement un match partiel de nom
-            console.log(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
+            dbg(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
             return NextResponse.json({
               isDuplicate: true,
               multipleMatches: true,
@@ -716,7 +773,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8c. Doublon trouvé
   if (candidatExistant) {
-    console.log(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+    dbg(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
 
     // Pour les documents non-CV, auto-ajouter au candidat existant (pas demander)
     if (isNotCV && cvUrl) {
@@ -728,11 +785,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (!alreadyExists) {
         docs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
       } else {
-        console.log(`[CV Parse] Document déjà présent: ${file.name}, skip`)
+        dbg(`[CV Parse] Document déjà présent: ${file.name}, skip`)
       }
       const docDateToUse = fileDate || new Date().toISOString()
       await adminClient.from('candidats').update({ documents: docs, created_at: docDateToUse, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
-      console.log(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      dbg(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
       return NextResponse.json({
         isDuplicate: true,
@@ -801,7 +858,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
 
-      console.log(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      dbg(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
       return NextResponse.json({
         isDuplicate: true,
@@ -818,7 +875,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
-      console.log(`[CV Parse] Même CV, date mise à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+      dbg(`[CV Parse] Même CV, date mise à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       return NextResponse.json({
         isDuplicate: true,
         sameFile: true,
@@ -832,7 +889,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8d. Document non-CV sans candidat existant → ne PAS créer de nouveau candidat
   if (isNotCV) {
-    console.log(`[CV Parse] Document ${analyse.document_type} sans candidat existant — ignoré`)
+    dbg(`[CV Parse] Document ${analyse.document_type} sans candidat existant — ignoré`)
     return NextResponse.json({
       error: `Document classifié comme "${analyse.document_type}" mais aucun candidat correspondant trouvé. Importez d'abord le CV du candidat.`,
       document_type: analyse.document_type,
@@ -840,7 +897,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // 9. Créer le candidat en base (CV uniquement)
-  console.log('[CV Parse] Insertion en base...')
+  dbg('[CV Parse] Insertion en base...')
 
   const nouveauCandidat: CandidatInsert = {
     nom: analyse.nom || 'Candidat',
@@ -877,7 +934,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const insertDate = fileDate || extractDateFromFilename(file.name)
   if (insertDate) {
     ;(nouveauCandidat as any).created_at = insertDate
-    console.log(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)
+    dbg(`[CV Parse] created_at défini sur INSERT : ${file.name} → ${insertDate}`)
   }
 
   let { data: candidatRaw, error: dbError } = await adminClient
@@ -899,8 +956,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   if (dbError) {
     console.error('[CV Parse] Erreur BDD:', dbError)
+    // Nettoyer le fichier uploadé en storage pour éviter les orphelins
+    if (storageData?.path) {
+      await adminClient.storage.from('cvs').remove([storageData.path]).catch(e =>
+        console.warn('[CV Parse] Échec nettoyage storage orphelin:', e instanceof Error ? e.message : String(e))
+      )
+    }
     await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: dbError.message } })
-    return NextResponse.json({ error: `Erreur création candidat : ${dbError.message}` }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur lors de la création du candidat' }, { status: 500 })
   }
 
   // 9b. Post-insert duplicate check (race condition protection)
@@ -934,7 +997,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     if (duplicateOf) {
       // This candidate was inserted as a duplicate due to race condition — delete it
-      console.log(`[CV Parse] Race condition doublon détecté — suppression ${candidat.id}`)
+      dbg(`[CV Parse] Race condition doublon détecté — suppression ${candidat.id}`)
       await adminClient.from('candidats').delete().eq('id', candidat.id)
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'race_condition' } })
       return NextResponse.json({
@@ -951,7 +1014,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     const dbCreatedAt = (candidat as any).created_at
     // Vérifier si l'INSERT a bien appliqué la date (compare juste la date, pas l'heure)
     if (!dbCreatedAt || !dbCreatedAt.startsWith(insertDate.slice(0, 10))) {
-      console.log(`[CV Parse] INSERT n'a pas pris created_at (got ${dbCreatedAt}), fallback UPDATE...`)
+      dbg(`[CV Parse] INSERT n'a pas pris created_at (got ${dbCreatedAt}), fallback UPDATE...`)
       const { data: upData, error: upErr } = await adminClient
         .from('candidats')
         .update({ created_at: insertDate } as any)
@@ -962,10 +1025,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         console.error(`[CV Parse] ERREUR fallback update created_at : ${upErr.message}`)
       } else {
         ;(candidat as any).created_at = (upData as any)?.created_at ?? insertDate
-        console.log(`[CV Parse] Fallback OK : ${file.name} → ${(candidat as any).created_at}`)
+        dbg(`[CV Parse] Fallback OK : ${file.name} → ${(candidat as any).created_at}`)
       }
     } else {
-      console.log(`[CV Parse] Date fichier appliquée via INSERT : ${file.name} → ${dbCreatedAt}`)
+      dbg(`[CV Parse] Date fichier appliquée via INSERT : ${file.name} → ${dbCreatedAt}`)
     }
   }
 
@@ -999,7 +1062,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           if (docUrl) {
             const mappedDocType = mapDocumentType(autreDoc.type)
             docsAjoutes.push({ name: autreDoc.filename, url: docUrl, type: mappedDocType, uploaded_at: new Date().toISOString() })
-            console.log(`[Multi-Doc] Document ${autreDoc.type} uploadé : ${autreDoc.filename}`)
+            dbg(`[Multi-Doc] Document ${autreDoc.type} uploadé : ${autreDoc.filename}`)
           }
         } catch (docErr) {
           console.warn(`[Multi-Doc] Erreur upload document ${autreDoc.type}:`, (docErr as Error).message)
@@ -1007,14 +1070,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
       if (docsAjoutes.length > 0) {
         await adminClient.from('candidats').update({ documents: docsAjoutes, updated_at: new Date().toISOString() }).eq('id', candidat.id)
-        console.log(`[Multi-Doc] ${docsAjoutes.length} document(s) attaché(s) au candidat ${candidat.id}`)
+        dbg(`[Multi-Doc] ${docsAjoutes.length} document(s) attaché(s) au candidat ${candidat.id}`)
       }
     } catch (attachErr) {
       console.warn('[Multi-Doc] Erreur attachement documents (non bloquant):', (attachErr as Error).message)
     }
   }
 
-  console.log(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
+  dbg(`[CV Parse] Succès ! Candidat : ${candidat?.id}`)
   await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), email: analyse.email || '—' } })
 
   // Log activité équipe — première entrée dans l'historique du candidat

@@ -12,6 +12,7 @@ import {
   ChevronDown, Clock, Eye, UserPlus, Briefcase, X,
   TrendingUp, Filter, LayoutGrid, Pencil, Check, Settings,
   ChevronUp, Trash2, EyeOff, Plus, ArrowUp, ArrowDown,
+  FileText, Phone, List, Grid3X3, Award, UserCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { logActivity } from '@/hooks/useActivites'
@@ -134,12 +135,13 @@ function DroppableColumn({ stage, children, isActive }: { stage: Stage; children
 
 // ─── Draggable Card ───────────────────────────────────────────────────────────
 
-function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
+function DraggableCard({ item, stage, onRemove, onNote, cvHook, compact }: {
   item: any
   stage: Stage
   onRemove: () => void
   onNote: (candidatId: string, name: string, notes: string) => void
   cvHook: ReturnType<typeof useCvHoverPreview>
+  compact?: boolean
 }) {
   const {
     attributes,
@@ -150,13 +152,14 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
     isDragging,
   } = useSortable({ id: item.id })
   const [hovered, setHovered] = useState(false)
+  const [photoError, setPhotoError] = useState(false)
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     background: 'var(--card)',
     borderRadius: 14,
-    padding: '14px 16px',
+    padding: compact ? '12px 14px' : '16px 18px',
     border: `2px solid ${isDragging ? 'var(--primary)' : hovered ? 'rgba(255,255,255,0.12)' : 'var(--border)'}`,
     cursor: isDragging ? 'grabbing' : 'grab',
     boxShadow: isDragging
@@ -174,6 +177,107 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
     ? item.notes.trim().slice(0, 60) + (item.notes.trim().length > 60 ? '…' : '')
     : null
 
+  const hasCfc = item.cfc === true
+  const hasEngage = item.deja_engage === true
+
+  // Compact mode for grid view
+  if (compact) {
+    return (
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={style}
+      >
+        {/* Top row: avatar + name + poste */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {item.photo_url && !photoError ? (
+            <img
+              src={item.photo_url}
+              alt=""
+              onError={() => setPhotoError(true)}
+              style={{
+                width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
+              }}
+            />
+          ) : (
+            <div style={{
+              width: 44, height: 44, borderRadius: 8,
+              background: '#F1F5F9',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, fontWeight: 800, color: '#64748B', flexShrink: 0,
+            }}>
+              {getInitials(item.prenom, item.nom)}
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {item.prenom} {item.nom}
+            </p>
+            <p style={{
+              fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {item.titre_poste || 'Sans poste'}
+            </p>
+          </div>
+          {item.score_ia != null && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: scoreColor(item.score_ia), flexShrink: 0 }}>
+              {item.score_ia}%
+            </span>
+          )}
+        </div>
+
+        {/* Notes — toujours visibles, max texte sans déborder */}
+        {hasNotes && (
+          <div style={{
+            marginTop: 8, padding: '6px 8px',
+            borderRadius: 8, background: 'rgba(249,115,22,0.07)',
+            border: '1px solid rgba(249,115,22,0.2)',
+          }}>
+            <p style={{
+              fontSize: 11, color: 'var(--muted-foreground)', margin: 0,
+              lineHeight: 1.5, whiteSpace: 'pre-wrap',
+              display: '-webkit-box', WebkitLineClamp: 4,
+              WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              {notesPreview && item.notes?.trim()}
+            </p>
+          </div>
+        )}
+
+        {/* Actions — uniquement au hover */}
+        {hovered && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)',
+          }}>
+            <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
+            {item.cv_url && (
+              <CvHoverTrigger cvUrl={item.cv_url} cvNomFichier={item.cv_nom_fichier} candidatId={item.id} hook={cvHook}>
+                <QuickAction icon={FileText} label="Aperçu CV" color="#10B981" onClick={() => {}} />
+              </CvHoverTrigger>
+            )}
+            <QuickAction
+              icon={MessageSquare}
+              label="Notes"
+              color={hasNotes ? '#F97316' : '#3B82F6'}
+              onClick={() => onNote(item.id, `${item.prenom || ''} ${item.nom}`.trim(), item.notes || '')}
+            />
+            <div style={{ marginLeft: 'auto' }}>
+              <QuickAction icon={X} label="Retirer" color="#EF4444" onClick={onRemove} />
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -185,19 +289,28 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
     >
       {/* Top row: avatar + name + grip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: `linear-gradient(135deg, ${stage.color}22, ${stage.color}44)`,
-          border: `2px solid ${stage.color}33`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 800, color: stage.color,
-          flexShrink: 0,
-        }}>
-          {getInitials(item.prenom, item.nom)}
-        </div>
+        {item.photo_url && !photoError ? (
+          <img
+            src={item.photo_url}
+            alt=""
+            onError={() => setPhotoError(true)}
+            style={{
+              width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div style={{
+            width: 44, height: 44, borderRadius: 8,
+            background: '#F1F5F9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, fontWeight: 800, color: '#64748B', flexShrink: 0,
+          }}>
+            {getInitials(item.prenom, item.nom)}
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0,
+            fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {item.prenom} {item.nom}
@@ -213,7 +326,7 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
       </div>
 
       {/* Meta row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {item.localisation && (
           <span style={{
             fontSize: 10, color: 'var(--muted-foreground)',
@@ -238,6 +351,26 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
             </span>
           ) : null
         })()}
+        {hasCfc && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, color: '#10B981',
+            display: 'flex', alignItems: 'center', gap: 3,
+            background: 'rgba(16,185,129,0.1)', padding: '2px 7px', borderRadius: 6,
+            border: '1px solid rgba(16,185,129,0.25)',
+          }}>
+            <Award size={8} />CFC
+          </span>
+        )}
+        {hasEngage && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, color: '#F97316',
+            display: 'flex', alignItems: 'center', gap: 3,
+            background: 'rgba(249,115,22,0.1)', padding: '2px 7px', borderRadius: 6,
+            border: '1px solid rgba(249,115,22,0.25)',
+          }}>
+            <UserCheck size={8} />Engagé
+          </span>
+        )}
         {item.score_ia != null && (
           <span style={{
             fontSize: 10, fontWeight: 700, color: scoreColor(item.score_ia),
@@ -250,11 +383,31 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
         )}
       </div>
 
+      {/* Phone row */}
+      {item.telephone && (
+        <div style={{ marginTop: 6 }}>
+          <a
+            href={`tel:${item.telephone}`}
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontSize: 10, color: 'var(--muted-foreground)',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              textDecoration: 'none', transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted-foreground)')}
+          >
+            <Phone size={9} />{item.telephone}
+          </a>
+        </div>
+      )}
+
       {/* Time in stage */}
       {item.updated_at && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 4,
-          marginTop: 8, fontSize: 10, color: 'var(--muted-foreground)', opacity: 0.7,
+          marginTop: 6, fontSize: 10, color: 'var(--muted-foreground)', opacity: 0.7,
         }}>
           <Clock size={9} />
           {timeAgo(item.updated_at)}
@@ -304,7 +457,7 @@ function DraggableCard({ item, stage, onRemove, onNote, cvHook }: {
             <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
             {item.cv_url && (
               <CvHoverTrigger cvUrl={item.cv_url} cvNomFichier={item.cv_nom_fichier} candidatId={item.id} hook={cvHook}>
-                <QuickAction icon={Eye} label="Aperçu CV" color="#10B981" onClick={() => {}} />
+                <QuickAction icon={FileText} label="Aperçu CV" color="#10B981" onClick={() => {}} />
               </CvHoverTrigger>
             )}
             <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
@@ -838,6 +991,8 @@ export default function PipelinePage() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overColumnId, setOverColumnId] = useState<string | null>(null)
   const [showStageManager, setShowStageManager] = useState(false)
+  const viewMode = 'grid' as const
+  const boardRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
 
   // CV hover preview
@@ -878,13 +1033,14 @@ export default function PipelinePage() {
   const visibleStages = useMemo(() => stages.filter(s => s.visible), [stages])
 
   const saveStages = useCallback(async (newStages: Stage[]) => {
-    // Stocker comme string JSON pour un round-trip cohérent
-    const valueToStore = JSON.stringify(newStages)
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({ key: 'pipeline_stages', value: valueToStore as unknown as never })
-    if (error) {
-      toast.error(`Erreur lors de la sauvegarde : ${error.message}`)
+    const res = await fetch('/api/pipeline/stages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stages: newStages }),
+    })
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: 'Erreur serveur' }))
+      toast.error(`Erreur lors de la sauvegarde : ${error}`)
       return
     }
     setStages(newStages)
@@ -967,7 +1123,7 @@ export default function PipelinePage() {
       if (offreFilter === 'tous') {
         const { data, error } = await supabase
           .from('candidats')
-          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier')
+          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier, photo_url, telephone, cfc, deja_engage')
           .not('statut_pipeline', 'is', null)
           .order('updated_at', { ascending: false })
           .limit(500)
@@ -976,7 +1132,7 @@ export default function PipelinePage() {
       } else {
         const { data: pipelineData, error } = await supabase
           .from('pipeline')
-          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier)')
+          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier, photo_url, telephone, cfc, deja_engage)')
           .eq('offre_id', offreFilter)
         if (error) throw error
         return (pipelineData || []).map((p: any) => ({
@@ -1151,6 +1307,40 @@ export default function PipelinePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Search in pipeline */}
+            <div style={{ position: 'relative', width: 220 }}>
+              <Search size={14} style={{
+                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                color: searchQuery ? 'var(--primary)' : 'var(--muted-foreground)',
+                transition: 'color 0.2s',
+              }} />
+              <input
+                type="text"
+                placeholder="Rechercher dans le pipeline..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="neo-input-soft"
+                style={{
+                  width: '100%', paddingLeft: 34, paddingRight: searchQuery ? 32 : 12,
+                  height: 38, fontSize: 13,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                    width: 20, height: 20, borderRadius: 6, border: 'none',
+                    background: 'var(--secondary)', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--muted-foreground)',
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+
             {/* Settings / manage stages button */}
             <button
               onClick={() => setShowStageManager(prev => !prev)}
@@ -1377,113 +1567,140 @@ export default function PipelinePage() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div style={{
-            display: 'flex', gap: 12, flex: 1,
-            overflowX: 'auto', paddingBottom: 8, paddingRight: 4, minHeight: 0,
-          }}>
-            {visibleStages.map((stage) => {
-              const { bgSoft, borderColor } = colorSoft(stage.color)
-              const stageCandidats = candidatsByEtape[stage.id] || []
-              return (
-                <div
-                  key={stage.id}
-                  style={{
-                    flex: 1, minWidth: 240, maxWidth: 320,
-                    display: 'flex', flexDirection: 'column', minHeight: 0,
-                  }}
-                >
-                  {/* Column header */}
-                  <div style={{
-                    borderRadius: '16px 16px 0 0',
-                    padding: '14px 16px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: bgSoft,
-                    borderTop: `3px solid ${stage.color}`,
-                    borderLeft: `2px solid ${borderColor}`,
-                    borderRight: `2px solid ${borderColor}`,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: '50%',
-                        background: stage.color,
-                        boxShadow: `0 0 8px ${stage.color}66`,
-                      }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>
-                        {stage.label}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{
-                        fontSize: 12, fontWeight: 800, color: stage.color,
-                        background: `${stage.color}18`,
-                        padding: '2px 10px', borderRadius: 8,
-                        minWidth: 28, textAlign: 'center',
-                      }}>
-                        {stageCandidats.length}
-                      </span>
-                      {stageCandidats.length > 0 && (
-                        <button
-                          title="Vider cette colonne"
-                          onClick={async () => {
-                            if (!confirm(`Vider la colonne "${stage.label}" (${stageCandidats.length} candidats) ?`)) return
-                            const res = await fetch('/api/pipeline/clear', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ etape_id: stage.id }),
-                            })
-                            if (res.ok) {
-                              const d = await res.json()
-                              toast.success(`${d.cleared} candidats retirés`)
-                              queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-                            } else {
-                              toast.error('Erreur lors du vidage')
-                            }
-                          }}
-                          style={{
-                            width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
-                            background: 'var(--background)', cursor: 'pointer', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
-                            fontSize: 12, flexShrink: 0, opacity: 0.7,
-                          }}
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  </div>
+          <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+            {/* Gradient fade left */}
+            <div style={{
+              position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 2,
+              background: 'linear-gradient(to right, var(--background), transparent)',
+              pointerEvents: 'none', opacity: 0.8,
+            }} />
+            {/* Gradient fade right */}
+            <div style={{
+              position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, zIndex: 2,
+              background: 'linear-gradient(to left, var(--background), transparent)',
+              pointerEvents: 'none', opacity: 0.8,
+            }} />
 
-                  {/* Droppable area */}
-                  <DroppableColumn stage={stage} isActive={overColumnId === stage.id}>
-                    <SortableContext
-                      items={stageCandidats.map((c: any) => c.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {stageCandidats.map((item: any) => (
-                        <DraggableCard
-                          key={item.id}
-                          item={item}
-                          stage={stage}
-                          onRemove={() => handleRemoveFromPipeline(item.id)}
-                          onNote={handleNoteOpen}
-                          cvHook={cvHook}
-                        />
-                      ))}
-                    </SortableContext>
-                    {stageCandidats.length === 0 && (
-                      <div style={{
-                        padding: '32px 16px', textAlign: 'center',
-                        borderRadius: 12, border: '2px dashed var(--border)',
-                        margin: 4,
-                      }}>
-                        <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0 }}>
-                          Glissez un candidat ici
-                        </p>
+            <div
+              ref={boardRef}
+              style={{
+                display: 'flex', gap: 16, height: '100%',
+                overflow: 'hidden',
+                paddingBottom: 8,
+              }}
+            >
+              {visibleStages.map((stage) => {
+                const { bgSoft, borderColor } = colorSoft(stage.color)
+                const stageCandidats = candidatsByEtape[stage.id] || []
+                return (
+                  <div
+                    key={stage.id}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex', flexDirection: 'column', minHeight: 0,
+                    }}
+                  >
+                    {/* Column header */}
+                    <div style={{
+                      borderRadius: '16px 16px 0 0',
+                      padding: '14px 16px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: bgSoft,
+                      borderTop: `3px solid ${stage.color}`,
+                      borderLeft: `2px solid ${borderColor}`,
+                      borderRight: `2px solid ${borderColor}`,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          background: stage.color,
+                          boxShadow: `0 0 8px ${stage.color}66`,
+                        }} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>
+                          {stage.label}
+                        </span>
                       </div>
-                    )}
-                  </DroppableColumn>
-                </div>
-              )
-            })}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          fontSize: 12, fontWeight: 800, color: stage.color,
+                          background: `${stage.color}18`,
+                          padding: '2px 10px', borderRadius: 8,
+                          minWidth: 28, textAlign: 'center',
+                        }}>
+                          {stageCandidats.length}
+                        </span>
+                        {stageCandidats.length > 0 && (
+                          <button
+                            title="Vider cette colonne"
+                            onClick={async () => {
+                              if (!confirm(`Vider la colonne "${stage.label}" (${stageCandidats.length} candidats) ?`)) return
+                              const res = await fetch('/api/pipeline/clear', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ etape_id: stage.id }),
+                              })
+                              if (res.ok) {
+                                const d = await res.json()
+                                toast.success(`${d.cleared} candidats retirés`)
+                                queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+                              } else {
+                                toast.error('Erreur lors du vidage')
+                              }
+                            }}
+                            style={{
+                              width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
+                              background: 'var(--background)', cursor: 'pointer', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
+                              fontSize: 12, flexShrink: 0, opacity: 0.7,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Droppable area */}
+                    <DroppableColumn stage={stage} isActive={overColumnId === stage.id}>
+                      <SortableContext
+                        items={stageCandidats.map((c: any) => c.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: 8,
+                        }}>
+                          {stageCandidats.map((item: any) => (
+                            <DraggableCard
+                              key={item.id}
+                              item={item}
+                              stage={stage}
+                              onRemove={() => handleRemoveFromPipeline(item.id)}
+                              onNote={handleNoteOpen}
+                              cvHook={cvHook}
+                              compact={true}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                      {stageCandidats.length === 0 && (
+                        <div style={{
+                          padding: '32px 16px', textAlign: 'center',
+                          borderRadius: 12, border: '2px dashed var(--border)',
+                          margin: 4,
+                        }}>
+                          <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0 }}>
+                            Glissez un candidat ici
+                          </p>
+                        </div>
+                      )}
+                    </DroppableColumn>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           <DragOverlay>

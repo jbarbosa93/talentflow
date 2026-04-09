@@ -4,17 +4,24 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 function extractDateFromFilename(filename: string): string | null {
-  const match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
-  if (!match) return null
-  const [, ddRaw, mmRaw, yyyy] = match
-  const d = parseInt(ddRaw, 10), m = parseInt(mmRaw, 10), y = parseInt(yyyy, 10)
-  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
-  const daysInMonth = new Date(y, m, 0).getDate()
-  if (d > daysInMonth) return null
-  const dd = String(d).padStart(2, '0')
-  const mm = String(m).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}T12:00:00.000Z`
+  function toISO(d: number, m: number, y: number): string | null {
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
+    if (d > new Date(y, m, 0).getDate()) return null
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00.000Z`
+  }
+  // DD.MM.YYYY
+  let match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  // DD/MM/YYYY
+  match = filename.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  // YYYY-MM-DD
+  match = filename.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return toISO(parseInt(match[3], 10), parseInt(match[2], 10), parseInt(match[1], 10))
+  return null
 }
 
 // POST : Met à jour created_at de chaque candidat selon la date dans le nom du fichier CV
@@ -102,7 +109,7 @@ export async function POST() {
         updates.push({ id: candidat.id, isoDate, filename: candidat.cv_nom_fichier as string })
       }
 
-      console.log(`[sync-dates] Batch offset=${offset} : ${candidats.length} candidats fetched, ${updates.length} à mettre à jour, ${skipped} sans date`)
+      dbg(`[sync-dates] Batch offset=${offset} : ${candidats.length} candidats fetched, ${updates.length} à mettre à jour, ${skipped} sans date`)
 
       // UPDATE direct via admin client (service_role bypasse RLS)
       // Le trigger trg_candidats_updated_at ne touche que updated_at → created_at est librement modifiable
@@ -131,7 +138,7 @@ export async function POST() {
       offset += PAGE_SIZE
     }
 
-    console.log(`[sync-dates] Terminé : ${updated} mis à jour, ${skipped} ignorés, total=${totalFetched}`)
+    dbg(`[sync-dates] Terminé : ${updated} mis à jour, ${skipped} ignorés, total=${totalFetched}`)
     return NextResponse.json({
       success: true,
       updated,

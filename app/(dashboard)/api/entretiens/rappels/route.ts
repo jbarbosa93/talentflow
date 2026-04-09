@@ -18,7 +18,7 @@ export async function GET() {
     .lte('rappel_date', today)
     .order('rappel_date', { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ rappels: data || [] })
 }
 
@@ -39,7 +39,7 @@ export async function PATCH(request: NextRequest) {
       .in('id', ids)
       .eq('user_id', user_id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })

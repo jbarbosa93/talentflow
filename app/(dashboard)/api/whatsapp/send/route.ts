@@ -5,8 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { envoyerMessage, envoyerTemplate } from '@/lib/whatsapp'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export const runtime = 'nodejs'
+
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,10 +40,10 @@ export async function POST(request: NextRequest) {
     let result
 
     if (template_name) {
-      console.log(`[WhatsApp Send] Template "${template_name}" → ${telephone}`)
+      dbg(`[WhatsApp Send] Template "${template_name}" → ${telephone}`)
       result = await envoyerTemplate(telephone, template_name, template_langue, template_params)
     } else {
-      console.log(`[WhatsApp Send] Message texte → ${telephone}`)
+      dbg(`[WhatsApp Send] Message texte → ${telephone}`)
       result = await envoyerMessage(telephone, message)
     }
 
@@ -60,7 +63,23 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log(`[WhatsApp Send] Succès, message ID : ${messageId}`)
+    dbg(`[WhatsApp Send] Succès, message ID : ${messageId}`)
+
+    // Log activité équipe
+    try {
+      const routeUser = await getRouteUser()
+      const contenu = template_name
+        ? `Template: ${template_name}`
+        : (message || '').slice(0, 120)
+      await logActivityServer({
+        ...routeUser,
+        type: 'whatsapp_envoye',
+        titre: `WhatsApp envoyé`,
+        description: contenu || undefined,
+        candidat_id: candidat_id || undefined,
+        metadata: { telephone, template_name: template_name || null, message_id: messageId || null },
+      })
+    } catch {}
 
     return NextResponse.json({
       success: true,

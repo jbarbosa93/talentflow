@@ -18,6 +18,8 @@ const FORMATS_SUPPORTES = ['pdf', 'docx', 'doc', 'txt', 'jpg', 'jpeg', 'png']
 const FORMATS_IMAGES = ['jpg', 'jpeg', 'png']
 const TAILLE_MAX_ZIP = 200 * 1024 * 1024 // 200 MB
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 function getExtension(filename: string): string {
   return filename.toLowerCase().split('.').pop() || ''
 }
@@ -66,7 +68,7 @@ async function traiterUnFichier(
     try {
       const multiDocResult = await analyserDocumentMultiType(buffer, filename)
       if (multiDocResult.estMultiDocument) {
-        console.log(`[Multi-Doc] Détecté ${multiDocResult.autresDocuments.length + 1} types dans ${filename}`)
+        dbg(`[Multi-Doc] Détecté ${multiDocResult.autresDocuments.length + 1} types dans ${filename}`)
         bufferEffectif = multiDocResult.cvBuffer
         filenameEffectif = multiDocResult.cvFilename
         autresDocumentsMultiType = multiDocResult.autresDocuments
@@ -129,7 +131,7 @@ async function traiterUnFichier(
         if (photoData?.path) {
           const { data: photoUrlData } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
           photoUrl = photoUrlData?.signedUrl || null
-          if (photoUrl) console.log(`[CV Bulk] Photo extraite pour ${filename}`)
+          if (photoUrl) dbg(`[CV Bulk] Photo extraite pour ${filename}`)
         }
       }
     } catch (photoErr) {
@@ -205,7 +207,7 @@ async function traiterUnFichier(
           if (docUrl) {
             const mappedDocType = mapDocumentTypeBulk(autreDoc.type)
             docsAjoutes.push({ name: autreDoc.filename, url: docUrl, type: mappedDocType, uploaded_at: new Date().toISOString() })
-            console.log(`[Multi-Doc] Bulk: document ${autreDoc.type} uploadé pour ${filename}`)
+            dbg(`[Multi-Doc] Bulk: document ${autreDoc.type} uploadé pour ${filename}`)
           }
         } catch (docErr) {
           console.warn(`[Multi-Doc] Bulk: erreur upload document ${autreDoc.type}:`, (docErr as Error).message)
@@ -253,7 +255,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[CV Bulk] Réception ZIP : ${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(1)} MB)`)
+    dbg(`[CV Bulk] Réception ZIP : ${zipFile.name} (${(zipFile.size / 1024 / 1024).toFixed(1)} MB)`)
 
     // Extraire le ZIP
     const arrayBuffer = await zipFile.arrayBuffer()
@@ -276,7 +278,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[CV Bulk] ${fichiersCVs.length} CV(s) trouvé(s) dans le ZIP`)
+    dbg(`[CV Bulk] ${fichiersCVs.length} CV(s) trouvé(s) dans le ZIP`)
 
     const resultats: Array<{
       fichier: string
@@ -292,7 +294,7 @@ export async function POST(request: NextRequest) {
     // Traitement séquentiel pour éviter les rate limits Claude
     for (const fichier of fichiersCVs) {
       const nomCourt = fichier.name.split('/').pop() || fichier.name
-      console.log(`[CV Bulk] Traitement (${traites + erreurs + 1}/${fichiersCVs.length}) : ${nomCourt}`)
+      dbg(`[CV Bulk] Traitement (${traites + erreurs + 1}/${fichiersCVs.length}) : ${nomCourt}`)
 
       try {
         const zipEntry = zipData.file(fichier.relativeName)
@@ -323,7 +325,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[CV Bulk] Terminé : ${traites} succès, ${erreurs} erreurs`)
+    dbg(`[CV Bulk] Terminé : ${traites} succès, ${erreurs} erreurs`)
 
     // Log activité équipe
     if (traites > 0) {

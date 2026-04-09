@@ -66,78 +66,102 @@ export async function GET(request: NextRequest) {
     // Recherche serveur — cherche dans tous les champs via RPC avec filtres intégrés
     if (search) {
       const words = search.trim().split(/\s+/).filter(Boolean)
-      const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
-        search_query: words.join(' '),
-        filter_import_status: effectiveImportStatus || null,
-        filter_statut: effectiveStatut || null,
-        result_limit: 10000,
-      }).limit(10000) // override le plafond PostgREST par défaut (1000 lignes)
-      const searchIds = rpcResult.data as { id: string }[] | null
-      const searchError = rpcResult.error
+      const hasColumnFilters = !!(lieu || genre || langue || permis || metier || cfc || engage)
 
-      if (!searchError && searchIds && searchIds.length > 0) {
-        let ids = searchIds.map((r: { id: string }) => r.id)
+      if (!hasColumnFilters) {
+        // Pagination directe via RPC — ne charge que la page courante (scalable 10k+)
+        const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
+          search_query: words.join(' '),
+          filter_import_status: effectiveImportStatus || null,
+          filter_statut: effectiveStatut || null,
+          result_limit: perPage,
+          result_offset: (page - 1) * perPage,
+        }).limit(perPage)
+        const searchRows = rpcResult.data as { id: string; total_count: number }[] | null
 
-        // Si des filtres colonne sont actifs (lieu, genre, langue, permis, metier),
-        // la RPC ne les connaît pas — il faut affiner les IDs par batches pour éviter l'overflow URL.
-        const hasColumnFilters = !!(lieu || genre || langue || permis || metier || cfc || engage)
-        if (hasColumnFilters) {
+        if (!rpcResult.error && searchRows !== null) {
+          const totalFound = Number(searchRows[0]?.total_count ?? 0)
+          const pageIds = searchRows.map(r => r.id)
+          const totalPages = Math.ceil(totalFound / perPage)
+          if (pageIds.length === 0) {
+            return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+          }
+          let searchQuery = supabase.from('candidats').select(LIST_COLUMNS).in('id', pageIds)
+          switch (sort) {
+            case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }).order('id', { ascending: true }); break
+            case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }).order('id', { ascending: true }); break
+            case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }).order('id', { ascending: true }); break
+            default:          searchQuery = searchQuery.order('created_at', { ascending: false }).order('id', { ascending: true })
+          }
+          const { data, error: searchFetchError } = await searchQuery
+          if (searchFetchError) throw searchFetchError
+          return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+        }
+        // Fallback si RPC indisponible → recherche basique ci-dessous
+      } else {
+        // Avec filtres colonne : fetch jusqu'à 10000 IDs puis filtre JS
+        const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
+          search_query: words.join(' '),
+          filter_import_status: effectiveImportStatus || null,
+          filter_statut: effectiveStatut || null,
+          result_limit: 10000,
+          result_offset: 0,
+        }).limit(10000)
+        const searchRows = rpcResult.data as { id: string; total_count: number }[] | null
+        const searchError = rpcResult.error
+
+        if (!searchError && searchRows && searchRows.length > 0) {
+          let ids = searchRows.map(r => r.id)
+
+          // Affiner par filtres colonne en batches de 200
           const BATCH = 200
           const filtered: string[] = []
           for (let i = 0; i < ids.length; i += BATCH) {
             const batch = ids.slice(i, i + BATCH)
             let bq = supabase.from('candidats').select('id').in('id', batch)
-            if (lieu)             bq = (bq as any).ilike('localisation', `%${lieu}%`)
-            if (genre)            bq = (bq as any).eq('genre', genre)
-            if (langue)           bq = (bq as any).contains('langues', [langue])
+            if (lieu)              bq = (bq as any).ilike('localisation', `%${lieu}%`)
+            if (genre)             bq = (bq as any).eq('genre', genre)
+            if (langue)            bq = (bq as any).contains('langues', [langue])
             if (permis === 'true') bq = (bq as any).eq('permis_conduire', true)
             if (permis === 'false') bq = (bq as any).eq('permis_conduire', false)
-            if (metier)           bq = (bq as any).contains('tags', [metier])
-            if (cfc === 'true')   bq = (bq as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
+            if (metier)            bq = (bq as any).contains('tags', [metier])
+            if (cfc === 'true')    bq = (bq as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
             if (engage === 'true') bq = (bq as any).eq('deja_engage', true)
             const { data: batchData } = await bq
             if (batchData) filtered.push(...(batchData as { id: string }[]).map(r => r.id))
           }
           ids = filtered
+
+          const totalFound = ids.length
+          const totalPages = Math.ceil(totalFound / perPage)
+          const from = (page - 1) * perPage
+          const pageIds = ids.slice(from, from + perPage)
+
+          if (pageIds.length === 0) {
+            return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+          }
+
+          let searchQuery = supabase.from('candidats').select(LIST_COLUMNS).in('id', pageIds)
+          switch (sort) {
+            case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }).order('id', { ascending: true }); break
+            case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }).order('id', { ascending: true }); break
+            case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }).order('id', { ascending: true }); break
+            default:          searchQuery = searchQuery.order('created_at', { ascending: false }).order('id', { ascending: true })
+          }
+          const { data, error: searchFetchError } = await searchQuery
+          if (searchFetchError) throw searchFetchError
+          return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+        } else if (!searchError && searchRows && searchRows.length === 0) {
+          return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage, total_pages: 0 })
         }
+      }
 
-        const totalFound = ids.length
-        const totalPages = Math.ceil(totalFound / perPage)
-
-        // Paginer les IDs filtrés — évite l'overflow d'URL (>16KB)
-        const from = (page - 1) * perPage
-        const pageIds = ids.slice(from, from + perPage)
-
-        if (pageIds.length === 0) {
-          return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
-        }
-
-        let searchQuery = supabase
-          .from('candidats')
-          .select(LIST_COLUMNS)
-          .in('id', pageIds)
-
-        // Tri dans la page — id en secondaire pour ordre stable quand created_at identiques
-        switch (sort) {
-          case 'date_asc':  searchQuery = searchQuery.order('created_at', { ascending: true }).order('id', { ascending: true }); break
-          case 'nom_az':    searchQuery = searchQuery.order('prenom', { ascending: true }).order('nom', { ascending: true }).order('id', { ascending: true }); break
-          case 'titre_az':  searchQuery = searchQuery.order('titre_poste', { ascending: true }).order('id', { ascending: true }); break
-          default:          searchQuery = searchQuery.order('created_at', { ascending: false }).order('id', { ascending: true })
-        }
-
-        const { data, error: searchFetchError } = await searchQuery
-        if (searchFetchError) throw searchFetchError
-        return NextResponse.json({ candidats: data || [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
-      } else if (!searchError && searchIds && searchIds.length === 0) {
-        return NextResponse.json({ candidats: [], total: 0, page, per_page: perPage, total_pages: 0 })
-      } else {
-        // Fallback si la RPC n'existe pas — recherche basique
-        for (const word of words) {
-          const pattern = `%${word}%`
-          query = query.or(
-            `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
-          )
-        }
+      // Fallback si la RPC n'existe pas — recherche basique
+      for (const word of words) {
+        const pattern = `%${word}%`
+        query = query.or(
+          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
+        )
       }
     }
 

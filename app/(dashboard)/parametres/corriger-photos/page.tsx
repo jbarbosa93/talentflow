@@ -5,7 +5,7 @@ import { Play, Pause, CheckCircle, Camera, Loader2, ThumbsUp, ThumbsDown, User, 
 import { usePhotos } from '@/contexts/PhotosContext'
 import type { ProcessedLogItem } from '@/contexts/PhotosContext'
 
-type Stats = { withPhoto: number; withoutPhoto: number; total: number }
+type Stats = { withPhoto: number; withoutPhoto: number; total: number; checked: number }
 
 type HistoryItem = {
   id: string
@@ -51,21 +51,23 @@ export default function CorrigerPhotosPage() {
   }, [])
 
   // Sync context processedLog → localStorage history
+  // On ne stocke que les candidats avec photo trouvée (hadPhoto=true)
   useEffect(() => {
     if (photos.processedLog.length === 0) return
     const now = new Date().toISOString()
     setHistory(prev => {
       const map = new Map(prev.map(h => [h.id, h]))
       for (const item of photos.processedLog) {
+        if (!item.hadPhoto) continue // ignorer les candidats sans portrait
         if (!map.has(item.id)) {
           map.set(item.id, {
             id: item.id,
             nom: item.nom,
             prenom: item.prenom,
             titre_poste: item.titre_poste,
-            hadPhoto: item.hadPhoto,
+            hadPhoto: true,
             photo_url: item.photo_url,
-            status: item.hadPhoto ? 'approved' : 'no_photo',
+            status: 'approved',
             processedAt: now,
           })
         }
@@ -150,8 +152,6 @@ export default function CorrigerPhotosPage() {
   const remainingCount = stats ? stats.withoutPhoto : 0
 
   const filteredHistory = history.filter(h => {
-    if (historyFilter === 'photo') return h.hadPhoto
-    if (historyFilter === 'no_photo') return !h.hadPhoto
     if (historyFilter === 'rejected') return h.status === 'rejected'
     return true
   }).slice().reverse()
@@ -184,8 +184,9 @@ export default function CorrigerPhotosPage() {
             <RefreshCw size={11} /> Actualiser
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
           <StatCard label="Avec photo" value={stats.withPhoto} color="#10B981" icon="📸" />
+          <StatCard label="Sans portrait" value={stats.checked} color="#94A3B8" icon="🔍" />
           <StatCard label="À analyser" value={stats.withoutPhoto} color="#F59E0B" icon="📄" />
           <StatCard label="Total CVs" value={stats.total} color="#64748B" icon="📁" />
           <StatCard label="Historique" value={history.length} color="#6366F1" icon="📋" />
@@ -228,81 +229,80 @@ export default function CorrigerPhotosPage() {
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {photos.phase === 'running' ? (
-            <button onClick={photos.pause} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
-              <Pause size={14} fill="#D97706" /> Pause
-            </button>
+            <>
+              <button onClick={photos.pause} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
+                <Pause size={14} fill="#D97706" /> Pause
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                {photos.currentName
+                  ? <span>Analyse en cours — <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{photos.currentName}</span></span>
+                  : 'Analyse en cours…'
+                }
+              </div>
+            </>
           ) : photos.phase === 'paused' ? (
-            <button onClick={photos.resume} className="neo-btn-yellow">
-              <Play size={14} fill="#0F172A" /> Continuer
-            </button>
+            <>
+              <button onClick={photos.resume} className="neo-btn-yellow">
+                <Play size={14} fill="#0F172A" /> Continuer
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#D97706', fontWeight: 600 }}>
+                ⏸ En pause
+              </div>
+              <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
+                <X size={12} /> Annuler
+              </button>
+            </>
           ) : (
             <>
-              <button onClick={handleStart} className="neo-btn-yellow">
-                {remainingCount > 0
-                  ? <><Play size={14} fill="#0F172A" /> Analyser ({remainingCount} restant{remainingCount > 1 ? 's' : ''})</>
-                  : <><Play size={14} fill="#0F172A" /> Lancer l&apos;analyse</>
-                }
-              </button>
+              {/* Bouton principal — analyser les nouveaux */}
               <button
                 onClick={() => handleStartAuto(false)}
                 disabled={remainingCount === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: remainingCount === 0 ? '#F8FAFC' : '#EEF2FF', color: remainingCount === 0 ? '#94A3B8' : '#4338CA', cursor: remainingCount === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
-                title={remainingCount === 0 ? 'Tous les CVs ont déjà été analysés — utilise "Auto (tout)" pour ré-analyser' : 'Traite uniquement les candidats SANS photo automatiquement'}
+                className={remainingCount > 0 ? 'neo-btn-yellow' : undefined}
+                style={remainingCount === 0 ? { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--muted)', cursor: 'not-allowed', fontFamily: 'inherit' } : undefined}
+                title="Analyse automatiquement tous les CVs sans photo et sauvegarde les portraits trouvés"
               >
-                <Zap size={14} /> Auto (sans photo){remainingCount === 0 ? ' ✓' : ''}
+                <Zap size={14} />
+                {remainingCount > 0
+                  ? <>Analyser les nouveaux <span style={{ fontWeight: 500, opacity: 0.7 }}>({remainingCount})</span></>
+                  : <>Analyser les nouveaux ✓</>
+                }
               </button>
-            </>
-          )}
 
-          {/* Ré-analyser tout */}
-          {photos.phase !== 'running' && (
-            <>
+              {/* Valider les photos — visible seulement si des photos attendent */}
+              {pendingCount > 0 && (
+                <button
+                  onClick={handleStart}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '2px solid var(--primary)', background: 'var(--primary-soft)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+                  title="Valider manuellement les photos en attente"
+                >
+                  <Camera size={14} /> Valider les photos
+                  <span style={{ background: 'var(--primary)', color: '#0F172A', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{pendingCount}</span>
+                </button>
+              )}
+
+              {/* Ré-analyser tout — secondaire */}
               <button
-                onClick={() => { if (confirm('Ré-analyser tous les CVs depuis le début (même ceux déjà traités) ?')) handleRestart(true) }}
+                onClick={() => { if (confirm('Ré-analyser tous les CVs ? Même ceux déjà traités. Les photos incorrectes seront remplacées.')) handleStartAuto(true) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+                title="Ré-analyse tous les CVs (y compris déjà traités)"
               >
                 <RotateCcw size={14} /> Ré-analyser tout
               </button>
-              <button
-                onClick={() => { if (confirm('Ré-analyser tous les CVs automatiquement (même ceux déjà traités) ?')) handleStartAuto(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #6366F1', background: '#EEF2FF', color: '#4338CA', cursor: 'pointer', fontFamily: 'inherit' }}
-                title="Ré-analyse tous les CVs automatiquement sans validation manuelle"
-              >
-                <Zap size={14} /> Auto (tout)
-              </button>
-            </>
-          )}
 
-          {photos.phase === 'running' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
-              <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-              {photos.autoMode ? 'Mode automatique — traitement en cours…' : 'Analyse en cours… (continue en arrière-plan si vous naviguez)'}
-            </div>
-          )}
-          {photos.phase === 'paused' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#D97706', fontWeight: 600 }}>
-              ⏸ En pause — cliquez &quot;Continuer&quot; pour reprendre
-            </div>
-          )}
-          {photos.phase === 'idle' && remainingCount === 0 && stats && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
-              <CheckCircle size={15} /> Tous les CVs ont été analysés
-            </div>
-          )}
-          {photos.phase === 'done' && pendingCount === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
-              <CheckCircle size={15} /> {photos.autoMode ? `Terminé — ${photos.found} photo${photos.found > 1 ? 's' : ''} enregistrée${photos.found > 1 ? 's' : ''}` : 'Tout validé'}
-            </div>
-          )}
-          {/* Bouton reset — efface la progression stale et rafraîchit les stats */}
-          {(photos.phase === 'done' || photos.phase === 'paused') && (
-            <button
-              onClick={handleReset}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}
-              title="Réinitialiser l'affichage et actualiser les stats"
-            >
-              <X size={12} /> Réinitialiser
-            </button>
+              {/* Messages état */}
+              {photos.phase === 'done' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
+                  <CheckCircle size={15} /> {photos.found > 0 ? `${photos.found} photo${photos.found > 1 ? 's' : ''} trouvée${photos.found > 1 ? 's' : ''}` : 'Analyse terminée'}
+                </div>
+              )}
+              {photos.phase === 'done' && (
+                <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
+                  <X size={12} /> Réinitialiser
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -410,11 +410,12 @@ export default function CorrigerPhotosPage() {
             style={{ width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit' }}
           >
             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', flex: 1, textAlign: 'left' }}>
-              📋 Historique d&apos;analyse
+              📋 Portraits trouvés
               <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>
-                {history.length} CV{history.length > 1 ? 's' : ''} analysé{history.length > 1 ? 's' : ''}
-                {' · '}{history.filter(h => h.hadPhoto).length} avec photo
-                {' · '}{history.filter(h => !h.hadPhoto).length} sans photo
+                {history.length} portrait{history.length > 1 ? 's' : ''}
+                {history.filter(h => h.status === 'rejected').length > 0 && (
+                  <> · {history.filter(h => h.status === 'rejected').length} rejeté{history.filter(h => h.status === 'rejected').length > 1 ? 's' : ''}</>
+                )}
               </span>
             </span>
             {showHistory ? <ChevronUp size={16} color="var(--muted)" /> : <ChevronDown size={16} color="var(--muted)" />}
@@ -424,9 +425,7 @@ export default function CorrigerPhotosPage() {
             <div style={{ borderTop: '1px solid var(--border)' }}>
               <div style={{ padding: '10px 20px', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                 {([
-                  { key: 'all', label: `Tous (${history.length})` },
-                  { key: 'photo', label: `Avec photo (${history.filter(h => h.hadPhoto).length})` },
-                  { key: 'no_photo', label: `Sans photo (${history.filter(h => !h.hadPhoto).length})` },
+                  { key: 'all',      label: `Tous (${history.length})` },
                   { key: 'rejected', label: `Rejetés (${history.filter(h => h.status === 'rejected').length})` },
                 ] as const).map(tab => (
                   <button
@@ -457,7 +456,7 @@ export default function CorrigerPhotosPage() {
                   <div style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)', fontSize: 13 }}>Aucune entrée</div>
                 ) : (
                   filteredHistory.map(item => (
-                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                    <Link key={item.id} href={`/candidats/${item.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', textDecoration: 'none', cursor: 'pointer' }}>
                       {item.photo_url && item.status !== 'rejected' ? (
                         <img src={item.photo_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
                       ) : (
@@ -479,7 +478,7 @@ export default function CorrigerPhotosPage() {
                         {new Date(item.processedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                       </div>
                       <StatusBadge status={item.status} />
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>

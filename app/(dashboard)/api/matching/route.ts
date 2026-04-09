@@ -52,9 +52,9 @@ export async function POST(request: NextRequest) {
       .upsert({ candidat_id, offre_id, score_ia: result.score, score_detail: { score_competences: result.score_competences, score_experience: result.score_experience } as Record<string, number>, etape: 'nouveau' }, { onConflict: 'candidat_id,offre_id', ignoreDuplicates: false })
       .select().single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true, score: result, pipeline })
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

@@ -4,16 +4,6 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
-/**
- * Formate la date/heure courante au format "DD.MM.YYYY à HHhMM"
- */
-export function formatDateTimeFR(): string {
-  const now = new Date()
-  const dateStr = now.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const timeStr = now.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')
-  return `${dateStr} à ${timeStr}`
-}
-
 export async function logActivityServer(data: {
   user_id: string
   user_name: string
@@ -29,11 +19,8 @@ export async function logActivityServer(data: {
 }) {
   try {
     const supabase = createAdminClient() as any
-    // Ajouter automatiquement la date/heure au titre
-    const titreAvecDate = `${data.titre} — ${formatDateTimeFR()}`
     await supabase.from('activites').insert({
       ...data,
-      titre: titreAvecDate,
       metadata: data.metadata ? JSON.stringify(data.metadata) : '{}',
     })
   } catch (err) {

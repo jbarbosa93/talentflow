@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       .update({ statut_pipeline: null })
       .eq('statut_pipeline', etape_id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ cleared: count || 0, message: `Colonne "${etape_id}" vidée` })
   } else {
     // Vider toute la pipeline (table pipeline offres + statut_pipeline candidats)
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       .update({ statut_pipeline: null })
       .not('statut_pipeline', 'is', null)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ cleared: count || 0, message: 'Pipeline entière vidée' })
   }
 }

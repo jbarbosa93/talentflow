@@ -13,6 +13,8 @@ import type { CandidatInsert } from '@/types/database'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 const FORMATS_IMAGES = ['jpg', 'jpeg', 'png']
 
 function getExtension(filename: string): string {
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`[SharePoint Import] Début : ${filename}`)
+    dbg(`[SharePoint Import] Début : ${filename}`)
 
     const accessToken = await getValidAccessToken(integration_id)
     const buffer = await telechargerFichier(accessToken, drive_id, item_id)
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[SharePoint Import] Analyse terminée : ${analyse.nom} ${analyse.prenom}`)
+    dbg(`[SharePoint Import] Analyse terminée : ${analyse.nom} ${analyse.prenom}`)
 
     // Validation : diplôme/certificat détecté si nom présent mais aucun contenu CV
     const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log(`[SharePoint Import] Succès : candidat ${candidat.id}`)
+    dbg(`[SharePoint Import] Succès : candidat ${candidat.id}`)
 
     return NextResponse.json({
       success: true,

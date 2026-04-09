@@ -9,7 +9,25 @@ export const maxDuration = 300
 export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
 
-  const { batchSize = 20, force = false, offset = 0, candidatId } = await request.json().catch(() => ({}))
+  const { batchSize = 20, force = false, offset = 0, candidatId, reject = false } = await request.json().catch(() => ({}))
+
+  // ── Mode rejet : supprimer la photo Storage + marquer checked ──
+  if (candidatId && reject) {
+    const { data: cand } = await supabase
+      .from('candidats')
+      .select('id, photo_url')
+      .eq('id', candidatId)
+      .single()
+
+    if (cand?.photo_url && cand.photo_url !== 'checked') {
+      try {
+        const oldPath = cand.photo_url.split('/cvs/')[1]?.split('?')[0]
+        if (oldPath) await supabase.storage.from('cvs').remove([decodeURIComponent(oldPath)])
+      } catch {}
+    }
+    await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', candidatId)
+    return NextResponse.json({ rejected: true })
+  }
 
   // ── Mode individuel : extraction photo pour un seul candidat ──
   if (candidatId) {
@@ -101,33 +119,34 @@ export async function POST(request: NextRequest) {
     error = e1
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   if (!candidates?.length) return NextResponse.json({ done: true, processed: 0, found: 0, remaining: 0 })
 
-  const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
   let processed = 0
   let found = 0
-  const foundCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string }[] = []
-  const processedCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; hadPhoto: boolean; photo_url?: string }[] = []
+  let rejected = 0
+  const foundCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string; cv_nom_fichier?: string | null }[] = []
+  const processedCandidats: { id: string; nom: string; prenom: string | null; titre_poste: string | null; hadPhoto: boolean; photo_url?: string; cv_nom_fichier?: string | null }[] = []
 
   // Traiter en parallèle par chunks de 5
   const PHOTO_PARALLEL = 5
   for (let ci = 0; ci < candidates.length; ci += PHOTO_PARALLEL) {
     const chunk = candidates.slice(ci, ci + PHOTO_PARALLEL)
-    await Promise.all(chunk.map(async (cand) => {
+    const chunkResults = await Promise.allSettled(chunk.map(async (cand) => {
     try {
       const ext = (cand.cv_nom_fichier || cand.cv_url || '').toLowerCase().split('.').pop()
-      if (!['pdf'].includes(ext || '')) {
+      const isSupportedFormat = ['pdf', 'docx', 'doc'].includes(ext || '')
+      if (!isSupportedFormat) {
         if (!cand.photo_url || cand.photo_url === 'checked' || force) {
           await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         }
-        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
         processed++
         return
       }
 
       if (!cand.cv_url) {
-        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
         processed++
         return
       }
@@ -135,13 +154,23 @@ export async function POST(request: NextRequest) {
       // Download the CV
       const cvRes = await fetch(cand.cv_url)
       if (!cvRes.ok) {
-        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
         processed++
         return
       }
       const buffer = Buffer.from(await cvRes.arrayBuffer())
 
-      const photoBuffer = await extractPhotoFromPDF(buffer)
+      let photoBuffer: Buffer | null = null
+      if (ext === 'pdf') {
+        const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+        photoBuffer = await extractPhotoFromPDF(buffer)
+      } else if (ext === 'docx') {
+        const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
+        photoBuffer = await extractPhotoFromDOCX(buffer)
+      } else if (ext === 'doc') {
+        const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
+        photoBuffer = await extractPhotoFromDOC(buffer)
+      }
 
       if (photoBuffer) {
         // Delete old photo from storage if it exists
@@ -171,8 +200,8 @@ export async function POST(request: NextRequest) {
           if (urlData?.signedUrl) {
             await supabase.from('candidats').update({ photo_url: urlData.signedUrl }).eq('id', cand.id)
             found++
-            foundCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, photo_url: urlData.signedUrl })
-            processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: true, photo_url: urlData.signedUrl })
+            foundCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, photo_url: urlData.signedUrl, cv_nom_fichier: cand.cv_nom_fichier })
+            processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: true, photo_url: urlData.signedUrl, cv_nom_fichier: cand.cv_nom_fichier })
           }
         }
       } else {
@@ -186,14 +215,15 @@ export async function POST(request: NextRequest) {
           } catch {}
         }
         await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
-        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false })
+        processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
       }
       processed++
     } catch (e) {
       console.error(`Photo extraction failed for ${cand.id}:`, e)
       processed++
     }
-    })) // end Promise.all + chunk.map
+    })) // end Promise.allSettled + chunk.map
+    rejected += chunkResults.filter(r => r.status === 'rejected').length
   } // end chunk loop
 
   // Calculate remaining
@@ -214,6 +244,7 @@ export async function POST(request: NextRequest) {
     done: remaining === 0,
     processed,
     found,
+    rejected,
     remaining,
     nextOffset: force ? offset + processed : undefined,
     foundCandidats,
@@ -245,9 +276,17 @@ export async function GET() {
     .select('*', { count: 'exact', head: true })
     .not('cv_url', 'is', null)
 
+  // Candidats analysés mais sans portrait (photo_url = 'checked')
+  const { count: checkedCount } = await supabase
+    .from('candidats')
+    .select('*', { count: 'exact', head: true })
+    .eq('photo_url', 'checked')
+    .not('cv_url', 'is', null)
+
   return NextResponse.json({
     withoutPhoto: withoutPhoto || 0,  // Only NULL = truly not yet analyzed
     withPhoto: withPhoto || 0,
     total: total || 0,
+    checked: checkedCount || 0,
   })
 }

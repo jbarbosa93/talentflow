@@ -537,7 +537,26 @@ export type Database = {
         Relationships: []
       }
     }
-    Functions: Record<string, never>
+    Functions: {
+      merge_candidats: {
+        Args: {
+          p_keep_id: string
+          p_delete_id: string
+          p_merged: Record<string, unknown>
+        }
+        Returns: undefined
+      }
+      search_candidats_filtered: {
+        Args: {
+          search_query: string
+          filter_import_status: string | null
+          filter_statut: string | null
+          result_limit: number
+          result_offset: number
+        }
+        Returns: { id: string; total_count: number }[]
+      }
+    }
     Enums: {
       pipeline_etape: string
       offre_statut: OffreStatut

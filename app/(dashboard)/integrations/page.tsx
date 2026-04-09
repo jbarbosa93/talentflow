@@ -9,6 +9,7 @@ import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 
 function IntegrationsContent() {
@@ -16,8 +17,29 @@ function IntegrationsContent() {
   const queryClient   = useQueryClient()
   const sync          = useSyncMicrosoft()
 
+  const router = useRouter()
+
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [secondsAgo, setSecondsAgo] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (lastUpdated) setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000))
+    }, 1000)
+    return () => clearInterval(t)
+  }, [lastUpdated])
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set([todayStr]))
+  const toggleDay = (day: string) => setExpandedDays(prev => {
+    const next = new Set(prev)
+    if (next.has(day)) next.delete(day); else next.add(day)
+    return next
+  })
+  const [categoryLimits, setCategoryLimits] = useState<Record<string, number>>({})
+  const getCategoryLimit = (key: string) => categoryLimits[key] ?? 50
+  const showMoreCategory = (key: string, total: number) => setCategoryLimits(prev => ({ ...prev, [key]: Math.min((prev[key] ?? 50) + 50, total) }))
   const [showOneDriveFolderPicker, setShowOneDriveFolderPicker] = useState(false)
   const [syncReport, setSyncReport] = useState<any>(null)
+  const [confirmViderErreurs, setConfirmViderErreurs] = useState(false)
 
   // Boucle auto sync OneDrive
   const [onedriveSyncing, setOnedriveSyncing] = useState(false)
@@ -56,7 +78,7 @@ function IntegrationsContent() {
         totalReactivated += data.reactivated || 0
         totalErrors += data.errors || 0
         totalSkipped += data.skipped || 0
-        totalProcessed += (data.created?.length || 0) + (data.skipped || 0) + (data.errors || 0) + (data.updated || 0) + (data.reactivated || 0)
+        totalProcessed += (data.created?.length || 0) + (data.errors || 0) + (data.updated || 0) + (data.reactivated || 0)
         if (data.created) allCreatedNames.push(...data.created)
         if (data.updatedNames) allUpdatedNames.push(...data.updatedNames)
         if (data.reactivatedNames) allReactivatedNames.push(...data.reactivatedNames)
@@ -119,6 +141,7 @@ function IntegrationsContent() {
       return res.json()
     },
     staleTime: 10_000,
+    refetchInterval: onedriveSyncing ? 5_000 : 30_000,
   })
 
   // OneDrive integration
@@ -157,9 +180,12 @@ function IntegrationsContent() {
     queryKey: ['onedrive-fichiers'],
     queryFn: async () => {
       const res = await fetch('/api/onedrive/sync')
-      return res.json()
+      const data = await res.json()
+      setLastUpdated(new Date())
+      return data
     },
     staleTime: 30_000,
+    refetchInterval: onedriveSyncing ? 5_000 : 30_000,
     enabled: isOnedriveConnected,
   })
 
@@ -219,10 +245,21 @@ function IntegrationsContent() {
   const onedriveAutoSync     = onedriveMeta?.onedrive_auto_sync !== false // true par defaut
   const onedriveFichiers     = onedriveFilesData?.fichiers || []
   const onedriveImported     = onedriveFichiers.filter((f: any) => f.candidat_id && !f.erreur)
-  // Fichiers en erreur = traite: false, dédupliqués par nom de fichier (garde le plus récent)
+  // Fichiers en erreur = traite: false ET erreur non null (vraies erreurs uniquement)
   const onedriveEnErreur     = Object.values(
     onedriveFichiers
-      .filter((f: any) => f.traite === false)
+      .filter((f: any) => f.traite === false && f.erreur)
+      .reduce((acc: any, f: any) => {
+        const key = f.nom_fichier || f.onedrive_item_id
+        if (!acc[key] || new Date(f.created_at) > new Date(acc[key].created_at)) acc[key] = f
+        return acc
+      }, {})
+  ) as any[]
+
+  // Fichiers en attente = traite: false ET erreur null (jamais traités, pas en erreur)
+  const onedriveEnAttente = Object.values(
+    onedriveFichiers
+      .filter((f: any) => f.traite === false && !f.erreur)
       .reduce((acc: any, f: any) => {
         const key = f.nom_fichier || f.onedrive_item_id
         if (!acc[key] || new Date(f.created_at) > new Date(acc[key].created_at)) acc[key] = f
@@ -367,7 +404,7 @@ function IntegrationsContent() {
                         }}
                         style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
-                        ⏹ Stop ({onedriveProgress.created} importés / {onedriveProgress.rawScanned} trouvés)
+                        ⏹ Stop ({onedriveProgress.created} importés / {onedriveProgress.total} traités)
                       </button>
                     ) : (
                       <button
@@ -519,6 +556,11 @@ function IntegrationsContent() {
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={11} />
                         Dernier sync : {onedriveLastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {lastUpdated && (
+                          <span style={{ fontSize: 10, color: 'var(--muted)', opacity: 0.7 }}>
+                            · mis à jour il y a {secondsAgo}s
+                          </span>
+                        )}
                       </span>
                     )}
                   </div>
@@ -527,7 +569,12 @@ function IntegrationsContent() {
                 {/* Stats OneDrive — uniquement aujourd'hui (reset chaque jour) */}
                 {(() => {
                   const today = new Date().toISOString().slice(0, 10)
-                  const todayFiles = onedriveFichiers.filter((f: any) => f.created_at?.slice(0, 10) === today)
+                  // traite_le = date de traitement réel (positionné uniquement quand traite:true)
+                  // Exclusion skipped/abandoned : le compteur ne montre que les fichiers réellement traités
+                  const todayFiles = onedriveFichiers.filter((f: any) =>
+                    f.traite_le?.slice(0, 10) === today
+                    && !['skipped', 'abandoned'].includes(f.statut_action)
+                  )
                   const todayImported = todayFiles.filter((f: any) => f.candidat_id && !f.erreur?.startsWith('Mis à jour') && !f.erreur?.startsWith('Réactivé') && !f.erreur?.startsWith('Doublon'))
                   const todayUpdated = todayFiles.filter((f: any) => f.erreur?.startsWith('Mis à jour'))
                   const todayReactivated = todayFiles.filter((f: any) => f.erreur?.startsWith('Réactivé'))
@@ -539,7 +586,7 @@ function IntegrationsContent() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
                         <div style={{ background: 'var(--background)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid var(--border)' }}>
                           <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? todayFiles.length + onedriveProgress.total : todayFiles.length}</p>
-                          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers analysés</p>
+                          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers détectés</p>
                         </div>
                         <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
                           <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? todayImported.length + onedriveProgress.created : todayImported.length}</p>
@@ -561,9 +608,32 @@ function IntegrationsContent() {
                 {/* Fichiers en erreur — seront retentés au prochain sync */}
                 {onedriveEnErreur.length > 0 && (
                   <div style={{ marginTop: 16, borderTop: '2px solid #FECACA', paddingTop: 14 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 800, color: '#DC2626', marginBottom: 10 }}>
-                      ⚠️ Fichiers en erreur ({onedriveEnErreur.length}) — seront retentés automatiquement
-                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: '#DC2626' }}>
+                        ⚠️ Fichiers en erreur ({onedriveEnErreur.length}) — seront retentés automatiquement
+                      </h4>
+                      {!confirmViderErreurs ? (
+                        <button onClick={() => setConfirmViderErreurs(true)}
+                          style={{ fontSize: 11, color: '#DC2626', background: 'none', border: '1px solid #FECACA', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
+                          Vider
+                        </button>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11, color: '#991B1B' }}>Supprimer {onedriveEnErreur.length} fichier{onedriveEnErreur.length > 1 ? 's' : ''} ?</span>
+                          <button onClick={async () => {
+                            await fetch('/api/onedrive/sync?action=clear-errors', { method: 'DELETE' })
+                            setConfirmViderErreurs(false)
+                            queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
+                          }} style={{ fontSize: 11, color: '#fff', background: '#DC2626', border: 'none', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
+                            Confirmer
+                          </button>
+                          <button onClick={() => setConfirmViderErreurs(false)}
+                            style={{ fontSize: 11, color: '#6B7280', background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
+                            Annuler
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
                       {onedriveEnErreur.map((f: any) => (
                         <div key={f.id} style={{
@@ -588,61 +658,199 @@ function IntegrationsContent() {
                   </div>
                 )}
 
-                {/* Historique fichiers OneDrive */}
-                {onedriveFichiers.length > 0 && (() => {
-                  const sorted = [...onedriveFichiers].sort((a: any, b: any) =>
-                    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-                  )
-                  const getStatus = (f: any): { label: string; bg: string; color: string; border: string } => {
-                    const err = f.erreur || ''
-                    if (f.traite === false) {
-                      if (err.startsWith('Abandonné')) return { label: '⏭ Abandonné', bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
-                      if (err.includes('Remis en file') || err.includes('re-sync')) return { label: '🔄 En attente re-sync', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
-                      if (err) return { label: `❌ Erreur — ${err}`, bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' }
-                      return { label: '⏳ En attente', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
-                    }
-                    if (err.startsWith('Mis à jour')) return { label: err, bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' }
-                    if (err.startsWith('Réactivé')) return { label: err, bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
-                    if (err.includes('Doublon')) return { label: err, bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
-                    if (err.startsWith('Document') || err.startsWith('Certificat') || err.startsWith('Diplôme') || err.startsWith('Formation') || err.startsWith('Attestation') || err.startsWith('Permis')) return { label: `⏭ ${err}`, bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
-                    if (err) return { label: `❌ ${err}`, bg: '#FEE2E2', color: '#991B1B', border: '#FECACA' }
-                    if (f.candidat_id) return { label: `✅ Importé${f.candidats ? ` — ${f.candidats.prenom} ${f.candidats.nom}` : ''}`, bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' }
-                    return { label: '⏳ En attente', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' }
-                  }
+                {/* Fichiers en attente — traite=false sans erreur */}
+                {onedriveEnAttente.length > 0 && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
+                        ⏳ En attente de traitement ({onedriveEnAttente.length})
+                      </h4>
+                      <span style={{ fontSize: 10, color: 'var(--muted)' }}>seront traités aux prochains cycles</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Historique OneDrive — accordéon par jour */}
+                {(() => {
+                  const processed = onedriveFichiers.filter((f: any) => f.traite === true && f.traite_le)
+                  if (processed.length === 0) return null
+
+                  const byDay: Record<string, any[]> = {}
+                  processed.forEach((f: any) => {
+                    const day = (f.traite_le as string).slice(0, 10)
+                    if (!byDay[day]) byDay[day] = []
+                    byDay[day].push(f)
+                  })
+                  const days = Object.keys(byDay).sort((a, b) => b.localeCompare(a))
+
                   return (
                     <div style={{ marginTop: 16, borderTop: '2px solid var(--border)', paddingTop: 14 }}>
                       <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
-                        Historique fichiers ({sorted.length})
+                        Historique ({processed.length} fichier{processed.length > 1 ? 's' : ''})
                       </h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 320, overflowY: 'auto' }}>
-                        {sorted.map((f: any) => {
-                          const st = getStatus(f)
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {days.map((day) => {
+                          const dayFiles = byDay[day]
+                          const isOpen = expandedDays.has(day)
+                          const created     = dayFiles.filter((f: any) => f.statut_action === 'created')
+                          const updated     = dayFiles.filter((f: any) => f.statut_action === 'updated')
+                          const reactivated = dayFiles.filter((f: any) => f.statut_action === 'reactivated')
+                          const documents   = dayFiles.filter((f: any) => f.statut_action === 'document')
+                          const errors      = dayFiles.filter((f: any) => f.statut_action === 'error' || f.statut_action === 'abandoned')
+                          const dateLabel   = new Date(day + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+
                           return (
-                            <div key={f.id} style={{
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                              padding: '7px 12px', borderRadius: 8,
-                              background: 'var(--background)', border: '1.5px solid var(--border)',
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-                                <FileText size={12} style={{ color: '#0078D4', flexShrink: 0 }} />
-                                <div style={{ minWidth: 0 }}>
-                                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {f.nom_fichier || '—'}
-                                  </span>
-                                  {f.created_at && (
-                                    <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', marginTop: 1 }}>
-                                      {new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <span title={st.label} style={{
-                                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100, flexShrink: 0,
-                                background: st.bg, color: st.color, border: `1.5px solid ${st.border}`,
-                                maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block',
+                            <div key={day} style={{ border: '1.5px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+
+                              {/* Header accordéon */}
+                              <button onClick={() => toggleDay(day)} style={{
+                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '9px 14px', background: 'var(--card)', cursor: 'pointer', border: 'none', textAlign: 'left',
                               }}>
-                                {st.label}
-                              </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textTransform: 'capitalize' }}>{dateLabel}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{dayFiles.length} fichier{dayFiles.length > 1 ? 's' : ''}</span>
+                                  <div style={{ display: 'flex', gap: 4 }}>
+                                    {created.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>+{created.length} créé{created.length > 1 ? 's' : ''}</span>}
+                                    {updated.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#DBEAFE', color: '#1D4ED8' }}>↑{updated.length} mis à jour</span>}
+                                    {reactivated.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#FEF3C7', color: '#92400E' }}>↺{reactivated.length} réactivé{reactivated.length > 1 ? 's' : ''}</span>}
+                                    {documents.length > 0   && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#F3F4F6', color: '#374151' }}>📎 {documents.length}</span>}
+                                    {errors.length > 0      && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>✕ {errors.length}</span>}
+                                  </div>
+                                </div>
+                                {isOpen
+                                  ? <ChevronUp size={14} color="var(--muted)" style={{ flexShrink: 0 }} />
+                                  : <ChevronDown size={14} color="var(--muted)" style={{ flexShrink: 0 }} />}
+                              </button>
+
+                              {/* Détail du jour */}
+                              {isOpen && (
+                                <div style={{ borderTop: '1px solid var(--border)', padding: '8px 14px 12px', background: 'var(--background)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                                  <>
+
+                                  {/* 🟢 Nouveaux */}
+                                  {created.length > 0 && (() => {
+                                    const lim = getCategoryLimit(`${day}-created`); const slice = created.slice(0, lim)
+                                    return (
+                                      <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#065F46', marginBottom: 5 }}>🟢 Nouveaux candidats ({created.length})</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {slice.map((f: any) => (
+                                            <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(16,185,129,0.05)', border: '1px solid #A7F3D0', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="#10B981" style={{ flexShrink: 0 }} />
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
+                                                <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{f.nom_fichier}</span>
+                                              </div>
+                                              {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
+                                            </div>
+                                          ))}
+                                          {lim < created.length && <button onClick={() => showMoreCategory(`${day}-created`, created.length)} style={{ fontSize: 11, color: '#065F46', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, created.length - lim)} suivants ({created.length - lim} restants)</button>}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+
+                                  {/* 🔵 Mis à jour */}
+                                  {updated.length > 0 && (() => {
+                                    const lim = getCategoryLimit(`${day}-updated`); const slice = updated.slice(0, lim)
+                                    return (
+                                      <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#1D4ED8', marginBottom: 5 }}>🔵 CVs mis à jour ({updated.length})</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {slice.map((f: any) => (
+                                            <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(59,130,246,0.05)', border: '1px solid #BFDBFE', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="#3B82F6" style={{ flexShrink: 0 }} />
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
+                                                <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.ancien_nom_fichier ? `${f.ancien_nom_fichier} → ${f.nom_fichier}` : f.nom_fichier}</span>
+                                              </div>
+                                              {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
+                                            </div>
+                                          ))}
+                                          {lim < updated.length && <button onClick={() => showMoreCategory(`${day}-updated`, updated.length)} style={{ fontSize: 11, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, updated.length - lim)} suivants ({updated.length - lim} restants)</button>}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+
+                                  {/* 🟡 Réactivés */}
+                                  {reactivated.length > 0 && (() => {
+                                    const lim = getCategoryLimit(`${day}-reactivated`); const slice = reactivated.slice(0, lim)
+                                    return (
+                                      <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#92400E', marginBottom: 5 }}>🟡 Réactivés ({reactivated.length})</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {slice.map((f: any) => (
+                                            <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(245,158,11,0.05)', border: '1px solid #FDE68A', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="#D97706" style={{ flexShrink: 0 }} />
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
+                                                <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{f.nom_fichier}</span>
+                                              </div>
+                                              {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
+                                            </div>
+                                          ))}
+                                          {lim < reactivated.length && <button onClick={() => showMoreCategory(`${day}-reactivated`, reactivated.length)} style={{ fontSize: 11, color: '#92400E', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, reactivated.length - lim)} suivants ({reactivated.length - lim} restants)</button>}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+
+                                  {/* 📎 Documents */}
+                                  {documents.length > 0 && (() => {
+                                    const lim = getCategoryLimit(`${day}-documents`); const slice = documents.slice(0, lim)
+                                    return (
+                                      <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 5 }}>📎 Documents ajoutés ({documents.length})</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {slice.map((f: any) => (
+                                            <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'var(--card)', border: '1px solid var(--border)', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="var(--muted)" style={{ flexShrink: 0 }} />
+                                              <div style={{ minWidth: 0, flex: 1 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
+                                                <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{f.nom_fichier}</span>
+                                              </div>
+                                              {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
+                                            </div>
+                                          ))}
+                                          {lim < documents.length && <button onClick={() => showMoreCategory(`${day}-documents`, documents.length)} style={{ fontSize: 11, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, documents.length - lim)} suivants ({documents.length - lim} restants)</button>}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+
+                                  {/* ❌ Erreurs */}
+                                  {errors.length > 0 && (() => {
+                                    const lim = getCategoryLimit(`${day}-errors`); const slice = errors.slice(0, lim)
+                                    return (
+                                      <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', marginBottom: 5 }}>❌ Erreurs / Abandonnés ({errors.length})</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                          {slice.map((f: any) => (
+                                            <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 10px', borderRadius: 7, background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                                              <FileText size={11} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
+                                              <div style={{ minWidth: 0 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#991B1B', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nom_fichier}</span>
+                                                {f.erreur && <span style={{ fontSize: 10, color: '#B91C1C', display: 'block', marginTop: 1 }}>{f.erreur.slice(0, 80)}{f.erreur.length > 80 ? '…' : ''}</span>}
+                                              </div>
+                                            </div>
+                                          ))}
+                                          {lim < errors.length && <button onClick={() => showMoreCategory(`${day}-errors`, errors.length)} style={{ fontSize: 11, color: '#991B1B', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, errors.length - lim)} suivants ({errors.length - lim} restants)</button>}
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
+
+                                  </>
+
+                                </div>
+                              )}
                             </div>
                           )
                         })}
@@ -799,8 +1007,17 @@ function IntegrationsContent() {
               </div>
             )}
 
-            {/* Cas : fichiers trouvés mais tous déjà traités */}
-            {syncReport.rawScanned > 0 && syncReport.totalAnalysed === 0 && (
+            {/* Fichiers skippés — contenu identique (déjà à jour) */}
+            {syncReport.skipped > 0 && (
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1.5px solid #BBF7D0' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                  ✅ {syncReport.skipped} fichier{syncReport.skipped > 1 ? 's' : ''} déjà à jour — contenu identique, aucune action nécessaire
+                </p>
+              </div>
+            )}
+
+            {/* Cas : fichiers trouvés mais tous déjà traités (aucune action réelle) */}
+            {syncReport.rawScanned > 0 && syncReport.totalAnalysed === 0 && syncReport.skipped === 0 && (
               <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#EFF6FF', border: '1.5px solid #BFDBFE' }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}>
                   ✓ {syncReport.rawScanned} fichier{syncReport.rawScanned > 1 ? 's' : ''} trouvé{syncReport.rawScanned > 1 ? 's' : ''} dans OneDrive — tous déjà traités

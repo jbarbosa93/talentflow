@@ -36,13 +36,15 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; colo
   metier_assigne:    { label: 'Métier assigné',  icon: Tag,            color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
   connexion:         { label: 'Connexion',       icon: LogIn,          color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
   email_envoye_masse:{ label: 'Email en masse',  icon: Send,           color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' },
+  candidat_fusionne: { label: 'Fusion',          icon: Copy,           color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)' },
+  cv_erreur:         { label: 'Erreur import',   icon: AlertTriangle,  color: '#EF4444', bg: 'rgba(239,68,68,0.15)' },
 }
 
 const TABS = [
   { key: 'all',        label: 'Tous',       types: '' },
   { key: 'messages',   label: 'Messages',   types: 'email_envoye,whatsapp_envoye,sms_envoye,cv_envoye,email_envoye_masse' },
-  { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie,candidat_valide,cv_importe,cv_actualise,cv_doublon,metier_assigne,note_changed' },
-  { key: 'imports',    label: 'Imports',    types: 'onedrive_sync,cv_importe,cv_actualise,cv_doublon,candidat_importe' },
+  { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie,candidat_valide,candidat_fusionne,cv_importe,cv_actualise,cv_doublon,metier_assigne,note_changed' },
+  { key: 'imports',    label: 'Imports',    types: 'onedrive_sync,cv_importe,cv_actualise,cv_doublon,cv_erreur,candidat_importe' },
   { key: 'entretiens', label: 'Entretiens', types: 'entretien_planifie' },
   { key: 'notes',      label: 'Notes',      types: 'note_ajoutee,note_changed' },
   { key: 'pipeline',   label: 'Pipeline',   types: 'statut_change' },

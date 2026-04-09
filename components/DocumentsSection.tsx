@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   FolderOpen, Eye, Printer, Download, Trash2, Pencil, Upload, X,
   ChevronDown, ChevronRight, FileText, Award, GraduationCap, Heart,
@@ -18,7 +19,7 @@ interface DocumentsPanelProps {
   cvUrl: string | null
   cvFileName: string | null
   onUpdate: (documents: CandidatDocument[]) => void
-  onCvChange?: (url: string, fileName: string) => void
+  onCvChange?: (url: string, fileName: string, skipReparse?: boolean) => void
 }
 
 type CategoryKey = 'cv' | DocumentType
@@ -53,6 +54,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
   const [changingTypeIdx, setChangingTypeIdx] = useState<number | null>(null)
   const [deletingIdx, setDeletingIdx] = useState<number | null>(null)
   const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null)
+  const [confirmDeleteCv, setConfirmDeleteCv] = useState(false)
   const [selectedType, setSelectedType] = useState<DocumentType | 'cv'>('autre')
   const [showUpload, setShowUpload] = useState(false)
   const [pendingFile, setPendingFile] = useState<{ file: globalThis.File; name: string } | null>(null)
@@ -231,28 +233,27 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     if (realIdx < 0) return
     const doc = documents[realIdx]
     if (!doc || !onCvChange) return
-    // Set this document as CV principal
-    onCvChange(doc.url, doc.name)
+    // Set this document as CV principal — skipReparse=true : pas de re-analyse IA
+    onCvChange(doc.url, doc.name, true)
     // Remove from documents array
     const updated = documents.filter((_, i) => i !== realIdx)
     onUpdate(updated)
     toast.success('Défini comme CV principal')
   }
 
-  const handleRemoveCv = () => {
+  const handleDeleteCv = async () => {
     if (!onCvChange) return
-    // Move current CV to documents as "autre"
+    // Supprimer le fichier du Storage
     if (cvUrl) {
-      const oldDoc = {
-        name: cvFileName || 'CV',
-        url: cvUrl,
-        type: 'autre' as any,
-        uploaded_at: new Date().toISOString(),
-      }
-      onUpdate([...documents, oldDoc])
+      try {
+        const supabase = createClient()
+        const pathMatch = cvUrl.split('/cvs/')[1]?.split('?')[0]
+        if (pathMatch) await supabase.storage.from('cvs').remove([decodeURIComponent(pathMatch)])
+      } catch {} // Ignorer les erreurs Storage
     }
     onCvChange('', '')
-    toast.success('CV principal supprimé')
+    setConfirmDeleteCv(false)
+    toast.success('CV supprimé')
   }
 
   const handleDelete = async (realIdx: number) => {
@@ -301,13 +302,15 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     </button>
   )
 
-  return (
+  const modal = (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 8000,
-        background: 'rgba(0,0,0,0.3)',
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         animation: 'fadeIn 0.15s ease',
+        backdropFilter: 'blur(2px)',
       }}
     >
       <div
@@ -325,40 +328,60 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
         }}
         className="documents-panel"
         style={{
-          position: 'absolute', top: 0, right: 0,
-          width: 480, height: '100%',
+          width: 'min(700px, 95vw)',
+          maxHeight: '88vh',
           background: 'var(--card)',
-          boxShadow: '-8px 0 30px rgba(0,0,0,0.15)',
+          borderRadius: 16,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12)',
           display: 'flex', flexDirection: 'column',
-          animation: 'slideInRight 0.2s ease',
+          animation: 'scaleIn 0.2s ease',
+          border: '1px solid var(--border)',
+          overflow: 'hidden',
         }}
       >
         {/* Header */}
         <div style={{
-          padding: '16px 20px',
+          padding: '18px 24px',
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--card)',
+          flexShrink: 0,
         }}>
-          <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <FolderOpen size={16} color="var(--primary)" />
-            Documents
-            {totalCount > 0 && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, color: 'var(--muted)',
-                background: 'var(--border)', borderRadius: 10, padding: '2px 8px',
-              }}>
-                {totalCount}
-              </span>
-            )}
-          </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <X size={18} color="var(--muted)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: 'rgba(245,166,35,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <FolderOpen size={18} color="var(--primary)" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>
+                Documents
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.2 }}>
+                {totalCount === 0 ? 'Aucun document' : `${totalCount} document${totalCount > 1 ? 's' : ''}`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'var(--secondary)', border: '1px solid var(--border)', cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--border)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+          >
+            <X size={16} color="var(--muted)" />
           </button>
         </div>
 
         {/* Upload button / drop zone */}
         <div
-          style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}
+          style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}
         >
           {!showUpload ? (
             <button
@@ -487,7 +510,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
         </div>
 
         {/* Document categories */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', minHeight: 0 }}>
           {DOC_CATEGORIES.map(cat => {
             const docs = grouped[cat.key]
             if (docs.length === 0) return null
@@ -503,7 +526,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                   onClick={() => toggleCollapse(cat.key)}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 20px',
+                    padding: '8px 24px',
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontFamily: 'inherit', textAlign: 'left',
                     transition: 'background 0.1s',
@@ -530,7 +553,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
 
                 {/* Category files */}
                 {!isCollapsed && (
-                  <div style={{ padding: '2px 20px 6px 20px' }}>
+                  <div style={{ padding: '2px 24px 8px 24px' }}>
                     {docs.map((doc, localIdx) => {
                       // CV principal (virtuel, pas dans documents[]) → realIdx = -1
                       // Anciens CVs (dans documents[] avec type 'cv') → vrai index
@@ -704,11 +727,24 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                             )}
                             {/* Supprimer */}
                             {isCvCategory && localIdx === 0 && cvUrl && onCvChange ? (
-                              actionBtn(
-                                () => handleRemoveCv(),
-                                <Trash2 size={12} style={{ color: '#DC2626' }} />,
-                                'Supprimer',
-                                '#DC2626',
+                              confirmDeleteCv ? (
+                                <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                                  <button
+                                    onClick={handleDeleteCv}
+                                    style={{ padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontFamily: 'inherit' }}
+                                  >Oui</button>
+                                  <button
+                                    onClick={() => setConfirmDeleteCv(false)}
+                                    style={{ padding: '3px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}
+                                  >Non</button>
+                                </div>
+                              ) : (
+                                actionBtn(
+                                  () => setConfirmDeleteCv(true),
+                                  <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                  'Supprimer le CV',
+                                  '#DC2626',
+                                )
                               )
                             ) : isRealDoc && (
                               <>
@@ -770,7 +806,12 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95) } to { opacity: 1; transform: scale(1) } }
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
       `}</style>
     </div>
   )
+
+  if (typeof window === 'undefined') return null
+  return createPortal(modal, document.body)
 }

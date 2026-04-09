@@ -33,6 +33,6 @@ export async function POST(request: NextRequest) {
     if (error) throw error
     return NextResponse.json({ note: data })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

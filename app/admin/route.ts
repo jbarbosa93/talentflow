@@ -5,19 +5,20 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function GET() {
+export async function GET(request: Request) {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
   }
 
   const adminEmail = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
   const supabase = createAdminClient()
+  const host = new URL(request.url).host // localhost:3001 ou localhost:3002 selon le serveur
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: 'magiclink',
     email: adminEmail,
     options: {
-      redirectTo: 'http://localhost:3001/api/auth/callback?next=/dashboard',
+      redirectTo: `http://${host}/api/auth/callback?next=/dashboard`,
     },
   })
 

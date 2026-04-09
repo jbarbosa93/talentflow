@@ -16,7 +16,10 @@ export async function GET(request: Request) {
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.talent-flow.ch'
-    const res = await fetch(`${baseUrl}/api/onedrive/sync`, { method: 'POST' })
+    const res = await fetch(`${baseUrl}/api/onedrive/sync`, {
+      method: 'POST',
+      headers: cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {},
+    })
     const data = await res.json()
 
     console.log('[Cron OneDrive]', JSON.stringify(data))

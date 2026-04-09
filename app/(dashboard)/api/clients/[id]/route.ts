@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ client: data })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
@@ -104,7 +104,7 @@ export async function PATCH(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     }
 
     // Field-level change tracking
@@ -131,7 +131,7 @@ export async function PATCH(
     return NextResponse.json({ client: data })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
@@ -146,11 +146,11 @@ export async function DELETE(
     const supabase = createAdminClient() as any
 
     const { error } = await supabase.from('clients').delete().eq('id', id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }

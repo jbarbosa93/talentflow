@@ -953,7 +953,7 @@ export default function CandidatDetailPage() {
                   >
                     <Camera size={11} color="#0F172A" />
                   </button>
-                  {isEditing && candidat.cv_url && (
+                  {candidat.cv_url && (
                     <button
                       onClick={() => setShowCropModal(true)}
                       title="Sélectionner manuellement une zone du CV"
@@ -2210,7 +2210,7 @@ export default function CandidatDetailPage() {
           })
           queryClient.invalidateQueries({ queryKey: ['candidat', id] })
         }}
-        onCvChange={async (url, fileName) => {
+        onCvChange={async (url, fileName, skipReparse = false) => {
           // 0. Mise à jour du CV (ou suppression si URL vide) — PATCH silencieux
           const updatePayload: Record<string, any> = {
             cv_url: url || null,
@@ -2235,8 +2235,8 @@ export default function CandidatDetailPage() {
           })
           queryClient.invalidateQueries({ queryKey: ['candidat', id] })
 
-          // 1. Re-parser seulement si on a un nouveau CV (pas une suppression)
-          if (!url) {
+          // 1. Re-parser seulement si on a un nouveau CV (pas une suppression, pas un simple changement de CV principal)
+          if (!url || skipReparse) {
             queryClient.invalidateQueries({ queryKey: ['candidat', id] })
             return
           }

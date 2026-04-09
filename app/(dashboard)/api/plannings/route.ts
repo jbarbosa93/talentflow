@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ plannings: data ?? [] })
   } catch (e: any) {
     console.error('[plannings] GET error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ planning: data }, { status: 201 })
   } catch (e: any) {
     console.error('[plannings] POST error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -141,7 +141,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ planning: data })
   } catch (e: any) {
     console.error('[plannings] PATCH error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -172,6 +172,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (e: any) {
     console.error('[plannings] DELETE error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

@@ -62,8 +62,11 @@ function scoreHeadshot(img: ImageCandidate): number {
   else if (img.area > 1500000) score -= 40
 
   // --- Full-page scan detection ---
+  // Pénalité réduite à -20 (était -60) pour ne pas rejeter les CVs scannés
+  // avec une vraie photo portrait. Les portraits auront ratio ~1.2-1.5 et
+  // skinRatio > 0.10 qui compenseront partiellement cette pénalité.
   if (img.width > 500 && img.height > 700 && img.ratio >= 1.3 && img.ratio <= 1.5 && img.area > 400000) {
-    score -= 60
+    score -= 20
   }
 
   // --- JPEG complexity ---
@@ -86,7 +89,7 @@ function scoreHeadshot(img: ImageCandidate): number {
   return score
 }
 
-const MIN_HEADSHOT_SCORE = 25
+const MIN_HEADSHOT_SCORE = 20
 
 /**
  * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.
@@ -210,6 +213,63 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
 }
 
 /**
+ * Extract photo from DOC (Word 97-2003 OLE2 binary) via mammoth image handler.
+ */
+export async function extractPhotoFromDOC(docBuffer: Buffer): Promise<Buffer | null> {
+  try {
+    const mammoth = await import('mammoth')
+    const sharp   = (await import('sharp')).default
+    const candidates: ImageCandidate[] = []
+
+    const imageBuffers: Buffer[] = []
+    await mammoth.convertToHtml(
+      { buffer: docBuffer },
+      {
+        convertImage: mammoth.images.imgElement(async (image: any) => {
+          try {
+            const buf = await image.read() as Buffer
+            if (buf && buf.length >= 500) imageBuffers.push(buf)
+          } catch { /* skip */ }
+          return { src: '' }
+        }),
+      }
+    )
+
+    for (const imgData of imageBuffers) {
+      try {
+        const metadata = await sharp(imgData).metadata()
+        if (!metadata.width || !metadata.height) continue
+        const w = metadata.width, h = metadata.height
+        if (w < 60 || h < 60) continue
+        if (w > 2000 || h > 2500) continue
+        const ratio = h / w
+        if (ratio < 0.5 || ratio > 3.0) continue
+
+        const resizedBuffer = await sharp(imgData)
+          .resize({ width: 300, height: 400, fit: 'inside' })
+          .jpeg({ quality: 85 })
+          .toBuffer()
+
+        const uc = await countUniqueColors(resizedBuffer, false)
+        const sr = await detectSkinRatio(resizedBuffer)
+        candidates.push({
+          buffer: resizedBuffer, width: w, height: h, ratio,
+          area: w * h, compressedSize: resizedBuffer.length,
+          uniqueColors: uc, skinRatio: sr, pageIndex: 0,
+          source: `doc:mammoth`,
+        })
+      } catch { continue }
+    }
+
+    if (candidates.length === 0) return null
+    return pickBestCandidate(candidates)
+  } catch (e) {
+    console.warn('[CV Photo] DOC extraction failed:', (e as Error).message)
+    return null
+  }
+}
+
+/**
  * Extract photo from DOCX by unzipping and reading word/media/ images.
  */
 export async function extractPhotoFromDOCX(docxBuffer: Buffer): Promise<Buffer | null> {
@@ -302,7 +362,7 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
     const { PDFDocument, PDFName, PDFRawStream, PDFRef } = pdflib
     const PDFDict = pdflib.PDFDict
 
-    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+    const pdfDoc = await PDFDocument.load(pdfBuffer)
     const sharp = (await import('sharp')).default
 
     const pagesToCheck = Math.min(3, pdfDoc.getPageCount())

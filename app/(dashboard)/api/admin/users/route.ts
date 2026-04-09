@@ -29,7 +29,7 @@ export async function GET() {
   try {
     const supabase = createAdminClient()
     const { data: { users }, error } = await supabase.auth.admin.listUsers()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json(users.map(u => ({
       id: u.id,
       email: u.email,
@@ -41,9 +41,8 @@ export async function GET() {
       last_sign_in_at: u.last_sign_in_at,
       email_confirmed_at: u.email_confirmed_at,
     })))
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur serveur'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -84,7 +83,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 })
+      if (linkError) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
 
       // L'email est envoyé automatiquement par Supabase via generateLink type 'invite'
       return NextResponse.json({ success: true, user: linkData.user, resent: true })
@@ -96,11 +95,10 @@ export async function POST(request: NextRequest) {
       redirectTo,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true, user: data.user, resent: false })
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur serveur'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -121,11 +119,10 @@ export async function PATCH(request: NextRequest) {
     const { error } = await supabase.auth.admin.updateUserById(userId, {
       user_metadata: { ...existing.user_metadata, role },
     })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true })
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur serveur'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -139,10 +136,9 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = createAdminClient()
     const { error } = await supabase.auth.admin.deleteUser(userId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ success: true })
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur serveur'
-    return NextResponse.json({ error: msg }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         .order('created_at', { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1)
 
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
       if (!data || data.length === 0) break
       allCandidats.push(...data)
       if (data.length < PAGE_SIZE) break
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }

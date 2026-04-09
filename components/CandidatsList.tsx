@@ -1,14 +1,17 @@
 'use client'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { motion } from 'framer-motion'
 import { CvPreviewCanvas } from './CvPreviewCanvas'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil,
+  CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil, LayoutGrid,
 } from 'lucide-react'
 
+import { toast } from 'sonner'
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk, useCandidatsRealtime } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
@@ -128,11 +131,12 @@ const IMPORT_STATUS_OPTS = [
 ]
 
 // ─── Popover de sélection de métier ───
-function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
+function MetierPopover({ candidatId, currentTags, onClose, onSave, anchorRect }: {
   candidatId: string
   currentTags: string[]
   onClose: () => void
   onSave: (tags: string[]) => void
+  anchorRect: { top: number; left: number; bottom: number; right: number }
 }) {
   const [selected, setSelected] = useState<string[]>(currentTags)
   const [search, setSearch] = useState('')
@@ -140,6 +144,15 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
   const { categories, getColorForMetier } = useMetierCategories()
   const ref = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // Position fixe calculée à partir du rect du bouton passé au clic
+  const popoverWidth = 240
+  const popoverHeight = 340
+  const spaceBelow = window.innerHeight - anchorRect.bottom
+  const top = spaceBelow < popoverHeight
+    ? Math.max(8, anchorRect.top - popoverHeight)
+    : anchorRect.bottom + 4
+  const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - popoverWidth - 8))
 
   // Fermer + sauvegarder sur clic dehors ou ESC — ne garder que les métiers configurés
   const handleClose = useCallback(() => {
@@ -193,12 +206,15 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
     )
   }
 
-  return (
+  const content = (
     <div ref={ref} style={{
-      position: 'absolute', top: '100%', right: 0, zIndex: 100,
+      position: 'fixed',
+      top,
+      left,
+      zIndex: 9999,
       background: 'var(--card)', borderRadius: 10, padding: 10,
       boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-      border: '1px solid var(--border)', minWidth: 230,
+      border: '1px solid var(--border)', width: popoverWidth,
     }}
       onClick={e => e.stopPropagation()}
     >
@@ -266,6 +282,8 @@ function MetierPopover({ candidatId, currentTags, onClose, onSave }: {
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content
 }
 
 export default function CandidatsList() {
@@ -294,7 +312,7 @@ export default function CandidatsList() {
     } catch {}
   }
 
-  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'a_traiter'))
+  const [importStatusFilter, setImportStatusFilter] = useState<string>(() => ssGet('importStatus', 'traite'))
   const [filterNonVu, setFilterNonVu] = useState(() => sessionStorage.getItem('candidats_filter_nonvu') === '1')
 
   const { metiers: agenceMetiers } = useMetiers()
@@ -327,6 +345,7 @@ export default function CandidatsList() {
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
   const [nonVusTotal, setNonVusTotal]     = useState(0) // total non-vus tous pages confondus
+  const [nonVusParStatut, setNonVusParStatut] = useState<Record<string, number>>({}) // non-vus par import_status
 
   // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
   useEffect(() => {
@@ -339,12 +358,30 @@ export default function CandidatsList() {
   useEffect(() => {
     fetch(`/api/candidats/count-new?t=${Date.now()}`)
       .then(r => r.json())
-      .then(({ ids }: { ids: string[] }) => {
+      .then(({ ids }: { ids: { id: string; import_status: string }[] }) => {
         const vs = getViewedSet()
-        setNonVusTotal(ids.filter((id: string) => !vs.has(id)).length)
+        const nonVus = ids.filter(item => !vs.has(item.id))
+        nonVusBadgeLoaded.current = true
+        setNonVusTotal(nonVus.length)
+        const parStatut: Record<string, number> = {}
+        for (const item of nonVus) {
+          parStatut[item.import_status] = (parStatut[item.import_status] || 0) + 1
+        }
+        setNonVusParStatut(parStatut)
       })
       .catch(() => {})
   }, [badgeTick])
+  // Auto-désactiver filterNonVu quand plus aucun non-vu (ex: dernier consulté depuis la fiche)
+  // Guard : attendre que l'API badge ait répondu au moins une fois — évite le reset prématuré au montage
+  useEffect(() => {
+    if (!nonVusBadgeLoaded.current) return
+    if (filterNonVu && nonVusTotal === 0) {
+      setFilterNonVu(false)
+      sessionStorage.setItem('candidats_filter_nonvu', '0')
+      setImportStatusFilter(statusBeforeNonVuRef.current)
+    }
+  }, [nonVusTotal, filterNonVu])
+
   // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
@@ -390,7 +427,9 @@ export default function CandidatsList() {
   const [previewVisible, setPreviewVisible] = useState(false)
   const [previewData, setPreviewData] = useState<{ url: string; ext: string; x: number; y: number; rotation: number; panelW: number } | null>(null)
   const [metierPopoverId, setMetierPopoverId] = useState<string | null>(null)
+  const [metierPopoverRect, setMetierPopoverRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
+  const [hoveredNoteRect, setHoveredNoteRect] = useState<{ top: number; left: number; right: number } | null>(null)
   const [notePopoverId, setNotePopoverId] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
@@ -400,7 +439,10 @@ export default function CandidatsList() {
   const [editNoteSaving, setEditNoteSaving] = useState(false)
   const hoveredCvTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [previewZoom, setPreviewZoom] = useState(1)
+  const panelTopRef = useRef(20)
   const prevHoveredCvUrl = useRef<string | null>(null)
+  const statusBeforeNonVuRef = useRef<string>(sessionStorage.getItem('candidats_status_before_nonvu') || 'traite')
+  const nonVusBadgeLoaded = useRef(false) // true dès que l'API count-new a répondu au moins une fois
   const previewPanRef = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({ active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 })
   const previewScrollRef = useRef<HTMLDivElement>(null)
   // Keep hoveredCv as alias for backward compat in JSX
@@ -538,7 +580,7 @@ export default function CandidatsList() {
 
   const resetFiltersOnly = () => {
     setFiltreStatut('tous')
-    setImportStatusFilter('a_traiter')
+    setImportStatusFilter('traite')
     setFilterMetier(''); setFilterLieu(''); setFilterAgeMin(''); setFilterAgeMax('')
     setFilterLangue(''); setFilterPermis(null); setFilterGenre(''); setFilterStarsMin('')
     setFilterExpMin(''); setFilterCfc(null); setFilterEngage(null)
@@ -776,6 +818,10 @@ export default function CandidatsList() {
             )}
           : old
       )
+      // Mettre à jour aussi le cache fiche candidat
+      queryClient.setQueryData(['candidat', candidatId], (old: any) =>
+        old ? { ...old, notes_candidat: [...(old.notes_candidat || []), note] } : old
+      )
       setNoteText('')
       setTimeout(() => noteTextareaRef.current?.focus(), 50)
     } catch {
@@ -786,7 +832,7 @@ export default function CandidatsList() {
   }
 
   const deleteNote = async (noteId: string, candidatId: string) => {
-    // Optimiste : retirer immédiatement du cache
+    // Optimiste : retirer immédiatement du cache liste
     queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
       old?.candidats
         ? { ...old, candidats: old.candidats.map((x: any) =>
@@ -796,10 +842,15 @@ export default function CandidatsList() {
           )}
         : old
     )
+    // Optimiste : retirer aussi du cache fiche candidat
+    queryClient.setQueryData(['candidat', candidatId], (old: any) =>
+      old ? { ...old, notes_candidat: (old.notes_candidat || []).filter((n: any) => n.id !== noteId) } : old
+    )
     try {
       await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
     } catch {
       queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      queryClient.invalidateQueries({ queryKey: ['candidat', candidatId] })
     }
   }
 
@@ -886,17 +937,20 @@ export default function CandidatsList() {
     const isNewCandidat = !viewedSet.has(c.id) && !!c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS
 
     return (
-      <div
+      <motion.div
         key={c.id}
         onClick={() => handleCardClick(c.id)}
         onMouseEnter={() => handleCardHover(c.id)}
+        whileHover={{ y: -3, boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.4), 0 16px 36px rgba(0,0,0,0.35)' : '0 16px 36px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,232,0,0.18)' }}
+        whileTap={{ scale: 0.99 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
         style={{
           display: 'flex', alignItems: 'center', gap: 14,
           background: selected ? 'var(--primary-soft)' : 'var(--surface)',
           border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
           borderRadius: 14, padding: '16px 18px',
-          cursor: 'pointer', transition: 'all 0.15s ease',
-          boxShadow: selected ? '0 0 0 2px rgba(245,167,35,0.2)' : 'var(--card-shadow)',
+          cursor: 'pointer',
+          boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.2)' : 'var(--card-shadow)',
           position: 'relative',
         }}
       >
@@ -1000,6 +1054,7 @@ export default function CandidatsList() {
                       ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, rating: newRating } : x) }
                       : old
                   )
+                  queryClient.setQueryData(['candidat', c.id], (old: any) => old ? { ...old, rating: newRating } : old)
                   try {
                     await fetch(`/api/candidats/${c.id}`, {
                       method: 'PATCH',
@@ -1008,6 +1063,7 @@ export default function CandidatsList() {
                     })
                   } catch {
                     queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                    queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
                   }
                 }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, flexShrink: 0 }}
@@ -1042,19 +1098,24 @@ export default function CandidatsList() {
             onClick={e => e.stopPropagation()}
             onMouseEnter={e => {
               if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              const mouseX = e.clientX
+              const mouseY = e.clientY
               hoveredCvTimeout.current = setTimeout(() => {
-                const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
-                const rotation = savedRot ? parseInt(savedRot, 10) : 0
-                const screenW = window.innerWidth
-                const spaceRight = screenW - rect.right - 24
-                const spaceLeft  = rect.right - 24
-                const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
-                // A4 portrait PDF native render ≈ 816px — calc initial zoom to fit panel
-                const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
-                setPreviewData({ url: c.cv_url, ext: cvExt, x: rect.right, y: rect.top, rotation, panelW })
-                setPreviewZoom(initZoom)
-                setPreviewVisible(true)
+                  const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
+                  const rotation = savedRot ? parseInt(savedRot, 10) : 0
+                  const screenW = window.innerWidth
+                  const screenH = window.innerHeight
+                  const spaceRight = screenW - mouseX - 24
+                  const spaceLeft  = mouseX - 24
+                  const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
+                  const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
+                  const panelH = Math.min(Math.round(screenH * 0.82), 800)
+                  const idealTop = mouseY - panelH / 2
+                  const newTop = Math.max(12, Math.min(idealTop, screenH - panelH - 12))
+                  panelTopRef.current = newTop
+                  setPreviewData({ url: c.cv_url, ext: cvExt, x: mouseX, y: mouseY, rotation, panelW })
+                  setPreviewZoom(initZoom)
+                  setPreviewVisible(true)
               }, 120)
             }}
             onMouseLeave={() => {
@@ -1211,13 +1272,19 @@ export default function CandidatsList() {
           </div>
         )}
 
-        {/* Badge note avec tooltip hover */}
+        {/* Badge note avec tooltip hover — jusqu'à 3 notes */}
         {c.notes_candidat && c.notes_candidat.length > 0 && (() => {
-          const lastNote = [...c.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+          const sortedNotes = [...c.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          const visibleNotes = sortedNotes.slice(0, 3)
           return (
             <div
               style={{ position: 'relative', flexShrink: 0 }}
-              onMouseEnter={e => { e.stopPropagation(); setHoveredNoteId(c.id) }}
+              onMouseEnter={e => {
+                e.stopPropagation()
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                setHoveredNoteId(c.id)
+                setHoveredNoteRect({ top: rect.bottom + 6, left: rect.left, right: rect.right })
+              }}
               onMouseLeave={() => setHoveredNoteId(null)}
             >
               <div style={{
@@ -1231,24 +1298,33 @@ export default function CandidatsList() {
                 <MessageSquare size={11} />
                 {c.notes_candidat.length}
               </div>
-              {hoveredNoteId === c.id && (
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-                background: 'var(--card)', border: '1px solid var(--border)',
-                borderRadius: 10, padding: 12, width: 260,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                zIndex: 9999, pointerEvents: 'none',
-              }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.05em' }}>
-                  Dernière note · {new Date(lastNote.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {lastNote.contenu}
-                </p>
-                {c.notes_candidat.length > 1 && (
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 6 }}>+ {c.notes_candidat.length - 1} autre{c.notes_candidat.length > 2 ? 's' : ''} note{c.notes_candidat.length > 2 ? 's' : ''}</div>
-                )}
-              </div>
+              {hoveredNoteId === c.id && hoveredNoteRect && createPortal(
+                <div style={{
+                  position: 'fixed',
+                  top: Math.min(hoveredNoteRect.top, window.innerHeight - 320),
+                  left: Math.max(8, Math.min(hoveredNoteRect.right - 300, window.innerWidth - 308)),
+                  background: 'var(--card)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: 12, width: 300,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  zIndex: 9999, pointerEvents: 'none',
+                  display: 'flex', flexDirection: 'column', gap: 0,
+                }}>
+                  {visibleNotes.map((note: any, i: number) => (
+                    <div key={note.id || i}>
+                      {i > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />}
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
+                        {i === 0 ? 'Dernière note' : `Note ${i + 1}`} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {note.contenu}
+                      </p>
+                    </div>
+                  ))}
+                  {c.notes_candidat.length > 3 && (
+                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 8 }}>+ {c.notes_candidat.length - 3} autre{c.notes_candidat.length > 4 ? 's' : ''} note{c.notes_candidat.length > 4 ? 's' : ''}</div>
+                  )}
+                </div>,
+                document.body
               )}
             </div>
           )
@@ -1258,7 +1334,7 @@ export default function CandidatsList() {
         {importStatusFilter === 'a_traiter' && (
           <>
             <button
-              onClick={async e => {
+              onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation()
                 const newVal = !c.cfc
                 queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
@@ -1266,6 +1342,7 @@ export default function CandidatsList() {
                     ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, cfc: newVal } : x) }
                     : old
                 )
+                queryClient.setQueryData(['candidat', c.id], (old: any) => old ? { ...old, cfc: newVal } : old)
                 try {
                   const res = await fetch(`/api/candidats/${c.id}`, {
                     method: 'PATCH',
@@ -1275,6 +1352,7 @@ export default function CandidatsList() {
                   if (!res.ok) throw new Error()
                 } catch {
                   queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
                 }
               }}
               title={c.cfc ? 'CFC — désactiver' : 'CFC — activer'}
@@ -1300,6 +1378,7 @@ export default function CandidatsList() {
                     ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, deja_engage: newVal } : x) }
                     : old
                 )
+                queryClient.setQueryData(['candidat', c.id], (old: any) => old ? { ...old, deja_engage: newVal } : old)
                 try {
                   const res = await fetch(`/api/candidats/${c.id}`, {
                     method: 'PATCH',
@@ -1309,6 +1388,7 @@ export default function CandidatsList() {
                   if (!res.ok) throw new Error()
                 } catch {
                   queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
                 }
               }}
               title={c.deja_engage ? 'Engagé — désactiver' : 'Engagé — activer'}
@@ -1336,7 +1416,16 @@ export default function CandidatsList() {
           return (
             <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
               <button
-                onClick={e => { e.stopPropagation(); setMetierPopoverId(metierPopoverId === c.id ? null : c.id) }}
+                onClick={e => {
+                  e.stopPropagation()
+                  if (metierPopoverId === c.id) {
+                    setMetierPopoverId(null)
+                  } else {
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    setMetierPopoverRect({ top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right })
+                    setMetierPopoverId(c.id)
+                  }
+                }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   padding: '3px 9px', borderRadius: 100,
@@ -1352,10 +1441,11 @@ export default function CandidatsList() {
                 <Briefcase size={10} />
                 {hasTags ? (configuredTags[0] + (configuredTags.length > 1 ? ` +${configuredTags.length - 1}` : '')) : 'Métier'}
               </button>
-              {metierPopoverId === c.id && (
+              {metierPopoverId === c.id && metierPopoverRect && (
                 <MetierPopover
                   candidatId={c.id}
                   currentTags={c.tags || []}
+                  anchorRect={metierPopoverRect}
                   onClose={() => setMetierPopoverId(null)}
                   onSave={async (tags) => {
                     // Mise à jour optimiste — structure { candidats: [...], total, ... }
@@ -1367,6 +1457,8 @@ export default function CandidatsList() {
                     const { createClient } = await import('@/lib/supabase/client')
                     const supabase = createClient()
                     const { error } = await supabase.from('candidats').update({ tags }).eq('id', c.id)
+                    // Toujours invalider la fiche pour que l'ouverture suivante reflète les nouveaux tags
+                    queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
                     if (error) queryClient.invalidateQueries({ queryKey: ['candidats'] })
                   }}
                 />
@@ -1397,11 +1489,51 @@ export default function CandidatsList() {
             <CheckCircle size={15} color="white" />
           </button>
         )}
-      </div>
+      </motion.div>
     )
   }
 
   const selCount = selectedIds.size
+
+  // ── Pipeline bulk-add ──
+  const [showPipelinePicker, setShowPipelinePicker] = useState(false)
+  const [pipelineStages, setPipelineStages] = useState<{ id: string; label: string; color: string }[]>([])
+  const pipelinePickerRef = useRef<HTMLDivElement>(null)
+
+  const openPipelinePicker = useCallback(async () => {
+    if (pipelineStages.length === 0) {
+      const { createClient } = await import('@/lib/supabase/client')
+      const sb = createClient()
+      const { data } = await sb.from('app_settings').select('value').eq('key', 'pipeline_stages').single()
+      if (data?.value) {
+        let parsed: any = data.value
+        if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed) } catch { parsed = [] } }
+        if (Array.isArray(parsed)) setPipelineStages(parsed.filter((s: any) => s.visible !== false))
+      }
+    }
+    setShowPipelinePicker(true)
+  }, [pipelineStages.length])
+
+  const addSelectionToPipeline = useCallback(async (stageId: string) => {
+    setShowPipelinePicker(false)
+    const ids = Array.from(selectedIds)
+    const { createClient } = await import('@/lib/supabase/client')
+    const sb = createClient()
+    const { error } = await sb.from('candidats').update({ statut_pipeline: stageId }).in('id', ids)
+    if (error) { toast.error('Erreur lors de l\'ajout au pipeline'); return }
+    toast.success(`${ids.length} candidat${ids.length > 1 ? 's' : ''} ajouté${ids.length > 1 ? 's' : ''} au pipeline`)
+    setSelectedIds(new Set())
+    window.location.href = '/pipeline'
+  }, [selectedIds, setSelectedIds])
+
+  useEffect(() => {
+    if (!showPipelinePicker) return
+    const handler = (e: MouseEvent) => {
+      if (pipelinePickerRef.current && !pipelinePickerRef.current.contains(e.target as Node)) setShowPipelinePicker(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPipelinePicker])
 
   return (
     <div className="d-page">
@@ -1424,15 +1556,17 @@ export default function CandidatsList() {
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {(search || activeFiltersCount > 0 || filtreStatut !== 'tous' || filterNonVu) && (
-            <button onClick={resetAllFilters} className="neo-btn-ghost" style={{ fontSize: 13, gap: 6 }}>
-              <X size={14} /> Nouvelle recherche
-            </button>
-          )}
           {/* Filtre "Non vus" */}
           {nonVusTotal > 0 && (
             <button
-              onClick={() => { setFilterNonVu(v => !v); setPage(1) }}
+              onClick={() => {
+                if (!filterNonVu) {
+                  statusBeforeNonVuRef.current = importStatusFilter
+                  sessionStorage.setItem('candidats_status_before_nonvu', importStatusFilter)
+                }
+                setFilterNonVu(v => !v)
+                setPage(1)
+              }}
               className="neo-btn-ghost"
               style={{
                 fontSize: 13, gap: 6,
@@ -1458,10 +1592,14 @@ export default function CandidatsList() {
               onClick={async () => {
                 try {
                   const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
-                  const { ids } = await res.json() as { ids: string[] }
-                  markTousVus(ids)
+                  const { ids } = await res.json() as { ids: { id: string; import_status: string }[] }
+                  markTousVus(ids.map(item => item.id))
                   setNonVusTotal(0)
-                  if (filterNonVu) setFilterNonVu(false)
+                  setNonVusParStatut({})
+                  if (filterNonVu) {
+                    setFilterNonVu(false)
+                    setImportStatusFilter(statusBeforeNonVuRef.current)
+                  }
                 } catch {
                   // Fallback : marquer ceux avec badge sur la page courante
                   const vs = getViewedSet()
@@ -1490,101 +1628,202 @@ export default function CandidatsList() {
         </div>
       </div>
 
-      {/* Selection action bar */}
+      {/* ── Selection action bar ── */}
       {selCount > 0 && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.35)',
-          borderRadius: 12, padding: '10px 16px', marginBottom: 16,
+          background: 'var(--card)',
+          border: '2px solid var(--primary)',
+          borderRadius: 14, padding: '10px 14px', marginBottom: 16,
+          boxShadow: '0 0 0 4px rgba(245,167,35,0.08)',
+          display: 'flex', flexDirection: 'column', gap: 8,
         }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>
-            {selCount} candidat{selCount > 1 ? 's' : ''} sélectionné{selCount > 1 ? 's' : ''}
-          </span>
-          <button onClick={selectAll} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
-            background: '#F59E0B', color: '#fff', border: 'none',
-            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            Tout sélectionner ({sorted.length})
-          </button>
-          <button onClick={deselectAll} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '7px 14px', borderRadius: 8, fontSize: 12.5,
-            background: '#1F2937', color: '#fff', border: 'none',
-            fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            <span style={{ width: 14, height: 14, borderRadius: '50%', background: '#000', border: '2px solid #fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-              <X size={8} color="#fff" />
+          {/* Ligne 1 : label + sélection + vu/non vu */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Label */}
+            <span style={{
+              fontSize: 13, fontWeight: 800, color: 'var(--primary)',
+              background: 'rgba(245,167,35,0.1)', borderRadius: 8,
+              padding: '4px 10px', whiteSpace: 'nowrap',
+            }}>
+              {selCount} sélectionné{selCount > 1 ? 's' : ''}
             </span>
-            Tout désélectionner
-          </button>
-          {/* Marquer vu / non vu — toujours disponible */}
-          <button
-            onClick={() => { markTousVus(Array.from(selectedIds)); setSelectedIds(new Set()) }}
-            className="neo-btn neo-btn-sm"
-            style={{ background: '#10B981', color: 'white', boxShadow: 'none' }}
-          >
-            <Eye size={13} /> Marquer vu ({selCount})
-          </button>
-          <button
-            onClick={() => { Array.from(selectedIds).forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }}
-            className="neo-btn neo-btn-sm"
-            style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}
-          >
-            <Eye size={13} /> Marquer non vu ({selCount})
-          </button>
-          {importStatusFilter === 'a_traiter' && (
-            <>
-              <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}>
-                <CheckCircle size={13} /> Valider ({selCount})
-              </button>
-              <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}>
-                <Archive size={13} /> Archiver ({selCount})
-              </button>
-            </>
-          )}
-          {importStatusFilter === 'traite' && (
-            <>
-              <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}>
-                <RotateCw size={13} /> À traiter ({selCount})
-              </button>
-              <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#6B7280', color: 'white', boxShadow: 'none' }}>
-                <Archive size={13} /> Archiver ({selCount})
-              </button>
-            </>
-          )}
-          {importStatusFilter === 'archive' && (
-            <>
-              <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#16A34A', color: 'white', boxShadow: 'none' }}>
-                <CheckCircle size={13} /> Activer ({selCount})
-              </button>
-              <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} className="neo-btn neo-btn-sm" style={{ background: '#F59E0B', color: 'white', boxShadow: 'none' }}>
-                <RotateCw size={13} /> À traiter ({selCount})
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setShowMessage(true)}
-            className="neo-btn neo-btn-sm"
-            style={{ background: '#007AFF', color: 'white', boxShadow: 'none' }}
-          >
-            <MessageSquare size={13} /> Message ({selCount})
-          </button>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="neo-btn neo-btn-sm"
-            style={{ background: '#DC2626', boxShadow: 'none' }}
-          >
-            <Trash2 size={13} /> Supprimer ({selCount})
-          </button>
+
+            {/* Séparateur */}
+            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
+
+            {/* Sélection */}
+            <button onClick={selectAll} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: 'var(--primary)', color: '#0F172A', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <CheckCircle size={12} /> Tout ({sorted.length})
+            </button>
+            <button onClick={deselectAll} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: 'var(--secondary)', color: 'var(--foreground)',
+              border: '1.5px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <X size={12} /> Désélectionner
+            </button>
+
+            {/* Séparateur */}
+            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
+
+            {/* Vu / Non vu */}
+            <button onClick={() => { markTousVus(Array.from(selectedIds)); setSelectedIds(new Set()) }} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: '#10B981', color: '#fff', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <Eye size={12} /> Marquer vu
+            </button>
+            <button onClick={() => { Array.from(selectedIds).forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: '#64748B', color: '#fff', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <Eye size={12} /> Non vu
+            </button>
+          </div>
+
+          {/* Ligne 2 : actions contextuelles + actions globales */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* Actions selon l'onglet */}
+            {importStatusFilter === 'a_traiter' && (
+              <>
+                <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#16A34A', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <CheckCircle size={12} /> Valider ({selCount})
+                </button>
+                <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#6B7280', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <Archive size={12} /> Archiver ({selCount})
+                </button>
+              </>
+            )}
+            {importStatusFilter === 'traite' && (
+              <>
+                <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#3B82F6', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <RotateCw size={12} /> À traiter ({selCount})
+                </button>
+                <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#6B7280', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <Archive size={12} /> Archiver ({selCount})
+                </button>
+                {/* Pipeline */}
+                <div style={{ position: 'relative' }} ref={pipelinePickerRef}>
+                  <button onClick={openPipelinePicker} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    background: '#8B5CF6', color: '#fff', border: 'none',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    <LayoutGrid size={12} /> Pipeline ({selCount})
+                  </button>
+                  {showPipelinePicker && (
+                    <div style={{
+                      position: 'absolute', bottom: '110%', left: 0, zIndex: 200,
+                      background: 'var(--card)', border: '1px solid var(--border)',
+                      borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      padding: 8, minWidth: 180,
+                    }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px 4px' }}>
+                        Choisir une étape
+                      </p>
+                      {pipelineStages.length === 0 && (
+                        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 8px' }}>Chargement…</p>
+                      )}
+                      {pipelineStages.map(s => (
+                        <button key={s.id} onClick={() => addSelectionToPipeline(s.id)} style={{
+                          width: '100%', textAlign: 'left', padding: '7px 10px',
+                          borderRadius: 7, border: 'none', background: 'transparent',
+                          cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          color: 'var(--foreground)', fontFamily: 'inherit',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                        }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {importStatusFilter === 'archive' && (
+              <>
+                <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#16A34A', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <CheckCircle size={12} /> Activer ({selCount})
+                </button>
+                <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#3B82F6', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <RotateCw size={12} /> À traiter ({selCount})
+                </button>
+              </>
+            )}
+
+            {/* Séparateur */}
+            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
+
+            {/* Actions globales */}
+            <button onClick={() => setShowMessage(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: '#0EA5E9', color: '#fff', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <MessageSquare size={12} /> Message ({selCount})
+            </button>
+            <button onClick={() => setShowDeleteConfirm(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: '#EF4444', color: '#fff', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <Trash2 size={12} /> Supprimer ({selCount})
+            </button>
+          </div>
         </div>
       )}
 
       {/* Search bar — pleine largeur */}
       <div style={{ position: 'relative', marginBottom: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)' }} />
+        <div className="search-wrapper" style={{ position: 'relative', flex: 1 }}>
+            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)', transition: 'color 0.2s, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }} />
             <input
               className="neo-input-soft"
               style={{ paddingLeft: 38, paddingRight: (search || aiResults !== null) ? 32 : 12, width: '100%', height: 42, fontSize: 14 }}
@@ -1775,9 +2014,10 @@ export default function CandidatsList() {
         })()}
 
         {/* Statut import — onglets (pas un filtre) */}
-        <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-          {IMPORT_STATUS_OPTS.map(o => {
+        <div style={{ display: 'flex', gap: 0, borderRadius: 8, border: '1px solid var(--border)' }}>
+          {IMPORT_STATUS_OPTS.map((o, idx) => {
             const active = importStatusFilter === o.value
+            const badgeCount = nonVusParStatut[o.value] || 0
             const colors: Record<string, { bg: string; color: string; activeBg: string }> = {
               traite:    { bg: 'transparent', color: 'var(--muted)', activeBg: '#059669' },
               a_traiter: { bg: 'transparent', color: 'var(--muted)', activeBg: '#D97706' },
@@ -1789,6 +2029,8 @@ export default function CandidatsList() {
                 key={o.value}
                 onClick={() => setImportStatusFilter(o.value)}
                 style={{
+                  position: 'relative',
+                  borderRadius: idx === 0 ? '7px 0 0 7px' : idx === IMPORT_STATUS_OPTS.length - 1 ? '0 7px 7px 0' : 0,
                   padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   border: 'none', borderRight: '1px solid var(--border)',
                   background: active ? c.activeBg : c.bg,
@@ -1797,6 +2039,18 @@ export default function CandidatsList() {
                 }}
               >
                 {o.label}
+                {badgeCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -5, right: -5, zIndex: 50,
+                    background: '#EF4444', color: 'white',
+                    borderRadius: '100px', fontSize: 9, fontWeight: 800,
+                    padding: '1px 4px', lineHeight: 1.4, minWidth: 14,
+                    textAlign: 'center', pointerEvents: 'none',
+                    animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite',
+                  }}>
+                    {badgeCount}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -1837,9 +2091,9 @@ export default function CandidatsList() {
         </button>
 
         {/* Reset all filters */}
-        {(activeFiltersCount > 0 || filtreStatut !== 'tous' || filterNonVu) && (
+        {(search || activeFiltersCount > 0 || filtreStatut !== 'tous' || filterNonVu) && (
           <button
-            onClick={resetFiltersOnly}
+            onClick={resetAllFilters}
             title="Réinitialiser tous les filtres"
             style={{display:'flex',alignItems:'center',gap:5,padding:'8px 12px',borderRadius:8,border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:600}}
           >
@@ -1995,8 +2249,17 @@ export default function CandidatsList() {
       {/* Content */}
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} style={{ height: 68, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, opacity: 0.6 }} />
+          {[...Array(7)].map((_, i) => (
+            <div key={i} className="skeleton-card" style={{ opacity: 1 - i * 0.1 }}>
+              <div className="shimmer" style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0 }} />
+              <div className="shimmer" style={{ width: 56, height: 56, borderRadius: 8, flexShrink: 0 }} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <div className="shimmer" style={{ height: 16, width: `${38 + (i % 3) * 10}%` }} />
+                <div className="shimmer" style={{ height: 12, width: `${48 + (i % 4) * 8}%` }} />
+              </div>
+              <div className="shimmer" style={{ width: 44, height: 26, borderRadius: 6, flexShrink: 0 }} />
+              <div className="shimmer" style={{ width: 70, height: 26, borderRadius: 6, flexShrink: 0 }} />
+            </div>
           ))}
         </div>
       ) : sorted.length === 0 ? (
@@ -2096,8 +2359,8 @@ export default function CandidatsList() {
         </div>
       )}
 
-      {/* CV Preview Overlay — always mounted, shown/hidden via CSS for instant open/close */}
-      {hoveredCv && (
+      {/* CV Preview Overlay — rendu via portal pour éviter que les transform Framer Motion cassent position:fixed */}
+      {hoveredCv && typeof document !== 'undefined' && createPortal(
         <div
           onMouseEnter={() => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
@@ -2107,30 +2370,37 @@ export default function CandidatsList() {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
             hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
           }}
-          style={(() => {
-            const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
-            const panelW  = hoveredCv.panelW ?? 820
-            const spaceRight = screenW - hoveredCv.x - 24
-            const spaceLeft  = hoveredCv.x - 24
-            const goLeft  = spaceRight < panelW && spaceLeft > spaceRight
-            return {
-              position: 'fixed' as const,
-              top: 20, bottom: 20,
-              ...(goLeft
-                ? { right: screenW - hoveredCv.x + 12 }
-                : { left: hoveredCv.x + 12 }),
-              width: panelW,
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 14,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
-              overflow: 'hidden',
-              zIndex: 500,
-              pointerEvents: (previewVisible ? 'auto' : 'none') as React.CSSProperties['pointerEvents'],
-              opacity: previewVisible ? 1 : 0,
-              transition: 'opacity 0.1s ease',
-            }
-          })()}
+          style={{
+            position: 'fixed',
+            top: panelTopRef.current,
+            height: Math.min(Math.round((typeof window !== 'undefined' ? window.innerHeight : 900) * 0.82), 800),
+            left: (() => {
+              const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
+              const panelW = hoveredCv.panelW ?? 820
+              const spaceRight = screenW - hoveredCv.x - 24
+              const spaceLeft = hoveredCv.x - 24
+              const goLeft = spaceRight < panelW && spaceLeft > spaceRight
+              return goLeft ? undefined : hoveredCv.x + 12
+            })(),
+            right: (() => {
+              const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
+              const panelW = hoveredCv.panelW ?? 820
+              const spaceRight = screenW - hoveredCv.x - 24
+              const spaceLeft = hoveredCv.x - 24
+              const goLeft = spaceRight < panelW && spaceLeft > spaceRight
+              return goLeft ? screenW - hoveredCv.x + 12 : undefined
+            })(),
+            width: hoveredCv.panelW ?? 820,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 14,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+            overflow: 'hidden',
+            zIndex: 500,
+            pointerEvents: previewVisible ? 'auto' : 'none',
+            opacity: previewVisible ? 1 : 0,
+            transition: 'opacity 0.15s ease',
+          }}
         >
           {/* Header */}
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--background)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2218,7 +2488,8 @@ export default function CandidatsList() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Bulk delete confirmation */}

@@ -29,8 +29,8 @@ export async function GET() {
 
     return NextResponse.json({
       folders,
-      configured_id: meta.onedrive_folder_id || meta.sharepoint_folder_id || null,
-      configured_name: meta.onedrive_folder_name || meta.sharepoint_folder_name || null,
+      configured_id: meta.sharepoint_folder_id || null,
+      configured_name: meta.sharepoint_folder_name || null,
     })
   } catch (error) {
     console.error('[OneDrive Folders GET]', error)

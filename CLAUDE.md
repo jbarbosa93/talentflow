@@ -1,7 +1,7 @@
 # TalentFlow — CLAUDE.md
 
 ## Version actuelle
-**v0.27.0 beta** — commit `f8f27ea` — 07/04/2026
+**1.5.6 production** — 08/04/2026
 
 ## Stack technique
 - **Frontend** : Next.js 16.1.7 (App Router), React 19, TypeScript 5, Tailwind CSS 4
@@ -78,7 +78,14 @@ supabase/migrations/      — SQL migrations versionnées
 - `'a_traiter'` = onglet **À traiter**
 - Ne pas confondre les valeurs — les filtres serveur et les basculements d'onglet en dépendent
 
-**6. Turbopack**
+**6. Modaux / overlays avec `position: fixed`**
+- Tout composant utilisant `position: fixed` (modaux, panels, tooltips, popovers) doit être rendu via `createPortal(jsx, document.body)`
+- Framer Motion `transform` et d'autres propriétés CSS (filter, will-change) créent un nouveau "containing block" → cassent `position: fixed` sur les enfants
+- Pattern validé : `if (typeof window === 'undefined') return null; return createPortal(modal, document.body)`
+- `DocumentsSection.tsx` utilise ce pattern (modal centré, `position: fixed, top: 50%, left: 50%`)
+- Ne jamais utiliser `position: absolute` dans un overlay supposé couvrir le viewport
+
+**7. Turbopack**
 - Désactivé en dev local via flag `--webpack` (crash sur `app/(auth)/auth.css`)
 - Actif uniquement sur le build Vercel (configuré via `turbopack.resolveAlias` dans `next.config.ts`)
 - Les deux configs (`turbopack` + `webpack`) doivent coexister dans `next.config.ts`

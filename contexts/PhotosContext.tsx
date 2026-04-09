@@ -32,6 +32,7 @@ interface PhotosState {
   autoMode: boolean
   reviewQueue: ReviewItem[]
   processedLog: ProcessedLogItem[]
+  currentName: string | null
 }
 
 interface PhotosContextType extends PhotosState {
@@ -59,6 +60,7 @@ let _autoMode = false
 let _forceOffset = 0
 let _reviewQueue: ReviewItem[] = []
 let _processedLog: ProcessedLogItem[] = []
+let _currentName: string | null = null
 let _abortFlag = false
 let _onUpdate: ((patch: Partial<PhotosState>) => void) | null = null
 
@@ -109,7 +111,9 @@ async function runPhotosLoop(force = false) {
       }
       if (data.processedCandidats?.length > 0) {
         _processedLog = [..._processedLog, ...data.processedCandidats]
-        _onUpdate?.({ processedLog: [..._processedLog] })
+        const last = data.processedCandidats[data.processedCandidats.length - 1]
+        _currentName = last ? `${last.prenom || ''} ${last.nom || ''}`.trim() || null : null
+        _onUpdate?.({ processedLog: [..._processedLog], currentName: _currentName })
       }
 
       _onUpdate?.({ processed: _processed, found: _found, remaining: _remaining })
@@ -158,6 +162,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     autoMode: _autoMode,
     reviewQueue: _reviewQueue,
     processedLog: _processedLog,
+    currentName: _currentName,
   })
 
   const pathname = usePathname()
@@ -173,10 +178,11 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
         if (patch.remaining !== undefined) _remaining = patch.remaining
         if (patch.reviewQueue !== undefined) _reviewQueue = patch.reviewQueue
         if (patch.processedLog !== undefined) _processedLog = patch.processedLog
+        if (patch.currentName !== undefined) _currentName = patch.currentName
         return next
       })
     }
-    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, forceMode: _forceMode, autoMode: _autoMode, reviewQueue: _reviewQueue, processedLog: _processedLog })
+    setState({ phase: _phase, processed: _processed, found: _found, total: _total, remaining: _remaining, forceMode: _forceMode, autoMode: _autoMode, reviewQueue: _reviewQueue, processedLog: _processedLog, currentName: _currentName })
     return () => { _onUpdate = null }
   }, [])
 
@@ -205,7 +211,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [], currentName: null })
     runPhotosLoop(false)
   }, [])
 
@@ -222,7 +228,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: true, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: true, reviewQueue: [], processedLog: [], currentName: null })
     runPhotosLoop(force)
   }, [])
 
@@ -252,7 +258,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: _autoMode, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'running', processed: 0, found: 0, total: 0, remaining: 0, forceMode: force, autoMode: _autoMode, reviewQueue: [], processedLog: [], currentName: null })
     runPhotosLoop(force)
   }, [])
 
@@ -273,7 +279,7 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
     _remaining = 0
     _reviewQueue = []
     _processedLog = []
-    setState({ phase: 'idle', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [] })
+    setState({ phase: 'idle', processed: 0, found: 0, total: 0, remaining: 0, forceMode: false, autoMode: false, reviewQueue: [], processedLog: [], currentName: null })
   }, [])
 
   const approvePhoto = useCallback((id: string) => {
@@ -283,10 +289,11 @@ export function PhotosProvider({ children }: { children: React.ReactNode }) {
 
   const rejectPhoto = useCallback(async (id: string) => {
     try {
-      await fetch(`/api/candidats/${id}`, {
-        method: 'PATCH',
+      // Supprime le fichier Storage + met photo_url = 'checked'
+      await fetch('/api/cv/extract-photos', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: 'checked' }),
+        body: JSON.stringify({ candidatId: id, reject: true }),
       })
     } catch {}
     _reviewQueue = _reviewQueue.filter(item => item.id !== id)

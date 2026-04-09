@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
+import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -80,7 +81,7 @@ Règles de scoring :
     return NextResponse.json(result)
   } catch (e) {
     console.error('[Doublons] Erreur:', e)
-    return NextResponse.json({ error: e instanceof Error ? e.message : 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
 
@@ -179,23 +180,33 @@ async function handleMerge(keep_id: string, delete_id: string, field_overrides?:
   const formKeys = new Set(formA.map((f: any) => `${f.diplome}|${f.etablissement}`))
   merged.formations_details = [...formA, ...formB.filter((f: any) => !formKeys.has(`${f.diplome}|${f.etablissement}`))]
 
-  // Mettre à jour le candidat à garder
-  await admin.from('candidats').update(merged).eq('id', keep_id)
+  // Fusion atomique via RPC transactionnelle (évite race condition)
+  const { error: mergeError } = await admin.rpc('merge_candidats', {
+    p_keep_id: keep_id,
+    p_delete_id: delete_id,
+    p_merged: merged,
+  })
 
-  // Déplacer les entrées pipeline du doublon vers le candidat gardé
-  const { data: delPipelines } = await admin.from('pipeline').select('*').eq('candidat_id', delete_id)
-  if (delPipelines?.length) {
-    const { data: keepPipelines } = await admin.from('pipeline').select('offre_id').eq('candidat_id', keep_id)
-    const keepOffreIds = new Set((keepPipelines || []).map((p: any) => p.offre_id))
-    for (const p of delPipelines) {
-      if (!keepOffreIds.has((p as any).offre_id)) {
-        await admin.from('pipeline').update({ candidat_id: keep_id }).eq('id', (p as any).id)
-      }
-    }
+  if (mergeError) {
+    console.error('[Doublons] Merge RPC error:', mergeError)
+    return NextResponse.json({ error: 'Erreur lors de la fusion' }, { status: 500 })
   }
 
-  // Supprimer le candidat doublon
-  await admin.from('candidats').delete().eq('id', delete_id)
+  // Log activité équipe
+  try {
+    const routeUser = await getRouteUser()
+    const keepNom = `${(keep as any).prenom || ''} ${(keep as any).nom || ''}`.trim()
+    const delNom  = `${(del as any).prenom || ''} ${(del as any).nom || ''}`.trim()
+    await logActivityServer({
+      ...routeUser,
+      type: 'candidat_fusionne',
+      titre: `Fusion — ${keepNom}`,
+      description: `Profil conservé : ${keepNom} — profil supprimé : ${delNom}`,
+      candidat_id: keep_id,
+      candidat_nom: keepNom,
+      metadata: { keep_id, delete_id, deleted_nom: delNom },
+    })
+  } catch {}
 
   return NextResponse.json({ success: true, keep_id })
 }

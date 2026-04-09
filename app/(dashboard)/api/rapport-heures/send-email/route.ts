@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
 
 interface SendEmailPayload {
   to: string
@@ -87,11 +88,11 @@ export async function POST(req: NextRequest) {
     }
 
     const resendData = await resendRes.json()
-    console.log('[rapport-heures/send-email] Email envoyé, id:', resendData.id)
+    dbg('[rapport-heures/send-email] Email envoyé, id:', resendData.id)
 
     return NextResponse.json({ success: true, id: resendData.id })
   } catch (e: any) {
     console.error('[rapport-heures/send-email] Error:', e)
-    return NextResponse.json({ error: e.message || 'Erreur envoi email' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur envoi email' }, { status: 500 })
   }
 }

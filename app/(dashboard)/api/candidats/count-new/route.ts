@@ -14,10 +14,15 @@ export async function GET() {
     const admin = createAdminClient()
     const { data } = await admin
       .from('candidats')
-      .select('id')
+      .select('id, import_status')
       .gte('created_at', thirtyDaysAgo)
 
-    return NextResponse.json({ ids: (data || []).map((c: { id: string }) => c.id) })
+    return NextResponse.json({
+      ids: (data || []).map((c: { id: string; import_status: string | null }) => ({
+        id: c.id,
+        import_status: c.import_status ?? 'traite',
+      })),
+    })
   } catch {
     return NextResponse.json({ ids: [] })
   }

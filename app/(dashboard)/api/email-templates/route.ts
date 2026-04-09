@@ -7,7 +7,7 @@ export async function GET() {
     .from('email_templates')
     .select('*')
     .order('categorie')
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ templates: data || [] })
 }
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       .insert(body)
       .select()
       .single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ template: data })
   } catch {
     return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
@@ -33,6 +33,6 @@ export async function DELETE(request: NextRequest) {
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
   const supabase = createAdminClient()
   const { error } = await supabase.from('email_templates').delete().eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ success: true })
 }

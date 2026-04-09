@@ -3,6 +3,7 @@
 
 import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { getAccessTokenForPurpose, callGraph } from '@/lib/microsoft'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
@@ -13,10 +14,34 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 const DEFAULT_FOLDER_NAME = 'CVs TalentFlow'
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+const MAX_FILE_SIZE = (parseInt(process.env.ONEDRIVE_MAX_FILE_SIZE_MB || '10', 10) || 10) * 1024 * 1024
+const MAX_ERROR_DAYS = parseInt(process.env.ONEDRIVE_MAX_ERROR_DAYS || '7', 10) || 7
+const PARALLEL = parseInt(process.env.ONEDRIVE_PARALLEL || '5', 10) || 5
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
 
+async function requireAdmin(): Promise<NextResponse | null> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (user.email !== ADMIN_EMAIL) return NextResponse.json({ error: 'Accès réservé à l\'administrateur' }, { status: 403 })
+    return null
+  } catch {
+    return NextResponse.json({ error: 'Erreur d\'authentification' }, { status: 500 })
+  }
+}
 
-export async function POST() {
+export async function POST(request: Request) {
+  // Exception cron Vercel — bypass auth si Authorization: Bearer $CRON_SECRET
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = request.headers.get('authorization')
+  const isCronCall = !!(cronSecret && authHeader === `Bearer ${cronSecret}`)
+
+  if (!isCronCall) {
+    const authError = await requireAdmin()
+    if (authError) return authError
+  }
   try {
     const supabase = createAdminClient()
 
@@ -44,11 +69,11 @@ export async function POST() {
     }
 
     // Config SharePoint directement dans metadata de la row microsoft_onedrive
-    const driveId = meta.sharepoint_drive_id || meta.onedrive?.sharepoint_drive_id
-    const folderId = meta.sharepoint_folder_id || meta.onedrive?.sharepoint_folder_id
-    const folderName = meta.sharepoint_folder_name || meta.onedrive?.sharepoint_folder_name || DEFAULT_FOLDER_NAME
+    const driveId = meta.sharepoint_drive_id
+    const folderId = meta.sharepoint_folder_id
+    const folderName = meta.sharepoint_folder_name || DEFAULT_FOLDER_NAME
 
-    console.log(`[OneDrive Sync] Config: driveId=${driveId || 'MANQUANT'}, folderId=${folderId || 'MANQUANT'}, folderName=${folderName}`)
+    dbg(`[OneDrive Sync] Config: driveId=${driveId || 'MANQUANT'}, folderId=${folderId || 'MANQUANT'}, folderName=${folderName}`)
 
     if (!driveId || !folderId) {
       console.error('[OneDrive Sync] driveId ou folderId manquant dans metadata:', JSON.stringify(meta))
@@ -84,14 +109,15 @@ export async function POST() {
           created_at: new Date().toISOString(), // Reset du timer — évite l'abandon immédiat
         })
         .in('id', orphanIds)
-      console.log(`[OneDrive Sync] ${orphanIds.length} fichier(s) orphelin(s) remis en file automatiquement`)
+      dbg(`[OneDrive Sync] ${orphanIds.length} fichier(s) orphelin(s) remis en file automatiquement`)
     }
 
     // Map: item_id → date de traitement la plus récente (traite: true uniquement)
     const doneMap = new Map<string, Date>()
     // Map: item_id → date du premier échec (traite: false)
     const errorDateMap = new Map<string, Date>()
-    const MAX_ERROR_DAYS = 7 // Abandon après 7 jours sans succès
+    const retryAlwaysIds = new Set<string>()         // fichiers "introuvable" → jamais abandonnés
+    const retryLastAttempt = new Map<string, Date>() // item_id → traite_le de la dernière tentative
 
     // Re-lire après reset orphelins pour avoir l'état à jour
     const { data: allFichiersUpdated } = await (supabase as any)
@@ -108,7 +134,40 @@ export async function POST() {
         const existing = doneMap.get(row.onedrive_item_id)
         if (!existing || knownDate > existing) doneMap.set(row.onedrive_item_id, knownDate)
       } else {
-        errorDateMap.set(row.onedrive_item_id, new Date(row.created_at))
+        // N'ajouter au errorDateMap que si le fichier a déjà une erreur connue
+        // Un fichier sans erreur (jamais essayé) ne doit pas être considéré "stuck"
+        if (row.erreur) {
+          errorDateMap.set(row.onedrive_item_id, new Date(row.created_at))
+          // Candidat introuvable → jamais abandonné, mais retenté uniquement si nouveau candidat
+          if (row.erreur.includes('introuvable dans la base')) {
+            retryAlwaysIds.add(row.onedrive_item_id)
+            if (row.traite_le) retryLastAttempt.set(row.onedrive_item_id, new Date(row.traite_le))
+          }
+        }
+      }
+    }
+
+    // Optimisation boucle certificats/LM "introuvable" :
+    // Ne consomment un slot que si un nouveau candidat a été créé depuis leur dernière tentative.
+    if (retryAlwaysIds.size > 0) {
+      const { data: latestCandidatRow } = await supabase
+        .from('candidats')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const latestCandidatDate = latestCandidatRow?.created_at
+        ? new Date(latestCandidatRow.created_at) : null
+
+      for (const itemId of retryAlwaysIds) {
+        const lastAttempt = retryLastAttempt.get(itemId)
+        // Retenter si : pas de tentative connue OU nouveau candidat créé depuis
+        const shouldRetry = !lastAttempt
+          || (latestCandidatDate != null && latestCandidatDate > lastAttempt)
+        if (!shouldRetry) {
+          // Aucun nouveau candidat → skip ce cycle (sans abandonner le fichier)
+          doneMap.set(itemId, lastAttempt)
+        }
       }
     }
 
@@ -117,7 +176,7 @@ export async function POST() {
     const upsertFichier = async (payload: Record<string, any>) => {
       try {
         await (supabase as any).from('onedrive_fichiers').upsert(payload, { onConflict: 'onedrive_item_id' })
-      } catch { /* ignore */ }
+      } catch (err) { console.warn('[OneDrive Sync] upsertFichier échec:', err instanceof Error ? err.message : String(err)) }
     }
 
     // 4. Lister les fichiers dans le dossier SharePoint (récursif jusqu'à 5 niveaux)
@@ -144,12 +203,12 @@ export async function POST() {
 
       // Pagination : suivre @odata.nextLink jusqu'à la fin
       let url: string | null = `/drives/${scanDriveId}/items/${scanFolderId}/children?$select=name,id,file,folder,size,lastModifiedDateTime&$top=200`
-      console.log(`[OneDrive Scan] Dossier: /drives/${scanDriveId}/items/${scanFolderId}/children (depth=${depth})`)
+      dbg(`[OneDrive Scan] Dossier: /drives/${scanDriveId}/items/${scanFolderId}/children (depth=${depth})`)
 
       while (url) {
         const data = await callGraphWithNextLink(scanToken, url)
         const items: any[] = data?.value || []
-        console.log(`[OneDrive Scan] Réponse Graph: ${items.length} items (nextLink: ${!!data?.['@odata.nextLink']})`)
+        dbg(`[OneDrive Scan] Réponse Graph: ${items.length} items (nextLink: ${!!data?.['@odata.nextLink']})`)
 
         // nextLink est une URL absolue — garder telle quelle pour callGraphWithNextLink
         url = data?.['@odata.nextLink'] || null
@@ -157,9 +216,9 @@ export async function POST() {
         for (const item of items) {
           if (item.file) {
             const ext = item.name.split('.').pop()?.toLowerCase()
-            console.log(`[OneDrive Scan] Fichier trouvé: "${item.name}" (ext: ${ext})`)
+            dbg(`[OneDrive Scan] Fichier trouvé: "${item.name}" (ext: ${ext})`)
             if (!['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) {
-              console.log(`[OneDrive Scan] Extension ignorée: ${ext} — "${item.name}"`)
+              dbg(`[OneDrive Scan] Extension ignorée: ${ext} — "${item.name}"`)
               continue
             }
 
@@ -168,26 +227,26 @@ export async function POST() {
             const lastDone = doneMap.get(item.id)
             const errorDate = errorDateMap.get(item.id)
             const ageMs = errorDate ? Date.now() - errorDate.getTime() : 0
-            const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
+            const isStuck = errorDate && ageMs > MAX_ERROR_DAYS * 24 * 60 * 60 * 1000 && !retryAlwaysIds.has(item.id)
 
             if (isStuck) {
-              console.log(`[OneDrive Scan] Abandonné (>7j): "${item.name}"`)
+              dbg(`[OneDrive Scan] Abandonné (>7j): "${item.name}"`)
               result.push({ ...item, _abandoned: true, _errorDate: errorDate })
             } else if (!lastDone) {
-              console.log(`[OneDrive Scan] À traiter (nouveau): "${item.name}"`)
+              dbg(`[OneDrive Scan] À traiter (nouveau): "${item.name}"`)
               result.push(item)
             } else {
               const lastModified = new Date(item.lastModifiedDateTime)
               if (lastModified > lastDone) {
-                console.log(`[OneDrive Scan] À traiter (modifié): "${item.name}"`)
+                dbg(`[OneDrive Scan] À traiter (modifié): "${item.name}"`)
                 result.push(item)
               } else {
-                console.log(`[OneDrive Scan] Ignoré (déjà traité, non modifié): "${item.name}"`)
+                dbg(`[OneDrive Scan] Ignoré (déjà traité, non modifié): "${item.name}"`)
               }
             }
           }
           if (item.folder) {
-            console.log(`[OneDrive Scan] Sous-dossier: "${item.name}" — scan récursif`)
+            dbg(`[OneDrive Scan] Sous-dossier: "${item.name}" — scan récursif`)
             try {
               const subFiles = await scanFolderRecursive(scanDriveId, item.id, scanToken, depth + 1)
               result.push(...subFiles)
@@ -197,7 +256,7 @@ export async function POST() {
           }
         }
       }
-      console.log(`[OneDrive Scan] Total à traiter (depth=${depth}): ${result.length} | rawScanned total: ${rawScannedCount}`)
+      dbg(`[OneDrive Scan] Total à traiter (depth=${depth}): ${result.length} | rawScanned total: ${rawScannedCount}`)
       return result
     }
 
@@ -206,7 +265,7 @@ export async function POST() {
       fichiers = await scanFolderRecursive(driveId, folderId, accessToken)
     } catch (err) {
       return NextResponse.json(
-        { error: `Impossible de lister les fichiers SharePoint: ${err instanceof Error ? err.message : 'Erreur'}` },
+        { error: 'Impossible de lister les fichiers SharePoint' },
         { status: 500 }
       )
     }
@@ -262,11 +321,54 @@ export async function POST() {
     const reactivatedNames: string[] = []
     const errorFiles: string[] = []
 
-    // 5. Pour chaque fichier CV NON traité (max 20 par batch, 5 en parallèle)
-    const MAX_NEW = 20 // 20 CVs par batch (Vercel Pro 300s)
-    const fichiersToProcess = fichiers.slice(0, MAX_NEW)
+    // 5. Pour chaque fichier CV NON traité (max 50 par batch, 5 en parallèle)
+    const MAX_NEW = 50 // 50 CVs par batch (Vercel Pro 300s — ~100-140s max)
 
-    const PARALLEL = 5
+    // Catégorisation automatique des documents non-CV selon nom de fichier puis contenu extrait
+    const detectDocCategory = (filename: string, textExtrait: string): string => {
+      const check = (source: string) => {
+        const s = source.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        if (/certificat|certificate|attestation|\bct\b/.test(s)) return 'Certificat'
+        if (/lettre|motivation|\blm\b/.test(s)) return 'Lettre de motivation'
+        if (/diplome|diplome|cfc|afp|formation|brevet/.test(s)) return 'Diplôme/Formation'
+        if (/permis|licence/.test(s)) return 'Permis'
+        if (/reference|recommandation/.test(s)) return 'Référence'
+        if (/contrat|avenant/.test(s)) return 'Contrat'
+        if (/bulletin|salaire|fiche de paie/.test(s)) return 'Bulletin de salaire'
+        return null
+      }
+      return check(filename.replace(/\.[^.]+$/, ''))
+        ?? check(textExtrait.slice(0, 200))
+        ?? 'Autre'
+    }
+
+    // Déduplication noms fichiers : si OneDrive crée "CV [45].pdf" en doublon de "CV.pdf"
+    // → on garde uniquement le plus récent par nom de base normalisé
+    const normalizeBaseName = (name: string): string =>
+      name
+        .replace(/\s*[\[(]\d+[\])]\s*/g, '') // supprime [45], (45), [1], etc.
+        .replace(/\s+_\d+(\.[^.]+)$/, '$1')  // supprime _45 avant l'extension
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+
+    const dedupedFichiers: typeof fichiers = []
+    const seenBaseNames = new Map<string, (typeof fichiers)[0]>()
+    for (const f of fichiers) {
+      const base = normalizeBaseName(f.name || '')
+      const existing = seenBaseNames.get(base)
+      if (!existing) {
+        seenBaseNames.set(base, f)
+      } else {
+        const fDate = new Date((f as any).lastModifiedDateTime || 0)
+        const eDate = new Date((existing as any).lastModifiedDateTime || 0)
+        if (fDate > eDate) seenBaseNames.set(base, f)
+      }
+    }
+    dedupedFichiers.push(...seenBaseNames.values())
+
+    const fichiersToProcess = dedupedFichiers.slice(0, MAX_NEW)
+
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
       const results = await Promise.all(chunk.map(async (fichier): Promise<{ status: 'created' | 'skipped' | 'updated' | 'reactivated' | 'error'; name?: string; candidatId?: string; filename?: string }> => {
@@ -283,6 +385,7 @@ export async function POST() {
             traite: true,
             traite_le: new Date().toISOString(),
             last_modified_at: fichier.lastModifiedDateTime || null,
+            statut_action: 'abandoned',
             erreur: `Abandonné — bloqué depuis ${daysSince} jours, vérifier manuellement`,
           })
           return { status: 'skipped', filename: fichier.name }
@@ -298,6 +401,7 @@ export async function POST() {
               nom_fichier: fichier.name,
               traite: false,
               last_modified_at: fichier.lastModifiedDateTime || null,
+              statut_action: 'error',
               erreur: `Fichier trop volumineux (${sizeMB} MB — max 10 MB)`,
             })
             return { status: 'error', filename: fichier.name }
@@ -314,6 +418,7 @@ export async function POST() {
               nom_fichier: fichier.name,
               traite: false,
               last_modified_at: fichier.lastModifiedDateTime || null,
+              statut_action: 'error',
               erreur: `Échec téléchargement OneDrive (HTTP ${dlRes.status}) — vérifier les permissions`,
             })
             return { status: 'error', filename: fichier.name }
@@ -324,8 +429,10 @@ export async function POST() {
           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
           const isPDF = ext === 'pdf'
           const isDocx = ext === 'docx'
+          const isDoc  = ext === 'doc'
           const mimeType = isPDF ? 'application/pdf'
             : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            : isDoc   ? 'application/msword'
             : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}`
             : 'application/octet-stream'
 
@@ -338,13 +445,16 @@ export async function POST() {
             analyse = await analyserCVDepuisImage(buffer, mimeType as any)
           } else if (isPDF) {
             // PDF → essayer d'extraire le texte, sinon vision
-            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch {}
+            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch (err: any) {
+              if (err?.message === 'PDF_ENCRYPTED') throw new Error('PDF chiffré — importez-le sans mot de passe')
+              console.warn(`[OneDrive Sync] Extraction texte PDF "${filename}":`, err instanceof Error ? err.message : String(err))
+            }
             if (texteCV && texteCV.trim().length >= 50) {
               analyse = await analyserCV(texteCV)
               // Si le texte était illisible (scan rotaté) → fallback vision avec correction rotation
               const estVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
               if (estVide) {
-                console.log(`[OneDrive Sync] Texte extrait mais résultat vide (PDF rotaté?) → fallback vision`)
+                dbg(`[OneDrive Sync] Texte extrait mais résultat vide (PDF rotaté?) → fallback vision`)
                 analyse = await analyserCVDepuisPDF(buffer)
               }
             } else {
@@ -352,11 +462,19 @@ export async function POST() {
             }
           } else if (isDocx) {
             // DOCX → extraire le texte
-            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch {}
+            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch (err) { console.warn(`[OneDrive Sync] Extraction texte DOCX "${filename}":`, err instanceof Error ? err.message : String(err)) }
             if (texteCV && texteCV.trim().length >= 50) {
               analyse = await analyserCV(texteCV)
             } else {
               throw new Error('DOCX illisible')
+            }
+          } else if (isDoc) {
+            // DOC (Word 97-2003) → word-extractor via extractTextFromCV
+            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch (err) { console.warn(`[OneDrive Sync] Extraction texte DOC "${filename}":`, err instanceof Error ? err.message : String(err)) }
+            if (texteCV && texteCV.trim().length >= 50) {
+              analyse = await analyserCV(texteCV)
+            } else {
+              throw new Error('DOC illisible')
             }
           } else {
             throw new Error(`Format non supporté: .${ext}`)
@@ -366,11 +484,11 @@ export async function POST() {
           // Si l'analyse ne retourne ni nom, ni prénom, ni titre → réessayer avec vision PDF
           const analyseVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
           if (analyseVide && isPDF) {
-            console.log(`[OneDrive Sync] Analyse vide pour "${filename}" → retry forcé avec vision PDF (CV peut-être rotaté)`)
-            try { analyse = await analyserCVDepuisPDF(buffer) } catch { /* si ça échoue aussi, on continue avec le vide */ }
+            dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → retry forcé avec vision PDF (CV peut-être rotaté)`)
+            try { analyse = await analyserCVDepuisPDF(buffer) } catch (err) { console.warn(`[OneDrive Sync] Vision PDF retry échoué "${filename}":`, err instanceof Error ? err.message : String(err)) }
           }
           if (analyseVide && isImage) {
-            console.log(`[OneDrive Sync] Analyse vide pour "${filename}" → image illisible, sera retentée`)
+            dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → image illisible, sera retentée`)
             throw new Error('Image illisible — analyse vide')
           }
 
@@ -388,7 +506,7 @@ export async function POST() {
 
           // e-bis. Si c'est un document non-CV (permis, certificat, etc.) SANS nom identifiable → skip
           if (isNotCV && !candidatNom && !candidatEmail && candidatTel.length < 8) {
-            console.log(`[OneDrive Sync] Document "${docType}" sans candidat identifiable: ${filename}`)
+            dbg(`[OneDrive Sync] Document "${docType}" sans candidat identifiable: ${filename}`)
             try {
               await upsertFichier({
                 integration_id: integrationId,
@@ -397,9 +515,10 @@ export async function POST() {
                 traite: true,
                 traite_le: new Date().toISOString(),
                 last_modified_at: fichier.lastModifiedDateTime || null,
+                statut_action: 'abandoned',
                 erreur: `Document "${docType}" — aucun candidat identifiable`,
               })
-            } catch { /* ignore */ }
+            } catch (err) { console.warn('[OneDrive Sync] upsertFichier (document sans candidat) échec:', err instanceof Error ? err.message : String(err)) }
 
             // Log activité pour traçabilité
             try {
@@ -409,23 +528,26 @@ export async function POST() {
                 metadata: { filename, document_type: docType, source: 'onedrive' },
                 created_at: new Date().toISOString(),
               })
-            } catch { /* ignore */ }
+            } catch (err) { console.warn('[OneDrive Sync] logActivity (doc sans candidat) échec:', err instanceof Error ? err.message : String(err)) }
 
             return { status: 'skipped', name: `⚠️ ${filename} (${docType})` }
           }
 
-          // f. Vérifie doublon candidat (5 méthodes)
+          // f. Vérifie doublon candidat (5 méthodes, du plus fiable au moins fiable)
           let existingCandidat: any = null
+
+          // Helper : retire accents + lowercase — utilisé dans toutes les comparaisons de noms
+          const unaccent = (s: string): string =>
+            (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
           // Helper : évite les faux positifs quand deux personnes différentes partagent un email/tel
           const nomsSimilaires = (parsed: any, existing: any): boolean => {
             if (!parsed?.nom || !existing?.nom) return true
-            const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-            const pNom = norm(parsed.nom), eNom = norm(existing.nom)
+            const pNom = unaccent(parsed.nom), eNom = unaccent(existing.nom)
             const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
               pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((e: string) => e.includes(p) || p.includes(e)))
             if (nomOk) return true
-            const pPrenom = norm(parsed.prenom || ''), ePrenom = norm(existing.prenom || '')
+            const pPrenom = unaccent(parsed.prenom || ''), ePrenom = unaccent(existing.prenom || '')
             return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
           }
 
@@ -439,7 +561,8 @@ export async function POST() {
           //    Ex: "+41 77 423 99 95" en DB ne contient pas "774239995" en ilike → on normalise les deux
           if (!existingCandidat && candidatTel.length >= 8) {
             const tel9 = candidatTel.slice(-9)
-            const prenomFilter = candidatPrenom ? candidatPrenom.split(/\s+/)[0] : null
+            // Normaliser le prénom pour le filtre ilike (insensible aux accents)
+            const prenomFilter = candidatPrenom ? unaccent(candidatPrenom.split(/\s+/)[0]) : null
             let telQuery = supabase.from('candidats').select('id, nom, prenom, telephone').not('telephone', 'is', null)
             if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
             const { data: telCandidats } = await telQuery.limit(150)
@@ -451,18 +574,92 @@ export async function POST() {
               if (telMatch && nomsSimilaires(analyse, telMatch)) existingCandidat = telMatch
             }
           }
-          // 3. Par nom + prénom exact (les deux doivent correspondre exactement)
+          // 3. Par nom + prénom (insensible aux accents — tolérance préfixe)
+          //    Ex: DB "Manuel" matche extrait "Manuel Henrique" (certificat avec prénom complet)
           if (!existingCandidat && candidatNom && candidatPrenom) {
-            const { data } = await supabase.from('candidats').select('id, nom, prenom')
-              .ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
-            existingCandidat = data
+            const nomNorm = unaccent(candidatNom)
+            const prenomNorm = unaccent(candidatPrenom)
+            const lastPartNorm = nomNorm.split(/\s+/).pop()! // dernier mot du nom
+            const { data: byNomPrenom } = await supabase.from('candidats')
+              .select('id, nom, prenom, telephone, email, localisation, experiences, formations_details')
+              .ilike('nom', `%${lastPartNorm}%`)
+              .limit(20)
+            if (byNomPrenom) {
+              // Filtrer les candidats dont le nom + prénom correspondent (tolérance préfixe)
+              const candidates = byNomPrenom.filter((c: any) => {
+                if (unaccent(c.nom) !== nomNorm) return false
+                const dbPrenom = unaccent(c.prenom || '')
+                return dbPrenom === prenomNorm
+                  || prenomNorm.startsWith(dbPrenom + ' ')
+                  || dbPrenom.startsWith(prenomNorm + ' ')
+                  || dbPrenom.split(' ')[0] === prenomNorm.split(' ')[0]
+              })
+
+              if (candidates.length === 1) {
+                // Un seul candidat → match direct
+                existingCandidat = candidates[0]
+              } else if (candidates.length > 1) {
+                // Plusieurs candidats → affiner par email, tel, localisation, expériences
+                let refined: any = null
+
+                // a. Email
+                if (!refined && candidatEmail) {
+                  refined = candidates.find((c: any) =>
+                    c.email && c.email.toLowerCase() === candidatEmail.toLowerCase()
+                  ) || null
+                }
+                // b. Téléphone
+                if (!refined && candidatTel.length >= 8) {
+                  refined = candidates.find((c: any) => {
+                    const stored = (c.telephone || '').replace(/\D/g, '')
+                    return stored.length >= 8 && stored.slice(-9) === candidatTel.slice(-9)
+                  }) || null
+                }
+                // c. Localisation (ville)
+                if (!refined && analyse.localisation) {
+                  const locNorm = unaccent(analyse.localisation)
+                  refined = candidates.find((c: any) =>
+                    c.localisation && unaccent(c.localisation).includes(locNorm.split(/[\s,]+/)[0])
+                  ) || null
+                }
+                // d. Nom de l'établissement dans experiences[] ou formations_details[]
+                //    Utile pour les certificats/diplômes : "McDonald's" → chercher dans historique
+                if (!refined && filename) {
+                  const fileBase = unaccent(normalizeBaseName(filename).replace(/\.[^.]+$/, ''))
+                  // Extraire mots significatifs du nom de fichier (≥4 chars, pas de mots vides)
+                  const fileWords = fileBase.split(/[\s_-]+/).filter((w: string) => w.length >= 4)
+                  if (fileWords.length > 0) {
+                    refined = candidates.find((c: any) => {
+                      const exps = JSON.stringify(c.experiences || []).toLowerCase()
+                      const forms = JSON.stringify(c.formations_details || []).toLowerCase()
+                      const haystack = exps + ' ' + forms
+                      return fileWords.some((w: string) => haystack.includes(w))
+                    }) || null
+                  }
+                }
+
+                if (refined) {
+                  existingCandidat = refined
+                } else {
+                  // Ambiguïté non résolue → erreur explicite, pas de rattachement automatique
+                  const names = candidates.map((c: any) =>
+                    `${c.prenom || ''} ${c.nom} (${c.id.slice(0, 8)})`.trim()
+                  ).join(', ')
+                  throw new Error(
+                    `Ambiguïté — ${candidates.length} candidats correspondent : ${names}. ` +
+                    `Rattachez manuellement depuis la fiche candidat.`
+                  )
+                }
+              }
+            }
           }
           // 4. Match partiel nom (dernière partie) + prénom + téléphone OU email confirmé
           //    Email et téléphone sont uniques → seuls signaux fiables pour confirmer l'identité
           //    Localisation / date_naissance volontairement exclues (pas uniques)
+          //    Comparaison insensible aux accents via unaccent()
           if (!existingCandidat && candidatNom && candidatPrenom) {
-            const lastNamePart = candidatNom.split(/\s+/).pop()! // ex: "TAVARES" depuis "Vieira Tavares"
-            const firstNamePart = candidatPrenom.split(/\s+/)[0].toLowerCase()
+            const lastNamePart = unaccent(candidatNom.split(/\s+/).pop()!) // ex: "tavares" depuis "Vieira Tavares"
+            const firstNamePart = unaccent(candidatPrenom.split(/\s+/)[0])
             if (lastNamePart.length >= 4) {
               const { data: byPartialName } = await supabase.from('candidats')
                 .select('id, nom, prenom, telephone, email')
@@ -470,8 +667,8 @@ export async function POST() {
                 .limit(30)
               if (byPartialName) {
                 const match = byPartialName.find((c: any) => {
-                  // 1. Prénom doit correspondre (premier mot)
-                  const cPrenom = (c.prenom || '').toLowerCase()
+                  // 1. Prénom doit correspondre (premier mot) — insensible aux accents
+                  const cPrenom = unaccent(c.prenom || '')
                   const prenomOk = cPrenom.includes(firstNamePart) || firstNamePart.includes(cPrenom.split(/\s+/)[0])
                   if (!prenomOk) return false
                   // 2. Obligatoirement : téléphone OU email correspondent
@@ -485,6 +682,27 @@ export async function POST() {
               }
             }
           }
+          // 5. Par cv_nom_fichier (dernier recours — si l'IA a mal extrait email/tel/nom)
+          //    Utile pour les re-syncs où le fichier est déjà connu en DB par son nom exact
+          //    On normalise pour ignorer les suffixes OneDrive [45], (1), etc.
+          if (!existingCandidat && filename) {
+            const normalizedFilename = normalizeBaseName(filename)
+            const { data: byFilename } = await supabase.from('candidats')
+              .select('id, nom, prenom, cv_nom_fichier')
+              .ilike('cv_nom_fichier', filename) // cherche d'abord le nom exact
+              .maybeSingle()
+            if (byFilename && nomsSimilaires(analyse, byFilename)) {
+              existingCandidat = byFilename
+            } else if (!byFilename && normalizedFilename !== filename.toLowerCase()) {
+              // Si pas de match exact, essayer avec le nom normalisé (sans suffixe [45])
+              const { data: byNormalizedFilename } = await supabase.from('candidats')
+                .select('id, nom, prenom, cv_nom_fichier')
+                .ilike('cv_nom_fichier', normalizedFilename)
+                .maybeSingle()
+              if (byNormalizedFilename && nomsSimilaires(analyse, byNormalizedFilename)) existingCandidat = byNormalizedFilename
+            }
+          }
+
           // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
           // Ne pas créer un candidat depuis un certificat — logguer erreur pour correction manuelle
           if (isNotCV && !existingCandidat) {
@@ -497,9 +715,10 @@ export async function POST() {
           }
 
           if (existingCandidat) {
-            // Smart update: fetch full existing candidate data
+            // Smart update: fetch existing candidate fields needed for update logic
             const { data: candidatExistant } = await supabase.from('candidats')
-              .select('*').eq('id', existingCandidat.id).single() as { data: any }
+              .select('id, nom, prenom, cv_nom_fichier, cv_url, documents, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp, cv_texte_brut')
+              .eq('id', existingCandidat.id).single() as { data: any }
 
             if (!candidatExistant) {
               // Candidate disappeared, skip
@@ -511,10 +730,11 @@ export async function POST() {
                   traite: true,
                   traite_le: new Date().toISOString(),
                   last_modified_at: fichier.lastModifiedDateTime || null,
+                  statut_action: 'error',
                   candidat_id: existingCandidat.id,
                   erreur: `Doublon — ${existingCandidat.prenom || ''} ${existingCandidat.nom}`.trim(),
                 })
-              } catch { /* ignore */ }
+              } catch (err) { console.warn('[OneDrive Sync] upsertFichier (doublon) échec:', err instanceof Error ? err.message : String(err)) }
               return { status: 'skipped' }
             }
 
@@ -537,7 +757,7 @@ export async function POST() {
               }
 
               const existingDocs = candidatExistant.documents || []
-              const docTypeLabel = docType === 'permis' ? 'Permis' : docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'formation' ? 'Formation' : docType === 'attestation' ? 'Attestation' : 'Document'
+              const docTypeLabel = detectDocCategory(filename, texteCV)
               existingDocs.push({
                 name: filename,
                 url: docUrl,
@@ -559,20 +779,69 @@ export async function POST() {
                   traite: true,
                   traite_le: new Date().toISOString(),
                   last_modified_at: fichier.lastModifiedDateTime || null,
+                  statut_action: 'document',
                   candidat_id: existingCandidat.id,
                   erreur: `${docTypeLabel} ajouté — ${candidatDisplayName}`,
                 })
-              } catch { /* ignore */ }
+              } catch (err) { console.warn('[OneDrive Sync] upsertFichier (document ajouté) échec:', err instanceof Error ? err.message : String(err)) }
 
               return { status: 'updated', name: `📄 ${docTypeLabel} → ${candidatDisplayName}`, candidatId: existingCandidat.id, filename }
             }
 
-            // Règle 2 : tout CV avec un nom de fichier différent → nouveau CV principal
-            // (le fichier est ici car scanFolderRecursive a détecté une modification → on traite toujours)
-            const memeNomFichier = filename === candidatExistant.cv_nom_fichier
+            // ── Décision mise à jour CV ───────────────────────────────────────────────
+            // Comparaison contenu : 500 premiers chars de cv_texte_brut (suffisant pour détecter un vrai diff)
+            const extrait500 = texteCV.slice(0, 500).replace(/\s+/g, ' ').trim()
+            const stocke500 = (candidatExistant.cv_texte_brut || '').slice(0, 500).replace(/\s+/g, ' ').trim()
+            const contenuIdentique = extrait500.length >= 100 && stocke500.length >= 100 && extrait500 === stocke500
 
-            if (!memeNomFichier) {
-              // Nouveau CV (nom différent) → devient CV principal, ancien conservé dans documents[]
+            // Comparaison date : lastModifiedDateTime du fichier OneDrive vs last_modified_at en DB
+            const rowFichier = (allFichiersUpdated || []).find((f: any) => f.onedrive_item_id === fichier.id)
+            const dateDernierTraitement = rowFichier?.last_modified_at || null
+            // Comparaison via Date objects — les formats diffèrent : OneDrive "...Z" vs DB "...+00:00"
+            const memeDate = !!(dateDernierTraitement && fileDate &&
+              Math.abs(new Date(fileDate).getTime() - new Date(dateDernierTraitement).getTime()) < 1000)
+
+            // Cas 1 : contenu identique + date identique → SKIP total (rien à faire)
+            if (contenuIdentique && memeDate) {
+              await upsertFichier({
+                integration_id: integrationId,
+                onedrive_item_id: fichier.id,
+                nom_fichier: filename,
+                traite: true,
+                traite_le: new Date().toISOString(),
+                last_modified_at: fichier.lastModifiedDateTime || null,
+                statut_action: 'skipped',
+                candidat_id: existingCandidat.id,
+                erreur: `Ignoré — contenu et date identiques (${candidatDisplayName})`,
+              })
+              return { status: 'skipped', filename }
+            }
+
+            // Cas 2 : contenu identique + date plus récente → RÉACTIVATION (created_at uniquement)
+            if (contenuIdentique && !memeDate) {
+              await (supabase as any).from('candidats').update({
+                created_at: fileDate,
+                updated_at: new Date().toISOString(),
+              }).eq('id', candidatExistant.id)
+              try {
+                await upsertFichier({
+                  integration_id: integrationId,
+                  onedrive_item_id: fichier.id,
+                  nom_fichier: filename,
+                  traite: true,
+                  traite_le: new Date().toISOString(),
+                  last_modified_at: fichier.lastModifiedDateTime || null,
+                  statut_action: 'reactivated',
+                  candidat_id: existingCandidat.id,
+                  erreur: `Réactivé — ${candidatDisplayName}`,
+                })
+              } catch (err) { console.warn('[OneDrive Sync] upsertFichier (réactivé) échec:', err instanceof Error ? err.message : String(err)) }
+              return { status: 'reactivated', name: candidatDisplayName }
+            }
+
+            // Cas 3 & 4 : contenu différent → UPDATE complet (peu importe le nom du fichier)
+            {
+              // Nouveau CV → devient CV principal, ancien conservé dans documents[]
               const timestamp = Date.now()
               const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
               const { data: storageData } = await supabase.storage
@@ -598,6 +867,34 @@ export async function POST() {
                 })
               }
 
+              // Extraction photo si le candidat n'en a pas encore
+              let updatedPhotoUrl: string | null = null
+              if (!candidatExistant.photo_url && (isPDF || isDocx || isDoc)) {
+                try {
+                  const timeoutPhoto = new Promise<null>((resolve) => setTimeout(() => resolve(null), 35000))
+                  let photoBuffer: Buffer | null = null
+                  if (isPDF) {
+                    const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
+                    photoBuffer = await Promise.race([extractPhotoFromPDF(buffer), timeoutPhoto])
+                  } else if (isDocx) {
+                    const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
+                    photoBuffer = await Promise.race([extractPhotoFromDOCX(buffer), timeoutPhoto])
+                  } else if (isDoc) {
+                    const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
+                    photoBuffer = await Promise.race([extractPhotoFromDOC(buffer), timeoutPhoto])
+                  }
+                  if (photoBuffer) {
+                    const photoTs = Date.now()
+                    const photoName = `photos/${photoTs}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+                    const { data: photoData } = await supabase.storage.from('cvs').upload(photoName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
+                    if (photoData?.path) {
+                      const { data: pUrl } = await supabase.storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+                      updatedPhotoUrl = pUrl?.signedUrl || null
+                    }
+                  }
+                } catch { /* photo extraction on update failed */ }
+              }
+
               // Update candidate with new CV data
               // created_at = date du fichier OneDrive = date de dernière candidature/disponibilité
               await (supabase as any).from('candidats').update({
@@ -618,6 +915,7 @@ export async function POST() {
                 documents: existingDocs,
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive
                 updated_at: new Date().toISOString(),
+                ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
 
               try {
@@ -628,33 +926,14 @@ export async function POST() {
                   traite: true,
                   traite_le: new Date().toISOString(),
                   last_modified_at: fichier.lastModifiedDateTime || null,
+                  statut_action: 'updated',
+                  ancien_nom_fichier: candidatExistant.cv_nom_fichier || null,
                   candidat_id: existingCandidat.id,
                   erreur: `Mis à jour — ${candidatDisplayName}`,
                 })
-              } catch { /* ignore */ }
+              } catch (err) { console.warn('[OneDrive Sync] upsertFichier (mis à jour) échec:', err instanceof Error ? err.message : String(err)) }
 
               return { status: 'updated', name: candidatDisplayName, candidatId: existingCandidat.id, filename }
-            } else {
-              // Step 3b: Same CV — réactivation, mettre à jour la date de candidature
-              await (supabase as any).from('candidats').update({
-                created_at: fileDate, // Date de candidature = date du fichier sur OneDrive
-                updated_at: new Date().toISOString(),
-              }).eq('id', candidatExistant.id)
-
-              try {
-                await upsertFichier({
-                  integration_id: integrationId,
-                  onedrive_item_id: fichier.id,
-                  nom_fichier: filename,
-                  traite: true,
-                  traite_le: new Date().toISOString(),
-                  last_modified_at: fichier.lastModifiedDateTime || null,
-                  candidat_id: existingCandidat.id,
-                  erreur: `Réactivé — ${candidatDisplayName}`,
-                })
-              } catch { /* ignore */ }
-
-              return { status: 'reactivated', name: candidatDisplayName }
             }
           }
 
@@ -673,20 +952,21 @@ export async function POST() {
             cvUrl = urlData?.signedUrl || null
           }
 
-          // Extraction photo du PDF ou DOCX (timeout 20s — Vercel Pro)
+          // Extraction photo du PDF, DOCX ou DOC (timeout 35s — Vercel Pro)
           let photoUrl: string | null = null
-          const fileExt = filename.toLowerCase().split('.').pop() || ''
-          const isDOCX = fileExt === 'docx'
-          if (isPDF || isDOCX) {
+          if (isPDF || isDocx || isDoc) {
             try {
-              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20000))
+              const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 35000))
               let photoBuffer: Buffer | null = null
               if (isPDF) {
                 const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
                 photoBuffer = await Promise.race([extractPhotoFromPDF(buffer), timeoutPromise])
-              } else if (isDOCX) {
+              } else if (isDocx) {
                 const { extractPhotoFromDOCX } = await import('@/lib/cv-photo')
                 photoBuffer = await Promise.race([extractPhotoFromDOCX(buffer), timeoutPromise])
+              } else if (isDoc) {
+                const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
+                photoBuffer = await Promise.race([extractPhotoFromDOC(buffer), timeoutPromise])
               }
               if (photoBuffer) {
                 const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
@@ -705,6 +985,43 @@ export async function POST() {
           const aDesInfosCV = analyse.titre_poste || (analyse.competences?.length > 0) || (analyse.experiences?.length > 0)
           if (!aDesInfosBase && !aDesInfosCV) {
             throw new Error(`Document vide ou illisible — aucune donnée exploitable extraite (${filename}). Vérifiez que le fichier contient bien un CV.`)
+          }
+
+          // h. Vérification anti-race juste avant INSERT
+          // (deux fichiers du même batch peuvent passer les checks en parallèle)
+          if (candidatEmail) {
+            const { data: lateCandidatEmail } = await supabase.from('candidats').select('id, nom, prenom').ilike('email', candidatEmail).maybeSingle()
+            if (lateCandidatEmail && nomsSimilaires(analyse, lateCandidatEmail)) {
+              await upsertFichier({
+                integration_id: integrationId,
+                onedrive_item_id: fichier.id,
+                nom_fichier: filename,
+                traite: true,
+                traite_le: new Date().toISOString(),
+                last_modified_at: fichier.lastModifiedDateTime || null,
+                statut_action: 'updated',
+                candidat_id: lateCandidatEmail.id,
+                erreur: `Doublon détecté (race) — rattaché à ${lateCandidatEmail.prenom || ''} ${lateCandidatEmail.nom}`.trim(),
+              })
+              return { status: 'skipped', filename }
+            }
+          }
+          if (candidatNom && candidatPrenom) {
+            const { data: lateCandidatNom } = await supabase.from('candidats').select('id, nom, prenom').ilike('nom', candidatNom).ilike('prenom', candidatPrenom).maybeSingle()
+            if (lateCandidatNom) {
+              await upsertFichier({
+                integration_id: integrationId,
+                onedrive_item_id: fichier.id,
+                nom_fichier: filename,
+                traite: true,
+                traite_le: new Date().toISOString(),
+                last_modified_at: fichier.lastModifiedDateTime || null,
+                statut_action: 'updated',
+                candidat_id: lateCandidatNom.id,
+                erreur: `Doublon détecté (race) — rattaché à ${lateCandidatNom.prenom || ''} ${lateCandidatNom.nom}`.trim(),
+              })
+              return { status: 'skipped', filename }
+            }
           }
 
           // h. Crée le candidat
@@ -754,6 +1071,7 @@ export async function POST() {
               traite: true,
               traite_le: new Date().toISOString(),
               last_modified_at: fichier.lastModifiedDateTime || null,
+              statut_action: 'created',
               candidat_id: candidatId,
             })
           } catch (tableErr: any) {
@@ -787,6 +1105,7 @@ export async function POST() {
             nom_fichier: fichier.name,
             traite: false,
             last_modified_at: fichier.lastModifiedDateTime || null,
+            statut_action: 'error',
             erreur: errMsg,
           })
           return { status: 'error', filename: fichier.name }
@@ -884,7 +1203,7 @@ export async function POST() {
       errorFiles,
     }
 
-    console.log(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${updated} mis à jour, ${reactivated} réactivés, ${skipped} ignorés, ${errors} erreurs`)
+    dbg(`[OneDrive Sync] Dossier "${folderName}": ${processed} créés, ${updated} mis à jour, ${reactivated} réactivés, ${skipped} ignorés, ${errors} erreurs`)
 
     // Log activity if anything happened (created, updated, or reactivated)
     if (processed > 0 || updated > 0 || reactivated > 0) {
@@ -931,7 +1250,7 @@ export async function POST() {
   } catch (error) {
     console.error('[OneDrive Sync] Erreur fatale:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
@@ -940,6 +1259,8 @@ export async function POST() {
 // DELETE supprimé — ne jamais effacer l'historique (cause des re-doublons)
 
 export async function GET() {
+  const authError = await requireAdmin()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
 
@@ -967,8 +1288,26 @@ export async function GET() {
   } catch (error) {
     console.error('[OneDrive Sync GET]', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     )
   }
+}
+
+export async function DELETE(req: Request) {
+  const authError = await requireAdmin()
+  if (authError) return authError
+  const { searchParams } = new URL(req.url)
+  if (searchParams.get('action') !== 'clear-errors') {
+    return NextResponse.json({ error: 'Action inconnue' }, { status: 400 })
+  }
+  const supabase = createAdminClient()
+  const { count, error } = await (supabase as any)
+    .from('onedrive_fichiers')
+    .delete({ count: 'exact' })
+    .eq('traite', false)
+    .is('candidat_id', null)
+    .not('erreur', 'is', null)
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  return NextResponse.json({ deleted: count })
 }

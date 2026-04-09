@@ -11,9 +11,9 @@ export async function POST() {
     const { error } = await supabase.auth.updateUser({
       data: { candidats_viewed_all_at: new Date().toISOString() },
     })
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ ok: false, error: 'Erreur serveur' }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 })
+    return NextResponse.json({ ok: false, error: 'Erreur serveur' }, { status: 500 })
   }
 }

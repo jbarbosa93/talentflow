@@ -3,6 +3,8 @@ import { exchangeCodeForTokens, getMicrosoftUser } from '@/lib/microsoft'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivity } from '@/lib/activity-log'
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
 
     const existingMeta = (existing?.metadata as any) || {}
 
-    console.log(`[MS Callback] type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
+    dbg(`[MS Callback] type=${integrationType}, email=${email}, existing=${existing?.id || 'none'}`)
 
     if (existing) {
       const { error: updateErr } = await supabase.from('integrations').update({
@@ -110,7 +112,7 @@ export async function GET(request: NextRequest) {
         metadata: { ...existingMeta, purpose: 'onedrive' },
         updated_at: new Date().toISOString(),
       }).eq('id', existing.id)
-      console.log('[MS Callback] Update result:', updateErr?.message || 'OK')
+      dbg('[MS Callback] Update result:', updateErr?.message || 'OK')
     } else {
       const { error: insertErr } = await supabase.from('integrations').insert({
         type: integrationType as any,
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
         actif: true,
         metadata: { purpose: 'onedrive' },
       })
-      console.log('[MS Callback] Insert result:', insertErr?.message || 'OK')
+      dbg('[MS Callback] Insert result:', insertErr?.message || 'OK')
     }
 
     await logActivity({ action: 'microsoft_onedrive_connecte' as any, user_email: email })

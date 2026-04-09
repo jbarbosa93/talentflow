@@ -9,6 +9,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
+const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
+
 // ─── GET : vérification du webhook par Meta ───────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
     const supabase = createAdminClient()
 
     for (const msg of messages) {
-      console.log(`[WhatsApp Webhook] Message de ${msg.from} (type: ${msg.type})`)
+      dbg(`[WhatsApp Webhook] Message de ${msg.from} (type: ${msg.type})`)
 
       // Marquer comme lu
       await marquerCommeLu(msg.id).catch(() => null)
@@ -82,10 +84,10 @@ export async function POST(request: NextRequest) {
             auteur: `WhatsApp (${telephone})`,
             contenu,
           })
-          console.log(`[WhatsApp Webhook] Note ajoutée au candidat ${candidat.id}`)
+          dbg(`[WhatsApp Webhook] Note ajoutée au candidat ${candidat.id}`)
         } else {
           // Logguer le message non associé
-          console.log(`[WhatsApp Webhook] Numéro inconnu ${telephone} : "${msg.text.body}"`)
+          dbg(`[WhatsApp Webhook] Numéro inconnu ${telephone} : "${msg.text.body}"`)
         }
       }
     }

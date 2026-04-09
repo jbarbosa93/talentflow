@@ -23,6 +23,6 @@ export async function GET(request: NextRequest) {
 
   const { data, error, count } = await query
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ data, total: count || 0 })
 }

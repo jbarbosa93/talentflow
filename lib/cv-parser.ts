@@ -78,8 +78,11 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
     }
 
     return texts.join('\n').replace(/\n{3,}/g, '\n\n').trim()
-  } catch {
-    // Échec → retourne '' → route bascule sur Claude Vision
+  } catch (err: any) {
+    if (err?.name === 'PasswordException' || err?.code === 1 || err?.message?.toLowerCase().includes('password')) {
+      throw new Error('PDF_ENCRYPTED')
+    }
+    // Autres erreurs → retourne '' → route bascule sur Claude Vision
     return ''
   }
 }
