@@ -3,7 +3,7 @@
    ════════════════════════════════════════════ */
 
 html, :root {
-  --y:   #F7C948;
+  --y:   #F5A623;
   --ink: #1C1A14;
   --ink2: #5C5645;
   --cream: #FFFDF5;
@@ -367,4 +367,181 @@ body {
 @media (max-width: 768px) {
   .auth-left { display: none; }
   .auth-right { padding: 32px 20px; }
+}
+
+/* ════════════════════════════════════════════
+   Login redesign — light
+   ════════════════════════════════════════════ */
+
+.auth-glass-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFDF5;
+  position: relative;
+  overflow: hidden;
+  padding: 32px 20px;
+}
+
+/* Orbes subtiles sur fond blanc */
+.auth-glass-bg::before {
+  content: '';
+  position: fixed;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,166,35,0.09) 0%, transparent 65%);
+  top: -280px;
+  right: -180px;
+  animation: auth-orb1 16s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.auth-glass-bg::after {
+  content: '';
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100,150,220,0.05) 0%, transparent 65%);
+  bottom: -160px;
+  left: -100px;
+  animation: auth-orb2 20s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes auth-orb1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(60px, 50px) scale(1.2); }
+}
+@keyframes auth-orb2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-50px, -70px) scale(1.25); }
+}
+
+/* ── Card ── */
+.auth-glass-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1.5px solid #E8E0C8;
+  border-radius: 24px;
+  padding: 48px 44px;
+  box-shadow:
+    0 4px 6px rgba(28,26,20,0.04),
+    0 20px 60px rgba(28,26,20,0.08);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Logo ── */
+.auth-glass-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 36px;
+}
+.auth-glass-logo a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.auth-glass-logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #F5A623;
+  border: 2px solid #1C1A14;
+  box-shadow: 2px 2px 0 #1C1A14;
+  flex-shrink: 0;
+}
+.auth-glass-logo-text {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+}
+
+/* ── Text — contexte clair (hérite des classes existantes) ── */
+.auth-glass-card .auth-card-title {
+  color: var(--ink);
+  font-size: 26px;
+}
+.auth-glass-card .auth-card-sub {
+  color: var(--ink2);
+  margin-bottom: 28px;
+}
+.auth-glass-card .auth-label {
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+/* ── Inputs ── */
+.auth-glass-card .auth-input {
+  border-radius: 12px;
+  padding: 13px 16px;
+  font-size: 14px;
+  border: 1.5px solid #E8E0C8;
+}
+.auth-glass-card .auth-input:focus {
+  border-color: #F5A623;
+  box-shadow: 0 0 0 3px rgba(245,166,35,0.12);
+}
+
+/* ── Button — orange ── */
+.auth-glass-card .auth-btn {
+  background: #F5A623;
+  border: 2px solid #1C1A14;
+  border-radius: 12px;
+  box-shadow: 3px 3px 0 #1C1A14;
+  color: #1C1A14;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 14px;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.auth-glass-card .auth-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #1C1A14;
+}
+.auth-glass-card .auth-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #1C1A14;
+}
+.auth-glass-card .auth-btn:disabled {
+  opacity: 0.5;
+  transform: none;
+  box-shadow: 3px 3px 0 #1C1A14;
+  cursor: not-allowed;
+}
+
+/* ── Footer link ── */
+.auth-glass-card .auth-footer-link a:hover {
+  color: #F5A623;
+}
+
+/* ── Legal footer ── */
+.auth-glass-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+  font-size: 11px;
+  color: #B8AD96;
+}
+.auth-glass-footer a {
+  color: #B8AD96;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.auth-glass-footer a:hover { color: var(--ink2); }
+
+@media (max-width: 480px) {
+  .auth-glass-card { padding: 36px 24px; border-radius: 20px; }
 }

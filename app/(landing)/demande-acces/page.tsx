@@ -64,7 +64,7 @@ export default function DemandeAccesPage() {
           cursor: 'pointer', color: '#1C1A14',
           transition: 'all 0.15s',
         }}
-        onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F7C948' }}
+        onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F5A623' }}
         onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = 'white' }}
         title="Retour"
       >
@@ -78,7 +78,7 @@ export default function DemandeAccesPage() {
       }}>
         <div style={{
           width: 10, height: 10, borderRadius: '50%',
-          background: '#F7C948', border: '2px solid #1C1A14',
+          background: '#F5A623', border: '2px solid #1C1A14',
           boxShadow: '2px 2px 0 #1C1A14',
         }} />
         <span style={{ fontSize: 20, fontWeight: 900, color: '#1C1A14', letterSpacing: '-0.5px' }}>
@@ -128,7 +128,7 @@ export default function DemandeAccesPage() {
             <div style={{ marginBottom: 32 }}>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: '#FFF3C4', border: '1.5px solid #F7C948',
+                background: '#FFF3C4', border: '1.5px solid #F5A623',
                 borderRadius: 100, padding: '4px 12px', marginBottom: 16,
               }}>
                 <Sparkles size={12} color="#7A5F00" />
@@ -244,7 +244,7 @@ export default function DemandeAccesPage() {
                 style={{
                   marginTop: 8,
                   width: '100%', padding: '13px 0',
-                  background: loading ? '#ccc' : '#F7C948',
+                  background: loading ? '#ccc' : '#F5A623',
                   border: '2.5px solid #1C1A14',
                   borderRadius: 10,
                   boxShadow: loading ? 'none' : '4px 4px 0 #1C1A14',
@@ -278,7 +278,7 @@ export default function DemandeAccesPage() {
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-        input:focus { border-color: #F7C948 !important; box-shadow: 0 0 0 3px rgba(247,201,72,0.2); }
+        input:focus { border-color: #F5A623 !important; box-shadow: 0 0 0 3px rgba(247,201,72,0.2); }
       `}</style>
     </div>
   )

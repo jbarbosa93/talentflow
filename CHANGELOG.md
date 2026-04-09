@@ -1,5 +1,137 @@
 # Changelog TalentFlow
 
+## [1.5.17] — 9 avril 2026
+
+### Fix flash badge — init synchrone depuis localStorage
+- `_viewedAllAt` initialisé synchrone au chargement du module via `localStorage.getItem('talentflow_viewed_all_at')` — premier render correct, zéro flash
+- `initViewedFromDB()` écrit `viewedAllAt` dans localStorage après sync DB — disponible au prochain chargement
+- `markAllVu()` — nouveau helper : met à jour `_viewedAllAt` + localStorage + dispatch event après "Tout marquer vu"
+- Suppression du gate `badgeInitialized` dans Sidebar et CandidatsList (plus nécessaire)
+
+---
+
+## [1.5.16] — 9 avril 2026
+
+### Fix flash badge 8→2 — badgeInitialized gate
+- Fix : badge sidebar et boutons "Non vus" / "Tout marquer vu" masqués jusqu'à `ensureInit()` résolu
+- `badgeInitialized = false` au montage → badges invisibles → `true` après init → apparaissent directement avec la bonne valeur
+
+---
+
+## [1.5.15] — 9 avril 2026
+
+### Fix badge sidebar — ensureInit + lisibilité labels
+- Fix : race condition badge sidebar — `ensureInit()` dans `badge-candidats.ts` garantit que `_viewedAllAt` est initialisé avant le premier calcul sidebar (plus de flash "5 → 2")
+- Fix : un seul appel API `/candidats/vus` partagé (promise cachée) — Sidebar et CandidatsList utilisent la même `_initPromise`
+- Fix : labels "Menu" / "Compte" sidebar — `rgba(255,255,255,0.22)` → `0.45`
+
+---
+
+## [1.5.14] — 9 avril 2026
+
+### Fix badge sidebar non-vus + couleur demande-acces
+- Fix : badge sidebar — utilise `hasBadge(id, created_at, viewedSet, viewedAllAt)` au lieu de `viewed.has(id)` (ignorait le timestamp "Tout marquer vu")
+- Fix : `CandidatsList` dispatch `talentflow:badges-changed` après `initViewedFromDB()` → sidebar resync immédiat au chargement
+- Fix : `/demande-acces` — couleur `#F7C948` → `#F5A623` (cohérence orange app)
+
+---
+
+## [1.5.13] — 9 avril 2026
+
+### Auth pages redesign — fond blanc + card centrée + Framer Motion
+- Fond blanc `#FFFDF5` avec 2 orbes animées subtiles (orange + bleu)
+- Card blanche centrée : border cream, shadow subtile, logo orange neo-brutalist
+- Logo TalentFlow : fade-in + scale au montage, icône orange avec shadow offset
+- Champs : stagger Framer Motion (fadeUp delay progressif par champ)
+- Bouton submit : orange `#F5A623`, border noire + shadow offset, hover `-1px -1px`
+- Input focus : border orange + glow `rgba(245,166,35,0.12)`
+- Footer légal discret sur chaque page (CGU · Confidentialité · © 2026)
+- Pages converties : `/login`, `/verify-email`, `/accepter-invitation` (4 états)
+- Panel gauche branding supprimé — card centrée full-page sur toutes les pages
+- `auth.css` : `--y: #F7C948` → `#F5A623`
+
+---
+
+## [1.5.12] — 9 avril 2026
+
+### Landing page — Redesign complet + pages légales
+- Couleur landing `#F7C948` → `#F5A623` (cohérence avec l'app orange)
+- Hero : CTA "Demander une démo →" + lien "Se connecter", social proof avatars, eyebrow mis à jour
+- Strip : stats mises à jour (OneDrive Sync, Matching IA, Pipeline Kanban, LPD, WhatsApp)
+- Features : 12 cartes — OneDrive Sync automatique + Matching IA en avant, Conformité LPD/RGPD
+- Section bêta : remplace l'ancienne section Pricing — encart dark "plateforme en développement" + CTA démo
+- Footer redesigné : 3 colonnes (brand + tagline, navigation, légal), badge "En phase bêta"
+- Navbar : liens "Fonctionnalités" + "Contact" ajoutés
+- Pages légales provisoires : `/cgu`, `/confidentialite`, `/mentions-legales` — droit suisse, LPD, Valais
+
+---
+
+## [1.5.11] — 9 avril 2026
+
+### Fix non-vus — migration viewedAllAt localStorage → Supabase
+- Correctif : 491 faux non-vus sur Mac après migration v1.5.9
+- Cause : le timestamp "Tout marquer vu" existait en localStorage mais pas en Supabase user_metadata
+- Fix : `initViewedFromDB()` détecte `candidats_viewed_all_at` en localStorage et le migre vers Supabase via `PATCH /api/candidats/vus` (one-shot, fire-and-forget)
+
+---
+
+## [1.5.10] — 9 avril 2026
+
+### Drapeaux téléphone — fix Windows
+- Drapeaux pays sur les numéros de téléphone remplacés par des images SVG via `flag-icons` CSS
+- Fonctionne désormais sur Windows Chrome (les emojis drapeaux Unicode ne s'y affichent pas)
+- `detectAndFormat()` centralisée dans `lib/phone-format.ts` — 3 duplications supprimées
+- Rendu : `<span class="fi fi-ch">` (Suisse), `fi-fr` (France), `fi-es`, `fi-pt`, `fi-it`
+
+---
+
+## [1.5.9] — 9 avril 2026
+
+### Non vus — cross-device (localStorage → Supabase DB)
+- Table `candidats_vus (user_id, candidat_id)` avec RLS par utilisateur
+- Au premier chargement : import automatique du localStorage existant vers DB (migration one-shot)
+- `hasBadge` tient compte du timestamp `candidats_viewed_all_at` (user_metadata) ET de la table
+- Badges cohérents Mac ↔ Windows — plus de 480 faux "non vus" sur un second appareil
+
+### Technique
+- Nouvelle route `GET/POST/DELETE /api/candidats/vus`
+- `mark-all-vu` : vide la table user + pose le timestamp (au lieu de localStorage)
+- `lib/badge-candidats.ts` : DB = source de vérité, localStorage = cache write-through
+
+---
+
+## [1.5.8] — 9 avril 2026
+
+### Recherche candidats — DB, unaccent, champs complets
+- Index GIN `fts` (tsvector french STORED) + index trigramme sur nom, prénom, titre, localisation
+- `unaccent` sur tous les champs — `macon` trouve `maçon`, `electricien` → `électricien`
+- Recherche élargie : compétences, tags, expériences (JSON), formations (JSON), téléphone
+- Suppression `linkedin` et `annees_exp` de toute l'interface (non utilisés)
+
+### Technique
+- Migration `20260401_candidats_indexes.sql` appliquée en prod (colonne fts + 10 index)
+- RPC `search_candidats_filtered` v3 finale : FTS GIN + unaccent + 14 champs couverts
+
+---
+
+## [1.5.7] — 9 avril 2026
+
+### Corrections — Recherche candidats (6 fixes)
+- Fix 1 : pagination recherche — `result_offset` manquant dans la RPC (page 2+ retournait toujours les mêmes résultats)
+- Fix 2 : multi-mots — "maçon Monthey" cherche les candidats qui ont les deux mots (était phrase exacte → 0 résultat)
+- Fix 3 : sync `filtreMetier` ↔ `filterMetier` — le dropdown métier de la liste et les filtres avancés sont maintenant synchronisés
+- Fix 4 : RPC `search_candidats_filtered` v3 — utilise `fts @@ plainto_tsquery` (index GIN) + ILIKE sur `cv_texte_brut` et `resume_ia`
+- Fix 4 : `total_count` maintenant retourné par la RPC (était toujours 0 → pagination affichait 0 page en mode recherche)
+- Fix 5 : booléen ET/AND → envoyé au serveur pour pré-filtrage (FTS + cv_texte_brut) ; OU/SAUF reste client-side
+- Fix 5 : corpus client booléen élargi — inclut `resume_ia`
+- Fix 6 : fallback ILIKE (si RPC indisponible) — inclut `resume_ia`
+
+### Technique
+- Nouvelle migration : `supabase/migrations/20260409_search_rpc_v3.sql`
+- ⚠️ Migration à appliquer manuellement dans le dashboard Supabase (SQL Editor)
+
+---
+
 ## [1.5.6] — 8 avril 2026
 
 ### Nouvelles fonctionnalités

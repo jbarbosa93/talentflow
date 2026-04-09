@@ -367,11 +367,9 @@ export default function CandidatDetailPage() {
       telephone:       candidat.telephone || '',
       localisation:    candidat.localisation || '',
       titre_poste:     candidat.titre_poste || '',
-      annees_exp:      candidat.annees_exp ?? 0,
       formation:       candidat.formation || '',
       competences:     (candidat.competences || []).join(', '),
       langues:         (candidat.langues || []).join(', '),
-      linkedin:        candidat.linkedin || '',
       permis_conduire: candidat.permis_conduire ?? false,
       date_naissance:  candidat.date_naissance || '',
       genre:           candidat.genre || '',
@@ -408,10 +406,8 @@ export default function CandidatDetailPage() {
       telephone:          rest.telephone,
       localisation:       rest.localisation,
       titre_poste:        rest.titre_poste,
-      annees_exp:         parseInt(rest.annees_exp) || 0,
       formation:          rest.formation,
       resume_ia:          rest.resume_ia,
-      linkedin:           rest.linkedin || '',
       permis_conduire:    rest.permis_conduire,
       date_naissance:     rest.date_naissance,
       genre:              rest.genre || null,
@@ -2111,7 +2107,6 @@ export default function CandidatDetailPage() {
                   { label: 'Statut pipeline', value: candidat.statut_pipeline },
                   { label: 'Statut import', value: candidat.import_status === 'a_traiter' ? 'À traiter' : candidat.import_status === 'traite' ? 'Traité' : candidat.import_status || '—' },
                   { label: 'CV', value: candidat.cv_nom_fichier || '—' },
-                  { label: 'LinkedIn', value: candidat.linkedin || '—' },
                 ].map(item => (
                   <div key={item.label}>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>

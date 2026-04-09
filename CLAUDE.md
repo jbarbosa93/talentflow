@@ -1,7 +1,7 @@
 # TalentFlow — CLAUDE.md
 
 ## Version actuelle
-**1.5.6 production** — 08/04/2026
+**1.5.10 production** — 09/04/2026
 
 ## Stack technique
 - **Frontend** : Next.js 16.1.7 (App Router), React 19, TypeScript 5, Tailwind CSS 4

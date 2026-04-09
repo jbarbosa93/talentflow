@@ -65,7 +65,7 @@ function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') 
 type Candidat = {
   id: string; nom: string; prenom: string | null; email: string | null
   telephone: string | null; titre_poste: string | null; localisation: string | null
-  annees_exp: number; competences: string[]; cv_url: string | null
+  competences: string[]; cv_url: string | null
   cv_nom_fichier: string | null; cv_texte_brut: string | null; created_at: string
   photo_url?: string | null; source?: string | null
   experiences?: { poste: string; entreprise: string; periode: string; description?: string }[] | null
@@ -87,7 +87,6 @@ const MERGE_FIELDS: MergeFieldDef[] = [
   { key: 'titre_poste', label: 'Poste', getValue: c => c.titre_poste || '—' },
   { key: 'localisation', label: 'Localisation', getValue: c => c.localisation || '—' },
   { key: 'date_naissance', label: 'Date de naissance', getValue: c => c.date_naissance || '—' },
-  { key: 'annees_exp', label: 'Annees exp.', getValue: c => c.annees_exp ? `${c.annees_exp} ans` : '—' },
   { key: 'competences', label: 'Competences', getValue: c => {
     const comps = c.competences || []
     return comps.length > 0 ? `${comps.join(', ')} (${comps.length})` : '—'
@@ -105,7 +104,6 @@ const MERGE_FIELDS: MergeFieldDef[] = [
   { key: 'langues', label: 'Langues', getValue: c => (c.langues || []).join(', ') || '—' },
   { key: 'resume_ia', label: 'Resume IA', getValue: c => c.resume_ia ? c.resume_ia.slice(0, 200) : '—' },
   { key: 'permis_conduire', label: 'Permis', getValue: c => c.permis_conduire ? 'Oui' : '—' },
-  { key: 'linkedin', label: 'LinkedIn', getValue: c => c.linkedin || '—' },
   { key: 'cv', label: 'CV', getValue: c => c.cv_nom_fichier || (c.cv_url ? 'CV present' : '—') },
 ]
 
@@ -123,7 +121,6 @@ function profileScore(c: Record<string, any>): number {
   score += (c.experiences?.length || 0) * 2
   score += (c.formations_details?.length || 0) * 1
   if (c.resume_ia) score += 1
-  if (c.linkedin) score += 0.5
   if (c.date_naissance) score += 0.5
   return score
 }
@@ -966,11 +963,6 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
         {formCount > 0 && (
           <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#D1FAE5', color: '#059669', fontWeight: 600 }}>
             {formCount} form.
-          </span>
-        )}
-        {c.annees_exp > 0 && (
-          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#FEF3C7', color: '#D97706', fontWeight: 600 }}>
-            {c.annees_exp} ans
           </span>
         )}
         {c.source && (

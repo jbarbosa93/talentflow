@@ -19,7 +19,7 @@ const SECTIONS = [
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
 ]
 
-export const CANDIDAT_SECTIONS_DEFAULT = [
+const CANDIDAT_SECTIONS_DEFAULT = [
   { key: 'resume',       label: 'Résumé IA',       emoji: '✨' },
   { key: 'experiences',  label: 'Expériences',      emoji: '💼' },
   { key: 'formations',   label: 'Formations',       emoji: '🎓' },
@@ -27,7 +27,7 @@ export const CANDIDAT_SECTIONS_DEFAULT = [
   { key: 'notes',        label: 'Notes',            emoji: '💬' },
 ]
 
-export const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
+const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
 const LINK_SECTIONS = [
   { href: '/parametres/securite', label: 'Sécurité & Accès', icon: Shield },

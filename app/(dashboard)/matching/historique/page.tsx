@@ -1,4 +1,5 @@
 'use client'
+import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useEffect } from 'react'
 import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, MessageSquare, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
@@ -100,21 +101,6 @@ function ContactBtn({ href, icon: Icon, label, color, bg, disabled }: {
 // ─── ContactModal ────────────────────────────────────────────────────────────
 type HistoryCandidат = MatchHistoryItem['results'][0]['candidat']
 
-function detectAndFormat(tel: string): { number: string; flag: string; country: string } {
-  const c = tel.replace(/[\s\-().]/g, '')
-  if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '🇨🇭', country: 'Suisse' }
-  if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '🇫🇷', country: 'France' }
-  if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '🇪🇸', country: 'Espagne' }
-  if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '🇵🇹', country: 'Portugal' }
-  if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '🇮🇹', country: 'Italie' }
-  if (c.startsWith('0')) {
-    const local = c.slice(1)
-    if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '🇨🇭', country: 'Suisse' }
-    if (/^[67]/.test(local))   return { number: '+33' + local, flag: '🇫🇷', country: 'France' }
-    return { number: c, flag: '❓', country: '' }
-  }
-  return { number: c, flag: '📱', country: '' }
-}
 
 function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; onClose: () => void }) {
   const [mode, setMode] = useState<'individuel' | 'sms'>('individuel')
@@ -246,7 +232,7 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Destinataires — {avecTel.length} avec numéro</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
                 {avecTel.map(c => {
-                  const { number, flag, country } = detectAndFormat(c.telephone!)
+                  const { number, countryCode, country } = detectAndFormat(c.telephone!)
                   return (
                     <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
                       <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
@@ -256,7 +242,7 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}><Phone size={10} /> {number}</div>
                       </div>
-                      {flag && <span style={{ fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontWeight: 600 }}>{flag} {country}</span>}
+                      {countryCode && <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}><span className={`fi fi-${countryCode}`} style={{ width: 18, height: 13, display: 'inline-block', backgroundSize: 'contain', borderRadius: 2 }} />{country}</span>}
                     </div>
                   )
                 })}

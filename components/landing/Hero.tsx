@@ -1,57 +1,10 @@
 "use client";
-import { useState, useEffect } from "react"
 import Link from "next/link"
 import BlurFade from "@/components/magicui/blur-fade"
 import NumberTicker from "@/components/magicui/number-ticker"
 
-function InstallButton() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
-  const [installed, setInstalled] = useState(false)
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    window.addEventListener('appinstalled', () => setInstalled(true))
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches) setInstalled(true)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  if (installed) return null
-
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt()
-      const { outcome } = await deferredPrompt.userChoice
-      if (outcome === 'accepted') setInstalled(true)
-      setDeferredPrompt(null)
-    } else {
-      // Safari/Firefox : instructions manuelles
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-      if (isSafari) {
-        alert('Safari : Fichier → Ajouter au Dock\nou utilisez le menu Partager → Ajouter à l\'écran d\'accueil')
-      } else {
-        alert('Utilisez Chrome ou Edge pour installer l\'application, ou ajoutez ce site en favori.')
-      }
-    }
-  }
-
-  return (
-    <button onClick={handleInstall} className="l-btn-main" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path d="M12 16l-5-5h3V4h4v7h3l-5 5z" fill="currentColor"/>
-        <path d="M5 18h14v2H5z" fill="currentColor"/>
-      </svg>
-      Installer l&apos;application
-    </button>
-  )
-}
-
 const candidates = [
-  { letter: "M", name: "Marc Dupont",    tag: "En cours",  tagStyle: { background: "#FFF3C4", color: "#7A5F00" }, bg: "#F7C948" },
+  { letter: "M", name: "Marc Dupont",    tag: "En cours",  tagStyle: { background: "#FFF3E0", color: "#7A4500" }, bg: "#F5A623" },
   { letter: "S", name: "Sophie Martin",  tag: "Validé ✓",  tagStyle: { background: "#D1FAE5", color: "#065F46" }, bg: "#C8E6C9" },
   { letter: "A", name: "Alex Leroy",     tag: "Entretien", tagStyle: { background: "#DBEAFE", color: "#1E3A8A" }, bg: "#BBDEFB" },
 ]
@@ -62,7 +15,7 @@ export default function Hero() {
       {/* ── Left ── */}
       <div>
         <BlurFade delay={0} inView>
-          <div className="l-eyebrow">🎉 Nouveau — Propulsé par Claude AI</div>
+          <div className="l-eyebrow">🤖 Propulsé par Claude AI — OneDrive Sync intégré</div>
         </BlurFade>
 
         <BlurFade delay={0.1} inView>
@@ -83,10 +36,24 @@ export default function Hero() {
 
         <BlurFade delay={0.3} inView>
           <div className="l-actions">
-            <InstallButton />
+            <Link href="/demande-acces" className="l-btn-main">
+              Demander une démo →
+            </Link>
           </div>
         </BlurFade>
 
+        <BlurFade delay={0.4} inView>
+          <div className="l-social-proof">
+            <div className="l-avatars">
+              {["JB", "ML", "SV", "AR"].map((initials, i) => (
+                <div key={i} className="l-av" style={{ background: i === 0 ? '#F5A623' : i === 1 ? '#C8E6C9' : i === 2 ? '#BBDEFB' : '#F5D0A9' }}>
+                  {initials}
+                </div>
+              ))}
+            </div>
+            <span><strong style={{ color: 'var(--ink)' }}>En phase bêta</strong> — utilisateurs actifs en Suisse</span>
+          </div>
+        </BlurFade>
       </div>
 
       {/* ── Right — Dashboard Mockup ── */}
@@ -99,7 +66,7 @@ export default function Hero() {
               <div className="l-dot" style={{ background: "#FFD060" }} />
               <div className="l-dot" style={{ background: "#60D080" }} />
             </div>
-            <div className="l-mock-title">talentflow.io — Tableau de bord</div>
+            <div className="l-mock-title">TalentFlow — Tableau de bord</div>
           </div>
 
           {/* Body */}
@@ -114,13 +81,13 @@ export default function Hero() {
                 <div className="l-ms-n">
                   <NumberTicker value={24} delay={0.5} />
                 </div>
-                <div className="l-ms-l">En cours</div>
+                <div className="l-ms-l">Actifs</div>
               </div>
               <div className="l-ms">
                 <div className="l-ms-n">
                   <NumberTicker value={8} delay={0.6} />
                 </div>
-                <div className="l-ms-l">À valider</div>
+                <div className="l-ms-l">À traiter</div>
               </div>
               <div className="l-ms">
                 <div className="l-ms-n">

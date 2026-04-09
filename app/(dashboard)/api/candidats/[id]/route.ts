@@ -36,9 +36,9 @@ export async function GET(
 
 // Toutes les colonnes modifiables de la table candidats
 const ALLOWED_COLS = new Set([
-  'nom','prenom','email','telephone','localisation','titre_poste','annees_exp',
+  'nom','prenom','email','telephone','localisation','titre_poste',
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
-  'langues','linkedin','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
+  'langues','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
   'cv_url','cv_nom_fichier','cfc','deja_engage',
 ])
 
@@ -52,8 +52,8 @@ const FIELD_LABELS: Record<string, string> = {
   statut_pipeline: 'Statut pipeline', import_status: 'Statut import',
   permis_conduire: 'Permis de conduire', genre: 'Genre',
   photo_url: 'Photo', cv_url: 'CV', cv_nom_fichier: 'Fichier CV',
-  annees_exp: 'Années d\'expérience', formation: 'Formation',
-  linkedin: 'LinkedIn', notes: 'Notes', tags: 'Tags', rating: 'Note',
+  formation: 'Formation',
+  notes: 'Notes', tags: 'Tags', rating: 'Note',
 }
 
 /** Compare old and new values, returns array of changes */

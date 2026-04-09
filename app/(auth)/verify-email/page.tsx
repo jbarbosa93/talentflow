@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, RefreshCw } from 'lucide-react'
-import { Suspense } from 'react'
+import { motion } from 'framer-motion'
 
 function VerifyContent() {
   const searchParams = useSearchParams()
@@ -42,7 +42,7 @@ function VerifyContent() {
         <div className="auth-verify-email-badge">{email}</div>
       )}
       <p className="auth-verify-desc">
-        Cliquez sur le lien dans l'email pour activer votre compte et accéder à TalentFlow.
+        Cliquez sur le lien dans l&apos;email pour activer votre compte et accéder à TalentFlow.
       </p>
 
       {error && (
@@ -75,31 +75,48 @@ function VerifyContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <div className="auth-page">
-      {/* Panel gauche */}
-      <div className="auth-left">
-        <Link href="/" className="auth-logo">
-          <div className="auth-logo-dot" />
-          <span className="auth-logo-text">TalentFlow</span>
-        </Link>
-        <div className="auth-left-content">
-          <div className="auth-left-tag">Validation requise</div>
-          <h1 className="auth-left-title">
-            Presque<br />là <em>!</em>
-          </h1>
-          <p className="auth-left-desc">
-            La validation email protège votre compte et garantit la sécurité de vos données de recrutement.
-          </p>
-        </div>
-        <div className="auth-left-footer">© 2026 TalentFlow. Tous droits réservés.</div>
-      </div>
+    <div className="auth-glass-bg">
+      <motion.div
+        className="auth-glass-card"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
+      >
+        {/* Logo */}
+        <motion.div
+          className="auth-glass-logo"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, duration: 0.4 }}
+        >
+          <Link href="/">
+            <span className="auth-glass-logo-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+              </svg>
+            </span>
+            <span className="auth-glass-logo-text">TalentFlow</span>
+          </Link>
+        </motion.div>
 
-      {/* Panel droit */}
-      <div className="auth-right">
-        <Suspense>
-          <VerifyContent />
-        </Suspense>
-      </div>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.35 }}
+        >
+          <Suspense>
+            <VerifyContent />
+          </Suspense>
+        </motion.div>
+
+        <div className="auth-glass-footer">
+          <Link href="/cgu">CGU</Link>
+          <span>·</span>
+          <Link href="/confidentialite">Confidentialité</Link>
+          <span>·</span>
+          <span>© 2026 TalentFlow</span>
+        </div>
+      </motion.div>
     </div>
   )
 }

@@ -16,6 +16,7 @@ import { usePhotos } from '@/contexts/PhotosContext'
 import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
 import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/useNewItemsBadges'
+import { hasBadge, getViewedSet, getViewedAllAt, ensureInit } from '@/lib/badge-candidats'
 
 const NAV_ITEMS = [
   { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -111,11 +112,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         // cache-bust pour éviter la réponse mise en cache
         const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
         if (!res.ok) return
-        const { ids } = await res.json() as { ids: { id: string; import_status: string }[] }
-        const viewed = new Set<string>(
-          JSON.parse(localStorage.getItem('talentflow_viewed_candidats') || '[]')
-        )
-        setSidebarBadgeCount(ids.filter(item => !viewed.has(item.id)).length)
+        const { ids } = await res.json() as { ids: { id: string; import_status: string; created_at: string }[] }
+        const vs = getViewedSet()
+        const allAt = getViewedAllAt()
+        setSidebarBadgeCount(ids.filter(item => hasBadge(item.id, item.created_at, vs, allAt)).length)
       } catch { /* silencieux */ }
     }
 
@@ -126,7 +126,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       debounceTimer = setTimeout(computeBadgeCount, 3000)
     }
 
-    computeBadgeCount()
+    // Premier calcul après init DB (viewedAllAt déjà lu depuis localStorage — pas de flash)
+    ensureInit().then(() => computeBadgeCount())
 
     window.addEventListener('talentflow:badges-changed', debouncedCompute)
     const interval = setInterval(computeBadgeCount, 60_000)

@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     apple: '/icon-192.png',
   },
   manifest: '/manifest.json',
-  themeColor: '#F7C948',
+  themeColor: '#F5A623',
 }
 
 export default function LandingLayout({ children }: { children: React.ReactNode }) {

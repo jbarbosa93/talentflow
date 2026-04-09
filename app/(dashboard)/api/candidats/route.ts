@@ -12,10 +12,10 @@ export const maxDuration = 300
 // Tous les champs utiles pour la liste (excl. cv_texte_brut qui peut peser plusieurs MB)
 const LIST_COLUMNS = [
   'id', 'nom', 'prenom', 'email', 'telephone', 'localisation',
-  'titre_poste', 'annees_exp', 'competences', 'formation',
+  'titre_poste', 'competences', 'formation',
   'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
   'statut_pipeline', 'tags', 'notes', 'source',
-  'langues', 'linkedin', 'permis_conduire', 'date_naissance',
+  'langues', 'permis_conduire', 'date_naissance',
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
   'cfc', 'deja_engage',
   'created_at', 'updated_at',
@@ -70,13 +70,15 @@ export async function GET(request: NextRequest) {
 
       if (!hasColumnFilters) {
         // Pagination directe via RPC — ne charge que la page courante (scalable 10k+)
+        // Fix 1+2 : search passé brut (la RPC v3 split en mots et fait AND entre eux)
+        // Fix 1   : result_offset maintenant effectif côté DB
         const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
-          search_query: words.join(' '),
+          search_query: search,
           filter_import_status: effectiveImportStatus || null,
           filter_statut: effectiveStatut || null,
           result_limit: perPage,
           result_offset: (page - 1) * perPage,
-        }).limit(perPage)
+        })
         const searchRows = rpcResult.data as { id: string; total_count: number }[] | null
 
         if (!rpcResult.error && searchRows !== null) {
@@ -99,14 +101,14 @@ export async function GET(request: NextRequest) {
         }
         // Fallback si RPC indisponible → recherche basique ci-dessous
       } else {
-        // Avec filtres colonne : fetch jusqu'à 10000 IDs puis filtre JS
+        // Avec filtres colonne : fetch tous les IDs via RPC puis filtre JS par batch
         const rpcResult = await (supabase.rpc as any)('search_candidats_filtered', {
-          search_query: words.join(' '),
+          search_query: search,
           filter_import_status: effectiveImportStatus || null,
           filter_statut: effectiveStatut || null,
           result_limit: 10000,
           result_offset: 0,
-        }).limit(10000)
+        })
         const searchRows = rpcResult.data as { id: string; total_count: number }[] | null
         const searchError = rpcResult.error
 
@@ -156,11 +158,12 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Fallback si la RPC n'existe pas — recherche basique
+      // Fallback si la RPC est indisponible — ILIKE par mot (AND entre mots, OR entre champs)
+      // Fix 6 : ajout resume_ia dans les champs couverts
       for (const word of words) {
         const pattern = `%${word}%`
         query = query.or(
-          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern}`
+          `nom.ilike.${pattern},prenom.ilike.${pattern},titre_poste.ilike.${pattern},email.ilike.${pattern},localisation.ilike.${pattern},formation.ilike.${pattern},notes.ilike.${pattern},resume_ia.ilike.${pattern}`
         )
       }
     }

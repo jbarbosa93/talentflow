@@ -1,59 +1,26 @@
 import Link from "next/link"
+import BlurFade from "@/components/magicui/blur-fade"
 
-const features = [
-  "Toutes les fonctionnalités incluses",
-  "IA illimitée, sans restriction",
-  "Intégrations Microsoft 365, Slack",
-  "Support prioritaire en moins de 24h",
-  "Hébergement cloud Suisse sécurisé",
-]
-
-export default function Pricing() {
+export default function Beta() {
   return (
-    <section id="tarifs" className="l-section">
-      <div className="l-pricing-wrap">
-        <div className="l-pricing-inner">
-          {/* Left */}
-          <div>
-            <div className="l-tag">✦ Tarif</div>
-            <h2 className="l-h2">
-              Un prix clair.<br />Tout inclus.
+    <section id="beta">
+      <BlurFade delay={0} inView>
+        <div className="l-beta-wrap">
+          <div className="l-beta-card">
+            <div className="l-beta-badge">✦ Bêta</div>
+            <h2 className="l-beta-title">
+              TalentFlow est actuellement<br />en phase de développement.
             </h2>
-            <p className="l-sub" style={{ marginBottom: 0 }}>
-              Pas d&apos;abonnement caché, pas de module en extra. Un seul plan
-              avec tout ce qu&apos;il vous faut pour démarrer et grandir.
+            <p className="l-beta-sub">
+              La plateforme est utilisée activement par des agences de recrutement en Suisse.
+              Contactez-nous pour en savoir plus ou planifier une démonstration.
             </p>
-          </div>
-
-          {/* Right — Price card */}
-          <div className="l-price-card">
-            <div className="l-price-name">⭐ TalentFlow Pro</div>
-
-            <div className="l-price-num">
-              <sup>CHF</sup>49
-            </div>
-            <div className="l-price-per">
-              par utilisateur / mois · facturation annuelle
-            </div>
-
-            <ul className="l-price-list">
-              {features.map((feat, i) => (
-                <li key={i}>
-                  <span className="l-price-check">✓</span>
-                  {feat}
-                </li>
-              ))}
-            </ul>
-
-            <Link href="/candidats" className="l-price-btn">
-              Démarrer l&apos;essai gratuit →
+            <Link href="/demande-acces" className="l-beta-btn">
+              Demander une démo →
             </Link>
-            <p className="l-price-note">
-              14 jours gratuits · Sans carte bancaire · Résiliable à tout moment
-            </p>
           </div>
         </div>
-      </div>
+      </BlurFade>
     </section>
   )
 }

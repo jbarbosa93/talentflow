@@ -1,4 +1,5 @@
 'use client'
+import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
@@ -21,7 +22,7 @@ import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
 // Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
-import { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet } from '@/lib/badge-candidats'
+import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, hasBadge } from '@/lib/badge-candidats'
 export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -346,6 +347,7 @@ export default function CandidatsList() {
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
   const [nonVusTotal, setNonVusTotal]     = useState(0) // total non-vus tous pages confondus
   const [nonVusParStatut, setNonVusParStatut] = useState<Record<string, number>>({}) // non-vus par import_status
+  const [viewedAllAt, setViewedAllAt]     = useState<string | null>(null) // timestamp "Tout marquer vu"
 
   // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
   useEffect(() => {
@@ -354,13 +356,21 @@ export default function CandidatsList() {
     return () => window.removeEventListener('talentflow:badges-changed', handler)
   }, [])
 
+  // Init au montage — charge les vus depuis DB (merge avec localStorage existant)
+  useEffect(() => {
+    ensureInit().then(({ viewedAllAt: vaa }) => {
+      setViewedAllAt(vaa)
+      setBadgeTick(t => t + 1)
+    })
+  }, [])
+
   // Calculer le total "non vus" réel depuis l'API (tous les candidats, pas juste la page)
   useEffect(() => {
     fetch(`/api/candidats/count-new?t=${Date.now()}`)
       .then(r => r.json())
-      .then(({ ids }: { ids: { id: string; import_status: string }[] }) => {
+      .then(({ ids }: { ids: { id: string; import_status: string; created_at: string }[] }) => {
         const vs = getViewedSet()
-        const nonVus = ids.filter(item => !vs.has(item.id))
+        const nonVus = ids.filter(item => hasBadge(item.id, item.created_at, vs, viewedAllAt))
         nonVusBadgeLoaded.current = true
         setNonVusTotal(nonVus.length)
         const parStatut: Record<string, number> = {}
@@ -370,6 +380,7 @@ export default function CandidatsList() {
         setNonVusParStatut(parStatut)
       })
       .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [badgeTick])
   // Auto-désactiver filterNonVu quand plus aucun non-vu (ex: dernier consulté depuis la fiche)
   // Guard : attendre que l'API badge ait répondu au moins une fois — évite le reset prématuré au montage
@@ -401,12 +412,16 @@ export default function CandidatsList() {
   const [filterAgeMax, setFilterAgeMax] = useState<number | ''>(() => ssGet('fAgeMax', ''))
   const [filterLangue, setFilterLangue] = useState(() => ssGet('fLangue', ''))
   const [filterPermis, setFilterPermis] = useState<boolean | null>(() => ssGet('fPermis', null))
-  const [filterExpMin, setFilterExpMin] = useState<number | ''>(() => ssGet('fExpMin', ''))
   const [filterGenre, setFilterGenre] = useState<string>(() => ssGet('fGenre', ''))
   const [filterStarsMin, setFilterStarsMin] = useState<number | ''>(() => ssGet('fStarsMin', ''))
   const [filterCfc, setFilterCfc] = useState<boolean | null>(() => ssGet('fCfc', null))
   const [filterEngage, setFilterEngage] = useState<boolean | null>(() => ssGet('fEngage', null))
   const [showBooleanHelp, setShowBooleanHelp] = useState(false)
+
+  // Fix 3 — sync bidirectionnel filtreMetier ↔ filterMetier
+  // filtreMetier = dropdown inline sur la liste | filterMetier = filtres avancés → serveur
+  useEffect(() => { if (filtreMetier !== filterMetier) setFilterMetier(filtreMetier) }, [filtreMetier]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (filterMetier !== filtreMetier) setFiltreMetier(filterMetier) }, [filterMetier]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persister les filtres dans sessionStorage
   useEffect(() => { ssSet('sort', sortBy) }, [sortBy])
@@ -417,7 +432,6 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('fAgeMax', filterAgeMax) }, [filterAgeMax])
   useEffect(() => { ssSet('fLangue', filterLangue) }, [filterLangue])
   useEffect(() => { ssSet('fPermis', filterPermis) }, [filterPermis])
-  useEffect(() => { ssSet('fExpMin', filterExpMin) }, [filterExpMin])
   useEffect(() => { ssSet('fGenre', filterGenre) }, [filterGenre])
   useEffect(() => { ssSet('fStarsMin', filterStarsMin) }, [filterStarsMin])
   useEffect(() => { ssSet('fCfc', filterCfc) }, [filterCfc])
@@ -479,6 +493,13 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('perPage', perPage) }, [perPage])
   // Détecter la recherche booléenne
   const hasBooleanSearch = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(debouncedSearch)
+  // Fix 5 — pour les requêtes booléennes ET/AND uniquement : extraire les mots et envoyer
+  // au serveur comme pré-filtre (la nouvelle RPC fait AND entre mots → résultat identique).
+  // Pour OU/OR/SAUF/NOT : fetch tout côté client (OR serveur n'est pas supporté).
+  const booleanHasOr = /\b(OU|OR|SAUF|NOT)\b/i.test(debouncedSearch)
+  const booleanServerTerms = hasBooleanSearch && !booleanHasOr
+    ? debouncedSearch.replace(/\b(ET|AND)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+    : null
 
   // Reset page + sélection quand les filtres changent (skip au premier render)
   const isFirstRender = useRef(true)
@@ -488,15 +509,15 @@ export default function CandidatsList() {
     setSelectedIds(new Set())
   }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu, filterCfc, filterEngage])
 
-  // Si filtre âge ou recherche booléenne → fetch tout (client-side)
-  // CFC et Déjà engagé sont désormais filtrés côté serveur
+  // Si filtre âge ou OU/SAUF booléen → fetch tout (client-side)
+  // ET booléen → envoyé au serveur (la RPC fait AND entre mots)
   const ageFilterActive = filterAgeMin !== '' || filterAgeMax !== ''
-  const clientSideFilter = ageFilterActive || filterNonVu || hasBooleanSearch
+  const clientSideFilter = ageFilterActive || filterNonVu || (hasBooleanSearch && booleanHasOr)
   const { data: candidatsData, isLoading, isFetching } = useCandidats({
     statut: filtreStatut === 'tous' ? undefined : filtreStatut,
     import_status: importStatusFilter as ImportStatus,
-    // Recherche booléenne → pas de search serveur (géré côté client)
-    search: hasBooleanSearch ? undefined : (debouncedSearch || undefined),
+    // Fix 5 : ET booléen → serveur | OU/SAUF booléen → client (fetch all)
+    search: booleanServerTerms || (hasBooleanSearch ? undefined : (debouncedSearch || undefined)),
     page: clientSideFilter ? 1 : page,
     per_page: clientSideFilter ? 0 : perPage, // 0 = fetch all (max 10000)
     sort: sortBy,
@@ -532,9 +553,6 @@ export default function CandidatsList() {
       filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
     }
     // filtreMetier est désormais synchronisé avec filterMetier (serveur) — pas de double filtre client
-    if (filterExpMin !== '') {
-      filtered = filtered.filter(c => (c.annees_exp || 0) >= filterExpMin)
-    }
     // Filtre âge côté client (date_naissance peut être "54", "15/03/1990", etc.)
     if (filterAgeMin !== '' || filterAgeMax !== '') {
       filtered = filtered.filter(c => {
@@ -555,13 +573,13 @@ export default function CandidatsList() {
     const booleanMatcher = parseBooleanSearch(search)
     if (booleanMatcher) {
       filtered = filtered.filter(c => {
-        const searchable = [c.prenom, c.nom, c.titre_poste, c.email, c.localisation, c.formation, c.notes, ...(c.competences || []), ...(c.tags || [])].filter(Boolean).join(' ')
+        const searchable = [c.prenom, c.nom, c.titre_poste, c.email, c.localisation, c.formation, c.notes, c.resume_ia, ...(c.competences || []), ...(c.tags || [])].filter(Boolean).join(' ')
         return booleanMatcher(searchable)
       })
     }
 
     return filtered
-  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterExpMin, filterAgeMin, filterAgeMax, filterStarsMin, search])
+  }, [allCandidats, aiResults, filtreLocalisation, filtreMetier, filterAgeMin, filterAgeMax, filterStarsMin, search])
 
   const activeFiltersCount = [
     filterMetier !== '',   // filtreMetier est synchronisé avec filterMetier — un seul comptage
@@ -572,7 +590,6 @@ export default function CandidatsList() {
     filterPermis !== null,
     filterGenre !== '',
     filterStarsMin !== '',
-    filterExpMin !== '',
     filterCfc !== null,
     filterEngage !== null,
     filtreLocalisation !== '',
@@ -583,7 +600,7 @@ export default function CandidatsList() {
     setImportStatusFilter('traite')
     setFilterMetier(''); setFilterLieu(''); setFilterAgeMin(''); setFilterAgeMax('')
     setFilterLangue(''); setFilterPermis(null); setFilterGenre(''); setFilterStarsMin('')
-    setFilterExpMin(''); setFilterCfc(null); setFilterEngage(null)
+    setFilterCfc(null); setFilterEngage(null)
     setFiltreMetier(''); setFiltreLocalisation('')
     setFilterNonVu(false)
   }
@@ -599,13 +616,11 @@ export default function CandidatsList() {
     // Filtre "non vu" — client-side
     if (filterNonVu) {
       const vs = getViewedSet()
-      const seuil = 30 * 24 * 60 * 60 * 1000
-      const n = Date.now()
-      result = result.filter((c: any) => !vs.has(c.id) && c.created_at && n - new Date(c.created_at).getTime() < seuil)
+      result = result.filter((c: any) => hasBadge(c.id, c.created_at, vs, viewedAllAt))
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidatsFiltres, sortBy, filterNonVu, badgeTick])
+  }, [candidatsFiltres, sortBy, filterNonVu, badgeTick, viewedAllAt])
 
   // Pagination : client-side quand filtre âge ou "non vus" actif, sinon serveur
   const candidatesTries = sorted
@@ -660,31 +675,6 @@ export default function CandidatsList() {
       else ids.forEach(id => next.add(id))
       return next
     })
-  }
-
-  // Détecte et formate automatiquement un numéro en international
-  const detectAndFormat = (tel: string): { number: string; flag: string; country: string } => {
-    const c = tel.replace(/[\s\-().]/g, '')
-
-    if (c.startsWith('+41')  || c.startsWith('0041'))  return { number: '+41'  + (c.startsWith('+41')  ? c.slice(3) : c.slice(4)), flag: '\uD83C\uDDE8\uD83C\uDDED', country: 'Suisse' }
-    if (c.startsWith('+33')  || c.startsWith('0033'))  return { number: '+33'  + (c.startsWith('+33')  ? c.slice(3) : c.slice(4)), flag: '\uD83C\uDDEB\uD83C\uDDF7', country: 'France' }
-    if (c.startsWith('+34')  || c.startsWith('0034'))  return { number: '+34'  + (c.startsWith('+34')  ? c.slice(3) : c.slice(4)), flag: '\uD83C\uDDEA\uD83C\uDDF8', country: 'Espagne' }
-    if (c.startsWith('+351') || c.startsWith('00351')) return { number: '+351' + (c.startsWith('+351') ? c.slice(4) : c.slice(5)), flag: '\uD83C\uDDF5\uD83C\uDDF9', country: 'Portugal' }
-    if (c.startsWith('+39')  || c.startsWith('0039'))  return { number: '+39'  + (c.startsWith('+39')  ? c.slice(3) : c.slice(4)), flag: '\uD83C\uDDEE\uD83C\uDDF9', country: 'Italie' }
-
-    if (c.startsWith('0')) {
-      const local = c.slice(1)
-      if (/^7[6-9]/.test(local)) return { number: '+41' + local, flag: '\uD83C\uDDE8\uD83C\uDDED', country: 'Suisse' }
-      if (/^[67]/.test(local))   return { number: '+33' + local, flag: '\uD83C\uDDEB\uD83C\uDDF7', country: 'France' }
-      if (/^[0-5]/.test(local))  return { number: '+33' + local, flag: '\uD83C\uDDEB\uD83C\uDDF7', country: 'France' }
-      return { number: c, flag: '\u2753', country: '' }
-    }
-
-    if (/^[67]/.test(c) && c.length === 9)      return { number: '+34'  + c, flag: '\uD83C\uDDEA\uD83C\uDDF8', country: 'Espagne' }
-    if (/^9/.test(c)    && c.length === 9)       return { number: '+351' + c, flag: '\uD83C\uDDF5\uD83C\uDDF9', country: 'Portugal' }
-    if (/^3/.test(c)    && c.length >= 9)        return { number: '+39'  + c, flag: '\uD83C\uDDEE\uD83C\uDDF9', country: 'Italie' }
-
-    return { number: c, flag: '\uD83D\uDCF1', country: '' }
   }
 
   const copyNumbers = async (formatted: string[]) => {
@@ -915,26 +905,20 @@ export default function CandidatsList() {
   // eslint-disable-next-line @typescript-eslint/no-unused-expressions
   void badgeTick
   const viewedSet = getViewedSet()
-  const now = Date.now()
-  const SEUIL_MS = 30 * 24 * 60 * 60 * 1000
 
   // Compter les badges actifs (pour le bouton "Tout marquer vu")
   const badgeCount = useMemo(() => {
-    return sorted.filter(c =>
-      !viewedSet.has(c.id) &&
-      c.created_at &&
-      now - new Date(c.created_at).getTime() < SEUIL_MS
-    ).length
+    return sorted.filter(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt)).length
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sorted, badgeTick])
+  }, [sorted, badgeTick, viewedAllAt])
 
   const renderCard = (c: any) => {
     const selected = selectedIds.has(c.id)
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    // Badge rouge si : créé dans les 30 derniers jours ET fiche jamais ouverte
-    const isNewCandidat = !viewedSet.has(c.id) && !!c.created_at && now - new Date(c.created_at).getTime() < SEUIL_MS
+    // Badge rouge si : créé dans les 30 derniers jours ET fiche jamais ouverte (DB ou localStorage)
+    const isNewCandidat = hasBadge(c.id, c.created_at, viewedSet, viewedAllAt)
 
     return (
       <motion.div
@@ -1612,6 +1596,7 @@ export default function CandidatsList() {
                 } finally {
                   // Persister cross-device dans Supabase user metadata
                   fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
+                  markAllVu()
                 }
               }}
               className="neo-btn-ghost"
@@ -2595,7 +2580,7 @@ export default function CandidatsList() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
                     {avecTel.map((c: any) => {
-                      const { number, flag, country } = detectAndFormat(c.telephone)
+                      const { number, countryCode, country } = detectAndFormat(c.telephone)
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
                           <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
@@ -2607,9 +2592,10 @@ export default function CandidatsList() {
                               <Phone size={10} /> {number}
                             </div>
                           </div>
-                          {flag && (
-                            <span style={{ fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--muted)', fontWeight: 600 }}>
-                              {flag} {country}
+                          {countryCode && (
+                            <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+                              <span className={`fi fi-${countryCode}`} style={{ width: 18, height: 13, display: 'inline-block', backgroundSize: 'contain', borderRadius: 2 }} />
+                              {country}
                             </span>
                           )}
                         </div>

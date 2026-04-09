@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2, ShieldCheck, Mail } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 function LoginForm() {
   const router = useRouter()
@@ -80,7 +81,6 @@ function LoginForm() {
 
     // Vérifier si MFA TOTP requis
     if (data.session === null) {
-      // MFA requis — récupérer le factorId
       const { data: mfaData } = await supabase.auth.mfa.listFactors()
       const totpFactor = mfaData?.totp?.[0]
       if (totpFactor) {
@@ -101,7 +101,6 @@ function LoginForm() {
       const graceRes = await fetch(`/api/auth/otp-grace?email=${encodeURIComponent(email)}`)
       const graceData = await graceRes.json()
       if (graceData.skip) {
-        // Grâce active — pas besoin du code, connecter directement
         logAccess('login_success_grace')
         router.push('/dashboard')
         router.refresh()
@@ -110,9 +109,7 @@ function LoginForm() {
     } catch { /* ignore — continuer avec OTP si erreur */ }
 
     // ✅ SÉCURITÉ : Déconnecter immédiatement après vérification du mot de passe
-    // La session ne sera recréée qu'après vérification du code OTP
     await supabase.auth.signOut()
-    // Aussi nettoyer les cookies httpOnly côté serveur
     await fetch('/api/auth/logout', { method: 'POST' })
 
     // Envoyer le code OTP par email via Resend API
@@ -190,7 +187,7 @@ function LoginForm() {
       return
     }
 
-    // 2. ✅ Code vérifié — maintenant recréer la session Supabase
+    // 2. ✅ Code vérifié — recréer la session Supabase
     const supabase = createClient()
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
     if (signInError) {
@@ -199,7 +196,7 @@ function LoginForm() {
       return
     }
 
-    // 3. Session créée avec succès → définir cookie de grâce 4h + log + rediriger
+    // 3. Cookie de grâce 4h + log + redirect
     fetch('/api/auth/otp-grace', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -210,204 +207,229 @@ function LoginForm() {
     router.refresh()
   }
 
+  // ── Animations ──────────────────────────────────────────────────────────────
+  const fadeUp = (delay = 0) => ({
+    initial: { opacity: 0, y: 12 } as const,
+    animate: { opacity: 1, y: 0 } as const,
+    transition: { delay, duration: 0.35 },
+  })
+
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="auth-page">
-      {/* Panel gauche */}
-      <div className="auth-left">
-        <Link href="/" className="auth-logo">
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, borderRadius: 9, background: '#F7C948', flexShrink: 0,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
-            </svg>
-          </span>
-          <span className="auth-logo-text">TalentFlow</span>
-        </Link>
+    <div className="auth-glass-bg">
+      <motion.div
+        className="auth-glass-card"
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
 
-        <div className="auth-left-content">
-          <div className="auth-left-tag">ATS Intelligent</div>
-          <h1 className="auth-left-title">
-            Recrutez avec<br /><em>clarté</em> et efficacité
-          </h1>
-          <p className="auth-left-desc">
-            Centralisez vos candidats, analysez les CVs avec l'IA et pilotez votre pipeline de recrutement.
-          </p>
+        {/* ── Logo ── */}
+        <motion.div
+          className="auth-glass-logo"
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1, duration: 0.4 }}
+        >
+          <Link href="/">
+            <span className="auth-glass-logo-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+              </svg>
+            </span>
+            <span className="auth-glass-logo-text">TalentFlow</span>
+          </Link>
+        </motion.div>
 
-          <div className="auth-features">
-            {[
-              { icon: '⚡', text: 'Import CVs automatique — email, OneDrive, scanner' },
-              { icon: '🤖', text: 'Extraction IA du profil complet en 3 secondes' },
-              { icon: '🎯', text: 'Score de matching candidat × offre en temps réel' },
-              { icon: '📊', text: 'Pipeline visuel avec statuts personnalisables' },
-              { icon: '📱', text: 'App mobile — recherche & appel depuis votre iPhone' },
-              { icon: '🔍', text: 'Détection automatique des doublons' },
-            ].map((f, i) => (
-              <div key={i} className="auth-feature">
-                <div className="auth-feature-icon">{f.icon}</div>
-                {f.text}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* ── States ── */}
+        {emailOtpRequired && !mfaRequired ? (
+          /* ── Email OTP ── */
+          <>
+            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <Mail size={20} style={{ color: '#F5A623' }} />
+              <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification par email</h2>
+            </motion.div>
+            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
+              Un code à 6 chiffres a été envoyé à <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{email}</strong>.
+            </motion.p>
 
-        <div className="auth-left-footer">© 2026 TalentFlow. Tous droits réservés.</div>
-      </div>
+            <form className="auth-form" onSubmit={handleEmailOtpVerify}>
+              {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
 
-      {/* Panel droit */}
-      <div className="auth-right">
-        <div className="auth-card">
-          {emailOtpRequired && !mfaRequired ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <Mail size={22} style={{ color: '#7C3AED' }} />
-                <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification par email</h2>
-              </div>
-              <p className="auth-card-sub">Un code à 6 chiffres a été envoyé à <strong>{email}</strong>.</p>
-              <form className="auth-form" onSubmit={handleEmailOtpVerify}>
-                {error && <div className="auth-error">{error}</div>}
-                <div className="auth-field">
-                  <label className="auth-label">Code de vérification</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    className="auth-input"
-                    placeholder="000000"
-                    value={emailOtpCode}
-                    onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
-                    required
-                    autoFocus
-                    style={{ letterSpacing: '0.3em', textAlign: 'center', fontSize: 20 }}
-                  />
-                </div>
+              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
+                <label className="auth-label">Code de vérification</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  className="auth-input"
+                  placeholder="000000"
+                  value={emailOtpCode}
+                  onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
+                  required
+                  autoFocus
+                  style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
+                />
+              </motion.div>
+
+              <motion.div {...fadeUp(0.3 + 0.25)}>
                 <button type="submit" className="auth-btn" disabled={emailOtpLoading}>
                   {emailOtpLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {emailOtpLoading ? 'Vérification...' : 'Confirmer'}
                 </button>
-              </form>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
-                <button
-                  onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
-                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  ← Retour
-                </button>
-                <button
-                  onClick={async () => {
-                    setError('')
-                    try {
-                      const r = await fetch('/api/auth/send-otp', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email }),
-                      })
-                      if (r.ok) setError('✅ Nouveau code envoyé !')
-                      else setError('Erreur lors du renvoi.')
-                    } catch { setError('Erreur réseau.') }
-                  }}
-                  style={{ background: 'none', border: 'none', color: '#7C3AED', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
-                >
-                  Renvoyer le code
-                </button>
-              </div>
-            </>
-          ) : !mfaRequired ? (
-            <>
-              <h2 className="auth-card-title">Bon retour 👋</h2>
-              <p className="auth-card-sub">Connectez-vous à votre espace recruteur.</p>
+              </motion.div>
+            </form>
 
-              <form className="auth-form" onSubmit={handleSubmit}>
-                {(domainError || error) && <div className="auth-error">{domainError || error}</div>}
+            <motion.div {...fadeUp(0.4 + 0.25)} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+              <button
+                onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                ← Retour
+              </button>
+              <button
+                onClick={async () => {
+                  setError('')
+                  try {
+                    const r = await fetch('/api/auth/send-otp', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email }),
+                    })
+                    if (r.ok) setError('✅ Nouveau code envoyé !')
+                    else setError('Erreur lors du renvoi.')
+                  } catch { setError('Erreur réseau.') }
+                }}
+                style={{ background: 'none', border: 'none', color: '#F5A623', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+              >
+                Renvoyer le code
+              </button>
+            </motion.div>
+          </>
 
-                <div className="auth-field">
-                  <label className="auth-label">Email professionnel</label>
+        ) : !mfaRequired ? (
+          /* ── Login form ── */
+          <>
+            <motion.h2 className="auth-card-title" {...fadeUp(0.0 + 0.25)}>
+              Bon retour 👋
+            </motion.h2>
+            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
+              Connectez-vous à votre espace recruteur.
+            </motion.p>
+
+            <form className="auth-form" onSubmit={handleSubmit}>
+              {(domainError || error) && (
+                <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  {domainError || error}
+                </motion.div>
+              )}
+
+              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
+                <label className="auth-label">Email professionnel</label>
+                <input
+                  type="email"
+                  className="auth-input"
+                  placeholder="vous@entreprise.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </motion.div>
+
+              <motion.div className="auth-field" {...fadeUp(0.3 + 0.25)}>
+                <label className="auth-label">Mot de passe</label>
+                <div className="auth-input-wrap">
                   <input
-                    type="email"
+                    type={showPwd ? 'text' : 'password'}
                     className="auth-input"
-                    placeholder="vous@entreprise.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
                     required
-                    autoComplete="email"
+                    autoComplete="current-password"
                   />
+                  <button type="button" className="auth-eye-btn" onClick={() => setShowPwd(!showPwd)}>
+                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+              </motion.div>
 
-                <div className="auth-field">
-                  <label className="auth-label">Mot de passe</label>
-                  <div className="auth-input-wrap">
-                    <input
-                      type={showPwd ? 'text' : 'password'}
-                      className="auth-input"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      autoComplete="current-password"
-                    />
-                    <button type="button" className="auth-eye-btn" onClick={() => setShowPwd(!showPwd)}>
-                      {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-
+              <motion.div {...fadeUp(0.4 + 0.25)}>
                 <button type="submit" className="auth-btn" disabled={loading}>
                   {loading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {loading ? 'Connexion...' : 'Se connecter'}
                 </button>
-              </form>
+              </motion.div>
+            </form>
 
-              <div className="auth-footer-link" style={{ marginTop: 20 }}>
-                Pas d&apos;accès ?{' '}
-                <Link href="/demande-acces">Faire une demande →</Link>
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <ShieldCheck size={22} style={{ color: '#7C3AED' }} />
-                <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification 2FA</h2>
-              </div>
-              <p className="auth-card-sub">Entrez le code à 6 chiffres depuis votre application d&apos;authentification.</p>
+            <motion.div className="auth-footer-link" {...fadeUp(0.5 + 0.25)} style={{ marginTop: 20 }}>
+              Pas d&apos;accès ?{' '}
+              <Link href="/demande-acces">Faire une demande →</Link>
+            </motion.div>
+          </>
 
-              <form className="auth-form" onSubmit={handleMfaVerify}>
-                {error && <div className="auth-error">{error}</div>}
+        ) : (
+          /* ── MFA TOTP ── */
+          <>
+            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <ShieldCheck size={20} style={{ color: '#F5A623' }} />
+              <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification 2FA</h2>
+            </motion.div>
+            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
+              Entrez le code à 6 chiffres depuis votre application d&apos;authentification.
+            </motion.p>
 
-                <div className="auth-field">
-                  <label className="auth-label">Code d&apos;authentification</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    className="auth-input"
-                    placeholder="000000"
-                    value={mfaCode}
-                    onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                    required
-                    autoFocus
-                    style={{ letterSpacing: '0.3em', textAlign: 'center', fontSize: 20 }}
-                  />
-                </div>
+            <form className="auth-form" onSubmit={handleMfaVerify}>
+              {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
 
+              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
+                <label className="auth-label">Code d&apos;authentification</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  className="auth-input"
+                  placeholder="000000"
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  required
+                  autoFocus
+                  style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
+                />
+              </motion.div>
+
+              <motion.div {...fadeUp(0.3 + 0.25)}>
                 <button type="submit" className="auth-btn" disabled={loadingMfa}>
                   {loadingMfa ? <Loader2 size={16} className="animate-spin" /> : null}
                   {loadingMfa ? 'Vérification...' : 'Vérifier'}
                 </button>
-              </form>
+              </motion.div>
+            </form>
 
+            <motion.div {...fadeUp(0.4 + 0.25)}>
               <button
                 onClick={() => { setMfaRequired(false); setMfaCode(''); setError('') }}
-                style={{ marginTop: 14, background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                style={{ marginTop: 14, background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
               >
                 ← Retour à la connexion
               </button>
-            </>
-          )}
+            </motion.div>
+          </>
+        )}
+
+        {/* ── Legal footer ── */}
+        <div className="auth-glass-footer">
+          <Link href="/cgu">CGU</Link>
+          <span>·</span>
+          <Link href="/confidentialite">Confidentialité</Link>
+          <span>·</span>
+          <span>© 2026 TalentFlow</span>
         </div>
-      </div>
+
+      </motion.div>
     </div>
   )
 }

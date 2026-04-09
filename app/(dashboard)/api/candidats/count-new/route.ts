@@ -4,9 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Retourne les IDs des candidats créés dans les 30 derniers jours
-// Le filtrage "vu/non vu" se fait côté client via localStorage (source unique de vérité)
-// "Tout marquer vu" ajoute tous les IDs au localStorage → badge = 0
+// Retourne les candidats créés dans les 30 derniers jours avec created_at
+// Le filtrage "vu/non vu" se fait côté client via hasBadge (viewedSet + viewedAllAt)
 export async function GET() {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -14,13 +13,14 @@ export async function GET() {
     const admin = createAdminClient()
     const { data } = await admin
       .from('candidats')
-      .select('id, import_status')
+      .select('id, import_status, created_at')
       .gte('created_at', thirtyDaysAgo)
 
     return NextResponse.json({
-      ids: (data || []).map((c: { id: string; import_status: string | null }) => ({
+      ids: (data || []).map((c: { id: string; import_status: string | null; created_at: string }) => ({
         id: c.id,
         import_status: c.import_status ?? 'traite',
+        created_at: c.created_at,
       })),
     })
   } catch {

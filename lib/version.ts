@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.5.6'
+export const APP_VERSION = '1.5.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,115 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.5.15',
+    date: '2026-04-09',
+    label: 'Fix badge sidebar — ensureInit + couleur labels Menu/Compte',
+    features: [
+      'Fix : race condition badge sidebar — ensureInit() garantit que viewedAllAt est chargé avant le premier calcul',
+      'Fix : un seul appel API /candidats/vus partagé entre Sidebar et CandidatsList (promise cachée)',
+      'Fix : sidebar affiche maintenant le bon chiffre dès le premier rendu (plus de flash 5 → 2)',
+      'Fix : labels "Menu" et "Compte" sidebar — opacité rgba(255,255,255,0.22) → 0.45 (plus lisibles)',
+    ],
+  },
+  {
+    version: '1.5.14',
+    date: '2026-04-09',
+    label: 'Fix badge sidebar non-vus + couleur demande-acces',
+    features: [
+      'Fix : badge sidebar candidats — utilise maintenant hasBadge(id, created_at, viewedSet, viewedAllAt) au lieu de viewed.has(id)',
+      'Fix : sidebar ignorait viewedAllAt — le timestamp "Tout marquer vu" est maintenant pris en compte',
+      'Fix : CandidatsList dispatch badges-changed après initViewedFromDB() → sidebar se resync immédiatement',
+      'Fix : page /demande-acces — couleur #F7C948 → #F5A623 (cohérence orange app)',
+    ],
+  },
+  {
+    version: '1.5.13',
+    date: '2026-04-09',
+    label: 'Login redesign — glassmorphism dark + Framer Motion',
+    features: [
+      'Pages auth redesignées : fond blanc #FFFDF5 + orbes animées subtiles, card blanche centrée',
+      'Card login : border cream, shadow subtile, logo neo-brutalist orange, animations Framer Motion',
+      'Inputs : focus glow orange #F5A623, bouton orange avec shadow offset noir',
+      'Stagger Framer Motion sur tous les champs (fadeUp delay progressif)',
+      'Footer légal discret sur chaque page : liens CGU + Confidentialité',
+      'Pages converties : /login, /verify-email, /accepter-invitation (états: loading, expired, form, succès)',
+      '/register : redirige vers /demande-acces (inchangé)',
+      'Panel gauche branding supprimé sur toutes les pages — card centrée full-page',
+      'auth.css --y: #F7C948 → #F5A623 (cohérence app)',
+    ],
+  },
+  {
+    version: '1.5.12',
+    date: '2026-04-09',
+    label: 'Landing page redesign + pages légales provisoires',
+    features: [
+      'Landing : couleur #F7C948 → #F5A623 (cohérence avec l\'app)',
+      'Landing : Hero — CTA "Demander une démo" + "Se connecter", social proof avatars',
+      'Landing : Strip — stats mises à jour (OneDrive, Matching IA, Pipeline, LPD)',
+      'Landing : Features — 12 cartes mises à jour (OneDrive Sync, Matching IA, LPD/RGPD)',
+      'Landing : Section bêta — remplace Pricing, encart "en phase de développement" + CTA démo',
+      'Landing : Footer redesigné — 3 colonnes (brand, navigation, légal) avec liens CGU/Confidentialité/Mentions',
+      'Navbar : liens "Fonctionnalités" + "Contact" ajoutés',
+      'Pages légales provisoires : /cgu, /confidentialite, /mentions-legales (LPD suisse)',
+    ],
+  },
+  {
+    version: '1.5.11',
+    date: '2026-04-09',
+    label: 'Fix non-vus — migration viewedAllAt localStorage → Supabase',
+    features: [
+      'Migration one-shot : candidats_viewed_all_at localStorage → user_metadata Supabase (fix 491 faux non-vus)',
+      'PATCH /api/candidats/vus — endpoint dédié pour mettre à jour le timestamp "tout vu" sans toucher les lignes',
+    ],
+  },
+  {
+    version: '1.5.10',
+    date: '2026-04-09',
+    label: 'Drapeaux téléphone — SVG cross-platform (flag-icons)',
+    features: [
+      'Drapeaux pays sur numéros de téléphone via flag-icons CSS (SVG) — fonctionne sur Windows',
+      'Centralisation detectAndFormat() dans lib/phone-format.ts (3 duplications supprimées)',
+      'Rendu <span class="fi fi-ch"> au lieu d\'emojis Unicode — affichage cohérent Mac/Windows/Linux',
+    ],
+  },
+  {
+    version: '1.5.9',
+    date: '2026-04-09',
+    label: 'Non vus — migration localStorage → Supabase DB cross-device',
+    features: [
+      'Table candidats_vus (user_id, candidat_id) avec RLS par utilisateur',
+      'Sync automatique localStorage → DB au premier chargement (migration one-shot)',
+      'hasBadge tient compte du timestamp "Tout marquer vu" stocké en user_metadata',
+      'Badges cohérents cross-device : Mac + Windows partagent le même état',
+    ],
+  },
+  {
+    version: '1.5.8',
+    date: '2026-04-09',
+    label: 'Recherche — DB indexes + unaccent + champs complets',
+    features: [
+      'Index GIN fts (tsvector french) + index trigramme sur nom/prénom/titre/localisation',
+      'unaccent partout — macon trouve maçon, electricien → électricien',
+      'Recherche dans compétences, tags, expériences, formations, téléphone (en plus des champs existants)',
+      'Suppression linkedin et années d\'expérience (non utilisés sur la plateforme)',
+    ],
+  },
+  {
+    version: '1.5.7',
+    date: '2026-04-09',
+    label: 'Fix recherche candidats — 6 correctifs',
+    features: [
+      'Fix 1 : pagination recherche — result_offset manquant en DB (page 2+ retournait toujours page 1)',
+      'Fix 2 : multi-mots — chaque mot cherché séparément avec AND (était phrase exacte)',
+      'Fix 3 : sync filtreMetier ↔ filterMetier bidirectionnel (dropdown liste et filtres avancés)',
+      'Fix 4 : RPC utilise fts @@ plainto_tsquery (GIN index) + ILIKE sur cv_texte_brut / resume_ia',
+      'Fix 4 : RPC retourne total_count (était toujours 0 en mode recherche)',
+      'Fix 5 : booléen ET/AND → envoyé au serveur (FTS complet) ; OU/SAUF reste client-side',
+      'Fix 5 : corpus booléen client inclut maintenant resume_ia',
+      'Fix 6 : fallback ILIKE inclut resume_ia',
+    ],
+  },
   {
     version: '1.5.6',
     date: '2026-04-08',
