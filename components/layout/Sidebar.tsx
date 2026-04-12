@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2, X, Wrench, Building2, Activity,
+  Upload, Loader2, X, Wrench, Building2, Activity, TrendingUp,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -24,7 +24,8 @@ const NAV_ITEMS = [
   { href: '/clients',    label: 'Clients',           icon: Building2 },
   { href: '/offres',     label: 'Commandes',         icon: Briefcase },
   { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
-  { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar },
+  // { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar }, // masqué temporairement
+  { href: '/missions',   label: 'Missions',            icon: TrendingUp,   adminOnly: true },
   { href: '/messages',   label: 'Envois',              icon: Mail },
   { href: '/matching',              label: 'Matching IA',  icon: Sparkles },
   { href: '/activites',             label: 'Activite',     icon: Activity },
@@ -101,6 +102,21 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
+  // Badge missions pending
+  const [pendingMissionsCount, setPendingMissionsCount] = useState(0)
+  useEffect(() => {
+    const fetchPending = async () => {
+      try {
+        const res = await fetch('/api/missions/pending')
+        if (res.ok) { const d = await res.json(); setPendingMissionsCount(d.count ?? 0) }
+      } catch { /* silencieux */ }
+    }
+    fetchPending()
+    window.addEventListener('missions:pending-changed', fetchPending)
+    const iv = setInterval(fetchPending, 60_000)
+    return () => { window.removeEventListener('missions:pending-changed', fetchPending); clearInterval(iv) }
+  }, [])
+
   // Badge sidebar : candidats créés dans les 30 derniers jours et pas encore vus
   const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
 
@@ -159,7 +175,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   const OUTILS_PATHS = ['/parametres/import-masse', '/parametres/corriger-photos', '/parametres/doublons']
 
-  const ADMIN_PATHS = ['/parametres/admin', '/parametres/demandes-acces']
+  const ADMIN_PATHS = ['/parametres/admin', '/parametres/demandes-acces', '/parametres/securite']
 
   const isActive = (href: string, exact?: boolean) => {
     // Sur les pages outils, seul /outils est actif — pas /parametres
@@ -390,7 +406,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
           animate="show"
           style={{ display: 'flex', flexDirection: 'column' }}
         >
-          {NAV_ITEMS.map((item, i) => {
+          {NAV_ITEMS.filter(item => {
+            if ((item as any).adminOnly && user?.email !== ADMIN_EMAIL) return false
+            return true
+          }).map((item, i) => {
             const Icon = item.icon
             const active = isActive(item.href, item.exact)
             const isMatchingNav = item.href === '/matching'
@@ -467,6 +486,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       }} />
                     )
                   })()}
+                  {/* Badge missions pending */}
+                  {item.href === '/missions' && pendingMissionsCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#EF4444', color: 'white',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1,
+                    }}>
+                      {pendingMissionsCount > 99 ? '99+' : pendingMissionsCount}
+                    </span>
+                  )}
                   {/* Badge rappels entretiens */}
                   {item.href === '/entretiens' && typeof rappelsCount === 'number' && rappelsCount > 0 && (
                     <span style={{
@@ -555,32 +585,48 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       }} />
                     )}
                   </Link>
-                {/* Sous-menu Administration : Demandes d'accès */}
+                {/* Sous-menu Administration : Sécurité & Demandes d'accès */}
                 {isAdmin && active && (
-                  <Link
-                    href="/parametres/demandes-acces"
-                    className="d-nav-link"
-                    style={{
-                      position: 'relative', zIndex: 1,
-                      paddingLeft: 36, fontSize: 12,
-                      background: pathname === '/parametres/demandes-acces' ? 'rgba(245,166,35,0.15)' : undefined,
-                      color: pathname === '/parametres/demandes-acces' ? 'var(--primary)' : undefined,
-                      fontWeight: pathname === '/parametres/demandes-acces' ? 700 : undefined,
-                    }}
-                  >
-                    <UserCheck size={14} strokeWidth={1.5} style={{ opacity: 0.7 }} />
-                    Demandes d&apos;accès
-                    {typeof demandesCount === 'number' && demandesCount > 0 && (
-                      <span style={{
-                        marginLeft: 'auto', minWidth: 16, height: 16, borderRadius: 99,
-                        padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: '#EF4444', color: 'white',
-                        fontSize: 9, fontWeight: 800, flexShrink: 0,
-                      }}>
-                        {demandesCount}
-                      </span>
-                    )}
-                  </Link>
+                  <>
+                    <Link
+                      href="/parametres/securite"
+                      className="d-nav-link"
+                      style={{
+                        position: 'relative', zIndex: 1,
+                        paddingLeft: 36, fontSize: 12,
+                        background: pathname === '/parametres/securite' ? 'rgba(245,166,35,0.15)' : undefined,
+                        color: pathname === '/parametres/securite' ? 'var(--primary)' : undefined,
+                        fontWeight: pathname === '/parametres/securite' ? 700 : undefined,
+                      }}
+                    >
+                      <Shield size={14} strokeWidth={1.5} style={{ opacity: 0.7 }} />
+                      Sécurité &amp; Accès
+                    </Link>
+                    <Link
+                      href="/parametres/demandes-acces"
+                      className="d-nav-link"
+                      style={{
+                        position: 'relative', zIndex: 1,
+                        paddingLeft: 36, fontSize: 12,
+                        background: pathname === '/parametres/demandes-acces' ? 'rgba(245,166,35,0.15)' : undefined,
+                        color: pathname === '/parametres/demandes-acces' ? 'var(--primary)' : undefined,
+                        fontWeight: pathname === '/parametres/demandes-acces' ? 700 : undefined,
+                      }}
+                    >
+                      <UserCheck size={14} strokeWidth={1.5} style={{ opacity: 0.7 }} />
+                      Demandes d&apos;accès
+                      {typeof demandesCount === 'number' && demandesCount > 0 && (
+                        <span style={{
+                          marginLeft: 'auto', minWidth: 16, height: 16, borderRadius: 99,
+                          padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          background: '#EF4444', color: 'white',
+                          fontSize: 9, fontWeight: 800, flexShrink: 0,
+                        }}>
+                          {demandesCount}
+                        </span>
+                      )}
+                    </Link>
+                  </>
                 )}
               </motion.div>
             )

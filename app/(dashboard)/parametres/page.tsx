@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Save, Key, Bell, Palette, FolderInput, Shield, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle, Mail, Plug, XCircle, Pencil } from 'lucide-react'
+import { Save, Key, Bell, Palette, FolderInput, Loader2, CheckCircle, Globe, Database, Eye, EyeOff, ChevronUp, ChevronDown, Briefcase, X, Camera, Copy, UserCircle, Mail, Plug, XCircle, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { useMetiers } from '@/hooks/useMetiers'
@@ -29,9 +29,6 @@ const CANDIDAT_SECTIONS_DEFAULT = [
 
 const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 
-const LINK_SECTIONS = [
-  { href: '/parametres/securite', label: 'Sécurité & Accès', icon: Shield },
-]
 const TOOLS_SECTIONS = [
   { href: '/parametres/import-masse',    label: 'Import en masse',        icon: FolderInput },
   { href: '/parametres/corriger-photos', label: 'Corriger photos',        icon: Camera },
@@ -77,9 +74,7 @@ export default function ParametresPage() {
             })}
           </NavGroup>
 
-          <NavGroup label="Sécurité">
-            {LINK_SECTIONS.map(s => <NavLink key={s.href} {...s} />)}
-          </NavGroup>
+
         </nav>
 
         {/* Content */}

@@ -148,7 +148,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // SÉCURITÉ : /integrations réservé exclusivement à l'administrateur
-  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch').trim()
+  if (!process.env.ADMIN_EMAIL) console.error('[middleware] ADMIN_EMAIL env var manquante')
   if (user && pathname.startsWith('/integrations') && user.email !== ADMIN_EMAIL) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
