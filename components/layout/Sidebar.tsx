@@ -510,10 +510,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                     <span style={{
                       marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
                       padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#F5A623', color: '#000',
+                      background: '#EF4444', color: '#fff',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                     }}>
-                      {secNotifCount > 9 ? '9+' : secNotifCount}
+                      {secNotifCount}
                     </span>
                   )}
                   {showMatchingDot && (

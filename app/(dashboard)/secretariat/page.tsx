@@ -570,11 +570,6 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
             <input value={form.lieu_demande} onChange={e => set('lieu_demande', e.target.value)} placeholder="Ex: Genève" style={S.input} />
           </div>
 
-          <div>
-            <label style={S.label}>Carte d'identité / Passeport</label>
-            <input value={form.carte_id} onChange={e => set('carte_id', e.target.value)} placeholder="N° de pièce d'identité" style={S.input} />
-          </div>
-
           {/* Checkboxes documents */}
           <div style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 12 }}>
             <div style={{ ...S.label, marginBottom: 10 }}>Documents reçus</div>
@@ -1962,6 +1957,7 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
     candidat_id: null as string | null,
     candidat_nom: '',
     urgence: 'normale' as 'normale' | 'urgente',
+    date_rappel: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -1983,6 +1979,7 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
           message: form.message.trim(),
           candidat_id: form.candidat_id || null,
           urgence: form.urgence,
+          date_rappel: form.date_rappel || null,
           created_by: user?.id || null,
           created_by_nom: user?.user_metadata?.nom
             ? `${user.user_metadata.prenom || ''} ${user.user_metadata.nom}`.trim()
@@ -2037,6 +2034,12 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
               value={form.candidat_nom}
               onChange={(nom, id) => setForm(f => ({ ...f, candidat_nom: nom, candidat_id: id }))}
             />
+          </div>
+
+          {/* Date de rappel */}
+          <div>
+            <label style={S.label}>Date & heure de rappel (optionnel)</label>
+            <input type="datetime-local" value={form.date_rappel} onChange={e => setForm(f => ({ ...f, date_rappel: e.target.value }))} style={S.input} />
           </div>
 
           {/* Urgence */}
@@ -2550,7 +2553,7 @@ function SecretariatPage() {
             <Bell size={16} />
             {notifsNonLues > 0 && (
               <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#EF4444', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {notifsNonLues > 9 ? '9+' : notifsNonLues}
+                {notifsNonLues}
               </span>
             )}
           </button>
@@ -2583,14 +2586,41 @@ function SecretariatPage() {
           autre: <AlertTriangle size={13} color="var(--muted)" />,
         }
 
+        const handleNotifClick = (notif: Notification) => {
+          // Navigate to the right tab based on notification type
+          if (notif.type === 'sinistre_suivi') {
+            setActiveTab('accidents')
+            setShowNotifs(false)
+          } else if (notif.type === 'permis_urgent') {
+            setActiveTab('candidats')
+            setCandidatFiltre('permis_urgent')
+            setShowNotifs(false)
+          } else if (notif.type === 'permis_surveillance' || notif.type === 'permis_expiration') {
+            setActiveTab('candidats')
+            setCandidatFiltre('permis_surveillance')
+            setShowNotifs(false)
+          } else if (notif.type === 'doc_manquant') {
+            setActiveTab('candidats')
+            setCandidatFiltre('docs_manquants')
+            setShowNotifs(false)
+          } else if (notif.candidat_id) {
+            router.push(`/candidats/${notif.candidat_id}`)
+          }
+        }
+
         const renderNotif = (notif: Notification) => (
-          <div key={notif.id} style={{
+          <div key={notif.id} onClick={() => handleNotifClick(notif)} style={{
             display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 16px',
             borderBottom: '1px solid var(--border)',
             background: notif.lue ? 'transparent' : 'rgba(245,166,35,0.04)',
             borderLeft: notif.urgence === 'urgente' && !notif.lue ? '3px solid #EF4444' : '3px solid transparent',
             opacity: notif.lue ? 0.55 : 1,
-          }}>
+            cursor: 'pointer',
+            transition: 'background 0.1s',
+          }}
+          onMouseEnter={e => { if (!notif.lue) e.currentTarget.style.background = 'rgba(245,166,35,0.08)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = notif.lue ? 'transparent' : 'rgba(245,166,35,0.04)' }}
+          >
             <div style={{ flexShrink: 0, marginTop: 2 }}>
               {ICON_MAP[notif.type] || <Bell size={13} color="var(--muted)" />}
             </div>
@@ -2604,7 +2634,7 @@ function SecretariatPage() {
                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>{formatDate(notif.created_at?.split('T')[0])}</span>
                 {notif.created_by_nom && <span style={{ fontSize: 10, color: 'var(--muted)' }}>par {notif.created_by_nom}</span>}
                 {notif.candidat_id && (
-                  <a href={`/candidats/${notif.candidat_id}`} style={{ fontSize: 10, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Voir candidat →</a>
+                  <a href={`/candidats/${notif.candidat_id}`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Voir candidat →</a>
                 )}
               </div>
             </div>
@@ -2739,7 +2769,7 @@ function SecretariatPage() {
         <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null); setCandidatFiltre('tous') }} count={filteredCandidats.length}>
           <User size={14} /> Suivi Candidats
         </TabBtn>
-        <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={activeTab === 'alfa' && alfaView === 'apayer' ? filteredAlfaPaiements.length : filteredAlfa.length}>
+        <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAlfa.length + filteredAlfaPaiements.length}>
           <FileText size={14} /> ALFA
         </TabBtn>
         <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAccidents.length}>
@@ -2750,19 +2780,7 @@ function SecretariatPage() {
         </TabBtn>
       </div>
 
-      {/* Sous-tabs ALFA : Suivi / À Payer */}
-      {activeTab === 'alfa' && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {([['suivi', 'Suivi ALFA'], ['apayer', 'À Payer']] as const).map(([v, label]) => (
-            <button key={v} onClick={() => { setAlfaView(v); setSearchQuery('') }} style={{
-              padding: '5px 16px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              background: alfaView === v ? 'var(--primary)' : 'var(--secondary)',
-              color: alfaView === v ? '#fff' : 'var(--muted)',
-              border: `1.5px solid ${alfaView === v ? 'var(--primary)' : 'var(--border)'}`,
-            }}>{label}</button>
-          ))}
-        </div>
-      )}
+      {/* Sous-tabs ALFA supprimées — les deux tables s'affichent sur la même page */}
 
       {/* Sous-tabs année (pas sur Loyer) */}
       {activeTab !== 'loyers' && (
@@ -2822,16 +2840,22 @@ function SecretariatPage() {
         </div>
       )}
 
-      {/* Filtres candidats */}
-      {activeTab === 'candidats' && candidatFiltre !== 'tous' && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(245,166,35,0.15)', color: 'var(--primary)', border: '1.5px solid rgba(245,166,35,0.3)' }}>
-            🔍 {candidatFiltre === 'permis_urgent' ? 'Permis urgents (<30j)' : candidatFiltre === 'permis_surveillance' ? 'Permis à renouveler (<90j)' : 'Docs manquants'}
-          </div>
-          <button onClick={() => setCandidatFiltre('tous')} style={{
-            padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-            background: 'var(--secondary)', color: 'var(--muted)', border: '1.5px solid var(--border)',
-          }}>✕ Effacer filtre</button>
+      {/* Filtres candidats — pills */}
+      {activeTab === 'candidats' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+          {([
+            { key: 'tous', label: 'Tous' },
+            { key: 'permis_urgent', label: '🔴 Permis urgents (<30j)' },
+            { key: 'permis_surveillance', label: '🟡 Permis à renouveler (<90j)' },
+            { key: 'docs_manquants', label: '📋 Docs manquants' },
+          ] as const).map(f => (
+            <button key={f.key} onClick={() => setCandidatFiltre(f.key)} style={{
+              padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              background: candidatFiltre === f.key ? 'var(--primary)' : 'var(--secondary)',
+              color: candidatFiltre === f.key ? '#fff' : 'var(--muted)',
+              border: `1.5px solid ${candidatFiltre === f.key ? 'var(--primary)' : 'var(--border)'}`,
+            }}>{f.label}</button>
+          ))}
         </div>
       )}
 
@@ -2859,8 +2883,7 @@ function SecretariatPage() {
         {/* Compteur résultats */}
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--muted)', padding: '0 8px' }}>
           {activeTab === 'candidats' && `${filteredCandidats.length} candidat${filteredCandidats.length !== 1 ? 's' : ''}`}
-          {activeTab === 'alfa' && alfaView === 'suivi' && `${filteredAlfa.length} entrée${filteredAlfa.length !== 1 ? 's' : ''}`}
-          {activeTab === 'alfa' && alfaView === 'apayer' && `${filteredAlfaPaiements.length} entrée${filteredAlfaPaiements.length !== 1 ? 's' : ''}`}
+          {activeTab === 'alfa' && `${filteredAlfa.length + filteredAlfaPaiements.length} entrée${(filteredAlfa.length + filteredAlfaPaiements.length) !== 1 ? 's' : ''}`}
           {activeTab === 'accidents' && `${filteredAccidents.length} cas`}
           {activeTab === 'loyers' && `${filteredLoyers.length} loyer${filteredLoyers.length !== 1 ? 's' : ''}`}
         </div>
@@ -2886,21 +2909,29 @@ function SecretariatPage() {
                 onColorChange={handleColorChange}
               />
             )}
-            {activeTab === 'alfa' && alfaView === 'suivi' && (
-              <AlfaTable
-                rows={filteredAlfa}
-                onEdit={a => { setEditItem(a); setShowForm(true) }}
-                onDelete={a => setDeleteItem(a)}
-                onColorChange={handleColorChange}
-              />
-            )}
-            {activeTab === 'alfa' && alfaView === 'apayer' && (
-              <AlfaPaiementsTable
-                rows={filteredAlfaPaiements}
-                onEdit={a => { setEditItem(a); setShowForm(true) }}
-                onDelete={a => setDeleteItem(a)}
-                onColorChange={handleColorChange}
-              />
+            {activeTab === 'alfa' && (
+              <>
+                <div style={{ padding: '10px 16px', background: 'var(--secondary)', borderBottom: '1.5px solid var(--border)', fontSize: 12, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  📋 Suivi ALFA
+                  <span style={{ padding: '1px 8px', borderRadius: 99, background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: 11, fontWeight: 700 }}>{filteredAlfa.length}</span>
+                </div>
+                <AlfaTable
+                  rows={filteredAlfa}
+                  onEdit={a => { setEditItem(a); setShowForm(true); setAlfaView('suivi') }}
+                  onDelete={a => { setDeleteItem(a); setAlfaView('suivi') }}
+                  onColorChange={handleColorChange}
+                />
+                <div style={{ padding: '10px 16px', background: 'var(--secondary)', borderBottom: '1.5px solid var(--border)', borderTop: '2px solid var(--border)', fontSize: 12, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                  💰 À Payer
+                  <span style={{ padding: '1px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontSize: 11, fontWeight: 700 }}>{filteredAlfaPaiements.length}</span>
+                </div>
+                <AlfaPaiementsTable
+                  rows={filteredAlfaPaiements}
+                  onEdit={a => { setEditItem(a); setShowForm(true); setAlfaView('apayer') }}
+                  onDelete={a => { setDeleteItem(a); setAlfaView('apayer') }}
+                  onColorChange={handleColorChange}
+                />
+              </>
             )}
             {activeTab === 'accidents' && (
               <AccidentsTable

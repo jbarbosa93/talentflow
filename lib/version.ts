@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.2'
+export const APP_VERSION = '1.8.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.3',
+    date: '2026-04-12',
+    label: 'Secrétariat — Notifications + Filtres + ALFA unifié',
+    features: [
+      'Notifications : badge cloche affiche le nombre exact, suppression limite 100',
+      'Notifications : clic sur alerte navigue vers l\'onglet/filtre concerné',
+      'AlertModal : champ date & heure de rappel (date_rappel en DB)',
+      'ALFA : les deux tables (Suivi + À Payer) affichées sur la même page',
+      'Candidats : pills de filtre (Tous / Permis urgents / À renouveler / Docs manquants)',
+      'Dashboard : noms cliquables vers la fiche candidat',
+      'Sidebar : badge notifications en rouge',
+      'Modal candidat : champ Carte d\'identité supprimé',
+    ],
+  },
   {
     version: '1.8.2',
     date: '2026-04-12',

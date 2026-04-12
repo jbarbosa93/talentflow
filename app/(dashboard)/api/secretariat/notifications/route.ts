@@ -18,7 +18,6 @@ export async function GET(request: NextRequest) {
       .from('secretariat_notifications')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100)
 
     if (!all) {
       query = query.eq('lue', false)

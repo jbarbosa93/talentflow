@@ -640,7 +640,10 @@ function SecretaireDashboard({ user }: { user: any }) {
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.prenom} {item.nom}
+                        {item.candidat_id
+                          ? <Link href={`/candidats/${item.candidat_id}`} style={{ color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{item.prenom} {item.nom}</Link>
+                          : <>{item.prenom} {item.nom}</>
+                        }
                       </div>
                       <div style={{ fontSize: 12, color: cfg.color, fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
