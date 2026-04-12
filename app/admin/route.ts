@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+  const adminEmail = (process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch').trim()
   const supabase = createAdminClient()
   const host = new URL(request.url).host // localhost:3001 ou localhost:3002 selon le serveur
 

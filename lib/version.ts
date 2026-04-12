@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.6.2'
+export const APP_VERSION = '1.6.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.6.3',
+    date: '2026-04-12',
+    label: 'Audit complet ADMIN_EMAIL .trim()',
+    features: [
+      '🔧 .trim() ajouté sur toutes les occurrences ADMIN_EMAIL restantes (app/admin/route.ts)',
+      '🔧 Audit 7 fichiers : 5 déjà corrigés (v1.6.2), 1 hardcodé (Sidebar), 1 corrigé ici',
+    ],
+  },
   {
     version: '1.6.2',
     date: '2026-04-12',
