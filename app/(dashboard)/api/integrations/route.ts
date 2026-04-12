@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch'
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch').trim()
 
 async function requireAdmin(): Promise<NextResponse | null> {
   try {
