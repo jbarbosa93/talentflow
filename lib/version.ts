@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.6.9'
+export const APP_VERSION = '1.7.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.7.0',
+    date: '2026-04-12',
+    label: 'Dashboard Secrétaire',
+    features: [
+      '📊 Dashboard dédié rôle Secrétaire (dashboard/page.tsx conditionnel)',
+      '📊 Alertes urgentes : permis < 30j, permis < 90j, accidents en cours',
+      '📊 4 KPIs : candidats actifs, permis urgents, permis surveillance, accidents',
+      '📊 Liste "À traiter aujourd\'hui" priorisée rouge/orange/jaune avec actions WhatsApp/Email',
+      '📊 Accès rapides : nouveau candidat, déclarer accident, rechercher',
+      '📊 Activité récente : 5 dernières modifications secrétariat',
+      '📊 Route GET /api/secretariat/dashboard-stats',
+    ],
+  },
   {
     version: '1.6.9',
     date: '2026-04-12',

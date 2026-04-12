@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, Phone, ClipboardList, Search, Clock, CheckCircle2, Shield, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
@@ -133,6 +133,11 @@ export default function DashboardPage() {
   const initiales = (c: any) => {
     const n = (c.nom || '').trim(); const p = (c.prenom || '').trim()
     return `${p[0] || ''}${n[0] || ''}`.toUpperCase() || '?'
+  }
+
+  // ── Dashboard Secrétaire ────────────────────────────────────────────────
+  if (user && user.user_metadata?.role === 'Secrétaire') {
+    return <SecretaireDashboard user={user} />
   }
 
   return (
@@ -452,5 +457,273 @@ function RecentActivityWidget() {
         </div>
       )}
     </motion.div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ─── DASHBOARD SECRÉTAIRE ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+interface SecStats {
+  candidats_actifs: number
+  permis_urgents: number
+  permis_surveillance: number
+  accidents_en_cours: number
+  a_traiter: {
+    id: string
+    candidat_id: string | null
+    nom: string
+    prenom: string
+    photo_url: string | null
+    tel: string | null
+    email: string | null
+    raison: string
+    urgence: 'rouge' | 'orange' | 'jaune'
+    type: 'permis' | 'accident' | 'docs'
+  }[]
+  activite_recente: { nom: string; action: string; date: string }[]
+}
+
+function tempsRelatifSec(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const h = Math.floor(diff / 3600000)
+  if (h < 1) return 'à l\'instant'
+  if (h < 24) return `il y a ${h}h`
+  const j = Math.floor(h / 24)
+  if (j === 1) return 'hier'
+  if (j < 7) return `il y a ${j} jours`
+  return new Date(dateStr).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })
+}
+
+function dateDuJour(): string {
+  return new Date().toLocaleDateString('fr-CH', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+const URGENCE_CFG = {
+  rouge:  { bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.3)',  color: '#EF4444', dot: '#EF4444' },
+  orange: { bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.3)', color: '#F97316', dot: '#F97316' },
+  jaune:  { bg: 'rgba(245,166,35,0.1)', border: 'rgba(245,166,35,0.3)', color: '#F5A623', dot: '#F5A623' },
+}
+
+function SecretaireDashboard({ user }: { user: any }) {
+  const prenom = user?.user_metadata?.prenom || user?.user_metadata?.name?.split(' ')[0] || 'Secrétaire'
+
+  const { data: stats, isLoading } = useQuery<SecStats>({
+    queryKey: ['secretariat-dashboard-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/secretariat/dashboard-stats')
+      if (!res.ok) throw new Error('Erreur stats')
+      return res.json()
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  })
+
+  const hasAlertes = stats && (stats.permis_urgents > 0 || stats.permis_surveillance > 0 || stats.accidents_en_cours > 0)
+
+  return (
+    <div className="d-page">
+
+      {/* ── Header ── */}
+      <motion.div className="d-page-header" custom={0} variants={fadeUp} initial="hidden" animate="show">
+        <div>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ClipboardList size={24} color="var(--primary)" />
+            Bonjour, {prenom} 👋
+          </h1>
+          <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateDuJour()}</p>
+        </div>
+        <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+          <motion.button
+            whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, background: 'var(--primary)', border: 'none', color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            <ClipboardList size={15} /> Ouvrir Secrétariat
+          </motion.button>
+        </Link>
+      </motion.div>
+
+      {/* ── Alertes urgentes ── */}
+      {hasAlertes && (
+        <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show"
+          style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+          {stats!.permis_urgents > 0 && (
+            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}>
+                <AlertTriangle size={15} color="#EF4444" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>{stats!.permis_urgents} permis urgent{stats!.permis_urgents > 1 ? 's' : ''}</span>
+              </div>
+            </Link>
+          )}
+          {stats!.permis_surveillance > 0 && (
+            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(245,166,35,0.1)', border: '1.5px solid rgba(245,166,35,0.4)', cursor: 'pointer' }}>
+                <Clock size={15} color="#F5A623" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#F5A623' }}>{stats!.permis_surveillance} permis à surveiller</span>
+              </div>
+            </Link>
+          )}
+          {stats!.accidents_en_cours > 0 && (
+            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(249,115,22,0.1)', border: '1.5px solid rgba(249,115,22,0.4)', cursor: 'pointer' }}>
+                <Shield size={15} color="#F97316" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#F97316' }}>{stats!.accidents_en_cours} cas à surveiller</span>
+              </div>
+            </Link>
+          )}
+        </motion.div>
+      )}
+
+      {/* ── 4 KPI cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+        {[
+          { label: 'Candidats actifs',   value: stats?.candidats_actifs    ?? '—', emoji: '👥', kpiClass: 'kpi-yellow' },
+          { label: 'Permis urgents',      value: stats?.permis_urgents      ?? '—', emoji: '🔴', kpiClass: 'kpi-red'    },
+          { label: 'Permis à surveiller', value: stats?.permis_surveillance ?? '—', emoji: '🟡', kpiClass: 'kpi-orange' },
+          { label: 'Accidents en cours',  value: stats?.accidents_en_cours  ?? '—', emoji: '🏥', kpiClass: 'kpi-violet' },
+        ].map((kpi, i) => (
+          <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
+            <motion.div
+              className={`neo-kpi ${kpi.kpiClass || ''}`}
+              whileHover={{ y: -4, boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+            >
+              <div className="neo-kpi-icon"><span style={{ fontSize: 17 }}>{kpi.emoji}</span></div>
+              <div className="neo-kpi-value">
+                {isLoading ? '—' : typeof kpi.value === 'number'
+                  ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
+                  : kpi.value}
+              </div>
+              <div className="neo-kpi-label">{kpi.label}</div>
+            </motion.div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* ── Grille principale ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+
+        {/* ── À traiter aujourd'hui ── */}
+        <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>📋 À traiter aujourd'hui</h2>
+            <Link href="/secretariat" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Voir tout →</Link>
+          </div>
+
+          {isLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 32, color: 'var(--muted)' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+          ) : !stats?.a_traiter?.length ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--muted)' }}>
+              <CheckCircle2 size={28} style={{ marginBottom: 8, opacity: 0.3 }} />
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Tout est à jour ✅</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>Aucune action urgente</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {stats.a_traiter.map((item, i) => {
+                const cfg = URGENCE_CFG[item.urgence]
+                const ini = `${(item.prenom || '')[0] || ''}${(item.nom || '')[0] || ''}`.toUpperCase() || '?'
+                const tel = item.tel?.replace(/[^+\d]/g, '') || ''
+                return (
+                  <motion.div key={i} custom={i} variants={fadeUp} initial="hidden" animate="show"
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, background: cfg.bg, border: `1.5px solid ${cfg.border}` }}>
+                    {/* Avatar */}
+                    <div style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 10, overflow: 'hidden', background: 'var(--secondary)', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: 'var(--muted)', position: 'relative' }}>
+                      <span>{ini}</span>
+                      {item.photo_url && item.photo_url !== 'checked' && (
+                        <img src={item.photo_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.prenom} {item.nom}
+                      </div>
+                      <div style={{ fontSize: 12, color: cfg.color, fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
+                        {item.raison}
+                      </div>
+                    </div>
+                    {/* Actions rapides */}
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      {tel && (
+                        <a href={`https://wa.me/${tel}`} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D166', textDecoration: 'none' }}
+                          title="WhatsApp"><Phone size={13} /></a>
+                      )}
+                      {item.email && (
+                        <a href={`mailto:${item.email}`}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8', textDecoration: 'none' }}
+                          title="Email"><Mail size={13} /></a>
+                      )}
+                      <Link href="/secretariat"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', textDecoration: 'none' }}
+                        title="Voir dossier"><ArrowRight size={13} /></Link>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── Colonne droite ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Accès rapides */}
+          <motion.div custom={5} variants={fadeUp} initial="hidden" animate="show">
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 12 }}>⚡ Accès rapides</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Nouveau candidat',    icon: Plus,        bg: 'rgba(245,166,35,0.15)', color: 'var(--primary)', href: '/secretariat' },
+                { label: 'Déclarer un accident', icon: Shield,      bg: 'rgba(249,115,22,0.12)', color: '#F97316',        href: '/secretariat?tab=accidents' },
+                { label: 'Rechercher un dossier',icon: Search,      bg: 'rgba(99,102,241,0.12)', color: '#818CF8',        href: '/secretariat' },
+              ].map(({ label, icon: Icon, bg, color, href }, i) => (
+                <Link key={i} href={href} style={{ textDecoration: 'none' }}>
+                  <motion.div whileHover={{ x: 3 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 10, background: 'var(--surface)', border: '1.5px solid var(--border)', cursor: 'pointer' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon size={15} color={color} />
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>{label}</span>
+                    <ArrowRight size={13} color="var(--muted)" style={{ marginLeft: 'auto' }} />
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Activité récente */}
+          <motion.div custom={6} variants={fadeUp} initial="hidden" animate="show">
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 12 }}>🕐 Activité récente</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {isLoading ? (
+                <div style={{ color: 'var(--muted)', fontSize: 12, padding: 8 }}>Chargement…</div>
+              ) : !stats?.activite_recente?.length ? (
+                <div style={{ color: 'var(--muted)', fontSize: 12, padding: 8 }}>Aucune activité récente</div>
+              ) : stats.activite_recente.map((a, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--surface)', border: '1.5px solid var(--border)' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ClipboardList size={13} color="var(--muted)" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.nom}</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{a.action}</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, fontWeight: 500, whiteSpace: 'nowrap' }}>{tempsRelatifSec(a.date)}</div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+        </div>
+      </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
   )
 }
