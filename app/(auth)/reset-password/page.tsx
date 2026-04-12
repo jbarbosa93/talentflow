@@ -69,8 +69,9 @@ function ResetPasswordForm() {
         setError(updateError.message)
       } else {
         setDone(true)
-        // Rediriger vers le dashboard après 3s
-        setTimeout(() => router.push('/dashboard'), 3000)
+        // Déconnecter puis rediriger vers login pour une connexion propre
+        await supabase.auth.signOut()
+        setTimeout(() => router.push('/login'), 3000)
       }
     } catch {
       setError('Erreur réseau. Veuillez réessayer.')
@@ -112,11 +113,11 @@ function ResetPasswordForm() {
               <h2 className="auth-card-title" style={{ margin: 0 }}>Mot de passe mis à jour</h2>
             </motion.div>
             <motion.p className="auth-card-sub" {...fadeUp(0.1)}>
-              Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers le tableau de bord…
+              Votre mot de passe a été modifié avec succès. Vous allez être redirigé vers la page de connexion…
             </motion.p>
             <motion.div {...fadeUp(0.2)} style={{ marginTop: 16 }}>
-              <Link href="/dashboard" style={{ color: '#F5A623', fontSize: 13, fontWeight: 600 }}>
-                Aller au tableau de bord →
+              <Link href="/login" style={{ color: '#F5A623', fontSize: 13, fontWeight: 600 }}>
+                Se connecter →
               </Link>
             </motion.div>
           </>
