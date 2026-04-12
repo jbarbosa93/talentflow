@@ -15,14 +15,14 @@ export async function GET(request: NextRequest) {
     // 1. Fetch tous les candidats de l'année en cours
     const { data: candidats, error: e1 } = await (supabase as any)
       .from('secretariat_candidats')
-      .select('id, nom, prenom, date_echeance_permis, docs_manquants, candidat_id, updated_at, candidats!candidat_id(photo_url, tel, email)')
+      .select('id, nom, prenom, date_echeance_permis, docs_manquants, candidat_id, updated_at, candidats!candidat_id(photo_url, telephone, email)')
       .eq('annee', annee)
 
     if (e1) throw e1
     const candidatsList = (candidats || []).map((c: any) => ({
       ...c,
       photo_url: c.candidats?.photo_url ?? null,
-      tel: c.candidats?.tel ?? null,
+      tel: c.candidats?.telephone ?? null,
       email: c.candidats?.email ?? null,
       candidats: undefined,
     }))
@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
     // 2. Fetch accidents en cours (termine = false) toutes années
     const { data: accidents, error: e2 } = await (supabase as any)
       .from('secretariat_accidents')
-      .select('id, nom_prenom, date_debut, type_cas, candidat_id, updated_at, candidats!candidat_id(photo_url, tel, email)')
+      .select('id, nom_prenom, date_debut, type_cas, candidat_id, updated_at, candidats!candidat_id(photo_url, telephone, email)')
       .eq('termine', false)
 
     if (e2) throw e2
     const accidentsList = (accidents || []).map((a: any) => ({
       ...a,
       photo_url: a.candidats?.photo_url ?? null,
-      tel: a.candidats?.tel ?? null,
+      tel: a.candidats?.telephone ?? null,
       email: a.candidats?.email ?? null,
       candidats: undefined,
     }))

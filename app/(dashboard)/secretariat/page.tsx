@@ -476,7 +476,6 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
               <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
                 <option value={2026}>2026</option>
                 <option value={2025}>2025</option>
-                <option value={2024}>2024</option>
               </select>
             </div>
           </div>
@@ -679,7 +678,6 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
               <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
                 <option value={2026}>2026</option>
                 <option value={2025}>2025</option>
-                <option value={2024}>2024</option>
               </select>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
@@ -810,7 +808,6 @@ function LoyerModal({ item, onClose, onSaved }: { item?: SecretariatLoyer | null
             <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
               <option value={2026}>2026</option>
               <option value={2025}>2025</option>
-              <option value={2024}>2024</option>
             </select>
           </div>
 
@@ -1928,7 +1925,7 @@ export default function SecretariatPage() {
       {/* Sous-tabs année (pas sur Loyer) */}
       {activeTab !== 'loyers' && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-          {[2026, 2025, 2024].map(y => (
+          {[2026, 2025].map(y => (
             <button key={y} onClick={() => setAnnee(y)} style={{
               padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
               background: annee === y ? 'var(--foreground)' : 'var(--secondary)',

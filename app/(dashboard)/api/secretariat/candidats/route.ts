@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     let query = (supabase as any)
       .from('secretariat_candidats')
-      .select('*, candidats!candidat_id(photo_url, tel, email)')
+      .select('*, candidats!candidat_id(photo_url, telephone, email)')
       .order('created_at', { ascending: false })
 
     if (annee) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const rows = (data ?? []).map((row: any) => ({
       ...row,
       photo_url: row.candidats?.photo_url ?? null,
-      tel: row.candidats?.tel ?? null,
+      tel: row.candidats?.telephone ?? null,
       email: row.candidats?.email ?? null,
       candidats: undefined,
     }))
