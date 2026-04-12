@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.0'
+export const APP_VERSION = '1.8.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.1',
+    date: '2026-04-12',
+    label: 'Secrétariat — Filtres Excel + Archives + UI',
+    features: [
+      'Filtres Excel (ColumnFilter + SortableHeader) sur les 5 onglets : Candidats, Accidents, Loyers, ALFA Suivi, ALFA À Payer',
+      'Accidents : bouton archive (📦) sur cas terminés, badge archivé, filtre type/statut',
+      'ALFA À Payer : noms cliquables (lien candidat), avatars photo, suppression boutons tri Récent/A→Z/Z→A',
+      'Couleurs : simplifié à 4 couleurs (Vert, Bleu, Jaune, Rouge) + Aucune',
+    ],
+  },
   {
     version: '1.8.0',
     date: '2026-04-12',

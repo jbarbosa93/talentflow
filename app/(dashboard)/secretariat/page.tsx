@@ -62,6 +62,7 @@ interface SecretariatAccident {
   decision: string | null
   note: string | null
   couleur: 'normal' | 'jaune' | 'rouge'
+  archive: boolean
   annee: number
   photo_url?: string | null
   tel?: string | null
@@ -204,12 +205,11 @@ function WaIcon({ size = 12 }: { size?: number }) {
 }
 
 const ROW_COLORS: { key: string; label: string; bg: string }[] = [
-  { key: '', label: 'Normal', bg: 'transparent' },
-  { key: 'jaune', label: 'Jaune', bg: '#FEF9C3' },
-  { key: 'orange', label: 'Orange', bg: '#FED7AA' },
-  { key: 'rouge', label: 'Rouge', bg: '#FEE2E2' },
+  { key: '', label: 'Aucune', bg: 'transparent' },
   { key: 'vert', label: 'Vert', bg: '#DCFCE7' },
   { key: 'bleu', label: 'Bleu', bg: '#DBEAFE' },
+  { key: 'jaune', label: 'Jaune', bg: '#FEF9C3' },
+  { key: 'rouge', label: 'Rouge', bg: '#FEE2E2' },
 ]
 
 function ColorPicker({ currentColor, onChange }: { currentColor: string | null; onChange: (color: string) => void }) {
@@ -1391,6 +1391,9 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
   onSelectAll: (all: boolean) => void
   onColorChange: (id: string, color: string) => void
 }) {
+  const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
+  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
+
   if (candidats.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -1400,21 +1403,62 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
     )
   }
 
+  const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
+  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
+
+  const getVal = (c: SecretariatCandidat, col: string): string => {
+    if (col === 'nom') return `${c.prenom} ${c.nom}`.trim()
+    if (col === 'permis') return c.genre_permis || '—'
+    if (col === 'enfants') return c.enfants_charge === 'oui' ? 'Oui' : c.enfants_charge === 'non' ? 'Non' : '?'
+    if (col === 'statut') { const s = getLigneStatut(c); return s === 'ok' ? 'OK' : s === 'warning' ? 'Attention' : 'Urgent' }
+    if (col === 'docs') return c.docs_manquants ? 'Manquants' : 'Complet'
+    return ''
+  }
+
+  let displayed = candidats.filter(c => {
+    for (const [col, sel] of Object.entries(filters)) {
+      if (sel === null) continue
+      if (!sel.has(getVal(c, col))) return false
+    }
+    return true
+  })
+
+  if (sort.dir && sort.col) {
+    displayed = [...displayed].sort((a, b) => {
+      const va = getVal(a, sort.col).toLowerCase()
+      const vb = getVal(b, sort.col).toLowerCase()
+      return sort.dir === 'desc' ? vb.localeCompare(va, 'fr') : va.localeCompare(vb, 'fr')
+    })
+  }
+
+  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }
+
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border)' }}>
             <th style={{ padding: '8px 6px', textAlign: 'center', width: 30 }}>
-              <input type="checkbox" checked={candidats.length > 0 && selectedIds.size === candidats.length} onChange={e => onSelectAll(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+              <input type="checkbox" checked={displayed.length > 0 && selectedIds.size === displayed.length} onChange={e => onSelectAll(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
             </th>
-            {['Candidat', 'N° Quad', 'Permis de séjour', 'Enfants', 'Documents', 'Remarques', 'Fin mission', 'Docs manq.', 'Statut', ''].map(h => (
-              <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-            ))}
+            <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
+            <th style={thStyle}>N° Quad</th>
+            <SortableHeader label="Permis" sortDir={sort.col === 'permis' ? sort.dir : null} onSort={() => toggleSort('permis')} style={thStyle}
+              filterValues={candidats.map(c => getVal(c, 'permis'))} filterSelected={filters.permis ?? null} onFilter={s => setFilter('permis', s)} />
+            <SortableHeader label="Enfants" sortDir={sort.col === 'enfants' ? sort.dir : null} onSort={() => toggleSort('enfants')} style={thStyle}
+              filterValues={candidats.map(c => getVal(c, 'enfants'))} filterSelected={filters.enfants ?? null} onFilter={s => setFilter('enfants', s)} />
+            <th style={thStyle}>Documents</th>
+            <th style={thStyle}>Remarques</th>
+            <th style={thStyle}>Fin mission</th>
+            <SortableHeader label="Docs manq." sortDir={sort.col === 'docs' ? sort.dir : null} onSort={() => toggleSort('docs')} style={thStyle}
+              filterValues={candidats.map(c => getVal(c, 'docs'))} filterSelected={filters.docs ?? null} onFilter={s => setFilter('docs', s)} />
+            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle}
+              filterValues={candidats.map(c => getVal(c, 'statut'))} filterSelected={filters.statut ?? null} onFilter={s => setFilter('statut', s)} />
+            <th style={thStyle}></th>
           </tr>
         </thead>
         <tbody>
-          {candidats.map(c => {
+          {displayed.map(c => {
             const statut = getLigneStatut(c)
             const telCleaned = cleanPhone(c.tel || null)
             const rowBg = ROW_COLORS.find(rc => rc.key === (c.couleur || ''))?.bg || 'transparent'
@@ -1423,125 +1467,55 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                 onMouseEnter={e => { if (!c.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
-                {/* Checkbox */}
                 <td style={{ padding: '10px 6px', textAlign: 'center' }}>
                   <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
                 </td>
-
-                {/* Col 1 : Avatar + nom + contact + lien fiche */}
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {c.photo_url && c.photo_url !== 'checked'
-                      ? <img src={c.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
+                      ? <img src={c.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
                     }
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        {c.candidat_id
-                          ? <a href={`/candidats/${c.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche candidat">{c.prenom} {c.nom}</a>
-                          : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
-                        }
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-                        {telCleaned && (
-                          <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 10, fontWeight: 600, textDecoration: 'none' }}>
-                            <WaIcon size={10} /> WA
-                          </a>
-                        )}
-                        {c.email && (
-                          <a href={`mailto:${c.email}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 10, fontWeight: 600, textDecoration: 'none' }}>
-                            <Mail size={9} /> Mail
-                          </a>
-                        )}
+                      {c.candidat_id
+                        ? <a href={`/candidats/${c.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{c.prenom} {c.nom}</a>
+                        : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
+                      }
+                      <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                        {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><WaIcon size={9} /> WA</a>}
+                        {c.email && <a href={`mailto:${c.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><Mail size={8} /> Mail</a>}
                       </div>
                     </div>
                   </div>
                 </td>
-
-                {/* Col 2 : N° Quad */}
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ color: c.numero_quadrigis ? 'var(--foreground)' : 'var(--muted)', fontSize: 12, fontWeight: c.numero_quadrigis ? 600 : 400 }}>
-                    {c.numero_quadrigis || '—'}
-                  </span>
-                </td>
-
-                {/* Col 3 : Permis + Suisse */}
+                <td style={{ padding: '10px 10px' }}><span style={{ color: c.numero_quadrigis ? 'var(--foreground)' : 'var(--muted)', fontSize: 12, fontWeight: c.numero_quadrigis ? 600 : 400 }}>{c.numero_quadrigis || '—'}</span></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
-                    {c.suisse && (
-                      <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>🇨🇭 CH</span>
-                    )}
+                    {c.suisse && <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap' }}>🇨🇭 CH</span>}
                   </div>
                 </td>
-
-                {/* Col 4 : Enfants */}
                 <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: c.enfants_charge === 'oui' ? '#22C55E' : c.enfants_charge === 'non' ? 'var(--muted)' : '#F59E0B' }}>
                     {c.enfants_charge === 'oui' ? '👶 Oui' : c.enfants_charge === 'non' ? 'Non' : '?'}
                   </span>
                 </td>
-
-                {/* Col 5 : Documents */}
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                    <DocBadge ok={c.has_cv} label="CV" />
-                    <DocBadge ok={c.has_cm} label="CM" />
-                    <DocBadge ok={!!c.carte_id} label="ID" />
-                    <DocBadge ok={!!c.numero_avs} label="AVS" />
-                    <DocBadge ok={!!c.iban} label="IBAN" />
-                    <DocBadge ok={c.has_docs_clients} label="Docs Client" />
+                    <DocBadge ok={c.has_cv} label="CV" /><DocBadge ok={c.has_cm} label="CM" /><DocBadge ok={!!c.carte_id} label="ID" /><DocBadge ok={!!c.numero_avs} label="AVS" /><DocBadge ok={!!c.iban} label="IBAN" /><DocBadge ok={c.has_docs_clients} label="Docs Client" />
                   </div>
                 </td>
-
-                {/* Col 8 : Remarques */}
-                <td style={{ padding: '10px 10px', maxWidth: 220 }}>
-                  {c.remarques ? (
-                    <div title={c.remarques}
-                      onClick={e => {
-                        const el = e.currentTarget
-                        if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
-                        else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
-                      }}
-                      style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
-                    >
-                      {c.remarques}
-                    </div>
-                  ) : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+                <td style={{ padding: '10px 10px', maxWidth: 200 }}>
+                  {c.remarques ? <div title={c.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{c.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
-
-                {/* Col 9 : Mission terminée */}
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(c.mission_terminee)}</span>
-                </td>
-
-                {/* Col 8 : Docs manquants */}
-                <td style={{ padding: '10px 10px', textAlign: 'center' }}>
-                  {c.docs_manquants
-                    ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span>
-                    : <span style={{ color: '#22C55E', fontSize: 14 }}>✓</span>
-                  }
-                </td>
-
-                {/* Col 11 : Statut */}
-                <td style={{ padding: '10px 10px', textAlign: 'center' }}>
-                  <StatutIndicateur statut={statut} />
-                </td>
-
-                {/* Col 10 : Actions */}
+                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(c.mission_terminee)}</span></td>
+                <td style={{ padding: '10px 10px', textAlign: 'center' }}>{c.docs_manquants ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span> : <span style={{ color: '#22C55E', fontSize: 14 }}>✓</span>}</td>
+                <td style={{ padding: '10px 10px', textAlign: 'center' }}><StatutIndicateur statut={statut} /></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={c.couleur || null} onChange={color => onColorChange(c.id, color)} />
-                    <button onClick={() => onEdit(c)} title="Modifier"
-                      style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => onDelete(c)} title="Supprimer"
-                      style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Trash2 size={13} />
-                    </button>
+                    <button onClick={() => onEdit(c)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+                    <button onClick={() => onDelete(c)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
                 </td>
               </tr>
@@ -1555,94 +1529,58 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
 
 // ─── AccidentsTable ───────────────────────────────────────────────────────────
 
-function AccidentCard({ accident, onEdit, onDelete, onColorChange }: { accident: SecretariatAccident; onEdit: () => void; onDelete: () => void; onColorChange: (color: string) => void }) {
+function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: { accident: SecretariatAccident; onEdit: () => void; onDelete: () => void; onColorChange: (color: string) => void; onArchive: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const telCleaned = cleanPhone(accident.tel || null)
-
-  const bgMap = {
-    normal: 'transparent',
-    jaune: 'rgba(234,179,8,0.06)',
-    rouge: 'rgba(239,68,68,0.06)',
-  }
-  const borderMap = {
-    normal: 'var(--border)',
-    jaune: 'rgba(234,179,8,0.4)',
-    rouge: 'rgba(239,68,68,0.4)',
-  }
+  const rowBg = ROW_COLORS.find(rc => rc.key === (accident.couleur || ''))?.bg || 'transparent'
 
   return (
-    <div style={{ ...S.card, padding: 16, background: bgMap[accident.couleur], borderColor: borderMap[accident.couleur] }}>
+    <div style={{ ...S.card, padding: 16, background: rowBg !== 'transparent' ? rowBg : undefined, opacity: accident.archive ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {/* Avatar */}
         {accident.photo_url && accident.photo_url !== 'checked'
-          ? <img src={accident.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-          : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+          ? <img src={accident.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+          : <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
               {(accident.nom_prenom || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase()}
             </div>
         }
-
-        {/* Contenu principal */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <div>
               {accident.candidat_id
-                ? <a href={`/candidats/${accident.candidat_id}`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche candidat">{accident.nom_prenom}</a>
-                : <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>{accident.nom_prenom}</div>
+                ? <a href={`/candidats/${accident.candidat_id}`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{accident.nom_prenom}</a>
+                : <div style={{ fontWeight: 700, fontSize: 14 }}>{accident.nom_prenom}</div>
               }
               <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
-                {/* Type badge */}
-                <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.type_cas === 'Accident' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)', color: accident.type_cas === 'Accident' ? '#EF4444' : '#CA8A04' }}>
-                  {accident.type_cas}
-                </span>
-                {accident.sous_type && (
-                  <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: 'var(--secondary)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-                    {accident.sous_type}
-                  </span>
-                )}
-                {/* Statut terminé */}
+                <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.type_cas === 'Accident' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)', color: accident.type_cas === 'Accident' ? '#EF4444' : '#CA8A04' }}>{accident.type_cas}</span>
+                {accident.sous_type && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: 'var(--secondary)', color: 'var(--muted)', border: '1px solid var(--border)' }}>{accident.sous_type}</span>}
                 <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.termine ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)', color: accident.termine ? '#22C55E' : '#818CF8' }}>
                   {accident.termine ? '✓ Terminé' : '● En cours'}
                 </span>
+                {accident.archive && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(100,116,139,0.1)', color: 'var(--muted)', border: '1px solid var(--border)' }}>📦 Archivé</span>}
               </div>
             </div>
-            {/* Boutons contact + actions */}
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              {telCleaned && (
-                <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 10, fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(37,211,102,0.2)' }}>
-                  <WaIcon size={12} />
-                </a>
-              )}
-              {accident.email && (
-                <a href={`mailto:${accident.email}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 10, fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(99,102,241,0.2)' }}>
-                  <Mail size={11} />
-                </a>
+              {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', textDecoration: 'none', border: '1px solid rgba(37,211,102,0.2)' }}><WaIcon size={12} /></a>}
+              {accident.email && <a href={`mailto:${accident.email}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', color: '#6366F1', textDecoration: 'none', border: '1px solid rgba(99,102,241,0.2)' }}><Mail size={11} /></a>}
+              {accident.termine && (
+                <button onClick={onArchive} title={accident.archive ? 'Désarchiver' : 'Archiver'} style={{ padding: '5px 8px', borderRadius: 6, background: accident.archive ? 'rgba(100,116,139,0.1)' : 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: 11, fontWeight: 600, gap: 3 }}>
+                  📦
+                </button>
               )}
               <ColorPicker currentColor={accident.couleur || null} onChange={onColorChange} />
-              <button onClick={onEdit} title="Modifier"
-                style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <Pencil size={13} />
-              </button>
-              <button onClick={onDelete} title="Supprimer"
-                style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                <Trash2 size={13} />
-              </button>
+              <button onClick={onEdit} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+              <button onClick={onDelete} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
             </div>
           </div>
-
-          {/* Infos compactes horizontales */}
           {(accident.raison || accident.numero_sinistre || accident.decision || accident.note || accident.remarque) && (
             <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-              {accident.raison && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Raison :</strong> {accident.raison}</span>}
-              {accident.numero_sinistre && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Sinistre :</strong> {accident.numero_sinistre}</span>}
-              {accident.decision && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Décision :</strong> {accident.decision}</span>}
-              {accident.note && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Note :</strong> {accident.note}</span>}
-              {accident.remarque && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Remarque :</strong> {accident.remarque}</span>}
+              {accident.raison && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Raison :</strong> {accident.raison}</span>}
+              {accident.numero_sinistre && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Sinistre :</strong> {accident.numero_sinistre}</span>}
+              {accident.decision && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Décision :</strong> {accident.decision}</span>}
+              {accident.note && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Note :</strong> {accident.note}</span>}
+              {accident.remarque && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Remarque :</strong> {accident.remarque}</span>}
             </div>
           )}
-
-          {/* Timeline */}
           <div style={{ marginTop: 10 }}>
             <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
               {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -1658,9 +1596,7 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange }: { accident:
                 ].map(({ label, value, icon: Icon }) => (
                   <div key={label} style={{ minWidth: 130 }}>
                     <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: value === '—' ? 'var(--muted)' : 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <Icon size={12} style={{ color: 'var(--muted)' }} />{value}
-                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: value === '—' ? 'var(--muted)' : 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 5 }}><Icon size={12} style={{ color: 'var(--muted)' }} />{value}</div>
                   </div>
                 ))}
               </div>
@@ -1672,7 +1608,11 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange }: { accident:
   )
 }
 
-function AccidentsTable({ accidents, onEdit, onDelete, onColorChange }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onColorChange: (id: string, color: string) => void }) {
+function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onColorChange: (id: string, color: string) => void; onArchive: (a: SecretariatAccident) => void }) {
+  const [sortDir, setSortDir] = useState<SortDir>(null)
+  const [filterType, setFilterType] = useState<Set<string> | null>(null)
+  const [filterStatut, setFilterStatut] = useState<Set<string> | null>(null)
+
   if (accidents.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -1681,11 +1621,43 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange }: { accide
       </div>
     )
   }
+
+  let displayed = accidents.filter(a => {
+    if (filterType !== null && !filterType.has(a.type_cas)) return false
+    const statut = a.termine ? 'Terminé' : 'En cours'
+    if (filterStatut !== null && !filterStatut.has(statut)) return false
+    return true
+  })
+
+  if (sortDir) {
+    displayed = [...displayed].sort((a, b) => {
+      const va = (a.nom_prenom || '').toLowerCase()
+      const vb = (b.nom_prenom || '').toLowerCase()
+      return sortDir === 'desc' ? vb.localeCompare(va, 'fr') : va.localeCompare(vb, 'fr')
+    })
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {accidents.map(a => (
-        <AccidentCard key={a.id} accident={a} onEdit={() => onEdit(a)} onDelete={() => onDelete(a)} onColorChange={color => onColorChange(a.id, color)} />
-      ))}
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? '#fff' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+            {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={10} />} Nom
+          </button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+          Type <ColumnFilter values={accidents.map(a => a.type_cas)} selected={filterType} onChange={setFilterType} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+          Statut <ColumnFilter values={accidents.map(a => a.termine ? 'Terminé' : 'En cours')} selected={filterStatut} onChange={setFilterStatut} />
+        </div>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{displayed.length} / {accidents.length}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {displayed.map(a => (
+          <AccidentCard key={a.id} accident={a} onEdit={() => onEdit(a)} onDelete={() => onDelete(a)} onColorChange={color => onColorChange(a.id, color)} onArchive={() => onArchive(a)} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -1693,6 +1665,8 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange }: { accide
 // ─── LoyersTable ──────────────────────────────────────────────────────────────
 
 function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: SecretariatLoyer[]; onEdit: (l: SecretariatLoyer) => void; onDelete: (l: SecretariatLoyer) => void; onColorChange: (id: string, color: string) => void }) {
+  const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
+
   if (loyers.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -1701,31 +1675,49 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
       </div>
     )
   }
+
+  const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
+
+  let displayed = [...loyers]
+  if (sort.dir && sort.col) {
+    displayed.sort((a, b) => {
+      let va = '', vb = ''
+      if (sort.col === 'nom') { va = (a.nom_prenom || '').toLowerCase(); vb = (b.nom_prenom || '').toLowerCase() }
+      if (sort.col === 'montant') { return sort.dir === 'desc' ? (b.montant_loyer || 0) - (a.montant_loyer || 0) : (a.montant_loyer || 0) - (b.montant_loyer || 0) }
+      return sort.dir === 'desc' ? vb.localeCompare(va, 'fr') : va.localeCompare(vb, 'fr')
+    })
+  }
+
+  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }
+
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border)' }}>
-            {['Candidat', 'Adresse', 'Montant/mois', 'Début', 'Fin', 'Remarques', ''].map(h => (
-              <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-            ))}
+            <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
+            <th style={thStyle}>Adresse</th>
+            <SortableHeader label="Montant/mois" sortDir={sort.col === 'montant' ? sort.dir : null} onSort={() => toggleSort('montant')} style={thStyle} />
+            <th style={thStyle}>Début</th>
+            <th style={thStyle}>Fin</th>
+            <th style={thStyle}>Remarques</th>
+            <th style={thStyle}></th>
           </tr>
         </thead>
         <tbody>
-          {loyers.map(l => {
+          {displayed.map(l => {
             const telCleaned = cleanPhone(l.tel || null)
+            const rowBg = ROW_COLORS.find(c => c.key === (l.couleur || ''))?.bg || 'transparent'
             return (
-              <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: l.couleur ? (ROW_COLORS.find(c => c.key === l.couleur)?.bg || 'transparent') : 'transparent' }}
+              <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: rowBg }}
                 onMouseEnter={e => { if (!l.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = l.couleur ? (ROW_COLORS.find(c => c.key === l.couleur)?.bg || 'transparent') : 'transparent' }}
+                onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {l.photo_url && l.photo_url !== 'checked'
-                      ? <img src={l.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
-                          {(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}
-                        </div>
+                      ? <img src={l.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}</div>
                     }
                     <div>
                       {l.candidat_id
@@ -1733,59 +1725,24 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
                         : <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{l.nom_prenom}</div>
                       }
                       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
-                        {telCleaned && (
-                          <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}>
-                            <WaIcon size={10} /> WA
-                          </a>
-                        )}
-                        {l.email && (
-                          <a href={`mailto:${l.email}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}>
-                            <Mail size={8} /> Mail
-                          </a>
-                        )}
+                        {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><WaIcon size={10} /> WA</a>}
+                        {l.email && <a href={`mailto:${l.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><Mail size={8} /> Mail</a>}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ fontSize: 12, color: 'var(--foreground)' }}>{l.adresse || '—'}</span>
-                </td>
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
-                    {l.montant_loyer != null ? formatCHF(l.montant_loyer) : '—'}
-                  </span>
-                </td>
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(l.date_debut)}</span>
-                </td>
-                <td style={{ padding: '10px 10px' }}>
-                  <span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(l.date_fin)}</span>
-                </td>
-                <td style={{ padding: '10px 10px', maxWidth: 220 }}>
-                  {l.remarques ? (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
-                      title={l.remarques}
-                      onClick={e => {
-                        const el = e.currentTarget
-                        if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
-                        else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
-                      }}
-                    >{l.remarques}</div>
-                  ) : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12 }}>{l.adresse || '—'}</span></td>
+                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 13, fontWeight: 700 }}>{l.montant_loyer != null ? formatCHF(l.montant_loyer) : '—'}</span></td>
+                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(l.date_debut)}</span></td>
+                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(l.date_fin)}</span></td>
+                <td style={{ padding: '10px 10px', maxWidth: 200 }}>
+                  {l.remarques ? <div title={l.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{l.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={l.couleur || null} onChange={color => onColorChange(l.id, color)} />
-                    <button onClick={() => onEdit(l)} title="Modifier"
-                      style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Pencil size={13} />
-                    </button>
-                    <button onClick={() => onDelete(l)} title="Supprimer"
-                      style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      <Trash2 size={13} />
-                    </button>
+                    <button onClick={() => onEdit(l)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+                    <button onClick={() => onDelete(l)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
                 </td>
               </tr>
@@ -1928,85 +1885,109 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
 // ─── AlfaPaiementsTable ────────────────────────────────────────────────────────
 
 function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfaPaiement[]; onEdit: (a: SecretariatAlfaPaiement) => void; onDelete: (a: SecretariatAlfaPaiement) => void; onColorChange: (id: string, color: string) => void }) {
+  const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
+  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
+
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement ALFA pour cette année.</div>
   }
-  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+
+  const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
+  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
+
+  const getVal = (a: SecretariatAlfaPaiement, col: string): string => {
+    if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
+    if (col === 'statut') return a.statut_termine ? 'Terminé' : 'En cours'
+    if (col === 'periode') return a.annee_periode || '—'
+    return ''
+  }
+
+  let displayed = rows.filter(a => {
+    for (const [col, sel] of Object.entries(filters)) {
+      if (sel === null) continue
+      if (!sel.has(getVal(a, col))) return false
+    }
+    return true
+  })
+
+  if (sort.dir && sort.col) {
+    displayed = [...displayed].sort((a, b) => {
+      if (sort.col === 'montant') return sort.dir === 'desc' ? (b.montant_alfa_paye || 0) - (a.montant_alfa_paye || 0) : (a.montant_alfa_paye || 0) - (b.montant_alfa_paye || 0)
+      const va = getVal(a, sort.col).toLowerCase()
+      const vb = getVal(b, sort.col).toLowerCase()
+      return sort.dir === 'desc' ? vb.localeCompare(va, 'fr') : va.localeCompare(vb, 'fr')
+    })
+  }
+
+  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
   const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={thStyle}>Nom / Prénom</th>
+            <SortableHeader label="Nom / Prénom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>Enfants</th>
             <th style={thStyle}>Droit / mois</th>
-            <th style={thStyle}>Montant payé</th>
-            <th style={thStyle}>Période</th>
+            <SortableHeader label="Montant payé" sortDir={sort.col === 'montant' ? sort.dir : null} onSort={() => toggleSort('montant')} style={thStyle} />
+            <SortableHeader label="Période" sortDir={sort.col === 'periode' ? sort.dir : null} onSort={() => toggleSort('periode')} style={thStyle}
+              filterValues={rows.map(a => getVal(a, 'periode'))} filterSelected={filters.periode ?? null} onFilter={s => setFilter('periode', s)} />
             <th style={thStyle}>Dernier mois</th>
             <th style={thStyle}>Prochain mois</th>
             <th style={thStyle}>Fin mission</th>
             <th style={thStyle}>Remarques</th>
-            <th style={thStyle}>Terminé</th>
+            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle}
+              filterValues={rows.map(a => getVal(a, 'statut'))} filterSelected={filters.statut ?? null} onFilter={s => setFilter('statut', s)} />
             <th style={thStyle}></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(a => (
-            <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.statut_termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
-              <td style={tdStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 13, cursor: 'pointer', color: 'var(--foreground)' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
-                  {a.candidat_id && <a href={`/candidats/${a.candidat_id}`} title="Voir fiche" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>}
-                </div>
-                {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
-              </td>
-              <td style={{ ...tdStyle, textAlign: 'center' }}>
-                <span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span>
-              </td>
-              <td style={tdStyle}>
-                {a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: '#3B82F6' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-              </td>
-              <td style={tdStyle}>
-                {a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-              </td>
-              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.annee_periode || '—'}</span></td>
-              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
-              <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
-              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_mission)}</td>
-              <td style={{ ...tdStyle, maxWidth: 220 }}>
-                {a.remarques ? (
-                  <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
-                    title={a.remarques}
-                    onClick={e => {
-                      const el = e.currentTarget
-                      if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
-                      else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
-                    }}
-                  >{a.remarques}</div>
-                ) : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
-              </td>
-              <td style={{ ...tdStyle, textAlign: 'center' }}>
-                {a.statut_termine
-                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
-                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
-                }
-              </td>
-              <td style={tdStyle}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
-                  <button onClick={() => onEdit(a)} title="Modifier"
-                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => onDelete(a)} title="Supprimer"
-                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {displayed.map(a => {
+            const rowBg = ROW_COLORS.find(c => c.key === (a.couleur || ''))?.bg || 'transparent'
+            return (
+              <tr key={a.id} style={{ background: rowBg !== 'transparent' ? rowBg : (a.statut_termine ? 'rgba(34,197,94,0.06)' : 'transparent') }}>
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {(a as any).photo_url && (a as any).photo_url !== 'checked'
+                      ? <img src={(a as any).photo_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
+                    }
+                    <div>
+                      {a.candidat_id
+                        ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                        : <span style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</span>
+                      }
+                      {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
+                    </div>
+                  </div>
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
+                <td style={tdStyle}>{a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: '#3B82F6' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                <td style={tdStyle}>{a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.annee_periode || '—'}</span></td>
+                <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
+                <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_mission)}</td>
+                <td style={{ ...tdStyle, maxWidth: 200 }}>
+                  {a.remarques ? <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }} title={a.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }}>{a.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+                </td>
+                <td style={{ ...tdStyle, textAlign: 'center' }}>
+                  {a.statut_termine
+                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
+                    : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
+                  }
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
+                    <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
+                    <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -2543,6 +2524,20 @@ function SecretariatPage() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  // Archive accident
+  const handleArchive = async (a: SecretariatAccident) => {
+    try {
+      const res = await fetch(`/api/secretariat/accidents/${a.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archive: !a.archive }),
+      })
+      if (!res.ok) throw new Error('Erreur')
+      toast.success(a.archive ? 'Désarchivé' : 'Archivé')
+      queryClient.invalidateQueries({ queryKey: ['secretariat-accidents', annee] })
+    } catch (e: any) { toast.error(e.message) }
+  }
+
   // Fix 11 — Bulk delete
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return
@@ -2874,16 +2869,6 @@ function SecretariatPage() {
               }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(['default', 'az', 'za'] as const).map(s => (
-              <button key={s} onClick={() => setAlfaSort(s)} style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                background: alfaSort === s ? 'var(--primary)' : 'var(--secondary)',
-                color: alfaSort === s ? '#fff' : 'var(--muted)',
-                border: `1.5px solid ${alfaSort === s ? 'var(--primary)' : 'var(--border)'}`,
-              }}>{s === 'default' ? '⏱ Récent' : s === 'az' ? 'A→Z' : 'Z→A'}</button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -2973,6 +2958,7 @@ function SecretariatPage() {
                 onEdit={a => { setEditItem(a); setShowForm(true) }}
                 onDelete={a => setDeleteItem(a)}
                 onColorChange={handleColorChange}
+                onArchive={handleArchive}
               />
             )}
             {activeTab === 'loyers' && (
