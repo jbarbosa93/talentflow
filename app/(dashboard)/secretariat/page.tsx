@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -77,6 +77,7 @@ interface SecretariatLoyer {
   date_fin: string | null
   remarques: string | null
   annee: number
+  couleur?: string | null
   photo_url?: string | null
   tel?: string | null
   email?: string | null
@@ -103,6 +104,7 @@ interface SecretariatAlfa {
   consimo: string | null
   termine: boolean
   annee: number
+  couleur?: string | null
   photo_url?: string | null
 }
 
@@ -124,6 +126,7 @@ interface SecretariatAlfaPaiement {
   prochain_mois_paye: string | null
   remarques: string | null
   annee: number
+  couleur?: string | null
   photo_url?: string | null
 }
 
@@ -207,15 +210,27 @@ const ROW_COLORS: { key: string; label: string; bg: string }[] = [
 
 function ColorPicker({ currentColor, onChange }: { currentColor: string | null; onChange: (color: string) => void }) {
   const [open, setOpen] = useState(false)
+  const currentBg = ROW_COLORS.find(c => c.key === (currentColor || ''))?.bg || 'transparent'
+  const hasColor = !!currentColor
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <button onClick={() => setOpen(!open)} title="Couleur ligne" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-        <span style={{ width: 12, height: 12, borderRadius: 3, background: ROW_COLORS.find(c => c.key === (currentColor || ''))?.bg || 'transparent', border: '1px solid var(--border)', display: 'inline-block' }} />
+      <button onClick={() => setOpen(!open)} title="Couleur ligne" style={{
+        padding: '4px 6px', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+        background: hasColor ? currentBg : 'var(--secondary)',
+        border: hasColor ? '2px solid rgba(0,0,0,0.15)' : '1.5px solid var(--border)',
+      }}>
+        <span style={{ width: 14, height: 14, borderRadius: 4, background: currentBg === 'transparent' ? 'var(--secondary)' : currentBg, border: '2px solid rgba(0,0,0,0.12)', display: 'inline-block' }} />
+        <ChevronDown size={10} style={{ color: 'var(--muted)' }} />
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', gap: 4, marginTop: 2 }}>
+        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', display: 'flex', gap: 5, marginTop: 3 }}>
           {ROW_COLORS.map(c => (
-            <button key={c.key} onClick={() => { onChange(c.key); setOpen(false) }} title={c.label} style={{ width: 18, height: 18, borderRadius: 4, background: c.bg === 'transparent' ? 'var(--secondary)' : c.bg, border: `1.5px solid ${(currentColor || '') === c.key ? 'var(--primary)' : 'var(--border)'}`, cursor: 'pointer', padding: 0 }} />
+            <button key={c.key} onClick={() => { onChange(c.key); setOpen(false) }} title={c.label} style={{
+              width: 22, height: 22, borderRadius: 6, cursor: 'pointer', padding: 0,
+              background: c.bg === 'transparent' ? 'var(--secondary)' : c.bg,
+              border: (currentColor || '') === c.key ? '2.5px solid var(--primary)' : '2px solid rgba(0,0,0,0.1)',
+              boxShadow: (currentColor || '') === c.key ? '0 0 0 2px rgba(245,166,35,0.3)' : 'none',
+            }} />
           ))}
         </div>
       )}
@@ -432,8 +447,15 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <label style={S.label}>Genre permis</label>
-              <input value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} placeholder="Ex: B, C, L, N…" style={S.input} />
+              <label style={S.label}>Permis de séjour</label>
+              <select value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} style={S.input}>
+                <option value="">— Sélectionner —</option>
+                <option value="L">L</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="G">G</option>
+                <option value="IMES">IMES</option>
+              </select>
             </div>
             <div>
               <label style={S.label}>Échéance permis</label>
@@ -441,26 +463,9 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Type de permis travail</label>
-              <input value={form.permis_travail} onChange={e => set('permis_travail', e.target.value)} placeholder="Ex: B, L, C, …" style={S.input} />
-            </div>
-            <div>
-              <label style={S.label}>Lieu de demande</label>
-              <input value={form.lieu_demande} onChange={e => set('lieu_demande', e.target.value)} placeholder="Ex: Genève" style={S.input} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>N° AVS</label>
-              <input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} placeholder="756.XXXX.XXXX.XX" style={S.input} />
-            </div>
-            <div>
-              <label style={S.label}>IBAN</label>
-              <input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="CH…" style={S.input} />
-            </div>
+          <div>
+            <label style={S.label}>Lieu de demande</label>
+            <input value={form.lieu_demande} onChange={e => set('lieu_demande', e.target.value)} placeholder="Ex: Genève" style={S.input} />
           </div>
 
           <div>
@@ -476,7 +481,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                 { key: 'has_cv', label: 'CV' },
                 { key: 'has_cm', label: 'CM' },
                 { key: 'has_docs_clients', label: 'Docs Clients' },
-                { key: 'mappe', label: 'Mappé' },
+                { key: 'mappe', label: 'Mappe' },
               ].map(({ key, label }) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
                   <input type="checkbox" checked={form[key as keyof typeof form] as boolean} onChange={e => set(key as keyof typeof form, e.target.checked)}
@@ -484,6 +489,16 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                   {label}
                 </label>
               ))}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                <input type="checkbox" checked={!!form.numero_avs} onChange={e => set('numero_avs', e.target.checked ? 'oui' : '')}
+                  style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                AVS
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                <input type="checkbox" checked={!!form.iban} onChange={e => set('iban', e.target.checked ? 'oui' : '')}
+                  style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                IBAN
+              </label>
             </div>
           </div>
 
@@ -496,9 +511,12 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
             </select>
           </div>
 
-          <div>
-            <label style={S.label}>Docs manquants</label>
-            <input value={form.docs_manquants} onChange={e => set('docs_manquants', e.target.value)} placeholder="Ex: Certificat de travail, extrait casier…" style={S.input} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+              <input type="checkbox" checked={!!form.docs_manquants} onChange={e => set('docs_manquants', e.target.checked ? 'x' : '')}
+                style={{ width: 15, height: 15, accentColor: '#EF4444', cursor: 'pointer' }} />
+              Docs manquants
+            </label>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -864,6 +882,331 @@ function LoyerModal({ item, onClose, onSaved }: { item?: SecretariatLoyer | null
   )
 }
 
+// ─── Modal ALFA ──────────────────────────────────────────────────────────────
+
+const EMPTY_ALFA_FORM = {
+  candidat_id: null as string | null,
+  candidat_nom_complet: '',
+  nom: '', prenom: '',
+  numero_avs: '',
+  nbr_enfants: '',
+  montant_chf: '',
+  bareme_is: '',
+  date_debut_alfa: '',
+  date_fin_alfa: '',
+  date_radiation_caf: '',
+  radiation_recue: '',
+  mere_touche: '',
+  remarques: '',
+  demande_envoyee: '',
+  reactivation_envoyee: '',
+  lieu_enfants: '',
+  consimo: '',
+  termine: false,
+  annee: new Date().getFullYear(),
+}
+
+function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState(() => item ? {
+    candidat_id: item.candidat_id,
+    candidat_nom_complet: [item.prenom, item.nom].filter(Boolean).join(' '),
+    nom: item.nom || '',
+    prenom: item.prenom || '',
+    numero_avs: item.numero_avs || '',
+    nbr_enfants: item.nbr_enfants != null ? String(item.nbr_enfants) : '',
+    montant_chf: item.montant_chf != null ? String(item.montant_chf) : '',
+    bareme_is: item.bareme_is || '',
+    date_debut_alfa: item.date_debut_alfa || '',
+    date_fin_alfa: item.date_fin_alfa || '',
+    date_radiation_caf: item.date_radiation_caf || '',
+    radiation_recue: item.radiation_recue || '',
+    mere_touche: item.mere_touche || '',
+    remarques: item.remarques || '',
+    demande_envoyee: item.demande_envoyee || '',
+    reactivation_envoyee: item.reactivation_envoyee || '',
+    lieu_enfants: item.lieu_enfants || '',
+    consimo: item.consimo || '',
+    termine: item.termine || false,
+    annee: item.annee || new Date().getFullYear(),
+  } : { ...EMPTY_ALFA_FORM, annee: new Date().getFullYear() })
+  const [saving, setSaving] = useState(false)
+  const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSave = async () => {
+    if (!form.nom) { toast.error('Nom requis'); return }
+    setSaving(true)
+    try {
+      const payload = {
+        candidat_id: form.candidat_id || null,
+        nom: form.nom, prenom: form.prenom || null,
+        numero_avs: form.numero_avs || null,
+        nbr_enfants: form.nbr_enfants !== '' ? Number(form.nbr_enfants) : null,
+        montant_chf: form.montant_chf !== '' ? Number(form.montant_chf) : null,
+        bareme_is: form.bareme_is || null,
+        date_debut_alfa: form.date_debut_alfa || null,
+        date_fin_alfa: form.date_fin_alfa || null,
+        date_radiation_caf: form.date_radiation_caf || null,
+        radiation_recue: form.radiation_recue || null,
+        mere_touche: form.mere_touche || null,
+        remarques: form.remarques || null,
+        demande_envoyee: form.demande_envoyee || null,
+        reactivation_envoyee: form.reactivation_envoyee || null,
+        lieu_enfants: form.lieu_enfants || null,
+        consimo: form.consimo || null,
+        termine: form.termine,
+        annee: form.annee,
+      }
+      const url = item ? `/api/secretariat/alfa/${item.id}` : '/api/secretariat/alfa'
+      const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      toast.success(item ? 'ALFA modifié' : 'ALFA créé')
+      onSaved(); onClose()
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier ALFA' : 'Nouveau suivi ALFA'}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={S.label}>Lier à un candidat TalentFlow</label>
+            <CandidatAutocomplete
+              value={form.candidat_nom_complet}
+              onChange={(nom, id, candidat) => setForm(f => ({
+                ...f, candidat_nom_complet: nom, candidat_id: id,
+                nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
+              }))}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} placeholder="756.XXXX.XXXX.XX" style={S.input} /></div>
+            <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Montant CHF</label><input type="number" step="0.01" value={form.montant_chf} onChange={e => set('montant_chf', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Barème IS</label><input value={form.bareme_is} onChange={e => set('bareme_is', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Date début ALFA</label><input type="date" value={form.date_debut_alfa} onChange={e => set('date_debut_alfa', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+            <div><label style={S.label}>Date fin ALFA</label><input type="date" value={form.date_fin_alfa} onChange={e => set('date_fin_alfa', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Radiation CAF (date)</label><input type="date" value={form.date_radiation_caf} onChange={e => set('date_radiation_caf', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+            <div><label style={S.label}>Radiation reçue</label><input value={form.radiation_recue} onChange={e => set('radiation_recue', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Mère touche</label><input value={form.mere_touche} onChange={e => set('mere_touche', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Lieu enfants</label><input value={form.lieu_enfants} onChange={e => set('lieu_enfants', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Demande envoyée</label><input value={form.demande_envoyee} onChange={e => set('demande_envoyee', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Réactivation envoyée</label><input value={form.reactivation_envoyee} onChange={e => set('reactivation_envoyee', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div><label style={S.label}>Consimo</label><input value={form.consimo} onChange={e => set('consimo', e.target.value)} style={S.input} /></div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={S.label}>Année</label>
+              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={S.input}>
+                <option value={2026}>2026</option><option value={2025}>2025</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                <input type="checkbox" checked={form.termine} onChange={e => set('termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: '#22C55E', cursor: 'pointer' }} />
+                Terminé
+              </label>
+            </div>
+          </div>
+
+          <div><label style={S.label}>Remarques</label><textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} /></div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── Modal ALFA Paiement ─────────────────────────────────────────────────────
+
+const EMPTY_ALFA_PAIEMENT_FORM = {
+  candidat_id: null as string | null,
+  candidat_nom_complet: '',
+  nom: '', prenom: '',
+  numero_avs: '',
+  nbr_enfants: '',
+  date_validite_decision: '',
+  droit_chf_mois: '',
+  montant_alfa_paye: '',
+  annee_periode: '',
+  alfa_dernier_mois: '',
+  date_fin_mission: '',
+  statut_termine: false,
+  dernier_mois_paye: '',
+  prochain_mois_paye: '',
+  remarques: '',
+  annee: new Date().getFullYear(),
+}
+
+function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaPaiement | null; onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState(() => item ? {
+    candidat_id: item.candidat_id,
+    candidat_nom_complet: [item.prenom, item.nom].filter(Boolean).join(' '),
+    nom: item.nom || '',
+    prenom: item.prenom || '',
+    numero_avs: item.numero_avs || '',
+    nbr_enfants: item.nbr_enfants != null ? String(item.nbr_enfants) : '',
+    date_validite_decision: item.date_validite_decision || '',
+    droit_chf_mois: item.droit_chf_mois != null ? String(item.droit_chf_mois) : '',
+    montant_alfa_paye: item.montant_alfa_paye != null ? String(item.montant_alfa_paye) : '',
+    annee_periode: item.annee_periode || '',
+    alfa_dernier_mois: item.alfa_dernier_mois || '',
+    date_fin_mission: item.date_fin_mission || '',
+    statut_termine: item.statut_termine || false,
+    dernier_mois_paye: item.dernier_mois_paye || '',
+    prochain_mois_paye: item.prochain_mois_paye || '',
+    remarques: item.remarques || '',
+    annee: item.annee || new Date().getFullYear(),
+  } : { ...EMPTY_ALFA_PAIEMENT_FORM, annee: new Date().getFullYear() })
+  const [saving, setSaving] = useState(false)
+  const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSave = async () => {
+    if (!form.nom) { toast.error('Nom requis'); return }
+    setSaving(true)
+    try {
+      const payload = {
+        candidat_id: form.candidat_id || null,
+        nom: form.nom, prenom: form.prenom || null,
+        numero_avs: form.numero_avs || null,
+        nbr_enfants: form.nbr_enfants !== '' ? Number(form.nbr_enfants) : null,
+        date_validite_decision: form.date_validite_decision || null,
+        droit_chf_mois: form.droit_chf_mois !== '' ? Number(form.droit_chf_mois) : null,
+        montant_alfa_paye: form.montant_alfa_paye !== '' ? Number(form.montant_alfa_paye) : null,
+        annee_periode: form.annee_periode || null,
+        alfa_dernier_mois: form.alfa_dernier_mois || null,
+        date_fin_mission: form.date_fin_mission || null,
+        statut_termine: form.statut_termine,
+        dernier_mois_paye: form.dernier_mois_paye || null,
+        prochain_mois_paye: form.prochain_mois_paye || null,
+        remarques: form.remarques || null,
+        annee: form.annee,
+      }
+      const url = item ? `/api/secretariat/alfa-paiements/${item.id}` : '/api/secretariat/alfa-paiements'
+      const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      toast.success(item ? 'Paiement modifié' : 'Paiement créé')
+      onSaved(); onClose()
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier paiement ALFA' : 'Nouveau paiement ALFA'}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={S.label}>Lier à un candidat TalentFlow</label>
+            <CandidatAutocomplete
+              value={form.candidat_nom_complet}
+              onChange={(nom, id, candidat) => setForm(f => ({
+                ...f, candidat_nom_complet: nom, candidat_id: id,
+                nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
+              }))}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Droit CHF/mois</label><input type="number" step="0.01" value={form.droit_chf_mois} onChange={e => set('droit_chf_mois', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Montant ALFA payé</label><input type="number" step="0.01" value={form.montant_alfa_paye} onChange={e => set('montant_alfa_paye', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Période (année)</label><input value={form.annee_periode} onChange={e => set('annee_periode', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Validité décision</label><input type="date" value={form.date_validite_decision} onChange={e => set('date_validite_decision', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Dernier mois payé</label><input value={form.dernier_mois_paye} onChange={e => set('dernier_mois_paye', e.target.value)} style={S.input} /></div>
+            <div><label style={S.label}>Prochain mois à payer</label><input value={form.prochain_mois_paye} onChange={e => set('prochain_mois_paye', e.target.value)} style={S.input} /></div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div><label style={S.label}>Fin mission</label><input type="date" value={form.date_fin_mission} onChange={e => set('date_fin_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+            <div>
+              <label style={S.label}>Année</label>
+              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={S.input}>
+                <option value={2026}>2026</option><option value={2025}>2025</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+              <input type="checkbox" checked={form.statut_termine} onChange={e => set('statut_termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: '#22C55E', cursor: 'pointer' }} />
+              Terminé
+            </label>
+          </div>
+
+          <div><label style={S.label}>Remarques</label><textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} /></div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Modal Confirm Suppression ────────────────────────────────────────────────
 
 function DeleteModal({ label, onConfirm, onClose }: { label: string; onConfirm: () => void; onClose: () => void }) {
@@ -919,7 +1262,7 @@ function PermisBadge({ genre, dateEcheance }: { genre: string | null; dateEchean
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {genre && <span style={{ padding: '2px 7px', borderRadius: 99, background: c.bg, color: c.fg, fontSize: 11, fontWeight: 700, border: `1px solid ${c.border}`, display: 'inline-block' }}>{genre}</span>}
-      {dateEcheance && <span style={{ fontSize: 10, color: c.fg, fontWeight: 600 }}>{formatDate(dateEcheance)}</span>}
+      {dateEcheance && <span style={{ fontSize: 12, color: c.fg, fontWeight: 700 }}>{formatDate(dateEcheance)}</span>}
       {!genre && !dateEcheance && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
     </div>
   )
@@ -963,7 +1306,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
             <th style={{ padding: '8px 6px', textAlign: 'center', width: 30 }}>
               <input type="checkbox" checked={candidats.length > 0 && selectedIds.size === candidats.length} onChange={e => onSelectAll(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
             </th>
-            {['Candidat', 'N° Quad', 'Permis', 'Enfants', 'Documents', 'Remarques', 'Fin mission', 'Docs manquants', 'Statut', ''].map(h => (
+            {['Candidat', 'N° Quad', 'Permis de séjour', 'Enfants', 'Documents', 'Remarques', 'Fin mission', 'Docs manq.', 'Statut', ''].map(h => (
               <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
@@ -986,16 +1329,15 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                 {/* Col 1 : Avatar + nom + contact + lien fiche */}
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {c.photo_url
-                      ? <img src={c.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    {c.photo_url && c.photo_url !== 'checked'
+                      ? <img src={c.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                       : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
                     }
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
                         {c.candidat_id
-                          ? <a href={`/candidats/${c.candidat_id}`} target="_blank" rel="noopener noreferrer" title="Voir fiche candidat" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>
-                          : null
+                          ? <a href={`/candidats/${c.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche candidat">{c.prenom} {c.nom}</a>
+                          : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
                         }
                       </div>
                       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
@@ -1048,10 +1390,19 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                 </td>
 
                 {/* Col 8 : Remarques */}
-                <td style={{ padding: '10px 10px', maxWidth: 150 }}>
-                  <span title={c.remarques || ''} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                    {c.remarques ? (c.remarques.length > 40 ? c.remarques.substring(0, 40) + '…' : c.remarques) : '—'}
-                  </span>
+                <td style={{ padding: '10px 10px', maxWidth: 220 }}>
+                  {c.remarques ? (
+                    <div title={c.remarques}
+                      onClick={e => {
+                        const el = e.currentTarget
+                        if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
+                        else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
+                      }}
+                      style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
+                    >
+                      {c.remarques}
+                    </div>
+                  ) : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
 
                 {/* Col 9 : Mission terminée */}
@@ -1097,7 +1448,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
 
 // ─── AccidentsTable ───────────────────────────────────────────────────────────
 
-function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAccident; onEdit: () => void; onDelete: () => void }) {
+function AccidentCard({ accident, onEdit, onDelete, onColorChange }: { accident: SecretariatAccident; onEdit: () => void; onDelete: () => void; onColorChange: (color: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   const telCleaned = cleanPhone(accident.tel || null)
 
@@ -1116,8 +1467,8 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
     <div style={{ ...S.card, padding: 16, background: bgMap[accident.couleur], borderColor: borderMap[accident.couleur] }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {/* Avatar */}
-        {accident.photo_url
-          ? <img src={accident.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+        {accident.photo_url && accident.photo_url !== 'checked'
+          ? <img src={accident.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
           : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
               {(accident.nom_prenom || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase()}
             </div>
@@ -1127,7 +1478,10 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>{accident.nom_prenom}</div>
+              {accident.candidat_id
+                ? <a href={`/candidats/${accident.candidat_id}`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche candidat">{accident.nom_prenom}</a>
+                : <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)' }}>{accident.nom_prenom}</div>
+              }
               <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
                 {/* Type badge */}
                 <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: accident.type_cas === 'Accident' ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)', color: accident.type_cas === 'Accident' ? '#EF4444' : '#CA8A04' }}>
@@ -1158,6 +1512,7 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
                   <Mail size={11} />
                 </a>
               )}
+              <ColorPicker currentColor={accident.couleur || null} onChange={onColorChange} />
               <button onClick={onEdit} title="Modifier"
                 style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <Pencil size={13} />
@@ -1169,20 +1524,14 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
             </div>
           </div>
 
-          {/* Raison + sinistre */}
-          {(accident.raison || accident.numero_sinistre) && (
-            <div style={{ marginTop: 8, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {accident.raison && <span style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Raison :</strong> {accident.raison}</span>}
-              {accident.numero_sinistre && <span style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Sinistre :</strong> {accident.numero_sinistre}</span>}
-            </div>
-          )}
-
-          {/* Décision + Note + Remarque */}
-          {(accident.decision || accident.note || accident.remarque) && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {accident.decision && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Décision :</strong> {accident.decision}</div>}
-              {accident.note && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Note :</strong> {accident.note}</div>}
-              {accident.remarque && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Remarque :</strong> {accident.remarque}</div>}
+          {/* Infos compactes horizontales */}
+          {(accident.raison || accident.numero_sinistre || accident.decision || accident.note || accident.remarque) && (
+            <div style={{ marginTop: 8, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
+              {accident.raison && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Raison :</strong> {accident.raison}</span>}
+              {accident.numero_sinistre && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Sinistre :</strong> {accident.numero_sinistre}</span>}
+              {accident.decision && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Décision :</strong> {accident.decision}</span>}
+              {accident.note && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Note :</strong> {accident.note}</span>}
+              {accident.remarque && <span style={{ fontSize: 11, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)', fontSize: 11 }}>Remarque :</strong> {accident.remarque}</span>}
             </div>
           )}
 
@@ -1216,7 +1565,7 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
   )
 }
 
-function AccidentsTable({ accidents, onEdit, onDelete }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void }) {
+function AccidentsTable({ accidents, onEdit, onDelete, onColorChange }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onColorChange: (id: string, color: string) => void }) {
   if (accidents.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -1228,7 +1577,7 @@ function AccidentsTable({ accidents, onEdit, onDelete }: { accidents: Secretaria
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {accidents.map(a => (
-        <AccidentCard key={a.id} accident={a} onEdit={() => onEdit(a)} onDelete={() => onDelete(a)} />
+        <AccidentCard key={a.id} accident={a} onEdit={() => onEdit(a)} onDelete={() => onDelete(a)} onColorChange={color => onColorChange(a.id, color)} />
       ))}
     </div>
   )
@@ -1236,7 +1585,7 @@ function AccidentsTable({ accidents, onEdit, onDelete }: { accidents: Secretaria
 
 // ─── LoyersTable ──────────────────────────────────────────────────────────────
 
-function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[]; onEdit: (l: SecretariatLoyer) => void; onDelete: (l: SecretariatLoyer) => void }) {
+function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: SecretariatLoyer[]; onEdit: (l: SecretariatLoyer) => void; onDelete: (l: SecretariatLoyer) => void; onColorChange: (id: string, color: string) => void }) {
   if (loyers.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -1259,20 +1608,23 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
           {loyers.map(l => {
             const telCleaned = cleanPhone(l.tel || null)
             return (
-              <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: l.couleur ? (ROW_COLORS.find(c => c.key === l.couleur)?.bg || 'transparent') : 'transparent' }}
+                onMouseEnter={e => { if (!l.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = l.couleur ? (ROW_COLORS.find(c => c.key === l.couleur)?.bg || 'transparent') : 'transparent' }}
               >
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {l.photo_url
-                      ? <img src={l.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                    {l.photo_url && l.photo_url !== 'checked'
+                      ? <img src={l.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                       : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
                           {(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}
                         </div>
                     }
                     <div>
-                      <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{l.nom_prenom}</div>
+                      {l.candidat_id
+                        ? <a href={`/candidats/${l.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{l.nom_prenom}</a>
+                        : <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{l.nom_prenom}</div>
+                      }
                       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
                         {telCleaned && (
                           <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
@@ -1304,13 +1656,21 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
                 <td style={{ padding: '10px 10px' }}>
                   <span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(l.date_fin)}</span>
                 </td>
-                <td style={{ padding: '10px 10px', maxWidth: 200 }}>
-                  <span title={l.remarques || ''} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                    {l.remarques ? (l.remarques.length > 40 ? l.remarques.substring(0, 40) + '…' : l.remarques) : '—'}
-                  </span>
+                <td style={{ padding: '10px 10px', maxWidth: 220 }}>
+                  {l.remarques ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
+                      title={l.remarques}
+                      onClick={e => {
+                        const el = e.currentTarget
+                        if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
+                        else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
+                      }}
+                    >{l.remarques}</div>
+                  ) : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
+                    <ColorPicker currentColor={l.couleur || null} onChange={color => onColorChange(l.id, color)} />
                     <button onClick={() => onEdit(l)} title="Modifier"
                       style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                       <Pencil size={13} />
@@ -1332,7 +1692,7 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
 
 // ─── AlfaTable ────────────────────────────────────────────────────────────────
 
-function AlfaTable({ rows, onDelete }: { rows: SecretariatAlfa[]; onDelete: (a: SecretariatAlfa) => void }) {
+function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfa[]; onEdit: (a: SecretariatAlfa) => void; onDelete: (a: SecretariatAlfa) => void; onColorChange: (id: string, color: string) => void }) {
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune entrée ALFA pour cette année.</div>
   }
@@ -1357,9 +1717,12 @@ function AlfaTable({ rows, onDelete }: { rows: SecretariatAlfa[]; onDelete: (a: 
         </thead>
         <tbody>
           {rows.map(a => (
-            <tr key={a.id} style={{ background: a.termine ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+            <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
               <td style={tdStyle}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, cursor: 'pointer', color: 'var(--foreground)' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
+                  {a.candidat_id && <a href={`/candidats/${a.candidat_id}`} title="Voir fiche" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>}
+                </div>
                 {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -1372,19 +1735,36 @@ function AlfaTable({ rows, onDelete }: { rows: SecretariatAlfa[]; onDelete: (a: 
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_alfa)}</td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.mere_touche || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.lieu_enfants || '—'}</span></td>
-              <td style={{ ...tdStyle, maxWidth: 180 }}>
-                <span title={a.remarques || ''} style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                  {a.remarques ? (a.remarques.length > 35 ? a.remarques.substring(0, 35) + '…' : a.remarques) : '—'}
-                </span>
+              <td style={{ ...tdStyle, maxWidth: 220 }}>
+                {a.remarques ? (
+                  <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
+                    title={a.remarques}
+                    onClick={e => {
+                      const el = e.currentTarget
+                      if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
+                      else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
+                    }}
+                  >{a.remarques}</div>
+                ) : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
-                {a.termine ? <CheckCircle2 size={14} color="#10B981" /> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+                {a.termine
+                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
+                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
+                }
               </td>
               <td style={tdStyle}>
-                <button onClick={() => onDelete(a)} title="Supprimer"
-                  style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                  <Trash2 size={13} />
-                </button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
+                  <button onClick={() => onEdit(a)} title="Modifier"
+                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => onDelete(a)} title="Supprimer"
+                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -1396,7 +1776,7 @@ function AlfaTable({ rows, onDelete }: { rows: SecretariatAlfa[]; onDelete: (a: 
 
 // ─── AlfaPaiementsTable ────────────────────────────────────────────────────────
 
-function AlfaPaiementsTable({ rows, onDelete }: { rows: SecretariatAlfaPaiement[]; onDelete: (a: SecretariatAlfaPaiement) => void }) {
+function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfaPaiement[]; onEdit: (a: SecretariatAlfaPaiement) => void; onDelete: (a: SecretariatAlfaPaiement) => void; onColorChange: (id: string, color: string) => void }) {
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement ALFA pour cette année.</div>
   }
@@ -1422,9 +1802,12 @@ function AlfaPaiementsTable({ rows, onDelete }: { rows: SecretariatAlfaPaiement[
         </thead>
         <tbody>
           {rows.map(a => (
-            <tr key={a.id} style={{ background: a.statut_termine ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+            <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.statut_termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
               <td style={tdStyle}>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13, cursor: 'pointer', color: 'var(--foreground)' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
+                  {a.candidat_id && <a href={`/candidats/${a.candidat_id}`} title="Voir fiche" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>}
+                </div>
                 {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -1440,19 +1823,36 @@ function AlfaPaiementsTable({ rows, onDelete }: { rows: SecretariatAlfaPaiement[
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_mission)}</td>
-              <td style={{ ...tdStyle, maxWidth: 160 }}>
-                <span title={a.remarques || ''} style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                  {a.remarques ? (a.remarques.length > 30 ? a.remarques.substring(0, 30) + '…' : a.remarques) : '—'}
-                </span>
+              <td style={{ ...tdStyle, maxWidth: 220 }}>
+                {a.remarques ? (
+                  <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
+                    title={a.remarques}
+                    onClick={e => {
+                      const el = e.currentTarget
+                      if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
+                      else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
+                    }}
+                  >{a.remarques}</div>
+                ) : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
-                {a.statut_termine ? <CheckCircle2 size={14} color="#10B981" /> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+                {a.statut_termine
+                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
+                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
+                }
               </td>
               <td style={tdStyle}>
-                <button onClick={() => onDelete(a)} title="Supprimer"
-                  style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                  <Trash2 size={13} />
-                </button>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
+                  <button onClick={() => onEdit(a)} title="Modifier"
+                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Pencil size={13} />
+                  </button>
+                  <button onClick={() => onDelete(a)} title="Supprimer"
+                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -1475,7 +1875,7 @@ function TabBtn({ active, onClick, children, count }: { active: boolean; onClick
     }}>
       {children}
       {count !== undefined && count > 0 && (
-        <span style={{ padding: '1px 6px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,0.25)' : 'var(--primary-soft)', color: active ? '#fff' : 'var(--primary)' }}>
+        <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: active ? 'rgba(255,255,255,0.3)' : 'rgba(245,166,35,0.2)', color: active ? '#fff' : '#B47A1A', minWidth: 20, textAlign: 'center' }}>
           {count}
         </span>
       )}
@@ -1485,8 +1885,17 @@ function TabBtn({ active, onClick, children, count }: { active: boolean; onClick
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
-export default function SecretariatPage() {
+export default function SecretariatPageWrapper() {
+  return (
+    <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--muted)' }}>Chargement…</div>}>
+      <SecretariatPage />
+    </Suspense>
+  )
+}
+
+function SecretariatPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const supabase = createClient()
 
@@ -1519,15 +1928,49 @@ export default function SecretariatPage() {
   const [deleteItem, setDeleteItem] = useState<any>(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  // Fix 6 — Filtres accidents
+  // Filtres accidents
   const [accidentStatut, setAccidentStatut] = useState<'tous' | 'en_cours' | 'termine'>('tous')
   const [accidentType, setAccidentType] = useState<'tous' | 'Accident' | 'Maladie'>('tous')
+
+  // Filtre candidats (permis urgents / surveillance / docs manquants)
+  const [candidatFiltre, setCandidatFiltre] = useState<'tous' | 'permis_urgent' | 'permis_surveillance' | 'docs_manquants'>('tous')
+
+  // Filtre ALFA terminé / en cours
+  const [alfaTermine, setAlfaTermine] = useState<'tous' | 'en_cours' | 'termine'>('tous')
+
+  // Tri ALFA A-Z
+  const [alfaSort, setAlfaSort] = useState<'default' | 'az' | 'za'>('default')
 
   // Fix 11 — Multi-select
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // Reset selection on tab/year change
   useEffect(() => { setSelectedIds(new Set()) }, [activeTab, annee, alfaView])
+
+  // ─── Fix 6 — Lecture URL params (tab, filtre, action) ─────────────────────
+  const urlParamsApplied = useRef(false)
+  useEffect(() => {
+    if (!roleChecked || urlParamsApplied.current) return
+    urlParamsApplied.current = true
+
+    const tab = searchParams.get('tab')
+    if (tab === 'candidats' || tab === 'alfa' || tab === 'accidents' || tab === 'loyers') {
+      setActiveTab(tab)
+    }
+
+    const filtre = searchParams.get('filtre')
+    if (tab === 'accidents' && filtre === 'en_cours') {
+      setAccidentStatut('en_cours')
+    }
+    if (tab === 'candidats' && (filtre === 'permis_urgent' || filtre === 'permis_surveillance' || filtre === 'docs_manquants')) {
+      setCandidatFiltre(filtre)
+    }
+
+    const action = searchParams.get('action')
+    if (action === 'new') {
+      setShowForm(true)
+    }
+  }, [roleChecked, searchParams])
 
   // ─── Queries React Query ───────────────────────────────────────────────────
 
@@ -1669,9 +2112,23 @@ export default function SecretariatPage() {
 
   const q = searchQuery.toLowerCase().trim()
 
-  const filteredCandidats = candidats.filter(c =>
-    !q || `${c.prenom} ${c.nom}`.toLowerCase().includes(q) || (c.numero_quadrigis || '').toLowerCase().includes(q)
-  )
+  const filteredCandidats = candidats.filter(c => {
+    if (q && !`${c.prenom} ${c.nom}`.toLowerCase().includes(q) && !(c.numero_quadrigis || '').toLowerCase().includes(q)) return false
+    if (candidatFiltre === 'permis_urgent') {
+      if (!c.date_echeance_permis) return false
+      const j = Math.floor((new Date(c.date_echeance_permis).getTime() - Date.now()) / 86400000)
+      return j >= 0 && j < 30
+    }
+    if (candidatFiltre === 'permis_surveillance') {
+      if (!c.date_echeance_permis) return false
+      const j = Math.floor((new Date(c.date_echeance_permis).getTime() - Date.now()) / 86400000)
+      return j >= 30 && j < 90
+    }
+    if (candidatFiltre === 'docs_manquants') {
+      return !!c.docs_manquants
+    }
+    return true
+  })
 
   const filteredAccidents = accidents.filter(a => {
     if (accidentStatut === 'en_cours' && a.termine) return false
@@ -1684,13 +2141,27 @@ export default function SecretariatPage() {
     !q || (l.nom_prenom || '').toLowerCase().includes(q) || (l.adresse || '').toLowerCase().includes(q)
   )
 
-  const filteredAlfa = alfa.filter(a =>
-    !q || `${a.nom} ${a.prenom}`.toLowerCase().includes(q) || (a.remarques || '').toLowerCase().includes(q)
-  )
+  const filteredAlfa = alfa.filter(a => {
+    if (q && !`${a.nom} ${a.prenom}`.toLowerCase().includes(q) && !(a.remarques || '').toLowerCase().includes(q)) return false
+    if (alfaTermine === 'en_cours' && a.termine) return false
+    if (alfaTermine === 'termine' && !a.termine) return false
+    return true
+  }).sort((a, b) => {
+    if (alfaSort === 'az') return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr')
+    if (alfaSort === 'za') return `${b.nom} ${b.prenom}`.localeCompare(`${a.nom} ${a.prenom}`, 'fr')
+    return 0
+  })
 
-  const filteredAlfaPaiements = alfaPaiements.filter(a =>
-    !q || `${a.nom} ${a.prenom}`.toLowerCase().includes(q) || (a.remarques || '').toLowerCase().includes(q)
-  )
+  const filteredAlfaPaiements = alfaPaiements.filter(a => {
+    if (q && !`${a.nom} ${a.prenom}`.toLowerCase().includes(q) && !(a.remarques || '').toLowerCase().includes(q)) return false
+    if (alfaTermine === 'en_cours' && a.statut_termine) return false
+    if (alfaTermine === 'termine' && !a.statut_termine) return false
+    return true
+  }).sort((a, b) => {
+    if (alfaSort === 'az') return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr')
+    if (alfaSort === 'za') return `${b.nom} ${b.prenom}`.localeCompare(`${a.nom} ${a.prenom}`, 'fr')
+    return 0
+  })
 
   // ─── Handlers CRUD ────────────────────────────────────────────────────────
 
@@ -1735,16 +2206,23 @@ export default function SecretariatPage() {
     } catch { /* ignore */ }
   }
 
-  // Fix 12 — Color change
+  // Color change — générique pour toutes les tables
   const handleColorChange = async (id: string, color: string) => {
     try {
-      const res = await fetch(`/api/secretariat/candidats/${id}`, {
+      let apiBase = ''
+      let qKey = ''
+      if (activeTab === 'candidats') { apiBase = 'candidats'; qKey = 'secretariat-candidats' }
+      else if (activeTab === 'accidents') { apiBase = 'accidents'; qKey = 'secretariat-accidents' }
+      else if (activeTab === 'alfa' && alfaView === 'suivi') { apiBase = 'alfa'; qKey = 'secretariat-alfa' }
+      else if (activeTab === 'alfa' && alfaView === 'apayer') { apiBase = 'alfa-paiements'; qKey = 'secretariat-alfa-paiements' }
+      else { apiBase = 'loyers'; qKey = 'secretariat-loyers' }
+      const res = await fetch(`/api/secretariat/${apiBase}/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ couleur: color || null }),
       })
       if (!res.ok) throw new Error('Erreur')
-      queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
+      queryClient.invalidateQueries({ queryKey: [qKey, annee] })
     } catch (e: any) { toast.error(e.message) }
   }
 
@@ -1928,7 +2406,7 @@ export default function SecretariatPage() {
 
       {/* Tabs principaux */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredCandidats.length}>
+        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null); setCandidatFiltre('tous') }} count={filteredCandidats.length}>
           <User size={14} /> Suivi Candidats
         </TabBtn>
         <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={activeTab === 'alfa' && alfaView === 'apayer' ? filteredAlfaPaiements.length : filteredAlfa.length}>
@@ -1998,6 +2476,45 @@ export default function SecretariatPage() {
         </div>
       )}
 
+      {/* Filtres ALFA */}
+      {activeTab === 'alfa' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['tous', 'en_cours', 'termine'] as const).map(s => (
+              <button key={s} onClick={() => setAlfaTermine(s)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: alfaTermine === s ? (s === 'termine' ? 'rgba(34,197,94,0.15)' : 'var(--primary)') : 'var(--secondary)',
+                color: alfaTermine === s ? (s === 'termine' ? '#16A34A' : '#fff') : 'var(--muted)',
+                border: `1.5px solid ${alfaTermine === s ? (s === 'termine' ? 'rgba(34,197,94,0.4)' : 'var(--primary)') : 'var(--border)'}`,
+              }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['default', 'az', 'za'] as const).map(s => (
+              <button key={s} onClick={() => setAlfaSort(s)} style={{
+                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: alfaSort === s ? 'var(--primary)' : 'var(--secondary)',
+                color: alfaSort === s ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${alfaSort === s ? 'var(--primary)' : 'var(--border)'}`,
+              }}>{s === 'default' ? '⏱ Récent' : s === 'az' ? 'A→Z' : 'Z→A'}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filtres candidats */}
+      {activeTab === 'candidats' && candidatFiltre !== 'tous' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(245,166,35,0.15)', color: 'var(--primary)', border: '1.5px solid rgba(245,166,35,0.3)' }}>
+            🔍 {candidatFiltre === 'permis_urgent' ? 'Permis urgents (<30j)' : candidatFiltre === 'permis_surveillance' ? 'Permis à renouveler (<90j)' : 'Docs manquants'}
+          </div>
+          <button onClick={() => setCandidatFiltre('tous')} style={{
+            padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            background: 'var(--secondary)', color: 'var(--muted)', border: '1.5px solid var(--border)',
+          }}>✕ Effacer filtre</button>
+        </div>
+      )}
+
       {/* Barre de recherche */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <div style={{ position: 'relative', flex: 1, maxWidth: 360 }}>
@@ -2052,13 +2569,17 @@ export default function SecretariatPage() {
             {activeTab === 'alfa' && alfaView === 'suivi' && (
               <AlfaTable
                 rows={filteredAlfa}
+                onEdit={a => { setEditItem(a); setShowForm(true) }}
                 onDelete={a => setDeleteItem(a)}
+                onColorChange={handleColorChange}
               />
             )}
             {activeTab === 'alfa' && alfaView === 'apayer' && (
               <AlfaPaiementsTable
                 rows={filteredAlfaPaiements}
+                onEdit={a => { setEditItem(a); setShowForm(true) }}
                 onDelete={a => setDeleteItem(a)}
+                onColorChange={handleColorChange}
               />
             )}
             {activeTab === 'accidents' && (
@@ -2066,6 +2587,7 @@ export default function SecretariatPage() {
                 accidents={filteredAccidents}
                 onEdit={a => { setEditItem(a); setShowForm(true) }}
                 onDelete={a => setDeleteItem(a)}
+                onColorChange={handleColorChange}
               />
             )}
             {activeTab === 'loyers' && (
@@ -2073,6 +2595,7 @@ export default function SecretariatPage() {
                 loyers={filteredLoyers}
                 onEdit={l => { setEditItem(l); setShowForm(true) }}
                 onDelete={l => setDeleteItem(l)}
+                onColorChange={handleColorChange}
               />
             )}
           </div>
@@ -2109,6 +2632,20 @@ export default function SecretariatPage() {
       )}
       {showForm && activeTab === 'loyers' && (
         <LoyerModal
+          item={editItem}
+          onClose={() => { setShowForm(false); setEditItem(null) }}
+          onSaved={handleSaved}
+        />
+      )}
+      {showForm && activeTab === 'alfa' && alfaView === 'suivi' && (
+        <AlfaModal
+          item={editItem}
+          onClose={() => { setShowForm(false); setEditItem(null) }}
+          onSaved={handleSaved}
+        />
+      )}
+      {showForm && activeTab === 'alfa' && alfaView === 'apayer' && (
+        <AlfaPaiementModal
           item={editItem}
           onClose={() => { setShowForm(false); setEditItem(null) }}
           onSaved={handleSaved}

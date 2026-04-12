@@ -1,7 +1,7 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, Phone, ClipboardList, Search, Clock, CheckCircle2, Shield, Loader2 } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, Phone, ClipboardList, Clock, CheckCircle2, Shield, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
@@ -550,7 +550,7 @@ function SecretaireDashboard({ user }: { user: any }) {
         <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show"
           style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
           {stats!.permis_urgents > 0 && (
-            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+            <Link href="/secretariat?tab=candidats&filtre=permis_urgent" style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}>
                 <AlertTriangle size={15} color="#EF4444" />
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>{stats!.permis_urgents} permis urgent{stats!.permis_urgents > 1 ? 's' : ''}</span>
@@ -558,18 +558,18 @@ function SecretaireDashboard({ user }: { user: any }) {
             </Link>
           )}
           {stats!.permis_surveillance > 0 && (
-            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+            <Link href="/secretariat?tab=candidats&filtre=permis_surveillance" style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(245,166,35,0.1)', border: '1.5px solid rgba(245,166,35,0.4)', cursor: 'pointer' }}>
                 <Clock size={15} color="#F5A623" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#F5A623' }}>{stats!.permis_surveillance} permis à surveiller</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#F5A623' }}>{stats!.permis_surveillance} permis à renouveler</span>
               </div>
             </Link>
           )}
           {stats!.accidents_en_cours > 0 && (
-            <Link href="/secretariat" style={{ textDecoration: 'none' }}>
+            <Link href="/secretariat?tab=accidents&filtre=en_cours" style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, background: 'rgba(249,115,22,0.1)', border: '1.5px solid rgba(249,115,22,0.4)', cursor: 'pointer' }}>
                 <Shield size={15} color="#F97316" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#F97316' }}>{stats!.accidents_en_cours} cas à surveiller</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#F97316' }}>{stats!.accidents_en_cours} sinistre{stats!.accidents_en_cours > 1 ? 's' : ''} en cours</span>
               </div>
             </Link>
           )}
@@ -579,25 +579,28 @@ function SecretaireDashboard({ user }: { user: any }) {
       {/* ── 4 KPI cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
         {[
-          { label: 'Candidats actifs',   value: stats?.candidats_actifs    ?? '—', emoji: '👥', kpiClass: 'kpi-yellow' },
-          { label: 'Permis urgents',      value: stats?.permis_urgents      ?? '—', emoji: '🔴', kpiClass: 'kpi-red'    },
-          { label: 'Permis à surveiller', value: stats?.permis_surveillance ?? '—', emoji: '🟡', kpiClass: 'kpi-orange' },
-          { label: 'Accidents en cours',  value: stats?.accidents_en_cours  ?? '—', emoji: '🏥', kpiClass: 'kpi-violet' },
+          { label: 'Candidats actifs',       value: stats?.candidats_actifs    ?? '—', emoji: '👥', kpiClass: 'kpi-yellow', href: '/secretariat?tab=candidats' },
+          { label: 'Permis urgents (<30j)',   value: stats?.permis_urgents      ?? '—', emoji: '🔴', kpiClass: 'kpi-red',    href: '/secretariat?tab=candidats&filtre=permis_urgent' },
+          { label: 'Permis à renouveler (<90j)', value: stats?.permis_surveillance ?? '—', emoji: '🟡', kpiClass: 'kpi-orange', href: '/secretariat?tab=candidats&filtre=permis_surveillance' },
+          { label: 'Sinistres en cours',      value: stats?.accidents_en_cours  ?? '—', emoji: '🏥', kpiClass: 'kpi-violet', href: '/secretariat?tab=accidents&filtre=en_cours' },
         ].map((kpi, i) => (
           <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
-            <motion.div
-              className={`neo-kpi ${kpi.kpiClass || ''}`}
-              whileHover={{ y: -4, boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-            >
-              <div className="neo-kpi-icon"><span style={{ fontSize: 17 }}>{kpi.emoji}</span></div>
-              <div className="neo-kpi-value">
-                {isLoading ? '—' : typeof kpi.value === 'number'
-                  ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
-                  : kpi.value}
-              </div>
-              <div className="neo-kpi-label">{kpi.label}</div>
-            </motion.div>
+            <Link href={kpi.href} style={{ textDecoration: 'none' }}>
+              <motion.div
+                className={`neo-kpi ${kpi.kpiClass || ''}`}
+                whileHover={{ y: -4, boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="neo-kpi-icon"><span style={{ fontSize: 17 }}>{kpi.emoji}</span></div>
+                <div className="neo-kpi-value">
+                  {isLoading ? '—' : typeof kpi.value === 'number'
+                    ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
+                    : kpi.value}
+                </div>
+                <div className="neo-kpi-label">{kpi.label}</div>
+              </motion.div>
+            </Link>
           </motion.div>
         ))}
       </div>
@@ -608,7 +611,7 @@ function SecretaireDashboard({ user }: { user: any }) {
         {/* ── À traiter aujourd'hui ── */}
         <motion.div custom={4} variants={fadeUp} initial="hidden" animate="show">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>📋 À traiter aujourd'hui</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>📋 Les plus urgents à traiter</h2>
             <Link href="/secretariat" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Voir tout →</Link>
           </div>
 
@@ -660,7 +663,11 @@ function SecretaireDashboard({ user }: { user: any }) {
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818CF8', textDecoration: 'none' }}
                           title="Email"><Mail size={13} /></a>
                       )}
-                      <Link href="/secretariat"
+                      <Link href={
+                          item.type === 'permis' ? `/secretariat?tab=candidats&filtre=permis_urgent`
+                          : item.type === 'accident' ? `/secretariat?tab=accidents&filtre=en_cours`
+                          : `/secretariat?tab=candidats&filtre=docs_manquants`
+                        }
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', textDecoration: 'none' }}
                         title="Voir dossier"><ArrowRight size={13} /></Link>
                     </div>
@@ -679,9 +686,7 @@ function SecretaireDashboard({ user }: { user: any }) {
             <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 12 }}>⚡ Accès rapides</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                { label: 'Nouveau candidat',    icon: Plus,        bg: 'rgba(245,166,35,0.15)', color: 'var(--primary)', href: '/secretariat' },
-                { label: 'Déclarer un accident', icon: Shield,      bg: 'rgba(249,115,22,0.12)', color: '#F97316',        href: '/secretariat?tab=accidents' },
-                { label: 'Rechercher un dossier',icon: Search,      bg: 'rgba(99,102,241,0.12)', color: '#818CF8',        href: '/secretariat' },
+                { label: 'Déclarer un sinistre', icon: Shield,      bg: 'rgba(249,115,22,0.12)', color: '#F97316',        href: '/secretariat?tab=accidents&action=new' },
               ].map(({ label, icon: Icon, bg, color, href }, i) => (
                 <Link key={i} href={href} style={{ textDecoration: 'none' }}>
                   <motion.div whileHover={{ x: 3 }}
