@@ -554,7 +554,11 @@ export default function CandidatsList() {
     if (savedScroll) {
       scrollRestored.current = true
       const y = parseInt(savedScroll, 10)
-      setTimeout(() => window.scrollTo(0, y), 100)
+      setTimeout(() => {
+        const container = document.querySelector('.d-content') as HTMLElement | null
+        if (container) container.scrollTop = y
+        else window.scrollTo(0, y)
+      }, 100)
       sessionStorage.removeItem('candidats_scroll')
       sessionStorage.removeItem('candidats_last_id')
     }
@@ -782,7 +786,8 @@ export default function CandidatsList() {
       // Persiste l'état du filtre "non vus" pour le restaurer en revenant
       sessionStorage.setItem('candidats_filter_nonvu', filterNonVu ? '1' : '0')
       // Sauvegarde position scroll pour la restaurer au retour
-      sessionStorage.setItem('candidats_scroll', window.scrollY.toString())
+      const scrollContainer = document.querySelector('.d-content') as HTMLElement | null
+      sessionStorage.setItem('candidats_scroll', (scrollContainer?.scrollTop ?? window.scrollY).toString())
       sessionStorage.setItem('candidats_last_id', id)
       // NE PAS marquer vu ici → la fiche le fait sur son useEffect, évite la disparition visuelle
       router.push(`/candidats/${id}`)
