@@ -19,9 +19,7 @@ export function emailWrapper(content: string): string {
             <table cellpadding="0" cellspacing="0" align="center">
               <tr>
                 <td style="background:#F5A623;border-radius:10px;width:38px;height:38px;text-align:center;vertical-align:middle">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:9px auto">
-                    <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
-                  </svg>
+                  <span style="font-size:20px;line-height:38px;display:block;text-align:center">⚡</span>
                 </td>
                 <td style="padding-left:12px">
                   <span style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:-0.3px">TalentFlow</span>

@@ -19,6 +19,12 @@ export default function AuthHashHandler() {
     const error       = params.get('error')
     const errorCode   = params.get('error_code')
 
+    // Réinitialisation mot de passe → redirige vers /reset-password avec le hash complet
+    if (type === 'recovery' && accessToken) {
+      router.replace('/reset-password' + window.location.hash)
+      return
+    }
+
     // Invitation valide → on passe le hash à /accepter-invitation pour que Supabase établisse la session
     if ((type === 'invite' || type === 'signup') && accessToken) {
       router.replace('/accepter-invitation' + window.location.hash)
