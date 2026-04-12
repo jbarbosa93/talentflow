@@ -1465,8 +1465,8 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                 <td style={{ padding: '10px 10px' }}><span style={{ color: c.numero_quadrigis ? 'var(--foreground)' : 'var(--muted)', fontSize: 12, fontWeight: c.numero_quadrigis ? 600 : 400 }}>{c.numero_quadrigis || '—'}</span></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                    <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
                     {c.suisse && <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap' }}>🇨🇭 CH</span>}
+                    <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
                   </div>
                 </td>
                 <td style={{ padding: '10px 10px', textAlign: 'center' }}>
