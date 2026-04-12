@@ -2,6 +2,7 @@
 // Code HMAC-SHA256 déterministe — pas de stockage DB nécessaire
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { emailOtpHtml } from '@/lib/email-template'
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const RESEND_API_KEY = process.env.RESEND_API_KEY!
@@ -45,16 +46,7 @@ export async function POST(request: NextRequest) {
         from: 'TalentFlow <noreply@talent-flow.ch>',
         to: [email],
         subject: 'Votre code de connexion — TalentFlow',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px">
-            <h2 style="margin:0 0 8px">Code de connexion TalentFlow</h2>
-            <p style="color:#666;margin:0 0 24px">Entrez ce code dans l'application pour vous connecter :</p>
-            <div style="background:#f5f5f5;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
-              <span style="font-size:40px;font-weight:700;letter-spacing:12px;font-family:monospace;color:#111">${otp}</span>
-            </div>
-            <p style="color:#999;font-size:13px;margin:0">Ce code expire dans 10 minutes. Ne le partagez avec personne.</p>
-          </div>
-        `,
+        html: emailOtpHtml(otp),
       }),
     })
 

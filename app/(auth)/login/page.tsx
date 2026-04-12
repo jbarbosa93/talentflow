@@ -192,12 +192,14 @@ function LoginForm() {
     setError('')
     setForgotLoading(true)
     try {
-      const supabase = createClient()
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
       })
-      if (resetError) {
-        setError(resetError.message)
+      if (!res.ok) {
+        const d = await res.json()
+        setError(d.error || 'Erreur envoi email.')
       } else {
         setForgotSent(true)
       }
