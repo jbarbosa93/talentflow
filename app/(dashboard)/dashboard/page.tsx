@@ -1,4 +1,5 @@
 'use client'
+import * as Sentry from '@sentry/nextjs'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone } from 'lucide-react'
@@ -151,7 +152,10 @@ export default function DashboardPage() {
           <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
           {/* TODO: Supprimer après test Sentry */}
           <button
-            onClick={() => { throw new Error('Test Sentry TalentFlow') }}
+            onClick={() => {
+              Sentry.captureException(new Error('Test Sentry TalentFlow'))
+              alert('Erreur envoyée à Sentry !')
+            }}
             style={{ marginTop: 8, padding: '4px 12px', fontSize: 11, background: '#EF4444', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           >
             Test Sentry
