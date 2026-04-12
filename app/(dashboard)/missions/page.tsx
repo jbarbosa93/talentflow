@@ -426,12 +426,12 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
   const missionAge = Math.floor((Date.now() - new Date(mission.date_debut).getTime()) / (1000 * 60 * 60 * 24))
   const lppActive = mission.marge_avec_lpp != null && missionAge > 90
   return (
-    <div style={{ ...S.card, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, transition: 'box-shadow 0.15s' }}
+    <div style={{ ...S.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, transition: 'box-shadow 0.15s' }}
       onMouseEnter={e => (e.currentTarget.style.boxShadow = 'var(--card-shadow-hover)')}
       onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
     >
       {/* Avatar */}
-      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 8, overflow: 'hidden', background: 'var(--secondary)', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: 'var(--muted)', position: 'relative' }}>
+      <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 10, overflow: 'hidden', background: 'var(--secondary)', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--muted)', position: 'relative' }}>
         <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initialesMission(mission.candidat_nom)}</span>
         {mission.photo_url && mission.photo_url !== 'checked' && (
           <img src={mission.photo_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
@@ -447,35 +447,35 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
       </div>
 
       {/* Candidat */}
-      <div style={{ flex: '1 1 150px', minWidth: 0, maxWidth: 180 }}>
+      <div style={{ flex: '1 1 180px', minWidth: 0, maxWidth: 220 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <User size={11} color="var(--muted)" style={{ flexShrink: 0 }} />
+          <User size={12} color="var(--muted)" style={{ flexShrink: 0 }} />
           {mission.candidat_id ? (
-            <a href={`/candidats/${mission.candidat_id}`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'none' }}
+            <a href={`/candidats/${mission.candidat_id}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'none' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.textDecoration = 'underline' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.textDecoration = 'none' }}
             >{mission.candidat_nom || '—'}</a>
           ) : (
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {mission.candidat_nom || <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontWeight: 400 }}>—</span>}
             </span>
           )}
         </div>
-        {mission.metier && <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600, marginTop: 1, marginLeft: 16 }}>{mission.metier}</div>}
+        {mission.metier && <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, marginTop: 2, marginLeft: 17 }}>{mission.metier}</div>}
       </div>
 
       {/* Client */}
-      <div style={{ flex: '1 1 120px', minWidth: 0, maxWidth: 160 }}>
+      <div style={{ flex: '1 1 150px', minWidth: 0, maxWidth: 200 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Building2 size={11} color="var(--muted)" />
-          <span style={{ fontSize: 13, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Building2 size={12} color="var(--muted)" />
+          <span style={{ fontSize: 14, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {mission.client_nom || '—'}
           </span>
         </div>
       </div>
 
       {/* Dates */}
-      <div style={{ flex: '0 1 145px', minWidth: 0, fontSize: 11, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ flex: '0 1 155px', minWidth: 0, fontSize: 12, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
           <Calendar size={11} style={{ flexShrink: 0 }} />{formatDate(mission.date_debut)}{mission.date_fin ? ` → ${formatDate(mission.date_fin)}` : ''}
         </div>
@@ -501,7 +501,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
       </div>
 
       {/* Marge */}
-      <div style={{ flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 800, color: '#22C55E' }}>
+      <div style={{ flex: 1, textAlign: 'right', fontSize: 15, fontWeight: 800, color: '#22C55E' }}>
         {formatCHF(Number(mission.marge_brute))}
       </div>
 
@@ -752,7 +752,7 @@ export default function MissionsPage() {
   if (!mounted) return null
 
   return (
-    <div className="d-page" style={{ maxWidth: 960 }}>
+    <div className="d-page">
       {/* Header */}
       <div className="d-page-header" style={{ marginBottom: 20 }}>
         <div>
@@ -1013,13 +1013,13 @@ export default function MissionsPage() {
             <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>{missions.length} résultat{missions.length !== 1 ? 's' : ''}</span>
           </div>
           {/* En-tête colonnes */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px', marginBottom: 6 }}>
-            <div style={{ flex: '0 0 36px' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', marginBottom: 6 }}>
+            <div style={{ flex: '0 0 48px' }}></div>
             <div style={{ flex: '0 0 90px' }}></div>
-            <button onClick={() => toggleSort('candidat')} style={{ flex: '0 0 180px', fontSize: 11, fontWeight: 700, color: sortKey === 'candidat' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => toggleSort('candidat')} style={{ flex: '0 0 220px', fontSize: 11, fontWeight: 700, color: sortKey === 'candidat' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               Candidat {sortKey === 'candidat' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
-            <button onClick={() => toggleSort('client')} style={{ flex: '0 0 160px', fontSize: 11, fontWeight: 700, color: sortKey === 'client' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => toggleSort('client')} style={{ flex: '0 0 200px', fontSize: 11, fontWeight: 700, color: sortKey === 'client' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               Client {sortKey === 'client' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
             <div style={{ flex: '0 0 155px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dates</div>
