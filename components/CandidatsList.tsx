@@ -546,6 +546,20 @@ export default function CandidatsList() {
     return () => document.removeEventListener('click', close)
   }, [])
 
+  // Restaurer la position scroll au retour depuis une fiche candidat
+  const scrollRestored = useRef(false)
+  useEffect(() => {
+    if (scrollRestored.current || isLoading) return
+    const savedScroll = sessionStorage.getItem('candidats_scroll')
+    if (savedScroll) {
+      scrollRestored.current = true
+      const y = parseInt(savedScroll, 10)
+      setTimeout(() => window.scrollTo(0, y), 100)
+      sessionStorage.removeItem('candidats_scroll')
+      sessionStorage.removeItem('candidats_last_id')
+    }
+  }, [isLoading])
+
   // Filtrage — la plupart des filtres sont côté serveur
   // Restent côté client : âge (format mixte), dropdown par métier/localisation, exp min
   const candidatsFiltres = useMemo(() => {
@@ -767,6 +781,9 @@ export default function CandidatsList() {
       sessionStorage.setItem('candidats_last_list', importStatusFilter === 'a_traiter' ? 'a_traiter' : 'all')
       // Persiste l'état du filtre "non vus" pour le restaurer en revenant
       sessionStorage.setItem('candidats_filter_nonvu', filterNonVu ? '1' : '0')
+      // Sauvegarde position scroll pour la restaurer au retour
+      sessionStorage.setItem('candidats_scroll', window.scrollY.toString())
+      sessionStorage.setItem('candidats_last_id', id)
       // NE PAS marquer vu ici → la fiche le fait sur son useEffect, évite la disparition visuelle
       router.push(`/candidats/${id}`)
     }

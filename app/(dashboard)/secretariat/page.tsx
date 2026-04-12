@@ -1452,7 +1452,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                     }
                     <div>
                       {c.candidat_id
-                        ? <a href={`/candidats/${c.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{c.prenom} {c.nom}</a>
+                        ? <a href={`/candidats/${c.candidat_id}?from=secretariat`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{c.prenom} {c.nom}</a>
                         : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
                       }
                       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
@@ -1521,7 +1521,7 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: 
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <div>
               {accident.candidat_id
-                ? <a href={`/candidats/${accident.candidat_id}`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{accident.nom_prenom}</a>
+                ? <a href={`/candidats/${accident.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{accident.nom_prenom}</a>
                 : <div style={{ fontWeight: 700, fontSize: 14 }}>{accident.nom_prenom}</div>
               }
               <div style={{ display: 'flex', gap: 5, marginTop: 4, flexWrap: 'wrap' }}>
@@ -1680,7 +1680,7 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
                     }
                     <div>
                       {l.candidat_id
-                        ? <a href={`/candidats/${l.candidat_id}`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{l.nom_prenom}</a>
+                        ? <a href={`/candidats/${l.candidat_id}?from=secretariat`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{l.nom_prenom}</a>
                         : <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{l.nom_prenom}</div>
                       }
                       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
@@ -1775,7 +1775,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                 <div>
                   {a.candidat_id
-                    ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                    ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
                     : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
                   }
                   {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
@@ -1883,7 +1883,7 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                     }
                     <div>
                       {a.candidat_id
-                        ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                        ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
                         : <span style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</span>
                       }
                       {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
@@ -2564,7 +2564,7 @@ function SecretariatPage() {
             setCandidatFiltre('docs_manquants')
             setShowNotifs(false)
           } else if (notif.candidat_id) {
-            router.push(`/candidats/${notif.candidat_id}`)
+            router.push(`/candidats/${notif.candidat_id}?from=secretariat`)
           }
         }
 
@@ -2594,7 +2594,7 @@ function SecretariatPage() {
                 <span style={{ fontSize: 10, color: 'var(--muted)' }}>{formatDate(notif.created_at?.split('T')[0])}</span>
                 {notif.created_by_nom && <span style={{ fontSize: 10, color: 'var(--muted)' }}>par {notif.created_by_nom}</span>}
                 {notif.candidat_id && (
-                  <a href={`/candidats/${notif.candidat_id}`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Voir candidat →</a>
+                  <a href={`/candidats/${notif.candidat_id}?from=secretariat`} onClick={e => e.stopPropagation()} style={{ fontSize: 10, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Voir candidat →</a>
                 )}
               </div>
             </div>

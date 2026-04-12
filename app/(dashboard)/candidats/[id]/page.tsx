@@ -161,7 +161,9 @@ export default function CandidatDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const fromPipeline = searchParams.get('from') === 'pipeline'
+  const fromPage = searchParams.get('from')
+  const backRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : '/candidats'
+  const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : 'Retour aux candidats'
   const queryClient = useQueryClient()
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -770,8 +772,8 @@ export default function CandidatDetailPage() {
 
       {/* ── Header ── */}
       <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
-        <button onClick={() => fromPipeline ? router.push('/pipeline') : router.push('/candidats')} className="neo-btn-ghost neo-btn-sm">
-          <ArrowLeft size={14} /> {fromPipeline ? 'Retour au pipeline' : 'Retour aux candidats'}
+        <button onClick={() => router.push(backRoute)} className="neo-btn-ghost neo-btn-sm">
+          <ArrowLeft size={14} /> {backLabel}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {candidat.import_status === 'a_traiter' && !isEditing && (

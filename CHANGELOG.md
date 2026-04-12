@@ -1,5 +1,22 @@
 # Changelog TalentFlow
 
+## [1.8.12] — 12 avril 2026
+
+### Pipeline — consultant obligatoire
+- Ajout au pipeline sans consultant = erreur (empêche les candidats orphelins sous "Tous")
+- Luis Filipe Pinto Rodrigues assigné à Seb (corrigé en DB)
+
+### Navigation — bouton retour intelligent
+- Fiche candidat : bouton retour renvoie vers la page d'origine (pipeline, missions, secrétariat, candidats)
+- Paramètre `?from=` ajouté sur tous les liens vers fiche candidat depuis pipeline, secrétariat, missions
+- Label dynamique : "Retour au pipeline", "Retour aux missions", "Retour au secrétariat"
+
+### Scroll position — liste candidats
+- Position scroll sauvegardée dans sessionStorage avant d'ouvrir une fiche
+- Restaurée automatiquement au retour (délai 100ms pour laisser la liste charger)
+
+---
+
 ## [1.8.11] — 12 avril 2026
 
 ### Module Secrétariat

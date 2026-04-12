@@ -451,7 +451,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <User size={12} color="var(--muted)" style={{ flexShrink: 0 }} />
           {mission.candidat_id ? (
-            <a href={`/candidats/${mission.candidat_id}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'none' }}
+            <a href={`/candidats/${mission.candidat_id}?from=missions`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: 'none' }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.textDecoration = 'underline' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.textDecoration = 'none' }}
             >{mission.candidat_nom || '—'}</a>
@@ -924,7 +924,7 @@ export default function MissionsPage() {
                       >
                         <td style={{ padding: '7px 12px', fontWeight: 700, color: 'var(--foreground)' }}>
                           {m.candidat_id
-                            ? <a href={`/candidats/${m.candidat_id}`} style={{ color: 'var(--foreground)', textDecoration: 'none', fontWeight: 700 }}
+                            ? <a href={`/candidats/${m.candidat_id}?from=missions`} style={{ color: 'var(--foreground)', textDecoration: 'none', fontWeight: 700 }}
                                 onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
                                 onMouseLeave={e => (e.currentTarget.style.color = 'var(--foreground)')}
                               >{m.candidat_nom || '—'}</a>

@@ -1,7 +1,7 @@
 # TalentFlow — CLAUDE.md
 
 ## Version actuelle
-**1.6.1 production** — 12/04/2026
+**1.8.12 production** — 12/04/2026
 
 ## Stack technique
 - **Frontend** : Next.js 16.1.7 (App Router), React 19, TypeScript 5, Tailwind CSS 4
@@ -16,12 +16,14 @@
 - **Dev local** : port 3001, commande `next dev --port 3001 --webpack` (Turbopack désactivé en dev)
 
 ## Features principales
-- **Candidats** : import masse (ZIP/PDF/Word), parsing IA multi-modèle, fiche détaillée, CV viewer, photos, doublons
+- **Candidats** : import masse (ZIP/PDF/Word, rotation 180°, fallback Vision, timeouts par étape), parsing IA multi-modèle, fiche détaillée, CV viewer, photos, normalisation affichage (Prénom Nom, email minuscule, ville capitalisée)
+- **Doublons** : détection instantanée par critères exacts (email score 100, téléphone normalisé +41 score 95, nom+prénom score 85), historique en DB (`doublons_historique`), fusion guidée champ par champ — sans IA
 - **Clients** : base de 1200+ entreprises, campagnes e-mail, gestion des contacts, filtre géographique, recherche IA (Claude web_search + zefix.ch/local.ch)
-- **Pipeline** : grille 3 colonnes, onglets consultants (João/Seb) avec compteurs, sous-onglets métiers filtrés par consultant actif avec compteurs, cards enrichies, rappels (toast permanent), ModifierModal, aperçu CV au survol
+- **Pipeline** : grille 3 colonnes, onglets consultants (João/Seb) avec compteurs, sous-onglets métiers filtrés par consultant actif avec compteurs, cards enrichies, rappels (toast permanent), ModifierModal, aperçu CV au survol, catégorie "Non classés"
 - **Missions** : CRUD complet, stats marge brute/coefficient, bilan mensuel (jours fériés cantonaux), import Notion, sync Quadrigis (validation manuelle via missions_pending)
+- **Secrétariat** : dashboard séparé (rôle Secrétaire), 6 tables DB (candidats, accidents, ALFA, paiements, loyers, notifications), import Excel (430 candidats + 113 accidents + 180 ALFA + 76 paiements + 2 loyers), historique modifications, notifications auto+manuelles avec badge sidebar, WhatsApp partout, lien fiche candidat
 - **Entretiens / Suivi** : vue liste, rappels avec notification, badge sidebar (lien sidebar masqué)
-- **OneDrive** : sync automatique récursif (cron 10min), déduplication, historique fichiers
+- **OneDrive** : sync automatique récursif (cron 10min), déduplication, historique fichiers, `cvScore=0` classé diplôme/certificat
 - **France Travail** : formulaire Word pré-rempli, envoi Resend, CC fixe, historique
 - **Messages** : email/SMS/WhatsApp avec templates, activité loggée
 - **Intégrations** : Microsoft 365 OAuth par utilisateur (Outlook multi-compte)
@@ -33,6 +35,7 @@ app/(dashboard)/          — pages + API routes (Next.js App Router)
   api/                    — routes API server-side (candidats, cv, pipeline, clients…)
   candidats/[id]/         — fiche candidat
   pipeline/               — grille 3 cols (consultant + métier + rappels)
+  secretariat/            — dashboard secrétaire (rôle dédié)
   offres/ entretiens/ ... — autres pages
 components/               — composants React (PascalCase)
   CvHoverPreview.tsx      — aperçu CV au survol (hook + trigger + panel)
@@ -93,7 +96,7 @@ supabase/migrations/      — SQL migrations versionnées
 
 ## Points d'attention techniques
 
-- **Tables sensibles RLS** : `app_settings`, `email_otps`, `onedrive_fichiers` — toujours utiliser `createServiceRoleClient`, jamais le client public
+- **Tables sensibles RLS** : `app_settings`, `email_otps`, `onedrive_fichiers`, `secretariat_*`, `logs_secretariat` — toujours utiliser `createServiceRoleClient`, jamais le client public
 - **Vercel bodySizeLimit** : configuré à `100mb` pour les imports ZIP volumineux (`serverActions.bodySizeLimit`)
 - **Détection extension CV** : utiliser `cv_nom_fichier` en priorité (plus fiable), l'URL Supabase peut être un UUID sans extension visible
 - **Login bypass dev** : `localhost:3001/admin` → magic link sans mot de passe via `supabase.auth.admin.generateLink` — bloqué en production
@@ -102,11 +105,13 @@ supabase/migrations/      — SQL migrations versionnées
 
 ## Sécurité — dette technique (audit 12/04/2026)
 
-✅ **Corrigé en v1.6.1** :
+✅ **Corrigé (v1.6.1→v1.8.11)** :
 - SMTP password chiffré AES-256-GCM (`lib/smtp-crypto.ts`) — rétrocompatible
 - `pipeline_rappels` UPDATE filtré par `user_id`
 - RLS `logs_acces` SELECT authenticated, `entretiens` policies simplifiées, `candidates` RLS activé
-- 7 routes API protégées par `requireAuth()` (candidats, logs, matching, pipeline/clear, pipeline/stages, notes, clients)
+- 9 routes API protégées par `requireAuth()` (candidats, logs, matching, pipeline/clear, pipeline/stages, notes, clients + 2 routes supplémentaires)
+- Sentry monitoring actif
+- Timer inactivité persisté en localStorage
 
 ⚠️ **Restant — à traiter** :
 - `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token

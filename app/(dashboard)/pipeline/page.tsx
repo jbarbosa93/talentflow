@@ -527,7 +527,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <Link href={`/candidats/${candidat.id}`} title="Fiche candidat"
+        <Link href={`/candidats/${candidat.id}?from=pipeline`} title="Fiche candidat"
           style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', textDecoration: 'none' }}>
           <FileText size={13} />
         </Link>
