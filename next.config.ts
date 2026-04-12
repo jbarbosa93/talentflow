@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   // Allow preview sandbox to write build output to workspace
@@ -22,4 +23,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Upload source maps silencieusement
+  silent: true,
+  // Organisation et projet Sentry
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  // Source maps : ne pas exposer au client
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+  },
+});

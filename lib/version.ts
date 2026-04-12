@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.6.3'
+export const APP_VERSION = '1.6.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.6.4',
+    date: '2026-04-12',
+    label: 'Sentry — monitoring erreurs production',
+    features: [
+      '🔍 Sentry intégré (@sentry/nextjs) : client, server, edge configs',
+      '🔍 Source maps uploadées automatiquement au build (silent mode)',
+      '🔍 Replay activé sur erreurs (replaysOnErrorSampleRate: 1.0)',
+      '🔍 Traces échantillonnées à 10% (tracesSampleRate: 0.1)',
+    ],
+  },
   {
     version: '1.6.3',
     date: '2026-04-12',
