@@ -40,6 +40,8 @@ const ALLOWED_COLS = new Set([
   'competences','formation','resume_ia','cv_texte_brut','statut_pipeline','tags','notes','source',
   'langues','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
   'cv_url','cv_nom_fichier','cfc','deja_engage',
+  'pipeline_consultant','pipeline_metier',
+  'created_at',
 ])
 
 // Labels français pour le suivi des modifications
@@ -200,7 +202,7 @@ export async function PATCH(
           })
         }
       }
-    } catch {}
+    } catch (err) { console.warn('[candidats/id] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({ candidat: data })
   } catch (error) {

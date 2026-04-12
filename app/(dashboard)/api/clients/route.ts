@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -16,6 +17,9 @@ const LIST_COLUMNS = [
 ].join(', ')
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const supabase = createAdminClient() as any
     const { searchParams } = new URL(request.url)
@@ -81,6 +85,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const supabase = createAdminClient() as any
@@ -122,7 +129,7 @@ export async function POST(request: NextRequest) {
         client_id: data.id,
         client_nom: filtered.nom_entreprise,
       })
-    } catch {}
+    } catch (err) { console.warn('[clients] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({ client: data }, { status: 201 })
   } catch (error) {

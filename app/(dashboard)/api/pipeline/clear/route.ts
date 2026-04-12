@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 // POST /api/pipeline/clear
 // body: { etape_id?: string } — si fourni, vide uniquement cette colonne
 //                              — sinon, remet statut_pipeline=null pour TOUS
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   const admin = createAdminClient()
   const body = await request.json().catch(() => ({}))
   const { etape_id } = body

@@ -80,7 +80,6 @@ export default function CVCustomizerModal({
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const meta = session.user.user_metadata || {}
-        console.log('[CVCustomizer] user_metadata:', meta)
         setRecruiterInfo({
           prenom: meta.prenom || '',
           nom: meta.nom || '',

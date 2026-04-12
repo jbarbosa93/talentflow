@@ -90,9 +90,12 @@ function IntegrationsContent() {
         queryClient.invalidateQueries({ queryKey: ['integrations'] })
         queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
 
-        // Continuer si : activité ce batch OU fichiers restants dans le scan
-        const batchActivity2 = (data.created?.length || 0) + (data.updated || 0) + (data.reactivated || 0) + (data.errors || 0)
-        if (batchActivity2 === 0 && (data.remaining || 0) === 0) {
+        // Continuer si : progrès réel (créations/mises-à-jour/réactivations)
+        // ✅ FIX : Les erreurs ne comptent PAS comme "activité" — elles sont gérées par le cron (retries auto).
+        // ✅ FIX 2 : Si aucune activité réelle dans ce batch → STOP, même si remaining > 0.
+        // Sans ça, > 50 fichiers en erreur causent une boucle infinie (remaining toujours > 0, activité toujours 0).
+        const batchActivity2 = (data.created?.length || 0) + (data.updated || 0) + (data.reactivated || 0)
+        if (batchActivity2 === 0) {
           break
         }
 

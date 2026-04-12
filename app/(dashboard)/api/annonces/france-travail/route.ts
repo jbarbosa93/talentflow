@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
         description: `${data.nombre_postes || 1} poste(s) — ${data.lieu} — envoi vers ${FT_TO}`,
         metadata: { source: 'france_travail', titre: data.titre, lieu: data.lieu, contrat: data.contrat, nombre_postes: data.nombre_postes || 2, filename },
       })
-    } catch {}
+    } catch (err) { console.warn('[france-travail] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({ success: true, filename })
   } catch (error) {

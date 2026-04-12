@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -18,11 +19,15 @@ const LIST_COLUMNS = [
   'langues', 'permis_conduire', 'date_naissance',
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
   'cfc', 'deja_engage',
+  'pipeline_consultant', 'pipeline_metier',
   'created_at', 'updated_at',
   'notes_candidat(id, contenu, created_at, auteur)',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const supabase = createAdminClient()
     const { searchParams } = new URL(request.url)
@@ -42,6 +47,7 @@ export async function GET(request: NextRequest) {
     const metier = searchParams.get('metier') || ''
     const cfc = searchParams.get('cfc') || ''
     const engage = searchParams.get('engage') || ''
+    const pipelineOnly = searchParams.get('statut_pipeline') === 'true'
 
     // Construire la requête de base
     let query = supabase
@@ -51,7 +57,8 @@ export async function GET(request: NextRequest) {
     // Filtres — 'all' = pas de filtre
     const effectiveImportStatus = importStatus && importStatus !== 'all' ? importStatus : ''
     const effectiveStatut = statut && statut !== 'all' ? statut : ''
-    if (effectiveStatut) query = query.eq('statut_pipeline', effectiveStatut as any)
+    if (pipelineOnly) query = query.not('statut_pipeline', 'is', null)
+    else if (effectiveStatut) query = query.eq('statut_pipeline', effectiveStatut as any)
     if (effectiveImportStatus) query = query.eq('import_status', effectiveImportStatus as any)
     if (genre) query = query.eq('genre', genre as any)
     if (permis === 'true') query = query.eq('permis_conduire', true)
@@ -236,6 +243,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const { ids } = await request.json()
     if (!Array.isArray(ids) || ids.length === 0) {

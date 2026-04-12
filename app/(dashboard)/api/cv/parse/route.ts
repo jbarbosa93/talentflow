@@ -37,6 +37,9 @@ function mapDocumentType(type: string): DocumentType {
     'lettre_motivation': 'lettre_motivation',
     'formation': 'formation',
     'permis': 'permis',
+    'reference': 'reference',
+    'contrat': 'contrat',
+    'bulletin_salaire': 'bulletin_salaire',
     'attestation': 'certificat', // attestation → certificat category
   }
   return mapping[type] || 'autre'
@@ -312,24 +315,30 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 6a-pre. Détection diplôme/certificat : si le fichier a un nom mais aucun contenu CV typique
   // (pas d'expériences, pas de compétences, pas de contact, pas de titre)
   // → c'est probablement un diplôme ou certificat, pas un CV → on refuse l'import
+  // SAUF si l'IA a déjà classifié comme non-CV → laisser le flux non-CV gérer (auto-attach à un candidat existant)
   if (!updateId && !replaceId && !mode) {
-    const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
-    const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
-    const hasContact     = !!(analyse.email || analyse.telephone)
-    const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
-    const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
-    const hasName        = !!(analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1)
+    const isAlreadyNonCV = analyse.document_type && analyse.document_type !== 'cv'
+    if (!isAlreadyNonCV) {
+      const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
+      const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
+      const hasContact     = !!(analyse.email || analyse.telephone)
+      const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
+      const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
+      const hasName        = !!(analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1)
 
-    if (hasName && cvScore === 0) {
-      const nomComplet = [analyse.prenom, analyse.nom].filter(Boolean).join(' ')
-      console.warn(`[CV Parse] Diplôme/certificat détecté pour ${nomComplet} — aucun contenu CV`)
-      await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: 'diplome_detecte', candidat: nomComplet } })
-      return NextResponse.json({
-        isDiplome: true,
-        error: `Ce fichier ressemble à un diplôme ou certificat (pas à un CV) : aucune expérience, compétence ni coordonnée trouvée pour ${nomComplet}. Importez d'abord le CV, puis ajoutez ce document depuis la fiche candidat.`,
-        nom: analyse.nom,
-        prenom: analyse.prenom,
-      }, { status: 422 })
+      if (hasName && cvScore === 0) {
+        const nomComplet = [analyse.prenom, analyse.nom].filter(Boolean).join(' ')
+        console.warn(`[CV Parse] Diplôme/certificat détecté pour ${nomComplet} — aucun contenu CV`)
+        await logActivity({ action: 'cv_erreur', details: { fichier: file.name, dossier: categorie || '—', erreur: 'diplome_detecte', candidat: nomComplet } })
+        return NextResponse.json({
+          isDiplome: true,
+          error: `Ce fichier ressemble à un diplôme ou certificat (pas à un CV) : aucune expérience, compétence ni coordonnée trouvée pour ${nomComplet}. Importez d'abord le CV, puis ajoutez ce document depuis la fiche candidat.`,
+          nom: analyse.nom,
+          prenom: analyse.prenom,
+        }, { status: 422 })
+      }
+    } else {
+      dbg(`[CV Parse] IA a classifié comme "${analyse.document_type}" → skip détection diplôme, flux non-CV prendra le relais`)
     }
   }
 
@@ -338,11 +347,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   if (isPDF && analyse) {
     const hasName = analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1
     const hasAnyInfo = analyse.email || analyse.telephone || (analyse.competences && analyse.competences.length > 0)
-    // Déclencher aussi si Claude classifie comme non-CV sur un import frais (nom de fichier contient des lettres
-    // majuscules consécutives typiques d'un patronyme → probablement un CV à l'envers mal classifié)
+    // Déclencher aussi si Claude classifie comme non-CV sur un import frais MAIS seulement si l'analyse est vide
+    // (pas de nom → probablement un PDF à l'envers). Si l'IA a trouvé un nom ET classifié comme non-CV,
+    // c'est un vrai certificat/diplôme → pas besoin de rotation (évite un 2ème appel vision + timeout 55s)
     const isNonCV = analyse.document_type && analyse.document_type !== 'cv'
     const isFreshImport = !updateId && !replaceId && mode !== 'reanalyse'
-    const shouldTry180 = (!hasName && !hasAnyInfo) || (isNonCV && isFreshImport)
+    const shouldTry180 = (!hasName && !hasAnyInfo) || (isNonCV && isFreshImport && !hasName)
     if (shouldTry180) {
       dbg(`[CV Parse] ${isNonCV ? `Classifié non-CV (${analyse.document_type}) sur import frais` : 'Analyse quasi-vide'} → tentative avec PDF retourné à 180°...`)
       try {
@@ -396,10 +406,51 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // 6a-ter. Second avis : si l'IA dit "cv", vérifier via filename + patterns contenu stricts
+  // Rattrape les scans avec nom générique ("Scanné 6 janv...") où l'IA rate le type.
+  let docType: string = analyse?.document_type || 'cv'
+  if (docType === 'cv') {
+    const detectDocCategoryParse = (fn: string, txt: string): string | null => {
+      const check = (source: string) => {
+        const s = source.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+        if (/certificat|certificate|attestation|\bct\b/.test(s)) return 'certificat'
+        if (/lettre|motivation|\blm\b/.test(s)) return 'lettre_motivation'
+        if (/diplome|diplome|cfc|afp|formation|brevet/.test(s)) return 'diplome'
+        if (/permis|licence/.test(s)) return 'permis'
+        if (/reference|recommandation/.test(s)) return 'reference'
+        if (/contrat|avenant/.test(s)) return 'contrat'
+        if (/bulletin|salaire|fiche de paie/.test(s)) return 'bulletin_salaire'
+        return null
+      }
+      return check(fn.replace(/\.[^.]+$/, '')) ?? check(txt.slice(0, 200)) ?? null
+    }
+    const filenameType = detectDocCategoryParse(file.name, '')
+    if (filenameType) {
+      docType = filenameType
+      ;(analyse as any).document_type = filenameType
+      dbg(`[CV Parse] Second avis filename → ${filenameType}`)
+    } else {
+      // Check contenu strict — uniquement des formulations de TITRE de document
+      const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      const strictContentType =
+        /certificat de travail|certificat d'emploi|arbeitszeugnis/.test(contentLower) ? 'certificat' :
+        /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
+        /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
+        /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
+        /lettre de recommandation|lettre de reference|referenzschreiben/.test(contentLower) ? 'reference' :
+        /contrat de travail|avenant au contrat|arbeitsvertrag/.test(contentLower) ? 'contrat' :
+        null
+      if (strictContentType) {
+        docType = strictContentType
+        ;(analyse as any).document_type = strictContentType
+        dbg(`[CV Parse] Second avis contenu → ${strictContentType}`)
+      }
+    }
+  }
+  dbg(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
+
   // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
   let photoUrl: string | null = null
-  const docType = analyse?.document_type || 'cv'
-  dbg(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
   if (isPDF && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
@@ -734,40 +785,60 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     // Essai 2 : match flexible — le nom parsé contient le nom en base ou vice versa
     // Utile pour les certificats où le nom est "FERREIRA GONÇALVES" mais en base c'est "Gonçalves"
-    // IMPORTANT : ce match partiel demande TOUJOURS confirmation à l'utilisateur (même 1 seul résultat)
-    // car il peut faire des faux positifs (ex: 2 personnes différentes nommées "José Gonçalves")
+    // Pour les documents non-CV avec 1 seul match → auto-attach (pas de confirmation)
+    // Pour les CV → toujours demander confirmation (risque de faux positif)
     if (!candidatExistant) {
-      const lastNamePart = analyse.nom.split(/\s+/).pop() || analyse.nom
-      if (lastNamePart.length >= 3) {
-        const { data: byPartialName } = await adminClient
+      // Chercher TOUS les mots du nom composé (pas juste le dernier)
+      // Ex: certificat "Marmolejo Zambrano" → en base "Marmolejo" → trouvé par le 1er mot
+      const nomParts = analyse.nom.split(/\s+/).filter((w: string) => w.length >= 3)
+      let byPartialName: any[] | null = null
+      if (nomParts.length === 1) {
+        const { data } = await adminClient
           .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at')
-          .ilike('nom', `%${lastNamePart}%`)
-          .limit(20)
-        if (byPartialName && byPartialName.length > 0) {
-          const firstPrenom = analyse.prenom.split(/\s+/)[0].toLowerCase()
+          .ilike('nom', `%${nomParts[0]}%`).limit(20)
+        byPartialName = data
+      } else if (nomParts.length > 1) {
+        const orClauses = nomParts.map((p: string) => `nom.ilike.%${p}%`).join(',')
+        const { data } = await adminClient
+          .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at')
+          .or(orClauses).limit(20)
+        byPartialName = data
+      }
+      if (byPartialName && byPartialName.length > 0) {
+          // Vérifier TOUS les mots du prénom (pas juste le premier)
+          // Ex: certificat "Marjorie Yanina" → en base "Yanina" → "yanina" match le 2ème mot
+          const prenomWords = analyse.prenom.split(/\s+/).map((w: string) => w.toLowerCase()).filter((w: string) => w.length >= 2)
           const matches = byPartialName.filter((c: any) => {
             const cPrenom = (c.prenom || '').toLowerCase()
-            return cPrenom.includes(firstPrenom) || firstPrenom.includes(cPrenom.split(/\s+/)[0])
+            const cPrenomFirst = cPrenom.split(/\s+/)[0]
+            return prenomWords.some((pw: string) =>
+              cPrenom.includes(pw) || pw.includes(cPrenomFirst)
+            )
           })
           if (matches.length >= 1) {
-            // Match partiel (1 ou plusieurs) → toujours demander confirmation à l'utilisateur
-            // On ne confirme JAMAIS automatiquement un match partiel de nom
-            dbg(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
-            return NextResponse.json({
-              isDuplicate: true,
-              multipleMatches: true,
-              candidatsMatches: matches,
-              analyse,
-              cv_url: cvUrl,
-              message: matches.length === 1
-                ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?`
-                : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon`,
-            })
+            const isNonCVDoc = analyse.document_type && analyse.document_type !== 'cv'
+            if (isNonCVDoc && matches.length === 1) {
+              // Document non-CV + 1 seul match → auto-attach (le certificat mentionne explicitement le nom)
+              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
+              candidatExistant = matches[0]
+            } else {
+              // CV ou multiple matches → demander confirmation
+              dbg(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
+              return NextResponse.json({
+                isDuplicate: true,
+                multipleMatches: true,
+                candidatsMatches: matches,
+                analyse,
+                cv_url: cvUrl,
+                message: matches.length === 1
+                  ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?`
+                  : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon`,
+              })
+            }
           }
         }
       }
     }
-  }
   // Classification document
   const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
 
@@ -787,8 +858,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       } else {
         dbg(`[CV Parse] Document déjà présent: ${file.name}, skip`)
       }
-      const docDateToUse = fileDate || new Date().toISOString()
-      await adminClient.from('candidats').update({ documents: docs, created_at: docDateToUse, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
+      // Ne PAS mettre à jour created_at pour un document non-CV — c'est la date du CV qui compte
+      await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
       dbg(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
       return NextResponse.json({
@@ -1102,7 +1173,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         email: analyse.email || null,
       },
     })
-  } catch {}
+  } catch (err) { console.warn('[cv/parse] logActivity failed:', (err as Error).message) }
 
   return NextResponse.json({
     success: true,

@@ -345,6 +345,7 @@ export default function CandidatsList() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
+  const [isReady, setIsReady]             = useState(false) // masquer non-vus avant ensureInit()
   const [nonVusTotal, setNonVusTotal]     = useState(0) // total non-vus tous pages confondus
   const [nonVusParStatut, setNonVusParStatut] = useState<Record<string, number>>({}) // non-vus par import_status
   const [viewedAllAt, setViewedAllAt]     = useState<string | null>(null) // timestamp "Tout marquer vu"
@@ -361,11 +362,13 @@ export default function CandidatsList() {
     ensureInit().then(({ viewedAllAt: vaa }) => {
       setViewedAllAt(vaa)
       setBadgeTick(t => t + 1)
+      setIsReady(true)
     })
   }, [])
 
   // Calculer le total "non vus" réel depuis l'API (tous les candidats, pas juste la page)
   useEffect(() => {
+    if (!isReady) return
     fetch(`/api/candidats/count-new?t=${Date.now()}`)
       .then(r => r.json())
       .then(({ ids }: { ids: { id: string; import_status: string; created_at: string }[] }) => {
@@ -381,7 +384,7 @@ export default function CandidatsList() {
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [badgeTick])
+  }, [badgeTick, isReady])
   // Auto-désactiver filterNonVu quand plus aucun non-vu (ex: dernier consulté depuis la fiche)
   // Guard : attendre que l'API badge ait répondu au moins une fois — évite le reset prématuré au montage
   useEffect(() => {
@@ -1480,44 +1483,27 @@ export default function CandidatsList() {
   const selCount = selectedIds.size
 
   // ── Pipeline bulk-add ──
-  const [showPipelinePicker, setShowPipelinePicker] = useState(false)
-  const [pipelineStages, setPipelineStages] = useState<{ id: string; label: string; color: string }[]>([])
-  const pipelinePickerRef = useRef<HTMLDivElement>(null)
+  const [showBulkPipelineModal, setShowBulkPipelineModal] = useState(false)
+  const [bulkPipelineConsultant, setBulkPipelineConsultant] = useState('João')
+  const [bulkPipelineMetier, setBulkPipelineMetier] = useState('')
+  const [bulkPipelineSaving, setBulkPipelineSaving] = useState(false)
 
-  const openPipelinePicker = useCallback(async () => {
-    if (pipelineStages.length === 0) {
-      const { createClient } = await import('@/lib/supabase/client')
-      const sb = createClient()
-      const { data } = await sb.from('app_settings').select('value').eq('key', 'pipeline_stages').single()
-      if (data?.value) {
-        let parsed: any = data.value
-        if (typeof parsed === 'string') { try { parsed = JSON.parse(parsed) } catch { parsed = [] } }
-        if (Array.isArray(parsed)) setPipelineStages(parsed.filter((s: any) => s.visible !== false))
-      }
-    }
-    setShowPipelinePicker(true)
-  }, [pipelineStages.length])
-
-  const addSelectionToPipeline = useCallback(async (stageId: string) => {
-    setShowPipelinePicker(false)
+  const addSelectionToPipeline = useCallback(async () => {
+    setBulkPipelineSaving(true)
     const ids = Array.from(selectedIds)
-    const { createClient } = await import('@/lib/supabase/client')
-    const sb = createClient()
-    const { error } = await sb.from('candidats').update({ statut_pipeline: stageId }).in('id', ids)
-    if (error) { toast.error('Erreur lors de l\'ajout au pipeline'); return }
-    toast.success(`${ids.length} candidat${ids.length > 1 ? 's' : ''} ajouté${ids.length > 1 ? 's' : ''} au pipeline`)
-    setSelectedIds(new Set())
-    window.location.href = '/pipeline'
-  }, [selectedIds, setSelectedIds])
-
-  useEffect(() => {
-    if (!showPipelinePicker) return
-    const handler = (e: MouseEvent) => {
-      if (pipelinePickerRef.current && !pipelinePickerRef.current.contains(e.target as Node)) setShowPipelinePicker(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showPipelinePicker])
+    try {
+      await Promise.all(ids.map(id =>
+        fetch(`/api/candidats/${id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ statut_pipeline: 'nouveau', pipeline_consultant: bulkPipelineConsultant, pipeline_metier: bulkPipelineMetier || null }),
+        })
+      ))
+      toast.success(`${ids.length} candidat${ids.length > 1 ? 's' : ''} ajouté${ids.length > 1 ? 's' : ''} au pipeline`)
+      setSelectedIds(new Set())
+      setShowBulkPipelineModal(false)
+      window.location.href = '/pipeline'
+    } catch { toast.error('Erreur lors de l\'ajout au pipeline') } finally { setBulkPipelineSaving(false) }
+  }, [selectedIds, setSelectedIds, bulkPipelineConsultant, bulkPipelineMetier])
 
   return (
     <div className="d-page">
@@ -1718,46 +1704,14 @@ export default function CandidatsList() {
                   <Archive size={12} /> Archiver ({selCount})
                 </button>
                 {/* Pipeline */}
-                <div style={{ position: 'relative' }} ref={pipelinePickerRef}>
-                  <button onClick={openPipelinePicker} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                    background: '#8B5CF6', color: '#fff', border: 'none',
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
-                    <LayoutGrid size={12} /> Pipeline ({selCount})
-                  </button>
-                  {showPipelinePicker && (
-                    <div style={{
-                      position: 'absolute', bottom: '110%', left: 0, zIndex: 200,
-                      background: 'var(--card)', border: '1px solid var(--border)',
-                      borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                      padding: 8, minWidth: 180,
-                    }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 6px 4px' }}>
-                        Choisir une étape
-                      </p>
-                      {pipelineStages.length === 0 && (
-                        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 8px' }}>Chargement…</p>
-                      )}
-                      {pipelineStages.map(s => (
-                        <button key={s.id} onClick={() => addSelectionToPipeline(s.id)} style={{
-                          width: '100%', textAlign: 'left', padding: '7px 10px',
-                          borderRadius: 7, border: 'none', background: 'transparent',
-                          cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                          color: 'var(--foreground)', fontFamily: 'inherit',
-                          display: 'flex', alignItems: 'center', gap: 8,
-                        }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button onClick={() => setShowBulkPipelineModal(true)} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: '#8B5CF6', color: '#fff', border: 'none',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <LayoutGrid size={12} /> Pipeline ({selCount})
+                </button>
               </>
             )}
             {importStatusFilter === 'archive' && (
@@ -2472,6 +2426,52 @@ export default function CandidatsList() {
                 Aperçu non disponible
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Bulk pipeline modal */}
+      {showBulkPipelineModal && typeof window !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setShowBulkPipelineModal(false)}>
+          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 400, maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter {selCount} candidat{selCount > 1 ? 's' : ''} au pipeline</span>
+              <button onClick={() => setShowBulkPipelineModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['João', 'Seb'].map(c => (
+                <button key={c} onClick={() => setBulkPipelineConsultant(c)} style={{
+                  padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                  border: `1.5px solid ${bulkPipelineConsultant === c ? '#F5A623' : 'var(--border)'}`,
+                  background: bulkPipelineConsultant === c ? '#F5A623' : 'var(--secondary)',
+                  color: bulkPipelineConsultant === c ? '#000' : 'var(--foreground)',
+                  fontWeight: bulkPipelineConsultant === c ? 700 : 400,
+                }}>{c}</button>
+              ))}
+            </div>
+            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier (optionnel)</label>
+            <input
+              value={bulkPipelineMetier}
+              onChange={e => setBulkPipelineMetier(e.target.value)}
+              placeholder="Ex: Électricien, Maçon…"
+              list="bulk-metiers-list"
+              style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 16 }}
+            />
+            <datalist id="bulk-metiers-list">
+              {agenceMetiers.map(m => <option key={m} value={m} />)}
+            </datalist>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowBulkPipelineModal(false)} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
+              <button onClick={addSelectionToPipeline} disabled={bulkPipelineSaving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>
+                {bulkPipelineSaving ? '…' : 'Ajouter au pipeline'}
+              </button>
+            </div>
           </div>
         </div>,
         document.body

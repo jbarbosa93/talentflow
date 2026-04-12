@@ -1,1729 +1,831 @@
 'use client'
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { DndContext, DragOverlay, closestCenter, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent, DragOverEvent, useDroppable } from '@dnd-kit/core'
-import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { motion, AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import {
-  Star, GripVertical, MapPin, Search, Calendar, MessageSquare,
-  ChevronDown, Clock, Eye, UserPlus, Briefcase, X,
-  TrendingUp, Filter, LayoutGrid, Pencil, Check, Settings,
-  ChevronUp, Trash2, EyeOff, Plus, ArrowUp, ArrowDown,
-  FileText, Phone, List, Grid3X3, Award, UserCheck,
+  Bell, X, Search, FileText, Eye, MapPin, Pencil, Trash2,
+  UserPlus, Check, Settings2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { logActivity } from '@/hooks/useActivites'
 import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
+import { useMetiers } from '@/hooks/useMetiers'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
+import Link from 'next/link'
 
-const supabase = createClient()
+// ─── Constants ────────────────────────────────────────────────────────────────
+const CONSULTANTS = ['Tous', 'João', 'Seb']
 
-// ─── Stage type ──────────────────────────────────────────────────────────────
-
-export type Stage = {
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface Candidat {
   id: string
-  label: string
-  color: string
-  visible: boolean
+  nom: string
+  prenom: string | null
+  localisation: string | null
+  date_naissance: string | null
+  photo_url: string | null
+  cv_url: string | null
+  cv_nom_fichier: string | null
+  statut_pipeline: string | null
+  pipeline_consultant: string | null
+  pipeline_metier: string | null
+  notes: string | null
+  titre_poste: string | null
+  created_at: string
 }
 
-const DEFAULT_STAGES: Stage[] = [
-  { id: 'nouveau',   label: 'Nouveau',   color: '#3B82F6', visible: true },
-  { id: 'contacte',  label: 'Contacté',  color: '#F59E0B', visible: true },
-  { id: 'entretien', label: 'Entretien', color: '#8B5CF6', visible: true },
-  { id: 'place',     label: 'Placé',     color: '#10B981', visible: true },
-  { id: 'refuse',    label: 'Refusé',    color: '#EF4444', visible: true },
-]
-
-// Derive soft bg/border from color hex
-function colorSoft(hex: string) {
-  return {
-    bgSoft: `${hex}14`,
-    borderColor: `${hex}33`,
-  }
+interface Rappel {
+  id: string
+  candidat_id: string
+  rappel_at: string
+  note: string | null
+  done: boolean
+  candidats?: { id: string; nom: string; prenom: string | null; photo_url: string | null }
 }
 
-// ─── Palette of quick-pick colors ────────────────────────────────────────────
-const COLOR_PALETTE = [
-  '#3B82F6', '#F59E0B', '#8B5CF6', '#10B981', '#EF4444',
-  '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
-  '#06B6D4', '#A855F7', '#22C55E', '#64748B', '#F43F5E',
-]
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function getInitials(prenom: string | null, nom: string) {
-  const p = prenom?.charAt(0)?.toUpperCase() || ''
-  const n = nom?.charAt(0)?.toUpperCase() || ''
-  return p + n || '?'
+  return ((prenom?.[0] ?? '') + (nom?.[0] ?? '')).toUpperCase() || '?'
 }
 
-function timeAgo(dateStr: string | undefined) {
-  if (!dateStr) return null
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days === 0) return "Aujourd'hui"
-  if (days === 1) return 'Hier'
-  if (days < 7) return `${days}j`
-  if (days < 30) return `${Math.floor(days / 7)}sem`
-  return `${Math.floor(days / 30)}mois`
-}
-
-function scoreColor(score: number | null) {
-  if (score === null) return 'var(--muted-foreground)'
-  if (score >= 75) return '#10B981'
-  if (score >= 50) return '#F59E0B'
-  return '#EF4444'
-}
-
-// ─── QuickAction Button ───────────────────────────────────────────────────────
-
-const QuickAction = ({ icon: Icon, label, onClick, color }: {
-  icon: React.ElementType; label: string; onClick?: () => void; color?: string
-}) => (
-  <button
-    onPointerDown={e => e.stopPropagation()}
-    onClick={(e) => { e.stopPropagation(); onClick?.() }}
-    title={label}
-    style={{
-      width: 28, height: 28, borderRadius: 8,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      border: '1.5px solid var(--border)',
-      background: 'var(--card)',
-      color: color || 'var(--muted-foreground)',
-      cursor: 'pointer', transition: 'all 0.15s',
-    }}
-    onMouseEnter={e => {
-      (e.currentTarget as HTMLElement).style.borderColor = color || 'var(--primary)'
-      ;(e.currentTarget as HTMLElement).style.color = color || 'var(--primary)'
-    }}
-    onMouseLeave={e => {
-      (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
-      ;(e.currentTarget as HTMLElement).style.color = color || 'var(--muted-foreground)'
-    }}
-  >
-    <Icon size={13} />
-  </button>
-)
-
-// ─── Droppable Column ─────────────────────────────────────────────────────────
-
-function DroppableColumn({ stage, children, isActive }: { stage: Stage; children: React.ReactNode; isActive?: boolean }) {
-  const { setNodeRef } = useDroppable({ id: stage.id })
-  const { bgSoft: _bgSoft, borderColor } = colorSoft(stage.color)
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        flex: 1, padding: 8, display: 'flex', flexDirection: 'column', gap: 8,
-        borderRadius: '0 0 16px 16px',
-        borderLeft: `2px solid ${isActive ? stage.color : borderColor}`,
-        borderRight: `2px solid ${isActive ? stage.color : borderColor}`,
-        borderBottom: `2px solid ${isActive ? stage.color : borderColor}`,
-        background: isActive ? `${stage.color}12` : 'var(--secondary)',
-        minHeight: 100, overflowY: 'auto',
-        transition: 'background 0.25s, border-color 0.25s',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-// ─── Draggable Card ───────────────────────────────────────────────────────────
-
-function DraggableCard({ item, stage, onRemove, onNote, cvHook, compact }: {
-  item: any
-  stage: Stage
-  onRemove: () => void
-  onNote: (candidatId: string, name: string, notes: string) => void
-  cvHook: ReturnType<typeof useCvHoverPreview>
-  compact?: boolean
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id })
-  const [hovered, setHovered] = useState(false)
-  const [photoError, setPhotoError] = useState(false)
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    background: 'var(--card)',
-    borderRadius: 14,
-    padding: compact ? '12px 14px' : '16px 18px',
-    border: `2px solid ${isDragging ? 'var(--primary)' : hovered ? 'rgba(255,255,255,0.12)' : 'var(--border)'}`,
-    cursor: isDragging ? 'grabbing' : 'grab',
-    boxShadow: isDragging
-      ? '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--primary)'
-      : hovered
-        ? '0 4px 16px rgba(0,0,0,0.2)'
-        : '0 1px 3px rgba(0,0,0,0.1)',
-    userSelect: 'none',
-    opacity: isDragging ? 0.5 : 1,
-    position: 'relative',
+function calcAge(dateNaissance: string | null): number | null {
+  if (!dateNaissance) return null
+  const s = dateNaissance.trim()
+  if (/^\d{4}$/.test(s)) {
+    const age = new Date().getFullYear() - parseInt(s, 10)
+    return age > 0 && age < 120 ? age : null
   }
-
-  const hasNotes = !!(item.notes && item.notes.trim())
-  const notesPreview = hasNotes
-    ? item.notes.trim().slice(0, 60) + (item.notes.trim().length > 60 ? '…' : '')
-    : null
-
-  const hasCfc = item.cfc === true
-  const hasEngage = item.deja_engage === true
-
-  // Compact mode for grid view
-  if (compact) {
-    return (
-      <div
-        ref={setNodeRef}
-        {...attributes}
-        {...listeners}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={style}
-      >
-        {/* Top row: avatar + name + poste */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {item.photo_url && !photoError ? (
-            <img
-              src={item.photo_url}
-              alt=""
-              onError={() => setPhotoError(true)}
-              style={{
-                width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
-              }}
-            />
-          ) : (
-            <div style={{
-              width: 44, height: 44, borderRadius: 8,
-              background: '#F1F5F9',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, fontWeight: 800, color: '#64748B', flexShrink: 0,
-            }}>
-              {getInitials(item.prenom, item.nom)}
-            </div>
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{
-              fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {item.prenom} {item.nom}
-            </p>
-            <p style={{
-              fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {item.titre_poste || 'Sans poste'}
-            </p>
-          </div>
-          {item.score_ia != null && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: scoreColor(item.score_ia), flexShrink: 0 }}>
-              {item.score_ia}%
-            </span>
-          )}
-        </div>
-
-        {/* Notes — toujours visibles, max texte sans déborder */}
-        {hasNotes && (
-          <div style={{
-            marginTop: 8, padding: '6px 8px',
-            borderRadius: 8, background: 'rgba(249,115,22,0.07)',
-            border: '1px solid rgba(249,115,22,0.2)',
-          }}>
-            <p style={{
-              fontSize: 11, color: 'var(--muted-foreground)', margin: 0,
-              lineHeight: 1.5, whiteSpace: 'pre-wrap',
-              display: '-webkit-box', WebkitLineClamp: 4,
-              WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            }}>
-              {notesPreview && item.notes?.trim()}
-            </p>
-          </div>
-        )}
-
-        {/* Actions — uniquement au hover */}
-        {hovered && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)',
-          }}>
-            <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
-            {item.cv_url && (
-              <CvHoverTrigger cvUrl={item.cv_url} cvNomFichier={item.cv_nom_fichier} candidatId={item.id} hook={cvHook}>
-                <QuickAction icon={FileText} label="Aperçu CV" color="#10B981" onClick={() => {}} />
-              </CvHoverTrigger>
-            )}
-            <QuickAction
-              icon={MessageSquare}
-              label="Notes"
-              color={hasNotes ? '#F97316' : '#3B82F6'}
-              onClick={() => onNote(item.id, `${item.prenom || ''} ${item.nom}`.trim(), item.notes || '')}
-            />
-            <div style={{ marginLeft: 'auto' }}>
-              <QuickAction icon={X} label="Retirer" color="#EF4444" onClick={onRemove} />
-            </div>
-          </div>
-        )}
-      </div>
-    )
+  if (/^\d{1,3}$/.test(s)) {
+    const n = parseInt(s, 10)
+    return n >= 1 && n <= 120 ? n : null
   }
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={style}
-    >
-      {/* Top row: avatar + name + grip */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        {item.photo_url && !photoError ? (
-          <img
-            src={item.photo_url}
-            alt=""
-            onError={() => setPhotoError(true)}
-            style={{
-              width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
-            }}
-          />
-        ) : (
-          <div style={{
-            width: 44, height: 44, borderRadius: 8,
-            background: '#F1F5F9',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, fontWeight: 800, color: '#64748B', flexShrink: 0,
-          }}>
-            {getInitials(item.prenom, item.nom)}
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.prenom} {item.nom}
-          </p>
-          <p style={{
-            fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.titre_poste || 'Sans poste'}
-          </p>
-        </div>
-        <GripVertical size={14} style={{ color: 'var(--muted-foreground)', opacity: 0.4, flexShrink: 0 }} />
-      </div>
-
-      {/* Meta row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {item.localisation && (
-          <span style={{
-            fontSize: 10, color: 'var(--muted-foreground)',
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: 'var(--secondary)', padding: '2px 8px', borderRadius: 6,
-          }}>
-            <MapPin size={9} />{item.localisation}
-          </span>
-        )}
-        {item.date_naissance && (() => {
-          const dn = item.date_naissance
-          let age: number | null = null
-          if (/^\d+$/.test(dn) && parseInt(dn) > 1900) age = new Date().getFullYear() - parseInt(dn)
-          else { const d = new Date(dn); if (!isNaN(d.getTime())) age = Math.floor((Date.now() - d.getTime()) / 31557600000) }
-          return age && age > 0 && age < 120 ? (
-            <span style={{
-              fontSize: 10, color: 'var(--muted-foreground)',
-              display: 'flex', alignItems: 'center', gap: 3,
-              background: 'var(--secondary)', padding: '2px 8px', borderRadius: 6,
-            }}>
-              <Calendar size={9} />{age}ans
-            </span>
-          ) : null
-        })()}
-        {hasCfc && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, color: '#10B981',
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: 'rgba(16,185,129,0.1)', padding: '2px 7px', borderRadius: 6,
-            border: '1px solid rgba(16,185,129,0.25)',
-          }}>
-            <Award size={8} />CFC
-          </span>
-        )}
-        {hasEngage && (
-          <span style={{
-            fontSize: 9, fontWeight: 700, color: '#F97316',
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: 'rgba(249,115,22,0.1)', padding: '2px 7px', borderRadius: 6,
-            border: '1px solid rgba(249,115,22,0.25)',
-          }}>
-            <UserCheck size={8} />Engagé
-          </span>
-        )}
-        {item.score_ia != null && (
-          <span style={{
-            fontSize: 10, fontWeight: 700, color: scoreColor(item.score_ia),
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: 'var(--secondary)', padding: '2px 8px', borderRadius: 6,
-            marginLeft: 'auto',
-          }}>
-            <Star size={9} fill={scoreColor(item.score_ia)} />{item.score_ia}%
-          </span>
-        )}
-      </div>
-
-      {/* Phone row */}
-      {item.telephone && (
-        <div style={{ marginTop: 6 }}>
-          <a
-            href={`tel:${item.telephone}`}
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => e.stopPropagation()}
-            style={{
-              fontSize: 10, color: 'var(--muted-foreground)',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              textDecoration: 'none', transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted-foreground)')}
-          >
-            <Phone size={9} />{item.telephone}
-          </a>
-        </div>
-      )}
-
-      {/* Time in stage */}
-      {item.updated_at && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          marginTop: 6, fontSize: 10, color: 'var(--muted-foreground)', opacity: 0.7,
-        }}>
-          <Clock size={9} />
-          {timeAgo(item.updated_at)}
-        </div>
-      )}
-
-      {/* Note indicator */}
-      {hasNotes && !hovered && (
-        <div
-          onPointerDown={e => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation()
-            onNote(item.id, `${item.prenom || ''} ${item.nom}`.trim(), item.notes || '')
-          }}
-          style={{
-            marginTop: 8, padding: '5px 8px',
-            borderRadius: 8, background: 'rgba(249,115,22,0.08)',
-            border: '1px solid rgba(249,115,22,0.25)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'flex-start', gap: 5,
-          }}
-        >
-          <span style={{
-            width: 7, height: 7, borderRadius: '50%',
-            background: '#F97316', flexShrink: 0, marginTop: 2,
-          }} />
-          <span style={{
-            fontSize: 10, color: 'var(--muted-foreground)',
-            lineHeight: 1.4, overflow: 'hidden',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          }}>
-            {notesPreview}
-          </span>
-        </div>
-      )}
-
-      {/* Quick actions on hover */}
-      {hovered && (
-        <div
-          style={{
-            display: 'flex', flexDirection: 'column', gap: 6,
-            marginTop: 10, paddingTop: 10,
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <QuickAction icon={Eye} label="Voir profil" onClick={() => window.location.href = `/candidats/${item.id}?from=pipeline`} />
-            {item.cv_url && (
-              <CvHoverTrigger cvUrl={item.cv_url} cvNomFichier={item.cv_nom_fichier} candidatId={item.id} hook={cvHook}>
-                <QuickAction icon={FileText} label="Aperçu CV" color="#10B981" onClick={() => {}} />
-              </CvHoverTrigger>
-            )}
-            <QuickAction icon={Calendar} label="Planifier entretien" color="#8B5CF6" onClick={() => window.location.href = '/entretiens'} />
-            <QuickAction
-              icon={MessageSquare}
-              label="Notes"
-              color={hasNotes ? '#F97316' : '#3B82F6'}
-              onClick={() => onNote(item.id, `${item.prenom || ''} ${item.nom}`.trim(), item.notes || '')}
-            />
-          </div>
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onRemove() }}
-            title="Retirer du pipeline"
-            style={{
-              width: '100%', padding: '5px 0', borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              border: '1.5px solid rgba(239,68,68,0.3)',
-              background: 'rgba(239,68,68,0.06)',
-              color: '#EF4444',
-              cursor: 'pointer', transition: 'all 0.15s',
-              fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = '#EF4444';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.12)'
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.3)';
-              (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.06)'
-            }}
-          >
-            <X size={12} />
-            Retirer
-          </button>
-        </div>
-      )}
-    </div>
-  )
+  const iso = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/)
+  if (iso) {
+    const d = new Date(+iso[1], +iso[2] - 1, +iso[3])
+    const age = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400000))
+    return age > 0 && age < 120 ? age : null
+  }
+  const eu = s.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})/)
+  if (eu) {
+    const d = new Date(+eu[3], +eu[2] - 1, +eu[1])
+    const age = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400000))
+    return age > 0 && age < 120 ? age : null
+  }
+  return null
 }
 
-// ─── Overlay Card (shown while dragging) ─────────────────────────────────────
-
-function OverlayCard({ item, stage }: { item: any; stage: Stage }) {
-  return (
-    <div
-      style={{
-        background: 'var(--card)',
-        borderRadius: 14,
-        padding: '14px 16px',
-        border: '2px solid var(--primary)',
-        cursor: 'grabbing',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.35), 0 0 0 1px var(--primary)',
-        userSelect: 'none',
-        transform: 'rotate(2deg)',
-        width: 280,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: `linear-gradient(135deg, ${stage.color}22, ${stage.color}44)`,
-          border: `2px solid ${stage.color}33`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 800, color: stage.color,
-          flexShrink: 0,
-        }}>
-          {getInitials(item.prenom, item.nom)}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.prenom} {item.nom}
-          </p>
-          <p style={{
-            fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {item.titre_poste || 'Sans poste'}
-          </p>
-        </div>
-        <GripVertical size={14} style={{ color: 'var(--muted-foreground)', opacity: 0.4, flexShrink: 0 }} />
-      </div>
-    </div>
-  )
-}
-
-// ─── Stats Bar ────────────────────────────────────────────────────────────────
-
-function StatsBar({ stages, candidatsByEtape }: { stages: Stage[]; candidatsByEtape: Record<string, any[]> }) {
-  const visibleStages = stages.filter(s => s.visible)
-  const total = visibleStages.reduce((sum, s) => sum + (candidatsByEtape[s.id]?.length || 0), 0)
-  if (total === 0) return null
-
-  return (
-    <div style={{
-      display: 'flex', height: 4, borderRadius: 99, overflow: 'hidden',
-      background: 'var(--secondary)', marginBottom: 20,
-    }}>
-      {visibleStages.map(s => {
-        const count = candidatsByEtape[s.id]?.length || 0
-        const pct = (count / total) * 100
-        if (pct === 0) return null
-        return (
-          <motion.div
-            key={s.id}
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-            style={{ background: s.color, minWidth: pct > 0 ? 4 : 0 }}
-            title={`${s.label}: ${count}`}
-          />
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Notes Modal ──────────────────────────────────────────────────────────────
-
-function NotesModal({
-  candidatId,
-  name,
-  initialNotes,
-  offreFilter,
-  onClose,
-}: {
-  candidatId: string
-  name: string
-  initialNotes: string
-  offreFilter: string
-  onClose: () => void
+// ─── MetierPicker (shared) ────────────────────────────────────────────────────
+function MetierPicker({ metiers, categories, value, onChange }: {
+  metiers: string[]
+  categories: { name: string; color: string; metiers: string[] }[]
+  value: string
+  onChange: (m: string) => void
 }) {
-  const queryClient = useQueryClient()
-  const [notes, setNotes] = useState(initialNotes)
-  const [saving, setSaving] = useState(false)
+  const [q, setQ] = useState('')
+  const filtered = q.trim()
+    ? metiers.filter(m => m.toLowerCase().includes(q.toLowerCase()))
+    : metiers
 
-  const handleSave = async () => {
-    setSaving(true)
-    const { error } = await supabase
-      .from('candidats')
-      .update({ notes })
-      .eq('id', candidatId)
-    setSaving(false)
-    if (error) {
-      toast.error(`Erreur : ${error.message}`)
-      return
+  // Build display: grouped by category if no search
+  const grouped = useMemo(() => {
+    if (q.trim()) return [{ name: '', color: '', metiers: filtered }]
+    if (categories.length === 0) return [{ name: '', color: '', metiers: filtered }]
+    const result: { name: string; color: string; metiers: string[] }[] = []
+    const assigned = new Set<string>()
+    for (const cat of categories) {
+      const ms = cat.metiers.filter(m => filtered.includes(m))
+      if (ms.length) { result.push({ ...cat, metiers: ms }); ms.forEach(m => assigned.add(m)) }
     }
-    // Update cache
-    queryClient.setQueryData(['pipeline-candidats', offreFilter], (old: any[] | undefined) =>
-      old?.map(c => c.id === candidatId ? { ...c, notes } : c)
-    )
-    toast.success('Notes sauvegardées')
-    onClose()
-  }
+    const others = filtered.filter(m => !assigned.has(m))
+    if (others.length) result.push({ name: 'Autres', color: '#94A3B8', metiers: others })
+    return result
+  }, [filtered, categories, q])
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: 'var(--card)', borderRadius: 18,
-          border: '2px solid var(--border)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
-          padding: 28, width: '100%', maxWidth: 520,
-        }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: 'rgba(249,115,22,0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <MessageSquare size={16} color="#F97316" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
-                Notes
-              </h3>
-              <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>
-                {name}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 30, height: 30, borderRadius: 8, border: 'none',
-              background: 'var(--secondary)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--muted-foreground)',
-            }}
-          >
-            <X size={15} />
-          </button>
-        </div>
-
-        <textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={5}
-          placeholder="Ajoutez vos notes ici..."
+    <div>
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Filtrer les métiers…"
           style={{
-            width: '100%', padding: '12px 14px',
-            background: 'var(--secondary)', border: '2px solid var(--border)',
-            borderRadius: 12, color: 'var(--foreground)', fontSize: 13,
-            resize: 'vertical', outline: 'none', fontFamily: 'inherit',
-            lineHeight: 1.6, boxSizing: 'border-box',
+            width: '100%', border: '1.5px solid var(--border)', borderRadius: 7,
+            padding: '6px 8px 6px 28px', fontSize: 13,
+            background: 'var(--secondary)', color: 'var(--foreground)',
           }}
-          onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-          onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-          autoFocus
         />
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '8px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-              border: '2px solid var(--border)', background: 'var(--secondary)',
-              color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: '8px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-              border: 'none', background: 'var(--primary)',
-              color: 'var(--primary-foreground)', cursor: saving ? 'wait' : 'pointer',
-              fontFamily: 'inherit', opacity: saving ? 0.7 : 1,
-            }}
-          >
-            {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
-        </div>
       </div>
-    </div>
-  )
-}
-
-// ─── Stage Manager Panel ──────────────────────────────────────────────────────
-
-function StageManagerPanel({
-  stages,
-  onSave,
-  candidatsByEtape,
-}: {
-  stages: Stage[]
-  onSave: (stages: Stage[]) => Promise<void>
-  candidatsByEtape: Record<string, any[]>
-}) {
-  const [localStages, setLocalStages] = useState<Stage[]>(stages)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editingLabel, setEditingLabel] = useState('')
-  const [colorPickerId, setColorPickerId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  // Sync if parent stages change (e.g., initial load)
-  useEffect(() => { setLocalStages(stages) }, [stages])
-
-  const updateStage = (id: string, patch: Partial<Stage>) => {
-    setLocalStages(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
-  }
-
-  const moveStage = (index: number, direction: 'up' | 'down') => {
-    const newStages = [...localStages]
-    const target = direction === 'up' ? index - 1 : index + 1
-    if (target < 0 || target >= newStages.length) return
-    ;[newStages[index], newStages[target]] = [newStages[target], newStages[index]]
-    setLocalStages(newStages)
-  }
-
-  const deleteStage = (id: string) => {
-    const count = candidatsByEtape[id]?.length || 0
-    if (count > 0) {
-      if (!window.confirm(`Cette étape contient ${count} candidat(s). Supprimer quand même ?`)) return
-    }
-    setLocalStages(prev => prev.filter(s => s.id !== id))
-  }
-
-  const addStage = () => {
-    const newStage: Stage = {
-      id: `stage_${Date.now()}`,
-      label: 'Nouvelle étape',
-      color: '#3B82F6',
-      visible: true,
-    }
-    setLocalStages(prev => [...prev, newStage])
-    setEditingId(newStage.id)
-    setEditingLabel(newStage.label)
-  }
-
-  const startEdit = (id: string, label: string) => {
-    setEditingId(id)
-    setEditingLabel(label)
-  }
-
-  const commitEdit = (id: string) => {
-    const trimmed = editingLabel.trim()
-    if (trimmed) updateStage(id, { label: trimmed })
-    setEditingId(null)
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    await onSave(localStages)
-    setSaving(false)
-  }
-
-  return (
-    <div style={{
-      background: 'var(--card)', border: '2px solid var(--border)',
-      borderRadius: 16, padding: '18px 20px', marginBottom: 16,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
-          Gérer les étapes du pipeline
-        </h4>
+      <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <button
-          onClick={handleSave}
-          disabled={saving}
+          onClick={() => onChange('')}
           style={{
-            padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-            border: 'none', background: 'var(--primary)',
-            color: 'var(--primary-foreground)', cursor: saving ? 'wait' : 'pointer',
-            fontFamily: 'inherit', opacity: saving ? 0.7 : 1,
+            textAlign: 'left', padding: '5px 8px', borderRadius: 6, fontSize: 12,
+            border: 'none', cursor: 'pointer',
+            background: value === '' ? '#F5A62330' : 'transparent',
+            color: value === '' ? '#c07a00' : 'var(--muted-foreground)',
+            fontWeight: value === '' ? 700 : 400,
           }}
         >
-          {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+          — Aucun métier
         </button>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {localStages.map((stage, index) => (
-          <div
-            key={stage.id}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'var(--secondary)', borderRadius: 10,
-              padding: '8px 10px', border: '1.5px solid var(--border)',
-            }}
-          >
-            {/* Color swatch */}
-            <div style={{ position: 'relative' }}>
+        {grouped.map(group => (
+          <div key={group.name}>
+            {group.name && (
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: group.color || 'var(--muted-foreground)',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                padding: '6px 8px 2px',
+              }}>
+                {group.name}
+              </div>
+            )}
+            {group.metiers.map(m => (
               <button
-                onClick={() => setColorPickerId(colorPickerId === stage.id ? null : stage.id)}
+                key={m}
+                onClick={() => onChange(m)}
                 style={{
-                  width: 24, height: 24, borderRadius: 6,
-                  background: stage.color, border: '2px solid white',
-                  cursor: 'pointer', flexShrink: 0,
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                }}
-                title="Changer la couleur"
-              />
-              {colorPickerId === stage.id && (
-                <div
-                  style={{
-                    position: 'absolute', top: '110%', left: 0, zIndex: 50,
-                    background: 'var(--card)', borderRadius: 10,
-                    border: '2px solid var(--border)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                    padding: 8,
-                    display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5,
-                    width: 170,
-                  }}
-                >
-                  {COLOR_PALETTE.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { updateStage(stage.id, { color: c }); setColorPickerId(null) }}
-                      style={{
-                        width: 24, height: 24, borderRadius: 6, background: c,
-                        border: c === stage.color ? '3px solid white' : '2px solid transparent',
-                        cursor: 'pointer',
-                        boxShadow: c === stage.color ? `0 0 0 2px ${c}` : 'none',
-                      }}
-                      title={c}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Label */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {editingId === stage.id ? (
-                <input
-                  autoFocus
-                  value={editingLabel}
-                  onChange={e => setEditingLabel(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') commitEdit(stage.id)
-                    if (e.key === 'Escape') setEditingId(null)
-                  }}
-                  onBlur={() => commitEdit(stage.id)}
-                  style={{
-                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
-                    border: `1.5px solid ${stage.color}`, borderRadius: 6,
-                    padding: '2px 8px', outline: 'none', width: '100%',
-                    background: 'var(--card)', fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                  {stage.label}
-                  {(candidatsByEtape[stage.id]?.length || 0) > 0 && (
-                    <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--muted-foreground)' }}>
-                      ({candidatsByEtape[stage.id].length})
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                onClick={() => startEdit(stage.id, stage.label)}
-                title="Renommer"
-                style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1.5px solid var(--border)',
-                  background: 'var(--card)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--muted-foreground)',
+                  width: '100%', textAlign: 'left', padding: '5px 8px', borderRadius: 6,
+                  fontSize: 13, border: 'none', cursor: 'pointer',
+                  background: value === m ? '#F5A62330' : 'transparent',
+                  color: value === m ? '#c07a00' : 'var(--foreground)',
+                  fontWeight: value === m ? 700 : 400,
                 }}
               >
-                <Pencil size={12} />
+                {value === m && <Check size={11} style={{ display: 'inline', marginRight: 5 }} />}
+                {m}
               </button>
-              <button
-                onClick={() => updateStage(stage.id, { visible: !stage.visible })}
-                title={stage.visible ? 'Masquer' : 'Afficher'}
-                style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1.5px solid var(--border)',
-                  background: 'var(--card)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: stage.visible ? 'var(--foreground)' : 'var(--muted-foreground)',
-                }}
-              >
-                {stage.visible ? <Eye size={12} /> : <EyeOff size={12} />}
-              </button>
-              <button
-                onClick={() => moveStage(index, 'up')}
-                title="Monter"
-                disabled={index === 0}
-                style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1.5px solid var(--border)',
-                  background: 'var(--card)', cursor: index === 0 ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--muted-foreground)', opacity: index === 0 ? 0.3 : 1,
-                }}
-              >
-                <ArrowUp size={12} />
-              </button>
-              <button
-                onClick={() => moveStage(index, 'down')}
-                title="Descendre"
-                disabled={index === localStages.length - 1}
-                style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1.5px solid var(--border)',
-                  background: 'var(--card)', cursor: index === localStages.length - 1 ? 'default' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--muted-foreground)', opacity: index === localStages.length - 1 ? 0.3 : 1,
-                }}
-              >
-                <ArrowDown size={12} />
-              </button>
-              <button
-                onClick={() => deleteStage(stage.id)}
-                title="Supprimer"
-                style={{
-                  width: 26, height: 26, borderRadius: 6, border: '1.5px solid rgba(239,68,68,0.3)',
-                  background: 'rgba(239,68,68,0.06)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#EF4444',
-                }}
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
+            ))}
           </div>
         ))}
       </div>
+    </div>
+  )
+}
 
-      {/* Add new stage */}
-      <button
-        onClick={addStage}
-        style={{
-          marginTop: 10, width: '100%', padding: '8px 0',
-          borderRadius: 10, border: '2px dashed var(--border)',
-          background: 'transparent', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 600,
-          fontFamily: 'inherit', transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--primary)'
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--muted-foreground)'
-        }}
-      >
-        <Plus size={14} />
-        Nouvelle étape
-      </button>
+// ─── NoteModal ────────────────────────────────────────────────────────────────
+function NoteModal({ nom, notes, onClose, onSave }: {
+  nom: string
+  notes: string
+  onClose: () => void
+  onSave: (notes: string) => void
+}) {
+  const [value, setValue] = useState(notes)
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 420, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Notes — {nom}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
+        </div>
+        <textarea
+          autoFocus value={value} onChange={e => setValue(e.target.value)}
+          style={{ width: '100%', minHeight: 120, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 14, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit' }}
+        />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
+          <button onClick={() => { onSave(value); onClose() }} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>Enregistrer</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── RappelModal ──────────────────────────────────────────────────────────────
+function RappelModal({ candidatId, nom, existingRappel, onClose, onSaved }: {
+  candidatId: string
+  nom: string
+  existingRappel?: Rappel | null
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const defaultDt = existingRappel
+    ? existingRappel.rappel_at.slice(0, 16)
+    : (() => { const d = new Date(); d.setHours(d.getHours() + 1, 0, 0, 0); return d.toISOString().slice(0, 16) })()
+
+  const [datetime, setDatetime] = useState(defaultDt)
+  const [note, setNote] = useState(existingRappel?.note ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!datetime) return
+    setSaving(true)
+    try {
+      if (existingRappel) {
+        await fetch('/api/pipeline/rappels', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: existingRappel.id, rappel_at: new Date(datetime).toISOString(), note }) })
+      } else {
+        await fetch('/api/pipeline/rappels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ candidat_id: candidatId, rappel_at: new Date(datetime).toISOString(), note }) })
+      }
+      toast.success('Rappel enregistré')
+      onSaved(); onClose()
+    } catch { toast.error('Erreur') } finally { setSaving(false) }
+  }
+
+  async function handleDelete() {
+    if (!existingRappel) return
+    try {
+      await fetch('/api/pipeline/rappels', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: existingRappel.id }) })
+      toast.success('Rappel supprimé')
+      onSaved(); onClose()
+    } catch { toast.error('Erreur') }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 380, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}><Bell size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />Rappel — {nom}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
+        </div>
+        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Date et heure</label>
+        <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
+          style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 12 }}
+        />
+        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Note (optionnel)</label>
+        <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Rappeler pour l'entretien"
+          style={{ width: '100%', minHeight: 72, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit', marginBottom: 16 }}
+        />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+          <div>
+            {existingRappel && (
+              <button onClick={handleDelete} style={{ background: 'none', border: '1.5px solid #EF4444', color: '#EF4444', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
+            <button onClick={handleSave} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>{saving ? '…' : 'Enregistrer'}</button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── ModifierModal ────────────────────────────────────────────────────────────
+function ModifierModal({ candidat, metiers, categories, onClose, onSaved }: {
+  candidat: Candidat
+  metiers: string[]
+  categories: { name: string; color: string; metiers: string[] }[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [consultant, setConsultant] = useState(candidat.pipeline_consultant ?? 'João')
+  const [metier, setMetier] = useState(candidat.pipeline_metier ?? '')
+  const [saving, setSaving] = useState(false)
+  const nom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await fetch(`/api/candidats/${candidat.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pipeline_consultant: consultant, pipeline_metier: metier || null }),
+      })
+      toast.success('Modifié')
+      onSaved(); onClose()
+    } catch { toast.error('Erreur') } finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 420, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Modifier — {nom}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
+        </div>
+
+        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {['João', 'Seb'].map(c => (
+            <button key={c} onClick={() => setConsultant(c)} style={{
+              padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+              border: `1.5px solid ${consultant === c ? '#F5A623' : 'var(--border)'}`,
+              background: consultant === c ? '#F5A623' : 'var(--secondary)',
+              color: consultant === c ? '#000' : 'var(--foreground)',
+              fontWeight: consultant === c ? 700 : 400,
+            }}>{c}</button>
+          ))}
+        </div>
+
+        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier</label>
+        <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, marginBottom: 16 }}>
+          <MetierPicker metiers={metiers} categories={categories} value={metier} onChange={setMetier} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>{saving ? '…' : 'Enregistrer'}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── AddToPipelineModal ───────────────────────────────────────────────────────
+function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
+  metiers: string[]
+  categories: { name: string; color: string; metiers: string[] }[]
+  onClose: () => void
+  onAdded: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [results, setResults] = useState<Candidat[]>([])
+  const [selected, setSelected] = useState<Candidat | null>(null)
+  const [consultant, setConsultant] = useState('João')
+  const [metier, setMetier] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.length < 2) { setResults([]); return }
+    setSearching(true)
+    try {
+      const res = await fetch(`/api/candidats?search=${encodeURIComponent(q)}&per_page=30`)
+      const json = await res.json()
+      setResults(json.candidats ?? [])
+    } catch { /* ignore */ } finally { setSearching(false) }
+  }, [])
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => doSearch(search), 300)
+  }, [search, doSearch])
+
+  async function handleAdd() {
+    if (!selected) return
+    setSaving(true)
+    try {
+      await fetch(`/api/candidats/${selected.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut_pipeline: 'nouveau', pipeline_consultant: consultant, pipeline_metier: metier || null }),
+      })
+      toast.success(`${selected.prenom || ''} ${selected.nom} ajouté au pipeline`)
+      onAdded(); onClose()
+    } catch { toast.error('Erreur') } finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 480, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter au pipeline</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
+        </div>
+
+        {!selected ? (
+          <>
+            <div style={{ position: 'relative', marginBottom: 8 }}>
+              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
+              <input
+                autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher par nom, prénom, métier…"
+                style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px 8px 32px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)' }}
+              />
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {searching && <div style={{ fontSize: 13, color: 'var(--muted-foreground)', padding: 8 }}>Recherche…</div>}
+              {!searching && results.map(c => (
+                <button key={c.id} onClick={() => setSelected(c)} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                  borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)',
+                  cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+                    <span style={{ position: 'absolute' }}>{getInitials(c.prenom, c.nom)}</span>
+                    {c.photo_url && <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                    {c.titre_poste && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{c.titre_poste}</div>}
+                    {c.localisation && <div style={{ fontSize: 11, color: '#94A3B8' }}>{c.localisation}</div>}
+                  </div>
+                  {c.pipeline_consultant && (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, background: '#F5A62322', color: '#c07a00', border: '1px solid #F5A62344', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>
+                      Pipeline
+                    </span>
+                  )}
+                </button>
+              ))}
+              {!searching && search.length >= 2 && results.length === 0 && (
+                <div style={{ color: 'var(--muted-foreground)', fontSize: 13, padding: 8 }}>Aucun résultat</div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, background: 'var(--secondary)', borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
+                <span style={{ position: 'absolute' }}>{getInitials(selected.prenom, selected.nom)}</span>
+                {selected.photo_url && <img src={selected.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700 }}>{selected.prenom} {selected.nom}</div>
+                {selected.titre_poste && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{selected.titre_poste}</div>}
+              </div>
+              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={16} /></button>
+            </div>
+
+            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {['João', 'Seb'].map(c => (
+                <button key={c} onClick={() => setConsultant(c)} style={{
+                  padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                  border: `1.5px solid ${consultant === c ? '#F5A623' : 'var(--border)'}`,
+                  background: consultant === c ? '#F5A623' : 'var(--secondary)',
+                  color: consultant === c ? '#000' : 'var(--foreground)',
+                  fontWeight: consultant === c ? 700 : 400,
+                }}>{c}</button>
+              ))}
+            </div>
+
+            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier</label>
+            <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, marginBottom: 16 }}>
+              <MetierPicker metiers={metiers} categories={categories} value={metier} onChange={setMetier} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
+              <button onClick={handleAdd} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>{saving ? '…' : 'Ajouter'}</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── CandidatCard ─────────────────────────────────────────────────────────────
+function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, onRetirer }: {
+  candidat: Candidat
+  rappel: Rappel | null
+  cvHook: ReturnType<typeof useCvHoverPreview>
+  onNote: () => void
+  onRappel: () => void
+  onModifier: () => void
+  onRetirer: () => void
+}) {
+  const age = calcAge(candidat.date_naissance)
+  const nom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
+  const rappelDue = rappel && !rappel.done && new Date(rappel.rappel_at) <= new Date(Date.now() + 60 * 60 * 1000)
+
+  return (
+    <div
+      style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 14px 12px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'box-shadow 0.15s' }}
+      onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)')}
+      onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)')}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)', position: 'relative' }}>
+          <span style={{ position: 'absolute' }}>{getInitials(candidat.prenom, candidat.nom)}</span>
+          {candidat.photo_url && <img src={candidat.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+            {candidat.localisation && (
+              <span style={{ fontSize: 11, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <MapPin size={10} />{candidat.localisation}
+              </span>
+            )}
+            {age !== null && <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{age} ans</span>}
+          </div>
+        </div>
+        {rappel && !rappel.done && (
+          <div title={`Rappel: ${new Date(rappel.rappel_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+            style={{ width: 26, height: 26, borderRadius: 8, background: rappelDue ? '#EF444420' : '#F5A62320', border: `1.5px solid ${rappelDue ? '#EF4444' : '#F5A623'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bell size={13} color={rappelDue ? '#EF4444' : '#F5A623'} />
+          </div>
+        )}
+      </div>
+
+      {/* Métier badge */}
+      {candidat.pipeline_metier && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#F5A62318', border: '1px solid #F5A62344', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, color: '#c07a00', width: 'fit-content' }}>
+          {candidat.pipeline_metier}
+        </div>
+      )}
+
+      {/* Notes preview */}
+      {candidat.notes && (
+        <div style={{ fontSize: 12, color: 'var(--muted-foreground)', background: 'var(--secondary)', borderRadius: 6, padding: '6px 8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {candidat.notes}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <Link href={`/candidats/${candidat.id}`} title="Fiche candidat"
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', textDecoration: 'none' }}>
+          <FileText size={13} />
+        </Link>
+
+        {candidat.cv_url && (
+          <CvHoverTrigger cvUrl={candidat.cv_url} cvNomFichier={candidat.cv_nom_fichier} candidatId={candidat.id} hook={cvHook}>
+            <button title="Aperçu CV" style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
+              <Eye size={13} />
+            </button>
+          </CvHoverTrigger>
+        )}
+
+        <button onClick={onNote} title="Notes"
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: candidat.notes ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer' }}>
+          <Pencil size={13} />
+        </button>
+
+        <button onClick={onRappel} title="Rappel"
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${rappel && !rappel.done ? '#F5A623' : 'var(--border)'}`, background: 'var(--card)', color: rappel && !rappel.done ? '#F5A623' : 'var(--muted-foreground)', cursor: 'pointer' }}>
+          <Bell size={13} />
+        </button>
+
+        <button onClick={onModifier} title="Modifier consultant / métier"
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
+          <Settings2 size={13} />
+        </button>
+
+        <button onClick={onRetirer} title="Retirer du pipeline"
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: '#EF4444', cursor: 'pointer', marginLeft: 'auto' }}>
+          <Trash2 size={13} />
+        </button>
+      </div>
     </div>
   )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-
 export default function PipelinePage() {
-  const [offreFilter, setOffreFilter] = useState<string>('tous')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [overColumnId, setOverColumnId] = useState<string | null>(null)
-  const [showStageManager, setShowStageManager] = useState(false)
-  const viewMode = 'grid' as const
-  const boardRef = useRef<HTMLDivElement>(null)
-  const queryClient = useQueryClient()
-
-  // CV hover preview
+  const qc = useQueryClient()
   const cvHook = useCvHoverPreview()
+  const { metiers } = useMetiers()
+  const { categories } = useMetierCategories()
 
-  // Notes modal state (lifted to page level to avoid DnD z-index issues)
-  const [notesModal, setNotesModal] = useState<{ candidatId: string; name: string; notes: string } | null>(null)
+  // Tabs
+  const [activeConsultant, setActiveConsultant] = useState('Tous')
+  const [activeMetier, setActiveMetier] = useState('Tous')
 
-  // Stage picker for add-to-pipeline (null = aucun, string = candidat.id en cours de sélection)
-  const [stagePickerId, setStagePickerId] = useState<string | null>(null)
+  // Modals
+  const [showAdd, setShowAdd] = useState(false)
+  const [noteModal, setNoteModal] = useState<{ candidat: Candidat } | null>(null)
+  const [rappelModal, setRappelModal] = useState<{ candidat: Candidat } | null>(null)
+  const [modifierModal, setModifierModal] = useState<{ candidat: Candidat } | null>(null)
 
-  // ── Load stages from app_settings ──
-  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES)
-  const [stagesLoaded, setStagesLoaded] = useState(false)
+  // ── Fetch candidats pipeline ──────────────────────────────────────────────
+  const { data: candidatsData, isLoading } = useQuery({
+    queryKey: ['pipeline-candidats'],
+    queryFn: async () => {
+      const res = await fetch('/api/candidats?statut_pipeline=true&per_page=500')
+      const json = await res.json()
+      return (json.candidats ?? []) as Candidat[]
+    },
+    staleTime: 30_000,
+  })
+  const allCandidats = candidatsData ?? []
+
+  // ── Fetch rappels ─────────────────────────────────────────────────────────
+  const { data: rappelsData, refetch: refetchRappels } = useQuery({
+    queryKey: ['pipeline-rappels'],
+    queryFn: async () => {
+      const res = await fetch('/api/pipeline/rappels')
+      const json = await res.json()
+      return (json.rappels ?? []) as Rappel[]
+    },
+    staleTime: 30_000,
+  })
+  const rappels = rappelsData ?? []
+
+  const rappelByCandidatId = useMemo(() => {
+    const map = new Map<string, Rappel>()
+    for (const r of rappels) { if (!r.done) map.set(r.candidat_id, r) }
+    return map
+  }, [rappels])
+
+  // ── Rappel notifications permanentes ──────────────────────────────────────
+  const notifiedIds = useRef(new Set<string>())
 
   useEffect(() => {
-    const loadStages = async () => {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'pipeline_stages')
-        .single()
-      if (!error && data?.value) {
-        // value peut être string JSON ou objet selon la colonne DB
-        let parsed: unknown = data.value
-        if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed) } catch { parsed = null }
-        }
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStages(parsed as Stage[])
+    const check = () => {
+      const now = Date.now()
+      for (const r of rappels) {
+        if (r.done || notifiedIds.current.has(r.id)) continue
+        const at = new Date(r.rappel_at).getTime()
+        if (at <= now) {
+          notifiedIds.current.add(r.id)
+          const nom = r.candidats
+            ? `${r.candidats.prenom || ''} ${r.candidats.nom}`.trim()
+            : 'Candidat'
+          toast(
+            `🔔 Rappel : ${nom}${r.note ? ` — ${r.note}` : ''}`,
+            {
+              duration: Infinity,
+              action: {
+                label: 'Valider',
+                onClick: async () => {
+                  await fetch('/api/pipeline/rappels', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: r.id, done: true }),
+                  })
+                  refetchRappels()
+                },
+              },
+              cancel: { label: 'Fermer', onClick: () => {} },
+            }
+          )
         }
       }
-      setStagesLoaded(true)
     }
-    loadStages()
-  }, [])
+    check()
+    const id = setInterval(check, 60_000)
+    return () => clearInterval(id)
+  }, [rappels, refetchRappels])
 
-  const visibleStages = useMemo(() => stages.filter(s => s.visible), [stages])
-
-  const saveStages = useCallback(async (newStages: Stage[]) => {
-    const res = await fetch('/api/pipeline/stages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stages: newStages }),
-    })
-    if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: 'Erreur serveur' }))
-      toast.error(`Erreur lors de la sauvegarde : ${error}`)
-      return
+  // ── Compteurs par consultant ───────────────────────────────────────────────
+  const consultantCounts = useMemo(() => {
+    const counts: Record<string, number> = { Tous: allCandidats.length }
+    for (const c of allCandidats) {
+      const k = c.pipeline_consultant ?? 'Autres'
+      counts[k] = (counts[k] ?? 0) + 1
     }
-    setStages(newStages)
-    toast.success('Étapes sauvegardées')
-  }, [])
+    return counts
+  }, [allCandidats])
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
-  )
+  // ── Candidats filtrés par consultant (base pour métiers) ──────────────────
+  const byConsultant = useMemo(() => {
+    if (activeConsultant === 'Tous') return allCandidats
+    return allCandidats.filter(c => c.pipeline_consultant === activeConsultant)
+  }, [allCandidats, activeConsultant])
 
-  const { data: offres } = useQuery({
-    queryKey: ['offres-pipeline'],
-    queryFn: async () => {
-      const { data } = await supabase.from('offres').select('id, titre').eq('statut', 'active')
-      return data || []
-    },
-  })
+  // ── Métier sub-tabs — uniquement depuis les candidats du consultant actif ──
+  const metierTabs = useMemo(() => {
+    const counts = new Map<string, number>()
+    let othersCount = 0
+    for (const c of byConsultant) {
+      if (c.pipeline_metier) counts.set(c.pipeline_metier, (counts.get(c.pipeline_metier) ?? 0) + 1)
+      else othersCount++
+    }
+    const sorted = Array.from(counts.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+    const tabs: { label: string; count: number }[] = [
+      { label: 'Tous', count: byConsultant.length },
+      ...sorted.map(([label, count]) => ({ label, count })),
+    ]
+    if (othersCount > 0) tabs.push({ label: 'Autres', count: othersCount })
+    return tabs
+  }, [byConsultant])
 
-  // ── Add candidat search ──
-  const [addSearch, setAddSearch] = useState('')
-  const [addResults, setAddResults] = useState<any[]>([])
-  const [addLoading, setAddLoading] = useState(false)
-  const [showAddDropdown, setShowAddDropdown] = useState(false)
+  useEffect(() => {
+    const labels = metierTabs.map(t => t.label)
+    if (activeMetier !== 'Tous' && !labels.includes(activeMetier)) setActiveMetier('Tous')
+  }, [metierTabs, activeMetier])
 
-  const searchCandidatToAdd = useCallback(async (q: string) => {
-    setAddSearch(q)
-    if (q.length < 2) { setAddResults([]); setShowAddDropdown(false); return }
-    setAddLoading(true)
-    const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    const qNorm = normalize(q)
-    const { data } = await supabase
-      .from('candidats')
-      .select('id, nom, prenom, titre_poste, localisation, statut_pipeline')
-      .or(`nom.ilike.%${q}%,prenom.ilike.%${q}%,titre_poste.ilike.%${q}%,localisation.ilike.%${q}%`)
-      .limit(50)
-    const filtered = (data || []).filter((c: any) => {
-      const haystack = normalize(`${c.prenom || ''} ${c.nom || ''} ${c.titre_poste || ''} ${c.localisation || ''}`)
-      return haystack.includes(qNorm)
-    }).slice(0, 15)
-    setAddResults(filtered)
-    setShowAddDropdown(true)
-    setAddLoading(false)
-  }, [])
+  // ── Filtered candidats ────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    let list = byConsultant
+    if (activeMetier === 'Autres') list = list.filter(c => !c.pipeline_metier)
+    else if (activeMetier !== 'Tous') list = list.filter(c => c.pipeline_metier === activeMetier)
+    return list
+  }, [byConsultant, activeMetier])
 
-  const addCandidatToPipeline = useCallback(async (candidat: any, etapeId: string) => {
-    const etapeLabel = stages.find(s => s.id === etapeId)?.label || etapeId
+  const cols = useMemo(() => {
+    const c0: Candidat[] = [], c1: Candidat[] = [], c2: Candidat[] = []
+    filtered.forEach((c, i) => { if (i % 3 === 0) c0.push(c); else if (i % 3 === 1) c1.push(c); else c2.push(c) })
+    return [c0, c1, c2]
+  }, [filtered])
+
+  // ── Actions ───────────────────────────────────────────────────────────────
+  async function handleSaveNote(candidat: Candidat, notes: string) {
     try {
-      const res = await fetch(`/api/candidats/${candidat.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut_pipeline: etapeId }),
-      })
-      if (!res.ok) {
-        const { error } = await supabase.from('candidats').update({ statut_pipeline: etapeId }).eq('id', candidat.id)
-        if (error) throw error
-      }
-      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-      toast.success(`${candidat.prenom || ''} ${candidat.nom} ajouté à ${etapeLabel}`)
-      setAddSearch('')
-      setAddResults([])
-      setShowAddDropdown(false)
-      setStagePickerId(null)
-      logActivity({
-        type: 'statut_change',
-        titre: `${candidat.prenom || ''} ${candidat.nom} ajouté au pipeline — ${etapeLabel}`,
-        candidat_id: candidat.id,
-        candidat_nom: `${candidat.prenom || ''} ${candidat.nom}`,
-      })
-    } catch (err: any) {
-      toast.error(`Erreur : ${err.message}`)
-    }
-  }, [queryClient, stages])
+      await fetch(`/api/candidats/${candidat.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes }) })
+      qc.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+    } catch { toast.error('Erreur') }
+  }
 
-  // ── Pipeline query (includes notes) ──
-  const { data: candidats, isLoading } = useQuery({
-    queryKey: ['pipeline-candidats', offreFilter],
-    queryFn: async () => {
-      if (offreFilter === 'tous') {
-        const { data, error } = await supabase
-          .from('candidats')
-          .select('id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier, photo_url, telephone, cfc, deja_engage')
-          .not('statut_pipeline', 'is', null)
-          .order('updated_at', { ascending: false })
-          .limit(500)
-        if (error) throw error
-        return data || []
-      } else {
-        const { data: pipelineData, error } = await supabase
-          .from('pipeline')
-          .select('etape, candidat_id, score_ia, candidats(id, nom, prenom, titre_poste, annees_exp, date_naissance, statut_pipeline, email, localisation, updated_at, created_at, notes, cv_url, cv_nom_fichier, photo_url, telephone, cfc, deja_engage)')
-          .eq('offre_id', offreFilter)
-        if (error) throw error
-        return (pipelineData || []).map((p: any) => ({
-          ...p.candidats,
-          statut_pipeline: p.etape,
-          score_ia: p.score_ia,
-          pipeline_id: p.candidat_id,
-        }))
-      }
-    },
-  })
+  async function handleRetirer(candidat: Candidat) {
+    const nom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
+    if (!confirm(`Retirer ${nom} du pipeline ?`)) return
+    try {
+      await fetch(`/api/candidats/${candidat.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ statut_pipeline: null, pipeline_consultant: null, pipeline_metier: null }) })
+      qc.invalidateQueries({ queryKey: ['pipeline-candidats'] })
+      toast.success(`${nom} retiré du pipeline`)
+    } catch { toast.error('Erreur') }
+  }
 
-  // Filter by search
-  const filteredCandidats = useMemo(() => {
-    if (!candidats || !searchQuery.trim()) return candidats || []
-    const q = searchQuery.toLowerCase()
-    return candidats.filter((c: any) =>
-      `${c.prenom} ${c.nom}`.toLowerCase().includes(q) ||
-      (c.titre_poste || '').toLowerCase().includes(q) ||
-      (c.localisation || '').toLowerCase().includes(q) ||
-      (c.email || '').toLowerCase().includes(q)
-    )
-  }, [candidats, searchQuery])
-
-  // Group by stage (all stages, not just visible)
-  const candidatsByEtape = useMemo(() => {
-    return stages.reduce((acc, s) => {
-      acc[s.id] = (filteredCandidats || []).filter((c: any) => c.statut_pipeline === s.id)
-      return acc
-    }, {} as Record<string, any[]>)
-  }, [filteredCandidats, stages])
-
-  const total = filteredCandidats?.length || 0
-
-  // Active item and its stage for overlay
-  const activeItem = activeId ? candidats?.find((c: any) => c.id === activeId) : null
-  const activeStage: Stage = activeItem
-    ? (stages.find(s => s.id === activeItem.statut_pipeline) || DEFAULT_STAGES[0])
-    : DEFAULT_STAGES[0]
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-    setOverColumnId(null)
-  }, [])
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { over } = event
-    if (!over) { setOverColumnId(null); return }
-    const overId = over.id as string
-    if (stages.some(s => s.id === overId)) {
-      setOverColumnId(overId)
-    } else {
-      const overCard = candidats?.find((c: any) => c.id === overId)
-      if (overCard) setOverColumnId(overCard.statut_pipeline)
-    }
-  }, [candidats, stages])
-
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    setActiveId(null)
-    setOverColumnId(null)
-    const { active, over } = event
-    if (!over) return
-
-    const draggableId = active.id as string
-    let newEtape: string | undefined
-
-    const isColumn = stages.some(s => s.id === over.id)
-    if (isColumn) {
-      newEtape = over.id as string
-    } else {
-      const overCandidat = candidats?.find((c: any) => c.id === over.id)
-      if (overCandidat) {
-        newEtape = overCandidat.statut_pipeline as string
-      }
-    }
-
-    if (!newEtape) return
-    const candidat = candidats?.find((c: any) => c.id === draggableId)
-    if (!candidat || candidat.statut_pipeline === newEtape) return
-
-    // Optimistic update
-    queryClient.setQueryData(['pipeline-candidats', offreFilter], (old: any[] | undefined) =>
-      old?.map(c => c.id === draggableId ? { ...c, statut_pipeline: newEtape } : c)
-    )
-
-    const { error } = await supabase
-      .from('candidats')
-      .update({ statut_pipeline: newEtape })
-      .eq('id', draggableId)
-
-    if (error) {
-      // Check for enum constraint error — custom stage IDs need text column migration
-      if (error.message?.toLowerCase().includes('invalid input value for enum') ||
-          error.message?.toLowerCase().includes('enum') ||
-          error.code === '22P02') {
-        toast.error(
-          'Migration requise — exécutez dans Supabase Dashboard: ALTER TABLE candidats ALTER COLUMN statut_pipeline TYPE text USING statut_pipeline::text;',
-          { duration: 10000 }
-        )
-      } else {
-        toast.error('Erreur mise à jour')
-      }
-      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-    } else {
-      if (offreFilter !== 'tous') {
-        await supabase
-          .from('pipeline')
-          .update({ etape: newEtape })
-          .eq('candidat_id', draggableId)
-          .eq('offre_id', offreFilter)
-      }
-      const etapeLabel = stages.find(s => s.id === newEtape)?.label || newEtape
-      toast.success(`${candidat.prenom || ''} ${candidat.nom} → ${etapeLabel}`)
-      queryClient.invalidateQueries({ queryKey: ['candidats'] })
-
-      const candidatNom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
-      logActivity({
-        type: 'statut_change',
-        titre: `${candidatNom} déplacé vers ${etapeLabel}`,
-        candidat_id: draggableId,
-        candidat_nom: candidatNom,
-      })
-    }
-  }, [candidats, offreFilter, queryClient, stages])
-
-  const handleDragCancel = useCallback(() => {
-    setActiveId(null)
-    setOverColumnId(null)
-  }, [])
-
-  const handleRemoveFromPipeline = useCallback(async (candidatId: string) => {
-    queryClient.setQueryData(['pipeline-candidats', offreFilter], (old: any[] | undefined) =>
-      old?.filter(c => c.id !== candidatId)
-    )
-    const { error } = await supabase
-      .from('candidats')
-      .update({ statut_pipeline: null })
-      .eq('id', candidatId)
-    if (error) {
-      toast.error('Erreur lors du retrait')
-      queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-    } else {
-      toast.success('Candidat retiré du pipeline')
-    }
-  }, [offreFilter, queryClient])
-
-  const handleNoteOpen = useCallback((candidatId: string, name: string, notes: string) => {
-    setNotesModal({ candidatId, name, notes })
-  }, [])
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '20px 24px', height: '100vh', maxHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* ─── Header ─── */}
-      <div style={{ marginBottom: showStageManager ? 12 : 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 12,
-              background: 'linear-gradient(135deg, var(--primary), rgba(247,201,72,0.6))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <LayoutGrid size={20} color="var(--primary-foreground)" />
-            </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0, letterSpacing: '-0.02em' }}>
-                Pipeline
-              </h1>
-              <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>
-                {total} candidat{total > 1 ? 's' : ''} {searchQuery ? 'trouvés' : 'au total'}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Search in pipeline */}
-            <div style={{ position: 'relative', width: 220 }}>
-              <Search size={14} style={{
-                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                color: searchQuery ? 'var(--primary)' : 'var(--muted-foreground)',
-                transition: 'color 0.2s',
-              }} />
-              <input
-                type="text"
-                placeholder="Rechercher dans le pipeline..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="neo-input-soft"
-                style={{
-                  width: '100%', paddingLeft: 34, paddingRight: searchQuery ? 32 : 12,
-                  height: 38, fontSize: 13,
-                }}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  style={{
-                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                    width: 20, height: 20, borderRadius: 6, border: 'none',
-                    background: 'var(--secondary)', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--muted-foreground)',
-                  }}
-                >
-                  <X size={11} />
-                </button>
-              )}
-            </div>
-
-            {/* Settings / manage stages button */}
-            <button
-              onClick={() => setShowStageManager(prev => !prev)}
-              title="Gérer les étapes"
-              style={{
-                width: 38, height: 38, borderRadius: 10,
-                border: showStageManager ? '2px solid var(--primary)' : '2px solid var(--border)',
-                background: showStageManager ? 'rgba(var(--primary-rgb, 59 130 246), 0.08)' : 'var(--secondary)',
-                color: showStageManager ? 'var(--primary)' : 'var(--muted-foreground)',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.15s',
-              }}
-            >
-              <Settings size={16} />
-            </button>
-
-            {/* Ajouter un candidat */}
-            <div style={{ position: 'relative', width: 280 }}>
-              <UserPlus size={14} style={{
-                position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                color: addSearch ? 'var(--primary)' : 'var(--muted-foreground)',
-              }} />
-              <input
-                type="text"
-                placeholder="Ajouter un candidat..."
-                value={addSearch}
-                onChange={e => searchCandidatToAdd(e.target.value)}
-                onFocus={() => { if (addResults.length) setShowAddDropdown(true) }}
-                onBlur={() => setTimeout(() => setShowAddDropdown(false), 200)}
-                style={{
-                  width: '100%', padding: '9px 12px 9px 34px',
-                  background: 'var(--card)', border: '2px solid var(--primary)',
-                  borderRadius: 10, color: 'var(--foreground)', fontSize: 13,
-                  outline: 'none', fontFamily: 'inherit',
-                }}
-              />
-              {showAddDropdown && addResults.length > 0 && (
-                <div
-                  onMouseDown={e => e.preventDefault()}
-                  style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4,
-                    background: 'var(--card)', border: '2px solid var(--border)',
-                    borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.15)',
-                    maxHeight: 320, overflowY: 'auto', zIndex: 100,
-                  }}
-                >
-                  {addResults.map((c: any) => (
-                    <div key={c.id} style={{
-                      padding: '10px 14px', borderBottom: '1px solid var(--border)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
-                            {c.prenom} {c.nom}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
-                            {c.titre_poste || ''}{c.localisation ? ` · ${c.localisation}` : ''}
-                          </div>
-                        </div>
-                        {stagePickerId === c.id ? (
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            {visibleStages.map(s => (
-                              <button
-                                key={s.id}
-                                onClick={() => { setStagePickerId(null); addCandidatToPipeline(c, s.id) }}
-                                style={{
-                                  padding: '3px 8px', borderRadius: 6,
-                                  background: s.color, border: 'none',
-                                  color: 'white', fontSize: 10, fontWeight: 700,
-                                  cursor: 'pointer', fontFamily: 'inherit',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {s.label}
-                              </button>
-                            ))}
-                            <button
-                              onClick={() => setStagePickerId(null)}
-                              style={{
-                                padding: '3px 6px', borderRadius: 6,
-                                background: 'var(--muted)', border: 'none',
-                                color: 'var(--muted-foreground)', fontSize: 10,
-                                cursor: 'pointer', fontFamily: 'inherit',
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setStagePickerId(c.id)}
-                            style={{
-                              padding: '5px 12px', borderRadius: 6,
-                              background: 'var(--primary)', border: 'none',
-                              color: 'white', fontSize: 11, fontWeight: 700,
-                              cursor: 'pointer', fontFamily: 'inherit',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            + Ajouter
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Offre filter */}
-            <Select value={offreFilter} onValueChange={setOffreFilter}>
-              <SelectTrigger style={{
-                width: 200, background: 'var(--secondary)',
-                border: '2px solid var(--border)', borderRadius: 10,
-                color: 'var(--foreground)', height: 38,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Filter size={13} color="var(--muted-foreground)" />
-                  <SelectValue placeholder="Toutes les offres" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tous">Tous les candidats</SelectItem>
-                {offres?.map(o => <SelectItem key={o.id} value={o.id}>{o.titre}</SelectItem>)}
-              </SelectContent>
-            </Select>
+    <div style={{ padding: '24px 28px', maxWidth: 1400, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Pipeline</h1>
+          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>
+            {allCandidats.length} candidat{allCandidats.length !== 1 ? 's' : ''} en suivi
           </div>
         </div>
-
-        {/* Stage manager panel */}
-        <AnimatePresence>
-          {showStageManager && stagesLoaded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              style={{ overflow: 'hidden' }}
-            >
-              <StageManagerPanel
-                stages={stages}
-                onSave={saveStages}
-                candidatsByEtape={candidatsByEtape}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Stats bar */}
-        {!showStageManager && (
-          <StatsBar stages={stages} candidatsByEtape={candidatsByEtape} />
-        )}
+        <button onClick={() => setShowAdd(true)} className="neo-btn-yellow" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px' }}>
+          <UserPlus size={15} /> Ajouter
+        </button>
       </div>
 
-      {/* ─── Board ─── */}
-      {isLoading ? (
-        <div style={{ display: 'flex', gap: 12, flex: 1 }}>
-          {visibleStages.map((s, i) => (
-            <motion.div
-              key={s.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              style={{
-                flex: 1, background: 'var(--secondary)', borderRadius: 16,
-                border: '2px solid var(--border)',
-              }}
-            >
-              <div style={{ padding: 16 }}>
-                <div style={{ height: 12, width: 80, background: 'var(--border)', borderRadius: 6, marginBottom: 12 }} />
-                {[1, 2, 3].map(j => (
-                  <div key={j} style={{
-                    height: 80, background: 'var(--card)', borderRadius: 12,
-                    border: '2px solid var(--border)', marginBottom: 8,
-                    animation: 'pulse 2s infinite',
-                  }} />
-                ))}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      ) : total === 0 && !searchQuery ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <div style={{
-            textAlign: 'center', padding: 40,
-            background: 'var(--card)', borderRadius: 20,
-            border: '2px solid var(--border)',
-            maxWidth: 400,
-          }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 16,
-              background: 'var(--secondary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 20px',
+      {/* Consultant tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1.5px solid var(--border)' }}>
+        {CONSULTANTS.map(c => {
+          const count = consultantCounts[c] ?? 0
+          const active = activeConsultant === c
+          return (
+            <button key={c} onClick={() => { setActiveConsultant(c); setActiveMetier('Tous') }} style={{
+              padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              background: 'none', border: 'none', marginBottom: -1.5,
+              borderBottom: active ? '2.5px solid #F5A623' : '2.5px solid transparent',
+              color: active ? '#F5A623' : 'var(--muted-foreground)',
+              transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              <UserPlus size={28} color="var(--muted-foreground)" />
-            </div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px' }}>
-              Pipeline vide
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6 }}>
-              Importez des CVs depuis la page Candidats pour peupler votre pipeline de recrutement.
-            </p>
+              {c}
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
+                background: active ? '#F5A62330' : 'var(--secondary)',
+                color: active ? '#c07a00' : 'var(--muted-foreground)',
+                border: `1px solid ${active ? '#F5A62366' : 'var(--border)'}`,
+              }}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Métier sub-tabs */}
+      {metierTabs.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+          {metierTabs.map(({ label, count }) => {
+            const active = activeMetier === label
+            return (
+              <button key={label} onClick={() => setActiveMetier(label)} style={{
+                padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                borderRadius: 20, border: '1.5px solid var(--border)',
+                background: active ? '#F5A623' : 'var(--secondary)',
+                color: active ? '#000' : 'var(--muted-foreground)',
+                transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
+              }}>
+                {label}
+                <span style={{
+                  fontSize: 10, fontWeight: 800, padding: '0px 5px', borderRadius: 8,
+                  background: active ? 'rgba(0,0,0,0.15)' : 'var(--border)',
+                  color: active ? '#000' : 'var(--muted-foreground)',
+                }}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Grid */}
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: 64, color: 'var(--muted-foreground)' }}>Chargement…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 64 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📋</div>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Pipeline vide</div>
+          <div style={{ color: 'var(--muted-foreground)', fontSize: 13, marginBottom: 20 }}>
+            Ajoutez des candidats depuis la liste ou la fiche candidat.
           </div>
-        </motion.div>
-      ) : total === 0 && searchQuery ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <Search size={32} color="var(--muted-foreground)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted-foreground)' }}>
-              Aucun résultat pour &laquo; {searchQuery} &raquo;
-            </p>
-          </div>
+          <button onClick={() => setShowAdd(true)} className="neo-btn-yellow" style={{ fontSize: 13, padding: '8px 20px' }}>
+            <UserPlus size={14} style={{ display: 'inline', marginRight: 6 }} />Ajouter un candidat
+          </button>
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-        >
-          <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-            {/* Gradient fade left */}
-            <div style={{
-              position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, zIndex: 2,
-              background: 'linear-gradient(to right, var(--background), transparent)',
-              pointerEvents: 'none', opacity: 0.8,
-            }} />
-            {/* Gradient fade right */}
-            <div style={{
-              position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, zIndex: 2,
-              background: 'linear-gradient(to left, var(--background), transparent)',
-              pointerEvents: 'none', opacity: 0.8,
-            }} />
-
-            <div
-              ref={boardRef}
-              style={{
-                display: 'flex', gap: 16, height: '100%',
-                overflow: 'hidden',
-                paddingBottom: 8,
-              }}
-            >
-              {visibleStages.map((stage) => {
-                const { bgSoft, borderColor } = colorSoft(stage.color)
-                const stageCandidats = candidatsByEtape[stage.id] || []
-                return (
-                  <div
-                    key={stage.id}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      display: 'flex', flexDirection: 'column', minHeight: 0,
-                    }}
-                  >
-                    {/* Column header */}
-                    <div style={{
-                      borderRadius: '16px 16px 0 0',
-                      padding: '14px 16px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: bgSoft,
-                      borderTop: `3px solid ${stage.color}`,
-                      borderLeft: `2px solid ${borderColor}`,
-                      borderRight: `2px solid ${borderColor}`,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 8, height: 8, borderRadius: '50%',
-                          background: stage.color,
-                          boxShadow: `0 0 8px ${stage.color}66`,
-                        }} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: stage.color }}>
-                          {stage.label}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{
-                          fontSize: 12, fontWeight: 800, color: stage.color,
-                          background: `${stage.color}18`,
-                          padding: '2px 10px', borderRadius: 8,
-                          minWidth: 28, textAlign: 'center',
-                        }}>
-                          {stageCandidats.length}
-                        </span>
-                        {stageCandidats.length > 0 && (
-                          <button
-                            title="Vider cette colonne"
-                            onClick={async () => {
-                              if (!confirm(`Vider la colonne "${stage.label}" (${stageCandidats.length} candidats) ?`)) return
-                              const res = await fetch('/api/pipeline/clear', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ etape_id: stage.id }),
-                              })
-                              if (res.ok) {
-                                const d = await res.json()
-                                toast.success(`${d.cleared} candidats retirés`)
-                                queryClient.invalidateQueries({ queryKey: ['pipeline-candidats'] })
-                              } else {
-                                toast.error('Erreur lors du vidage')
-                              }
-                            }}
-                            style={{
-                              width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
-                              background: 'var(--background)', cursor: 'pointer', display: 'flex',
-                              alignItems: 'center', justifyContent: 'center', color: 'var(--muted)',
-                              fontSize: 12, flexShrink: 0, opacity: 0.7,
-                            }}
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Droppable area */}
-                    <DroppableColumn stage={stage} isActive={overColumnId === stage.id}>
-                      <SortableContext
-                        items={stageCandidats.map((c: any) => c.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(2, 1fr)',
-                          gap: 8,
-                        }}>
-                          {stageCandidats.map((item: any) => (
-                            <DraggableCard
-                              key={item.id}
-                              item={item}
-                              stage={stage}
-                              onRemove={() => handleRemoveFromPipeline(item.id)}
-                              onNote={handleNoteOpen}
-                              cvHook={cvHook}
-                              compact={true}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                      {stageCandidats.length === 0 && (
-                        <div style={{
-                          padding: '32px 16px', textAlign: 'center',
-                          borderRadius: 12, border: '2px dashed var(--border)',
-                          margin: 4,
-                        }}>
-                          <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0 }}>
-                            Glissez un candidat ici
-                          </p>
-                        </div>
-                      )}
-                    </DroppableColumn>
-                  </div>
-                )
-              })}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          {cols.map((col, ci) => (
+            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {col.map(candidat => (
+                <CandidatCard
+                  key={candidat.id}
+                  candidat={candidat}
+                  rappel={rappelByCandidatId.get(candidat.id) ?? null}
+                  cvHook={cvHook}
+                  onNote={() => setNoteModal({ candidat })}
+                  onRappel={() => setRappelModal({ candidat })}
+                  onModifier={() => setModifierModal({ candidat })}
+                  onRetirer={() => handleRetirer(candidat)}
+                />
+              ))}
             </div>
-          </div>
-
-          <DragOverlay>
-            {activeItem ? (
-              <OverlayCard item={activeItem} stage={activeStage} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          ))}
+        </div>
       )}
 
-      {/* ─── CV Hover Preview (page-level, above DnD) ─── */}
       <CvHoverPanel hook={cvHook} />
 
-      {/* ─── Notes Modal (page-level, above DnD) ─── */}
-      {notesModal && (
-        <NotesModal
-          candidatId={notesModal.candidatId}
-          name={notesModal.name}
-          initialNotes={notesModal.notes}
-          offreFilter={offreFilter}
-          onClose={() => setNotesModal(null)}
-        />
-      )}
+      {showAdd && <AddToPipelineModal metiers={metiers} categories={categories} onClose={() => setShowAdd(false)} onAdded={() => qc.invalidateQueries({ queryKey: ['pipeline-candidats'] })} />}
+      {noteModal && <NoteModal nom={`${noteModal.candidat.prenom || ''} ${noteModal.candidat.nom}`.trim()} notes={noteModal.candidat.notes ?? ''} onClose={() => setNoteModal(null)} onSave={notes => handleSaveNote(noteModal.candidat, notes)} />}
+      {rappelModal && <RappelModal candidatId={rappelModal.candidat.id} nom={`${rappelModal.candidat.prenom || ''} ${rappelModal.candidat.nom}`.trim()} existingRappel={rappelByCandidatId.get(rappelModal.candidat.id) ?? null} onClose={() => setRappelModal(null)} onSaved={refetchRappels} />}
+      {modifierModal && <ModifierModal candidat={modifierModal.candidat} metiers={metiers} categories={categories} onClose={() => setModifierModal(null)} onSaved={() => qc.invalidateQueries({ queryKey: ['pipeline-candidats'] })} />}
     </div>
   )
 }

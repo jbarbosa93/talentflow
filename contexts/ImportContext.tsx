@@ -218,6 +218,8 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           _done = true
           setRunning(false)
           setDone(true)
+          // Signal final → sidebar recalcule le badge non-vus
+          window.dispatchEvent(new CustomEvent('talentflow:badges-changed'))
           break
       }
     }

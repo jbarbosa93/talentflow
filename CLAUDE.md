@@ -1,7 +1,7 @@
 # TalentFlow — CLAUDE.md
 
 ## Version actuelle
-**1.5.10 production** — 09/04/2026
+**1.6.1 production** — 12/04/2026
 
 ## Stack technique
 - **Frontend** : Next.js 16.1.7 (App Router), React 19, TypeScript 5, Tailwind CSS 4
@@ -11,15 +11,16 @@
 - **Docs** : pdf-lib, pdfjs-dist v5, mupdf v1.27, tesseract.js v7 (OCR), docx, mammoth, word-extractor
 - **Emails** : Resend (prioritaire), Nodemailer/SMTP (fallback), WhatsApp Business API
 - **Intégrations** : Microsoft Graph API (Outlook, OneDrive, SharePoint)
-- **UI** : DnD Kit, Framer Motion, Recharts, Leaflet, Radix UI, shadcn, sonner
+- **UI** : Framer Motion, Recharts, Leaflet, Radix UI, shadcn, sonner
 - **Déploiement** : Vercel Pro — région `dub1`
 - **Dev local** : port 3001, commande `next dev --port 3001 --webpack` (Turbopack désactivé en dev)
 
 ## Features principales
 - **Candidats** : import masse (ZIP/PDF/Word), parsing IA multi-modèle, fiche détaillée, CV viewer, photos, doublons
-- **Clients** : base de 1200+ entreprises, campagnes e-mail, gestion des contacts, filtre géographique
-- **Pipeline** : Kanban drag & drop, aperçu CV au survol, matching IA candidat↔offre
-- **Entretiens / Suivi** : vue liste, rappels avec notification, badge sidebar
+- **Clients** : base de 1200+ entreprises, campagnes e-mail, gestion des contacts, filtre géographique, recherche IA (Claude web_search + zefix.ch/local.ch)
+- **Pipeline** : grille 3 colonnes, onglets consultants (João/Seb) avec compteurs, sous-onglets métiers filtrés par consultant actif avec compteurs, cards enrichies, rappels (toast permanent), ModifierModal, aperçu CV au survol
+- **Missions** : CRUD complet, stats marge brute/coefficient, bilan mensuel (jours fériés cantonaux), import Notion, sync Quadrigis (validation manuelle via missions_pending)
+- **Entretiens / Suivi** : vue liste, rappels avec notification, badge sidebar (lien sidebar masqué)
 - **OneDrive** : sync automatique récursif (cron 10min), déduplication, historique fichiers
 - **France Travail** : formulaire Word pré-rempli, envoi Resend, CC fixe, historique
 - **Messages** : email/SMS/WhatsApp avec templates, activité loggée
@@ -31,7 +32,7 @@
 app/(dashboard)/          — pages + API routes (Next.js App Router)
   api/                    — routes API server-side (candidats, cv, pipeline, clients…)
   candidats/[id]/         — fiche candidat
-  pipeline/               — kanban
+  pipeline/               — grille 3 cols (consultant + métier + rappels)
   offres/ entretiens/ ... — autres pages
 components/               — composants React (PascalCase)
   CvHoverPreview.tsx      — aperçu CV au survol (hook + trigger + panel)
@@ -96,6 +97,21 @@ supabase/migrations/      — SQL migrations versionnées
 - **Vercel bodySizeLimit** : configuré à `100mb` pour les imports ZIP volumineux (`serverActions.bodySizeLimit`)
 - **Détection extension CV** : utiliser `cv_nom_fichier` en priorité (plus fiable), l'URL Supabase peut être un UUID sans extension visible
 - **Login bypass dev** : `localhost:3001/admin` → magic link sans mot de passe via `supabase.auth.admin.generateLink` — bloqué en production
+- **Zefix API** : l'API REST (ZefixREST + ZefixPublicREST) exige des credentials HTTP Basic — utiliser Claude `web_search_20250305` comme source principale pour la recherche d'entreprises suisses
+- **ADMIN_EMAIL** : variable d'env obligatoire sur Vercel, pas de fallback hardcodé
+
+## Sécurité — dette technique (audit 12/04/2026)
+
+✅ **Corrigé en v1.6.1** :
+- SMTP password chiffré AES-256-GCM (`lib/smtp-crypto.ts`) — rétrocompatible
+- `pipeline_rappels` UPDATE filtré par `user_id`
+- RLS `logs_acces` SELECT authenticated, `entretiens` policies simplifiées, `candidates` RLS activé
+- 7 routes API protégées par `requireAuth()` (candidats, logs, matching, pipeline/clear, pipeline/stages, notes, clients)
+
+⚠️ **Restant — à traiter** :
+- `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token
+- `cv/parse` : route 1000+ lignes, audit auth dédié à planifier
+- Dashboard : 5 count queries séparées (optimiser avec RPC agrégée)
 
 ## Règles de comportement
 
@@ -112,12 +128,41 @@ supabase/migrations/      — SQL migrations versionnées
 - Modifications des routes API existantes → vérifier les usages côté client avant
 - Ajout de dépendances npm lourdes → signaler l'impact sur le bundle Vercel
 
-**Déploiement Vercel** : ne jamais lancer `vercel --prod` ou toute autre commande de déploiement automatiquement. À la fin de chaque session ou tâche importante, afficher ce récap et attendre confirmation explicite :
+**Style de réponses** : concis, direct, pas de résumé en fin de réponse.
+
+---
+
+## Règles de workflow — Modifications & Déploiement
+
+### RÈGLE — Avant chaque modification de code
+1. Identifier tous les fichiers qui seront touchés
+2. Pour chaque fichier → lister les fonctionnalités qui utilisent ce fichier
+3. Signaler avec ⚠️ toute fonctionnalité qui pourrait être impactée par le changement
+4. Attendre confirmation de João avant de continuer
+
+### RÈGLE — Après chaque modification
+1. Relire les fichiers modifiés
+2. Vérifier mentalement qu'aucune fonctionnalité existante n'est cassée
+3. Lister les fonctionnalités à tester manuellement
+4. Signaler si un test est recommandé avant déploiement
+
+### RÈGLE — Avant chaque `vercel --prod`
+1. `git add -A`
+2. `git commit -m "feat/fix: description + version"`
+3. `git tag vX.X.X`
+4. `git push origin main --tags`
+5. Demander confirmation à João
+6. `vercel --prod`
+
+### RÈGLE — Commits
+- Commiter uniquement avant chaque déploiement prod
+- Pas obligatoire pendant le développement localhost
+- Message commit clair avec la version et description
+
+**Déploiement Vercel** : ne jamais lancer `vercel --prod` sans avoir suivi la séquence git ci-dessus et obtenu la confirmation explicite de João. Récap obligatoire avant chaque déploiement :
 
 ```
 ✅ Tâches terminées : [liste]
 ⚠️ Points d'attention : [liste si applicable]
 🚀 Prêt à déployer sur Vercel — tu confirmes ? (oui / non)
 ```
-
-**Style de réponses** : concis, direct, pas de résumé en fin de réponse.

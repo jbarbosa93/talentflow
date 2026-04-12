@@ -4,11 +4,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 // Note: getRouteUser lit les cookies Supabase Auth côté serveur (next/headers)
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const { candidat_id, contenu, offre_id } = await request.json()
     if (!candidat_id || !contenu?.trim()) {

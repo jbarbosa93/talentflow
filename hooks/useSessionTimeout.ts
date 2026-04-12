@@ -3,8 +3,9 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000  // 30 minutes
+const INACTIVITY_LIMIT_MS = 25 * 60 * 1000  // 25 minutes
 const WARNING_BEFORE_MS   = 2 * 60 * 1000    // avertir 2 min avant
+const LS_KEY              = 'talentflow_last_activity'
 
 type Opts = {
   onWarning: (secondsLeft: number) => void
@@ -28,6 +29,7 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
 
   const doLogout = useCallback(async () => {
     clearAll()
+    localStorage.removeItem(LS_KEY)
     const supabase = createClient()
     await supabase.auth.signOut()
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -35,27 +37,47 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
     router.push('/login?reason=timeout')
   }, [router, onLogout])
 
-  const resetTimer = useCallback(() => {
+  // Démarre les timers avec un délai personnalisé (permet de reprendre depuis un état persisté)
+  const startTimerWithDelay = useCallback((delayMs: number) => {
     clearAll()
-    lastActive.current = Date.now()
     onActivity()
 
-    // Avertir 2 minutes avant la déconnexion
-    warnRef.current = setTimeout(() => {
-      let secondsLeft = Math.round(WARNING_BEFORE_MS / 1000)
+    if (delayMs <= 0) {
+      doLogout()
+      return
+    }
+
+    const warnDelay = delayMs - WARNING_BEFORE_MS
+    if (warnDelay > 0) {
+      // Avertir 2 min avant la déconnexion
+      warnRef.current = setTimeout(() => {
+        let secondsLeft = Math.round(WARNING_BEFORE_MS / 1000)
+        onWarning(secondsLeft)
+        countRef.current = setInterval(() => {
+          secondsLeft -= 1
+          onWarning(secondsLeft)
+          if (secondsLeft <= 0) clearInterval(countRef.current!)
+        }, 1000)
+      }, warnDelay)
+    } else {
+      // Moins de 2 min restantes — avertir immédiatement
+      let secondsLeft = Math.max(0, Math.round(delayMs / 1000))
       onWarning(secondsLeft)
       countRef.current = setInterval(() => {
         secondsLeft -= 1
         onWarning(secondsLeft)
-        if (secondsLeft <= 0) {
-          clearInterval(countRef.current!)
-        }
+        if (secondsLeft <= 0) clearInterval(countRef.current!)
       }, 1000)
-    }, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS)
+    }
 
-    // Déconnexion automatique après INACTIVITY_LIMIT_MS
-    timerRef.current = setTimeout(doLogout, INACTIVITY_LIMIT_MS)
+    timerRef.current = setTimeout(doLogout, delayMs)
   }, [doLogout, onWarning, onActivity])
+
+  const resetTimer = useCallback(() => {
+    lastActive.current = Date.now()
+    localStorage.setItem(LS_KEY, lastActive.current.toString())
+    startTimerWithDelay(INACTIVITY_LIMIT_MS)
+  }, [startTimerWithDelay])
 
   // Quand l'import est en cours, reset le timer toutes les 5 min pour éviter le logout
   useEffect(() => {
@@ -69,17 +91,33 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
 
   useEffect(() => {
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown']
-
     const handleActivity = () => resetTimer()
-
     events.forEach(e => window.addEventListener(e, handleActivity, { passive: true }))
-    resetTimer() // démarrer le timer au montage
+
+    // Au montage : vérifier le timestamp persisté en localStorage
+    const stored = localStorage.getItem(LS_KEY)
+    if (stored) {
+      const lastTs  = parseInt(stored, 10)
+      const elapsed = Date.now() - lastTs
+      if (elapsed >= INACTIVITY_LIMIT_MS) {
+        // Délai dépassé → déconnecter immédiatement
+        doLogout()
+      } else {
+        // Temps restant → reprendre là où on s'est arrêté
+        lastActive.current = lastTs
+        startTimerWithDelay(INACTIVITY_LIMIT_MS - elapsed)
+      }
+    } else {
+      // Pas de timestamp → démarrer une session fraîche
+      resetTimer()
+    }
 
     return () => {
       clearAll()
       events.forEach(e => window.removeEventListener(e, handleActivity))
     }
-  }, [resetTimer])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return { resetTimer, doLogout }
 }

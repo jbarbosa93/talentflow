@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
+import { decrypt } from '@/lib/smtp-crypto'
 import nodemailer from 'nodemailer'
 import { generateBrandedCV } from '@/lib/cv-generator'
 
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
       host: config.host || 'smtp.office365.com',
       port: config.port || 587,
       secure: false,
-      auth: { user: config.email, pass: config.password },
+      auth: { user: config.email, pass: decrypt(config.password) },
       tls: { ciphers: 'SSLv3', rejectUnauthorized: false },
     })
 
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
         candidat_id: candidat_ids[0] || undefined,
         metadata: { destinataires, candidat_ids, attachments_count: attachments.length },
       })
-    } catch {}
+    } catch (err) { console.warn('[smtp/send] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({
       success: true,

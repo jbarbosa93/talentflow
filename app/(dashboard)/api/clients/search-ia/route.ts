@@ -1,22 +1,12 @@
 // app/(dashboard)/api/clients/search-ia/route.ts
-// POST /api/clients/search-ia — Recherche IA d'entreprise via Zefix + Claude
+// POST /api/clients/search-ia — Recherche d'entreprise via Claude web_search + Zefix
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
 
 export const runtime = 'nodejs'
-export const maxDuration = 30
-
-interface ZefixCompany {
-  name: string
-  uid: string
-  chlesId?: number
-  legalSeat: string
-  canton: { abbreviation: string }
-  status: string
-  address?: { street?: string; houseNumber?: string; swissZipCode?: string; city?: string }
-}
+export const maxDuration = 60
 
 interface SearchResult {
   nom_entreprise: string
@@ -33,6 +23,29 @@ interface SearchResult {
   already_exists?: boolean
 }
 
+/** Extraire tout le texte des content blocks (web_search retourne plusieurs blocks) */
+function extractText(content: Array<{ type: string; text?: string }>): string {
+  return content
+    .filter(b => b.type === 'text' && b.text)
+    .map(b => b.text!)
+    .join('\n')
+}
+
+/** Parser un JSON depuis un texte brut (gère backticks, texte autour) */
+function parseJsonFromText(text: string, fallback: '[]' | '{}'): any {
+  let cleaned = text.replace(/```json|```JSON|```/g, '').trim()
+  if (fallback === '[]') {
+    const first = cleaned.indexOf('[')
+    const last = cleaned.lastIndexOf(']')
+    if (first !== -1 && last > first) cleaned = cleaned.substring(first, last + 1)
+  } else {
+    const first = cleaned.indexOf('{')
+    const last = cleaned.lastIndexOf('}')
+    if (first !== -1 && last > first) cleaned = cleaned.substring(first, last + 1)
+  }
+  return JSON.parse(cleaned)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { query } = await request.json()
@@ -41,198 +54,144 @@ export async function POST(request: NextRequest) {
     }
 
     const trimmedQuery = query.trim()
-
-    // Extraire le nom d'entreprise et la ville du query
-    // Heuristique: les derniers mots pourraient etre la ville
-    const words = trimmedQuery.split(/\s+/)
-    const searchName = trimmedQuery // On envoie tout a Zefix
-
-    // --- 1. Recherche Zefix ---
-    let zefixResults: ZefixCompany[] = []
-    try {
-      const zefixRes = await fetch('https://www.zefix.admin.ch/ZefixREST/api/v1/company/search', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          name: searchName,
-          activeOnly: true,
-          maxEntries: 5,
-        }),
-        signal: AbortSignal.timeout(8000),
-      })
-
-      if (zefixRes.ok) {
-        const data = await zefixRes.json()
-        zefixResults = Array.isArray(data) ? data : (data?.list || data?.companies || [])
-      } else {
-        console.warn(`[search-ia] Zefix HTTP ${zefixRes.status}`)
-      }
-    } catch (err) {
-      console.warn('[search-ia] Zefix indisponible:', (err as Error).message)
-    }
-
-    // --- 2. Enrichir avec Claude ---
     const anthropic = new Anthropic()
-
     const results: SearchResult[] = []
 
-    if (zefixResults.length > 0) {
-      // Enrichir chaque resultat Zefix avec Claude
-      const enrichmentPromises = zefixResults.slice(0, 5).map(async (company) => {
-        const companyName = company.name
-        const city = company.address?.city || company.legalSeat || ''
-        const cantonAbbr = company.canton?.abbreviation || ''
-        const street = company.address
-          ? [company.address.street, company.address.houseNumber].filter(Boolean).join(' ')
-          : ''
-        const npa = company.address?.swissZipCode || ''
+    // --- Recherche via Claude avec web_search (source principale) ---
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        tools: [{
+          type: 'web_search_20250305' as any,
+          name: 'web_search',
+          max_uses: 5,
+          user_location: {
+            type: 'approximate' as const,
+            country: 'CH',
+            region: 'Vaud',
+            city: 'Lausanne',
+            timezone: 'Europe/Zurich',
+          },
+        } as any],
+        messages: [{
+          role: 'user',
+          content: `Recherche l'entreprise "${trimmedQuery}" dans le registre du commerce suisse (zefix.ch) et dans les annuaires suisses (local.ch, search.ch).
 
-        // Formater UID
-        const uid = company.uid || ''
+Retourne UNIQUEMENT un JSON valide (sans markdown, sans backticks, sans explication) — un tableau d'entreprises trouvées :
+[
+  {
+    "nom_entreprise": "Nom officiel complet",
+    "adresse": "Rue et numéro",
+    "npa": "Code postal",
+    "ville": "Ville",
+    "canton": "Abréviation canton (VD, GE, VS...)",
+    "telephone": "Numéro de téléphone principal",
+    "site_web": "site web sans https://",
+    "secteur": "Activité principale en 2-5 mots",
+    "uid": "Numéro IDE (CHE-xxx.xxx.xxx) si trouvé"
+  }
+]
 
-        let enriched: Partial<SearchResult> = {}
-        try {
-          const enrichment = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 500,
-            messages: [{
-              role: 'user',
-              content: `Recherche les informations de contact de l'entreprise "${companyName}" situee a ${city}${cantonAbbr ? `, canton ${cantonAbbr}` : ''}, en Suisse.
-Retourne UNIQUEMENT un JSON valide (sans markdown, sans backticks) avec ces champs (laisse "" si inconnu) :
-{
-  "telephone": "",
-  "email": "",
-  "site_web": "",
-  "secteur": "",
-  "adresse": "${street || ''}",
-  "npa": "${npa || ''}",
-  "ville": "${city || ''}",
-  "canton": "${cantonAbbr || ''}"
-}
-Regles :
-- telephone : numero suisse avec indicatif regional (ex: "021 653 14 31" ou "+41 21 653 14 31")
-- email : email general de contact de l'entreprise
-- site_web : URL du site sans https:// (ex: "www.exemple.ch")
-- secteur : activite principale en 2-5 mots (ex: "Installations sanitaires, chauffage")
-- Remplis adresse/npa/ville/canton seulement s'ils sont vides ci-dessus
-- N'invente RIEN — ne retourne que des informations que tu connais avec certitude`
-            }],
-          })
-
-          const text = enrichment.content[0]?.type === 'text' ? enrichment.content[0].text : '{}'
-          // Parse JSON robuste
-          let cleaned = text.replace(/```json|```JSON|```/g, '').trim()
-          const firstBrace = cleaned.indexOf('{')
-          const lastBrace = cleaned.lastIndexOf('}')
-          if (firstBrace !== -1 && lastBrace > firstBrace) {
-            cleaned = cleaned.substring(firstBrace, lastBrace + 1)
-          }
-          enriched = JSON.parse(cleaned)
-        } catch (err) {
-          console.warn(`[search-ia] Enrichissement echoue pour ${companyName}:`, (err as Error).message)
-        }
-
-        return {
-          nom_entreprise: companyName,
-          adresse: enriched.adresse || street || '',
-          npa: enriched.npa || npa || '',
-          ville: enriched.ville || city || '',
-          canton: enriched.canton || cantonAbbr || '',
-          telephone: enriched.telephone || '',
-          email: enriched.email || '',
-          site_web: enriched.site_web || '',
-          secteur: enriched.secteur || '',
-          source: 'zefix+ia',
-          uid,
-        } as SearchResult
+Règles :
+- Cherche sur zefix.ch pour le nom officiel, l'adresse, le canton et le numéro IDE
+- Cherche sur local.ch ou search.ch pour le téléphone et le site web
+- Maximum 5 résultats
+- Si aucune entreprise trouvée, retourne []
+- telephone : format suisse (ex: "021 653 14 31" ou "+41 21 653 14 31")
+- site_web : sans https:// (ex: "www.exemple.ch")
+- Ne retourne QUE le JSON, rien d'autre`,
+        }],
       })
 
-      const enrichedResults = await Promise.all(enrichmentPromises)
-      results.push(...enrichedResults)
-    } else {
-      // Pas de resultat Zefix — recherche 100% Claude
+      const text = extractText(response.content as any)
+      console.log('[search-ia] web_search response text length:', text.length)
+
+      if (text) {
+        try {
+          const parsed = parseJsonFromText(text, '[]')
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              results.push({
+                nom_entreprise: item.nom_entreprise || trimmedQuery,
+                adresse: item.adresse || '',
+                npa: item.npa || '',
+                ville: item.ville || '',
+                canton: item.canton || '',
+                telephone: item.telephone || '',
+                email: '',
+                site_web: item.site_web || '',
+                secteur: item.secteur || '',
+                source: 'zefix+ia',
+                uid: item.uid || '',
+              })
+            }
+          }
+        } catch (parseErr) {
+          console.warn('[search-ia] JSON parse failed:', (parseErr as Error).message, 'text:', text.substring(0, 300))
+        }
+      }
+    } catch (err) {
+      console.error('[search-ia] web_search failed:', (err as Error).message)
+
+      // Fallback : Claude sans web_search (connaissance générale uniquement)
       try {
-        const response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
+        const fallbackResponse = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
           max_tokens: 800,
           messages: [{
             role: 'user',
-            content: `L'utilisateur recherche l'entreprise : "${trimmedQuery}" en Suisse.
-Retourne UNIQUEMENT un JSON valide (sans markdown, sans backticks) — un tableau de 1 a 3 entreprises correspondantes :
-[
-  {
-    "nom_entreprise": "",
-    "adresse": "",
-    "npa": "",
-    "ville": "",
-    "canton": "",
-    "telephone": "",
-    "email": "",
-    "site_web": "",
-    "secteur": ""
-  }
-]
-Regles :
-- Recherche l'entreprise la plus probable correspondant a la requete
-- telephone : numero suisse (ex: "021 653 14 31")
-- site_web : sans https:// (ex: "www.exemple.ch")
-- secteur : activite principale en quelques mots
-- N'invente RIEN — ne retourne que des informations que tu connais avec certitude
-- Si tu ne connais pas l'entreprise, retourne un tableau vide []`
+            content: `Recherche l'entreprise "${trimmedQuery}" en Suisse.
+Retourne UNIQUEMENT un JSON valide — un tableau de 1 à 3 entreprises :
+[{"nom_entreprise":"","adresse":"","npa":"","ville":"","canton":"","secteur":"","uid":""}]
+- secteur : activité principale en 2-5 mots
+- Si inconnue, retourne []`,
           }],
         })
 
-        const text = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
-        let cleaned = text.replace(/```json|```JSON|```/g, '').trim()
-        const firstBracket = cleaned.indexOf('[')
-        const lastBracket = cleaned.lastIndexOf(']')
-        if (firstBracket !== -1 && lastBracket > firstBracket) {
-          cleaned = cleaned.substring(firstBracket, lastBracket + 1)
-        }
-
-        const parsed = JSON.parse(cleaned)
-        if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            results.push({
-              nom_entreprise: item.nom_entreprise || trimmedQuery,
-              adresse: item.adresse || '',
-              npa: item.npa || '',
-              ville: item.ville || '',
-              canton: item.canton || '',
-              telephone: item.telephone || '',
-              email: item.email || '',
-              site_web: item.site_web || '',
-              secteur: item.secteur || '',
-              source: 'ia',
-              uid: '',
-            })
+        const fallbackText = extractText(fallbackResponse.content as any)
+        if (fallbackText) {
+          const parsed = parseJsonFromText(fallbackText, '[]')
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              results.push({
+                nom_entreprise: item.nom_entreprise || trimmedQuery,
+                adresse: item.adresse || '',
+                npa: item.npa || '',
+                ville: item.ville || '',
+                canton: item.canton || '',
+                telephone: '',
+                email: '',
+                site_web: '',
+                secteur: item.secteur || '',
+                source: 'ia',
+                uid: '',
+              })
+            }
           }
         }
-      } catch (err) {
-        console.warn('[search-ia] Claude fallback echoue:', (err as Error).message)
+      } catch (fallbackErr) {
+        console.error('[search-ia] fallback also failed:', (fallbackErr as Error).message)
       }
     }
 
-    // --- 3. Verifier les doublons en DB ---
+    // --- Vérifier les doublons en DB ---
     if (results.length > 0) {
       const supabase = createAdminClient() as any
-      const names = results.map(r => r.nom_entreprise)
 
-      // Chercher par nom similaire
       for (let i = 0; i < results.length; i++) {
         const name = results[i].nom_entreprise
-        const { data: existing } = await supabase
-          .from('clients')
-          .select('id, nom_entreprise')
-          .ilike('nom_entreprise', `%${name.replace(/[%_]/g, '')}%`)
-          .limit(1)
+        try {
+          const { data: existing } = await supabase
+            .from('clients')
+            .select('id, nom_entreprise')
+            .ilike('nom_entreprise', `%${name.replace(/[%_]/g, '')}%`)
+            .limit(1)
 
-        if (existing && existing.length > 0) {
-          results[i].already_exists = true
-        }
+          if (existing && existing.length > 0) {
+            results[i].already_exists = true
+          }
+        } catch { /* ignore */ }
       }
     }
 

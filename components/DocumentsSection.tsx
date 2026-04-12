@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import {
   FolderOpen, Eye, Printer, Download, Trash2, Pencil, Upload, X,
   ChevronDown, ChevronRight, FileText, Award, GraduationCap, Heart,
-  BookOpen, Car, File, Check, Loader2,
+  BookOpen, Car, File, Check, Loader2, Star, FileSignature, Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,9 @@ const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: stri
   { key: 'lettre_motivation', label: 'Lettres de motivation', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: Heart },
   { key: 'formation',         label: 'Formations',            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: BookOpen },
   { key: 'permis',            label: 'Permis',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: Car },
+  { key: 'reference',         label: 'Références',            color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', icon: Star },
+  { key: 'contrat',           label: 'Contrats',              color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE', icon: FileSignature },
+  { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: Wallet },
   { key: 'autre',             label: 'Autre',                 color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: File },
 ]
 
@@ -41,6 +44,9 @@ const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; 
   { value: 'lettre_motivation', label: 'Lettre de motivation',  color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
   { value: 'formation',         label: 'Formation',             color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
   { value: 'permis',            label: 'Permis',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: 'reference',         label: 'Référence',             color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
+  { value: 'contrat',           label: 'Contrat',               color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
+  { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
   { value: 'autre',             label: 'Autre',                 color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 ]
 
@@ -74,6 +80,9 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     lettre_motivation: [],
     formation: [],
     permis: [],
+    reference: [],
+    contrat: [],
+    bulletin_salaire: [],
     autre: [],
   }
 

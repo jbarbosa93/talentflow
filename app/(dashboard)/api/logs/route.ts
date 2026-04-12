@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   const supabase = createAdminClient()
   const url = new URL(request.url)
   const limit = Math.min(Number(url.searchParams.get('limit') || 100), 1000)

@@ -5,7 +5,7 @@
 // The column is now type text to support custom stages defined in app_settings.
 export type PipelineEtape = string
 export type ImportStatus = 'a_traiter' | 'traite' | 'archive'
-export type DocumentType = 'certificat' | 'diplome' | 'lettre_motivation' | 'formation' | 'permis' | 'autre'
+export type DocumentType = 'certificat' | 'diplome' | 'lettre_motivation' | 'formation' | 'permis' | 'reference' | 'contrat' | 'bulletin_salaire' | 'autre'
 
 export type CandidatDocument = {
   name: string

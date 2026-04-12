@@ -1,5 +1,13 @@
 # Changelog TalentFlow
 
+## [1.5.18] — 9 avril 2026
+
+### Fix dark mode par défaut + flash non-vus
+- Fix : thème par défaut `'dark'` → `'light'` — Safari et nouveaux appareils sans localStorage démarrent en light
+- Fix : flash "479 non vus" au chargement — `nonVusTotal` effect bloqué par `isReady = false` jusqu'à `ensureInit()` résolu
+
+---
+
 ## [1.5.17] — 9 avril 2026
 
 ### Fix flash badge — init synchrone depuis localStorage

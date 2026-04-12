@@ -111,6 +111,19 @@ async function handleMerge(keep_id: string, delete_id: string, field_overrides?:
   // field_overrides: { fieldName: "keep" | "delete" } — user picks which source per field
   const ov = field_overrides || {}
 
+  // Nom / prénom : respecter le choix utilisateur (field_overrides.nom_complet) ou garder keep par défaut
+  if (ov['nom_complet'] === 'delete') {
+    merged.nom = d.nom || k.nom
+    merged.prenom = d.prenom || k.prenom || null
+  } else {
+    merged.nom = k.nom || d.nom
+    merged.prenom = k.prenom || d.prenom || null
+  }
+
+  // Pipeline consultant/métier : garder la valeur non-null (priorité keep)
+  merged.pipeline_consultant = k.pipeline_consultant || d.pipeline_consultant || null
+  merged.pipeline_metier = k.pipeline_metier || d.pipeline_metier || null
+
   // Champs texte: garder la valeur la plus longue/complète (pas juste keep en priorité)
   const textFields = ['email', 'telephone', 'localisation', 'titre_poste', 'formation',
     'resume_ia', 'cv_texte_brut', 'source', 'linkedin', 'notes', 'date_naissance']
@@ -168,6 +181,42 @@ async function handleMerge(keep_id: string, delete_id: string, field_overrides?:
   merged.tags = [...new Set([...(k.tags || []), ...(d.tags || [])])]
   merged.langues = [...new Set([...(k.langues || []), ...(d.langues || [])])]
 
+  // Documents: union (keep + delete) sans doublons, + archiver le CV non-choisi
+  const docsKeep: any[] = k.documents || []
+  const docsDel: any[] = d.documents || []
+  const mergedDocs = [...docsKeep]
+  for (const doc of docsDel) {
+    const isDup = mergedDocs.some((dd: any) =>
+      (doc.url && dd.url === doc.url) || dd.name === doc.name
+    )
+    if (!isDup) mergedDocs.push(doc)
+  }
+  // Archiver le CV de keep s'il n'a pas été choisi
+  if (k.cv_url && k.cv_url !== merged.cv_url) {
+    const already = mergedDocs.some((dd: any) => dd.url === k.cv_url)
+    if (!already) {
+      mergedDocs.push({
+        name: k.cv_nom_fichier || 'CV (archivé)',
+        url: k.cv_url,
+        type: 'cv',
+        date: k.created_at || new Date().toISOString(),
+      })
+    }
+  }
+  // Archiver le CV de delete s'il n'a pas été choisi
+  if (d.cv_url && d.cv_url !== merged.cv_url) {
+    const already = mergedDocs.some((dd: any) => dd.url === d.cv_url)
+    if (!already) {
+      mergedDocs.push({
+        name: d.cv_nom_fichier || 'CV (archivé)',
+        url: d.cv_url,
+        type: 'cv',
+        date: d.created_at || new Date().toISOString(),
+      })
+    }
+  }
+  merged.documents = mergedDocs
+
   // Expériences: union (garder les uniques par entreprise+poste)
   const expA: any[] = k.experiences || []
   const expB: any[] = d.experiences || []
@@ -181,15 +230,28 @@ async function handleMerge(keep_id: string, delete_id: string, field_overrides?:
   merged.formations_details = [...formA, ...formB.filter((f: any) => !formKeys.has(`${f.diplome}|${f.etablissement}`))]
 
   // Fusion atomique via RPC transactionnelle (évite race condition)
-  const { error: mergeError } = await admin.rpc('merge_candidats', {
-    p_keep_id: keep_id,
-    p_delete_id: delete_id,
-    p_merged: merged,
-  })
+  console.log('[Fusion] START', { keep_id, delete_id, merged_keys: Object.keys(merged) })
+  try {
+    const { error: mergeError } = await admin.rpc('merge_candidats', {
+      p_keep_id: keep_id,
+      p_delete_id: delete_id,
+      p_merged: merged,
+    })
+    console.log('[Fusion] RPC result', { mergeError: mergeError || 'OK' })
 
-  if (mergeError) {
-    console.error('[Doublons] Merge RPC error:', mergeError)
-    return NextResponse.json({ error: 'Erreur lors de la fusion' }, { status: 500 })
+    if (mergeError) {
+      console.error('[Fusion] RPC ERROR detail:', JSON.stringify(mergeError))
+      return NextResponse.json({ error: 'Erreur RPC: ' + (mergeError.message || JSON.stringify(mergeError)) }, { status: 500 })
+    }
+  } catch (err) {
+    console.error('[Fusion] CATCH exception:', err instanceof Error ? err.message : String(err))
+    return NextResponse.json({ error: 'Exception RPC: ' + (err instanceof Error ? err.message : String(err)) }, { status: 500 })
+  }
+
+  // Le RPC ne met pas à jour documents[] — UPDATE séparé requis
+  const { error: docsError } = await admin.from('candidats').update({ documents: merged.documents }).eq('id', keep_id)
+  if (docsError) {
+    console.error('[Doublons] Documents update error:', docsError)
   }
 
   // Log activité équipe
@@ -206,7 +268,7 @@ async function handleMerge(keep_id: string, delete_id: string, field_overrides?:
       candidat_nom: keepNom,
       metadata: { keep_id, delete_id, deleted_nom: delNom },
     })
-  } catch {}
+  } catch (err) { console.warn('[doublons] logActivity failed:', (err as Error).message) }
 
   return NextResponse.json({ success: true, keep_id })
 }

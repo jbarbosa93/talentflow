@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculerScoreMatching } from '@/lib/claude'
+import { requireAuth } from '@/lib/auth-guard'
 import type { Candidat, Offre } from '@/types/database'
 
 export const runtime = 'nodejs'
@@ -8,6 +9,9 @@ export const maxDuration = 30
 export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const { candidat_id, offre_id } = await request.json()
     if (!candidat_id || !offre_id) {

@@ -132,7 +132,7 @@ export function SessionTimeoutModal() {
               fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
           >
-            <RefreshCw size={15} />Continuer
+            <RefreshCw size={15} />Rester connecté
           </button>
         </div>
       </div>

@@ -126,7 +126,7 @@ export async function PATCH(
           })
         }
       }
-    } catch {}
+    } catch (err) { console.warn('[clients/id] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({ client: data })
   } catch (error) {

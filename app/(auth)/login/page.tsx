@@ -63,24 +63,40 @@ function LoginForm() {
       }
     }
 
-    const supabase = createClient()
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    // ✅ SÉCURITÉ : Vérifier les credentials CÔTÉ SERVEUR sans créer de session browser.
+    // Le client admin a persistSession:false → aucun cookie auth posé dans la réponse.
+    // Cela élimine la fenêtre de vulnérabilité où un navigateur aurait un cookie de session
+    // valide avant que l'OTP soit vérifié.
+    let needsMfa = false
+    try {
+      const verifyRes = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const verifyData = await verifyRes.json()
 
-    if (authError) {
-      logAccess('login_failed', { reason: authError.message })
-      setError(
-        authError.message.includes('Invalid login')
-          ? 'Email ou mot de passe incorrect.'
-          : authError.message.includes('Email not confirmed')
-          ? 'Veuillez confirmer votre email avant de vous connecter.'
-          : authError.message
-      )
+      if (!verifyRes.ok || !verifyData.valid) {
+        logAccess('login_failed', { reason: verifyData.reason || 'invalid_credentials' })
+        setError(
+          verifyData.reason === 'email_not_confirmed'
+            ? 'Veuillez confirmer votre email avant de vous connecter.'
+            : 'Email ou mot de passe incorrect.'
+        )
+        setLoading(false)
+        return
+      }
+      needsMfa = !!verifyData.needsMfa
+    } catch {
+      setError('Erreur réseau. Veuillez réessayer.')
       setLoading(false)
       return
     }
 
-    // Vérifier si MFA TOTP requis
-    if (data.session === null) {
+    // MFA TOTP requis — ce flow nécessite une session client pour le challenge
+    if (needsMfa) {
+      const supabase = createClient()
+      await supabase.auth.signInWithPassword({ email, password })
       const { data: mfaData } = await supabase.auth.mfa.listFactors()
       const totpFactor = mfaData?.totp?.[0]
       if (totpFactor) {
@@ -91,28 +107,24 @@ function LoginForm() {
       }
     }
 
-    if (data.user && !data.user.email_confirmed_at) {
-      router.push('/verify-email')
-      return
-    }
-
     // Vérifier si la grâce OTP est active (login récent < 4h)
     try {
       const graceRes = await fetch(`/api/auth/otp-grace?email=${encodeURIComponent(email)}`)
       const graceData = await graceRes.json()
       if (graceData.skip) {
-        logAccess('login_success_grace')
-        router.push('/dashboard')
-        router.refresh()
-        return
+        // ✅ Créer la session uniquement ici (grace = OTP déjà validé récemment)
+        const supabase = createClient()
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (!signInError) {
+          logAccess('login_success_grace')
+          router.push('/dashboard')
+          router.refresh()
+          return
+        }
       }
     } catch { /* ignore — continuer avec OTP si erreur */ }
 
-    // ✅ SÉCURITÉ : Déconnecter immédiatement après vérification du mot de passe
-    await supabase.auth.signOut()
-    await fetch('/api/auth/logout', { method: 'POST' })
-
-    // Envoyer le code OTP par email via Resend API
+    // ✅ Aucune session active à ce stade — envoyer le code OTP
     try {
       const otpRes = await fetch('/api/auth/send-otp', {
         method: 'POST',

@@ -1,6 +1,7 @@
 // api/smtp/settings — Sauvegarde/lecture des paramètres SMTP
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { encrypt } from '@/lib/smtp-crypto'
 
 export const runtime = 'nodejs'
 
@@ -57,9 +58,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Sauvegarder en base
+    // Sauvegarder en base — mot de passe chiffré AES-256-GCM
     const supabase = createAdminClient()
-    const config = JSON.stringify({ email, password, host: host || 'smtp.office365.com', port: port || 587, nom: nom || '' })
+    const config = JSON.stringify({ email, password: encrypt(password), host: host || 'smtp.office365.com', port: port || 587, nom: nom || '' })
 
     await (supabase as any)
       .from('app_settings')

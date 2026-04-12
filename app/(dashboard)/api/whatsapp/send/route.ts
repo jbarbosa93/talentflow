@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         candidat_id: candidat_id || undefined,
         metadata: { telephone, template_name: template_name || null, message_id: messageId || null },
       })
-    } catch {}
+    } catch (err) { console.warn('[whatsapp/send] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({
       success: true,

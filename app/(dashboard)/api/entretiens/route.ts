@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         candidat_id: body.candidat_id || undefined,
         candidat_nom: candidatNom,
       })
-    } catch {}
+    } catch (err) { console.warn('[entretiens] logActivity failed:', (err as Error).message) }
 
     return NextResponse.json({ entretien: data })
   } catch (err) {
