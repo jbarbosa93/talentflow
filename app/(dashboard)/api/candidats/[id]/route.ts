@@ -114,8 +114,8 @@ export async function PATCH(
     // Pipeline : interdire statut_pipeline non-null sans pipeline_consultant
     if (body.statut_pipeline && body.statut_pipeline !== null && !body.pipeline_consultant) {
       // Vérifier si le candidat a déjà un consultant en DB
-      const { data: existing } = await supabase.from('candidats').select('pipeline_consultant').eq('id', id).single()
-      if (!existing?.pipeline_consultant) {
+      const { data: existing } = await supabase.from('candidats').select('pipeline_consultant' as any).eq('id', id).single()
+      if (!(existing as any)?.pipeline_consultant) {
         return NextResponse.json({ error: 'Un consultant doit être sélectionné pour ajouter au pipeline' }, { status: 400 })
       }
     }
