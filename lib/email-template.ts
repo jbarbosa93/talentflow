@@ -18,8 +18,8 @@ export function emailWrapper(content: string): string {
           <td style="background:#1C1A14;border-radius:16px 16px 0 0;padding:28px 40px;text-align:center">
             <table cellpadding="0" cellspacing="0" align="center">
               <tr>
-                <td style="background:#F5A623;border-radius:10px;width:38px;height:38px;text-align:center;vertical-align:middle">
-                  <span style="font-size:20px;line-height:38px;display:block;text-align:center">⚡</span>
+                <td style="width:38px;height:38px;text-align:center;vertical-align:middle">
+                  <img src="https://www.talent-flow.ch/email-logo.png" width="38" height="38" alt="⚡" style="display:block;border-radius:10px" />
                 </td>
                 <td style="padding-left:12px">
                   <span style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:-0.3px">TalentFlow</span>

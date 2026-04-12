@@ -17,17 +17,31 @@ function ResetPasswordForm() {
   const [done, setDone]               = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
 
-  // Supabase envoie le token via le hash fragment (#access_token=...)
-  // Il faut attendre que la session soit établie avant de permettre le reset
+  // @supabase/ssr (createBrowserClient) ne traite PAS automatiquement le hash fragment.
+  // On extrait manuellement access_token + refresh_token du hash et on appelle setSession.
   useEffect(() => {
+    const hash = window.location.hash
+    if (!hash) return
+
+    const params = new URLSearchParams(hash.replace('#', ''))
+    const accessToken  = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+    const type         = params.get('type')
+
+    if (type !== 'recovery' || !accessToken || !refreshToken) return
+
     const supabase = createClient()
-    // onAuthStateChange détecte le token dans le hash
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessionReady(true)
-      }
-    })
-    return () => subscription.unsubscribe()
+    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      .then(({ error }) => {
+        if (error) {
+          console.error('[ResetPassword] setSession error:', error.message)
+          setError('Lien invalide ou expiré. Veuillez refaire une demande.')
+        } else {
+          setSessionReady(true)
+          // Nettoyer le hash de l'URL (cosmétique)
+          window.history.replaceState(null, '', window.location.pathname)
+        }
+      })
   }, [])
 
   const fadeUp = (delay = 0) => ({
@@ -118,7 +132,7 @@ function ResetPasswordForm() {
               Veuillez patienter pendant la validation de votre lien de réinitialisation.
             </motion.p>
             <motion.div {...fadeUp(0.2)} style={{ marginTop: 16 }}>
-              <Link href="/login" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textDecoration: 'underline' }}>
+              <Link href="/login" style={{ color: '#9CA3AF', fontSize: 12, textDecoration: 'underline' }}>
                 ← Retour à la connexion
               </Link>
             </motion.div>
@@ -189,7 +203,7 @@ function ResetPasswordForm() {
             </form>
 
             <motion.div {...fadeUp(0.5)} style={{ marginTop: 14 }}>
-              <Link href="/login" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textDecoration: 'underline' }}>
+              <Link href="/login" style={{ color: '#9CA3AF', fontSize: 12, textDecoration: 'underline' }}>
                 ← Retour à la connexion
               </Link>
             </motion.div>
