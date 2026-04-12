@@ -1,5 +1,16 @@
 # Changelog TalentFlow
 
+## [1.8.8] — 12 avril 2026
+
+### Nettoyage outils + redesign page
+- Suppression 4 outils inutilises : "Analyse complete IA", "Planning hebdomadaire", "Sync dates depuis fichiers", "Detecter le genre"
+- Suppression routes API associees : sync-dates, sync-genre, plannings
+- Suppression page /parametres/analyse-complete
+- Redesign complet page Outils : categories (IA / Documents), cards plus grandes, hover effect, badge IA, bouton "Ouvrir"
+- 4 outils restants : Import en masse, Analyser les doublons, Corriger les photos, Rapport d'heures
+
+---
+
 ## [1.8.7] — 12 avril 2026
 
 ### Refonte outil doublons — 4 fixes

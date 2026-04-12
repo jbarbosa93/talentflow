@@ -47,6 +47,77 @@ interface DoublonsContextType extends DoublonsState {
 
 function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') }
 
+function normalize(s: string) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+}
+function normalizePhone(s: string) {
+  return (s || '').replace(/[\s\-\.\(\)]/g, '').replace(/^00/, '+')
+}
+
+// Fallback client-side si la RPC échoue
+function getPairsToCheckFallback(candidats: Candidat[]): Array<{ candidat_a: Candidat; candidat_b: Candidat }> {
+  const pairs: Array<{ candidat_a: Candidat; candidat_b: Candidat }> = []
+  const checked = new Set<string>()
+  const addPair = (a: Candidat, b: Candidat) => {
+    const key = pairKey(a.id, b.id)
+    if (!checked.has(key)) { checked.add(key); pairs.push({ candidat_a: a, candidat_b: b }) }
+  }
+
+  // Email grouping
+  const byEmail: Record<string, Candidat[]> = {}
+  for (const c of candidats) {
+    if (c.email) {
+      const k = normalize(c.email)
+      if (!byEmail[k]) byEmail[k] = []
+      byEmail[k].push(c)
+    }
+  }
+  for (const group of Object.values(byEmail)) {
+    if (group.length >= 2)
+      for (let i = 0; i < group.length; i++)
+        for (let j = i + 1; j < group.length; j++)
+          addPair(group[i], group[j])
+  }
+
+  // Phone grouping
+  const byPhone: Record<string, Candidat[]> = {}
+  for (const c of candidats) {
+    if (c.telephone) {
+      const k = normalizePhone(c.telephone)
+      if (k.length > 5) {
+        if (!byPhone[k]) byPhone[k] = []
+        byPhone[k].push(c)
+      }
+    }
+  }
+  for (const group of Object.values(byPhone)) {
+    if (group.length >= 2)
+      for (let i = 0; i < group.length; i++)
+        for (let j = i + 1; j < group.length; j++)
+          addPair(group[i], group[j])
+  }
+
+  // Name grouping (4 char prefix)
+  const byName: Record<string, Candidat[]> = {}
+  for (const c of candidats) {
+    const nom4 = normalize(c.nom).slice(0, 4)
+    const prenom4 = normalize(c.prenom || '').slice(0, 4)
+    if (nom4.length >= 3) {
+      const k = `${nom4}|${prenom4}`
+      if (!byName[k]) byName[k] = []
+      byName[k].push(c)
+    }
+  }
+  for (const group of Object.values(byName)) {
+    if (group.length >= 2)
+      for (let i = 0; i < group.length; i++)
+        for (let j = i + 1; j < group.length; j++)
+          addPair(group[i], group[j])
+  }
+
+  return pairs.slice(0, 500)
+}
+
 // ─── Module-level persistent state ────────────────────────────────────────────
 
 let _phase: DoublonsState['phase'] = 'idle'
@@ -67,9 +138,10 @@ async function runDoublonsLoop(fromResume = false) {
     _phase = 'loading'
     _onUpdate?.({ phase: 'loading' })
 
-    // Fix 1 : utiliser la RPC find_similar_candidates au lieu du client-side getPairsToCheck
+    // Stratégie : RPC pg_trgm en priorité, fallback client-side si échec
+    let usedFallback = false
     try {
-      const res = await fetch('/api/candidats/doublons/similar?threshold=20')
+      const res = await fetch('/api/candidats/doublons/similar?threshold=30')
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
@@ -81,10 +153,24 @@ async function runDoublonsLoop(fromResume = false) {
         sim_score: p.sim_score,
       }))
     } catch (e) {
-      console.error('[DoublonsContext] Error loading pairs:', e)
-      _phase = 'paused'
-      _onUpdate?.({ phase: 'paused' })
-      return
+      console.warn('[DoublonsContext] RPC failed, using fallback:', e)
+      // Fallback : charger tous les candidats et pré-filtrer côté client
+      try {
+        const res = await fetch('/api/candidats?per_page=5000')
+        const data = await res.json()
+        const allCandidats: Candidat[] = data.candidats || []
+        if (allCandidats.length < 2) {
+          _phase = 'done'
+          _onUpdate?.({ phase: 'done', totalPairs: 0 })
+          return
+        }
+        _pairs = getPairsToCheckFallback(allCandidats)
+        usedFallback = true
+      } catch {
+        _phase = 'paused'
+        _onUpdate?.({ phase: 'paused' })
+        return
+      }
     }
 
     _totalPairs = _pairs.length
