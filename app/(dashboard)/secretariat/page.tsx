@@ -7,9 +7,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
-  ClipboardList, Bell, Plus, Pencil, Trash2, Eye, EyeOff,
-  Copy, Phone, Mail, AlertTriangle, Search, Loader2, X, Building2,
-  User, Calendar, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronUp,
+  ClipboardList, Bell, Plus, Pencil, Trash2,
+  Mail, AlertTriangle, Search, Loader2, X,
+  User, Calendar, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
   FileText, Home, History,
 } from 'lucide-react'
 
@@ -22,7 +22,7 @@ interface SecretariatCandidat {
   nom: string
   prenom: string
   date_naissance: string | null
-  enfants_charge: boolean
+  enfants_charge: string | null
   lieu_demande: string | null
   genre_permis: string | null
   date_echeance_permis: string | null
@@ -41,6 +41,7 @@ interface SecretariatCandidat {
   photo_url?: string | null
   tel?: string | null
   email?: string | null
+  couleur?: string | null
 }
 
 interface SecretariatAccident {
@@ -182,11 +183,6 @@ function getLigneStatut(c: SecretariatCandidat): 'ok' | 'warning' | 'urgent' {
   return 'ok'
 }
 
-function maskValue(value: string | null): string {
-  if (!value) return '—'
-  return '••••••••'
-}
-
 function getInitiales(nom: string, prenom: string): string {
   return `${(prenom || '').charAt(0)}${(nom || '').charAt(0)}`.toUpperCase()
 }
@@ -194,6 +190,37 @@ function getInitiales(nom: string, prenom: string): string {
 function cleanPhone(tel: string | null): string {
   if (!tel) return ''
   return tel.replace(/[\s\-\(\)\.]/g, '').replace(/^\+/, '').replace(/^0041/, '41').replace(/^0/, '41')
+}
+
+function WaIcon({ size = 12 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.612l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.37 0-4.567-.82-6.3-2.188l-.44-.348-2.858.958.958-2.858-.348-.44A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+}
+
+const ROW_COLORS: { key: string; label: string; bg: string }[] = [
+  { key: '', label: 'Normal', bg: 'transparent' },
+  { key: 'jaune', label: 'Jaune', bg: '#FEF9C3' },
+  { key: 'orange', label: 'Orange', bg: '#FED7AA' },
+  { key: 'rouge', label: 'Rouge', bg: '#FEE2E2' },
+  { key: 'vert', label: 'Vert', bg: '#DCFCE7' },
+  { key: 'bleu', label: 'Bleu', bg: '#DBEAFE' },
+]
+
+function ColorPicker({ currentColor, onChange }: { currentColor: string | null; onChange: (color: string) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button onClick={() => setOpen(!open)} title="Couleur ligne" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{ width: 12, height: 12, borderRadius: 3, background: ROW_COLORS.find(c => c.key === (currentColor || ''))?.bg || 'transparent', border: '1px solid var(--border)', display: 'inline-block' }} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', display: 'flex', gap: 4, marginTop: 2 }}>
+          {ROW_COLORS.map(c => (
+            <button key={c.key} onClick={() => { onChange(c.key); setOpen(false) }} title={c.label} style={{ width: 18, height: 18, borderRadius: 4, background: c.bg === 'transparent' ? 'var(--secondary)' : c.bg, border: `1.5px solid ${(currentColor || '') === c.key ? 'var(--primary)' : 'var(--border)'}`, cursor: 'pointer', padding: 0 }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Autocomplete candidat ────────────────────────────────────────────────────
@@ -272,7 +299,7 @@ const EMPTY_CANDIDAT_FORM = {
   candidat_nom_complet: '',
   nom: '', prenom: '',
   date_naissance: '',
-  enfants_charge: false,
+  enfants_charge: '?',
   lieu_demande: '',
   genre_permis: '',
   date_echeance_permis: '',
@@ -298,7 +325,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
     nom: item.nom || '',
     prenom: item.prenom || '',
     date_naissance: item.date_naissance || '',
-    enfants_charge: item.enfants_charge || false,
+    enfants_charge: typeof item.enfants_charge === 'boolean' ? (item.enfants_charge ? 'oui' : 'non') : (item.enfants_charge || '?'),
     lieu_demande: item.lieu_demande || '',
     genre_permis: item.genre_permis || '',
     date_echeance_permis: item.date_echeance_permis || '',
@@ -450,7 +477,6 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                 { key: 'has_cm', label: 'CM' },
                 { key: 'has_docs_clients', label: 'Docs Clients' },
                 { key: 'mappe', label: 'Mappé' },
-                { key: 'enfants_charge', label: 'Enfants à charge' },
               ].map(({ key, label }) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
                   <input type="checkbox" checked={form[key as keyof typeof form] as boolean} onChange={e => set(key as keyof typeof form, e.target.checked)}
@@ -459,6 +485,15 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                 </label>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label style={S.label}>Enfants a charge</label>
+            <select value={form.enfants_charge as string} onChange={e => set('enfants_charge', e.target.value)} style={S.input}>
+              <option value="oui">OUI</option>
+              <option value="non">NON</option>
+              <option value="?">? (inconnu)</option>
+            </select>
           </div>
 
           <div>
@@ -902,20 +937,15 @@ function StatutIndicateur({ statut }: { statut: 'ok' | 'warning' | 'urgent' }) {
   )
 }
 
-function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban, toggleAvs, toggleIban }: {
+function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSelect, onSelectAll, onColorChange }: {
   candidats: SecretariatCandidat[]
   onEdit: (c: SecretariatCandidat) => void
   onDelete: (c: SecretariatCandidat) => void
-  revealedAvs: Set<string>
-  revealedIban: Set<string>
-  toggleAvs: (id: string) => void
-  toggleIban: (id: string) => void
+  selectedIds: Set<string>
+  onToggleSelect: (id: string) => void
+  onSelectAll: (all: boolean) => void
+  onColorChange: (id: string, color: string) => void
 }) {
-  const copyToClipboard = (value: string | null, label: string) => {
-    if (!value) return
-    navigator.clipboard.writeText(value).then(() => toast.success(`${label} copié`))
-  }
-
   if (candidats.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
@@ -930,7 +960,10 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border)' }}>
-            {['Candidat', 'N° Quad', 'Permis', 'Enfants', 'Documents', 'AVS', 'IBAN', 'Remarques', 'Fin mission', 'Docs manquants', 'Statut', ''].map(h => (
+            <th style={{ padding: '8px 6px', textAlign: 'center', width: 30 }}>
+              <input type="checkbox" checked={candidats.length > 0 && selectedIds.size === candidats.length} onChange={e => onSelectAll(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+            </th>
+            {['Candidat', 'N° Quad', 'Permis', 'Enfants', 'Documents', 'Remarques', 'Fin mission', 'Docs manquants', 'Statut', ''].map(h => (
               <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
@@ -938,28 +971,38 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
         <tbody>
           {candidats.map(c => {
             const statut = getLigneStatut(c)
-            const avsRevealed = revealedAvs.has(c.id)
-            const ibanRevealed = revealedIban.has(c.id)
             const telCleaned = cleanPhone(c.tel || null)
+            const rowBg = ROW_COLORS.find(rc => rc.key === (c.couleur || ''))?.bg || 'transparent'
             return (
-              <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: rowBg }}
+                onMouseEnter={e => { if (!c.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
-                {/* Col 1 : Avatar + nom + contact */}
+                {/* Checkbox */}
+                <td style={{ padding: '10px 6px', textAlign: 'center' }}>
+                  <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                </td>
+
+                {/* Col 1 : Avatar + nom + contact + lien fiche */}
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {c.photo_url
-                      ? <img src={c.photo_url} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                      : <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
+                      ? <img src={c.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
                     }
                     <div>
-                      <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
+                        {c.candidat_id
+                          ? <a href={`/candidats/${c.candidat_id}`} target="_blank" rel="noopener noreferrer" title="Voir fiche candidat" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>
+                          : null
+                        }
+                      </div>
                       <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
                         {telCleaned && (
                           <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 10, fontWeight: 600, textDecoration: 'none' }}>
-                            <Phone size={9} /> WA
+                            <WaIcon size={10} /> WA
                           </a>
                         )}
                         {c.email && (
@@ -987,8 +1030,8 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
 
                 {/* Col 4 : Enfants */}
                 <td style={{ padding: '10px 10px', textAlign: 'center' }}>
-                  <span style={{ fontSize: 12, color: c.enfants_charge ? 'var(--foreground)' : 'var(--muted)', fontWeight: c.enfants_charge ? 700 : 400 }}>
-                    {c.enfants_charge ? '👶 Oui' : 'Non'}
+                  <span style={{ fontSize: 12, fontWeight: 700, color: c.enfants_charge === 'oui' ? '#22C55E' : c.enfants_charge === 'non' ? 'var(--muted)' : '#F59E0B' }}>
+                    {c.enfants_charge === 'oui' ? '👶 Oui' : c.enfants_charge === 'non' ? 'Non' : '?'}
                   </span>
                 </td>
 
@@ -1000,49 +1043,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
                     <DocBadge ok={!!c.carte_id} label="ID" />
                     <DocBadge ok={!!c.numero_avs} label="AVS" />
                     <DocBadge ok={!!c.iban} label="IBAN" />
-                    <DocBadge ok={c.has_docs_clients} label="Docs" />
-                  </div>
-                </td>
-
-                {/* Col 6 : AVS */}
-                <td style={{ padding: '10px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--foreground)' }}>
-                      {avsRevealed ? (c.numero_avs || '—') : maskValue(c.numero_avs)}
-                    </span>
-                    {c.numero_avs && (
-                      <>
-                        <button onClick={() => toggleAvs(c.id)} title={avsRevealed ? 'Masquer' : 'Révéler'}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2 }}>
-                          {avsRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
-                        </button>
-                        <button onClick={() => copyToClipboard(c.numero_avs, 'N° AVS')} title="Copier"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2 }}>
-                          <Copy size={12} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-
-                {/* Col 7 : IBAN */}
-                <td style={{ padding: '10px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--foreground)' }}>
-                      {ibanRevealed ? (c.iban || '—') : maskValue(c.iban)}
-                    </span>
-                    {c.iban && (
-                      <>
-                        <button onClick={() => toggleIban(c.id)} title={ibanRevealed ? 'Masquer' : 'Révéler'}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2 }}>
-                          {ibanRevealed ? <EyeOff size={12} /> : <Eye size={12} />}
-                        </button>
-                        <button onClick={() => copyToClipboard(c.iban, 'IBAN')} title="Copier"
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2 }}>
-                          <Copy size={12} />
-                        </button>
-                      </>
-                    )}
+                    <DocBadge ok={c.has_docs_clients} label="Docs Client" />
                   </div>
                 </td>
 
@@ -1058,14 +1059,11 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
                   <span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(c.mission_terminee)}</span>
                 </td>
 
-                {/* Col 10 : Docs manquants */}
-                <td style={{ padding: '10px 10px' }}>
+                {/* Col 8 : Docs manquants */}
+                <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                   {c.docs_manquants
-                    ? <span style={{ padding: '2px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }} title={c.docs_manquants}>
-                        <AlertTriangle size={9} style={{ display: 'inline', marginRight: 3 }} />
-                        {c.docs_manquants.length > 20 ? c.docs_manquants.substring(0, 20) + '…' : c.docs_manquants}
-                      </span>
-                    : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
+                    ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span>
+                    : <span style={{ color: '#22C55E', fontSize: 14 }}>✓</span>
                   }
                 </td>
 
@@ -1074,9 +1072,10 @@ function CandidatsTable({ candidats, onEdit, onDelete, revealedAvs, revealedIban
                   <StatutIndicateur statut={statut} />
                 </td>
 
-                {/* Col 12 : Actions */}
+                {/* Col 10 : Actions */}
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
+                    <ColorPicker currentColor={c.couleur || null} onChange={color => onColorChange(c.id, color)} />
                     <button onClick={() => onEdit(c)} title="Modifier"
                       style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                       <Pencil size={13} />
@@ -1118,8 +1117,8 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {/* Avatar */}
         {accident.photo_url
-          ? <img src={accident.photo_url} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-          : <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+          ? <img src={accident.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+          : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
               {(accident.nom_prenom || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase()}
             </div>
         }
@@ -1150,7 +1149,7 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
               {telCleaned && (
                 <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', borderRadius: 6, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 10, fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(37,211,102,0.2)' }}>
-                  <Phone size={11} />
+                  <WaIcon size={12} />
                 </a>
               )}
               {accident.email && (
@@ -1178,6 +1177,15 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
             </div>
           )}
 
+          {/* Décision + Note + Remarque */}
+          {(accident.decision || accident.note || accident.remarque) && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {accident.decision && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Décision :</strong> {accident.decision}</div>}
+              {accident.note && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Note :</strong> {accident.note}</div>}
+              {accident.remarque && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Remarque :</strong> {accident.remarque}</div>}
+            </div>
+          )}
+
           {/* Timeline */}
           <div style={{ marginTop: 10 }}>
             <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: 0 }}>
@@ -1202,15 +1210,6 @@ function AccidentCard({ accident, onEdit, onDelete }: { accident: SecretariatAcc
               </div>
             )}
           </div>
-
-          {/* Décision + Note + Remarque */}
-          {(accident.decision || accident.note || accident.remarque) && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {accident.decision && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Décision :</strong> {accident.decision}</div>}
-              {accident.note && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Note :</strong> {accident.note}</div>}
-              {accident.remarque && <div style={{ fontSize: 12, color: 'var(--muted)' }}><strong style={{ color: 'var(--foreground)' }}>Remarque :</strong> {accident.remarque}</div>}
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -1267,8 +1266,8 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {l.photo_url
-                      ? <img src={l.photo_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+                      ? <img src={l.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      : <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
                           {(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}
                         </div>
                     }
@@ -1278,7 +1277,7 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
                         {telCleaned && (
                           <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}>
-                            <Phone size={8} /> WA
+                            <WaIcon size={10} /> WA
                           </a>
                         )}
                         {l.email && (
@@ -1520,12 +1519,15 @@ export default function SecretariatPage() {
   const [deleteItem, setDeleteItem] = useState<any>(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  // Reveal AVS/IBAN
-  const [revealedAvs, setRevealedAvs] = useState<Set<string>>(new Set())
-  const [revealedIban, setRevealedIban] = useState<Set<string>>(new Set())
+  // Fix 6 — Filtres accidents
+  const [accidentStatut, setAccidentStatut] = useState<'tous' | 'en_cours' | 'termine'>('tous')
+  const [accidentType, setAccidentType] = useState<'tous' | 'Accident' | 'Maladie'>('tous')
 
-  const toggleAvs = (id: string) => setRevealedAvs(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  const toggleIban = (id: string) => setRevealedIban(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  // Fix 11 — Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // Reset selection on tab/year change
+  useEffect(() => { setSelectedIds(new Set()) }, [activeTab, annee, alfaView])
 
   // ─── Queries React Query ───────────────────────────────────────────────────
 
@@ -1671,9 +1673,12 @@ export default function SecretariatPage() {
     !q || `${c.prenom} ${c.nom}`.toLowerCase().includes(q) || (c.numero_quadrigis || '').toLowerCase().includes(q)
   )
 
-  const filteredAccidents = accidents.filter(a =>
-    !q || (a.nom_prenom || '').toLowerCase().includes(q) || (a.raison || '').toLowerCase().includes(q) || (a.numero_sinistre || '').toLowerCase().includes(q)
-  )
+  const filteredAccidents = accidents.filter(a => {
+    if (accidentStatut === 'en_cours' && a.termine) return false
+    if (accidentStatut === 'termine' && !a.termine) return false
+    if (accidentType !== 'tous' && a.type_cas !== accidentType) return false
+    return !q || (a.nom_prenom || '').toLowerCase().includes(q) || (a.raison || '').toLowerCase().includes(q) || (a.numero_sinistre || '').toLowerCase().includes(q)
+  })
 
   const filteredLoyers = loyers.filter(l =>
     !q || (l.nom_prenom || '').toLowerCase().includes(q) || (l.adresse || '').toLowerCase().includes(q)
@@ -1728,6 +1733,35 @@ export default function SecretariatPage() {
       await fetch('/api/secretariat/notifications/mark-all-read', { method: 'POST' })
       refetchNotifs()
     } catch { /* ignore */ }
+  }
+
+  // Fix 12 — Color change
+  const handleColorChange = async (id: string, color: string) => {
+    try {
+      const res = await fetch(`/api/secretariat/candidats/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ couleur: color || null }),
+      })
+      if (!res.ok) throw new Error('Erreur')
+      queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  // Fix 11 — Bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    const count = selectedIds.size
+    if (!window.confirm(`Supprimer ${count} entrée${count > 1 ? 's' : ''} ?`)) return
+    try {
+      const promises = Array.from(selectedIds).map(id =>
+        fetch(`/api/secretariat/candidats/${id}`, { method: 'DELETE' })
+      )
+      await Promise.allSettled(promises)
+      toast.success(`${count} entrée${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}`)
+      setSelectedIds(new Set())
+      queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
+    } catch (e: any) { toast.error(e.message) }
   }
 
   // ─── Loading ───────────────────────────────────────────────────────────────
@@ -1894,16 +1928,16 @@ export default function SecretariatPage() {
 
       {/* Tabs principaux */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery('') }} count={filteredCandidats.length}>
+        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredCandidats.length}>
           <User size={14} /> Suivi Candidats
         </TabBtn>
-        <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery('') }} count={activeTab === 'alfa' && alfaView === 'apayer' ? filteredAlfaPaiements.length : filteredAlfa.length}>
+        <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={activeTab === 'alfa' && alfaView === 'apayer' ? filteredAlfaPaiements.length : filteredAlfa.length}>
           <FileText size={14} /> ALFA
         </TabBtn>
-        <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery('') }} count={filteredAccidents.length}>
+        <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAccidents.length}>
           <AlertCircle size={14} /> Accidents &amp; Maladies
         </TabBtn>
-        <TabBtn active={activeTab === 'loyers'} onClick={() => { setActiveTab('loyers'); setSearchQuery('') }} count={filteredLoyers.length}>
+        <TabBtn active={activeTab === 'loyers'} onClick={() => { setActiveTab('loyers'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredLoyers.length}>
           <Home size={14} /> Loyer
         </TabBtn>
       </div>
@@ -1935,6 +1969,32 @@ export default function SecretariatPage() {
               {y}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Filtres accidents */}
+      {activeTab === 'accidents' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['tous', 'en_cours', 'termine'] as const).map(s => (
+              <button key={s} onClick={() => setAccidentStatut(s)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: accidentStatut === s ? 'var(--primary)' : 'var(--secondary)',
+                color: accidentStatut === s ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${accidentStatut === s ? 'var(--primary)' : 'var(--border)'}`,
+              }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['tous', 'Accident', 'Maladie'] as const).map(t => (
+              <button key={t} onClick={() => setAccidentType(t)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: accidentType === t ? 'var(--primary)' : 'var(--secondary)',
+                color: accidentType === t ? '#fff' : 'var(--muted)',
+                border: `1.5px solid ${accidentType === t ? 'var(--primary)' : 'var(--border)'}`,
+              }}>{t === 'tous' ? 'Tous' : t}</button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1983,10 +2043,10 @@ export default function SecretariatPage() {
                 candidats={filteredCandidats}
                 onEdit={c => { setEditItem(c); setShowForm(true) }}
                 onDelete={c => setDeleteItem(c)}
-                revealedAvs={revealedAvs}
-                revealedIban={revealedIban}
-                toggleAvs={toggleAvs}
-                toggleIban={toggleIban}
+                selectedIds={selectedIds}
+                onToggleSelect={id => setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })}
+                onSelectAll={all => setSelectedIds(all ? new Set(filteredCandidats.map(c => c.id)) : new Set())}
+                onColorChange={handleColorChange}
               />
             )}
             {activeTab === 'alfa' && alfaView === 'suivi' && (
@@ -2018,6 +2078,19 @@ export default function SecretariatPage() {
           </div>
         )}
       </div>
+
+      {/* Barre d'actions multi-select */}
+      {selectedIds.size > 0 && activeTab === 'candidats' && (
+        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 9998, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderRadius: 12, background: 'var(--surface)', border: '1.5px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
+          <button onClick={handleBulkDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+            <Trash2 size={13} /> Supprimer
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            Annuler
+          </button>
+        </div>
+      )}
 
       {/* Modaux formulaires */}
       {showForm && activeTab === 'candidats' && (
