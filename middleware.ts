@@ -90,7 +90,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/messages') ||
     pathname.startsWith('/matching') ||
     pathname.startsWith('/integrations') ||
-    pathname.startsWith('/parametres')
+    pathname.startsWith('/parametres') ||
+    pathname.startsWith('/secretariat')
 
   // Dev bypass — accès direct sans auth sur localhost UNIQUEMENT si ALLOW_DEV_BYPASS=true dans .env.local
   // Ne jamais activer en production — Vercel définit NODE_ENV='production' par défaut

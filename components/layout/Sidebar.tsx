@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
-  Upload, Loader2, X, Wrench, Building2, Activity, TrendingUp,
+  Upload, Loader2, X, Wrench, Building2, Activity, TrendingUp, ClipboardList,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -19,16 +19,17 @@ import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/use
 import { hasBadge, getViewedSet, getViewedAllAt, ensureInit } from '@/lib/badge-candidats'
 
 const NAV_ITEMS = [
-  { href: '/dashboard',  label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
-  { href: '/candidats',  label: 'Candidats',        icon: Users },
-  { href: '/clients',    label: 'Clients',           icon: Building2 },
-  { href: '/offres',     label: 'Commandes',         icon: Briefcase },
-  { href: '/pipeline',   label: 'Pipeline',          icon: KanbanSquare },
+  { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
+  { href: '/candidats',    label: 'Candidats',        icon: Users },
+  { href: '/clients',      label: 'Clients',          icon: Building2 },
+  { href: '/offres',       label: 'Commandes',        icon: Briefcase },
+  { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare },
   // { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar }, // masqué temporairement
-  { href: '/missions',   label: 'Missions',            icon: TrendingUp,   adminOnly: true },
-  { href: '/messages',   label: 'Envois',              icon: Mail },
-  { href: '/matching',              label: 'Matching IA',  icon: Sparkles },
-  { href: '/activites',             label: 'Activite',     icon: Activity },
+  { href: '/missions',     label: 'Missions',         icon: TrendingUp,      adminOnly: true },
+  { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireOnly: true },
+  { href: '/messages',     label: 'Envois',           icon: Mail },
+  { href: '/matching',     label: 'Matching IA',      icon: Sparkles },
+  { href: '/activites',    label: 'Activite',         icon: Activity },
 ]
 
 const FOOTER_ITEMS = [
@@ -139,6 +140,24 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       if (debounceTimer) clearTimeout(debounceTimer)
     }
   }, [])
+
+  // Badge secrétariat — notifications non lues
+  const { data: secNotifCount } = useQuery({
+    queryKey: ['secretariat-notifs-count'],
+    queryFn: async () => {
+      if (!isSecretaire) return 0
+      try {
+        const res = await fetch('/api/secretariat/notifications')
+        if (!res.ok) return 0
+        const d = await res.json()
+        return (d as any[])?.filter((n: any) => !n.lue).length || 0
+      } catch { return 0 }
+    },
+    enabled: isSecretaire,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    placeholderData: 0,
+  })
 
   // Compteur demandes d'accès en attente
   const { data: demandesCount } = useQuery({
@@ -393,6 +412,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         >
           {NAV_ITEMS.filter(item => {
             if ((item as any).adminOnly && user?.email !== ADMIN_EMAIL) return false
+            if ((item as any).secretaireOnly && userRole !== 'Secrétaire') return false
             return true
           }).map((item, i) => {
             const Icon = item.icon
@@ -480,6 +500,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                     }}>
                       {rappelsCount > 9 ? '9+' : rappelsCount}
+                    </span>
+                  )}
+                  {/* Badge notifications secrétariat */}
+                  {item.href === '/secretariat' && typeof secNotifCount === 'number' && secNotifCount > 0 && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#F5A623', color: '#000',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {secNotifCount > 9 ? '9+' : secNotifCount}
                     </span>
                   )}
                   {showMatchingDot && (

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.6.7'
+export const APP_VERSION = '1.6.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.6.9',
+    date: '2026-04-12',
+    label: 'Module Secrétariat complet',
+    features: [
+      '📋 Nouveau module Secrétariat (accès rôle Secrétaire uniquement)',
+      '📋 4 tables DB : secretariat_candidats, secretariat_accidents, secretariat_loyers, secretariat_notifications',
+      '📋 Onglet Candidats : suivi docs, permis coloré, AVS/IBAN masqués, indicateur statut ligne',
+      '📋 Onglet Accidents & Maladies : cards avec timeline, couleur ligne, statut terminé',
+      '📋 Onglet Loyers : tableau adresse, montant CHF, dates',
+      '📋 Notifications auto (permis expirant, docs manquants) + badge sidebar orange',
+      '📋 9 routes API secretariat + route import masse JSON',
+      '📋 Sidebar : entrée Secrétariat (ClipboardList) visible uniquement rôle Secrétaire',
+      '📋 Middleware : /secretariat ajouté aux routes protégées',
+    ],
+  },
+  {
+    version: '1.6.8',
+    date: '2026-04-12',
+    label: 'Missions UI — photos & largeur',
+    features: [
+      '🎨 Missions : avatars 36×36 → 48×48px',
+      '🎨 Missions : textes agrandis (nom 13→15, client 13→14, marge 13→15)',
+      '🎨 d-page max-width 1200 → 1400px (toutes les pages)',
+      '🎨 Missions : suppression override maxWidth:960',
+    ],
+  },
   {
     version: '1.6.7',
     date: '2026-04-12',
