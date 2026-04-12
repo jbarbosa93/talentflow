@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.7.1'
+export const APP_VERSION = '1.7.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.7.2',
+    date: '2026-04-12',
+    label: 'Reset mot de passe',
+    features: [
+      'Lien "Mot de passe oublié ?" sur la page login',
+      'Formulaire de demande de réinitialisation par email (Supabase resetPasswordForEmail)',
+      'Page /reset-password pour saisir le nouveau mot de passe après clic sur le lien email',
+    ],
+  },
   {
     version: '1.7.1',
     date: '2026-04-12',

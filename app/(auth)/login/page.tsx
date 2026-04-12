@@ -26,6 +26,12 @@ function LoginForm() {
   const [emailOtpCode, setEmailOtpCode]         = useState('')
   const [emailOtpLoading, setEmailOtpLoading]   = useState(false)
 
+  // État reset mot de passe
+  const [forgotMode, setForgotMode]         = useState(false)
+  const [forgotEmail, setForgotEmail]       = useState('')
+  const [forgotLoading, setForgotLoading]   = useState(false)
+  const [forgotSent, setForgotSent]         = useState(false)
+
   // Erreurs depuis le middleware
   const urlError = searchParams.get('error')
   const domainError = urlError === 'domain'
@@ -180,6 +186,28 @@ function LoginForm() {
     }
   }
 
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!forgotEmail) return
+    setError('')
+    setForgotLoading(true)
+    try {
+      const supabase = createClient()
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (resetError) {
+        setError(resetError.message)
+      } else {
+        setForgotSent(true)
+      }
+    } catch {
+      setError('Erreur réseau. Veuillez réessayer.')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   async function handleEmailOtpVerify(e: React.FormEvent) {
     e.preventDefault()
     if (emailOtpCode.length !== 6) { setError('Entrez un code à 6 chiffres.'); return }
@@ -254,7 +282,67 @@ function LoginForm() {
         </motion.div>
 
         {/* ── States ── */}
-        {emailOtpRequired && !mfaRequired ? (
+        {forgotMode ? (
+          /* ── Réinitialisation mot de passe ── */
+          <>
+            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <Mail size={20} style={{ color: '#F5A623' }} />
+              <h2 className="auth-card-title" style={{ margin: 0 }}>Mot de passe oublié</h2>
+            </motion.div>
+
+            {forgotSent ? (
+              <>
+                <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
+                  Un lien de réinitialisation a été envoyé à <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{forgotEmail}</strong>. Vérifiez votre boîte mail.
+                </motion.p>
+                <motion.div {...fadeUp(0.2 + 0.25)} style={{ marginTop: 20 }}>
+                  <button
+                    onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); setError('') }}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    ← Retour à la connexion
+                  </button>
+                </motion.div>
+              </>
+            ) : (
+              <>
+                <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
+                  Entrez votre email pour recevoir un lien de réinitialisation.
+                </motion.p>
+                <form className="auth-form" onSubmit={handleForgotPassword}>
+                  {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
+                  <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
+                    <label className="auth-label">Email professionnel</label>
+                    <input
+                      type="email"
+                      className="auth-input"
+                      placeholder="vous@entreprise.com"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </motion.div>
+                  <motion.div {...fadeUp(0.3 + 0.25)}>
+                    <button type="submit" className="auth-btn" disabled={forgotLoading}>
+                      {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+                      {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
+                    </button>
+                  </motion.div>
+                </form>
+                <motion.div {...fadeUp(0.4 + 0.25)} style={{ marginTop: 14 }}>
+                  <button
+                    onClick={() => { setForgotMode(false); setError('') }}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    ← Retour à la connexion
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </>
+
+        ) : emailOtpRequired && !mfaRequired ? (
           /* ── Email OTP ── */
           <>
             <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -351,7 +439,16 @@ function LoginForm() {
               </motion.div>
 
               <motion.div className="auth-field" {...fadeUp(0.3 + 0.25)}>
-                <label className="auth-label">Mot de passe</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <label className="auth-label" style={{ margin: 0 }}>Mot de passe</label>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotMode(true); setForgotEmail(email); setError('') }}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
                 <div className="auth-input-wrap">
                   <input
                     type={showPwd ? 'text' : 'password'}
