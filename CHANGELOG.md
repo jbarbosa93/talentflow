@@ -1,5 +1,16 @@
 # Changelog TalentFlow
 
+## [1.8.5] — 12 avril 2026
+
+### Fix ALFA affichage + dashboard sinistres
+- ALFA Suivi : suppression photos/avatars (gain largeur), noms en horizontal (`whiteSpace: nowrap`)
+- ALFA Suivi : table `minWidth: 1200`, actions sticky à droite (toujours visibles)
+- ALFA Suivi : padding réduit pour tout rentrer
+- Conteneur principal : `overflow: hidden` → `overflowX: auto` (plus de contenu coupé)
+- Dashboard : KPI "Sinistres en cours" filtre par année courante (était toutes années → 30 au lieu de 12)
+
+---
+
 ## [1.8.4] — 12 avril 2026
 
 ### Fix notifications 822 → 42 + ALFA onglets séparés

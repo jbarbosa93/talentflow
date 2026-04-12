@@ -1753,12 +1753,12 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
     })
   }
 
-  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border)' }
-  const tdStyle: React.CSSProperties = { padding: '7px 8px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+  const thStyle: React.CSSProperties = { padding: '8px 6px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border)' }
+  const tdStyle: React.CSSProperties = { padding: '6px 6px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle', whiteSpace: 'nowrap' }
 
   return (
     <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
         <thead>
           <tr>
             <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
@@ -1781,26 +1781,20 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
         <tbody>
           {displayed.map(a => (
             <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
-              <td style={tdStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {(a as any).photo_url && (a as any).photo_url !== 'checked'
-                    ? <img src={(a as any).photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                    : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                <div>
+                  {a.candidat_id
+                    ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                    : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
                   }
-                  <div>
-                    {a.candidat_id
-                      ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
-                      : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
-                    }
-                    {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
-                  </div>
+                  {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
                 </div>
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.bareme_is || '—'}</span></td>
-              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_debut_alfa)}</td>
-              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_alfa)}</td>
-              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_radiation_caf)}</td>
+              <td style={tdStyle}>{formatDate(a.date_debut_alfa)}</td>
+              <td style={tdStyle}>{formatDate(a.date_fin_alfa)}</td>
+              <td style={tdStyle}>{formatDate(a.date_radiation_caf)}</td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.radiation_recue || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.mere_touche || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.demande_envoyee || '—'}</span></td>
@@ -1813,14 +1807,14 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
                   : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
                 }
               </td>
-              <td style={{ ...tdStyle, maxWidth: 180 }}>
+              <td style={{ ...tdStyle, maxWidth: 160 }}>
                 {a.remarques ? (
                   <div style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
                     title={a.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }}
                   >{a.remarques}</div>
                 ) : <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>}
               </td>
-              <td style={tdStyle}>
+              <td style={{ ...tdStyle, position: 'sticky', right: 0, background: 'var(--surface)' }}>
                 <div style={{ display: 'flex', gap: 3 }}>
                   <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
                   <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={12} /></button>
@@ -2912,7 +2906,7 @@ function SecretariatPage() {
       </div>
 
       {/* Contenu principal */}
-      <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
+      <div style={{ ...S.card, padding: 0, overflowX: 'auto', overflowY: 'hidden' }}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 20px', gap: 10, color: 'var(--muted)' }}>
             <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />

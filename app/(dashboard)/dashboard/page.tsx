@@ -640,10 +640,12 @@ function SecretaireDashboard({ user }: { user: any }) {
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.candidat_id
-                          ? <Link href={`/candidats/${item.candidat_id}`} style={{ color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{item.prenom} {item.nom}</Link>
-                          : <>{item.prenom} {item.nom}</>
-                        }
+                        <Link href={item.candidat_id ? `/candidats/${item.candidat_id}` : `/secretariat?tab=candidats`}
+                          style={{ color: 'var(--foreground)', textDecoration: 'none' }}
+                          title={item.candidat_id ? 'Voir fiche candidat' : 'Voir dans le secrétariat'}
+                          onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }}
+                          onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}
+                        >{item.prenom} {item.nom}</Link>
                       </div>
                       <div style={{ fontSize: 12, color: cfg.color, fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, flexShrink: 0 }} />
@@ -663,12 +665,13 @@ function SecretaireDashboard({ user }: { user: any }) {
                           title="Email"><Mail size={13} /></a>
                       )}
                       <Link href={
-                          item.type === 'permis' ? `/secretariat?tab=candidats&filtre=permis_urgent`
+                          item.candidat_id ? `/candidats/${item.candidat_id}`
+                          : item.type === 'permis' ? `/secretariat?tab=candidats&filtre=permis_urgent`
                           : item.type === 'accident' ? `/secretariat?tab=accidents&filtre=en_cours`
                           : `/secretariat?tab=candidats&filtre=docs_manquants`
                         }
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', textDecoration: 'none' }}
-                        title="Voir dossier"><ArrowRight size={13} /></Link>
+                        title="Voir fiche candidat"><ArrowRight size={13} /></Link>
                     </div>
                   </motion.div>
                 )

@@ -27,11 +27,12 @@ export async function GET(request: NextRequest) {
       candidats: undefined,
     }))
 
-    // 2. Fetch accidents en cours (termine = false) toutes années
+    // 2. Fetch accidents en cours (termine = false) année en cours
     const { data: accidents, error: e2 } = await (supabase as any)
       .from('secretariat_accidents')
       .select('id, nom_prenom, date_debut, type_cas, candidat_id, updated_at, candidats!candidat_id(photo_url, telephone, email)')
       .eq('termine', false)
+      .eq('annee', annee)
 
     if (e2) throw e2
     const accidentsList = (accidents || []).map((a: any) => ({
