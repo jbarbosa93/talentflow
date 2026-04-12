@@ -1,5 +1,17 @@
 # Changelog TalentFlow
 
+## [1.8.9] — 12 avril 2026
+
+### Refonte doublons — detection instantanee sans IA
+- Suppression complete de l'analyse IA (Claude Haiku) pour la detection
+- Detection instantanee par criteres exacts : meme email, meme telephone (normalise +41/078), meme nom+prenom
+- Plus de barre de progression, pause, resume — resultat immediat
+- Bonus score si meme localisation ou date de naissance
+- Sidebar simplifiee (plus de progress bar)
+- L'IA reste utilisee uniquement pour la fusion (choix des champs)
+
+---
+
 ## [1.8.8] — 12 avril 2026
 
 ### Nettoyage outils + redesign page

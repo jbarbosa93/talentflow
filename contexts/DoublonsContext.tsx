@@ -11,6 +11,7 @@ type Candidat = {
   annees_exp: number; competences: string[]; cv_url: string | null
   cv_nom_fichier: string | null; cv_texte_brut: string | null; created_at: string
   photo_url?: string | null; source?: string | null
+  date_naissance?: string | null; genre?: string | null
   experiences?: { poste: string; entreprise: string; periode: string; description?: string }[] | null
   formations_details?: { diplome: string; etablissement: string; annee: string }[] | null
 }
@@ -19,242 +20,137 @@ export type DoublonPair = {
   id: string
   candidat_a: Candidat
   candidat_b: Candidat
-  match_type?: string   // 'email' | 'telephone' | 'nom'
-  sim_score?: number    // score trigramme DB
+  match_type: string   // 'email' | 'telephone' | 'nom_prenom'
   result: { is_doublon: boolean; score: number; raisons: string[]; explication: string }
   status: 'pending' | 'ignored' | 'merged'
 }
 
 interface DoublonsState {
-  phase: 'idle' | 'loading' | 'analysing' | 'paused' | 'done'
-  totalPairs: number
-  checkedPairs: number
+  phase: 'idle' | 'loading' | 'done'
   doublons: DoublonPair[]
 }
 
 interface DoublonsContextType extends DoublonsState {
-  progress: number
   start: () => void
-  pause: () => void
-  resume: () => void
-  stop: () => void
   markIgnored: (pairId: string) => void
   markMerged: (pairId: string) => void
   markPending: (pairId: string) => void
 }
 
-// ─── Helper functions ──────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') }
 
 function normalize(s: string) {
   return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 }
+
 function normalizePhone(s: string) {
-  return (s || '').replace(/[\s\-\.\(\)]/g, '').replace(/^00/, '+')
+  let p = (s || '').replace(/[\s\-\.\(\)]/g, '')
+  // Normaliser les formats suisses
+  if (p.startsWith('0041')) p = '+41' + p.slice(4)
+  if (p.startsWith('00')) p = '+' + p.slice(2)
+  if (p.startsWith('0') && p.length >= 10) p = '+41' + p.slice(1)
+  return p
 }
 
-// Fallback client-side si la RPC échoue
-function getPairsToCheckFallback(candidats: Candidat[]): Array<{ candidat_a: Candidat; candidat_b: Candidat }> {
-  const pairs: Array<{ candidat_a: Candidat; candidat_b: Candidat }> = []
-  const checked = new Set<string>()
-  const addPair = (a: Candidat, b: Candidat) => {
+// ─── Détection directe (pas d'IA) ────────────────────────────────────────────
+
+function findDoublons(candidats: Candidat[]): DoublonPair[] {
+  const doublons: DoublonPair[] = []
+  const seen = new Set<string>()
+
+  const addPair = (a: Candidat, b: Candidat, matchType: string, raisons: string[], score: number) => {
     const key = pairKey(a.id, b.id)
-    if (!checked.has(key)) { checked.add(key); pairs.push({ candidat_a: a, candidat_b: b }) }
+    if (seen.has(key)) return
+    seen.add(key)
+    doublons.push({
+      id: key,
+      candidat_a: a,
+      candidat_b: b,
+      match_type: matchType,
+      result: {
+        is_doublon: true,
+        score,
+        raisons,
+        explication: raisons.join(', '),
+      },
+      status: 'pending',
+    })
   }
 
-  // Email grouping
+  // 1. Même email (exact) → score 100
   const byEmail: Record<string, Candidat[]> = {}
   for (const c of candidats) {
-    if (c.email) {
-      const k = normalize(c.email)
-      if (!byEmail[k]) byEmail[k] = []
-      byEmail[k].push(c)
-    }
+    if (!c.email || c.email.trim().length < 5) continue
+    const k = normalize(c.email)
+    if (!byEmail[k]) byEmail[k] = []
+    byEmail[k].push(c)
   }
   for (const group of Object.values(byEmail)) {
-    if (group.length >= 2)
+    if (group.length >= 2) {
       for (let i = 0; i < group.length; i++)
         for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
+          addPair(group[i], group[j], 'email', ['Email identique'], 100)
+    }
   }
 
-  // Phone grouping
+  // 2. Même téléphone (normalisé) → score 95
   const byPhone: Record<string, Candidat[]> = {}
   for (const c of candidats) {
-    if (c.telephone) {
-      const k = normalizePhone(c.telephone)
-      if (k.length > 5) {
-        if (!byPhone[k]) byPhone[k] = []
-        byPhone[k].push(c)
-      }
-    }
+    if (!c.telephone) continue
+    const k = normalizePhone(c.telephone)
+    if (k.length < 8) continue
+    if (!byPhone[k]) byPhone[k] = []
+    byPhone[k].push(c)
   }
   for (const group of Object.values(byPhone)) {
-    if (group.length >= 2)
+    if (group.length >= 2) {
       for (let i = 0; i < group.length; i++)
         for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
-  }
-
-  // Name grouping (4 char prefix)
-  const byName: Record<string, Candidat[]> = {}
-  for (const c of candidats) {
-    const nom4 = normalize(c.nom).slice(0, 4)
-    const prenom4 = normalize(c.prenom || '').slice(0, 4)
-    if (nom4.length >= 3) {
-      const k = `${nom4}|${prenom4}`
-      if (!byName[k]) byName[k] = []
-      byName[k].push(c)
+          addPair(group[i], group[j], 'telephone', ['Telephone identique'], 95)
     }
   }
-  for (const group of Object.values(byName)) {
-    if (group.length >= 2)
+
+  // 3. Même nom + prénom (normalisés) → score 85
+  const byNomPrenom: Record<string, Candidat[]> = {}
+  for (const c of candidats) {
+    const nom = normalize(c.nom)
+    const prenom = normalize(c.prenom || '')
+    if (nom.length < 2 || prenom.length < 2) continue
+    const k = `${nom}|${prenom}`
+    if (!byNomPrenom[k]) byNomPrenom[k] = []
+    byNomPrenom[k].push(c)
+  }
+  for (const group of Object.values(byNomPrenom)) {
+    if (group.length >= 2) {
       for (let i = 0; i < group.length; i++)
-        for (let j = i + 1; j < group.length; j++)
-          addPair(group[i], group[j])
+        for (let j = i + 1; j < group.length; j++) {
+          const raisons = ['Nom et prenom identiques']
+          let score = 85
+          // Bonus si même localisation ou date de naissance
+          const locA = normalize(group[i].localisation || '')
+          const locB = normalize(group[j].localisation || '')
+          if (locA && locB && locA === locB) { raisons.push('Meme localisation'); score += 5 }
+          const dnA = group[i].date_naissance
+          const dnB = group[j].date_naissance
+          if (dnA && dnB && dnA === dnB) { raisons.push('Meme date de naissance'); score += 10 }
+          addPair(group[i], group[j], 'nom_prenom', raisons, Math.min(score, 100))
+        }
+    }
   }
 
-  return pairs.slice(0, 500)
+  // Trier par score décroissant
+  doublons.sort((a, b) => b.result.score - a.result.score)
+
+  return doublons
 }
 
 // ─── Module-level persistent state ────────────────────────────────────────────
 
 let _phase: DoublonsState['phase'] = 'idle'
-let _totalPairs = 0
-let _checkedPairs = 0
 let _doublons: DoublonPair[] = []
-let _abortFlag = false
-let _pairs: Array<{ candidat_a: Candidat; candidat_b: Candidat; match_type?: string; sim_score?: number }> = []
-let _pairIndex = 0
 let _onUpdate: ((patch: Partial<DoublonsState>) => void) | null = null
-
-const BATCH_SIZE = 5
-
-// ─── Background loop ───────────────────────────────────────────────────────────
-
-async function runDoublonsLoop(fromResume = false) {
-  if (!fromResume) {
-    _phase = 'loading'
-    _onUpdate?.({ phase: 'loading' })
-
-    // Stratégie : RPC pg_trgm en priorité, fallback client-side si échec
-    let usedFallback = false
-    try {
-      const res = await fetch('/api/candidats/doublons/similar?threshold=30')
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-
-      const rawPairs = data.pairs || []
-      _pairs = rawPairs.map((p: any) => ({
-        candidat_a: p.candidat_a,
-        candidat_b: p.candidat_b,
-        match_type: p.match_type,
-        sim_score: p.sim_score,
-      }))
-    } catch (e) {
-      console.warn('[DoublonsContext] RPC failed, using fallback:', e)
-      // Fallback : charger tous les candidats et pré-filtrer côté client
-      try {
-        const res = await fetch('/api/candidats?per_page=5000')
-        const data = await res.json()
-        const allCandidats: Candidat[] = data.candidats || []
-        if (allCandidats.length < 2) {
-          _phase = 'done'
-          _onUpdate?.({ phase: 'done', totalPairs: 0 })
-          return
-        }
-        _pairs = getPairsToCheckFallback(allCandidats)
-        usedFallback = true
-      } catch {
-        _phase = 'paused'
-        _onUpdate?.({ phase: 'paused' })
-        return
-      }
-    }
-
-    _totalPairs = _pairs.length
-    _checkedPairs = 0
-    _pairIndex = 0
-    _phase = 'analysing'
-    _onUpdate?.({ phase: 'analysing', totalPairs: _totalPairs, checkedPairs: 0 })
-
-    if (_pairs.length === 0) {
-      _phase = 'done'
-      _onUpdate?.({ phase: 'done', totalPairs: 0 })
-      return
-    }
-  } else {
-    _phase = 'analysing'
-    _onUpdate?.({ phase: 'analysing' })
-  }
-
-  // Fix 2 : batch IA — envoyer 5 paires par appel Claude
-  for (let i = _pairIndex; i < _pairs.length; i += BATCH_SIZE) {
-    if (_abortFlag) {
-      _pairIndex = i
-      _phase = 'paused'
-      _onUpdate?.({ phase: 'paused' })
-      return
-    }
-
-    const batch = _pairs.slice(i, Math.min(i + BATCH_SIZE, _pairs.length))
-
-    try {
-      const res = await fetch('/api/candidats/doublons', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'compare_batch',
-          pairs: batch.map(p => ({
-            candidat_a: p.candidat_a,
-            candidat_b: p.candidat_b,
-          })),
-        }),
-      })
-
-      if (res.ok) {
-        const { results } = await res.json()
-        if (Array.isArray(results)) {
-          for (const r of results) {
-            const idx = r.pair_index
-            if (idx >= 0 && idx < batch.length && r.is_doublon) {
-              const p = batch[idx]
-              const pair: DoublonPair = {
-                id: pairKey(p.candidat_a.id, p.candidat_b.id),
-                candidat_a: p.candidat_a,
-                candidat_b: p.candidat_b,
-                match_type: p.match_type,
-                sim_score: p.sim_score,
-                result: {
-                  is_doublon: r.is_doublon,
-                  score: r.score,
-                  raisons: r.raisons || [],
-                  explication: r.explication || '',
-                },
-                status: 'pending',
-              }
-              _doublons = [..._doublons, pair]
-              _onUpdate?.({ doublons: [..._doublons] })
-            }
-          }
-        }
-      }
-    } catch {
-      _pairIndex = i
-      _phase = 'paused'
-      _onUpdate?.({ phase: 'paused' })
-      return
-    }
-
-    _checkedPairs = Math.min(i + batch.length, _pairs.length)
-    _pairIndex = _checkedPairs
-    _onUpdate?.({ checkedPairs: _checkedPairs })
-  }
-
-  _phase = 'done'
-  _onUpdate?.({ phase: 'done' })
-}
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
@@ -271,8 +167,6 @@ export function useDoublons() {
 export function DoublonsProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<DoublonsState>({
     phase: _phase,
-    totalPairs: _totalPairs,
-    checkedPairs: _checkedPairs,
     doublons: _doublons,
   })
 
@@ -284,13 +178,11 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
       setState(prev => {
         const next = { ...prev, ...patch }
         if (patch.phase !== undefined) _phase = patch.phase
-        if (patch.totalPairs !== undefined) _totalPairs = patch.totalPairs
-        if (patch.checkedPairs !== undefined) _checkedPairs = patch.checkedPairs
         if (patch.doublons !== undefined) _doublons = patch.doublons
         return next
       })
     }
-    setState({ phase: _phase, totalPairs: _totalPairs, checkedPairs: _checkedPairs, doublons: _doublons })
+    setState({ phase: _phase, doublons: _doublons })
     return () => { _onUpdate = null }
   }, [])
 
@@ -298,9 +190,9 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.phase !== 'done') return
     if (pathname === '/parametres/doublons') return
-    if (_doublons.filter(d => d.status === 'pending').length > 0) {
-      const count = _doublons.filter(d => d.status === 'pending').length
-      toast.warning(`Analyse doublons terminee — ${count} doublon${count > 1 ? 's' : ''} detecte${count > 1 ? 's' : ''}`, {
+    const pending = _doublons.filter(d => d.status === 'pending')
+    if (pending.length > 0) {
+      toast.warning(`${pending.length} doublon${pending.length > 1 ? 's' : ''} detecte${pending.length > 1 ? 's' : ''}`, {
         duration: 8000,
         action: { label: 'Voir', onClick: () => router.push('/parametres/doublons') },
       })
@@ -308,33 +200,41 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase])
 
-  const start = useCallback(() => {
-    if (_phase === 'loading' || _phase === 'analysing') return
-    _abortFlag = false
+  const start = useCallback(async () => {
+    if (_phase === 'loading') return
     _phase = 'loading'
-    _totalPairs = 0
-    _checkedPairs = 0
     _doublons = []
-    _pairs = []
-    _pairIndex = 0
-    setState({ phase: 'loading', totalPairs: 0, checkedPairs: 0, doublons: [] })
-    runDoublonsLoop(false)
-  }, [])
+    setState({ phase: 'loading', doublons: [] })
+    _onUpdate?.({ phase: 'loading' })
 
-  const pause = useCallback(() => {
-    _abortFlag = true
-  }, [])
+    try {
+      // Charger tous les candidats
+      const res = await fetch('/api/candidats?per_page=10000')
+      const data = await res.json()
+      const allCandidats: Candidat[] = data.candidats || []
 
-  const resume = useCallback(() => {
-    if (_phase !== 'paused') return
-    _abortFlag = false
-    _phase = 'analysing'
-    setState(prev => ({ ...prev, phase: 'analysing' }))
-    runDoublonsLoop(true)
-  }, [])
+      // Charger l'historique pour exclure les paires déjà traitées
+      let treatedKeys = new Set<string>()
+      try {
+        const hRes = await fetch('/api/candidats/doublons/history')
+        const hData = await hRes.json()
+        for (const h of hData.history || []) {
+          treatedKeys.add(pairKey(h.candidat_a_id, h.candidat_b_id))
+        }
+      } catch {}
 
-  const stop = useCallback(() => {
-    _abortFlag = true
+      // Détecter les doublons (instantané, pas d'IA)
+      const found = findDoublons(allCandidats)
+        .filter(d => !treatedKeys.has(d.id))
+
+      _doublons = found
+      _phase = 'done'
+      _onUpdate?.({ phase: 'done', doublons: found })
+    } catch (e) {
+      console.error('[DoublonsContext] Error:', e)
+      _phase = 'done'
+      _onUpdate?.({ phase: 'done', doublons: [] })
+    }
   }, [])
 
   const markIgnored = useCallback((pairId: string) => {
@@ -352,10 +252,8 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, doublons: [..._doublons] }))
   }, [])
 
-  const progress = state.totalPairs > 0 ? Math.min(100, Math.round((state.checkedPairs / state.totalPairs) * 100)) : 0
-
   return (
-    <DoublonsContext.Provider value={{ ...state, progress, start, pause, resume, stop, markIgnored, markMerged, markPending }}>
+    <DoublonsContext.Provider value={{ ...state, start, markIgnored, markMerged, markPending }}>
       {children}
     </DoublonsContext.Provider>
   )

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
-import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ExternalLink, AlertTriangle, ArrowLeft, Users, RefreshCw, History, Pause, Play, RotateCcw, Square } from 'lucide-react'
+import { Copy, Loader2, CheckCircle, XCircle, Merge, Eye, ArrowLeft, Users, RefreshCw, History } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useDoublons } from '@/contexts/DoublonsContext'
@@ -175,8 +175,6 @@ export default function DoublonsPage() {
   const [showPersistentHistory, setShowPersistentHistory] = useState(false)
   const [mergeModal, setMergeModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string; fieldChoices: Record<string, 'a' | 'b'> } | null>(null)
   const [merging, setMerging] = useState(false)
-  const [sortBy, setSortBy] = useState<'score' | 'nom'>('score')
-  const [minScore, setMinScore] = useState(0)
 
   useEffect(() => {
     loadHistoryFromDB().then(setDbHistory)
@@ -299,17 +297,10 @@ export default function DoublonsPage() {
 
   const phase = doublonsCtx.phase
   const doublons = doublonsCtx.doublons
-  const totalPairs = doublonsCtx.totalPairs
-  const checkedPairs = doublonsCtx.checkedPairs
-  const progress = doublonsCtx.progress
 
-  const allPending = doublons.filter(p => p.status === 'pending')
-  // Fix 3 : filtre par score minimum + tri
-  const pendingDoublons = allPending
-    .filter(p => p.result.score >= minScore)
-    .sort((a, b) => sortBy === 'score'
-      ? b.result.score - a.result.score
-      : (a.candidat_a.nom || '').localeCompare(b.candidat_a.nom || ''))
+  const pendingDoublons = doublons
+    .filter(p => p.status === 'pending')
+    .sort((a, b) => b.result.score - a.result.score)
   const ignoredDoublons = doublons.filter(p => p.status === 'ignored')
   const mergedCount = doublons.filter(p => p.status === 'merged').length
   const totalDismissedPersisted = dismissedHistory.length
@@ -328,134 +319,41 @@ export default function DoublonsPage() {
           Analyser les doublons
         </h1>
         <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
-          L&apos;IA analyse tous vos CVs pour detecter les candidats en double · continue en arriere-plan si vous naviguez
+          Recherche les candidats avec le meme email, telephone ou nom+prenom
         </p>
       </div>
 
-      {/* Stats + bouton lancer */}
+      {/* Bouton lancer + résultat */}
       <div className="neo-card-soft" style={{ padding: 24, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            <StatBadge label="Paires verifiees" value={checkedPairs > 0 ? `${checkedPairs}/${totalPairs}` : '—'} color="#2563EB" />
-            <StatBadge label="Doublons" value={doublons.length > 0 ? doublons.length : '—'} color={doublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
+            <StatBadge label="Doublons" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
             <StatBadge label="A traiter" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#D97706' : 'var(--foreground)'} />
             <StatBadge label="Fusionnes" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {phase === 'analysing' ? (
-              <button onClick={() => doublonsCtx.pause()}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <Pause size={14} fill="#D97706" /> Pause
-              </button>
-            ) : phase === 'paused' ? (
-              <button onClick={() => doublonsCtx.resume()}
-                className="neo-btn-yellow">
-                <Play size={14} fill="#0F172A" /> Continuer
-              </button>
-            ) : (
-              <button onClick={handleLancer}
-                className="neo-btn-yellow"
-                style={{ padding: '0 24px' }}
-              >
-                {phase === 'loading'
-                  ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Chargement...</>
-                  : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer l\'analyse' : 'Lancer l\'analyse'}</>
-                }
-              </button>
-            )}
-            {(phase === 'analysing' || phase === 'paused') && (
-              <>
-                <button onClick={() => doublonsCtx.start()}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <RotateCcw size={14} /> Recommencer
-                </button>
-                <button onClick={() => { doublonsCtx.pause(); setTimeout(() => { window.location.reload() }, 100) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#DC2626', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <Square size={14} fill="#DC2626" /> Arreter
-                </button>
-              </>
-            )}
-            {phase === 'analysing' && (
-              <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-                Analyse en cours...
-              </span>
-            )}
-            {phase === 'paused' && (
-              <span style={{ fontSize: 12, color: '#D97706', fontWeight: 600 }}>
-                En pause — {checkedPairs}/{totalPairs} paires
-              </span>
-            )}
-          </div>
+          <button onClick={handleLancer}
+            className="neo-btn-yellow"
+            style={{ padding: '0 24px' }}
+            disabled={phase === 'loading'}
+          >
+            {phase === 'loading'
+              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse...</>
+              : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer' : 'Lancer l\'analyse'}</>
+            }
+          </button>
         </div>
 
-        {/* Barre de progression */}
-        {(phase === 'loading' || phase === 'analysing' || phase === 'paused') && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                {phase === 'loading' ? 'Chargement des candidats...' : `Analyse paire ${checkedPairs} / ${totalPairs}`}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{phase === 'loading' ? '...' : `${progress}%`}</span>
-            </div>
-            <div style={{ height: 8, background: '#E2E8F0', borderRadius: 99, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                width: phase === 'loading' ? '8%' : `${progress}%`,
-                background: 'var(--primary)',
-                borderRadius: 99,
-                transition: 'width 0.4s ease',
-              }} />
-            </div>
-            {doublons.length > 0 && (
-              <p style={{ fontSize: 12, color: '#D97706', marginTop: 8, fontWeight: 600 }}>
-                {doublons.length} doublon{doublons.length > 1 ? 's' : ''} trouve{doublons.length > 1 ? 's' : ''} jusqu&apos;ici
-              </p>
-            )}
-          </div>
-        )}
-        {phase === 'done' && totalPairs > 0 && (
-          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: doublons.length > 0 ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${doublons.length > 0 ? '#FDE68A' : '#BBF7D0'}` }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: doublons.length > 0 ? '#92400E' : '#16A34A', margin: 0 }}>
-              {doublons.length > 0
-                ? `${doublons.length} doublon${doublons.length > 1 ? 's' : ''} detecte${doublons.length > 1 ? 's' : ''} sur ${totalPairs} paires analysees`
-                : `Aucun doublon detecte sur ${totalPairs} paires analysees`
+        {phase === 'done' && (
+          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: pendingDoublons.length > 0 ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${pendingDoublons.length > 0 ? '#FDE68A' : '#BBF7D0'}` }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: pendingDoublons.length > 0 ? '#92400E' : '#16A34A', margin: 0 }}>
+              {pendingDoublons.length > 0
+                ? `${pendingDoublons.length} doublon${pendingDoublons.length > 1 ? 's' : ''} detecte${pendingDoublons.length > 1 ? 's' : ''}`
+                : 'Aucun doublon detecte'
               }
             </p>
           </div>
         )}
       </div>
-
-      {/* Fix 3 : Filtres et tri */}
-      {allPending.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Tri :</span>
-            <button onClick={() => setSortBy('score')}
-              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${sortBy === 'score' ? 'var(--primary)' : 'var(--border)'}`, background: sortBy === 'score' ? '#FEF3C7' : 'var(--card)', color: sortBy === 'score' ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
-              Score
-            </button>
-            <button onClick={() => setSortBy('nom')}
-              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${sortBy === 'nom' ? 'var(--primary)' : 'var(--border)'}`, background: sortBy === 'nom' ? '#FEF3C7' : 'var(--card)', color: sortBy === 'nom' ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
-              Nom
-            </button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Score min :</span>
-            {[0, 50, 65, 80].map(s => (
-              <button key={s} onClick={() => setMinScore(s)}
-                style={{ fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 6, border: `1.5px solid ${minScore === s ? 'var(--primary)' : 'var(--border)'}`, background: minScore === s ? '#FEF3C7' : 'var(--card)', color: minScore === s ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                {s === 0 ? 'Tous' : `${s}%+`}
-              </button>
-            ))}
-          </div>
-          {minScore > 0 && pendingDoublons.length < allPending.length && (
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-              {pendingDoublons.length}/{allPending.length} affiches
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Liste des doublons a traiter — groupes par candidat */}
       {pendingDoublons.length > 0 && (() => {

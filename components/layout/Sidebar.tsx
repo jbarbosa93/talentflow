@@ -210,7 +210,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const showPhotosBadge = (photosCtx.phase === 'running' || photosCtx.phase === 'paused') && !isPhotosPage && photosCtx.total > 0
 
   const isDoublonsPage = pathname === '/parametres/doublons'
-  const showDoblonsBadge = (doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing') && !isDoublonsPage
+  const showDoblonsBadge = doublonsCtx.phase === 'loading' && !isDoublonsPage
 
   return (
     <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}`}>
@@ -376,25 +376,11 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Loader2 size={13} color="#EF4444" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444' }}>
-                    {doublonsCtx.phase === 'loading' ? 'Chargement doublons' : 'Analyse doublons'}
+                    Recherche doublons...
                   </span>
-                  {doublonsCtx.phase === 'analysing' && (
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
-                      {doublonsCtx.progress}%
-                    </span>
-                  )}
                 </div>
-                {doublonsCtx.phase === 'analysing' && (
-                  <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
-                    <motion.div
-                      style={{ height: '100%', background: 'linear-gradient(90deg, #EF4444, #DC2626)', borderRadius: 99 }}
-                      animate={{ width: `${doublonsCtx.progress}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
-                )}
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
-                  {doublonsCtx.checkedPairs}/{doublonsCtx.totalPairs} paires · {doublonsCtx.doublons.length} doublon{doublonsCtx.doublons.length !== 1 ? 's' : ''}
+                  Verification en cours...
                 </div>
               </div>
             </Link>
@@ -547,7 +533,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
             const active = isActive(item.href, (item as any).exact)
             const isOutils = item.href === '/outils'
             const isAdmin = item.href === '/parametres/admin'
-            const showDot = isOutils && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading' || doublonsCtx.phase === 'analysing')
+            const showDot = isOutils && (importCtx.running || photosCtx.phase === 'running' || photosCtx.phase === 'paused' || doublonsCtx.phase === 'loading')
             return (
               <motion.div
                 key={item.href}
