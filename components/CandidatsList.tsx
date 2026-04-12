@@ -1,5 +1,6 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
+import { formatFullName, formatInitials, formatEmail } from '@/lib/format-candidat'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
@@ -785,11 +786,7 @@ export default function CandidatsList() {
     })
   }
 
-  const initiales = (c: any) => {
-    const p = (c.prenom || '').trim()
-    const n = (c.nom || '').trim()
-    return `${p[0] || ''}${n[0] || ''}`.toUpperCase() || '?'
-  }
+  const initiales = (c: any) => formatInitials(c.prenom, c.nom) || '?'
 
   const saveNote = async (candidatId: string) => {
     if (!noteText.trim()) return
@@ -985,7 +982,7 @@ export default function CandidatsList() {
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3 }}>
-            {c.prenom} {c.nom}
+            {formatFullName(c.prenom, c.nom)}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             {c.titre_poste && (
@@ -2584,10 +2581,10 @@ export default function CandidatsList() {
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
                           <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
-                            {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                            {formatInitials(c.prenom, c.nom)}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
                               <Phone size={10} /> {number}
                             </div>
@@ -2604,10 +2601,10 @@ export default function CandidatsList() {
                     {sansTel.length > 0 && sansTel.map((c: any) => (
                       <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
-                          {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
+                          {formatInitials(c.prenom, c.nom)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{c.prenom} {c.nom}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{formatFullName(c.prenom, c.nom)}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}>
                             <AlertTriangle size={10} /> Pas de numéro — sera ignoré
                           </div>

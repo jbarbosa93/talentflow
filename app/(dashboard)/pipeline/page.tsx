@@ -1,4 +1,5 @@
 'use client'
+import { formatFullName, formatInitials } from '@/lib/format-candidat'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
@@ -44,7 +45,7 @@ interface Rappel {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getInitials(prenom: string | null, nom: string) {
-  return ((prenom?.[0] ?? '') + (nom?.[0] ?? '')).toUpperCase() || '?'
+  return formatInitials(prenom, nom) || '?'
 }
 
 function calcAge(dateNaissance: string | null): number | null {
@@ -405,7 +406,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
                     {c.photo_url && <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
                     {c.titre_poste && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{c.titre_poste}</div>}
                     {c.localisation && <div style={{ fontSize: 11, color: '#94A3B8' }}>{c.localisation}</div>}
                   </div>
@@ -429,7 +430,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
                 {selected.photo_url && <img src={selected.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700 }}>{selected.prenom} {selected.nom}</div>
+                <div style={{ fontWeight: 700 }}>{formatFullName(selected.prenom, selected.nom)}</div>
                 {selected.titre_poste && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{selected.titre_poste}</div>}
               </div>
               <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={16} /></button>
@@ -476,7 +477,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
   onRetirer: () => void
 }) {
   const age = calcAge(candidat.date_naissance)
-  const nom = `${candidat.prenom || ''} ${candidat.nom}`.trim()
+  const nom = formatFullName(candidat.prenom, candidat.nom)
   const rappelDue = rappel && !rappel.done && new Date(rappel.rappel_at) <= new Date(Date.now() + 60 * 60 * 1000)
 
   return (

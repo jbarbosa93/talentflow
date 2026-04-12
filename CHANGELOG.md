@@ -1,80 +1,42 @@
 # Changelog TalentFlow
 
-## [1.8.9] — 12 avril 2026
+## [1.8.11] — 12 avril 2026
 
-### Refonte doublons — detection instantanee sans IA
-- Suppression complete de l'analyse IA (Claude Haiku) pour la detection
-- Detection instantanee par criteres exacts : meme email, meme telephone (normalise +41/078), meme nom+prenom
-- Plus de barre de progression, pause, resume — resultat immediat
-- Bonus score si meme localisation ou date de naissance
-- Sidebar simplifiee (plus de progress bar)
-- L'IA reste utilisee uniquement pour la fusion (choix des champs)
+### Module Secrétariat
+- Dashboard secrétaire complet (KPIs, alertes, urgents)
+- Notifications automatiques + manuelles avec badge sidebar
+- Historique modifications (logs_secretariat)
+- Import Excel complet : 430 candidats, 113 accidents, 180 ALFA, 76 paiements ALFA
+- Couleurs lignes, filtres, sélection multiple
+- WhatsApp partout, lien fiche candidat, IMES
+- Enfants charge 3 états (OUI/NON/?)
 
----
+### Doublons améliorés
+- Détection instantanée par critères exacts : même email, même téléphone (normalisé +41/078), même nom+prénom
+- Historique en DB `doublons_historique` (cross-device, multi-utilisateur)
+- UI : tri/filtre score, highlighting champs différents, fusion guidée champ par champ
 
-## [1.8.8] — 12 avril 2026
+### Import en masse aligné avec import normal
+- Rotation 180° PDF si analyse vide (détection CV à l'envers)
+- Fallback Vision si nom = "Candidat" (bandeau graphique)
+- Timeouts par étape : extraction 10s, analyse 45-55s, upload 15s (plus de blocage batch)
+- `created_at` depuis `lastModified` du fichier ZIP ou date dans le nom de fichier
+- `cvScore=0` OneDrive → classé diplôme/certificat, pas candidat vide
 
-### Nettoyage outils + redesign page
-- Suppression 4 outils inutilises : "Analyse complete IA", "Planning hebdomadaire", "Sync dates depuis fichiers", "Detecter le genre"
-- Suppression routes API associees : sync-dates, sync-genre, plannings
-- Suppression page /parametres/analyse-complete
-- Redesign complet page Outils : categories (IA / Documents), cards plus grandes, hover effect, badge IA, bouton "Ouvrir"
-- 4 outils restants : Import en masse, Analyser les doublons, Corriger les photos, Rapport d'heures
+### Sécurité & Qualité
+- SMTP chiffré AES-256-GCM (`lib/smtp-crypto.ts`)
+- `requireAuth()` sur 9 routes API critiques
+- RLS corrigé (logs_acces, pipeline_rappels, entretiens, candidates)
+- Sentry monitoring
+- Timer inactivité persisté en localStorage
 
----
-
-## [1.8.7] — 12 avril 2026
-
-### Refonte outil doublons — 4 fixes
-- **Fix 1 — Detections RPC pg_trgm** : remplacement du pre-filtrage client-side (prefixe 4 chars) par une RPC SQL `find_similar_candidates` utilisant `pg_trgm similarity()` — matching fuzzy des noms, emails exacts, telephones normalises
-- **Fix 2 — Batch IA** : envoi de 5 paires par appel Claude Haiku (au lieu de 1) — analyse 5x plus rapide
-- **Fix 3 — UI amelioree** : tri par score/nom, filtre score minimum (tous/50%+/65%+/80%+), mise en evidence orange des champs differents dans le modal fusion, score affiche dans l'historique
-- **Fix 5 — Historique en DB** : migration localStorage → table `doublons_historique` (RLS) — historique persistant multi-utilisateur, plus fiable
-
----
-
-## [1.8.6] — 12 avril 2026
-
-### Suppression checkboxes candidats + ALFA sans scroll
-- Suivi Candidats : suppression complète des checkboxes de sélection (colonne + barre multi-select)
-- ALFA Suivi : suppression `minWidth` et scroll horizontal, table s'adapte à la largeur du conteneur
-- Dashboard : noms tous cliquables (hover souligné), flèche → ouvre fiche candidat
-- Dashboard : sinistres filtrés par année courante
-
----
-
-## [1.8.5] — 12 avril 2026
-
-### Fix ALFA affichage + dashboard sinistres
-- ALFA Suivi : suppression photos/avatars (gain largeur), noms en horizontal (`whiteSpace: nowrap`)
-- ALFA Suivi : table `minWidth: 1200`, actions sticky à droite (toujours visibles)
-- ALFA Suivi : padding réduit pour tout rentrer
-- Conteneur principal : `overflow: hidden` → `overflowX: auto` (plus de contenu coupé)
-- Dashboard : KPI "Sinistres en cours" filtre par année courante (était toutes années → 30 au lieu de 12)
-
----
-
-## [1.8.4] — 12 avril 2026
-
-### Fix notifications 822 → 42 + ALFA onglets séparés
-- Fix : 780 notifications obsolètes type `permis_expiration` purgées de la DB
-- Nettoyage code : suppression de toutes les références à `permis_expiration` (AUTO_TYPES, icônes, click handler)
-- ALFA : remise des sous-onglets séparés (📋 Suivi ALFA / 💰 À Payer) avec compteurs
-- ALFA Suivi : suppression colonne "Montant" inutile
-- ALFA : suppression scroll horizontal (`overflowX: 'auto'` → div simple)
-- ALFA : fix badges statut cassés (ajout `whiteSpace: 'nowrap'` sur "● En cours" / "✓ Terminé")
-- ALFA : headers alignés sur le style CandidatsTable (suppression `background: var(--secondary)`)
-- Sidebar badge : affiche maintenant 42 au lieu de 822
-
----
-
-## [1.6.7] — 12 avril 2026
-
-### UI — cohérence titres & icônes toutes pages
-- Page Missions centrée (`d-content` → `d-page`, maxWidth 960)
-- Icônes Lucide ajoutées sur tous les titres de pages (TrendingUp, Building2, GitBranch, Send, Sparkles, UserCheck, Briefcase, Plug, Users)
-- Harmonisation titres/sous-titres : classes CSS `d-page-title` + `d-page-sub` sur toutes les pages
-- Fix typo "Integrations" → "Intégrations"
+### UI & Nettoyage
+- Page Outils redesignée : grille 2×2, 4 outils, badge IA retiré des doublons
+- Suppression 4 outils inutilisés (~2400 lignes) : Analyse complète IA, Planning, Sync dates, Genre
+- Icônes Lucide + titres harmonisés sur toutes les pages
+- ALFA : onglets séparés (Suivi / À Payer), suppression scroll horizontal
+- Dashboard : noms cliquables, sinistres filtrés par année courante
+- Fix 780 notifications obsolètes `permis_expiration`
 
 ---
 

@@ -1,4 +1,5 @@
 'use client'
+import { formatFullName, formatInitials, formatEmail, formatCity, formatCountry } from '@/lib/format-candidat'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -541,7 +542,7 @@ export default function CandidatDetailPage() {
     )
   }
 
-  const initiales    = ((candidat.prenom?.[0] || '') + (candidat.nom?.[0] || '')).toUpperCase() || '??'
+  const initiales    = formatInitials(candidat.prenom, candidat.nom) || '??'
   const handleSendNote = () => {
     if (!note.trim()) return
     ajouterNote.mutate({ candidat_id: id, contenu: note.trim() }, { onSuccess: () => setNote('') })
@@ -1019,7 +1020,7 @@ export default function CandidatDetailPage() {
                 ) : (
                   <>
                     <h1 style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.3 }}>
-                      {candidat.prenom} {candidat.nom}
+                      {formatFullName(candidat.prenom, candidat.nom)}
                     </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
                     {/* Étoiles cliquables — toujours visibles */}
@@ -1277,7 +1278,7 @@ export default function CandidatDetailPage() {
                 {candidat.email && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Mail size={12} style={{ flexShrink: 0, color: 'var(--primary)' }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)', flex: 1 }}>{candidat.email}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--muted)', flex: 1 }}>{formatEmail(candidat.email)}</span>
                     <a
                       href={`mailto:${candidat.email}?subject=${encodeURIComponent(`Bonjour ${candidat.prenom || ''},`)}`}
                       title="Envoyer un email"
@@ -1341,7 +1342,7 @@ export default function CandidatDetailPage() {
                       style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: 12 }}
                       onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
                       onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
-                    >{candidat.localisation}</a>
+                    >{formatCity(candidat.localisation)}</a>
                   </div>
                 )}
                 {/* Pastilles métier — sous la ville */}
@@ -2327,12 +2328,12 @@ export default function CandidatDetailPage() {
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}
                 >
                   <div className="neo-avatar" style={{ width: 36, height: 36, fontSize: 13, flexShrink: 0 }}>
-                    {(c.prenom?.[0] || '').toUpperCase()}{(c.nom?.[0] || '').toUpperCase()}
+                    {formatInitials(c.prenom, c.nom)}
                   </div>
                   <div style={{ flex: 1, textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      {c.titre_poste || ''}{c.email ? ` · ${c.email}` : ''}
+                      {c.titre_poste || ''}{c.email ? ` · ${formatEmail(c.email)}` : ''}
                     </div>
                   </div>
                   <Merge size={14} color="var(--primary)" />
@@ -2351,7 +2352,7 @@ export default function CandidatDetailPage() {
       {showActivityHistory && candidat && (
         <ActivityHistory
           candidatId={candidat.id}
-          candidatNom={`${candidat.prenom || ''} ${candidat.nom || ''}`.trim()}
+          candidatNom={formatFullName(candidat.prenom, candidat.nom)}
           onClose={() => setShowActivityHistory(false)}
         />
       )}

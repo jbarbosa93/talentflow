@@ -550,6 +550,22 @@ export async function POST(request: Request) {
             }
           }
 
+          // ── Fix cvScore=0 : diplôme/certificat sans contenu CV → traiter comme non-CV ──
+          if (!isNotCV) {
+            const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
+            const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
+            const hasContact     = !!(analyse.email || analyse.telephone)
+            const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
+            const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
+            const hasName        = !!(candidatNom && candidatNom !== 'Candidat' && candidatNom.length > 1)
+
+            if (hasName && cvScore === 0) {
+              dbg(`[OneDrive Sync] cvScore=0 pour "${filename}" (${candidatNom}) → traité comme non-CV (diplôme/certificat)`)
+              docType = 'diplome'
+              isNotCV = true
+            }
+          }
+
           // ── Si toujours vide après retry → erreur (traite: false → sera retenté) ──
           if (!candidatNom && !candidatPrenom && !candidatEmail && candidatTel.length < 8 && !isNotCV) {
             throw new Error('CV illisible — aucune donnée extraite (rotaté ou scan de mauvaise qualité)')

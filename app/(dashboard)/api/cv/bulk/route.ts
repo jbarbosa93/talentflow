@@ -21,6 +21,32 @@ const TAILLE_MAX_ZIP = 200 * 1024 * 1024 // 200 MB
 
 const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
 
+// ── Timeout utilitaire (même logique que import normal) ──
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout ${label} (${ms / 1000}s)`)), ms)
+    ),
+  ])
+}
+
+// ── Date depuis le nom de fichier (même logique que import normal) ──
+function extractDateFromFilename(filename: string): string | null {
+  function toISO(d: number, m: number, y: number): string | null {
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1950 || y > 2099) return null
+    if (d > new Date(y, m, 0).getDate()) return null
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00.000Z`
+  }
+  let match = filename.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  match = filename.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (match) return toISO(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10))
+  match = filename.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return toISO(parseInt(match[3], 10), parseInt(match[2], 10), parseInt(match[1], 10))
+  return null
+}
+
 function getExtension(filename: string): string {
   return filename.toLowerCase().split('.').pop() || ''
 }
@@ -86,7 +112,8 @@ async function traiterUnFichier(
   buffer: Buffer,
   supabase: ReturnType<typeof createAdminClient>,
   offreId: string | null,
-  statut: string
+  statut: string,
+  fileDate: string | null
 ): Promise<{ candidat: any; analyse: any; action: 'created' | 'updated' | 'doc_added' }> {
   const ext = getExtension(filename)
   const isImage = FORMATS_IMAGES.includes(ext)
@@ -113,23 +140,73 @@ async function traiterUnFichier(
     }
   }
 
-  // ── Extraction texte ──
+  // ── Extraction texte (avec timeouts — Fix 4) ──
   let texteCV = ''
   let analyse: any
 
   if (isImage) {
     const mimeType = getMimeTypeForImage(ext)
-    analyse = await analyserCVDepuisImage(bufferEffectif, mimeType)
+    analyse = await withTimeout(analyserCVDepuisImage(bufferEffectif, mimeType), 45_000, 'analyse image')
   } else {
-    texteCV = await extractTextFromCV(bufferEffectif, filenameEffectif)
+    texteCV = await withTimeout(extractTextFromCV(bufferEffectif, filenameEffectif), 10_000, 'extraction texte')
     const isScanned = !texteCV || texteCV.trim().length < 50
 
     if (isScanned && isPDF) {
-      analyse = await analyserCVDepuisPDF(bufferEffectif)
+      analyse = await withTimeout(analyserCVDepuisPDF(bufferEffectif), 55_000, 'analyse PDF scanné')
     } else if (isScanned) {
       throw new Error('Fichier vide ou illisible')
     } else {
-      analyse = await analyserCV(texteCV)
+      analyse = await withTimeout(analyserCV(texteCV), 45_000, 'analyse texte')
+    }
+  }
+
+  // ── Fix 2 : Rotation 180° PDF (même logique que import normal) ──
+  if (isPDF && analyse) {
+    const hasName = analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1
+    const hasAnyInfo = analyse.email || analyse.telephone || (analyse.competences && analyse.competences.length > 0)
+    const isNonCVCheck = analyse.document_type && analyse.document_type !== 'cv'
+    const shouldTry180 = (!hasName && !hasAnyInfo) || (isNonCVCheck && !hasName)
+    if (shouldTry180) {
+      dbg(`[CV Bulk] Analyse vide/non-CV → tentative rotation 180° pour ${filename}`)
+      try {
+        const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
+        const pdfDoc = await PDFDocument.load(bufferEffectif, { ignoreEncryption: true })
+        for (let p = 0; p < pdfDoc.getPageCount(); p++) {
+          const page = pdfDoc.getPage(p)
+          const curr = page.getRotation().angle
+          page.setRotation(pdfDegrees((curr + 180) % 360))
+        }
+        const rotatedBuffer = Buffer.from(await pdfDoc.save())
+        const retryAnalyse = await withTimeout(analyserCVDepuisPDF(rotatedBuffer), 55_000, 'analyse PDF 180°')
+        const retryHasName = retryAnalyse.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1
+        const retryHasInfo = retryAnalyse.email || retryAnalyse.telephone || (retryAnalyse.competences && retryAnalyse.competences.length > 0)
+        if (retryHasName || retryHasInfo) {
+          dbg(`[CV Bulk] Rotation 180° réussie : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
+          analyse = retryAnalyse
+        } else {
+          dbg(`[CV Bulk] Rotation 180° aussi vide`)
+        }
+      } catch (rotErr) {
+        console.warn(`[CV Bulk] Rotation 180° échouée pour ${filename}:`, (rotErr as Error).message)
+      }
+    }
+  }
+
+  // ── Fix 3 : Fallback Vision (nom "Candidat" avec infos → bandeau graphique) ──
+  if (isPDF && analyse && (!analyse.nom || analyse.nom === 'Candidat') &&
+      (analyse.competences?.length > 0 || analyse.experiences?.length > 0)) {
+    dbg(`[CV Bulk] Nom "Candidat" avec infos → fallback Vision pour ${filename}`)
+    try {
+      const visionResult = await withTimeout(analyserCVDepuisPDF(bufferEffectif), 50_000, 'vision nom fallback')
+      if (visionResult.nom && visionResult.nom !== 'Candidat' && visionResult.nom.length > 1) {
+        dbg(`[CV Bulk] Vision a trouvé : ${visionResult.prenom} ${visionResult.nom}`)
+        analyse.nom = visionResult.nom
+        analyse.prenom = visionResult.prenom || analyse.prenom
+        if (!analyse.email && visionResult.email) analyse.email = visionResult.email
+        if (!analyse.telephone && visionResult.telephone) analyse.telephone = visionResult.telephone
+      }
+    } catch (visionErr) {
+      console.warn(`[CV Bulk] Fallback Vision échoué pour ${filename}:`, (visionErr as Error).message)
     }
   }
 
@@ -177,12 +254,14 @@ async function traiterUnFichier(
   const nomStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
   let cvUrl: string | null = null
-  const { data: storageData } = await supabase.storage
-    .from('cvs')
-    .upload(nomStorage, bufferEffectif, {
+  const { data: storageData } = await withTimeout(
+    supabase.storage.from('cvs').upload(nomStorage, bufferEffectif, {
       contentType: isImage ? getMimeTypeForImage(ext) : 'application/octet-stream',
       upsert: false,
-    })
+    }),
+    15_000,
+    'upload storage'
+  )
 
   if (storageData?.path) {
     const { data: urlData } = await supabase.storage
@@ -403,6 +482,9 @@ async function traiterUnFichier(
 
   // Fix 6 : genre
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
+  // Fix 5 : created_at depuis date ZIP ou nom de fichier
+  const insertDate = fileDate || extractDateFromFilename(filename)
+  if (insertDate) (nouveauCandidat as any).created_at = insertDate
 
   const { data: candidatRaw, error: dbError } = await supabase
     .from('candidats')
@@ -520,7 +602,8 @@ export async function POST(request: NextRequest) {
         if (!zipEntry) throw new Error('Entrée ZIP introuvable')
 
         const buffer = Buffer.from(await zipEntry.async('arraybuffer'))
-        const { candidat, analyse, action } = await traiterUnFichier(nomCourt, buffer, supabase, offreId, statut)
+        const zipFileDate = zipEntry.date?.toISOString() || null
+        const { candidat, analyse, action } = await traiterUnFichier(nomCourt, buffer, supabase, offreId, statut, zipFileDate)
 
         resultats.push({
           fichier: nomCourt,

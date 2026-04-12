@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { Search, X, Check } from 'lucide-react'
+import { formatFullName, formatInitials, formatEmail } from '@/lib/format-candidat'
 
 interface Candidat {
   id: string
@@ -82,7 +83,7 @@ export default function MultiCandidatSearch({
               fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
               whiteSpace: 'nowrap',
             }}>
-              {c.prenom} {c.nom}{c.titre_poste ? <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 4 }}>— {c.titre_poste}</span> : null}
+              {formatFullName(c.prenom, c.nom)}{c.titre_poste ? <span style={{ fontWeight: 400, color: 'var(--muted)', marginLeft: 4 }}>— {c.titre_poste}</span> : null}
               <button
                 onClick={() => remove(c.id)}
                 style={{
@@ -158,14 +159,14 @@ export default function MultiCandidatSearch({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 11, fontWeight: 800, color: 'var(--ink, #1C1A14)', flexShrink: 0,
                 }}>
-                  {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase()}
+                  {formatInitials(c.prenom, c.nom)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {c.prenom} {c.nom}
+                    {formatFullName(c.prenom, c.nom)}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    {c.email || 'Sans email'}
+                    {c.email ? formatEmail(c.email) : 'Sans email'}
                     {c.titre_poste ? ` · ${c.titre_poste}` : ''}
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 'use client'
+import { formatFullName } from '@/lib/format-candidat'
 import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Bell, X, ChevronRight, CheckCheck } from 'lucide-react'
@@ -74,7 +75,7 @@ export function ReminderPopup() {
   }
 
   const getCandidatNom = (r: Rappel) => {
-    if (r.candidats) return `${r.candidats.prenom || ''} ${r.candidats.nom}`.trim()
+    if (r.candidats) return formatFullName(r.candidats.prenom, r.candidats.nom) || 'Candidat'
     return r.candidat_nom_manuel || 'Candidat'
   }
 
