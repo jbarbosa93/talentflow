@@ -105,3 +105,28 @@ export function emailResetPasswordHtml(resetLink: string): string {
     </div>
   `)
 }
+
+export function emailPasswordChangedHtml(): string {
+  return emailWrapper(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">
+      Mot de passe modifié
+    </h2>
+    <p style="margin:0 0 28px;color:#6B7280;font-size:15px;line-height:1.6">
+      Votre mot de passe TalentFlow a été modifié avec succès. Vous pouvez maintenant vous connecter avec vos nouveaux identifiants.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="https://www.talent-flow.ch/login"
+        style="display:inline-block;background:#F5A623;color:#1C1A14;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:10px;letter-spacing:-0.1px">
+        Se connecter →
+      </a>
+    </div>
+
+    <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:14px 16px">
+      <p style="margin:0;color:#065F46;font-size:13px;line-height:1.5">
+        ✅ Si vous n'avez pas effectué cette modification, contactez immédiatement votre administrateur.
+      </p>
+    </div>
+  `)
+}

@@ -69,6 +69,15 @@ function ResetPasswordForm() {
         setError(updateError.message)
       } else {
         setDone(true)
+        // Envoyer notre email de confirmation (beau template)
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user?.email) {
+          fetch('/api/auth/password-changed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          }).catch(() => {}) // fire & forget
+        }
         // Déconnecter puis rediriger vers login pour une connexion propre
         await supabase.auth.signOut()
         setTimeout(() => router.push('/login'), 3000)
