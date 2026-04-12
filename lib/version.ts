@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.7.8'
+export const APP_VERSION = '1.8.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.0',
+    date: '2026-04-12',
+    label: 'Notifications Secrétariat + Case Suisse',
+    features: [
+      'Notifications : fix route marquer lu (/lu), création route mark-all-read',
+      'Notifications : déduplication côté serveur (type + reference_id)',
+      'Notifications : alertes auto — permis urgent (<30j), surveillance (<90j), sinistre >30j, docs manquants',
+      'Notifications : séparation panel Messages / Alertes automatiques',
+      'Notifications : modal "Ajouter une alerte" avec type, titre, message, candidat, urgence',
+      'Notifications : colonnes urgence, created_by, created_by_nom en DB (reference_id text)',
+      'Sidebar : fix badge secrétariat (query cassée → d.notifications.length)',
+      'Suivi candidats : colonne "suisse" + case à cocher 🇨🇭 dans table et modal',
+      'Fix couleur 2025 : default DB corrigé (normal → null), 341 entrées nettoyées',
+    ],
+  },
   {
     version: '1.7.4',
     date: '2026-04-12',

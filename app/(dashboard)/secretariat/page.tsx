@@ -10,7 +10,7 @@ import {
   ClipboardList, Bell, Plus, Pencil, Trash2,
   Mail, AlertTriangle, Search, Loader2, X,
   User, Calendar, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
-  FileText, Home, History,
+  FileText, Home, History, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -37,6 +37,7 @@ interface SecretariatCandidat {
   mission_terminee: string | null
   mappe: boolean
   docs_manquants: string | null
+  suisse: boolean
   annee: number
   photo_url?: string | null
   tel?: string | null
@@ -139,6 +140,9 @@ interface Notification {
   reference_id: string | null
   reference_table: string | null
   lue: boolean
+  urgence: 'normale' | 'urgente'
+  created_by: string | null
+  created_by_nom: string | null
   created_at: string
 }
 
@@ -238,6 +242,94 @@ function ColorPicker({ currentColor, onChange }: { currentColor: string | null; 
   )
 }
 
+// ─── Column Filter (Excel-style) ─────────────────────────────────────────────
+
+function ColumnFilter({ values, selected, onChange }: {
+  values: string[]
+  selected: Set<string> | null // null = all selected
+  onChange: (sel: Set<string> | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const unique = Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'fr'))
+  const filtered = search ? unique.filter(v => v.toLowerCase().includes(search.toLowerCase())) : unique
+  const isActive = selected !== null
+  const allChecked = selected === null || selected.size === unique.length
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <button onClick={() => setOpen(!open)} title="Filtrer" style={{
+        padding: 0, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+        color: isActive ? 'var(--primary)' : 'var(--muted)', marginLeft: 3,
+      }}>
+        <Filter size={10} fill={isActive ? 'var(--primary)' : 'none'} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', marginTop: 4, width: 200, maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
+            <button onClick={() => onChange(null)} style={{ flex: 1, padding: '3px 0', borderRadius: 4, border: 'none', background: allChecked ? 'var(--primary)' : 'var(--secondary)', color: allChecked ? '#fff' : 'var(--muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Tous</button>
+            <button onClick={() => onChange(new Set())} style={{ flex: 1, padding: '3px 0', borderRadius: 4, border: 'none', background: 'var(--secondary)', color: 'var(--muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Aucun</button>
+          </div>
+          <div style={{ overflowY: 'auto', maxHeight: 180, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {filtered.map(v => {
+              const checked = selected === null || selected.has(v)
+              return (
+                <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', padding: '3px 4px', borderRadius: 4, fontSize: 11, color: 'var(--foreground)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <input type="checkbox" checked={checked} onChange={() => {
+                    const next = new Set(selected ?? unique)
+                    if (next.has(v)) next.delete(v); else next.add(v)
+                    onChange(next.size === unique.length ? null : next)
+                  }} style={{ width: 12, height: 12, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v || '(vide)'}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Sortable header helper
+type SortDir = 'asc' | 'desc' | null
+
+function SortableHeader({ label, sortDir, onSort, style, filterValues, filterSelected, onFilter }: {
+  label: string
+  sortDir: SortDir
+  onSort: () => void
+  style?: React.CSSProperties
+  filterValues?: string[]
+  filterSelected?: Set<string> | null
+  onFilter?: (sel: Set<string> | null) => void
+}) {
+  return (
+    <th style={{ ...style, cursor: 'pointer', userSelect: 'none' }} onClick={onSort}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span>{label}</span>
+        {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={9} style={{ opacity: 0.4 }} />}
+        {filterValues && onFilter && (
+          <span onClick={e => e.stopPropagation()}>
+            <ColumnFilter values={filterValues} selected={filterSelected ?? null} onChange={onFilter} />
+          </span>
+        )}
+      </div>
+    </th>
+  )
+}
+
 // ─── Autocomplete candidat ────────────────────────────────────────────────────
 
 function CandidatAutocomplete({ value, onChange }: {
@@ -330,6 +422,7 @@ const EMPTY_CANDIDAT_FORM = {
   mission_terminee: '',
   mappe: false,
   docs_manquants: '',
+  suisse: false,
   annee: new Date().getFullYear(),
 }
 
@@ -356,6 +449,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
     mission_terminee: item.mission_terminee || '',
     mappe: item.mappe || false,
     docs_manquants: item.docs_manquants || '',
+    suisse: item.suisse || false,
     annee: item.annee || new Date().getFullYear(),
   } : { ...EMPTY_CANDIDAT_FORM, annee: new Date().getFullYear() })
   const [saving, setSaving] = useState(false)
@@ -385,6 +479,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
         mission_terminee: form.mission_terminee || null,
         mappe: form.mappe,
         docs_manquants: form.docs_manquants || null,
+        suisse: form.suisse,
         annee: form.annee,
       }
       const url = item ? `/api/secretariat/candidats/${item.id}` : '/api/secretariat/candidats'
@@ -448,14 +543,21 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={S.label}>Permis de séjour</label>
-              <select value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} style={S.input}>
-                <option value="">— Sélectionner —</option>
-                <option value="L">L</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="G">G</option>
-                <option value="IMES">IMES</option>
-              </select>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} style={{ ...S.input, flex: 1 }}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="L">L</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="G">G</option>
+                  <option value="IMES">IMES</option>
+                </select>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none', fontSize: 12, fontWeight: 700, color: form.suisse ? '#DC2626' : 'var(--muted)', whiteSpace: 'nowrap', padding: '6px 8px', borderRadius: 6, background: form.suisse ? 'rgba(220,38,38,0.08)' : 'var(--secondary)', border: `1.5px solid ${form.suisse ? 'rgba(220,38,38,0.3)' : 'var(--border)'}` }}>
+                  <input type="checkbox" checked={form.suisse} onChange={e => set('suisse', e.target.checked)}
+                    style={{ width: 14, height: 14, accentColor: '#DC2626', cursor: 'pointer' }} />
+                  🇨🇭 Suisse
+                </label>
+              </div>
             </div>
             <div>
               <label style={S.label}>Échéance permis</label>
@@ -1365,9 +1467,14 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                   </span>
                 </td>
 
-                {/* Col 3 : Permis */}
+                {/* Col 3 : Permis + Suisse */}
                 <td style={{ padding: '10px 10px' }}>
-                  <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
+                    {c.suisse && (
+                      <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>🇨🇭 CH</span>
+                    )}
+                  </div>
                 </td>
 
                 {/* Col 4 : Enfants */}
@@ -1693,77 +1800,121 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
 // ─── AlfaTable ────────────────────────────────────────────────────────────────
 
 function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfa[]; onEdit: (a: SecretariatAlfa) => void; onDelete: (a: SecretariatAlfa) => void; onColorChange: (id: string, color: string) => void }) {
+  const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
+  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
+
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune entrée ALFA pour cette année.</div>
   }
-  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
-  const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+
+  const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
+  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
+
+  const getVal = (a: SecretariatAlfa, col: string): string => {
+    if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
+    if (col === 'lieu') return a.lieu_enfants || ''
+    if (col === 'consimo') return a.consimo || ''
+    if (col === 'termine') return a.termine ? 'Terminé' : 'En cours'
+    if (col === 'mere') return a.mere_touche || ''
+    return ''
+  }
+
+  let displayed = rows.filter(a => {
+    for (const [col, sel] of Object.entries(filters)) {
+      if (sel === null) continue
+      if (!sel.has(getVal(a, col))) return false
+    }
+    return true
+  })
+
+  if (sort.dir && sort.col) {
+    displayed = [...displayed].sort((a, b) => {
+      const va = getVal(a, sort.col).toLowerCase()
+      const vb = getVal(b, sort.col).toLowerCase()
+      const cmp = va.localeCompare(vb, 'fr')
+      return sort.dir === 'desc' ? -cmp : cmp
+    })
+  }
+
+  const thStyle: React.CSSProperties = { padding: '10px 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+  const tdStyle: React.CSSProperties = { padding: '7px 8px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+  const hasFilters = Object.values(filters).some(v => v !== null)
+
   return (
     <div style={{ overflowX: 'auto' }}>
+      {hasFilters && (
+        <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button onClick={() => setFilters({})} style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer' }}>✕ Effacer filtres</button>
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={thStyle}>Nom / Prénom</th>
-            <th style={thStyle}>Enfants</th>
-            <th style={thStyle}>Montant CHF</th>
+            <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle}
+              filterValues={rows.map(a => `${a.prenom} ${a.nom}`.trim())} filterSelected={filters['nom']} onFilter={s => setFilter('nom', s)} />
+            <th style={thStyle}>N° AVS</th>
+            <th style={thStyle}>Enf.</th>
+            <th style={thStyle}>Montant</th>
+            <th style={thStyle}>Barème IS</th>
             <th style={thStyle}>Début</th>
             <th style={thStyle}>Fin</th>
-            <th style={thStyle}>Mère touche</th>
-            <th style={thStyle}>Lieu</th>
+            <th style={thStyle}>Rad. CAF</th>
+            <th style={thStyle}>Rad. reçue</th>
+            <SortableHeader label="Mère touche" sortDir={sort.col === 'mere' ? sort.dir : null} onSort={() => toggleSort('mere')} style={thStyle}
+              filterValues={rows.map(a => a.mere_touche || '(vide)')} filterSelected={filters['mere']} onFilter={s => setFilter('mere', s)} />
+            <th style={thStyle}>Dem. env.</th>
+            <th style={thStyle}>Réact. env.</th>
+            <SortableHeader label="Lieu enf." sortDir={sort.col === 'lieu' ? sort.dir : null} onSort={() => toggleSort('lieu')} style={thStyle}
+              filterValues={rows.map(a => a.lieu_enfants || '(vide)')} filterSelected={filters['lieu']} onFilter={s => setFilter('lieu', s)} />
+            <SortableHeader label="Consimo" sortDir={sort.col === 'consimo' ? sort.dir : null} onSort={() => toggleSort('consimo')} style={thStyle}
+              filterValues={rows.map(a => a.consimo || '(vide)')} filterSelected={filters['consimo']} onFilter={s => setFilter('consimo', s)} />
+            <SortableHeader label="Statut" sortDir={sort.col === 'termine' ? sort.dir : null} onSort={() => toggleSort('termine')} style={thStyle}
+              filterValues={rows.map(a => a.termine ? 'Terminé' : 'En cours')} filterSelected={filters['termine']} onFilter={s => setFilter('termine', s)} />
             <th style={thStyle}>Remarques</th>
-            <th style={thStyle}>Terminé</th>
             <th style={thStyle}></th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(a => (
+          {displayed.map(a => (
             <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
               <td style={tdStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 13, cursor: 'pointer', color: 'var(--foreground)' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
-                  {a.candidat_id && <a href={`/candidats/${a.candidat_id}`} title="Voir fiche" style={{ fontSize: 13, textDecoration: 'none', lineHeight: 1 }}>🔗</a>}
-                </div>
+                {a.candidat_id
+                  ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                  : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
+                }
                 {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
               </td>
-              <td style={{ ...tdStyle, textAlign: 'center' }}>
-                <span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span>
-              </td>
-              <td style={tdStyle}>
-                {a.montant_chf != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_chf)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
-              </td>
+              <td style={tdStyle}><span style={{ fontSize: 10, color: 'var(--muted)' }}>{a.numero_avs || '—'}</span></td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
+              <td style={tdStyle}>{a.montant_chf != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_chf)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.bareme_is || '—'}</span></td>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_debut_alfa)}</td>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_alfa)}</td>
-              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.mere_touche || '—'}</span></td>
-              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.lieu_enfants || '—'}</span></td>
-              <td style={{ ...tdStyle, maxWidth: 220 }}>
-                {a.remarques ? (
-                  <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
-                    title={a.remarques}
-                    onClick={e => {
-                      const el = e.currentTarget
-                      if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' }
-                      else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' }
-                    }}
-                  >{a.remarques}</div>
-                ) : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
-              </td>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_radiation_caf)}</td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.radiation_recue || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.mere_touche || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.demande_envoyee || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.reactivation_envoyee || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.lieu_enfants || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.consimo || '—'}</span></td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
                 {a.termine
                   ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
                   : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
                 }
               </td>
+              <td style={{ ...tdStyle, maxWidth: 180 }}>
+                {a.remarques ? (
+                  <div style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}
+                    title={a.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }}
+                  >{a.remarques}</div>
+                ) : <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>}
+              </td>
               <td style={tdStyle}>
-                <div style={{ display: 'flex', gap: 4 }}>
+                <div style={{ display: 'flex', gap: 3 }}>
                   <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
-                  <button onClick={() => onEdit(a)} title="Modifier"
-                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Pencil size={13} />
-                  </button>
-                  <button onClick={() => onDelete(a)} title="Supprimer"
-                    style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <Trash2 size={13} />
-                  </button>
+                  <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={12} /></button>
+                  <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={12} /></button>
                 </div>
               </td>
             </tr>
@@ -1862,6 +2013,131 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
   )
 }
 
+// ─── Alert Modal (Ajouter une alerte manuelle) ────────────────────────────────
+
+const ALERT_TYPES = [
+  { value: 'doc_manquant', label: '📋 Document manquant' },
+  { value: 'permis_urgent', label: '🔴 Permis urgent' },
+  { value: 'sinistre_suivi', label: '🏥 Sinistre à suivre' },
+  { value: 'message', label: '💬 Message entre secrétaires' },
+  { value: 'autre', label: '⚠️ Autre' },
+]
+
+function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState({
+    type: 'message',
+    titre: '',
+    message: '',
+    candidat_id: null as string | null,
+    candidat_nom: '',
+    urgence: 'normale' as 'normale' | 'urgente',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!form.titre.trim()) { toast.error('Titre requis'); return }
+    if (!form.message.trim()) { toast.error('Message requis'); return }
+    setSaving(true)
+    try {
+      // Récupérer l'utilisateur courant pour created_by
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      const res = await fetch('/api/secretariat/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: form.type,
+          titre: form.titre.trim(),
+          message: form.message.trim(),
+          candidat_id: form.candidat_id || null,
+          urgence: form.urgence,
+          created_by: user?.id || null,
+          created_by_nom: user?.user_metadata?.nom
+            ? `${user.user_metadata.prenom || ''} ${user.user_metadata.nom}`.trim()
+            : user?.email || null,
+        }),
+      })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error || 'Erreur')
+      toast.success('Alerte créée')
+      onSaved()
+      onClose()
+    } catch (e: any) { toast.error(e.message) }
+    finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Bell size={18} color="var(--primary)" /> Nouvelle alerte
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Type */}
+          <div>
+            <label style={S.label}>Type d'alerte</label>
+            <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={S.input}>
+              {ALERT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
+          {/* Titre */}
+          <div>
+            <label style={S.label}>Titre *</label>
+            <input value={form.titre} onChange={e => setForm(f => ({ ...f, titre: e.target.value }))} placeholder="Ex: Rappel visite médicale" style={S.input} />
+          </div>
+
+          {/* Message */}
+          <div>
+            <label style={S.label}>Message *</label>
+            <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Détails de l'alerte…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+          </div>
+
+          {/* Candidat optionnel */}
+          <div>
+            <label style={S.label}>Candidat concerné (optionnel)</label>
+            <CandidatAutocomplete
+              value={form.candidat_nom}
+              onChange={(nom, id) => setForm(f => ({ ...f, candidat_nom: nom, candidat_id: id }))}
+            />
+          </div>
+
+          {/* Urgence */}
+          <div>
+            <label style={S.label}>Urgence</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['normale', 'urgente'] as const).map(u => (
+                <button key={u} onClick={() => setForm(f => ({ ...f, urgence: u }))} style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  background: form.urgence === u ? (u === 'urgente' ? 'rgba(239,68,68,0.12)' : 'var(--primary-soft)') : 'var(--secondary)',
+                  color: form.urgence === u ? (u === 'urgente' ? '#EF4444' : 'var(--primary)') : 'var(--muted)',
+                  border: `1.5px solid ${form.urgence === u ? (u === 'urgente' ? 'rgba(239,68,68,0.4)' : 'var(--primary)') : 'var(--border)'}`,
+                }}>
+                  {u === 'normale' ? '🟢 Normale' : '🔴 Urgente'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+            {saving && <Loader2 size={13} />} Créer l'alerte
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
 function TabBtn({ active, onClick, children, count }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number }) {
@@ -1927,6 +2203,7 @@ function SecretariatPage() {
   const [showForm, setShowForm] = useState(false)
   const [deleteItem, setDeleteItem] = useState<any>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [showAlertModal, setShowAlertModal] = useState(false)
 
   // Filtres accidents
   const [accidentStatut, setAccidentStatut] = useState<'tous' | 'en_cours' | 'termine'>('tous')
@@ -2032,7 +2309,7 @@ function SecretariatPage() {
   const { data: notifications = [], refetch: refetchNotifs } = useQuery<Notification[]>({
     queryKey: ['secretariat-notifications'],
     queryFn: async () => {
-      const res = await fetch('/api/secretariat/notifications')
+      const res = await fetch('/api/secretariat/notifications?all=true')
       if (!res.ok) return []
       const d = await res.json()
       return d.notifications || []
@@ -2055,58 +2332,96 @@ function SecretariatPage() {
     enabled: roleChecked && showHistory,
   })
 
-  // ─── Génération notifications auto ────────────────────────────────────────
+  // ─── Génération notifications auto (dédup côté serveur) ────────────────────
 
-  const generateNotifications = useCallback(async (candidatsList: SecretariatCandidat[]) => {
+  const autoNotifsGenerated = useRef(false)
+
+  const generateNotifications = useCallback(async (
+    candidatsList: SecretariatCandidat[],
+    accidentsList: SecretariatAccident[],
+  ) => {
     const today = new Date()
-    const existingRefs = new Set(notifications.map(n => n.reference_id))
+    const batch: Array<{ type: string; titre: string; message: string; candidat_id: string | null; reference_id: string; reference_table: string; urgence: string }> = []
 
+    // Permis urgents (<30j)
     for (const c of candidatsList) {
-      if (c.date_echeance_permis) {
-        const echeance = new Date(c.date_echeance_permis)
-        const jours = Math.floor((echeance.getTime() - today.getTime()) / 86400000)
-        if (jours < 90 && !existingRefs.has(c.id)) {
-          try {
-            await fetch('/api/secretariat/notifications', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                type: 'permis_expiration',
-                titre: `Permis expirant : ${c.prenom} ${c.nom}`,
-                message: `Le permis ${c.genre_permis || ''} de ${c.prenom} ${c.nom} expire le ${formatDate(c.date_echeance_permis)} (dans ${jours} jours).`,
-                candidat_id: c.candidat_id,
-                reference_id: c.id,
-                reference_table: 'secretariat_candidats',
-              }),
-            })
-          } catch { /* ignore */ }
-        }
-      }
-      if (c.docs_manquants && !existingRefs.has(`doc_${c.id}`)) {
-        try {
-          await fetch('/api/secretariat/notifications', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'doc_manquant',
-              titre: `Documents manquants : ${c.prenom} ${c.nom}`,
-              message: `Documents manquants pour ${c.prenom} ${c.nom} : ${c.docs_manquants}`,
-              candidat_id: c.candidat_id,
-              reference_id: `doc_${c.id}`,
-              reference_table: 'secretariat_candidats',
-            }),
-          })
-        } catch { /* ignore */ }
+      if (!c.date_echeance_permis) continue
+      const jours = Math.floor((new Date(c.date_echeance_permis).getTime() - today.getTime()) / 86400000)
+      if (jours >= 0 && jours < 30) {
+        batch.push({
+          type: 'permis_urgent',
+          titre: `🔴 Permis urgent : ${c.prenom} ${c.nom}`,
+          message: `Le permis ${c.genre_permis || ''} expire le ${formatDate(c.date_echeance_permis)} (dans ${jours} jour${jours !== 1 ? 's' : ''}).`,
+          candidat_id: c.candidat_id,
+          reference_id: `permis_${c.id}`,
+          reference_table: 'secretariat_candidats',
+          urgence: 'urgente',
+        })
+      } else if (jours >= 30 && jours < 90) {
+        batch.push({
+          type: 'permis_surveillance',
+          titre: `⚠️ Permis à surveiller : ${c.prenom} ${c.nom}`,
+          message: `Le permis ${c.genre_permis || ''} expire le ${formatDate(c.date_echeance_permis)} (dans ${jours} jours).`,
+          candidat_id: c.candidat_id,
+          reference_id: `permis_surv_${c.id}`,
+          reference_table: 'secretariat_candidats',
+          urgence: 'normale',
+        })
       }
     }
+
+    // Docs manquants
+    for (const c of candidatsList) {
+      if (!c.docs_manquants) continue
+      batch.push({
+        type: 'doc_manquant',
+        titre: `📋 Docs manquants : ${c.prenom} ${c.nom}`,
+        message: `Documents manquants : ${c.docs_manquants}`,
+        candidat_id: c.candidat_id,
+        reference_id: `doc_${c.id}`,
+        reference_table: 'secretariat_candidats',
+        urgence: 'normale',
+      })
+    }
+
+    // Sinistres en cours >30j
+    for (const a of accidentsList) {
+      if (a.termine || !a.date_debut) continue
+      const jours = Math.floor((today.getTime() - new Date(a.date_debut).getTime()) / 86400000)
+      if (jours > 30) {
+        batch.push({
+          type: 'sinistre_suivi',
+          titre: `🏥 Sinistre à suivre : ${a.nom_prenom}`,
+          message: `${a.type_cas} en cours depuis ${jours} jours (depuis le ${formatDate(a.date_debut)}).`,
+          candidat_id: a.candidat_id,
+          reference_id: `sinistre_${a.id}`,
+          reference_table: 'secretariat_accidents',
+          urgence: jours > 60 ? 'urgente' : 'normale',
+        })
+      }
+    }
+
+    // Envoyer en parallèle (la dédup est côté serveur)
+    await Promise.allSettled(
+      batch.map(n =>
+        fetch('/api/secretariat/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(n),
+        }).catch(() => {})
+      )
+    )
+
     refetchNotifs()
-  }, [notifications, refetchNotifs])
+    queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+  }, [refetchNotifs, queryClient])
 
   useEffect(() => {
-    if (candidats.length > 0 && notifications.length >= 0) {
-      generateNotifications(candidats)
+    if (candidats.length > 0 && accidents.length >= 0 && !autoNotifsGenerated.current) {
+      autoNotifsGenerated.current = true
+      generateNotifications(candidats, accidents)
     }
-  }, [candidats])
+  }, [candidats, accidents])
 
   // ─── Filtres ───────────────────────────────────────────────────────────────
 
@@ -2194,8 +2509,9 @@ function SecretariatPage() {
 
   const handleMarkNotifLue = async (notif: Notification) => {
     try {
-      await fetch(`/api/secretariat/notifications/${notif.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lue: true }) })
+      await fetch(`/api/secretariat/notifications/${notif.id}/lu`, { method: 'PATCH' })
       refetchNotifs()
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
     } catch { /* ignore */ }
   }
 
@@ -2203,6 +2519,7 @@ function SecretariatPage() {
     try {
       await fetch('/api/secretariat/notifications/mark-all-read', { method: 'POST' })
       refetchNotifs()
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
     } catch { /* ignore */ }
   }
 
@@ -2304,49 +2621,117 @@ function SecretariatPage() {
       </div>
 
       {/* Panel notifications */}
-      {showNotifs && (
-        <div style={{ ...S.card, padding: 0, marginBottom: 20, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1.5px solid var(--border)' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Bell size={15} color="var(--primary)" />
-              Notifications
-              {notifsNonLues > 0 && <span style={{ padding: '1px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 11, fontWeight: 700 }}>{notifsNonLues} non lues</span>}
+      {showNotifs && (() => {
+        const AUTO_TYPES = ['permis_urgent', 'permis_surveillance', 'permis_expiration', 'doc_manquant', 'sinistre_suivi']
+        const autoNotifs = notifications.filter(n => AUTO_TYPES.includes(n.type))
+        const messageNotifs = notifications.filter(n => !AUTO_TYPES.includes(n.type))
+        const autoNonLues = autoNotifs.filter(n => !n.lue).length
+        const msgNonLues = messageNotifs.filter(n => !n.lue).length
+
+        const ICON_MAP: Record<string, React.ReactNode> = {
+          permis_urgent: <AlertTriangle size={13} color="#EF4444" />,
+          permis_surveillance: <AlertTriangle size={13} color="#CA8A04" />,
+          permis_expiration: <AlertTriangle size={13} color="#CA8A04" />,
+          doc_manquant: <FileText size={13} color="#3B82F6" />,
+          sinistre_suivi: <AlertCircle size={13} color="#8B5CF6" />,
+          message: <Mail size={13} color="var(--primary)" />,
+          autre: <AlertTriangle size={13} color="var(--muted)" />,
+        }
+
+        const renderNotif = (notif: Notification) => (
+          <div key={notif.id} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 16px',
+            borderBottom: '1px solid var(--border)',
+            background: notif.lue ? 'transparent' : 'rgba(245,166,35,0.04)',
+            borderLeft: notif.urgence === 'urgente' && !notif.lue ? '3px solid #EF4444' : '3px solid transparent',
+            opacity: notif.lue ? 0.55 : 1,
+          }}>
+            <div style={{ flexShrink: 0, marginTop: 2 }}>
+              {ICON_MAP[notif.type] || <Bell size={13} color="var(--muted)" />}
             </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              {notifsNonLues > 0 && (
-                <button onClick={handleMarkAllLues} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontWeight: 600 }}>
-                  Tout marquer lu
-                </button>
-              )}
-              <button onClick={() => setShowNotifs(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={16} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', marginBottom: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {notif.titre}
+                {notif.urgence === 'urgente' && !notif.lue && <span style={{ padding: '0 5px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>URGENT</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>{notif.message}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                <span style={{ fontSize: 10, color: 'var(--muted)' }}>{formatDate(notif.created_at?.split('T')[0])}</span>
+                {notif.created_by_nom && <span style={{ fontSize: 10, color: 'var(--muted)' }}>par {notif.created_by_nom}</span>}
+                {notif.candidat_id && (
+                  <a href={`/candidats/${notif.candidat_id}`} style={{ fontSize: 10, color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>Voir candidat →</a>
+                )}
+              </div>
             </div>
+            {!notif.lue && (
+              <button onClick={() => handleMarkNotifLue(notif)} title="Marquer comme lue"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
+                <X size={13} />
+              </button>
+            )}
           </div>
-          {notifications.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune notification</div>
-          ) : (
-            <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-              {notifications.slice(0, 30).map(notif => (
-                <div key={notif.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)', background: notif.lue ? 'transparent' : 'rgba(var(--primary-rgb, 245,166,35),0.05)' }}>
-                  <div style={{ flexShrink: 0, marginTop: 2 }}>
-                    {notif.type === 'permis_expiration' ? <AlertTriangle size={14} color="#CA8A04" /> : <FileText size={14} color="var(--muted)" />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', marginBottom: 2 }}>{notif.titre}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>{notif.message}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 3 }}>{formatDate(notif.created_at?.split('T')[0])}</div>
-                  </div>
-                  {!notif.lue && (
-                    <button onClick={() => handleMarkNotifLue(notif)} title="Marquer comme lue"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
-                      <CheckCircle2 size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
+        )
+
+        return (
+          <div style={{ ...S.card, padding: 0, marginBottom: 20, overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1.5px solid var(--border)' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Bell size={15} color="var(--primary)" />
+                Notifications
+                {notifsNonLues > 0 && <span style={{ padding: '1px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 11, fontWeight: 700 }}>{notifsNonLues} non lues</span>}
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button onClick={() => setShowAlertModal(true)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--primary)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Plus size={11} /> Ajouter une alerte
+                </button>
+                {notifsNonLues > 0 && (
+                  <button onClick={handleMarkAllLues} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontWeight: 600 }}>
+                    Tout marquer lu
+                  </button>
+                )}
+                <button onClick={() => setShowNotifs(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={16} /></button>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+
+            {notifications.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune notification</div>
+            ) : (
+              <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                {/* Section Messages manuels */}
+                {messageNotifs.length > 0 && (
+                  <>
+                    <div style={{ padding: '8px 16px', background: 'rgba(245,166,35,0.06)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      💬 Messages
+                      {msgNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 10, fontWeight: 800 }}>{msgNonLues}</span>}
+                    </div>
+                    {messageNotifs.slice(0, 20).map(renderNotif)}
+                  </>
+                )}
+
+                {/* Section Alertes automatiques */}
+                {autoNotifs.length > 0 && (
+                  <>
+                    <div style={{ padding: '8px 16px', background: 'rgba(99,102,241,0.05)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      ⚡ Alertes automatiques
+                      {autoNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 10, fontWeight: 800 }}>{autoNonLues}</span>}
+                    </div>
+                    {autoNotifs.filter(n => !n.lue).slice(0, 30).map(renderNotif)}
+                    {autoNotifs.filter(n => n.lue).length > 0 && (
+                      <details style={{ borderBottom: '1px solid var(--border)' }}>
+                        <summary style={{ padding: '6px 16px', fontSize: 10, color: 'var(--muted)', cursor: 'pointer', fontWeight: 600 }}>
+                          {autoNotifs.filter(n => n.lue).length} alerte{autoNotifs.filter(n => n.lue).length > 1 ? 's' : ''} lue{autoNotifs.filter(n => n.lue).length > 1 ? 's' : ''}
+                        </summary>
+                        {autoNotifs.filter(n => n.lue).slice(0, 20).map(renderNotif)}
+                      </details>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Panel historique modifications */}
       {showHistory && (
@@ -2649,6 +3034,17 @@ function SecretariatPage() {
           item={editItem}
           onClose={() => { setShowForm(false); setEditItem(null) }}
           onSaved={handleSaved}
+        />
+      )}
+
+      {/* Modal alerte */}
+      {showAlertModal && (
+        <AlertModal
+          onClose={() => setShowAlertModal(false)}
+          onSaved={() => {
+            refetchNotifs()
+            queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+          }}
         />
       )}
 

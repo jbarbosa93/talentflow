@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       .from('secretariat_notifications')
       .select('*')
       .order('created_at', { ascending: false })
+      .limit(100)
 
     if (!all) {
       query = query.eq('lue', false)
@@ -32,12 +33,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/secretariat/notifications — créer une notification
+// POST /api/secretariat/notifications — créer une notification (avec dédup serveur)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
     const body = await request.json()
+
+    // Déduplication côté serveur : si reference_id + type déjà existant → skip
+    if (body.reference_id && body.type) {
+      const { data: existing } = await (supabase as any)
+        .from('secretariat_notifications')
+        .select('id')
+        .eq('reference_id', String(body.reference_id))
+        .eq('type', body.type)
+        .limit(1)
+
+      if (existing && existing.length > 0) {
+        return NextResponse.json({ notification: existing[0], deduplicated: true })
+      }
+    }
 
     const { data, error } = await (supabase as any)
       .from('secretariat_notifications')

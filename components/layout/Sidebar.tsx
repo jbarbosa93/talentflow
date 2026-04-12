@@ -150,7 +150,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         const res = await fetch('/api/secretariat/notifications')
         if (!res.ok) return 0
         const d = await res.json()
-        return (d as any[])?.filter((n: any) => !n.lue).length || 0
+        return d.notifications?.length || 0
       } catch { return 0 }
     },
     enabled: isSecretaire,
