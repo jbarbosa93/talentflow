@@ -84,7 +84,7 @@ export default function OffresPage() {
         transition={{ duration: 0.25, ease: 'easeOut' }}
       >
         <div>
-          <h1 className="d-page-title">Commandes</h1>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Briefcase size={22} color="var(--primary)" />Commandes</h1>
           <p className="d-page-sub">{offres?.length || 0} commande{(offres?.length || 0) > 1 ? 's' : ''}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

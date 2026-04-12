@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
   Bell, X, Search, FileText, Eye, MapPin, Pencil, Trash2,
-  UserPlus, Check, Settings2,
+  UserPlus, Check, Settings2, GitBranch,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
@@ -721,14 +721,16 @@ export default function PipelinePage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1400, margin: '0 auto' }}>
+    <div className="d-page" style={{ maxWidth: 1400 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="d-page-header" style={{ marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Pipeline</h1>
-          <div style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 2 }}>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <GitBranch size={22} color="var(--primary)" />Pipeline
+          </h1>
+          <p className="d-page-sub">
             {allCandidats.length} candidat{allCandidats.length !== 1 ? 's' : ''} en suivi
-          </div>
+          </p>
         </div>
         <button onClick={() => setShowAdd(true)} className="neo-btn-yellow" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px' }}>
           <UserPlus size={15} /> Ajouter

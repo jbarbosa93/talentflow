@@ -415,17 +415,14 @@ export default function ClientsPage() {
   const totalPages = data?.total_pages || 1
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div className="d-page" style={{ maxWidth: 1400 }}>
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 28, flexWrap: 'wrap', gap: 16,
-      }}>
+      <div className="d-page-header" style={{ marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--foreground)', margin: 0, lineHeight: 1.2 }}>
-            Clients
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Building2 size={22} color="var(--primary)" />Clients
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--muted)', margin: '4px 0 0', fontWeight: 500 }}>
+          <p className="d-page-sub">
             {total.toLocaleString('fr-CH')} entreprise{total !== 1 ? 's' : ''} trouvée{total !== 1 ? 's' : ''}
           </p>
         </div>

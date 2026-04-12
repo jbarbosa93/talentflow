@@ -70,13 +70,13 @@ export default function MatchingPage() {
     <div className="d-page" style={{ maxWidth: 860 }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+      <div className="d-page-header" style={{ marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Sparkles size={22} color="var(--primary)" />
             Matching IA
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
+          <p className="d-page-sub">
             Sélectionnez une commande — l&apos;IA pré-sélectionne et classe vos candidats
           </p>
         </div>

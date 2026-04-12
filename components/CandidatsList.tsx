@@ -9,7 +9,7 @@ import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
-  CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil, LayoutGrid,
+  CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil, LayoutGrid, Users,
 } from 'lucide-react'
 
 import { toast } from 'sonner'
@@ -1510,7 +1510,7 @@ export default function CandidatsList() {
       {/* Header */}
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title">Candidats</h1>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Users size={22} color="var(--primary)" />Candidats</h1>
           <p className="d-page-sub">
             {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''}`}
             {aiResults !== null && (

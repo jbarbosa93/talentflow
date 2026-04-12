@@ -47,9 +47,13 @@ export default function MessagesPage() {
 
   return (
     <div className="d-page" style={{ maxWidth: 800 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Envois</h1>
-        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6 }}>Contactez vos candidats par email, WhatsApp ou SMS</p>
+      <div className="d-page-header" style={{ marginBottom: 24 }}>
+        <div>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Send size={22} color="var(--primary)" />Envois
+          </h1>
+          <p className="d-page-sub">Contactez vos candidats par email, WhatsApp ou SMS</p>
+        </div>
       </div>
 
       {/* Tabs */}

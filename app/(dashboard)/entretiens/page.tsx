@@ -195,10 +195,10 @@ export default function EntretiensPage() {
       {/* Header */}
       <div style={{ padding: '20px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
-            Entretiens / Suivi Candidat
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
+            <UserCheck size={22} color="var(--primary)" />Entretiens / Suivi
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted-foreground)', margin: '2px 0 0' }}>
+          <p className="d-page-sub" style={{ margin: '2px 0 0' }}>
             {rawEntretiens.length} suivi{rawEntretiens.length !== 1 ? 's' : ''}
             {rappelsActifs > 0 && (
               <span style={{ marginLeft: 8, color: '#EF4444', fontWeight: 700 }}>

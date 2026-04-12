@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.6.5'
+export const APP_VERSION = '1.6.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,38 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.6.7',
+    date: '2026-04-12',
+    label: 'UI — cohérence titres & icônes toutes pages',
+    features: [
+      '🎨 Page Missions centrée (d-content → d-page, maxWidth 960)',
+      '🎨 Icônes Lucide sur tous les titres de pages (TrendingUp, Building2, GitBranch, Send, Sparkles, UserCheck, Briefcase, Plug, Users)',
+      '🎨 Harmonisation titres/sous-titres : classes CSS d-page-title + d-page-sub sur toutes les pages',
+      '🔤 Fix typo "Integrations" → "Intégrations"',
+    ],
+  },
+  {
+    version: '1.6.6',
+    date: '2026-04-12',
+    label: 'Suppression sync Quadrigis',
+    features: [
+      '🗑️ Suppression complète sync Quadrigis automatique (5 routes API, PendingPanel, badge sidebar)',
+      '🗑️ DROP TABLE missions_pending + DROP COLUMN numero_quadrigis',
+      '🧹 Page Missions : onglets simplifiés (Missions | Bilan uniquement)',
+    ],
+  },
+  {
+    version: '1.6.5',
+    date: '2026-04-12',
+    label: 'Sentry fix Turbopack + alertes',
+    features: [
+      '🔧 Fix Sentry : instrumentation-client.ts pour compatibilité Turbopack (sentry.client.config.ts ignoré)',
+      '🔧 instrumentation.ts ajouté (server + edge configs)',
+      '🔔 2 alertes Sentry configurées : nouvelle erreur + erreur récurrente (>3x/h)',
+      '🧹 Bouton test Sentry supprimé du dashboard',
+    ],
+  },
   {
     version: '1.6.4',
     date: '2026-04-12',

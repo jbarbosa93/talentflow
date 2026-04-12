@@ -102,21 +102,6 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
-  // Badge missions pending
-  const [pendingMissionsCount, setPendingMissionsCount] = useState(0)
-  useEffect(() => {
-    const fetchPending = async () => {
-      try {
-        const res = await fetch('/api/missions/pending')
-        if (res.ok) { const d = await res.json(); setPendingMissionsCount(d.count ?? 0) }
-      } catch { /* silencieux */ }
-    }
-    fetchPending()
-    window.addEventListener('missions:pending-changed', fetchPending)
-    const iv = setInterval(fetchPending, 60_000)
-    return () => { window.removeEventListener('missions:pending-changed', fetchPending); clearInterval(iv) }
-  }, [])
-
   // Badge sidebar : candidats créés dans les 30 derniers jours et pas encore vus
   const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
 
@@ -486,17 +471,6 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       }} />
                     )
                   })()}
-                  {/* Badge missions pending */}
-                  {item.href === '/missions' && pendingMissionsCount > 0 && (
-                    <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: 'white',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0, lineHeight: 1,
-                    }}>
-                      {pendingMissionsCount > 99 ? '99+' : pendingMissionsCount}
-                    </span>
-                  )}
                   {/* Badge rappels entretiens */}
                   {item.href === '/entretiens' && typeof rappelsCount === 'number' && rappelsCount > 0 && (
                     <span style={{

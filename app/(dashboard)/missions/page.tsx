@@ -8,7 +8,7 @@ import {
   TrendingUp, Plus, Pencil, Trash2, X,
   Loader2, CheckCircle2, Clock, XCircle,
   Building2, User, Calendar, Search, AlertTriangle,
-  ChevronDown, ChevronUp, RotateCcw,
+  ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { getJoursFeries, feriesSet, countFeriesOuvrables, feriesOuvrablesLabels } from '@/lib/jours-feries'
 
@@ -41,24 +41,6 @@ interface Stats {
   total_etp: number
   marge_moyenne: number
   marge_en_cours: number
-}
-
-interface PendingMission {
-  id: string
-  numero_quadrigis: string
-  type: 'create' | 'update'
-  candidat_nom: string | null
-  client_nom: string | null
-  metier: string | null
-  date_debut: string | null
-  date_fin: string | null
-  coefficient: number | null
-  marge_brute: number | null
-  statut: string
-  mission_id: string | null
-  changes: Record<string, { avant: any; apres: any }> | null
-  validation: 'pending' | 'ignored'
-  created_at: string
 }
 
 const EMPTY_FORM = {
@@ -546,173 +528,6 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
   )
 }
 
-// ─── Pending Panel ────────────────────────────────────────────────────────────
-
-const FIELD_LABELS: Record<string, string> = {
-  marge_brute: 'Marge brute',
-  date_debut: 'Début',
-  date_fin: 'Fin',
-  coefficient: 'Coeff.',
-  statut: 'Statut',
-}
-
-function formatChangeValue(field: string, val: any): string {
-  if (val === null || val === undefined) return '—'
-  if (field === 'marge_brute') return formatCHF(Number(val))
-  if (field.startsWith('date')) return formatDate(String(val))
-  if (field === 'coefficient') return `×${Number(val).toFixed(2)}`
-  if (field === 'statut') {
-    const cfg = STATUT_CONFIG[val as keyof typeof STATUT_CONFIG]
-    return cfg ? cfg.label : String(val)
-  }
-  return String(val)
-}
-
-function PendingPanel({
-  pending, ignored, loading,
-  onConfirm, onIgnore, onRestore,
-}: {
-  pending: PendingMission[]
-  ignored: PendingMission[]
-  loading: boolean
-  onConfirm: (id: string) => void
-  onIgnore: (id: string) => void
-  onRestore: (id: string) => void
-}) {
-  const [histOpen, setHistOpen] = useState(false)
-  const [acting, setActing] = useState<string | null>(null)
-
-  const wrap = async (id: string, fn: (id: string) => void) => {
-    setActing(id); await fn(id); setActing(null)
-  }
-
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, gap: 10, color: 'var(--muted)' }}>
-      <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />Chargement…
-    </div>
-  )
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* En attente */}
-      {pending.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
-          <CheckCircle2 size={32} style={{ marginBottom: 10, opacity: 0.2 }} />
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Tout est à jour</div>
-          <div style={{ fontSize: 12, marginTop: 4 }}>Aucune proposition en attente de validation.</div>
-        </div>
-      ) : (
-        pending.map(p => (
-          <div key={p.id} style={{ ...S.card, padding: '12px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-              {/* Icône type */}
-              <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: p.type === 'create' ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
-                border: `1.5px solid ${p.type === 'create' ? 'rgba(34,197,94,0.3)' : 'rgba(99,102,241,0.3)'}`,
-              }}>
-                {p.type === 'create'
-                  ? <span style={{ fontSize: 14 }}>➕</span>
-                  : <Pencil size={13} color="#818CF8" />
-                }
-              </div>
-
-              {/* Contenu */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
-                    color: p.type === 'create' ? '#22C55E' : '#818CF8' }}>
-                    {p.type === 'create' ? 'Nouvelle mission' : 'Mise à jour'}
-                  </span>
-                  <span style={{ fontSize: 10, color: 'var(--muted)' }}>#{p.numero_quadrigis}</span>
-                  <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>
-                    {new Date(p.created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-
-                {p.type === 'create' ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12 }}>
-                    {p.candidat_nom && <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{p.candidat_nom}</span>}
-                    {p.client_nom && <span style={{ color: 'var(--muted)' }}><Building2 size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{p.client_nom}</span>}
-                    {p.metier && <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{p.metier}</span>}
-                    {p.date_debut && <span style={{ color: 'var(--muted)' }}><Calendar size={10} style={{ verticalAlign: 'middle', marginRight: 3 }} />{formatDate(p.date_debut)}{p.date_fin ? ` → ${formatDate(p.date_fin)}` : ' ∞'}</span>}
-                    {p.coefficient != null && <span style={{ background: 'var(--secondary)', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>×{Number(p.coefficient).toFixed(2)}</span>}
-                    {p.marge_brute != null && <span style={{ fontWeight: 800, color: '#22C55E' }}>{formatCHF(Number(p.marge_brute))}/h</span>}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {p.candidat_nom && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>{p.candidat_nom}</div>}
-                    {Object.entries(p.changes || {}).map(([field, { avant, apres }]) => (
-                      <div key={field} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                        <span style={{ fontWeight: 600, color: 'var(--muted)', minWidth: 80 }}>{FIELD_LABELS[field] || field}</span>
-                        <span style={{ color: '#EF4444', textDecoration: 'line-through', fontSize: 11 }}>{formatChangeValue(field, avant)}</span>
-                        <span style={{ color: 'var(--muted)', fontSize: 10 }}>→</span>
-                        <span style={{ color: '#22C55E', fontWeight: 700 }}>{formatChangeValue(field, apres)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
-                <button
-                  onClick={() => wrap(p.id, onConfirm)}
-                  disabled={acting === p.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, background: 'rgba(34,197,94,0.1)', border: '1.5px solid rgba(34,197,94,0.35)', color: '#22C55E', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                >
-                  {acting === p.id ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <CheckCircle2 size={12} />}
-                  Confirmer
-                </button>
-                <button
-                  onClick={() => wrap(p.id, onIgnore)}
-                  disabled={acting === p.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 7, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  <XCircle size={12} />Ignorer
-                </button>
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-
-      {/* Historique ignoré (collapsible) */}
-      {ignored.length > 0 && (
-        <div style={{ marginTop: 8 }}>
-          <button onClick={() => setHistOpen(o => !o)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 12, fontWeight: 700, padding: '4px 0', marginBottom: 6 }}>
-            {histOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            Historique ignoré ({ignored.length})
-          </button>
-          {histOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {ignored.map(p => (
-                <div key={p.id} style={{ ...S.card, padding: '10px 14px', opacity: 0.7, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
-                    <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{p.candidat_nom || '—'}</span>
-                    {p.client_nom && <span style={{ color: 'var(--muted)', marginLeft: 8 }}>{p.client_nom}</span>}
-                    <span style={{ color: 'var(--muted)', marginLeft: 8, fontSize: 10 }}>#{p.numero_quadrigis}</span>
-                    <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--muted)', background: 'var(--secondary)', borderRadius: 4, padding: '1px 5px' }}>
-                      {p.type === 'create' ? 'Nouvelle' : 'Mise à jour'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => wrap(p.id, onRestore)}
-                    disabled={acting === p.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    <RotateCcw size={11} />Restaurer
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function MissionsPage() {
@@ -731,57 +546,9 @@ export default function MissionsPage() {
   const [filtreMetier, setFiltreMetier] = useState('')
   const [filtreStatut, setFiltreStatut] = useState<'tous' | 'en_cours' | 'fin_mission'>('tous')
   const [mounted, setMounted] = useState(false)
-  const [activeMainTab, setActiveMainTab] = useState<'missions' | 'bilan' | 'pending'>('missions')
+  const [activeMainTab, setActiveMainTab] = useState<'missions' | 'bilan'>('missions')
 
   useEffect(() => { setMounted(true) }, [])
-
-  const { data: pendingData, isLoading: pendingLoading, refetch: refetchPending } = useQuery({
-    queryKey: ['missions-pending'],
-    queryFn: async () => {
-      const res = await fetch('/api/missions/pending')
-      if (!res.ok) throw new Error('Erreur chargement pending')
-      return res.json() as Promise<{ pending: PendingMission[]; ignored: PendingMission[]; count: number }>
-    },
-    staleTime: 30_000,
-  })
-
-  const pendingList = pendingData?.pending ?? []
-  const ignoredList = pendingData?.ignored ?? []
-  const pendingCount = pendingData?.count ?? 0
-
-  const handleConfirm = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/missions/pending/${id}/confirm`, { method: 'POST' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Erreur')
-      toast.success('Mission confirmée et ajoutée')
-      queryClient.invalidateQueries({ queryKey: ['missions-pending'] })
-      queryClient.invalidateQueries({ queryKey: ['missions'] })
-      window.dispatchEvent(new CustomEvent('missions:pending-changed'))
-    } catch (e: any) { toast.error(e.message) }
-  }, [queryClient])
-
-  const handleIgnore = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/missions/pending/${id}/ignore`, { method: 'POST' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Erreur')
-      toast.success('Proposition ignorée')
-      queryClient.invalidateQueries({ queryKey: ['missions-pending'] })
-      window.dispatchEvent(new CustomEvent('missions:pending-changed'))
-    } catch (e: any) { toast.error(e.message) }
-  }, [queryClient])
-
-  const handleRestore = useCallback(async (id: string) => {
-    try {
-      const res = await fetch(`/api/missions/pending/${id}/restore`, { method: 'POST' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Erreur')
-      toast.success('Proposition restaurée')
-      queryClient.invalidateQueries({ queryKey: ['missions-pending'] })
-      window.dispatchEvent(new CustomEvent('missions:pending-changed'))
-    } catch (e: any) { toast.error(e.message) }
-  }, [queryClient])
 
   const { data, isLoading } = useQuery({
     queryKey: ['missions'],
@@ -985,17 +752,14 @@ export default function MissionsPage() {
   if (!mounted) return null
 
   return (
-    <div className="d-content" style={{ padding: '24px 24px', maxWidth: 960 }}>
+    <div className="d-page" style={{ maxWidth: 960 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <TrendingUp size={18} color="var(--primary)" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'var(--foreground)' }}>Missions</h1>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Suivi des placements</p>
-          </div>
+      <div className="d-page-header" style={{ marginBottom: 20 }}>
+        <div>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <TrendingUp size={22} color="var(--primary)" />Missions
+          </h1>
+          <p className="d-page-sub">Suivi des placements</p>
         </div>
         <button onClick={() => setEditMission(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
           <Plus size={14} />Nouvelle mission
@@ -1035,7 +799,6 @@ export default function MissionsPage() {
         {([
           { key: 'missions', label: 'Missions' },
           { key: 'bilan',    label: 'Bilan' },
-          { key: 'pending',  label: 'Mises à jour', count: pendingCount },
         ] as { key: typeof activeMainTab; label: string; count?: number }[]).map(tab => (
           <button key={tab.key} onClick={() => setActiveMainTab(tab.key)}
             style={{
@@ -1288,17 +1051,6 @@ export default function MissionsPage() {
       </> )} {/* fin activeMainTab === 'missions' */}
 
       {/* ─── TAB : Mises à jour ──────────────────────────────────────────────── */}
-      {activeMainTab === 'pending' && (
-        <PendingPanel
-          pending={pendingList}
-          ignored={ignoredList}
-          loading={pendingLoading}
-          onConfirm={handleConfirm}
-          onIgnore={handleIgnore}
-          onRestore={handleRestore}
-        />
-      )}
-
       {/* Modals */}
       {editMission !== undefined && <MissionModal mission={editMission} onClose={() => setEditMission(undefined)} onSaved={invalidate} />}
       {deleteMission && <DeleteModal mission={deleteMission} onConfirm={handleDelete} onClose={() => setDeleteMission(null)} />}

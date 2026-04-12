@@ -1,5 +1,15 @@
 # Changelog TalentFlow
 
+## [1.6.7] — 12 avril 2026
+
+### UI — cohérence titres & icônes toutes pages
+- Page Missions centrée (`d-content` → `d-page`, maxWidth 960)
+- Icônes Lucide ajoutées sur tous les titres de pages (TrendingUp, Building2, GitBranch, Send, Sparkles, UserCheck, Briefcase, Plug, Users)
+- Harmonisation titres/sous-titres : classes CSS `d-page-title` + `d-page-sub` sur toutes les pages
+- Fix typo "Integrations" → "Intégrations"
+
+---
+
 ## [1.5.18] — 9 avril 2026
 
 ### Fix dark mode par défaut + flash non-vus

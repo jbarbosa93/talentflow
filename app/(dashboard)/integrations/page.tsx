@@ -276,7 +276,7 @@ function IntegrationsContent() {
       {/* Header */}
       <div className="d-page-header" style={{ marginBottom: 28 }}>
         <div>
-          <h1 className="d-page-title">Integrations</h1>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Plug size={22} color="var(--primary)" />Intégrations</h1>
           <p className="d-page-sub">Connectez vos outils pour automatiser le recrutement</p>
         </div>
       </div>
