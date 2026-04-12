@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.7.0'
+export const APP_VERSION = '1.7.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.7.1',
+    date: '2026-04-12',
+    label: 'Module ALFA Secrétariat',
+    features: [
+      'Import données ALFA 2025/2026 (180 entrées) et ALFA à payer (76 entrées) depuis Excel',
+      'Onglet ALFA dans le module Secrétariat avec sous-vues Suivi / À Payer',
+      'Tables secretariat_alfa et secretariat_alfa_paiements avec RLS',
+      'API routes GET/POST/PATCH/DELETE pour alfa et alfa-paiements',
+      'AlfaTable et AlfaPaiementsTable avec données complètes',
+      'Restructuration onglets : Suivi Candidats, ALFA, Accidents & Maladies, Loyer',
+      'CSS kpi-red et kpi-orange ajoutés dans dashboard.css',
+      'Colonnes loyer (mode_paiement, hotel_auberge, mois, date_deduction) mises à jour',
+    ],
+  },
   {
     version: '1.7.0',
     date: '2026-04-12',

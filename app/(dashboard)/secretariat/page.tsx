@@ -81,6 +81,51 @@ interface SecretariatLoyer {
   email?: string | null
 }
 
+interface SecretariatAlfa {
+  id: string
+  candidat_id: string | null
+  nom: string
+  prenom: string | null
+  numero_avs: string | null
+  nbr_enfants: number | null
+  montant_chf: number | null
+  bareme_is: string | null
+  date_debut_alfa: string | null
+  date_fin_alfa: string | null
+  date_radiation_caf: string | null
+  radiation_recue: string | null
+  mere_touche: string | null
+  remarques: string | null
+  demande_envoyee: string | null
+  reactivation_envoyee: string | null
+  lieu_enfants: string | null
+  consimo: string | null
+  termine: boolean
+  annee: number
+  photo_url?: string | null
+}
+
+interface SecretariatAlfaPaiement {
+  id: string
+  candidat_id: string | null
+  nom: string
+  prenom: string | null
+  numero_avs: string | null
+  nbr_enfants: number | null
+  date_validite_decision: string | null
+  droit_chf_mois: number | null
+  montant_alfa_paye: number | null
+  annee_periode: string | null
+  alfa_dernier_mois: string | null
+  date_fin_mission: string | null
+  statut_termine: boolean
+  dernier_mois_paye: string | null
+  prochain_mois_paye: string | null
+  remarques: string | null
+  annee: number
+  photo_url?: string | null
+}
+
 interface Notification {
   id: string
   type: string
@@ -1289,6 +1334,138 @@ function LoyersTable({ loyers, onEdit, onDelete }: { loyers: SecretariatLoyer[];
   )
 }
 
+// ─── AlfaTable ────────────────────────────────────────────────────────────────
+
+function AlfaTable({ rows, onDelete }: { rows: SecretariatAlfa[]; onDelete: (a: SecretariatAlfa) => void }) {
+  if (rows.length === 0) {
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune entrée ALFA pour cette année.</div>
+  }
+  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+  const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Nom / Prénom</th>
+            <th style={thStyle}>Enfants</th>
+            <th style={thStyle}>Montant CHF</th>
+            <th style={thStyle}>Début</th>
+            <th style={thStyle}>Fin</th>
+            <th style={thStyle}>Mère touche</th>
+            <th style={thStyle}>Lieu</th>
+            <th style={thStyle}>Remarques</th>
+            <th style={thStyle}>Terminé</th>
+            <th style={thStyle}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(a => (
+            <tr key={a.id} style={{ background: a.termine ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+              <td style={tdStyle}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</div>
+                {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>
+                <span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span>
+              </td>
+              <td style={tdStyle}>
+                {a.montant_chf != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_chf)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+              </td>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_debut_alfa)}</td>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_alfa)}</td>
+              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.mere_touche || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.lieu_enfants || '—'}</span></td>
+              <td style={{ ...tdStyle, maxWidth: 180 }}>
+                <span title={a.remarques || ''} style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                  {a.remarques ? (a.remarques.length > 35 ? a.remarques.substring(0, 35) + '…' : a.remarques) : '—'}
+                </span>
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>
+                {a.termine ? <CheckCircle2 size={14} color="#10B981" /> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+              </td>
+              <td style={tdStyle}>
+                <button onClick={() => onDelete(a)} title="Supprimer"
+                  style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <Trash2 size={13} />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ─── AlfaPaiementsTable ────────────────────────────────────────────────────────
+
+function AlfaPaiementsTable({ rows, onDelete }: { rows: SecretariatAlfaPaiement[]; onDelete: (a: SecretariatAlfaPaiement) => void }) {
+  if (rows.length === 0) {
+    return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement ALFA pour cette année.</div>
+  }
+  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+  const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Nom / Prénom</th>
+            <th style={thStyle}>Enfants</th>
+            <th style={thStyle}>Droit / mois</th>
+            <th style={thStyle}>Montant payé</th>
+            <th style={thStyle}>Période</th>
+            <th style={thStyle}>Dernier mois</th>
+            <th style={thStyle}>Prochain mois</th>
+            <th style={thStyle}>Fin mission</th>
+            <th style={thStyle}>Remarques</th>
+            <th style={thStyle}>Terminé</th>
+            <th style={thStyle}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(a => (
+            <tr key={a.id} style={{ background: a.statut_termine ? 'rgba(16,185,129,0.04)' : 'transparent' }}>
+              <td style={tdStyle}>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</div>
+                {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>
+                <span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span>
+              </td>
+              <td style={tdStyle}>
+                {a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: '#3B82F6' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+              </td>
+              <td style={tdStyle}>
+                {a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}
+              </td>
+              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.annee_periode || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
+              <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
+              <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_mission)}</td>
+              <td style={{ ...tdStyle, maxWidth: 160 }}>
+                <span title={a.remarques || ''} style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                  {a.remarques ? (a.remarques.length > 30 ? a.remarques.substring(0, 30) + '…' : a.remarques) : '—'}
+                </span>
+              </td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>
+                {a.statut_termine ? <CheckCircle2 size={14} color="#10B981" /> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
+              </td>
+              <td style={tdStyle}>
+                <button onClick={() => onDelete(a)} title="Supprimer"
+                  style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                  <Trash2 size={13} />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
 function TabBtn({ active, onClick, children, count }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number }) {
@@ -1335,7 +1512,8 @@ export default function SecretariatPage() {
   }, [])
 
   // State principaux
-  const [activeTab, setActiveTab] = useState<'candidats' | 'accidents' | 'loyers'>('candidats')
+  const [activeTab, setActiveTab] = useState<'candidats' | 'alfa' | 'accidents' | 'loyers'>('candidats')
+  const [alfaView, setAlfaView] = useState<'suivi' | 'apayer'>('suivi')
   const [annee, setAnnee] = useState(new Date().getFullYear())
   const [showNotifs, setShowNotifs] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1381,6 +1559,28 @@ export default function SecretariatPage() {
       if (!res.ok) throw new Error('Erreur chargement loyers')
       const d = await res.json()
       return d.loyers || []
+    },
+    enabled: roleChecked,
+  })
+
+  const { data: alfa = [], isLoading: loadingAlfa } = useQuery<SecretariatAlfa[]>({
+    queryKey: ['secretariat-alfa', annee],
+    queryFn: async () => {
+      const res = await fetch(`/api/secretariat/alfa?annee=${annee}`)
+      if (!res.ok) throw new Error('Erreur chargement ALFA')
+      const d = await res.json()
+      return d.alfa || []
+    },
+    enabled: roleChecked,
+  })
+
+  const { data: alfaPaiements = [], isLoading: loadingAlfaPaiements } = useQuery<SecretariatAlfaPaiement[]>({
+    queryKey: ['secretariat-alfa-paiements', annee],
+    queryFn: async () => {
+      const res = await fetch(`/api/secretariat/alfa-paiements?annee=${annee}`)
+      if (!res.ok) throw new Error('Erreur chargement ALFA paiements')
+      const d = await res.json()
+      return d.paiements || []
     },
     enabled: roleChecked,
   })
@@ -1468,6 +1668,14 @@ export default function SecretariatPage() {
     !q || (l.nom_prenom || '').toLowerCase().includes(q) || (l.adresse || '').toLowerCase().includes(q)
   )
 
+  const filteredAlfa = alfa.filter(a =>
+    !q || `${a.nom} ${a.prenom}`.toLowerCase().includes(q) || (a.remarques || '').toLowerCase().includes(q)
+  )
+
+  const filteredAlfaPaiements = alfaPaiements.filter(a =>
+    !q || `${a.nom} ${a.prenom}`.toLowerCase().includes(q) || (a.remarques || '').toLowerCase().includes(q)
+  )
+
   // ─── Handlers CRUD ────────────────────────────────────────────────────────
 
   const handleDeleteConfirm = async () => {
@@ -1476,6 +1684,8 @@ export default function SecretariatPage() {
       let url = ''
       if (activeTab === 'candidats') url = `/api/secretariat/candidats/${deleteItem.id}`
       else if (activeTab === 'accidents') url = `/api/secretariat/accidents/${deleteItem.id}`
+      else if (activeTab === 'alfa' && alfaView === 'suivi') url = `/api/secretariat/alfa/${deleteItem.id}`
+      else if (activeTab === 'alfa' && alfaView === 'apayer') url = `/api/secretariat/alfa-paiements/${deleteItem.id}`
       else url = `/api/secretariat/loyers/${deleteItem.id}`
 
       const res = await fetch(url, { method: 'DELETE' })
@@ -1484,13 +1694,15 @@ export default function SecretariatPage() {
         throw new Error(d.error || 'Erreur suppression')
       }
       toast.success('Supprimé')
-      queryClient.invalidateQueries({ queryKey: [`secretariat-${activeTab}`, annee] })
+      const qKey = activeTab === 'alfa' ? (alfaView === 'apayer' ? 'secretariat-alfa-paiements' : 'secretariat-alfa') : `secretariat-${activeTab}`
+      queryClient.invalidateQueries({ queryKey: [qKey, annee] })
       setDeleteItem(null)
     } catch (e: any) { toast.error(e.message) }
   }
 
   const handleSaved = () => {
-    queryClient.invalidateQueries({ queryKey: [`secretariat-${activeTab}`, annee] })
+    const qKey = activeTab === 'alfa' ? (alfaView === 'apayer' ? 'secretariat-alfa-paiements' : 'secretariat-alfa') : `secretariat-${activeTab}`
+    queryClient.invalidateQueries({ queryKey: [qKey, annee] })
   }
 
   const handleMarkNotifLue = async (notif: Notification) => {
@@ -1517,7 +1729,10 @@ export default function SecretariatPage() {
     )
   }
 
-  const isLoading = activeTab === 'candidats' ? loadingCandidats : activeTab === 'accidents' ? loadingAccidents : loadingLoyers
+  const isLoading = activeTab === 'candidats' ? loadingCandidats
+    : activeTab === 'accidents' ? loadingAccidents
+    : activeTab === 'alfa' ? (alfaView === 'apayer' ? loadingAlfaPaiements : loadingAlfa)
+    : loadingLoyers
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -1603,30 +1818,49 @@ export default function SecretariatPage() {
 
       {/* Tabs principaux */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-        <TabBtn active={activeTab === 'candidats'} onClick={() => setActiveTab('candidats')} count={filteredCandidats.length}>
-          <User size={14} /> Candidats
+        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery('') }} count={filteredCandidats.length}>
+          <User size={14} /> Suivi Candidats
         </TabBtn>
-        <TabBtn active={activeTab === 'accidents'} onClick={() => setActiveTab('accidents')} count={filteredAccidents.length}>
+        <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery('') }} count={activeTab === 'alfa' && alfaView === 'apayer' ? filteredAlfaPaiements.length : filteredAlfa.length}>
+          <FileText size={14} /> ALFA
+        </TabBtn>
+        <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery('') }} count={filteredAccidents.length}>
           <AlertCircle size={14} /> Accidents &amp; Maladies
         </TabBtn>
-        <TabBtn active={activeTab === 'loyers'} onClick={() => setActiveTab('loyers')} count={filteredLoyers.length}>
-          <Home size={14} /> Loyers
+        <TabBtn active={activeTab === 'loyers'} onClick={() => { setActiveTab('loyers'); setSearchQuery('') }} count={filteredLoyers.length}>
+          <Home size={14} /> Loyer
         </TabBtn>
       </div>
 
-      {/* Sous-tabs année */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-        {[2026, 2025, 2024].map(y => (
-          <button key={y} onClick={() => setAnnee(y)} style={{
-            padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            background: annee === y ? 'var(--foreground)' : 'var(--secondary)',
-            color: annee === y ? 'var(--background)' : 'var(--muted)',
-            border: annee === y ? '1.5px solid var(--foreground)' : '1.5px solid var(--border)',
-          }}>
-            {y}
-          </button>
-        ))}
-      </div>
+      {/* Sous-tabs ALFA : Suivi / À Payer */}
+      {activeTab === 'alfa' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+          {([['suivi', 'Suivi ALFA'], ['apayer', 'À Payer']] as const).map(([v, label]) => (
+            <button key={v} onClick={() => { setAlfaView(v); setSearchQuery('') }} style={{
+              padding: '5px 16px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: alfaView === v ? 'var(--primary)' : 'var(--secondary)',
+              color: alfaView === v ? '#fff' : 'var(--muted)',
+              border: `1.5px solid ${alfaView === v ? 'var(--primary)' : 'var(--border)'}`,
+            }}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Sous-tabs année (pas sur Loyer) */}
+      {activeTab !== 'loyers' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+          {[2026, 2025, 2024].map(y => (
+            <button key={y} onClick={() => setAnnee(y)} style={{
+              padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: annee === y ? 'var(--foreground)' : 'var(--secondary)',
+              color: annee === y ? 'var(--background)' : 'var(--muted)',
+              border: annee === y ? '1.5px solid var(--foreground)' : '1.5px solid var(--border)',
+            }}>
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Barre de recherche */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -1635,7 +1869,12 @@ export default function SecretariatPage() {
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder={`Rechercher${activeTab === 'candidats' ? ' nom, prénom, N° quad…' : activeTab === 'accidents' ? ' nom, raison, sinistre…' : ' nom, adresse…'}`}
+            placeholder={
+              activeTab === 'candidats' ? 'Rechercher nom, prénom, N° quad…'
+              : activeTab === 'alfa' ? 'Rechercher nom, prénom…'
+              : activeTab === 'accidents' ? 'Rechercher nom, raison, sinistre…'
+              : 'Rechercher nom, adresse…'
+            }
             style={{ ...S.input, paddingLeft: 34 }}
           />
           {searchQuery && (
@@ -1647,6 +1886,8 @@ export default function SecretariatPage() {
         {/* Compteur résultats */}
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--muted)', padding: '0 8px' }}>
           {activeTab === 'candidats' && `${filteredCandidats.length} candidat${filteredCandidats.length !== 1 ? 's' : ''}`}
+          {activeTab === 'alfa' && alfaView === 'suivi' && `${filteredAlfa.length} entrée${filteredAlfa.length !== 1 ? 's' : ''}`}
+          {activeTab === 'alfa' && alfaView === 'apayer' && `${filteredAlfaPaiements.length} entrée${filteredAlfaPaiements.length !== 1 ? 's' : ''}`}
           {activeTab === 'accidents' && `${filteredAccidents.length} cas`}
           {activeTab === 'loyers' && `${filteredLoyers.length} loyer${filteredLoyers.length !== 1 ? 's' : ''}`}
         </div>
@@ -1670,6 +1911,18 @@ export default function SecretariatPage() {
                 revealedIban={revealedIban}
                 toggleAvs={toggleAvs}
                 toggleIban={toggleIban}
+              />
+            )}
+            {activeTab === 'alfa' && alfaView === 'suivi' && (
+              <AlfaTable
+                rows={filteredAlfa}
+                onDelete={a => setDeleteItem(a)}
+              />
+            )}
+            {activeTab === 'alfa' && alfaView === 'apayer' && (
+              <AlfaPaiementsTable
+                rows={filteredAlfaPaiements}
+                onDelete={a => setDeleteItem(a)}
               />
             )}
             {activeTab === 'accidents' && (
@@ -1719,6 +1972,8 @@ export default function SecretariatPage() {
           label={
             activeTab === 'candidats'
               ? `${(deleteItem as SecretariatCandidat).prenom} ${(deleteItem as SecretariatCandidat).nom}`
+              : activeTab === 'alfa'
+              ? `${(deleteItem as SecretariatAlfa).prenom || ''} ${(deleteItem as SecretariatAlfa).nom}`
               : activeTab === 'accidents'
               ? (deleteItem as SecretariatAccident).nom_prenom
               : (deleteItem as SecretariatLoyer).nom_prenom
