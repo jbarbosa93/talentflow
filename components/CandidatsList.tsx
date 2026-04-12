@@ -1,6 +1,6 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
-import { formatFullName, formatInitials, formatEmail } from '@/lib/format-candidat'
+import { formatFullName, formatInitials, formatEmail, formatCity } from '@/lib/format-candidat'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
@@ -993,7 +993,7 @@ export default function CandidatsList() {
               <>
                 {c.localisation && (
                   <span style={{ fontSize: 13, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    {'\uD83D\uDCCD'} {c.localisation}
+                    {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
                 {age !== null && (
@@ -1006,7 +1006,7 @@ export default function CandidatsList() {
               <>
                 {c.localisation && (
                   <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    {'\uD83D\uDCCD'} {c.localisation}
+                    {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
                 {/* Badges CFC + Engagée (hors à-traiter) — uniquement basé sur le champ DB */}
