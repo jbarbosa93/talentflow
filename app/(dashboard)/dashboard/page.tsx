@@ -157,7 +157,7 @@ export default function DashboardPage() {
       >
         <div>
           <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
-          <p className="d-page-sub">Voici un aperçu de votre activité de recrutement</p>
+          <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateDuJour()}</p>
         </div>
       </motion.div>
 
