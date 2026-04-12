@@ -1,5 +1,19 @@
 # Changelog TalentFlow
 
+## [1.8.4] — 12 avril 2026
+
+### Fix notifications 822 → 42 + ALFA onglets séparés
+- Fix : 780 notifications obsolètes type `permis_expiration` purgées de la DB
+- Nettoyage code : suppression de toutes les références à `permis_expiration` (AUTO_TYPES, icônes, click handler)
+- ALFA : remise des sous-onglets séparés (📋 Suivi ALFA / 💰 À Payer) avec compteurs
+- ALFA Suivi : suppression colonne "Montant" inutile
+- ALFA : suppression scroll horizontal (`overflowX: 'auto'` → div simple)
+- ALFA : fix badges statut cassés (ajout `whiteSpace: 'nowrap'` sur "● En cours" / "✓ Terminé")
+- ALFA : headers alignés sur le style CandidatsTable (suppression `background: var(--secondary)`)
+- Sidebar badge : affiche maintenant 42 au lieu de 822
+
+---
+
 ## [1.6.7] — 12 avril 2026
 
 ### UI — cohérence titres & icônes toutes pages

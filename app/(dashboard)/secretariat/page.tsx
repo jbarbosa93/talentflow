@@ -1753,17 +1753,16 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
     })
   }
 
-  const thStyle: React.CSSProperties = { padding: '10px 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border)' }
   const tdStyle: React.CSSProperties = { padding: '7px 8px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>Enf.</th>
-            <th style={thStyle}>Montant</th>
             <th style={thStyle}>Barème IS</th>
             <th style={thStyle}>Début</th>
             <th style={thStyle}>Fin</th>
@@ -1798,7 +1797,6 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
                 </div>
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
-              <td style={tdStyle}>{a.montant_chf != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_chf)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.bareme_is || '—'}</span></td>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_debut_alfa)}</td>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_alfa)}</td>
@@ -1811,8 +1809,8 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.consimo || '—'}</span></td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
                 {a.termine
-                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
-                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
+                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
+                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
                 }
               </td>
               <td style={{ ...tdStyle, maxWidth: 180 }}>
@@ -1866,11 +1864,11 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
     })
   }
 
-  const thStyle: React.CSSProperties = { padding: '10px 10px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
+  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border)' }
   const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
@@ -1919,8 +1917,8 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}>
                   {a.statut_termine
-                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)' }}>✓ Terminé</span>
-                    : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8' }}>● En cours</span>
+                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
+                    : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
                   }
                 </td>
                 <td style={tdStyle}>
@@ -2570,7 +2568,7 @@ function SecretariatPage() {
 
       {/* Panel notifications */}
       {showNotifs && (() => {
-        const AUTO_TYPES = ['permis_urgent', 'permis_surveillance', 'permis_expiration', 'doc_manquant', 'sinistre_suivi']
+        const AUTO_TYPES = ['permis_urgent', 'permis_surveillance', 'doc_manquant', 'sinistre_suivi']
         const autoNotifs = notifications.filter(n => AUTO_TYPES.includes(n.type))
         const messageNotifs = notifications.filter(n => !AUTO_TYPES.includes(n.type))
         const autoNonLues = autoNotifs.filter(n => !n.lue).length
@@ -2579,7 +2577,6 @@ function SecretariatPage() {
         const ICON_MAP: Record<string, React.ReactNode> = {
           permis_urgent: <AlertTriangle size={13} color="#EF4444" />,
           permis_surveillance: <AlertTriangle size={13} color="#CA8A04" />,
-          permis_expiration: <AlertTriangle size={13} color="#CA8A04" />,
           doc_manquant: <FileText size={13} color="#3B82F6" />,
           sinistre_suivi: <AlertCircle size={13} color="#8B5CF6" />,
           message: <Mail size={13} color="var(--primary)" />,
@@ -2595,7 +2592,7 @@ function SecretariatPage() {
             setActiveTab('candidats')
             setCandidatFiltre('permis_urgent')
             setShowNotifs(false)
-          } else if (notif.type === 'permis_surveillance' || notif.type === 'permis_expiration') {
+          } else if (notif.type === 'permis_surveillance') {
             setActiveTab('candidats')
             setCandidatFiltre('permis_surveillance')
             setShowNotifs(false)
@@ -2780,7 +2777,31 @@ function SecretariatPage() {
         </TabBtn>
       </div>
 
-      {/* Sous-tabs ALFA supprimées — les deux tables s'affichent sur la même page */}
+      {/* Sous-tabs ALFA (suivi / à payer) */}
+      {activeTab === 'alfa' && (
+        <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+          <button onClick={() => setAlfaView('suivi')} style={{
+            padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            background: alfaView === 'suivi' ? 'var(--primary)' : 'var(--secondary)',
+            color: alfaView === 'suivi' ? '#fff' : 'var(--muted)',
+            border: `1.5px solid ${alfaView === 'suivi' ? 'var(--primary)' : 'var(--border)'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            📋 Suivi ALFA
+            <span style={{ padding: '1px 7px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: alfaView === 'suivi' ? 'rgba(255,255,255,0.2)' : 'var(--primary-soft)', color: alfaView === 'suivi' ? '#fff' : 'var(--primary)' }}>{filteredAlfa.length}</span>
+          </button>
+          <button onClick={() => setAlfaView('apayer')} style={{
+            padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            background: alfaView === 'apayer' ? 'var(--primary)' : 'var(--secondary)',
+            color: alfaView === 'apayer' ? '#fff' : 'var(--muted)',
+            border: `1.5px solid ${alfaView === 'apayer' ? 'var(--primary)' : 'var(--border)'}`,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            💰 À Payer
+            <span style={{ padding: '1px 7px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: alfaView === 'apayer' ? 'rgba(255,255,255,0.2)' : 'rgba(16,185,129,0.12)', color: alfaView === 'apayer' ? '#fff' : '#10B981' }}>{filteredAlfaPaiements.length}</span>
+          </button>
+        </div>
+      )}
 
       {/* Sous-tabs année (pas sur Loyer) */}
       {activeTab !== 'loyers' && (
@@ -2883,7 +2904,8 @@ function SecretariatPage() {
         {/* Compteur résultats */}
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 12, color: 'var(--muted)', padding: '0 8px' }}>
           {activeTab === 'candidats' && `${filteredCandidats.length} candidat${filteredCandidats.length !== 1 ? 's' : ''}`}
-          {activeTab === 'alfa' && `${filteredAlfa.length + filteredAlfaPaiements.length} entrée${(filteredAlfa.length + filteredAlfaPaiements.length) !== 1 ? 's' : ''}`}
+          {activeTab === 'alfa' && alfaView === 'suivi' && `${filteredAlfa.length} entrée${filteredAlfa.length !== 1 ? 's' : ''}`}
+          {activeTab === 'alfa' && alfaView === 'apayer' && `${filteredAlfaPaiements.length} paiement${filteredAlfaPaiements.length !== 1 ? 's' : ''}`}
           {activeTab === 'accidents' && `${filteredAccidents.length} cas`}
           {activeTab === 'loyers' && `${filteredLoyers.length} loyer${filteredLoyers.length !== 1 ? 's' : ''}`}
         </div>
@@ -2909,29 +2931,21 @@ function SecretariatPage() {
                 onColorChange={handleColorChange}
               />
             )}
-            {activeTab === 'alfa' && (
-              <>
-                <div style={{ padding: '10px 16px', background: 'var(--secondary)', borderBottom: '1.5px solid var(--border)', fontSize: 12, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  📋 Suivi ALFA
-                  <span style={{ padding: '1px 8px', borderRadius: 99, background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: 11, fontWeight: 700 }}>{filteredAlfa.length}</span>
-                </div>
-                <AlfaTable
-                  rows={filteredAlfa}
-                  onEdit={a => { setEditItem(a); setShowForm(true); setAlfaView('suivi') }}
-                  onDelete={a => { setDeleteItem(a); setAlfaView('suivi') }}
-                  onColorChange={handleColorChange}
-                />
-                <div style={{ padding: '10px 16px', background: 'var(--secondary)', borderBottom: '1.5px solid var(--border)', borderTop: '2px solid var(--border)', fontSize: 12, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                  💰 À Payer
-                  <span style={{ padding: '1px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.12)', color: '#10B981', fontSize: 11, fontWeight: 700 }}>{filteredAlfaPaiements.length}</span>
-                </div>
-                <AlfaPaiementsTable
-                  rows={filteredAlfaPaiements}
-                  onEdit={a => { setEditItem(a); setShowForm(true); setAlfaView('apayer') }}
-                  onDelete={a => { setDeleteItem(a); setAlfaView('apayer') }}
-                  onColorChange={handleColorChange}
-                />
-              </>
+            {activeTab === 'alfa' && alfaView === 'suivi' && (
+              <AlfaTable
+                rows={filteredAlfa}
+                onEdit={a => { setEditItem(a); setShowForm(true) }}
+                onDelete={a => { setDeleteItem(a) }}
+                onColorChange={handleColorChange}
+              />
+            )}
+            {activeTab === 'alfa' && alfaView === 'apayer' && (
+              <AlfaPaiementsTable
+                rows={filteredAlfaPaiements}
+                onEdit={a => { setEditItem(a); setShowForm(true) }}
+                onDelete={a => { setDeleteItem(a) }}
+                onColorChange={handleColorChange}
+              />
             )}
             {activeTab === 'accidents' && (
               <AccidentsTable
