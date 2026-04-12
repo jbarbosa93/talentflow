@@ -1392,7 +1392,6 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
   onColorChange: (id: string, color: string) => void
 }) {
   const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
-  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
 
   if (candidats.length === 0) {
     return (
@@ -1404,7 +1403,6 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
   }
 
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
-  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
 
   const getVal = (c: SecretariatCandidat, col: string): string => {
     if (col === 'nom') return `${c.prenom} ${c.nom}`.trim()
@@ -1415,13 +1413,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
     return ''
   }
 
-  let displayed = candidats.filter(c => {
-    for (const [col, sel] of Object.entries(filters)) {
-      if (sel === null) continue
-      if (!sel.has(getVal(c, col))) return false
-    }
-    return true
-  })
+  let displayed = [...candidats]
 
   if (sort.dir && sort.col) {
     displayed = [...displayed].sort((a, b) => {
@@ -1443,17 +1435,13 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
             </th>
             <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>N° Quad</th>
-            <SortableHeader label="Permis" sortDir={sort.col === 'permis' ? sort.dir : null} onSort={() => toggleSort('permis')} style={thStyle}
-              filterValues={candidats.map(c => getVal(c, 'permis'))} filterSelected={filters.permis ?? null} onFilter={s => setFilter('permis', s)} />
-            <SortableHeader label="Enfants" sortDir={sort.col === 'enfants' ? sort.dir : null} onSort={() => toggleSort('enfants')} style={thStyle}
-              filterValues={candidats.map(c => getVal(c, 'enfants'))} filterSelected={filters.enfants ?? null} onFilter={s => setFilter('enfants', s)} />
+            <SortableHeader label="Permis" sortDir={sort.col === 'permis' ? sort.dir : null} onSort={() => toggleSort('permis')} style={thStyle} />
+            <SortableHeader label="Enfants" sortDir={sort.col === 'enfants' ? sort.dir : null} onSort={() => toggleSort('enfants')} style={thStyle} />
             <th style={thStyle}>Documents</th>
             <th style={thStyle}>Remarques</th>
             <th style={thStyle}>Fin mission</th>
-            <SortableHeader label="Docs manq." sortDir={sort.col === 'docs' ? sort.dir : null} onSort={() => toggleSort('docs')} style={thStyle}
-              filterValues={candidats.map(c => getVal(c, 'docs'))} filterSelected={filters.docs ?? null} onFilter={s => setFilter('docs', s)} />
-            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle}
-              filterValues={candidats.map(c => getVal(c, 'statut'))} filterSelected={filters.statut ?? null} onFilter={s => setFilter('statut', s)} />
+            <SortableHeader label="Docs manq." sortDir={sort.col === 'docs' ? sort.dir : null} onSort={() => toggleSort('docs')} style={thStyle} />
+            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle} />
             <th style={thStyle}></th>
           </tr>
         </thead>
@@ -1473,8 +1461,8 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {c.photo_url && c.photo_url !== 'checked'
-                      ? <img src={c.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
+                      ? <img src={c.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{getInitiales(c.nom, c.prenom)}</div>
                     }
                     <div>
                       {c.candidat_id
@@ -1538,8 +1526,8 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: 
     <div style={{ ...S.card, padding: 16, background: rowBg !== 'transparent' ? rowBg : undefined, opacity: accident.archive ? 0.55 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         {accident.photo_url && accident.photo_url !== 'checked'
-          ? <img src={accident.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-          : <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
+          ? <img src={accident.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+          : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>
               {(accident.nom_prenom || '?').split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase()}
             </div>
         }
@@ -1610,8 +1598,6 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: 
 
 function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive }: { accidents: SecretariatAccident[]; onEdit: (a: SecretariatAccident) => void; onDelete: (a: SecretariatAccident) => void; onColorChange: (id: string, color: string) => void; onArchive: (a: SecretariatAccident) => void }) {
   const [sortDir, setSortDir] = useState<SortDir>(null)
-  const [filterType, setFilterType] = useState<Set<string> | null>(null)
-  const [filterStatut, setFilterStatut] = useState<Set<string> | null>(null)
 
   if (accidents.length === 0) {
     return (
@@ -1622,12 +1608,7 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
     )
   }
 
-  let displayed = accidents.filter(a => {
-    if (filterType !== null && !filterType.has(a.type_cas)) return false
-    const statut = a.termine ? 'Terminé' : 'En cours'
-    if (filterStatut !== null && !filterStatut.has(statut)) return false
-    return true
-  })
+  let displayed = [...accidents]
 
   if (sortDir) {
     displayed = [...displayed].sort((a, b) => {
@@ -1639,19 +1620,11 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? '#fff' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
-            {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={10} />} Nom
-          </button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-          Type <ColumnFilter values={accidents.map(a => a.type_cas)} selected={filterType} onChange={setFilterType} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-          Statut <ColumnFilter values={accidents.map(a => a.termine ? 'Terminé' : 'En cours')} selected={filterStatut} onChange={setFilterStatut} />
-        </div>
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{displayed.length} / {accidents.length}</span>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+        <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? '#fff' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+          {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={10} />} Nom
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{displayed.length} cas</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {displayed.map(a => (
@@ -1716,8 +1689,8 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {l.photo_url && l.photo_url !== 'checked'
-                      ? <img src={l.photo_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}</div>
+                      ? <img src={l.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}</div>
                     }
                     <div>
                       {l.candidat_id
@@ -1758,14 +1731,12 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
 
 function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfa[]; onEdit: (a: SecretariatAlfa) => void; onDelete: (a: SecretariatAlfa) => void; onColorChange: (id: string, color: string) => void }) {
   const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
-  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
 
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune entrée ALFA pour cette année.</div>
   }
 
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
-  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
 
   const getVal = (a: SecretariatAlfa, col: string): string => {
     if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
@@ -1776,13 +1747,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
     return ''
   }
 
-  let displayed = rows.filter(a => {
-    for (const [col, sel] of Object.entries(filters)) {
-      if (sel === null) continue
-      if (!sel.has(getVal(a, col))) return false
-    }
-    return true
-  })
+  let displayed = [...rows]
 
   if (sort.dir && sort.col) {
     displayed = [...displayed].sort((a, b) => {
@@ -1795,21 +1760,13 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
 
   const thStyle: React.CSSProperties = { padding: '10px 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1.5px solid var(--border)', whiteSpace: 'nowrap', background: 'var(--secondary)' }
   const tdStyle: React.CSSProperties = { padding: '7px 8px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
-  const hasFilters = Object.values(filters).some(v => v !== null)
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      {hasFilters && (
-        <div style={{ padding: '6px 10px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={() => setFilters({})} style={{ padding: '3px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer' }}>✕ Effacer filtres</button>
-        </div>
-      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle}
-              filterValues={rows.map(a => `${a.prenom} ${a.nom}`.trim())} filterSelected={filters['nom']} onFilter={s => setFilter('nom', s)} />
-            <th style={thStyle}>N° AVS</th>
+            <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>Enf.</th>
             <th style={thStyle}>Montant</th>
             <th style={thStyle}>Barème IS</th>
@@ -1817,16 +1774,12 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
             <th style={thStyle}>Fin</th>
             <th style={thStyle}>Rad. CAF</th>
             <th style={thStyle}>Rad. reçue</th>
-            <SortableHeader label="Mère touche" sortDir={sort.col === 'mere' ? sort.dir : null} onSort={() => toggleSort('mere')} style={thStyle}
-              filterValues={rows.map(a => a.mere_touche || '(vide)')} filterSelected={filters['mere']} onFilter={s => setFilter('mere', s)} />
+            <SortableHeader label="Mère touche" sortDir={sort.col === 'mere' ? sort.dir : null} onSort={() => toggleSort('mere')} style={thStyle} />
             <th style={thStyle}>Dem. env.</th>
             <th style={thStyle}>Réact. env.</th>
-            <SortableHeader label="Lieu enf." sortDir={sort.col === 'lieu' ? sort.dir : null} onSort={() => toggleSort('lieu')} style={thStyle}
-              filterValues={rows.map(a => a.lieu_enfants || '(vide)')} filterSelected={filters['lieu']} onFilter={s => setFilter('lieu', s)} />
-            <SortableHeader label="Consimo" sortDir={sort.col === 'consimo' ? sort.dir : null} onSort={() => toggleSort('consimo')} style={thStyle}
-              filterValues={rows.map(a => a.consimo || '(vide)')} filterSelected={filters['consimo']} onFilter={s => setFilter('consimo', s)} />
-            <SortableHeader label="Statut" sortDir={sort.col === 'termine' ? sort.dir : null} onSort={() => toggleSort('termine')} style={thStyle}
-              filterValues={rows.map(a => a.termine ? 'Terminé' : 'En cours')} filterSelected={filters['termine']} onFilter={s => setFilter('termine', s)} />
+            <SortableHeader label="Lieu enf." sortDir={sort.col === 'lieu' ? sort.dir : null} onSort={() => toggleSort('lieu')} style={thStyle} />
+            <SortableHeader label="Consimo" sortDir={sort.col === 'consimo' ? sort.dir : null} onSort={() => toggleSort('consimo')} style={thStyle} />
+            <SortableHeader label="Statut" sortDir={sort.col === 'termine' ? sort.dir : null} onSort={() => toggleSort('termine')} style={thStyle} />
             <th style={thStyle}>Remarques</th>
             <th style={thStyle}></th>
           </tr>
@@ -1835,13 +1788,20 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
           {displayed.map(a => (
             <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
               <td style={tdStyle}>
-                {a.candidat_id
-                  ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
-                  : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
-                }
-                {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {(a as any).photo_url && (a as any).photo_url !== 'checked'
+                    ? <img src={(a as any).photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                    : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
+                  }
+                  <div>
+                    {a.candidat_id
+                      ? <a href={`/candidats/${a.candidat_id}`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
+                      : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
+                    }
+                    {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
+                  </div>
+                </div>
               </td>
-              <td style={tdStyle}><span style={{ fontSize: 10, color: 'var(--muted)' }}>{a.numero_avs || '—'}</span></td>
               <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
               <td style={tdStyle}>{a.montant_chf != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_chf)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.bareme_is || '—'}</span></td>
@@ -1886,14 +1846,12 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
 
 function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfaPaiement[]; onEdit: (a: SecretariatAlfaPaiement) => void; onDelete: (a: SecretariatAlfaPaiement) => void; onColorChange: (id: string, color: string) => void }) {
   const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
-  const [filters, setFilters] = useState<Record<string, Set<string> | null>>({})
 
   if (rows.length === 0) {
     return <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement ALFA pour cette année.</div>
   }
 
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
-  const setFilter = (col: string, sel: Set<string> | null) => setFilters(prev => ({ ...prev, [col]: sel }))
 
   const getVal = (a: SecretariatAlfaPaiement, col: string): string => {
     if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
@@ -1902,13 +1860,7 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
     return ''
   }
 
-  let displayed = rows.filter(a => {
-    for (const [col, sel] of Object.entries(filters)) {
-      if (sel === null) continue
-      if (!sel.has(getVal(a, col))) return false
-    }
-    return true
-  })
+  let displayed = [...rows]
 
   if (sort.dir && sort.col) {
     displayed = [...displayed].sort((a, b) => {
@@ -1931,14 +1883,12 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
             <th style={thStyle}>Enfants</th>
             <th style={thStyle}>Droit / mois</th>
             <SortableHeader label="Montant payé" sortDir={sort.col === 'montant' ? sort.dir : null} onSort={() => toggleSort('montant')} style={thStyle} />
-            <SortableHeader label="Période" sortDir={sort.col === 'periode' ? sort.dir : null} onSort={() => toggleSort('periode')} style={thStyle}
-              filterValues={rows.map(a => getVal(a, 'periode'))} filterSelected={filters.periode ?? null} onFilter={s => setFilter('periode', s)} />
+            <SortableHeader label="Période" sortDir={sort.col === 'periode' ? sort.dir : null} onSort={() => toggleSort('periode')} style={thStyle} />
             <th style={thStyle}>Dernier mois</th>
             <th style={thStyle}>Prochain mois</th>
             <th style={thStyle}>Fin mission</th>
             <th style={thStyle}>Remarques</th>
-            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle}
-              filterValues={rows.map(a => getVal(a, 'statut'))} filterSelected={filters.statut ?? null} onFilter={s => setFilter('statut', s)} />
+            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle} />
             <th style={thStyle}></th>
           </tr>
         </thead>
@@ -1950,8 +1900,8 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                 <td style={tdStyle}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {(a as any).photo_url && (a as any).photo_url !== 'checked'
-                      ? <img src={(a as any).photo_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
+                      ? <img src={(a as any).photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
                     }
                     <div>
                       {a.candidat_id
