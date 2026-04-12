@@ -22,14 +22,14 @@ const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/candidats',    label: 'Candidats',        icon: Users },
   { href: '/clients',      label: 'Clients',          icon: Building2 },
-  { href: '/offres',       label: 'Commandes',        icon: Briefcase },
-  { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare },
+  { href: '/offres',       label: 'Commandes',        icon: Briefcase,       hideForSecretaire: true },
+  { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
   // { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar }, // masqué temporairement
   { href: '/missions',     label: 'Missions',         icon: TrendingUp,      adminOnly: true },
-  { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireOnly: true },
-  { href: '/messages',     label: 'Envois',           icon: Mail },
-  { href: '/matching',     label: 'Matching IA',      icon: Sparkles },
-  { href: '/activites',    label: 'Activite',         icon: Activity },
+  { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireVisible: true },
+  { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
+  { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true },
+  { href: '/activites',    label: 'Activite',         icon: Activity,        hideForSecretaire: true },
 ]
 
 const FOOTER_ITEMS = [
@@ -412,7 +412,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         >
           {NAV_ITEMS.filter(item => {
             if ((item as any).adminOnly && user?.email !== ADMIN_EMAIL) return false
-            if ((item as any).secretaireOnly && userRole !== 'Secrétaire') return false
+            // Secrétariat visible pour Secrétaire ET Admin
+            if ((item as any).secretaireVisible && userRole !== 'Secrétaire' && user?.email !== ADMIN_EMAIL) return false
+            // Masquer certains items pour la Secrétaire
+            if ((item as any).hideForSecretaire && isSecretaire) return false
             return true
           }).map((item, i) => {
             const Icon = item.icon

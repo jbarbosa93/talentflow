@@ -10,7 +10,7 @@ import {
   ClipboardList, Bell, Plus, Pencil, Trash2, Eye, EyeOff,
   Copy, Phone, Mail, AlertTriangle, Search, Loader2, X, Building2,
   User, Calendar, CheckCircle2, Clock, AlertCircle, ChevronDown, ChevronUp,
-  FileText, Home,
+  FileText, Home, History,
 } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -1503,7 +1503,8 @@ export default function SecretariatPage() {
         return
       }
       const role = user.user_metadata?.role
-      if (role !== 'Secrétaire' && role !== 'Admin') {
+      const isAdmin = user.email === 'j.barbosa@l-agence.ch'
+      if (role !== 'Secrétaire' && role !== 'Admin' && !isAdmin) {
         router.replace('/dashboard')
       } else {
         setRoleChecked(true)
@@ -1520,6 +1521,7 @@ export default function SecretariatPage() {
   const [editItem, setEditItem] = useState<any>(null)
   const [showForm, setShowForm] = useState(false)
   const [deleteItem, setDeleteItem] = useState<any>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   // Reveal AVS/IBAN
   const [revealedAvs, setRevealedAvs] = useState<Set<string>>(new Set())
@@ -1598,6 +1600,18 @@ export default function SecretariatPage() {
   })
 
   const notifsNonLues = notifications.filter(n => !n.lue).length
+
+  // Query historique
+  const { data: historyLogs = [], refetch: refetchHistory } = useQuery<any[]>({
+    queryKey: ['secretariat-logs'],
+    queryFn: async () => {
+      const res = await fetch('/api/secretariat/logs')
+      if (!res.ok) return []
+      const d = await res.json()
+      return d.logs || []
+    },
+    enabled: roleChecked && showHistory,
+  })
 
   // ─── Génération notifications auto ────────────────────────────────────────
 
@@ -1748,6 +1762,15 @@ export default function SecretariatPage() {
           <p className="d-page-sub">Suivi documents, accidents &amp; loyers</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Historique modifications */}
+          <button
+            onClick={() => { setShowHistory(v => !v); if (!showHistory) refetchHistory() }}
+            style={{ padding: '8px 10px', borderRadius: 8, background: showHistory ? 'var(--primary-soft)' : 'var(--secondary)', border: '1.5px solid var(--border)', color: showHistory ? 'var(--primary)' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}
+          >
+            <History size={14} />
+            Historique
+          </button>
+
           {/* Cloche notifications */}
           <button
             onClick={() => setShowNotifs(v => !v)}
@@ -1811,6 +1834,62 @@ export default function SecretariatPage() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Panel historique modifications */}
+      {showHistory && (
+        <div style={{ ...S.card, padding: 0, marginBottom: 20, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1.5px solid var(--border)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <History size={15} color="var(--primary)" />
+              Historique des modifications
+              <span style={{ padding: '1px 7px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted)', fontSize: 11, fontWeight: 700 }}>{historyLogs.length}</span>
+            </div>
+            <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={16} /></button>
+          </div>
+          {historyLogs.length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Aucune modification enregistrée</div>
+          ) : (
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--secondary)', position: 'sticky', top: 0 }}>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Date</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Utilisateur</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Candidat</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Action</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--muted)', fontSize: 10, textTransform: 'uppercase' }}>Détails</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyLogs.map((log: any) => {
+                    const dt = log.created_at ? new Date(log.created_at) : null
+                    const dateStr = dt ? `${dt.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })} ${dt.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })}` : '—'
+                    const actionLabel = log.action === 'create' ? '➕ Créé' : log.action === 'delete' ? '🗑 Supprimé' : '✏️ Modifié'
+                    const tableLabel = (log.table_concernee || '').replace('secretariat_', '').replace('_', ' ')
+                    const changes = log.champs_modifies
+                      ? Object.entries(log.champs_modifies as Record<string, { avant: any; apres: any }>)
+                          .map(([k, v]) => `${k}: ${v.avant ?? '—'} → ${v.apres ?? '—'}`)
+                          .join(', ')
+                      : ''
+                    return (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '8px 12px', color: 'var(--muted)', whiteSpace: 'nowrap', fontSize: 11 }}>{dateStr}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--foreground)' }}>{log.user_nom || log.user_email || '—'}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--foreground)' }}>{log.nom_candidat || '—'}</td>
+                        <td style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 11 }}>{actionLabel}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4 }}>({tableLabel})</span>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--muted)', fontSize: 11, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{changes || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

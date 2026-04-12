@@ -63,22 +63,19 @@ function ResetPasswordForm() {
     }
     setLoading(true)
     try {
-      const supabase = createClient()
-      const { error: updateError } = await supabase.auth.updateUser({ password })
-      if (updateError) {
-        setError(updateError.message)
+      // Passer par l'API admin (pas de notification Supabase) + envoi de notre bel email
+      const res = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        setError(result.error || 'Erreur serveur')
       } else {
         setDone(true)
-        // Envoyer notre email de confirmation (beau template)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user?.email) {
-          fetch('/api/auth/password-changed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: user.email }),
-          }).catch(() => {}) // fire & forget
-        }
         // Déconnecter puis rediriger vers login pour une connexion propre
+        const supabase = createClient()
         await supabase.auth.signOut()
         setTimeout(() => router.push('/login'), 3000)
       }

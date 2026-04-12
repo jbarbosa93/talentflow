@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.7.3'
+export const APP_VERSION = '1.7.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.7.4',
+    date: '2026-04-12',
+    label: 'Corrections Secrétaire',
+    features: [
+      'Fix email doublon reset password : passage par admin API (plus de notification Supabase)',
+      'Sidebar Secrétaire : masquer Pipeline, Envois, Commandes, Matching IA, Activité',
+      'Secrétariat visible pour Admin dans la sidebar',
+      'Historique modifications secrétariat : table logs_secretariat + bouton Historique + panel',
+      'Logging automatique sur les 5 routes PATCH/DELETE secrétariat (avant/après)',
+    ],
+  },
   {
     version: '1.7.3',
     date: '2026-04-12',
