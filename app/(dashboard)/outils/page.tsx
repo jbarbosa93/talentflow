@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { FolderInput, Camera, Copy, ArrowRight, Wrench, ClipboardList } from 'lucide-react'
 
-// ─── Catégories et outils ────────────────────────────────────────────────────
+// ─── Outils ─────────────────────────────────────────────────────────────────
 
 type OutilDef = {
   href: string
@@ -14,48 +14,35 @@ type OutilDef = {
   badge?: string | null
 }
 
-const CATEGORIES: { label: string; emoji: string; outils: OutilDef[] }[] = [
+const OUTILS: OutilDef[] = [
   {
-    label: 'Intelligence Artificielle',
-    emoji: '\uD83E\uDD16',
-    outils: [
-      {
-        href: '/parametres/import-masse',
-        icon: FolderInput,
-        title: 'Import en masse',
-        description: 'Importez des centaines de CVs en lot. Analyse IA automatique avec extraction des competences, experiences et coordonnees.',
-        color: '#3B82F6',
-        badge: 'IA',
-      },
-      {
-        href: '/parametres/doublons',
-        icon: Copy,
-        title: 'Analyser les doublons',
-        description: 'Detection intelligente des profils en doublon via IA et trigrammes. Fusion guidee champ par champ.',
-        color: '#10B981',
-        badge: 'IA',
-      },
-    ],
+    href: '/parametres/import-masse',
+    icon: FolderInput,
+    title: 'Import en masse',
+    description: 'Importez des centaines de CVs en lot. Analyse IA automatique avec extraction des competences, experiences et coordonnees.',
+    color: '#3B82F6',
+    badge: 'IA',
   },
   {
-    label: 'Documents & CV',
-    emoji: '\uD83D\uDCC4',
-    outils: [
-      {
-        href: '/parametres/corriger-photos',
-        icon: Camera,
-        title: 'Corriger les photos',
-        description: 'Detection et recadrage automatique des photos de profil pour un rendu homogene sur toutes les fiches.',
-        color: '#8B5CF6',
-      },
-      {
-        href: '/outils/rapport-heures',
-        icon: ClipboardList,
-        title: 'Rapport d\'heures',
-        description: 'Creation et envoi rapide des rapports de travail hebdomadaires par WhatsApp ou email.',
-        color: '#F59E0B',
-      },
-    ],
+    href: '/parametres/doublons',
+    icon: Copy,
+    title: 'Analyser les doublons',
+    description: 'Recherche instantanee des candidats avec le meme email, telephone ou nom complet. Fusion guidee champ par champ.',
+    color: '#10B981',
+  },
+  {
+    href: '/parametres/corriger-photos',
+    icon: Camera,
+    title: 'Corriger les photos',
+    description: 'Detection et recadrage automatique des photos de profil pour un rendu homogene sur toutes les fiches.',
+    color: '#8B5CF6',
+  },
+  {
+    href: '/outils/rapport-heures',
+    icon: ClipboardList,
+    title: 'Rapport d\'heures',
+    description: 'Creation et envoi rapide des rapports de travail hebdomadaires par WhatsApp ou email.',
+    color: '#F59E0B',
   },
 ]
 
@@ -90,54 +77,21 @@ export default function OutilsPage() {
         <p className="d-page-sub">Optimisez et gerez votre base candidats</p>
       </motion.div>
 
-      {/* Categories */}
-      {CATEGORIES.map((cat, ci) => (
-        <motion.div
-          key={cat.label}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: ci * 0.1 }}
-          style={{ marginBottom: 36 }}
-        >
-          {/* Category header */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            marginBottom: 16, paddingBottom: 10,
-            borderBottom: '1.5px solid var(--border)',
-          }}>
-            <span style={{ fontSize: 20 }}>{cat.emoji}</span>
-            <h2 style={{
-              fontSize: 15, fontWeight: 800, color: 'var(--foreground)',
-              margin: 0, letterSpacing: '-0.01em',
-            }}>
-              {cat.label}
-            </h2>
-            <span style={{
-              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
-              padding: '2px 8px', borderRadius: 99,
-              background: 'var(--secondary)',
-            }}>
-              {cat.outils.length}
-            </span>
-          </div>
-
-          {/* Cards grid */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: 18,
-            }}
-          >
-            {cat.outils.map(outil => (
-              <OutilCard key={outil.href} outil={outil} />
-            ))}
-          </motion.div>
-        </motion.div>
-      ))}
+      {/* Grid */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 18,
+        }}
+      >
+        {OUTILS.map(outil => (
+          <OutilCard key={outil.href} outil={outil} />
+        ))}
+      </motion.div>
     </div>
   )
 }
