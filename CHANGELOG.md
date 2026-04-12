@@ -1,5 +1,15 @@
 # Changelog TalentFlow
 
+## [1.8.6] — 12 avril 2026
+
+### Suppression checkboxes candidats + ALFA sans scroll
+- Suivi Candidats : suppression complète des checkboxes de sélection (colonne + barre multi-select)
+- ALFA Suivi : suppression `minWidth` et scroll horizontal, table s'adapte à la largeur du conteneur
+- Dashboard : noms tous cliquables (hover souligné), flèche → ouvre fiche candidat
+- Dashboard : sinistres filtrés par année courante
+
+---
+
 ## [1.8.5] — 12 avril 2026
 
 ### Fix ALFA affichage + dashboard sinistres

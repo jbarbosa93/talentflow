@@ -1377,13 +1377,10 @@ function StatutIndicateur({ statut }: { statut: 'ok' | 'warning' | 'urgent' }) {
   )
 }
 
-function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSelect, onSelectAll, onColorChange }: {
+function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
   candidats: SecretariatCandidat[]
   onEdit: (c: SecretariatCandidat) => void
   onDelete: (c: SecretariatCandidat) => void
-  selectedIds: Set<string>
-  onToggleSelect: (id: string) => void
-  onSelectAll: (all: boolean) => void
   onColorChange: (id: string, color: string) => void
 }) {
   const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
@@ -1425,9 +1422,6 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border)' }}>
-            <th style={{ padding: '8px 6px', textAlign: 'center', width: 30 }}>
-              <input type="checkbox" checked={displayed.length > 0 && selectedIds.size === displayed.length} onChange={e => onSelectAll(e.target.checked)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-            </th>
             <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>N° Quad</th>
             <SortableHeader label="Permis" sortDir={sort.col === 'permis' ? sort.dir : null} onSort={() => toggleSort('permis')} style={thStyle} />
@@ -1450,9 +1444,6 @@ function CandidatsTable({ candidats, onEdit, onDelete, selectedIds, onToggleSele
                 onMouseEnter={e => { if (!c.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
-                <td style={{ padding: '10px 6px', textAlign: 'center' }}>
-                  <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => onToggleSelect(c.id)} style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                </td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {c.photo_url && c.photo_url !== 'checked'
@@ -1758,7 +1749,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
 
   return (
     <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1200 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
@@ -1814,7 +1805,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
                   >{a.remarques}</div>
                 ) : <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>}
               </td>
-              <td style={{ ...tdStyle, position: 'sticky', right: 0, background: 'var(--surface)' }}>
+              <td style={tdStyle}>
                 <div style={{ display: 'flex', gap: 3 }}>
                   <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
                   <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={12} /></button>
@@ -2143,12 +2134,6 @@ function SecretariatPage() {
 
   // Tri ALFA A-Z
   const [alfaSort, setAlfaSort] = useState<'default' | 'az' | 'za'>('default')
-
-  // Fix 11 — Multi-select
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-
-  // Reset selection on tab/year change
-  useEffect(() => { setSelectedIds(new Set()) }, [activeTab, annee, alfaView])
 
   // ─── Fix 6 — Lecture URL params (tab, filtre, action) ─────────────────────
   const urlParamsApplied = useRef(false)
@@ -2480,22 +2465,6 @@ function SecretariatPage() {
       if (!res.ok) throw new Error('Erreur')
       toast.success(a.archive ? 'Désarchivé' : 'Archivé')
       queryClient.invalidateQueries({ queryKey: ['secretariat-accidents', annee] })
-    } catch (e: any) { toast.error(e.message) }
-  }
-
-  // Fix 11 — Bulk delete
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return
-    const count = selectedIds.size
-    if (!window.confirm(`Supprimer ${count} entrée${count > 1 ? 's' : ''} ?`)) return
-    try {
-      const promises = Array.from(selectedIds).map(id =>
-        fetch(`/api/secretariat/candidats/${id}`, { method: 'DELETE' })
-      )
-      await Promise.allSettled(promises)
-      toast.success(`${count} entrée${count > 1 ? 's' : ''} supprimée${count > 1 ? 's' : ''}`)
-      setSelectedIds(new Set())
-      queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
     } catch (e: any) { toast.error(e.message) }
   }
 
@@ -2906,7 +2875,7 @@ function SecretariatPage() {
       </div>
 
       {/* Contenu principal */}
-      <div style={{ ...S.card, padding: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+      <div style={{ ...S.card, padding: 0, overflow: 'hidden' }}>
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 20px', gap: 10, color: 'var(--muted)' }}>
             <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
@@ -2919,9 +2888,6 @@ function SecretariatPage() {
                 candidats={filteredCandidats}
                 onEdit={c => { setEditItem(c); setShowForm(true) }}
                 onDelete={c => setDeleteItem(c)}
-                selectedIds={selectedIds}
-                onToggleSelect={id => setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })}
-                onSelectAll={all => setSelectedIds(all ? new Set(filteredCandidats.map(c => c.id)) : new Set())}
                 onColorChange={handleColorChange}
               />
             )}
@@ -2961,19 +2927,6 @@ function SecretariatPage() {
           </div>
         )}
       </div>
-
-      {/* Barre d'actions multi-select */}
-      {selectedIds.size > 0 && activeTab === 'candidats' && (
-        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 9998, display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', borderRadius: 12, background: 'var(--surface)', border: '1.5px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}</span>
-          <button onClick={handleBulkDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-            <Trash2 size={13} /> Supprimer
-          </button>
-          <button onClick={() => setSelectedIds(new Set())} style={{ padding: '6px 14px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            Annuler
-          </button>
-        </div>
-      )}
 
       {/* Modaux formulaires */}
       {showForm && activeTab === 'candidats' && (
