@@ -293,12 +293,12 @@ function LoginForm() {
             {forgotSent ? (
               <>
                 <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-                  Un lien de réinitialisation a été envoyé à <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{forgotEmail}</strong>. Vérifiez votre boîte mail.
+                  Un lien de réinitialisation a été envoyé à <strong style={{ color: '#374151' }}>{forgotEmail}</strong>. Vérifiez votre boîte mail.
                 </motion.p>
                 <motion.div {...fadeUp(0.2 + 0.25)} style={{ marginTop: 20 }}>
                   <button
                     onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); setError('') }}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     ← Retour à la connexion
                   </button>
@@ -333,7 +333,7 @@ function LoginForm() {
                 <motion.div {...fadeUp(0.4 + 0.25)} style={{ marginTop: 14 }}>
                   <button
                     onClick={() => { setForgotMode(false); setError('') }}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
                   >
                     ← Retour à la connexion
                   </button>
@@ -350,7 +350,7 @@ function LoginForm() {
               <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification par email</h2>
             </motion.div>
             <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-              Un code à 6 chiffres a été envoyé à <strong style={{ color: 'rgba(255,255,255,0.7)' }}>{email}</strong>.
+              Un code à 6 chiffres a été envoyé à <strong style={{ color: '#374151' }}>{email}</strong>.
             </motion.p>
 
             <form className="auth-form" onSubmit={handleEmailOtpVerify}>
@@ -384,7 +384,7 @@ function LoginForm() {
             <motion.div {...fadeUp(0.4 + 0.25)} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
               <button
                 onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
-                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
               >
                 ← Retour
               </button>
@@ -444,7 +444,7 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => { setForgotMode(true); setForgotEmail(email); setError('') }}
-                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
                   >
                     Mot de passe oublié ?
                   </button>
@@ -521,7 +521,7 @@ function LoginForm() {
             <motion.div {...fadeUp(0.4 + 0.25)}>
               <button
                 onClick={() => { setMfaRequired(false); setMfaCode(''); setError('') }}
-                style={{ marginTop: 14, background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                style={{ marginTop: 14, background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
               >
                 ← Retour à la connexion
               </button>
