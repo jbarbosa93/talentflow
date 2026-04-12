@@ -1,5 +1,15 @@
 # Changelog TalentFlow
 
+## [1.8.7] — 12 avril 2026
+
+### Refonte outil doublons — 4 fixes
+- **Fix 1 — Detections RPC pg_trgm** : remplacement du pre-filtrage client-side (prefixe 4 chars) par une RPC SQL `find_similar_candidates` utilisant `pg_trgm similarity()` — matching fuzzy des noms, emails exacts, telephones normalises
+- **Fix 2 — Batch IA** : envoi de 5 paires par appel Claude Haiku (au lieu de 1) — analyse 5x plus rapide
+- **Fix 3 — UI amelioree** : tri par score/nom, filtre score minimum (tous/50%+/65%+/80%+), mise en evidence orange des champs differents dans le modal fusion, score affiche dans l'historique
+- **Fix 5 — Historique en DB** : migration localStorage → table `doublons_historique` (RLS) — historique persistant multi-utilisateur, plus fiable
+
+---
+
 ## [1.8.6] — 12 avril 2026
 
 ### Suppression checkboxes candidats + ALFA sans scroll

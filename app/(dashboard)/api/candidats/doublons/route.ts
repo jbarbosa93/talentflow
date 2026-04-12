@@ -10,6 +10,121 @@ function getClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
+// ─── Helpers IA ────────────────────────────────────────────────────────────────
+
+function candidatSummary(c: any, label: string): string {
+  return `${label}:
+- Nom complet: ${c.prenom || ''} ${c.nom || ''}
+- Email: ${c.email || 'non renseigné'}
+- Téléphone: ${c.telephone || 'non renseigné'}
+- Titre: ${c.titre_poste || 'non renseigné'}
+- Localisation: ${c.localisation || 'non renseigné'}
+- Expérience: ${c.annees_exp || 0} ans
+- Compétences: ${(c.competences || []).slice(0, 10).join(', ')}
+- Extrait CV: ${(c.cv_texte_brut || '').slice(0, 400)}`
+}
+
+const SCORING_RULES = `Règles de scoring :
+- 90-100: Même personne certaine (email identique, téléphone identique)
+- 70-89: Très probable (même nom/prénom + profil similaire)
+- 50-69: Possible doublon (nom similaire ou profil très proche)
+- < 50: Personnes différentes
+- is_doublon: true si score >= 65`
+
+function parseJsonResponse(text: string): any {
+  text = text.replace(/```json|```/g, '').trim()
+  const fb = text.indexOf('{'), lb = text.lastIndexOf('}')
+  // Check if it's an array (batch response)
+  const fba = text.indexOf('['), lba = text.lastIndexOf(']')
+  if (fba !== -1 && (fb === -1 || fba < fb)) {
+    if (lba > fba) return JSON.parse(text.substring(fba, lba + 1))
+  }
+  if (fb !== -1 && lb > fb) return JSON.parse(text.substring(fb, lb + 1))
+  return JSON.parse(text)
+}
+
+async function compareSinglePair(a: any, b: any) {
+  const prompt = `Tu es un expert RH. Analyse ces deux candidats et détermine s'ils sont la même personne.
+
+${candidatSummary(a, 'CANDIDAT A')}
+
+${candidatSummary(b, 'CANDIDAT B')}
+
+Retourne UNIQUEMENT ce JSON (sans markdown, sans backticks) :
+{
+  "is_doublon": true,
+  "score": 85,
+  "raisons": ["Même email", "Nom identique", "Profil similaire"],
+  "explication": "Explication concise en 1-2 phrases."
+}
+
+${SCORING_RULES}`
+
+  const client = getClient()
+  const response = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
+  const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}'
+  return parseJsonResponse(text)
+}
+
+async function handleCompareBatch(pairs: Array<{ candidat_a: any; candidat_b: any }>) {
+  if (!pairs.length) return NextResponse.json({ results: [] })
+  const batch = pairs.slice(0, 5) // max 5 paires par appel
+
+  const pairTexts = batch.map((p, i) => {
+    return `--- PAIRE ${i + 1} ---
+${candidatSummary(p.candidat_a, `CANDIDAT ${i + 1}A`)}
+
+${candidatSummary(p.candidat_b, `CANDIDAT ${i + 1}B`)}`
+  }).join('\n\n')
+
+  const prompt = `Tu es un expert RH. Analyse ces ${batch.length} paires de candidats et détermine pour chaque paire s'il s'agit de la même personne.
+
+${pairTexts}
+
+Retourne UNIQUEMENT un tableau JSON (sans markdown, sans backticks) avec ${batch.length} objets, un par paire dans l'ordre :
+[
+  {
+    "pair_index": 0,
+    "is_doublon": true,
+    "score": 85,
+    "raisons": ["Même email", "Nom identique"],
+    "explication": "Explication concise en 1-2 phrases."
+  }
+]
+
+${SCORING_RULES}`
+
+  try {
+    const client = getClient()
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '[]'
+    const parsed = parseJsonResponse(text)
+    const results = Array.isArray(parsed) ? parsed : [parsed]
+
+    // Normaliser : s'assurer qu'on a un résultat par paire
+    const normalized = batch.map((_, i) => {
+      const r = results.find((r: any) => r.pair_index === i) || results[i]
+      if (!r) return { pair_index: i, is_doublon: false, score: 0, raisons: [], explication: 'Erreur analyse' }
+      return { ...r, pair_index: i }
+    })
+
+    return NextResponse.json({ results: normalized })
+  } catch (e: any) {
+    console.error('[Doublons] Batch error:', e)
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
 // ─── POST /api/candidats/doublons ─────────────────────────────────────────────
 // action = "compare" : compare deux candidats via Claude IA
 // action = "merge"   : fusionne deux candidats, supprime le doublon
@@ -22,62 +137,18 @@ export async function POST(request: NextRequest) {
       return handleMerge(body.keep_id, body.delete_id, body.field_overrides)
     }
 
-    // Default: compare pair
+    // action = "compare_batch" : compare un batch de paires (max 5)
+    if (body.action === 'compare_batch') {
+      return handleCompareBatch(body.pairs || [])
+    }
+
+    // Default: compare single pair (rétrocompatible)
     const { candidat_a, candidat_b } = body
     if (!candidat_a || !candidat_b) {
       return NextResponse.json({ error: 'candidat_a et candidat_b sont requis' }, { status: 400 })
     }
 
-    const prompt = `Tu es un expert RH. Analyse ces deux candidats et détermine s'ils sont la même personne.
-
-CANDIDAT A:
-- Nom complet: ${candidat_a.prenom || ''} ${candidat_a.nom || ''}
-- Email: ${candidat_a.email || 'non renseigné'}
-- Téléphone: ${candidat_a.telephone || 'non renseigné'}
-- Titre: ${candidat_a.titre_poste || 'non renseigné'}
-- Localisation: ${candidat_a.localisation || 'non renseigné'}
-- Expérience: ${candidat_a.annees_exp || 0} ans
-- Compétences: ${(candidat_a.competences || []).slice(0, 10).join(', ')}
-- Extrait CV: ${(candidat_a.cv_texte_brut || '').slice(0, 600)}
-
-CANDIDAT B:
-- Nom complet: ${candidat_b.prenom || ''} ${candidat_b.nom || ''}
-- Email: ${candidat_b.email || 'non renseigné'}
-- Téléphone: ${candidat_b.telephone || 'non renseigné'}
-- Titre: ${candidat_b.titre_poste || 'non renseigné'}
-- Localisation: ${candidat_b.localisation || 'non renseigné'}
-- Expérience: ${candidat_b.annees_exp || 0} ans
-- Compétences: ${(candidat_b.competences || []).slice(0, 10).join(', ')}
-- Extrait CV: ${(candidat_b.cv_texte_brut || '').slice(0, 600)}
-
-Retourne UNIQUEMENT ce JSON (sans markdown, sans backticks) :
-{
-  "is_doublon": true,
-  "score": 85,
-  "raisons": ["Même email", "Nom identique", "Profil similaire"],
-  "explication": "Explication concise en 1-2 phrases."
-}
-
-Règles de scoring :
-- 90-100: Même personne certaine (email identique, téléphone identique)
-- 70-89: Très probable (même nom/prénom + profil similaire)
-- 50-69: Possible doublon (nom similaire ou profil très proche)
-- < 50: Personnes différentes
-- is_doublon: true si score >= 65`
-
-    const client = getClient()
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    let text = response.content[0]?.type === 'text' ? response.content[0].text : '{}'
-    text = text.replace(/```json|```/g, '').trim()
-    const fb = text.indexOf('{'), lb = text.lastIndexOf('}')
-    if (fb !== -1 && lb > fb) text = text.substring(fb, lb + 1)
-
-    const result = JSON.parse(text)
+    const result = await compareSinglePair(candidat_a, candidat_b)
     return NextResponse.json(result)
   } catch (e) {
     console.error('[Doublons] Erreur:', e)

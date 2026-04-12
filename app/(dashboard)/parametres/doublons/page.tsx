@@ -6,59 +6,56 @@ import { toast } from 'sonner'
 import { useDoublons } from '@/contexts/DoublonsContext'
 import type { DoublonPair } from '@/contexts/DoublonsContext'
 
-// ─── Persistence helpers ───────────────────────────────────────────────────────
+// ─── Persistence helpers (DB-backed via doublons_historique) ──────────────────
 
-type MergedHistoryItem = {
-  keyId: string
-  nomA: string; prenomA: string | null
-  nomB: string; prenomB: string | null
-  mergedAt: string
+type HistoryEntry = {
+  id: string
+  candidat_a_id: string
+  candidat_b_id: string
+  candidat_a_nom: string
+  candidat_b_nom: string
+  action: 'merged' | 'dismissed'
+  score: number | null
+  raisons: string[] | null
+  merged_keep_id: string | null
+  user_id: string | null
+  created_at: string
 }
 
-type DismissedPairItem = {
-  id1: string; id2: string
-  name1: string; name2: string
-  dismissedAt: string
-}
+function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') }
 
-const LS_IGNORED = 'doublons-ignored-keys'
-const LS_DISMISSED_PAIRS = 'doublons-dismissed-pairs'
-const LS_MERGED  = 'doublons-merged-history'
-
-// Migration: load old Set-based ignored keys and convert to new format if needed
-function loadDismissedPairs(): DismissedPairItem[] {
+async function loadHistoryFromDB(): Promise<HistoryEntry[]> {
   try {
-    const raw = localStorage.getItem(LS_DISMISSED_PAIRS)
-    if (raw) return JSON.parse(raw)
-    // Migrate from old format
-    const oldKeys = localStorage.getItem(LS_IGNORED)
-    if (oldKeys) {
-      const keys: string[] = JSON.parse(oldKeys)
-      const migrated: DismissedPairItem[] = keys.map(k => {
-        const [id1, id2] = k.split('|')
-        return { id1, id2, name1: 'Candidat', name2: 'Candidat', dismissedAt: new Date().toISOString() }
-      })
-      saveDismissedPairs(migrated)
-      return migrated
-    }
-    return []
+    const res = await fetch('/api/candidats/doublons/history')
+    const data = await res.json()
+    return data.history || []
   } catch { return [] }
 }
-function saveDismissedPairs(items: DismissedPairItem[]) {
+
+async function saveHistoryToDB(entry: {
+  candidat_a_id: string; candidat_b_id: string
+  candidat_a_nom: string; candidat_b_nom: string
+  action: 'merged' | 'dismissed'
+  score?: number; raisons?: string[]; merged_keep_id?: string
+}) {
   try {
-    localStorage.setItem(LS_DISMISSED_PAIRS, JSON.stringify(items.slice(-500)))
-    // Also update the old key set for backward compat with DoublonsContext filtering
-    const keySet = items.map(i => [i.id1, i.id2].sort().join('|'))
-    localStorage.setItem(LS_IGNORED, JSON.stringify(keySet))
-  } catch {}
+    await fetch('/api/candidats/doublons/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+    })
+  } catch (e) { console.warn('[Doublons] saveHistory error:', e) }
 }
-function loadMergedHistory(): MergedHistoryItem[] {
-  try { return JSON.parse(localStorage.getItem(LS_MERGED) || '[]') } catch { return [] }
+
+async function deleteHistoryEntry(candidat_a_id: string, candidat_b_id: string) {
+  try {
+    await fetch('/api/candidats/doublons/history', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidat_a_id, candidat_b_id }),
+    })
+  } catch (e) { console.warn('[Doublons] deleteHistory error:', e) }
 }
-function saveMergedHistory(items: MergedHistoryItem[]) {
-  try { localStorage.setItem(LS_MERGED, JSON.stringify(items.slice(-500))) } catch {}
-}
-function pairKey(idA: string, idB: string) { return [idA, idB].sort().join('|') }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,17 +170,20 @@ function getFieldDefault(fieldKey: string, a: Record<string, any>, b: Record<str
 
 export default function DoublonsPage() {
   const doublonsCtx = useDoublons()
-  const [mergedHistory, setMergedHistory] = useState<MergedHistoryItem[]>([])
-  const [dismissedPairs, setDismissedPairs] = useState<DismissedPairItem[]>([])
+  const [dbHistory, setDbHistory] = useState<HistoryEntry[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [showPersistentHistory, setShowPersistentHistory] = useState(false)
   const [mergeModal, setMergeModal] = useState<{ pair: DoublonPair; keepId: string; deleteId: string; fieldChoices: Record<string, 'a' | 'b'> } | null>(null)
   const [merging, setMerging] = useState(false)
+  const [sortBy, setSortBy] = useState<'score' | 'nom'>('score')
+  const [minScore, setMinScore] = useState(0)
 
   useEffect(() => {
-    setDismissedPairs(loadDismissedPairs())
-    setMergedHistory(loadMergedHistory())
+    loadHistoryFromDB().then(setDbHistory)
   }, [])
+
+  const dismissedHistory = dbHistory.filter(h => h.action === 'dismissed')
+  const mergedHistory = dbHistory.filter(h => h.action === 'merged')
 
   const handleLancer = useCallback(() => {
     doublonsCtx.start()
@@ -192,35 +192,30 @@ export default function DoublonsPage() {
   const handleDifferents = (pairId: string) => {
     const pair = doublonsCtx.doublons.find(p => p.id === pairId)
     if (pair) {
-      const item: DismissedPairItem = {
-        id1: pair.candidat_a.id,
-        id2: pair.candidat_b.id,
-        name1: `${pair.candidat_a.prenom || ''} ${pair.candidat_a.nom}`.trim(),
-        name2: `${pair.candidat_b.prenom || ''} ${pair.candidat_b.nom}`.trim(),
-        dismissedAt: new Date().toISOString(),
-      }
-      setDismissedPairs(prev => {
-        const next = [...prev, item]
-        saveDismissedPairs(next)
-        return next
-      })
+      const nomA = `${pair.candidat_a.prenom || ''} ${pair.candidat_a.nom}`.trim()
+      const nomB = `${pair.candidat_b.prenom || ''} ${pair.candidat_b.nom}`.trim()
+      // Sauvegarder en DB
+      saveHistoryToDB({
+        candidat_a_id: pair.candidat_a.id,
+        candidat_b_id: pair.candidat_b.id,
+        candidat_a_nom: nomA,
+        candidat_b_nom: nomB,
+        action: 'dismissed',
+        score: pair.result.score,
+        raisons: pair.result.raisons,
+      }).then(() => loadHistoryFromDB().then(setDbHistory))
     }
     doublonsCtx.markIgnored(pairId)
   }
 
-  const handleReanalyser = (dismissedItem: DismissedPairItem) => {
-    // Remove this specific pair from dismissed list
-    setDismissedPairs(prev => {
-      const next = prev.filter(d => !(
-        pairKey(d.id1, d.id2) === pairKey(dismissedItem.id1, dismissedItem.id2)
-      ))
-      saveDismissedPairs(next)
-      return next
-    })
-    // If this pair exists in the current doublons list (session), restore it to pending
+  const handleReanalyser = (entry: HistoryEntry) => {
+    // Supprimer de la DB
+    deleteHistoryEntry(entry.candidat_a_id, entry.candidat_b_id)
+      .then(() => loadHistoryFromDB().then(setDbHistory))
+    // Si cette paire est dans la session courante, la restaurer
     const matchingPair = doublonsCtx.doublons.find(p => {
       const k = pairKey(p.candidat_a.id, p.candidat_b.id)
-      return k === pairKey(dismissedItem.id1, dismissedItem.id2)
+      return k === pairKey(entry.candidat_a_id, entry.candidat_b_id)
     })
     if (matchingPair) {
       doublonsCtx.markPending(matchingPair.id)
@@ -279,17 +274,20 @@ export default function DoublonsPage() {
 
       doublonsCtx.markMerged(pair.id)
 
-      const item: MergedHistoryItem = {
-        keyId: pairKey(pair.candidat_a.id, pair.candidat_b.id),
-        nomA: pair.candidat_a.nom, prenomA: pair.candidat_a.prenom,
-        nomB: pair.candidat_b.nom, prenomB: pair.candidat_b.prenom,
-        mergedAt: new Date().toISOString(),
-      }
-      setMergedHistory(prev => {
-        const next = [...prev, item]
-        saveMergedHistory(next)
-        return next
+      // Sauvegarder la fusion en DB
+      const nomA = `${pair.candidat_a.prenom || ''} ${pair.candidat_a.nom}`.trim()
+      const nomB = `${pair.candidat_b.prenom || ''} ${pair.candidat_b.nom}`.trim()
+      await saveHistoryToDB({
+        candidat_a_id: pair.candidat_a.id,
+        candidat_b_id: pair.candidat_b.id,
+        candidat_a_nom: nomA,
+        candidat_b_nom: nomB,
+        action: 'merged',
+        score: pair.result.score,
+        raisons: pair.result.raisons,
+        merged_keep_id: keepId,
       })
+      loadHistoryFromDB().then(setDbHistory)
 
       toast.success('Candidats fusionnes avec succes')
       setMergeModal(null)
@@ -305,10 +303,16 @@ export default function DoublonsPage() {
   const checkedPairs = doublonsCtx.checkedPairs
   const progress = doublonsCtx.progress
 
-  const pendingDoublons = doublons.filter(p => p.status === 'pending')
+  const allPending = doublons.filter(p => p.status === 'pending')
+  // Fix 3 : filtre par score minimum + tri
+  const pendingDoublons = allPending
+    .filter(p => p.result.score >= minScore)
+    .sort((a, b) => sortBy === 'score'
+      ? b.result.score - a.result.score
+      : (a.candidat_a.nom || '').localeCompare(b.candidat_a.nom || ''))
   const ignoredDoublons = doublons.filter(p => p.status === 'ignored')
   const mergedCount = doublons.filter(p => p.status === 'merged').length
-  const totalDismissedPersisted = dismissedPairs.length
+  const totalDismissedPersisted = dismissedHistory.length
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -422,6 +426,37 @@ export default function DoublonsPage() {
         )}
       </div>
 
+      {/* Fix 3 : Filtres et tri */}
+      {allPending.length > 0 && (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Tri :</span>
+            <button onClick={() => setSortBy('score')}
+              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${sortBy === 'score' ? 'var(--primary)' : 'var(--border)'}`, background: sortBy === 'score' ? '#FEF3C7' : 'var(--card)', color: sortBy === 'score' ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Score
+            </button>
+            <button onClick={() => setSortBy('nom')}
+              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1.5px solid ${sortBy === 'nom' ? 'var(--primary)' : 'var(--border)'}`, background: sortBy === 'nom' ? '#FEF3C7' : 'var(--card)', color: sortBy === 'nom' ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Nom
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Score min :</span>
+            {[0, 50, 65, 80].map(s => (
+              <button key={s} onClick={() => setMinScore(s)}
+                style={{ fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 6, border: `1.5px solid ${minScore === s ? 'var(--primary)' : 'var(--border)'}`, background: minScore === s ? '#FEF3C7' : 'var(--card)', color: minScore === s ? '#92400E' : 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                {s === 0 ? 'Tous' : `${s}%+`}
+              </button>
+            ))}
+          </div>
+          {minScore > 0 && pendingDoublons.length < allPending.length && (
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {pendingDoublons.length}/{allPending.length} affiches
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Liste des doublons a traiter — groupes par candidat */}
       {pendingDoublons.length > 0 && (() => {
         const clusters: DoublonPair[][] = []
@@ -530,13 +565,9 @@ export default function DoublonsPage() {
                     onClick={() => {
                       // Restore in session
                       doublonsCtx.markPending(pair.id)
-                      // Also remove from dismissed pairs
-                      const k = pairKey(pair.candidat_a.id, pair.candidat_b.id)
-                      setDismissedPairs(prev => {
-                        const next = prev.filter(d => pairKey(d.id1, d.id2) !== k)
-                        saveDismissedPairs(next)
-                        return next
-                      })
+                      // Also remove from DB
+                      deleteHistoryEntry(pair.candidat_a.id, pair.candidat_b.id)
+                        .then(() => loadHistoryFromDB().then(setDbHistory))
                     }}
                     style={{ fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--foreground)', whiteSpace: 'nowrap' }}
                   >
@@ -561,7 +592,7 @@ export default function DoublonsPage() {
         </div>
       )}
 
-      {/* Historique persistant — personnes differentes (dismissed) + fusions */}
+      {/* Historique persistant (DB) — personnes differentes (dismissed) + fusions */}
       {(totalDismissedPersisted > 0 || mergedHistory.length > 0) && (
         <div style={{ marginTop: 24, background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
           <button
@@ -581,43 +612,49 @@ export default function DoublonsPage() {
 
           {showPersistentHistory && (
             <div style={{ borderTop: '1px solid var(--border)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
-              {mergedHistory.slice().reverse().map(item => (
-                <div key={item.keyId + item.mergedAt} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+              {mergedHistory.map(item => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                   <CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>
-                    <strong style={{ color: 'var(--foreground)' }}>{item.prenomA} {item.nomA}</strong>
+                    <strong style={{ color: 'var(--foreground)' }}>{item.candidat_a_nom}</strong>
                     <span style={{ margin: '0 5px' }}>·</span>
-                    <strong style={{ color: 'var(--foreground)' }}>{item.prenomB} {item.nomB}</strong>
+                    <strong style={{ color: 'var(--foreground)' }}>{item.candidat_b_nom}</strong>
                   </div>
+                  {item.score && (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>{item.score}%</span>
+                  )}
                   <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
-                    {new Date(item.mergedAt).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {new Date(item.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', whiteSpace: 'nowrap' }}>Fusionne</span>
                 </div>
               ))}
 
               {/* Dismissed pairs — personnes differentes with individual Reanalyser */}
-              {dismissedPairs.length > 0 && (
+              {dismissedHistory.length > 0 && (
                 <div style={{ marginTop: 6 }}>
                   <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: '#F8FAFC', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>
-                      <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedPairs.length} paire{dismissedPairs.length > 1 ? 's' : ''} — personnes differentes</span>
+                      <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedHistory.length} paire{dismissedHistory.length > 1 ? 's' : ''} — personnes differentes</span>
                       {' '}— ne reapparaitront plus
                     </span>
                   </div>
                   <div style={{ border: '1px solid var(--border)', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
-                    {dismissedPairs.slice().reverse().map((item, idx) => (
-                      <div key={`${item.id1}-${item.id2}-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                    {dismissedHistory.map((item, idx) => (
+                      <div key={item.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                         <XCircle size={12} color="#9CA3AF" />
                         <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
-                          {item.name1}
+                          {item.candidat_a_nom}
                         </span>
                         <span style={{ color: 'var(--muted)' }}>·</span>
                         <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
-                          {item.name2}
+                          {item.candidat_b_nom}
                         </span>
+                        {item.score && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>{item.score}%</span>
+                        )}
                         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
-                          {new Date(item.dismissedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                          {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </span>
                         <button
                           onClick={() => handleReanalyser(item)}
@@ -631,7 +668,7 @@ export default function DoublonsPage() {
                 </div>
               )}
 
-              {mergedHistory.length === 0 && dismissedPairs.length === 0 && (
+              {mergedHistory.length === 0 && dismissedHistory.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '16px 0' }}>Aucun historique</div>
               )}
             </div>
@@ -754,10 +791,18 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
             const vB = field.getValue(b)
             const choice = fieldChoices[field.key] || 'a'
             const bothSame = vA === vB
+            const isDiff = !bothSame && vA !== '—' && vB !== '—'
             const isLong = ['competences', 'experiences', 'formations_details', 'resume_ia'].includes(field.key)
             return (
-              <div key={field.key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 30px 1fr', padding: '8px 14px', borderBottom: '1px solid var(--border)', alignItems: isLong ? 'flex-start' : 'center', fontSize: 12 }}>
-                <span style={{ fontWeight: 700, color: 'var(--foreground)', paddingTop: isLong ? 4 : 0 }}>{field.label}</span>
+              <div key={field.key} style={{
+                display: 'grid', gridTemplateColumns: '110px 1fr 30px 1fr', padding: '8px 14px',
+                borderBottom: '1px solid var(--border)', alignItems: isLong ? 'flex-start' : 'center', fontSize: 12,
+                background: isDiff ? '#FFF7ED' : 'transparent',
+              }}>
+                <span style={{ fontWeight: 700, color: isDiff ? '#9A3412' : 'var(--foreground)', paddingTop: isLong ? 4 : 0 }}>
+                  {field.label}
+                  {isDiff && <span style={{ fontSize: 9, marginLeft: 4, color: '#D97706' }}>!</span>}
+                </span>
                 <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
@@ -769,7 +814,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
                   />
                   <span style={{ color: vA === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'a' ? 700 : 400, lineHeight: 1.4, wordBreak: 'break-word' }}>{vA}</span>
                 </label>
-                <span style={{ textAlign: 'center', fontSize: 10, color: 'var(--muted)', paddingTop: isLong ? 4 : 0 }}>{bothSame ? '=' : 'vs'}</span>
+                <span style={{ textAlign: 'center', fontSize: 10, color: isDiff ? '#D97706' : 'var(--muted)', fontWeight: isDiff ? 700 : 400, paddingTop: isLong ? 4 : 0 }}>{bothSame ? '=' : 'vs'}</span>
                 <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'b' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
