@@ -4,23 +4,25 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Retourne les candidats créés dans les 30 derniers jours avec created_at
-// Le filtrage "vu/non vu" se fait côté client via hasBadge (viewedSet + viewedAllAt)
+// Retourne les candidats créés dans les 30 derniers jours OU avec has_update=true
+// Le filtrage "vu/non vu" se fait côté client via hasBadge (viewedSet + viewedAllAt + has_update)
 export async function GET() {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
     const admin = createAdminClient()
-    const { data } = await admin
+    // Récupérer : récents (badge classique) OU has_update=true (badge mise à jour CV)
+    const { data } = await (admin as any)
       .from('candidats')
-      .select('id, import_status, created_at')
-      .gte('created_at', thirtyDaysAgo)
+      .select('id, import_status, created_at, has_update')
+      .or(`created_at.gte.${thirtyDaysAgo},has_update.eq.true`)
 
     return NextResponse.json({
-      ids: (data || []).map((c: { id: string; import_status: string | null; created_at: string }) => ({
+      ids: (data || []).map((c: any) => ({
         id: c.id,
         import_status: c.import_status ?? 'traite',
         created_at: c.created_at,
+        has_update: c.has_update ?? false,
       })),
     })
   } catch {

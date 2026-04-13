@@ -372,9 +372,9 @@ export default function CandidatsList() {
     if (!isReady) return
     fetch(`/api/candidats/count-new?t=${Date.now()}`)
       .then(r => r.json())
-      .then(({ ids }: { ids: { id: string; import_status: string; created_at: string }[] }) => {
+      .then(({ ids }: { ids: { id: string; import_status: string; created_at: string; has_update?: boolean }[] }) => {
         const vs = getViewedSet()
-        const nonVus = ids.filter(item => hasBadge(item.id, item.created_at, vs, viewedAllAt))
+        const nonVus = ids.filter(item => hasBadge(item.id, item.created_at, vs, viewedAllAt, item.has_update))
         nonVusBadgeLoaded.current = true
         setNonVusTotal(nonVus.length)
         const parStatut: Record<string, number> = {}
@@ -638,7 +638,7 @@ export default function CandidatsList() {
     // Filtre "non vu" — client-side
     if (filterNonVu) {
       const vs = getViewedSet()
-      result = result.filter((c: any) => hasBadge(c.id, c.created_at, vs, viewedAllAt))
+      result = result.filter((c: any) => hasBadge(c.id, c.created_at, vs, viewedAllAt, c.has_update))
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -930,7 +930,7 @@ export default function CandidatsList() {
 
   // Compter les badges actifs (pour le bouton "Tout marquer vu")
   const badgeCount = useMemo(() => {
-    return sorted.filter(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt)).length
+    return sorted.filter(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).has_update)).length
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sorted, badgeTick, viewedAllAt])
 
@@ -939,8 +939,8 @@ export default function CandidatsList() {
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    // Badge rouge si : créé dans les 30 derniers jours ET fiche jamais ouverte (DB ou localStorage)
-    const isNewCandidat = hasBadge(c.id, c.created_at, viewedSet, viewedAllAt)
+    // Badge rouge si : has_update=true OU (créé dans les 30 derniers jours ET fiche jamais ouverte)
+    const isNewCandidat = hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).has_update)
 
     return (
       <motion.div

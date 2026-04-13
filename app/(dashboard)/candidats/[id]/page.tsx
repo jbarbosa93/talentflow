@@ -273,7 +273,16 @@ export default function CandidatDetailPage() {
   const candidat = data as any
 
   // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
-  useEffect(() => { if (id) markCandidatVu(id) }, [id])
+  useEffect(() => {
+    if (!id) return
+    markCandidatVu(id)
+    // Reset has_update flag en DB (fire-and-forget)
+    fetch(`/api/candidats/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ has_update: false }),
+    }).catch(() => {})
+  }, [id])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
   useEffect(() => {
@@ -2209,28 +2218,48 @@ export default function CandidatDetailPage() {
           queryClient.invalidateQueries({ queryKey: ['candidat', id] })
         }}
         onCvChange={async (url, fileName, skipReparse = false) => {
-          // 0. Mise à jour du CV (ou suppression si URL vide) — PATCH silencieux
+          // 0. Mise à jour du CV (ou suppression si URL vide) — PATCH atomique
           const updatePayload: Record<string, any> = {
             cv_url: url || null,
             cv_nom_fichier: fileName || null,
           }
-          // Si on remplace un CV existant par un nouveau, sauvegarder l'ancien
+          const currentDocs = (candidat.documents as any[]) || []
+          // Bug 6 fix — opération atomique :
+          // 1. Retirer le document promu de documents[] (il devient cv_url)
+          // 2. Archiver l'ancien CV dans documents[] (s'il existe et est différent)
+          let updatedDocs = url
+            ? currentDocs.filter((d: any) => d.url !== url)
+            : [...currentDocs]
+          // Archiver l'ancien CV si on le remplace
           if (url && candidat.cv_url && url !== candidat.cv_url) {
             const ancienName = candidat.cv_nom_fichier || 'CV précédent'
-            const oldDoc = {
-              name: `[Ancien] ${ancienName}`,
-              url: candidat.cv_url,
-              type: 'cv' as any,
-              uploaded_at: new Date().toISOString(),
+            // Déduplication par URL ou nom (signed URLs ont des tokens différents)
+            const isAlreadyArchived = updatedDocs.some((d: any) =>
+              d.url === candidat.cv_url || d.name === ancienName || d.name === `[Ancien] ${ancienName}`
+            )
+            if (!isAlreadyArchived) {
+              updatedDocs.push({
+                name: `[Ancien] ${ancienName}`,
+                url: candidat.cv_url,
+                type: 'cv' as any,
+                uploaded_at: new Date().toISOString(),
+              })
             }
-            const currentDocs = (candidat.documents as any[]) || []
-            updatePayload.documents = [...currentDocs, oldDoc]
           }
-          await fetch(`/api/candidats/${id}`, {
+          // Envoyer documents seulement si changé
+          if (updatedDocs.length !== currentDocs.length || url) {
+            updatePayload.documents = updatedDocs
+          }
+          const res = await fetch(`/api/candidats/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updatePayload),
           })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            console.error('[onCvChange] PATCH failed:', err)
+            throw new Error(err.error || 'Erreur serveur')
+          }
           queryClient.invalidateQueries({ queryKey: ['candidat', id] })
 
           // 1. Re-parser seulement si on a un nouveau CV (pas une suppression, pas un simple changement de CV principal)

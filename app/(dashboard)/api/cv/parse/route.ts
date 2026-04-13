@@ -196,17 +196,44 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       .maybeSingle()
 
     if (existingByFile) {
-      dbg(`[CV Parse] Fichier déjà importé : ${file.name} → mise à jour date`)
-      // Mettre à jour created_at (date d'ajout) avec lastModified du fichier
       const dateToUse = fileDate || new Date().toISOString()
-      await supabase.from('candidats').update({ created_at: dateToUse, updated_at: new Date().toISOString() } as any).eq('id', existingByFile.id)
-      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant' } })
+      // Bug 1 fix — comparer la date : si même date (±1 min) → SKIP complet (0 write)
+      const existingDate = existingByFile.created_at ? new Date(existingByFile.created_at).getTime() : 0
+      const importDate = new Date(dateToUse).getTime()
+      const memeDate = Math.abs(existingDate - importDate) <= 60_000
+
+      if (memeDate) {
+        // SKIP COMPLET — même fichier, même date → aucune écriture DB
+        dbg(`[CV Parse] Skip complet (même fichier + même date) : ${file.name}`)
+        await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'skip_meme_fichier' } })
+        return NextResponse.json({
+          isDuplicate: true,
+          sameFile: true,
+          skipped: true,
+          candidatExistant: existingByFile,
+          analyse: { prenom: existingByFile.prenom, nom: existingByFile.nom, email: existingByFile.email, titre_poste: existingByFile.titre_poste },
+          message: `Déjà importé : ${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(),
+        })
+      }
+
+      // Bug 2 fix — ne jamais écraser created_at par une date plus ancienne
+      const importedIsNewer = importDate > existingDate
+      dbg(`[CV Parse] Fichier déjà importé : ${file.name} → ${importedIsNewer ? 'mise à jour date' : 'date conservée'}`)
+      await supabase.from('candidats').update({
+        ...(importedIsNewer ? { created_at: dateToUse } : {}),
+        updated_at: new Date().toISOString(),
+        has_update: true,
+      } as any).eq('id', existingByFile.id)
+      // Supprimer de candidats_vus pour faire réapparaître le badge
+      try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', existingByFile.id) } catch {}
+      await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(), raison: 'fichier_existant_date_differente' } })
       return NextResponse.json({
         isDuplicate: true,
         sameFile: true,
+        reactivated: true,
         candidatExistant: existingByFile,
         analyse: { prenom: existingByFile.prenom, nom: existingByFile.nom, email: existingByFile.email, titre_poste: existingByFile.titre_poste },
-        message: `Déjà importé : ${existingByFile.prenom} ${existingByFile.nom}`,
+        message: `Déjà importé : ${existingByFile.prenom || ''} ${existingByFile.nom}`.trim(),
       })
     }
   }
@@ -655,7 +682,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           await adminClient.from('candidats').update({
             ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
             updated_at: new Date().toISOString(),
-            import_status: 'a_traiter',
+            has_update: true,
           } as any).eq('id', candidatExistant.id)
           // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
           await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
@@ -810,8 +837,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (cvUrl && existing?.cv_url && existing.cv_url !== cvUrl) {
         const existingDocs = (existing.documents as any[]) || []
         const oldName = existing.cv_nom_fichier || 'Ancien CV'
-        // Ne pas archiver si déjà présent (éviter les doublons d'archive)
-        if (!existingDocs.some((d: any) => d.url === existing.cv_url)) {
+        // Ne pas archiver si déjà présent (par URL ou par nom — signed URLs ont des tokens différents)
+        const isAlreadyArchived = existingDocs.some((d: any) =>
+          d.url === existing.cv_url || d.name === oldName || d.name === `[Ancien] ${oldName}`
+        )
+        if (!isAlreadyArchived) {
           existingDocs.push({
             name: `[Ancien] ${oldName}`,
             url: existing.cv_url,
@@ -916,7 +946,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         await adminClient.from('candidats').update({
           documents: existingDocs,
           updated_at: new Date().toISOString(),
-          import_status: 'a_traiter',
+          has_update: true,
         } as any).eq('id', candidatExistant.id)
         // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
         await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
@@ -926,9 +956,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
 
       const existingDocs = (existingFull.documents as any[]) || []
-      if (existingFull.cv_url && !existingDocs.some((d: any) => d.url === existingFull.cv_url)) {
-        existingDocs.push({ name: `[Ancien] ${existingFull.cv_nom_fichier || 'Ancien CV'}`, url: existingFull.cv_url, type: 'cv', uploaded_at: new Date().toISOString() })
+      const oldCvName = existingFull.cv_nom_fichier || 'Ancien CV'
+      const isOldCvArchived = !existingFull.cv_url || existingDocs.some((d: any) =>
+        d.url === existingFull.cv_url || d.name === oldCvName || d.name === `[Ancien] ${oldCvName}`
+      )
+      if (existingFull.cv_url && !isOldCvArchived) {
+        existingDocs.push({ name: `[Ancien] ${oldCvName}`, url: existingFull.cv_url, type: 'cv', uploaded_at: new Date().toISOString() })
       }
+      // Bug 2 fix — ne jamais rétrograder created_at : utiliser resolvedCreatedAt seulement si plus récent
+      const importedIsNewer = !existingCreatedAt || new Date(resolvedCreatedAt).getTime() > new Date(existingCreatedAt).getTime()
       await adminClient.from('candidats').update({
         titre_poste: analyse.titre_poste || existingFull.titre_poste,
         competences: analyse.competences || existingFull.competences,
@@ -942,9 +978,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         cv_url: cvUrl || existingFull.cv_url,
         cv_nom_fichier: file.name,
         documents: existingDocs,
-        created_at: resolvedCreatedAt,
+        ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
         updated_at: new Date().toISOString(),
-        import_status: 'a_traiter',
+        has_update: true,
       } as any).eq('id', candidatExistant.id)
       // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
       await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)

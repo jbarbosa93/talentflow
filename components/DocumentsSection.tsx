@@ -238,16 +238,19 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
     toast.success('Catégorie modifiée')
   }
 
-  const handleSetAsCv = (realIdx: number) => {
+  const handleSetAsCv = async (realIdx: number) => {
     if (realIdx < 0) return
     const doc = documents[realIdx]
     if (!doc || !onCvChange) return
-    // Set this document as CV principal — skipReparse=true : pas de re-analyse IA
-    onCvChange(doc.url, doc.name, true)
-    // Remove from documents array
-    const updated = documents.filter((_, i) => i !== realIdx)
-    onUpdate(updated)
-    toast.success('Défini comme CV principal')
+    // Bug 6 fix — opération atomique : onCvChange gère tout (archive ancien + retire promu)
+    // Ne PAS appeler onUpdate séparément (race condition → doublons + écrasement)
+    try {
+      await onCvChange(doc.url, doc.name, true)
+      toast.success('Défini comme CV principal')
+    } catch (err) {
+      console.error('[DocumentsSection] handleSetAsCv error:', err)
+      toast.error('Erreur lors du changement de CV principal')
+    }
   }
 
   const handleDeleteCv = async () => {

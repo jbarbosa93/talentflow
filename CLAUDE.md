@@ -143,25 +143,41 @@ supabase/migrations/  — SQL migrations versionnées
 
 ## Routes API critiques
 
-### Auth requise (`requireAuth()`)
-| Route | Méthodes | Description |
-|-------|----------|-------------|
-| `/api/candidats` | GET, POST, DELETE | Liste, création, suppression batch |
-| `/api/candidats/[id]` | GET, PATCH, DELETE | Lecture, édition, suppression |
-| `/api/logs` | GET | Logs accès |
-| `/api/matching` | GET | Scoring IA |
-| `/api/pipeline/clear` | POST | Vider étape pipeline |
-| `/api/pipeline/stages` | GET | Étapes pipeline custom |
-| `/api/notes` | GET, POST, PATCH, DELETE | Notes candidats |
-| `/api/clients` | GET, POST | Liste clients |
-| `/api/clients/[id]` | PATCH, DELETE | Édition client |
-| `/api/missions` | GET, POST | Liste missions |
-| `/api/missions/[id]` | PATCH, DELETE | Édition mission |
+⚠️ **État réel au 13/04/2026 (audit complet)** : Le middleware.ts exclut TOUTES les routes `/api/` de son matcher. La protection repose uniquement sur `requireAuth()` dans chaque route. Seules **7 routes** appellent effectivement `requireAuth()`.
 
-### Routes sensibles sans requireAuth (⚠️ dette technique)
-- `/api/cv/parse` — 1000+ lignes, parsing CV, pas de requireAuth complet
-- `/api/cron/onedrive-sync` — protégé par header Bearer CRON_SECRET uniquement
-- `/api/sync-quadrigis` — appelé par Cowork externe, pas de Bearer token
+### Routes avec `requireAuth()` — état réel (7 routes seulement)
+| Route | Méthodes |
+|-------|----------|
+| `/api/candidats` | GET, DELETE |
+| `/api/clients` | GET, POST |
+| `/api/notes` | POST |
+| `/api/logs` | GET |
+| `/api/matching` | GET ou POST |
+| `/api/pipeline/stages` | GET ou POST |
+| `/api/activites` | GET, POST, DELETE |
+
+### Routes sans requireAuth — dette technique (50+ routes avec admin client)
+Routes prioritaires à sécuriser (utilisent `createAdminClient`, bypass RLS total) :
+- `/api/candidats/[id]` — GET/PATCH/DELETE sans auth (lecture+modification+suppression candidats)
+- `/api/admin/users` — GET/POST/PATCH/DELETE sans auth (gestion comptes utilisateurs)
+- `/api/smtp/settings` — GET/POST sans auth (config SMTP lisible+modifiable)
+- `/api/entretiens` — CRUD complet sans auth
+- `/api/integrations` — tokens Microsoft 365 sans auth
+- `/api/cv/parse`, `/api/cv/bulk` — upload + parsing CVs sans auth
+- `/api/onedrive/sync` — protégé uniquement par header CRON_SECRET
+- `/api/missions`, `/api/missions/[id]` — CRUD sans auth (user client + RLS)
+- `/api/clients/[id]` — PATCH/DELETE sans auth (admin client)
+- `/api/notes/[id]` — PATCH/DELETE sans auth
+- `/api/activites/check-doublon` — historique emails candidats sans auth
+- `/api/candidats/audit/*` — scan/modification batch sans auth
+- `/api/whatsapp/send`, `/api/microsoft/send` — envoi messages sans auth
+- `/api/smtp/send` — envoi email sans auth
+
+### Routes intentionnellement sans auth (acceptables)
+- `/api/auth/*` — flows OTP/MDP/OAuth (pré-authentification)
+- `/api/whatsapp/webhook` — webhook Meta avec validation signature
+- `/api/microsoft/callback` — OAuth2 callback
+- `/api/geo`, `/api/metiers`, `/api/metier-categories` — données référence publique
 
 ### Routes spéciales
 - **`/api/cv/print`** — Proxy PDF (force `Content-Disposition: inline`)
@@ -279,18 +295,28 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 
 ---
 
-## Sécurité — dette technique (audit 12/04/2026)
+## Sécurité — dette technique (audit complet 13/04/2026)
 
-✅ **Corrigé (v1.6.1→v1.8.12)** :
+✅ **Corrigé (v1.6.1→v1.8.21)** :
 - SMTP password chiffré AES-256-GCM (`lib/smtp-crypto.ts`) — rétrocompatible
 - `pipeline_rappels` UPDATE filtré par `user_id`
-- RLS `logs_acces` SELECT authenticated, `entretiens` policies simplifiées, `candidates` RLS activé
-- 9 routes API protégées par `requireAuth()` (candidats, logs, matching, pipeline/clear, pipeline/stages, notes, clients + 2 routes supplémentaires)
+- RLS activé sur les 33 tables de la DB
 - Sentry monitoring actif
-- Timer inactivité persisté en localStorage
+- Timer inactivité 2h, persisté en localStorage + auto-logout sans OTP
 - `pipeline_consultant` obligatoire à l'ajout pipeline (erreur 400 sinon)
+- Fix CV rétrogradation : `importedIsOlder` check avant écrasement cv_url
+- `candidats_vus` delete après update → badge rouge réapparaît
 
-⚠️ **Restant — à traiter** :
+⚠️ **Restant — à traiter (par priorité)** :
+- **CRITIQUE** : ~50 routes API avec `createAdminClient()` sans `requireAuth()` — middleware exclut explicitement `/api/*`
+  - Priorité 1 : `candidats/[id]`, `admin/users`, `smtp/settings` (données ultra-sensibles)
+  - Priorité 2 : `entretiens`, `integrations`, `cv/parse`, `cv/bulk`, `activites`
+  - Priorité 3 : reste des routes avec admin client
+- **DB** : 2 vues SECURITY DEFINER (`vue_candidats_avec_score`, `vue_pipeline_complet`) → passer en SECURITY INVOKER
+- **DB** : policy dupliquée sur `candidats` (`authenticated_all` + `recruteurs_candidats`) → fusionner
+- **DB** : index dupliqué `idx_candidats_created` = `idx_candidats_created_at` → supprimer un
+- **DB** : 17 FK sans index (performance JOINs)
+- **DB** : `auth.uid()` non wrappé en `(select auth.uid())` sur 7 policies → suboptimal
 - `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token
-- `cv/parse` : route 1000+ lignes, audit auth dédié à planifier
 - Dashboard : 5 count queries séparées (optimiser avec RPC agrégée)
+- 21 instances `<img>` au lieu de `<Image>` Next.js (performance)
