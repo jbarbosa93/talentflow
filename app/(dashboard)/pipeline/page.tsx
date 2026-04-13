@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { formatFullName, formatInitials } from '@/lib/format-candidat'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -403,7 +404,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
                 }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
                     <span style={{ position: 'absolute' }}>{getInitials(c.prenom, c.nom)}</span>
-                    {c.photo_url && <img src={c.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+                    {c.photo_url && <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
@@ -427,7 +428,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, background: 'var(--secondary)', borderRadius: 8, padding: '10px 12px' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, overflow: 'hidden', flexShrink: 0, position: 'relative' }}>
                 <span style={{ position: 'absolute' }}>{getInitials(selected.prenom, selected.nom)}</span>
-                {selected.photo_url && <img src={selected.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+                {selected.photo_url && <Image src={selected.photo_url} alt="" width={36} height={36} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700 }}>{formatFullName(selected.prenom, selected.nom)}</div>
@@ -490,7 +491,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)', position: 'relative' }}>
           <span style={{ position: 'absolute' }}>{getInitials(candidat.prenom, candidat.nom)}</span>
-          {candidat.photo_url && <img src={candidat.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+          {candidat.photo_url && <Image src={candidat.photo_url} alt="" width={42} height={42} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</div>

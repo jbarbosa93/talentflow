@@ -7,9 +7,9 @@ import { Eye, EyeOff, Loader2, CheckCircle2, Lock, AlertTriangle } from 'lucide-
 import { motion } from 'framer-motion'
 
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 10 } as const,
+  initial: { opacity: 0, y: 12 } as const,
   animate: { opacity: 1, y: 0 } as const,
-  transition: { delay, duration: 0.32 },
+  transition: { delay, duration: 0.35 },
 })
 
 function LogoBlock() {
@@ -169,9 +169,9 @@ function AccepterInvitationInner() {
       <div className="auth-glass-bg">
         <motion.div
           className="auth-glass-card"
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
+          transition={{ duration: 0.5 }}
           style={{ textAlign: 'center' }}
         >
           <LogoBlock />
@@ -199,35 +199,35 @@ function AccepterInvitationInner() {
     <div className="auth-glass-bg">
       <motion.div
         className="auth-glass-card"
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 28 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
+        transition={{ duration: 0.5 }}
         style={{ maxWidth: 480 }}
       >
         <LogoBlock />
 
         {done ? (
           /* ── Succès ── */
-          <motion.div {...fadeUp(0.1)} style={{ textAlign: 'center', padding: '20px 0' }}>
+          <motion.div {...fadeUp(0.0 + 0.25)} style={{ textAlign: 'center', padding: '20px 0' }}>
             <CheckCircle2 size={52} color="#16A34A" style={{ marginBottom: 16 }} />
             <h2 className="auth-card-title">Compte créé !</h2>
             <p className="auth-card-sub">Redirection vers le dashboard…</p>
           </motion.div>
         ) : (
           <>
-            <motion.div {...fadeUp(0.15)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 9, background: '#F5A623', border: '2px solid #1C1A14', boxShadow: '2px 2px 0 #1C1A14', flexShrink: 0 }}>
                 <Lock size={16} color="#1C1A14" />
               </span>
               <h2 className="auth-card-title" style={{ margin: 0 }}>Créer votre compte</h2>
             </motion.div>
-            <motion.p className="auth-card-sub" {...fadeUp(0.2)} style={{ marginBottom: 24 }}>
+            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)} style={{ marginBottom: 24 }}>
               Définissez votre mot de passe pour accéder à TalentFlow.
             </motion.p>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <form className="auth-form" onSubmit={handleSubmit}>
 
-              <motion.div {...fadeUp(0.25)} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label className="auth-label">Prénom</label>
                   <input className="auth-input" value={user?.prenom || ''} readOnly style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' }} />
@@ -238,12 +238,12 @@ function AccepterInvitationInner() {
                 </div>
               </motion.div>
 
-              <motion.div {...fadeUp(0.3)}>
+              <motion.div className="auth-field" {...fadeUp(0.3 + 0.25)}>
                 <label className="auth-label">Adresse email</label>
                 <input className="auth-input" value={user?.email || ''} readOnly style={{ background: '#F3F4F6', color: '#6B7280', cursor: 'default', borderColor: '#E5E7EB' }} />
               </motion.div>
 
-              <motion.div {...fadeUp(0.35)}>
+              <motion.div className="auth-field" {...fadeUp(0.35 + 0.25)}>
                 <label className="auth-label">Entreprise</label>
                 <input
                   className="auth-input"
@@ -255,11 +255,11 @@ function AccepterInvitationInner() {
                 />
               </motion.div>
 
-              <motion.div {...fadeUp(0.38)} style={{ borderTop: '1px solid #E8E0C8', margin: '4px 0' }} />
+              <motion.div {...fadeUp(0.38 + 0.25)} style={{ borderTop: '1px solid #E8E0C8', margin: '4px 0' }} />
 
-              <motion.div {...fadeUp(0.4)}>
+              <motion.div className="auth-field" {...fadeUp(0.4 + 0.25)}>
                 <label className="auth-label">Mot de passe *</label>
-                <div style={{ position: 'relative' }}>
+                <div className="auth-input-wrap">
                   <input
                     className="auth-input"
                     type={showPwd ? 'text' : 'password'}
@@ -268,12 +268,11 @@ function AccepterInvitationInner() {
                     placeholder="Minimum 8 caractères"
                     required
                     autoFocus
-                    style={{ paddingRight: 44 }}
                   />
                   <button
                     type="button"
+                    className="auth-eye-btn"
                     onClick={() => setShowPwd(!showPwd)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 0 }}
                   >
                     {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -299,9 +298,9 @@ function AccepterInvitationInner() {
                 )}
               </motion.div>
 
-              <motion.div {...fadeUp(0.45)}>
+              <motion.div className="auth-field" {...fadeUp(0.45 + 0.25)}>
                 <label className="auth-label">Confirmer le mot de passe *</label>
-                <div style={{ position: 'relative' }}>
+                <div className="auth-input-wrap">
                   <input
                     className="auth-input"
                     type={showConf ? 'text' : 'password'}
@@ -309,12 +308,12 @@ function AccepterInvitationInner() {
                     onChange={e => setConfirm(e.target.value)}
                     placeholder="Répétez votre mot de passe"
                     required
-                    style={{ paddingRight: 44, borderColor: confirm.length > 0 && confirm !== password ? '#EF4444' : undefined }}
+                    style={{ borderColor: confirm.length > 0 && confirm !== password ? '#EF4444' : undefined }}
                   />
                   <button
                     type="button"
+                    className="auth-eye-btn"
                     onClick={() => setShowConf(!showConf)}
-                    style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 0 }}
                   >
                     {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -330,7 +329,7 @@ function AccepterInvitationInner() {
                 </motion.div>
               )}
 
-              <motion.div {...fadeUp(0.5)}>
+              <motion.div {...fadeUp(0.5 + 0.25)}>
                 <button
                   type="submit"
                   disabled={saving || !password || !confirm}

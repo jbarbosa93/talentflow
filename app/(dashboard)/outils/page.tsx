@@ -1,7 +1,8 @@
 'use client'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, ClipboardList } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, ClipboardList, FileText, Play, Square, AlertTriangle } from 'lucide-react'
 
 // ─── Outils ─────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,212 @@ export default function OutilsPage() {
         {OUTILS.map(outil => (
           <OutilCard key={outil.href} outil={outil} />
         ))}
+        <motion.div variants={cardVariants}>
+          <ExtractCVTextCard />
+        </motion.div>
       </motion.div>
+    </div>
+  )
+}
+
+// ─── Extract CV Text Card ───────────────────────────────────────────────────
+
+function ExtractCVTextCard() {
+  const [running, setRunning] = useState(false)
+  const [traites, setTraites] = useState(0)
+  const [restants, setRestants] = useState<number | null>(null)
+  const [erreurs, setErreurs] = useState<string[]>([])
+  const [done, setDone] = useState(false)
+  const stopRef = useRef(false)
+
+  const color = '#06B6D4'
+
+  const start = useCallback(async () => {
+    setRunning(true)
+    setTraites(0)
+    setRestants(null)
+    setErreurs([])
+    setDone(false)
+    stopRef.current = false
+
+    let totalTraites = 0
+
+    while (!stopRef.current) {
+      try {
+        const res = await fetch('/api/outils/extract-cv-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batch_size: 10 }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Erreur serveur' }))
+          setErreurs(prev => [...prev, err.error || `HTTP ${res.status}`])
+          break
+        }
+
+        const data = await res.json()
+        totalTraites += data.traites
+        setTraites(totalTraites)
+        setRestants(data.restants)
+
+        if (data.erreurs?.length > 0) {
+          setErreurs(prev => [...prev, ...data.erreurs])
+        }
+
+        if (data.restants === 0 || data.traites === 0) {
+          break
+        }
+      } catch (err: any) {
+        setErreurs(prev => [...prev, err?.message || 'Erreur reseau'])
+        break
+      }
+    }
+
+    setRunning(false)
+    setDone(true)
+  }, [])
+
+  const stop = useCallback(() => {
+    stopRef.current = true
+  }, [])
+
+  const total = restants !== null ? traites + restants : 0
+  const pct = total > 0 ? Math.round((traites / total) * 100) : 0
+
+  return (
+    <div style={{
+      background: 'var(--card)',
+      border: '1.5px solid var(--border)',
+      borderRadius: 16,
+      padding: 28,
+      position: 'relative',
+      overflow: 'hidden',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+    }}>
+      {/* Top accent line */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+        background: `linear-gradient(90deg, ${color}, ${color}66)`,
+      }} />
+
+      {/* Icon */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 18, marginTop: 4 }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16,
+          background: `${color}14`,
+          border: `1.5px solid ${color}28`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <FileText size={26} style={{ color }} />
+        </div>
+      </div>
+
+      {/* Title */}
+      <h3 style={{
+        fontSize: 17, fontWeight: 800, color: 'var(--foreground)',
+        margin: '0 0 8px 0', letterSpacing: '-0.01em',
+      }}>
+        Extraire texte CVs manquants
+      </h3>
+
+      {/* Description */}
+      <p style={{
+        fontSize: 13, color: 'var(--muted)', lineHeight: 1.65,
+        margin: '0 0 18px 0', flex: 1,
+      }}>
+        Remplit le champ cv_texte_brut pour tous les candidats ou il est vide, en extrayant le texte depuis le CV stocke.
+      </p>
+
+      {/* Progress */}
+      {(running || done) && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginBottom: 6,
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
+              {traites} traite{traites > 1 ? 's' : ''}
+              {restants !== null && ` / ${traites + restants} total`}
+            </span>
+            {total > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, color }}>{pct}%</span>
+            )}
+          </div>
+          {/* Progress bar */}
+          <div style={{
+            height: 6, borderRadius: 3,
+            background: 'var(--border)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', borderRadius: 3,
+              background: color,
+              width: `${pct}%`,
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Errors */}
+      {erreurs.length > 0 && (
+        <div style={{
+          marginBottom: 14, padding: '8px 10px', borderRadius: 8,
+          background: '#FEF2F2', border: '1px solid #FECACA',
+          maxHeight: 100, overflowY: 'auto',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+            <AlertTriangle size={12} style={{ color: '#DC2626' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>
+              {erreurs.length} erreur{erreurs.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          {erreurs.slice(-5).map((e, i) => (
+            <div key={i} style={{ fontSize: 10, color: '#991B1B', lineHeight: 1.5 }}>{e}</div>
+          ))}
+        </div>
+      )}
+
+      {/* CTA buttons */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+        {!running ? (
+          <button
+            onClick={start}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8, border: 'none',
+              background: color, color: '#fff',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+          >
+            <Play size={14} />
+            {done ? 'Relancer' : 'Lancer l\'extraction'}
+          </button>
+        ) : (
+          <button
+            onClick={stop}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', borderRadius: 8, border: 'none',
+              background: '#EF4444', color: '#fff',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              transition: 'opacity 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+          >
+            <Square size={14} />
+            Stop
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.33'
+export const APP_VERSION = '1.8.34'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.34',
+    date: '2026-04-13',
+    label: 'Outil extraction texte CV + Auth redesign + Image Next.js + Fix noms',
+    features: [
+      'Nouvel outil "Extraire texte CVs manquants" — batch extraction cv_texte_brut (PDF/DOCX/DOC), barre progression, stop/start',
+      'Auth pages redesign : verify-email + accepter-invitation alignés sur le style login (Framer Motion, glassmorphism)',
+      '14 balises <img> remplacées par <Image> Next.js (5 fichiers : fiche candidat, pipeline, secrétariat, liste, TopBar)',
+      'Fix 7 candidats avec nom "Candidat" — noms corrigés depuis cv_nom_fichier (UPDATE SQL direct)',
+    ],
+  },
   {
     version: '1.8.33',
     date: '2026-04-13',

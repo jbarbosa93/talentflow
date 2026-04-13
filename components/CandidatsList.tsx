@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { detectAndFormat } from '@/lib/phone-format'
 import { formatFullName, formatInitials, formatEmail, formatCity } from '@/lib/format-candidat'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
@@ -986,7 +987,7 @@ export default function CandidatsList() {
 
         {/* Avatar */}
         {(c.photo_url && c.photo_url !== 'checked')
-          ? <img src={c.photo_url} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="" />
+          ? <Image src={c.photo_url} width={56} height={56} unoptimized style={{ objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="" />
           : (
             <div
               style={{
@@ -2415,9 +2416,12 @@ export default function CandidatsList() {
             {['jpg', 'jpeg', 'png', 'webp'].includes(hoveredCv.ext) ? (
               <div style={{ width: `${previewZoom * 100}%`, minWidth: '100%', flexShrink: 0, position: 'relative', paddingTop: `${previewZoom * 100}%` }}>
                 <div style={{ position: 'absolute', inset: 0, transform: `scale(${previewZoom})`, transformOrigin: 'top left', width: `${100 / previewZoom}%`, height: `${100 / previewZoom}%` }}>
-                  <img
+                  <Image
                     src={hoveredCv.url}
                     alt="CV"
+                    width={600}
+                    height={850}
+                    unoptimized
                     draggable={false}
                     onDragStart={e => e.preventDefault()}
                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', pointerEvents: 'none', transform: hoveredCv.rotation ? `rotate(${hoveredCv.rotation}deg)` : undefined, transformOrigin: 'center center' }}

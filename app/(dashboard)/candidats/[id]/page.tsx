@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { formatFullName, formatInitials, formatEmail, formatCity, formatCountry } from '@/lib/format-candidat'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -636,7 +637,7 @@ export default function CandidatDetailPage() {
     setPhotoUploading(true)
     try {
       // Load image into canvas
-      const img = new Image()
+      const img = new window.Image()
       img.crossOrigin = 'anonymous'
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
@@ -951,7 +952,7 @@ export default function CandidatDetailPage() {
               {/* Photo avec boutons upload/delete */}
               <div style={{ position: 'relative' }}>
                 {(candidat.photo_url && candidat.photo_url !== 'checked')
-                  ? <img src={candidat.photo_url} style={{ width: 140, height: 140, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} alt="Photo candidat" />
+                  ? <Image src={candidat.photo_url} width={140} height={140} style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} alt="Photo candidat" unoptimized />
                   : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none', borderRadius: 12 }}>{initiales}</div>
                 }
                 {photoUploading && (
@@ -1782,8 +1783,8 @@ export default function CandidatDetailPage() {
                   minWidth: '100%',
                   display: 'flex', justifyContent: 'center',
                 }}>
-                  <img src={candidat.cv_url} alt="CV" style={{
-                    width: '100%', maxWidth: 'none',
+                  <Image src={candidat.cv_url} alt="CV" width={800} height={1130} unoptimized style={{
+                    width: '100%', height: 'auto', maxWidth: 'none',
                     borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                     pointerEvents: 'none',
                     transform: cvRotation ? `rotate(${cvRotation}deg)` : undefined,
@@ -2003,10 +2004,13 @@ export default function CandidatDetailPage() {
           {/* Contenu */}
           <div onClick={e => e.stopPropagation()} style={{ flex: 1, padding: '0 24px 24px', minHeight: 0 }}>
             {cvIsImage ? (
-              <img
+              <Image
                 src={candidat.cv_url}
                 alt="CV"
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, display: 'block', margin: '0 auto' }}
+                width={800}
+                height={1130}
+                unoptimized
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 8, display: 'block', margin: '0 auto', height: 'auto' }}
               />
             ) : (
               <iframe

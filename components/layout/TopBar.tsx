@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
@@ -203,7 +204,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               whileHover={{ borderColor: 'var(--primary)', background: 'var(--background)' }}
             >
               <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: avatarUrl ? 'transparent' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#0F172A', overflow: 'hidden' }}>
-                {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initiales}
+                {avatarUrl ? <Image src={avatarUrl} alt="" width={40} height={40} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initiales}
               </div>
               <div className="d-topbar-profile-text" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>{fullName}</span>
@@ -445,7 +446,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
               fontSize: 14, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
             }}>
               {avatarUrl
-                ? <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <Image src={avatarUrl} alt="" width={40} height={40} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : initiales
               }
             </div>
