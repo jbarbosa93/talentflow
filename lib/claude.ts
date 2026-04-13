@@ -396,6 +396,11 @@ export async function extractTextFromScan(buffer: Buffer, mediaType: ScanMediaTy
     const trimmedBuffer = await limitPDFPages(buffer, 3)
     base64 = trimmedBuffer.toString('base64')
   } else {
+    // Images : limite 4MB — au-delà Claude retourne 400 invalid_request
+    const MAX_IMAGE_BYTES = 4 * 1024 * 1024
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      throw new Error(`Image trop grande pour Vision (${(buffer.length / 1024 / 1024).toFixed(1)}MB > 4MB)`)
+    }
     base64 = buffer.toString('base64')
   }
 

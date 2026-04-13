@@ -116,6 +116,7 @@ export async function POST(request: NextRequest) {
 
         // ── Étape 2 : Vision IA — PDF scan / JPG / PNG / WEBP ─────────────
         const visionMediaType = VISION_MEDIA_TYPES[ext] ?? null
+        let visionErreur = ''
 
         if (texte.trim().length < MIN_TEXT_LENGTH && visionMediaType) {
           try {
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
               visionUsed++
             }
           } catch (visionErr: any) {
-            erreurs.push(`#${candidat.id}: Vision échoué (${ext.toUpperCase()}) — ${visionErr?.message || 'erreur'}`)
+            visionErreur = visionErr?.message || 'erreur Vision'
           }
         }
 
@@ -135,7 +136,6 @@ export async function POST(request: NextRequest) {
             const JSZip = (await import('jszip')).default
             const zip = await JSZip.loadAsync(buffer)
 
-            // Chercher la première image dans word/media/
             const mediaFiles = Object.keys(zip.files)
               .filter(f =>
                 f.startsWith('word/media/') &&
@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
               if (visionText && visionText.trim().length >= MIN_TEXT_LENGTH) {
                 texte = visionText
                 visionUsed++
+                visionErreur = '' // réussi
               }
             }
           } catch {
@@ -159,12 +160,13 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // ── Échec final — marquer pour éviter boucle infinie ──────────────
+        // ── Échec final — une seule erreur par candidat ────────────────────
         if (!texte || texte.trim().length < MIN_TEXT_LENGTH) {
-          const raison =
-            ext === 'doc'  ? 'DOC binaire image-only non lisible' :
-            ext === 'docx' ? 'DOCX sans texte ni image extractible' :
-            `texte insuffisant après toutes tentatives (${ext.toUpperCase()})`
+          const raison = visionErreur
+            ? `Vision échoué — ${visionErreur}`
+            : ext === 'doc'  ? 'DOC binaire image-only'
+            : ext === 'docx' ? 'DOCX sans texte ni image extractible'
+            : `texte insuffisant (${ext.toUpperCase()})`
 
           erreurs.push(`#${candidat.id}: ${raison} — ${filename}`)
           await supabase

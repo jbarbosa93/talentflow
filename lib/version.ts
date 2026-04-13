@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.39'
+export const APP_VERSION = '1.8.40'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.40',
+    date: '2026-04-13',
+    label: 'Fix Vision : limite 4MB images + erreur unique par candidat',
+    features: [
+      'extractTextFromScan : images > 4MB rejetées proprement (évite 400 Claude API)',
+      'Route extract-cv-text : une seule erreur par candidat (suppression double log Vision + texte insuffisant)',
+    ],
+  },
   {
     version: '1.8.39',
     date: '2026-04-13',
