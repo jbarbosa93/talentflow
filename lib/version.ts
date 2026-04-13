@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.38'
+export const APP_VERSION = '1.8.39'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.39',
+    date: '2026-04-13',
+    label: 'Extraction CVs : pipeline complet PDF/DOCX/DOC/JPG/PNG + PDF chiffré',
+    features: [
+      'DOCX image-only : JSZip extrait la 1re image de word/media/ → Vision IA (cas "scan exporté en DOCX")',
+      'PDF chiffré : catch PDF_ENCRYPTED → marqué [pdf-chiffre], Vision non tentée inutilement',
+      'Messages d\'erreur précis par type d\'échec (PDF chiffré / DOC binaire / DOCX sans image / téléchargement)',
+      '[pdf-chiffre] exclu du filtre de retraitement (contrairement à [scan-non-lisible])',
+    ],
+  },
   {
     version: '1.8.38',
     date: '2026-04-13',
