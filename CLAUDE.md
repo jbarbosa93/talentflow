@@ -57,7 +57,7 @@
 ---
 
 ## Version actuelle
-**1.8.31 production** — 13/04/2026
+**1.8.32 production** — 13/04/2026
 
 ---
 
@@ -339,17 +339,14 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Import CV : dédup complète (normFn), `has_update` remplace `import_status` mutation, badges fiables
 - Nom CV principal : strip `[Ancien]`/`[Archive]` préfixes à la promotion
 - Pipeline : DEFAULT 'nouveau' supprimé sur `statut_pipeline` + 21 fantômes nettoyés (v1.8.31)
+- Audit DB v1.8.32 : index dupliqué `idx_candidats_created` supprimé, policy `recruteurs_candidats` supprimée, `auth.uid()` → `(select auth.uid())` sur 8 policies (plannings/candidats_vus/pipeline_rappels), `search_path = public` sur 7 fonctions, tables fantômes `candidates`/`jobs` supprimées, 3 index FK ajoutés, vues SECURITY INVOKER, `.limit(100)` sur demandes_acces
 
 ⚠️ **Restant — à traiter (par priorité)** :
 - **CRITIQUE** : ~50 routes API avec `createAdminClient()` sans `requireAuth()` — middleware exclut explicitement `/api/*`
   - Priorité 1 : `candidats/[id]`, `admin/users`, `smtp/settings` (données ultra-sensibles)
   - Priorité 2 : `entretiens`, `integrations`, `cv/parse`, `cv/bulk`, `activites`
   - Priorité 3 : reste des routes avec admin client
-- **DB** : 2 vues SECURITY DEFINER (`vue_candidats_avec_score`, `vue_pipeline_complet`) → passer en SECURITY INVOKER
-- **DB** : policy dupliquée sur `candidats` (`authenticated_all` + `recruteurs_candidats`) → fusionner
-- **DB** : index dupliqué `idx_candidats_created` = `idx_candidats_created_at` → supprimer un
-- **DB** : 17 FK sans index (performance JOINs)
-- **DB** : `auth.uid()` non wrappé en `(select auth.uid())` sur 7 policies → suboptimal
+- **DB** : 14 FK restantes sans index (3 ajoutées en v1.8.32)
 - `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token
 - Dashboard : 5 count queries séparées (optimiser avec RPC agrégée)
 - 21 instances `<img>` au lieu de `<Image>` Next.js (performance)

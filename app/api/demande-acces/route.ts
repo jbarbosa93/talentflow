@@ -139,6 +139,7 @@ export async function GET() {
     .from('demandes_acces')
     .select('*')
     .order('created_at', { ascending: false })
+    .limit(100)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ demandes: data })

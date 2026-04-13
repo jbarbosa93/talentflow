@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.31'
+export const APP_VERSION = '1.8.32'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -14,11 +14,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.8.31',
+    version: '1.8.32',
     date: '2026-04-13',
-    label: 'Fix pipeline auto-ajout + Import CV complet',
+    label: 'Audit sécurité DB + Import CV complet',
     features: [
+      'Audit DB : index dupliqué supprimé, policy redondante, auth.uid() optimisé, search_path fixé, tables fantômes, index FK, vues SECURITY INVOKER',
       'Fix pipeline : suppression DEFAULT \'nouveau\' sur statut_pipeline (21 candidats fantômes nettoyés)',
+      'Limit 100 sur GET /api/demande-acces',
       'Badge rouge (has_update) : inconditionnel, clear à l\'ouverture fiche, dispatch sidebar',
       'Normalisation noms fichiers CV : normFn() sur 7 points de comparaison (Storage espaces→underscores)',
       'Dédup documents[] : URL normalisée + nom de base, jamais de doublons',
