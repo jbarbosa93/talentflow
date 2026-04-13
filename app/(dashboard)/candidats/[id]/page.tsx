@@ -2227,9 +2227,11 @@ export default function CandidatDetailPage() {
         }}
         onCvChange={async (url, fileName, skipReparse = false) => {
           // 0. Mise à jour du CV (ou suppression si URL vide) — PATCH atomique
+          // Fix v1.8.29 — nettoyer les préfixes [Ancien]/[Archive] du nom promu
+          const cleanFileName = (fileName || '').replace(/^\[(Ancien|Archive)\]\s*/i, '') || null
           const updatePayload: Record<string, any> = {
             cv_url: url || null,
-            cv_nom_fichier: fileName || null,
+            cv_nom_fichier: cleanFileName,
           }
           const currentDocs = (candidat.documents as any[]) || []
           // Bug 6 fix — opération atomique :
@@ -2240,7 +2242,8 @@ export default function CandidatDetailPage() {
             : [...currentDocs]
           // Archiver l'ancien CV si on le remplace
           if (url && candidat.cv_url && url !== candidat.cv_url) {
-            const ancienName = candidat.cv_nom_fichier || 'CV précédent'
+            // Fix v1.8.29 — nettoyer les préfixes éventuels avant d'archiver
+            const ancienName = (candidat.cv_nom_fichier || 'CV précédent').replace(/^\[(Ancien|Archive)\]\s*/i, '')
             // Déduplication par URL ou nom (signed URLs ont des tokens différents)
             const isAlreadyArchived = updatedDocs.some((d: any) =>
               d.url === candidat.cv_url || d.name === ancienName || d.name === `[Ancien] ${ancienName}`

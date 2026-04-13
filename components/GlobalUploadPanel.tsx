@@ -12,7 +12,9 @@ export default function GlobalUploadPanel() {
   return (
     <UploadCV
       onSuccess={() => {
-        queryClient.invalidateQueries({ queryKey: ['candidats'] })
+        // refetchQueries force un re-fetch immédiat (invalidateQueries ne suffit pas
+        // car la liste est derrière le modal d'import et React Query peut différer le refetch)
+        queryClient.refetchQueries({ queryKey: ['candidats'] })
       }}
       onClose={closeUpload}
     />

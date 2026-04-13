@@ -57,7 +57,7 @@
 ---
 
 ## Version actuelle
-**1.8.29 production** — 13/04/2026
+**1.8.31 production** — 13/04/2026
 
 ---
 
@@ -254,43 +254,59 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Ne jamais le définir dans `ImportContext` ni dans `/api/cv/parse`
 - L'ajout au pipeline se fait uniquement via action manuelle de l'utilisateur
 - `pipeline_consultant` **obligatoire** si `statut_pipeline` non-null — erreur 400 sinon
+- ✅ Fix v1.8.31 : DEFAULT 'nouveau' supprimé de la colonne (causait 21 fantômes)
 
 **5. Import status**
 - `'traite'` = onglet **Actif**
 - `'a_traiter'` = onglet **À traiter**
 - `'archive'` = onglet **Archivé**
 - Ne pas confondre les valeurs — les filtres serveur et les basculements d'onglet en dépendent
+- **JAMAIS modifier `import_status` sur un UPDATE candidat existant** — seulement `has_update:true`
 
-**6. has_update — badge "non vu" pour candidats mis à jour**
+**6. Import CV — logique complète (v1.8.30)**
+- **Même CV + même date** (±1min) → SKIP total, 0 upload, message "Déjà importé"
+- **Même CV + date différente** → update dates + `has_update:true`, 0 upload, statut "réactivé"
+- **Nouveau contenu** → upload + update complet + `has_update:true`
+- **CV plus ancien que l'actuel** → archiver dans `documents[]`, garder `cv_url` actuel
+- JAMAIS changer `import_status` d'un candidat existant (seulement `has_update:true`)
+- JAMAIS dupliquer dans `documents[]` (dédup par URL normalisée + nom de base)
+- OneDrive sync : même logique, cron 10min = sync manuel
+- `memeContenu` / `contenuIdentique` = gardes anti-doublons (texte 500 chars OU nom normalisé)
+
+**7. has_update — badge "non vu" pour candidats mis à jour**
 - `has_update: true` en DB = badge rouge sur la carte ET compteur sidebar
 - Défini par les imports (cv/parse, onedrive/sync) quand un candidat existant est réactivé ou mis à jour
 - Clearing : la fiche candidat PATCH `has_update: false` + `queryClient.setQueriesData` (cache React Query) + `dispatchBadgesChanged()` (sidebar)
 - `hasBadge()` : `has_update` = toujours badge visible (inconditionnel). Le clearing se fait via le PATCH + cache update, PAS via viewedSet
 - `dispatchBadgesChanged()` doit être appelé après tout événement qui modifie `has_update` en DB (UploadCV, IntégrationsOneDrive, fiche candidat)
 
-**7. Normalisation noms de fichiers CV**
+**8. Normalisation noms de fichiers CV**
 - Storage encode les espaces en underscores : `"BENCHAAR salim.pdf"` → `"1776xxx_BENCHAAR_salim.pdf"`
 - Toute comparaison de noms de fichiers doit utiliser `normFn()` : strip timestamp `^\d+_` + normalise `[_\s]+` → `_` + lowercase
 - `memeContenu`/`contenuIdentique` : compare AUSSI le nom de base (pas seulement le texte OCR, qui varie pour les images)
 - Early filename match dans cv/parse : fallback `cleanName = file.name.replace(/^\d+_/, '').replace(/_/g, ' ')` pour matcher les noms storage→original
 - Ne JAMAIS comparer `file.name` directement avec `cv_nom_fichier` sans normalisation
 
-**8. Modaux / overlays avec `position: fixed`**
+**9. "Définir comme CV principal" — nettoyage noms**
+- Lors de la promotion d'un document `[Ancien] X.pdf` ou `[Archive] X.pdf`, strip le préfixe via `replace(/^\[(Ancien|Archive)\]\s*/i, '')`
+- Appliqué sur `cv_nom_fichier` (nom promu) ET `ancienName` (nom archivé)
+
+**10. Modaux / overlays avec `position: fixed`**
 - Tout composant utilisant `position: fixed` (modaux, panels, tooltips, popovers) doit être rendu via `createPortal(jsx, document.body)`
 - Framer Motion `transform` et d'autres propriétés CSS (filter, will-change) créent un nouveau "containing block" → cassent `position: fixed` sur les enfants
 - Pattern validé : `if (typeof window === 'undefined') return null; return createPortal(modal, document.body)`
 
-**7. Turbopack**
+**11. Turbopack**
 - Désactivé en dev local via flag `--webpack` (crash sur `app/(auth)/auth.css`)
 - Actif uniquement sur le build Vercel (configuré via `turbopack.resolveAlias` dans `next.config.ts`)
 - Les deux configs (`turbopack` + `webpack`) doivent coexister dans `next.config.ts`
 
-**8. Scroll position — conteneur `.d-content`**
+**12. Scroll position — conteneur `.d-content`**
 - Le scroll de l'app est sur `div.d-content` (CSS `overflow-y: auto`), PAS sur `window`
 - Pour sauvegarder : `document.querySelector('.d-content')?.scrollTop`
 - Pour restaurer : `container.scrollTop = y` (pas `window.scrollTo`)
 
-**9. Navigation retour depuis fiche candidat**
+**13. Navigation retour depuis fiche candidat**
 - Paramètre `?from=pipeline|missions|secretariat` dans l'URL de la fiche
 - Bouton retour lit ce paramètre → route dynamique
 - Ajouter `?from=NOM_PAGE` à TOUS les liens vers `/candidats/[id]` depuis chaque page
@@ -311,7 +327,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 
 ## Sécurité — dette technique (audit complet 13/04/2026)
 
-✅ **Corrigé (v1.6.1→v1.8.21)** :
+✅ **Corrigé (v1.6.1→v1.8.30)** :
 - SMTP password chiffré AES-256-GCM (`lib/smtp-crypto.ts`) — rétrocompatible
 - `pipeline_rappels` UPDATE filtré par `user_id`
 - RLS activé sur les 33 tables de la DB
@@ -320,6 +336,9 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - `pipeline_consultant` obligatoire à l'ajout pipeline (erreur 400 sinon)
 - Fix CV rétrogradation : `importedIsOlder` check avant écrasement cv_url
 - `candidats_vus` delete après update → badge rouge réapparaît
+- Import CV : dédup complète (normFn), `has_update` remplace `import_status` mutation, badges fiables
+- Nom CV principal : strip `[Ancien]`/`[Archive]` préfixes à la promotion
+- Pipeline : DEFAULT 'nouveau' supprimé sur `statut_pipeline` + 21 fantômes nettoyés (v1.8.31)
 
 ⚠️ **Restant — à traiter (par priorité)** :
 - **CRITIQUE** : ~50 routes API avec `createAdminClient()` sans `requireAuth()` — middleware exclut explicitement `/api/*`
