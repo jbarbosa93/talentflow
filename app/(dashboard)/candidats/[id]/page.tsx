@@ -21,7 +21,7 @@ import { useMetierCategories } from '@/hooks/useMetierCategories'
 import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
-import { markCandidatVu, markCandidatNonVu, getViewedSet } from '@/lib/badge-candidats'
+import { markCandidatVu, markCandidatNonVu, getViewedSet, dispatchBadgesChanged } from '@/lib/badge-candidats'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 
@@ -276,12 +276,14 @@ export default function CandidatDetailPage() {
   useEffect(() => {
     if (!id) return
     markCandidatVu(id)
-    // Reset has_update flag en DB (fire-and-forget)
+    // Reset has_update flag en DB puis forcer recalcul badges (sidebar + liste)
+    // markCandidatVu peut ne pas dispatcher si l'ID est déjà dans viewedSet (localStorage)
+    // → dispatch explicite après PATCH pour garantir la mise à jour sidebar
     fetch(`/api/candidats/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ has_update: false }),
-    }).catch(() => {})
+    }).then(() => dispatchBadgesChanged()).catch(() => {})
   }, [id])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
