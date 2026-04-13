@@ -655,14 +655,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
             await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_contenu' } })
             return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
           } else {
-            // Même contenu, date différente → update dates uniquement, 0 upload
+            // Même contenu, date différente → update dates + import_status, 0 upload
             dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
             await adminClient.from('candidats').update({
               created_at: resolvedCreatedAt,
               updated_at: new Date().toISOString(),
+              import_status: 'a_traiter',
             } as any).eq('id', candidatExistant.id)
             await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
-            return NextResponse.json({ isDuplicate: true, sameFile: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+            return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
           }
         }
         // memeContenu = false → texte différent, traiter comme nouveau contenu → upload
@@ -910,6 +911,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         documents: existingDocs,
         created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
+        import_status: 'a_traiter',
       } as any).eq('id', candidatExistant.id)
       dbg(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })

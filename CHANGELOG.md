@@ -1,5 +1,17 @@
 # Changelog TalentFlow
 
+## [1.8.20] — 13 avril 2026
+
+### Fix — Badges + statuts import OneDrive et import normal
+- **OneDrive reactivated** : ajout `import_status: 'a_traiter'` sur les updates dates-seulement (même contenu, date différente) + safety guard
+- **OneDrive updated** : ajout `import_status: 'a_traiter'` sur l'update complet (contenu différent)
+- **OneDrive race condition** : correction sémantique `statut_action: 'updated'` → `'skipped'` sur les 3 cas anti-race (aucune mise à jour réelle effectuée)
+- **cv/parse réactivation** : ajout `import_status: 'a_traiter'` + `reactivated: true` dans la réponse (même contenu, date différente)
+- **cv/parse mise à jour** : ajout `import_status: 'a_traiter'` sur le update complet (contenu différent)
+- **Badge UI** : aucune modification nécessaire — `hasBadge` fonctionne déjà via `created_at` récent + non vu
+
+---
+
 ## [1.8.19] — 13 avril 2026
 
 ### Fix — OneDrive sync : skip CV images/scans si contenu identique

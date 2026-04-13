@@ -951,6 +951,7 @@ export async function POST(request: Request) {
               await (supabase as any).from('candidats').update({
                 created_at: fileDate,
                 updated_at: new Date().toISOString(),
+                import_status: 'a_traiter',
               }).eq('id', candidatExistant.id)
               try {
                 await upsertFichier({
@@ -994,6 +995,7 @@ export async function POST(request: Request) {
                 await (supabase as any).from('candidats').update({
                   created_at: fileDate,
                   updated_at: new Date().toISOString(),
+                  import_status: 'a_traiter',
                 }).eq('id', candidatExistant.id)
                 try {
                   await upsertFichier({
@@ -1078,6 +1080,7 @@ export async function POST(request: Request) {
                 documents: existingDocs,
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive
                 updated_at: new Date().toISOString(),
+                import_status: 'a_traiter',
                 ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
 
@@ -1162,7 +1165,7 @@ export async function POST(request: Request) {
                 traite: true,
                 traite_le: new Date().toISOString(),
                 last_modified_at: fichier.lastModifiedDateTime || null,
-                statut_action: 'updated',
+                statut_action: 'skipped',
                 candidat_id: lateCandidatEmail.id,
                 erreur: `Doublon détecté (race) — rattaché à ${lateCandidatEmail.prenom || ''} ${lateCandidatEmail.nom}`.trim(),
               })
@@ -1179,7 +1182,7 @@ export async function POST(request: Request) {
                 traite: true,
                 traite_le: new Date().toISOString(),
                 last_modified_at: fichier.lastModifiedDateTime || null,
-                statut_action: 'updated',
+                statut_action: 'skipped',
                 candidat_id: lateCandidatNom.id,
                 erreur: `Doublon détecté (race) — rattaché à ${lateCandidatNom.prenom || ''} ${lateCandidatNom.nom}`.trim(),
               })
@@ -1204,7 +1207,7 @@ export async function POST(request: Request) {
                   traite: true,
                   traite_le: new Date().toISOString(),
                   last_modified_at: fichier.lastModifiedDateTime || null,
-                  statut_action: 'updated',
+                  statut_action: 'skipped',
                   candidat_id: lateCandidatTel.id,
                   erreur: `Doublon détecté (race tel) — rattaché à ${lateCandidatTel.prenom || ''} ${lateCandidatTel.nom}`.trim(),
                 })
