@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.35'
+export const APP_VERSION = '1.8.36'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.36',
+    date: '2026-04-13',
+    label: 'Extraction texte CVs : fallback Vision IA pour PDFs scannés',
+    features: [
+      'Outil extract-cv-text : fallback Claude Vision (Haiku) pour les PDFs scannés dont le texte est < 50 caractères',
+      'Nouvelle fonction extractTextFromScan() dans lib/claude.ts — prompt léger texte brut uniquement',
+      'Batch réduit à 5 (appels Vision plus lourds), retraitement automatique des scans marqués vides',
+      'Marqueur [scan-non-lisible] pour les scans illisibles même par Vision (évite boucle infinie)',
+      'UI : compteur "scans IA" affiché en temps réel pendant l\'extraction',
+    ],
+  },
   {
     version: '1.8.35',
     date: '2026-04-13',

@@ -379,6 +379,40 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer, options?: { transla
   }
 }
 
+// ─── Extraction texte brut depuis PDF scanné (Vision légère) ────────────────
+// Utilisé par l'outil extract-cv-text pour les PDFs dont le texte est < 50 chars
+// Beaucoup plus léger que analyserCVDepuisPDF (pas de JSON structuré, juste le texte)
+
+export async function extractTextFromScan(pdfBuffer: Buffer): Promise<string> {
+  const client = getClient()
+  const trimmedBuffer = await limitPDFPages(pdfBuffer, 3)
+  const base64 = trimmedBuffer.toString('base64')
+
+  const response = await withRetry(() => client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 4000,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'document' as const,
+          source: {
+            type: 'base64' as const,
+            media_type: 'application/pdf' as const,
+            data: base64,
+          },
+        },
+        {
+          type: 'text' as const,
+          text: 'Extrais tout le texte visible de ce document. Retourne UNIQUEMENT le texte brut, sans formatage, sans commentaire, sans introduction. Si le document est pivoté ou à l\'envers, lis-le dans la bonne orientation.',
+        },
+      ],
+    }],
+  }))
+
+  return response.content[0]?.type === 'text' ? response.content[0].text.trim() : ''
+}
+
 // ─── Analyse depuis texte extrait ───────────────────────────────────────────
 
 export async function analyserCV(texteCV: string, options?: { translateToFrench?: boolean }): Promise<CVAnalyse> {

@@ -106,6 +106,7 @@ function ExtractCVTextCard() {
   const [running, setRunning] = useState(false)
   const [traites, setTraites] = useState(0)
   const [restants, setRestants] = useState<number | null>(null)
+  const [visionUsed, setVisionUsed] = useState(0)
   const [erreurs, setErreurs] = useState<string[]>([])
   const [done, setDone] = useState(false)
   const stopRef = useRef(false)
@@ -116,18 +117,20 @@ function ExtractCVTextCard() {
     setRunning(true)
     setTraites(0)
     setRestants(null)
+    setVisionUsed(0)
     setErreurs([])
     setDone(false)
     stopRef.current = false
 
     let totalTraites = 0
+    let totalVision = 0
 
     while (!stopRef.current) {
       try {
         const res = await fetch('/api/outils/extract-cv-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: 10 }),
+          body: JSON.stringify({ batch_size: 5 }),
         })
 
         if (!res.ok) {
@@ -138,8 +141,10 @@ function ExtractCVTextCard() {
 
         const data = await res.json()
         totalTraites += data.traites
+        totalVision += data.vision_used || 0
         setTraites(totalTraites)
         setRestants(data.restants)
+        setVisionUsed(totalVision)
 
         if (data.erreurs?.length > 0) {
           setErreurs(prev => [...prev, ...data.erreurs])
@@ -209,7 +214,7 @@ function ExtractCVTextCard() {
         fontSize: 13, color: 'var(--muted)', lineHeight: 1.65,
         margin: '0 0 18px 0', flex: 1,
       }}>
-        Remplit le champ cv_texte_brut pour tous les candidats ou il est vide, en extrayant le texte depuis le CV stocke.
+        Extrait le texte depuis les CVs stockes. Utilise la Vision IA pour les PDFs scannes (images).
       </p>
 
       {/* Progress */}
@@ -222,6 +227,7 @@ function ExtractCVTextCard() {
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
               {traites} traite{traites > 1 ? 's' : ''}
               {restants !== null && ` / ${traites + restants} total`}
+              {visionUsed > 0 && <span style={{ color: '#F59E0B', marginLeft: 6 }}>({visionUsed} scans IA)</span>}
             </span>
             {total > 0 && (
               <span style={{ fontSize: 11, fontWeight: 700, color }}>{pct}%</span>
