@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { emailInvitationHtml } from '@/lib/email-template'
+
+async function sendInvitationViaResend(to: string, inviteLink: string, prenom: string) {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'TalentFlow <noreply@talent-flow.ch>',
+      to: [to],
+      subject: 'Invitation à rejoindre TalentFlow',
+      html: emailInvitationHtml(inviteLink, prenom),
+    }),
+  })
+}
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch').trim()
 
@@ -73,7 +89,7 @@ export async function POST(request: NextRequest) {
         user_metadata: { prenom, nom, role, entreprise },
       })
 
-      // Générer un lien d'invitation (envoie automatiquement l'email)
+      // Générer un lien d'invitation
       const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
         type: 'invite',
         email,
@@ -85,18 +101,25 @@ export async function POST(request: NextRequest) {
 
       if (linkError) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
 
-      // L'email est envoyé automatiquement par Supabase via generateLink type 'invite'
+      // Envoyer l'invitation via Resend
+      await sendInvitationViaResend(email, linkData.properties.action_link, prenom)
       return NextResponse.json({ success: true, user: linkData.user, resent: true })
     }
 
-    // Nouvel utilisateur → envoyer l'invitation (crée l'utilisateur + envoie l'email automatiquement)
-    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      data: { prenom, nom, role, entreprise },
-      redirectTo,
+    // Nouvel utilisateur → générer le lien d'invitation et envoyer via Resend
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: {
+        data: { prenom, nom, role, entreprise },
+        redirectTo,
+      },
     })
 
-    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-    return NextResponse.json({ success: true, user: data.user, resent: false })
+    if (linkError) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+
+    await sendInvitationViaResend(email, linkData.properties.action_link, prenom)
+    return NextResponse.json({ success: true, user: linkData.user, resent: false })
   } catch {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }

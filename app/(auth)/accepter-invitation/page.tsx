@@ -145,6 +145,12 @@ function AccepterInvitationInner() {
     }
 
     setDone(true)
+    // Envoyer l'email de bienvenue (fire and forget)
+    fetch('/api/auth/welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user?.email, prenom: user?.prenom }),
+    }).catch(() => {})
     setTimeout(() => router.push('/dashboard'), 2000)
   }
 

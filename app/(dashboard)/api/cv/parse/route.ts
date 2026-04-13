@@ -941,10 +941,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
       })
     } else {
-      // Même CV — mettre à jour la date d'ajout
+      // Même CV — mettre à jour la date d'ajout + cv_url si manquant
       await adminClient.from('candidats').update({
         created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
+        ...(cvUrl ? { cv_url: cvUrl, cv_nom_fichier: file.name } : {}),
       } as any).eq('id', candidatExistant.id)
       dbg(`[CV Parse] Même CV, date mise à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       return NextResponse.json({

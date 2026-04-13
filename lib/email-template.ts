@@ -106,6 +106,65 @@ export function emailResetPasswordHtml(resetLink: string): string {
   `)
 }
 
+export function emailInvitationHtml(inviteLink: string, prenom: string): string {
+  const prenomDisplay = prenom ? ` ${prenom}` : ''
+  return emailWrapper(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">
+      Bienvenue sur TalentFlow${prenomDisplay} !
+    </h2>
+    <p style="margin:0 0 28px;color:#6B7280;font-size:15px;line-height:1.6">
+      Vous avez été invité(e) à rejoindre TalentFlow, la plateforme de gestion du recrutement de L-Agence.<br>
+      Cliquez sur le bouton ci-dessous pour créer votre compte.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="${inviteLink}"
+        style="display:inline-block;background:#F5A623;color:#1C1A14;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:10px;letter-spacing:-0.1px">
+        Créer mon compte →
+      </a>
+    </div>
+
+    <!-- Fallback link -->
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+      <p style="margin:0 0 6px;color:#6B7280;font-size:12px">Si le bouton ne fonctionne pas, copiez ce lien :</p>
+      <p style="margin:0;word-break:break-all;font-size:11px;color:#9CA3AF">${inviteLink}</p>
+    </div>
+
+    <div style="background:#FEF9EC;border:1px solid #FDE68A;border-radius:8px;padding:14px 16px">
+      <p style="margin:0;color:#92400E;font-size:13px;line-height:1.5">
+        ⏱ Ce lien est valable <strong>24 heures</strong>. Si vous n'attendiez pas cette invitation, ignorez cet email.
+      </p>
+    </div>
+  `)
+}
+
+export function emailWelcomeHtml(prenom: string): string {
+  const prenomDisplay = prenom ? ` ${prenom}` : ''
+  return emailWrapper(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">
+      Compte activé${prenomDisplay} !
+    </h2>
+    <p style="margin:0 0 28px;color:#6B7280;font-size:15px;line-height:1.6">
+      Votre compte TalentFlow a été créé avec succès. Vous pouvez maintenant vous connecter et commencer à utiliser la plateforme.
+    </p>
+
+    <!-- CTA Button -->
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="https://www.talent-flow.ch/dashboard"
+        style="display:inline-block;background:#F5A623;color:#1C1A14;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:10px;letter-spacing:-0.1px">
+        Accéder au dashboard →
+      </a>
+    </div>
+
+    <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:14px 16px">
+      <p style="margin:0;color:#065F46;font-size:13px;line-height:1.5">
+        ✅ Bienvenue dans l'équipe ! Si vous avez des questions, contactez votre administrateur.
+      </p>
+    </div>
+  `)
+}
+
 export function emailPasswordChangedHtml(): string {
   return emailWrapper(`
     <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">

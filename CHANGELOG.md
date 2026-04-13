@@ -1,5 +1,18 @@
 # Changelog TalentFlow
 
+## [1.8.13] — 13 avril 2026
+
+### Fix — Import CV : cv_url préservé sur doublon "même contenu"
+- Bug : ré-import d'un CV existant avec contenu similaire (`hasNewContent = false`) ne sauvegardait pas `cv_url` → candidat sans CV visible
+- Fix : le chemin "même contenu" met maintenant à jour `cv_url` et `cv_nom_fichier` si un nouveau fichier a été uploadé en Storage
+
+### Email invitation — template custom
+- Email d'invitation styled avec le template TalentFlow (#F5A623, header dark)
+- Remplacement de l'email Supabase générique par Resend (nouvel utilisateur + renvoi)
+- Email de bienvenue envoyé automatiquement après création du compte (`/accepter-invitation`)
+
+---
+
 ## [1.8.12] — 12 avril 2026
 
 ### Pipeline — consultant obligatoire
