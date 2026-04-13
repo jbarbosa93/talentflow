@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -210,6 +211,8 @@ function detectSansCv(c: any): SansCv | null {
 }
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
 

@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRouteUser, logActivityServer } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 import nodemailer from 'nodemailer'
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -186,6 +187,8 @@ async function generateDocx(data: any): Promise<Buffer> {
 // ─── Route POST ───────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const data = await request.json()
 

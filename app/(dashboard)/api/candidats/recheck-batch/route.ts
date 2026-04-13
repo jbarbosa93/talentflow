@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { analyserCVDepuisPDF, analyserCV } from '@/lib/claude'
+import { requireAuth } from '@/lib/auth-guard'
 // after() supprimé — le frontend pilote les batches
 
 export const maxDuration = 300
@@ -169,6 +170,8 @@ async function processCandidat(admin: ReturnType<typeof createAdminClient>, cand
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const admin = createAdminClient()
   const body = await request.json().catch(() => ({}))
   const offset = body.offset || 0

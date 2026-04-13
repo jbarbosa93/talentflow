@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -11,6 +12,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const { id } = await params
     const body = await request.json()
@@ -46,6 +49,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const { id } = await params
     const supabase = createAdminClient() as any

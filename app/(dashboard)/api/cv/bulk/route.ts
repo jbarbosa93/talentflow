@@ -11,6 +11,7 @@ import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/cl
 import type { CandidatInsert, DocumentType } from '@/types/database'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes pour traiter un gros ZIP
@@ -538,6 +539,8 @@ async function traiterUnFichier(
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
     const formData = await request.formData()

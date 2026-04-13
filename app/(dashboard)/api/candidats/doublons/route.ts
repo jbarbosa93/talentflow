@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Anthropic from '@anthropic-ai/sdk'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -130,6 +131,8 @@ ${SCORING_RULES}`
 // action = "merge"   : fusionne deux candidats, supprime le doublon
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
 

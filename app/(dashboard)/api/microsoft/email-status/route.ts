@@ -4,8 +4,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

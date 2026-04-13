@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/auth-guard'
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'j.barbosa@l-agence.ch').trim()
 
@@ -17,8 +18,10 @@ async function requireAdmin(): Promise<NextResponse | null> {
 }
 
 export async function GET() {
-  const authError = await requireAdmin()
+  const authError = await requireAuth()
   if (authError) return authError
+  const adminError = await requireAdmin()
+  if (adminError) return adminError
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('integrations')
@@ -28,8 +31,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const authError = await requireAdmin()
+  const authError = await requireAuth()
   if (authError) return authError
+  const adminError = await requireAdmin()
+  if (adminError) return adminError
   const body = await request.json()
   const { id, metadata, type, metadata_update } = body
   const supabase = createAdminClient()
@@ -55,8 +60,10 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const authError = await requireAdmin()
+  const authError = await requireAuth()
   if (authError) return authError
+  const adminError = await requireAdmin()
+  if (adminError) return adminError
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })

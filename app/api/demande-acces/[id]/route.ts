@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const { id } = await params
   const { statut } = await request.json()
 
@@ -60,6 +63,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const { id } = await params
   const supabase = createAdminClient()
   const { error } = await supabase.from('demandes_acces').delete().eq('id', id)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 // Helper pour accéder à la table non-typée recheck_results
 function recheckTable(admin: ReturnType<typeof createAdminClient>) {
@@ -7,6 +8,8 @@ function recheckTable(admin: ReturnType<typeof createAdminClient>) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const admin = createAdminClient()
   const body = await request.json()
   const { result_id, action } = body

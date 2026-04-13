@@ -5,10 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const admin = createAdminClient()
     const { data, error } = await (admin as any)
@@ -25,6 +28,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const admin = createAdminClient()
     const body = await request.json()
@@ -67,6 +72,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const admin = createAdminClient()
     const { candidat_a_id, candidat_b_id } = await request.json()

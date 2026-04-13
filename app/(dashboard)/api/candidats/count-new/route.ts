@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -7,6 +8,8 @@ export const dynamic = 'force-dynamic'
 // Retourne les candidats créés dans les 30 derniers jours OU avec has_update=true
 // Le filtrage "vu/non vu" se fait côté client via hasBadge (viewedSet + viewedAllAt + has_update)
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 

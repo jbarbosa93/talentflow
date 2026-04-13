@@ -2,11 +2,14 @@
 // Supports force mode to re-extract ALL photos (including already extracted ones)
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
 
   const { batchSize = 20, force = false, offset = 0, candidatId, reject = false } = await request.json().catch(() => ({}))
@@ -253,6 +256,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
 
   // Candidats avec une vraie photo (pas null, pas 'checked')

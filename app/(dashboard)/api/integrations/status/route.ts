@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const admin = createAdminClient()
 
   // Chercher toutes les intégrations Microsoft actives

@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { DocumentType } from '@/types/database'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,8 @@ function guessDocumentType(filename: string): DocumentType {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const { candidatId, action } = body as { candidatId: string; action: FixAction }

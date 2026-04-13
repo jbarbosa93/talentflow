@@ -57,7 +57,7 @@
 ---
 
 ## Version actuelle
-**1.8.32 production** — 13/04/2026
+**1.8.33 production** — 13/04/2026
 
 ---
 
@@ -143,35 +143,20 @@ supabase/migrations/  — SQL migrations versionnées
 
 ## Routes API critiques
 
-⚠️ **État réel au 13/04/2026 (audit complet)** : Le middleware.ts exclut TOUTES les routes `/api/` de son matcher. La protection repose uniquement sur `requireAuth()` dans chaque route. Seules **7 routes** appellent effectivement `requireAuth()`.
+⚠️ **État au 13/04/2026 (v1.8.33)** : Le middleware.ts exclut TOUTES les routes `/api/` de son matcher. La protection repose uniquement sur `requireAuth()` dans chaque route. **51 routes** sur 63 sont désormais protégées.
 
-### Routes avec `requireAuth()` — état réel (7 routes seulement)
-| Route | Méthodes |
-|-------|----------|
-| `/api/candidats` | GET, DELETE |
-| `/api/clients` | GET, POST |
-| `/api/notes` | POST |
-| `/api/logs` | GET |
-| `/api/matching` | GET ou POST |
-| `/api/pipeline/stages` | GET ou POST |
-| `/api/activites` | GET, POST, DELETE |
+### Routes avec `requireAuth()` — 51 routes protégées (v1.8.33)
+Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/users`, `smtp/*`, `entretiens/*`, `integrations/*`, `cv/*`, `notes/*`, `matching/*`, `pipeline/*`, `logs`, `activites/*`, `whatsapp/send`, `microsoft/send`, `microsoft/email-*`, `email-templates`, `sharepoint/import`, `onedrive/folders`, `onedrive/reset-orphans`, `annonces/france-travail`, `candidats/audit/*`, `candidats/doublons/*`, `candidats/recheck-*`, `demande-acces/[id]`
 
-### Routes sans requireAuth — dette technique (50+ routes avec admin client)
-Routes prioritaires à sécuriser (utilisent `createAdminClient`, bypass RLS total) :
-- `/api/candidats/[id]` — GET/PATCH/DELETE sans auth (lecture+modification+suppression candidats)
-- `/api/admin/users` — GET/POST/PATCH/DELETE sans auth (gestion comptes utilisateurs)
-- `/api/smtp/settings` — GET/POST sans auth (config SMTP lisible+modifiable)
-- `/api/entretiens` — CRUD complet sans auth
-- `/api/integrations` — tokens Microsoft 365 sans auth
-- `/api/cv/parse`, `/api/cv/bulk` — upload + parsing CVs sans auth
-- `/api/onedrive/sync` — protégé uniquement par header CRON_SECRET
-- `/api/missions`, `/api/missions/[id]` — CRUD sans auth (user client + RLS)
-- `/api/clients/[id]` — PATCH/DELETE sans auth (admin client)
-- `/api/notes/[id]` — PATCH/DELETE sans auth
-- `/api/activites/check-doublon` — historique emails candidats sans auth
-- `/api/candidats/audit/*` — scan/modification batch sans auth
-- `/api/whatsapp/send`, `/api/microsoft/send` — envoi messages sans auth
-- `/api/smtp/send` — envoi email sans auth
+### Routes sans requireAuth — restant (12 routes, toutes justifiées)
+- `/api/onedrive/sync` — protégé par header CRON_SECRET
+- `/api/missions`, `/api/missions/[id]` — user client + RLS (pas admin client)
+- `/api/auth/*` — flows OTP/MDP/OAuth (pré-authentification)
+- `/api/whatsapp/webhook` — webhook Meta avec validation signature
+- `/api/microsoft/callback` — OAuth2 callback
+- `/api/demande-acces` POST — formulaire public landing page
+- `/api/metiers`, `/api/metier-categories` — données référence publiques
+- `/api/geo` — données géo publiques
 
 ### Routes intentionnellement sans auth (acceptables)
 - `/api/auth/*` — flows OTP/MDP/OAuth (pré-authentification)
@@ -342,10 +327,6 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Audit DB v1.8.32 : index dupliqué `idx_candidats_created` supprimé, policy `recruteurs_candidats` supprimée, `auth.uid()` → `(select auth.uid())` sur 8 policies (plannings/candidats_vus/pipeline_rappels), `search_path = public` sur 7 fonctions, tables fantômes `candidates`/`jobs` supprimées, 3 index FK ajoutés, vues SECURITY INVOKER, `.limit(100)` sur demandes_acces
 
 ⚠️ **Restant — à traiter (par priorité)** :
-- **CRITIQUE** : ~50 routes API avec `createAdminClient()` sans `requireAuth()` — middleware exclut explicitement `/api/*`
-  - Priorité 1 : `candidats/[id]`, `admin/users`, `smtp/settings` (données ultra-sensibles)
-  - Priorité 2 : `entretiens`, `integrations`, `cv/parse`, `cv/bulk`, `activites`
-  - Priorité 3 : reste des routes avec admin client
 - **DB** : 14 FK restantes sans index (3 ajoutées en v1.8.32)
 - `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token
 - Dashboard : 5 count queries séparées (optimiser avec RPC agrégée)

@@ -11,6 +11,7 @@ import { logActivity } from '@/lib/activity-log'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -88,6 +89,8 @@ function checkRateLimit(ip: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
   if (!checkRateLimit(ip)) {
     return NextResponse.json({ error: 'Trop de requêtes — réessayez dans une minute' }, { status: 429 })

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -7,6 +8,8 @@ export const runtime = 'nodejs'
 // traite=true MAIS candidat_id IS NULL ET erreur ne commence pas par "Abandonné", "Document", "Doublon"
 // Ces fichiers ont été marqués "traités" mais aucun candidat n'a été créé (bug ancien insert unique)
 export async function POST() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
 

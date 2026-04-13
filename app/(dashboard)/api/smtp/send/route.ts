@@ -6,10 +6,13 @@ import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { decrypt } from '@/lib/smtp-crypto'
 import nodemailer from 'nodemailer'
 import { generateBrandedCV } from '@/lib/cv-generator'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
 

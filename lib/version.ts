@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.32'
+export const APP_VERSION = '1.8.33'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -14,10 +14,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.8.32',
+    version: '1.8.33',
     date: '2026-04-13',
-    label: 'Audit sécurité DB + Import CV complet',
+    label: 'Sécurité : requireAuth sur 44 routes API + Audit DB',
     features: [
+      'Sécurité : requireAuth() ajouté sur 44 routes API (77 handlers) — toutes les routes critiques et importantes protégées',
       'Audit DB : index dupliqué supprimé, policy redondante, auth.uid() optimisé, search_path fixé, tables fantômes, index FK, vues SECURITY INVOKER',
       'Fix pipeline : suppression DEFAULT \'nouveau\' sur statut_pipeline (21 candidats fantômes nettoyés)',
       'Limit 100 sur GET /api/demande-acces',

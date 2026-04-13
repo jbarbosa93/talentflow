@@ -2,11 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/smtp-crypto'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 // GET — Lire les paramètres SMTP sauvegardés
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
     const { data } = await (supabase as any)
@@ -33,6 +36,8 @@ export async function GET() {
 
 // POST — Sauvegarder les paramètres SMTP
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const { email, password, host, port, nom } = await request.json()
 
@@ -77,6 +82,8 @@ export async function POST(request: NextRequest) {
 
 // DELETE — Supprimer les paramètres SMTP
 export async function DELETE() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const supabase = createAdminClient()
     await (supabase as any).from('app_settings').delete().eq('key', 'smtp_config')

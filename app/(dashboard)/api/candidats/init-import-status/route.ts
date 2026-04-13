@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 // POST: Met tous les candidats sans import_status à 'a_traiter'
 export async function POST() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
 
   try {
@@ -32,6 +35,8 @@ export async function POST() {
 
 // GET: Compter les candidats par import_status
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
 
   const [aTraiter, traite, archive] = await Promise.all([

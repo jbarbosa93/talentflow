@@ -8,6 +8,7 @@ import { telechargerFichier } from '@/lib/sharepoint'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
+import { requireAuth } from '@/lib/auth-guard'
 import type { CandidatInsert } from '@/types/database'
 
 export const runtime = 'nodejs'
@@ -27,6 +28,8 @@ function getMimeTypeForImage(ext: string): 'image/jpeg' | 'image/png' | 'image/w
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const { integration_id, drive_id, item_id, filename, offre_id } = body

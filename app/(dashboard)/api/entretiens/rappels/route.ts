@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 
 // GET /api/entretiens/rappels
 // Retourne les rappels actifs (rappel_date <= aujourd'hui, rappel_vu = false)
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
   const { user_id } = await getRouteUser()
   const today = new Date().toISOString().split('T')[0]
@@ -25,6 +28,8 @@ export async function GET() {
 // PATCH /api/entretiens/rappels
 // body: { id: string } ou { ids: string[] } — marque comme vu
 export async function PATCH(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const supabase = createAdminClient()

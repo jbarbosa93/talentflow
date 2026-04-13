@@ -5,10 +5,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidAccessToken, callGraph } from '@/lib/microsoft'
 import type { Integration } from '@/types/database'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
 

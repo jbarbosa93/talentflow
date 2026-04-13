@@ -4,11 +4,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateBrandedCV } from '@/lib/cv-generator'
+import { requireAuth } from '@/lib/auth-guard'
 import type { Candidat } from '@/types/database'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const { candidat_id, recruiter_info, included_sections, custom_content } = body
@@ -60,6 +63,8 @@ export async function POST(request: NextRequest) {
 
 // GET — pour télécharger depuis le navigateur avec query params
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const url = new URL(request.url)
   const candidat_id = url.searchParams.get('candidat_id')
 

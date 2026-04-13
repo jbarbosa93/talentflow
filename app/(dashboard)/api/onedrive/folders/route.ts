@@ -1,6 +1,7 @@
 // app/(dashboard)/api/onedrive/folders/route.ts
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 import { getValidAccessToken } from '@/lib/microsoft'
 import { listerDossiers } from '@/lib/onedrive'
 import type { Integration } from '@/types/database'
@@ -19,6 +20,8 @@ async function findOneDriveIntegration() {
 }
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const integration = await findOneDriveIntegration()
     if (!integration) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
@@ -39,6 +42,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const { folder_id, folder_name, toggle_auto_sync } = body

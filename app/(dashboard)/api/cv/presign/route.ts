@@ -3,11 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const preferredRegion = 'dub1'  // Dublin — aligné avec Supabase eu-west-1 (Ireland)
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const { searchParams } = new URL(request.url)
   const filename = searchParams.get('filename')
   if (!filename) return NextResponse.json({ error: 'filename requis' }, { status: 400 })

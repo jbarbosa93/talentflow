@@ -4,10 +4,13 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const admin = createAdminClient()
     const threshold = parseInt(request.nextUrl.searchParams.get('threshold') || '20')

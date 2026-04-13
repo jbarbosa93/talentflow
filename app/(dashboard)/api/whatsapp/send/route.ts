@@ -6,12 +6,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { envoyerMessage, envoyerTemplate } from '@/lib/whatsapp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 const dbg = (...args: Parameters<typeof console.log>) => { if (process.env.DEBUG_MODE === 'true') console.log(...args) }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const {
@@ -96,6 +99,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   return NextResponse.json({
     status: 'ok',
     route: 'POST /api/whatsapp/send',

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { emailInvitationHtml } from '@/lib/email-template'
+import { requireAuth } from '@/lib/auth-guard'
 
 async function sendInvitationViaResend(to: string, inviteLink: string, prenom: string) {
   const key = process.env.RESEND_API_KEY
@@ -40,6 +41,8 @@ async function requireAdmin(): Promise<NextResponse | null> {
 
 // GET - Liste tous les utilisateurs
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const denied = await requireAdmin()
   if (denied) return denied
   try {
@@ -64,6 +67,8 @@ export async function GET() {
 
 // POST - Inviter un nouvel utilisateur (ou renvoyer le lien si déjà existant)
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const denied = await requireAdmin()
   if (denied) return denied
   try {
@@ -127,6 +132,8 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Modifier le rôle d'un utilisateur
 export async function PATCH(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const denied = await requireAdmin()
   if (denied) return denied
   try {
@@ -151,6 +158,8 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Supprimer un utilisateur
 export async function DELETE(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const denied = await requireAdmin()
   if (denied) return denied
   try {

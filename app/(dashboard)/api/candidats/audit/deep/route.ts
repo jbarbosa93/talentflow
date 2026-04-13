@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -201,6 +202,8 @@ function getImageDimensions(buffer: Buffer): { width: number; height: number } |
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const { offset = 0, limit = 5, mode = 'cv' } = await request.json()
     const supabase = createAdminClient()

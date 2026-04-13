@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function GET() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('email_templates')
@@ -12,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const body = await request.json()
     const supabase = createAdminClient()
@@ -28,6 +33,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })

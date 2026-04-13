@@ -2,10 +2,13 @@
 // GET /api/activites/check-doublon?candidat_ids=x,y&destinataires=a@b.ch,c@d.ch
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
   try {
     const { searchParams } = new URL(request.url)
     const candidatIdsStr = searchParams.get('candidat_ids') || ''

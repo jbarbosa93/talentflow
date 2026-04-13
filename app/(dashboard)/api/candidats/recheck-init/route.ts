@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function POST() {
+  const authError = await requireAuth()
+  if (authError) return authError
   const admin = createAdminClient()
 
   // Créer la table recheck_results si elle n'existe pas
