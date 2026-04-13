@@ -63,6 +63,17 @@ export async function POST(request: NextRequest) {
 
     const accessToken = await getValidAccessToken(integration.id)
 
+    // Signature dynamique du consultant connecté
+    let signature = ''
+    if (currentUser?.user_metadata) {
+      const m = currentUser.user_metadata
+      const fullName = [m.prenom, m.nom].filter(Boolean).join(' ')
+      const entreprise = m.entreprise || 'L-Agence'
+      if (fullName) {
+        signature = `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-family:Arial,sans-serif;font-size:13px;color:#6b7280"><strong style="color:#111827">${fullName}</strong><br>${entreprise} — Recrutement<br><span style="color:#F5A623">TalentFlow</span></div>`
+      }
+    }
+
     // Build recipients
     const recipients = destinataires.map((email: string) => ({
       emailAddress: { address: email },
@@ -74,7 +85,7 @@ export async function POST(request: NextRequest) {
       subject: sujet,
       body: {
         contentType: 'HTML',
-        content: corps.replace(/\n/g, '<br>'),
+        content: corps.replace(/\n/g, '<br>') + signature,
       },
       from: {
         emailAddress: { address: integration.email, name: integration.nom_compte },

@@ -46,6 +46,13 @@
 - Pas obligatoire pendant le développement localhost
 - Message commit clair avec la version et description
 
+### RÈGLE — Mise à jour automatique MEMORY.md et CLAUDE.md
+À chaque fin de session (avant `vercel --prod`) :
+1. Mettre à jour `MEMORY.md` avec les features/fixes de la session
+2. Mettre à jour `CLAUDE.md` si nouvelles règles ou patterns
+3. Inclure dans le même commit que le déploiement
+4. Ne jamais attendre que João le demande explicitement
+
 **Déploiement Vercel** : ne jamais lancer `vercel --prod` sans avoir suivi la séquence git ci-dessus et obtenu la confirmation explicite de João. Récap obligatoire avant chaque déploiement :
 
 ```
@@ -57,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.8.34 production** — 13/04/2026
+**1.8.35 production** — 13/04/2026
 
 ---
 

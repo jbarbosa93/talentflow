@@ -93,12 +93,28 @@ export async function POST(request: NextRequest) {
       tls: { ciphers: 'SSLv3', rejectUnauthorized: false },
     })
 
+    // Signature dynamique du consultant connecté
+    let signature = ''
+    try {
+      const { createClient } = await import('@/lib/supabase/server')
+      const supabaseUser = await createClient()
+      const { data: { user: currentUser } } = await supabaseUser.auth.getUser()
+      if (currentUser?.user_metadata) {
+        const m = currentUser.user_metadata
+        const fullName = [m.prenom, m.nom].filter(Boolean).join(' ')
+        const entreprise = m.entreprise || 'L-Agence'
+        if (fullName) {
+          signature = `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-family:Arial,sans-serif;font-size:13px;color:#6b7280"><strong style="color:#111827">${fullName}</strong><br>${entreprise} — Recrutement<br><span style="color:#F5A623">TalentFlow</span></div>`
+        }
+      }
+    } catch { /* signature optionnelle */ }
+
     // Build email
     const useBcc = use_bcc || destinataires.length > 1
     const mailOptions: nodemailer.SendMailOptions = {
       from: config.nom ? `"${config.nom}" <${config.email}>` : config.email,
       subject: sujet,
-      html: corps.replace(/\n/g, '<br>'),
+      html: corps.replace(/\n/g, '<br>') + signature,
       attachments: attachments.length > 0 ? attachments : undefined,
     }
 

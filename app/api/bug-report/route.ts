@@ -2,10 +2,14 @@
 // Envoie un signalement de bug par email à j.barbosa@l-agence.ch
 
 import { NextRequest, NextResponse } from 'next/server'
+import { emailWrapper } from '@/lib/email-template'
 
 export const runtime = 'nodejs'
 
 const DESTINATAIRE = 'j.barbosa@l-agence.ch'
+
+const escHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,23 +37,22 @@ export async function POST(request: NextRequest) {
         from: `"TalentFlow Bug Report" <${process.env.SMTP_USER}>`,
         to: DESTINATAIRE,
         subject: `🐛 Bug signalé — ${page || 'page inconnue'} (${version || '?'})`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #FFFDF5; border: 2px solid #1C1A14; border-radius: 12px; overflow: hidden;">
-            <div style="background: #DC2626; padding: 24px 28px; border-bottom: 2px solid #1C1A14;">
-              <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: white;">🐛 Bug signalé sur TalentFlow</h1>
-              <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.8);">${dateHeure}</p>
-            </div>
-            <div style="padding: 28px;">
-              <div style="padding: 16px; background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 8px; margin-bottom: 20px;">
-                <p style="margin: 0; font-size: 15px; color: #1C1A14; line-height: 1.6; white-space: pre-wrap;">${text}</p>
-              </div>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 8px 0; border-bottom: 1px solid #E8E4D4; font-size: 12px; font-weight: 700; color: #6B6B5B; width: 100px;">Page</td><td style="padding: 8px 0; border-bottom: 1px solid #E8E4D4; font-size: 13px; color: #1C1A14;">${page || '—'}</td></tr>
-                <tr><td style="padding: 8px 0; border-bottom: 1px solid #E8E4D4; font-size: 12px; font-weight: 700; color: #6B6B5B;">Version</td><td style="padding: 8px 0; border-bottom: 1px solid #E8E4D4; font-size: 13px; color: #1C1A14;">${version || '—'}</td></tr>
-                <tr><td style="padding: 8px 0; font-size: 12px; font-weight: 700; color: #6B6B5B;">Navigateur</td><td style="padding: 8px 0; font-size: 11px; color: #6B6B5B;">${userAgent || '—'}</td></tr>
-              </table>
-            </div>
-          </div>`,
+        html: emailWrapper(`
+          <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#991B1B;letter-spacing:-0.3px">
+            🐛 Bug signalé
+          </h2>
+          <p style="margin:0 0 24px;color:#6B7280;font-size:13px">${escHtml(dateHeure)}</p>
+
+          <div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:16px;margin-bottom:24px">
+            <p style="margin:0;font-size:15px;color:#111827;line-height:1.6;white-space:pre-wrap">${escHtml(text)}</p>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse">
+            <tr><td style="padding:8px 0;border-bottom:1px solid #E5E7EB;font-size:12px;font-weight:700;color:#6B7280;width:100px">Page</td><td style="padding:8px 0;border-bottom:1px solid #E5E7EB;font-size:13px;color:#111827">${escHtml(page || '—')}</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #E5E7EB;font-size:12px;font-weight:700;color:#6B7280">Version</td><td style="padding:8px 0;border-bottom:1px solid #E5E7EB;font-size:13px;color:#111827">${escHtml(version || '—')}</td></tr>
+            <tr><td style="padding:8px 0;font-size:12px;font-weight:700;color:#6B7280">Navigateur</td><td style="padding:8px 0;font-size:11px;color:#6B7280">${escHtml(userAgent || '—')}</td></tr>
+          </table>
+        `),
         text: `Bug signalé\n\n${text}\n\nPage: ${page}\nVersion: ${version}\nDate: ${dateHeure}\nNavigateur: ${userAgent}`,
       })
 

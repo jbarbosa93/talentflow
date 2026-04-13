@@ -4,55 +4,61 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { emailWrapper } from '@/lib/email-template'
 
 export const runtime = 'nodejs'
 
 const DESTINATAIRE = 'j.barbosa@l-agence.ch'
 
+const escHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
 function buildHtmlAdmin(prenom: string, nom: string, entreprise: string, email: string, dateHeure: string) {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #FFFDF5; border: 2px solid #1C1A14; border-radius: 12px; overflow: hidden;">
-      <div style="background: #F7C948; padding: 24px 28px; border-bottom: 2px solid #1C1A14;">
-        <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1C1A14;">🎉 Nouvelle demande d'accès TalentFlow</h1>
-        <p style="margin: 4px 0 0; font-size: 13px; color: #4a4a30;">${dateHeure}</p>
-      </div>
-      <div style="padding: 28px;">
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 13px; font-weight: 700; color: #6B6B5B; width: 120px;">Prénom</td><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 14px; font-weight: 700; color: #1C1A14;">${prenom}</td></tr>
-          <tr><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 13px; font-weight: 700; color: #6B6B5B;">Nom</td><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 14px; font-weight: 700; color: #1C1A14;">${nom}</td></tr>
-          <tr><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 13px; font-weight: 700; color: #6B6B5B;">Entreprise</td><td style="padding: 10px 0; border-bottom: 1px solid #E8E4D4; font-size: 14px; font-weight: 700; color: #1C1A14;">${entreprise}</td></tr>
-          <tr><td style="padding: 10px 0; font-size: 13px; font-weight: 700; color: #6B6B5B;">Email</td><td style="padding: 10px 0; font-size: 14px; font-weight: 700; color: #1C1A14;"><a href="mailto:${email}" style="color: #1C1A14;">${email}</a></td></tr>
-        </table>
-        <div style="margin-top: 24px; padding: 16px; background: #F0FFF4; border: 1.5px solid #86EFAC; border-radius: 8px;">
-          <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 600;">
-            💡 Retrouvez cette demande dans TalentFlow → Paramètres → Demandes d'accès
-          </p>
-        </div>
-      </div>
-    </div>`
+  const p = escHtml(prenom), n = escHtml(nom), e = escHtml(entreprise), em = escHtml(email)
+  return emailWrapper(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">
+      Nouvelle demande d'accès
+    </h2>
+    <p style="margin:0 0 24px;color:#6B7280;font-size:13px">${dateHeure}</p>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      <tr><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:13px;font-weight:700;color:#6B7280;width:110px">Prénom</td><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:14px;font-weight:700;color:#111827">${p}</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:13px;font-weight:700;color:#6B7280">Nom</td><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:14px;font-weight:700;color:#111827">${n}</td></tr>
+      <tr><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:13px;font-weight:700;color:#6B7280">Entreprise</td><td style="padding:10px 0;border-bottom:1px solid #E5E7EB;font-size:14px;font-weight:700;color:#111827">${e}</td></tr>
+      <tr><td style="padding:10px 0;font-size:13px;font-weight:700;color:#6B7280">Email</td><td style="padding:10px 0;font-size:14px;font-weight:700;color:#111827"><a href="mailto:${em}" style="color:#111827">${em}</a></td></tr>
+    </table>
+
+    <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;padding:14px 16px">
+      <p style="margin:0;color:#065F46;font-size:13px;line-height:1.5">
+        💡 Retrouvez cette demande dans TalentFlow → Paramètres → Demandes d'accès
+      </p>
+    </div>
+  `)
 }
 
 function buildHtmlConfirmation(prenom: string, nom: string, entreprise: string, email: string) {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #FFFDF5; border: 2px solid #1C1A14; border-radius: 12px; overflow: hidden;">
-      <div style="background: #F7C948; padding: 24px 28px; border-bottom: 2px solid #1C1A14;">
-        <h1 style="margin: 0; font-size: 20px; font-weight: 900; color: #1C1A14;">Bonjour ${prenom} 👋</h1>
-      </div>
-      <div style="padding: 28px;">
-        <p style="font-size: 15px; color: #1C1A14; line-height: 1.6;">Merci pour votre intérêt pour <strong>TalentFlow</strong> !</p>
-        <p style="font-size: 14px; color: #4a4a30; line-height: 1.6;">
-          Votre demande d'accès a bien été enregistrée. Notre équipe reviendra vers vous sous <strong>24 heures</strong>.
-        </p>
-        <div style="margin: 24px 0; padding: 16px; background: white; border: 2px solid #1C1A14; border-radius: 10px; box-shadow: 3px 3px 0 #1C1A14;">
-          <p style="margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #6B6B5B; text-transform: uppercase; letter-spacing: 0.5px;">Votre demande</p>
-          <p style="margin: 0; font-size: 14px; color: #1C1A14; font-weight: 600;">${prenom} ${nom} — ${entreprise}</p>
-          <p style="margin: 4px 0 0; font-size: 13px; color: #6B6B5B;">${email}</p>
-        </div>
-        <p style="font-size: 13px; color: #9E9E8E;">
-          En attendant : <a href="mailto:j.barbosa@l-agence.ch" style="color: #1C1A14; font-weight: 700;">j.barbosa@l-agence.ch</a>
-        </p>
-      </div>
-    </div>`
+  const p = escHtml(prenom), n = escHtml(nom), e = escHtml(entreprise), em = escHtml(email)
+  return emailWrapper(`
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;letter-spacing:-0.3px">
+      Bonjour ${p} 👋
+    </h2>
+    <p style="margin:0 0 12px;color:#6B7280;font-size:15px;line-height:1.6">
+      Merci pour votre intérêt pour <strong>TalentFlow</strong> !
+    </p>
+    <p style="margin:0 0 24px;color:#6B7280;font-size:14px;line-height:1.6">
+      Votre demande d'accès a bien été enregistrée. Notre équipe reviendra vers vous sous <strong>24 heures</strong>.
+    </p>
+
+    <div style="background:#F9F5EE;border:2px solid #1C1A14;border-radius:10px;padding:16px;margin-bottom:24px;box-shadow:3px 3px 0 #1C1A14">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px">Votre demande</p>
+      <p style="margin:0;font-size:14px;color:#111827;font-weight:600">${p} ${n} — ${e}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#6B7280">${em}</p>
+    </div>
+
+    <p style="margin:0;font-size:13px;color:#9CA3AF">
+      En attendant : <a href="mailto:j.barbosa@l-agence.ch" style="color:#111827;font-weight:700">j.barbosa@l-agence.ch</a>
+    </p>
+  `)
 }
 
 export async function POST(request: NextRequest) {

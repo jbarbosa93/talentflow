@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.34'
+export const APP_VERSION = '1.8.35'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.35',
+    date: '2026-04-13',
+    label: 'Emails : wrapper unifié + signature dynamique + sanitisation XSS',
+    features: [
+      'Emails demande accès + bug report migrés vers emailWrapper() — cohérence visuelle marque TalentFlow',
+      'Signature dynamique consultant ajoutée automatiquement aux emails SMTP et Outlook (nom + entreprise + TalentFlow)',
+      'Sanitisation XSS : escHtml() sur les variables injectées dans les templates demande accès et bug report',
+    ],
+  },
   {
     version: '1.8.34',
     date: '2026-04-13',
