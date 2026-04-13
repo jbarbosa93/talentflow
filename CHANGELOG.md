@@ -1,5 +1,15 @@
 # Changelog TalentFlow
 
+## [1.8.19] — 13 avril 2026
+
+### Fix — OneDrive sync : skip CV images/scans si contenu identique
+- Cause : `contenuIdentique` utilisait un guard `length >= 100` → `false` systématiquement pour images (JPG/PNG) et PDFs scannés (texteCV vide)
+- Fix primaire : fallback sur comparaison du nom de fichier (`filename === cv_nom_fichier`) quand le texte est trop court pour être comparé
+- Safety guard dans Cas 3&4 : si un fichier est uploadé en Storage malgré `contenuIdentique = true` → suppression de l'orphelin + réactivation (dates seulement)
+- Résultat : les images CV et scans ne génèrent plus de doublons dans `documents[]` ni d'écrasements inutiles de `cv_url`
+
+---
+
 ## [1.8.18] — 13 avril 2026
 
 ### Fix — OTP : skip uniquement sur logout automatique (inactivité)

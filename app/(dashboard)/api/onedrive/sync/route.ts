@@ -916,7 +916,12 @@ export async function POST(request: Request) {
             // Comparaison contenu : 500 premiers chars de cv_texte_brut (suffisant pour détecter un vrai diff)
             const extrait500 = texteCV.slice(0, 500).replace(/\s+/g, ' ').trim()
             const stocke500 = (candidatExistant.cv_texte_brut || '').slice(0, 500).replace(/\s+/g, ' ').trim()
-            const contenuIdentique = extrait500.length >= 100 && stocke500.length >= 100 && extrait500 === stocke500
+            const peutComparer = extrait500.length >= 100 && stocke500.length >= 100
+            // Fallback images/scans : texteCV vide ou trop court (<100 chars) → comparer le nom de fichier
+            // Évite de réuploader le même scan à chaque changement de date OneDrive
+            const contenuIdentique = peutComparer
+              ? extrait500 === stocke500
+              : filename === (candidatExistant.cv_nom_fichier || '')
 
             // Comparaison date : lastModifiedDateTime du fichier OneDrive vs last_modified_at en DB
             const rowFichier = (allFichiersUpdated || []).find((f: any) => f.onedrive_item_id === fichier.id)
@@ -978,6 +983,32 @@ export async function POST(request: Request) {
                   .from('cvs')
                   .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
                 newCvUrl = urlData?.signedUrl || null
+              }
+
+              // Safety guard : si contenuIdentique est vrai malgré les guards (OCR non déterministe, race)
+              // → supprimer le fichier orphelin uploadé et traiter comme réactivation sans écraser cv_url
+              if (contenuIdentique) {
+                if (storageData?.path) {
+                  await supabase.storage.from('cvs').remove([storageData.path]).catch(() => {})
+                }
+                await (supabase as any).from('candidats').update({
+                  created_at: fileDate,
+                  updated_at: new Date().toISOString(),
+                }).eq('id', candidatExistant.id)
+                try {
+                  await upsertFichier({
+                    integration_id: integrationId,
+                    onedrive_item_id: fichier.id,
+                    nom_fichier: filename,
+                    traite: true,
+                    traite_le: new Date().toISOString(),
+                    last_modified_at: fichier.lastModifiedDateTime || null,
+                    statut_action: 'reactivated',
+                    candidat_id: existingCandidat.id,
+                    erreur: `Réactivé (safety) — ${candidatDisplayName}`,
+                  })
+                } catch (err) { console.warn('[OneDrive Sync] upsertFichier (safety guard) échec:', err instanceof Error ? err.message : String(err)) }
+                return { status: 'reactivated', name: candidatDisplayName }
               }
 
               // Move old CV to documents array
