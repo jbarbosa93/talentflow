@@ -163,8 +163,9 @@ export function hasBadge(
   viewedAllAt?: string | null,
   has_update?: boolean,
 ): boolean {
-  // Priorité 1 : has_update flag (CV mis à jour) → badge sauf si déjà vu (viewedSet synchrone)
-  if (has_update && !viewedSet.has(id)) return true
+  // Priorité 1 : has_update flag (CV mis à jour) → badge toujours visible
+  // Le clear se fait via PATCH has_update:false + update cache React Query depuis la fiche
+  if (has_update) return true
   // Priorité 2 : logique "non vu" classique
   if (!isRecent(created_at)) return false
   if (viewedSet.has(id)) return false

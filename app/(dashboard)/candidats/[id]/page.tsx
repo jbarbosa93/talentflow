@@ -276,15 +276,21 @@ export default function CandidatDetailPage() {
   useEffect(() => {
     if (!id) return
     markCandidatVu(id)
-    // Reset has_update flag en DB puis forcer recalcul badges (sidebar + liste)
-    // markCandidatVu peut ne pas dispatcher si l'ID est déjà dans viewedSet (localStorage)
-    // → dispatch explicite après PATCH pour garantir la mise à jour sidebar
+    // Reset has_update flag en DB puis mettre à jour cache React Query + sidebar
     fetch(`/api/candidats/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ has_update: false }),
-    }).then(() => dispatchBadgesChanged()).catch(() => {})
-  }, [id])
+    }).then(() => {
+      // 1. Mettre à jour le cache liste candidats → badge card disparaît au retour
+      queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) => {
+        if (!old?.candidats) return old
+        return { ...old, candidats: old.candidats.map((c: any) => c.id === id ? { ...c, has_update: false } : c) }
+      })
+      // 2. Sidebar : re-fetch count-new (has_update=false en DB → pas compté)
+      dispatchBadgesChanged()
+    }).catch(() => {})
+  }, [id, queryClient])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
   useEffect(() => {

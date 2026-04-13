@@ -929,7 +929,11 @@ export async function POST(request: Request) {
             const memeItemLiee = !!(rowFichier?.traite && (
               !rowFichier.candidat_id || rowFichier.candidat_id === existingCandidat.id
             ))
+            // Fix v1.8.27 — comparaison nom de base (strip préfixe timestamp) pour images/scans
+            const stripTsOd = (n: string) => n.replace(/^\d+_/, '')
+            const memeNomBase = stripTsOd(filename) === stripTsOd(candidatExistant.cv_nom_fichier || '')
             const contenuIdentique =
+              memeNomBase ||
               (peutComparer ? extrait500 === stocke500 : filename === (candidatExistant.cv_nom_fichier || ''))
               || memeItemLiee
             // Comparaison via Date objects — les formats diffèrent : OneDrive "...Z" vs DB "...+00:00"
@@ -1033,8 +1037,10 @@ export async function POST(request: Request) {
 
               if (importedIsOlder) {
                 // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
+                // Fix v1.8.27 — skip si même fichier de base
+                const isSameBaseOlder = stripTsOd(candidatExistant.cv_nom_fichier || '') === stripTsOd(filename)
                 const existingDocs = candidatExistant.documents || []
-                if (newCvUrl && !existingDocs.some((d: any) => d.url === newCvUrl || d.name === filename)) {
+                if (newCvUrl && !isSameBaseOlder && !existingDocs.some((d: any) => d.url === newCvUrl || d.name === filename)) {
                   existingDocs.push({ name: `[Archive] ${filename}`, url: newCvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
                 }
                 await (supabase as any).from('candidats').update({
@@ -1064,7 +1070,9 @@ export async function POST(request: Request) {
               const existingDocs = candidatExistant.documents || []
               if (candidatExistant.cv_url) {
                 // ✅ FIX 2b : Déduplication — ne pas pusher l'ancien CV s'il est déjà dans documents[]
-                const isOldCvDuplicate = existingDocs.some((d: any) =>
+                // Fix v1.8.27 — aussi skip si même fichier de base (timestamp prefix différent)
+                const isSameBaseOd = stripTsOd(candidatExistant.cv_nom_fichier || '') === stripTsOd(filename)
+                const isOldCvDuplicate = isSameBaseOd || existingDocs.some((d: any) =>
                   d.url === candidatExistant.cv_url ||
                   d.name === (candidatExistant.cv_nom_fichier || 'Ancien CV')
                 )
