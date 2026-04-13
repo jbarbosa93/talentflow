@@ -6,6 +6,7 @@ import {
   ChevronDown, ChevronUp, Zap, ZapOff, CloudUpload, FileText,
 } from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
+import { dispatchBadgesChanged } from '@/lib/badge-candidats'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
@@ -123,6 +124,8 @@ function IntegrationsContent() {
 
     setOnedriveSyncing(false)
     queryClient.invalidateQueries({ queryKey: ['integrations'] })
+    // Rafraîchir le badge sidebar (candidats avec has_update:true)
+    dispatchBadgesChanged()
   }, [queryClient])
 
   useEffect(() => {
