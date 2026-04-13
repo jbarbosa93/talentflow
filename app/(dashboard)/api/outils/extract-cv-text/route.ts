@@ -120,7 +120,10 @@ export async function POST(request: NextRequest) {
 
         if (texte.trim().length < MIN_TEXT_LENGTH && visionMediaType) {
           try {
-            const visionText = await extractTextFromScan(buffer, visionMediaType as any)
+            // Pour les images (JPG/PNG/WEBP), passer l'URL directement → pas de limite 4MB
+            const isImageExt = ext !== 'pdf'
+            const visionOptions = isImageExt ? { sourceUrl: cvUrl } : undefined
+            const visionText = await extractTextFromScan(buffer, visionMediaType as any, visionOptions)
             if (visionText && visionText.trim().length >= MIN_TEXT_LENGTH) {
               texte = visionText
               visionUsed++

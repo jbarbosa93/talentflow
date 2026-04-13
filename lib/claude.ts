@@ -385,54 +385,52 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer, options?: { transla
 
 type ScanMediaType = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'
 
-export async function extractTextFromScan(buffer: Buffer, mediaType: ScanMediaType = 'application/pdf'): Promise<string> {
+export async function extractTextFromScan(
+  buffer: Buffer,
+  mediaType: ScanMediaType = 'application/pdf',
+  options?: { sourceUrl?: string }
+): Promise<string> {
   const client = getClient()
 
   const isImage = mediaType.startsWith('image/')
-  let base64: string
+  const prompt = 'Extrais tout le texte visible de ce document. Retourne UNIQUEMENT le texte brut, sans formatage, sans commentaire, sans introduction. Si le document est pivoté ou à l\'envers, lis-le dans la bonne orientation.'
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let contentBlock: any
 
   if (!isImage) {
     // PDF : limiter à 3 pages pour réduire les tokens
     const trimmedBuffer = await limitPDFPages(buffer, 3)
-    base64 = trimmedBuffer.toString('base64')
+    const base64 = trimmedBuffer.toString('base64')
+    contentBlock = {
+      type: 'document',
+      source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+    }
+  } else if (options?.sourceUrl) {
+    // Image via URL — pas de limite de taille côté client
+    contentBlock = {
+      type: 'image',
+      source: { type: 'url', url: options.sourceUrl },
+    }
   } else {
-    // Images : limite 4MB — au-delà Claude retourne 400 invalid_request
+    // Image via base64 — limite 4MB
     const MAX_IMAGE_BYTES = 4 * 1024 * 1024
     if (buffer.length > MAX_IMAGE_BYTES) {
       throw new Error(`Image trop grande pour Vision (${(buffer.length / 1024 / 1024).toFixed(1)}MB > 4MB)`)
     }
-    base64 = buffer.toString('base64')
+    contentBlock = {
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: buffer.toString('base64') },
+    }
   }
 
-  const prompt = 'Extrais tout le texte visible de ce document. Retourne UNIQUEMENT le texte brut, sans formatage, sans commentaire, sans introduction. Si le document est pivoté ou à l\'envers, lis-le dans la bonne orientation.'
-
-  const contentBlock = isImage
-    ? {
-        type: 'image' as const,
-        source: {
-          type: 'base64' as const,
-          media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/webp',
-          data: base64,
-        },
-      }
-    : {
-        type: 'document' as const,
-        source: {
-          type: 'base64' as const,
-          media_type: 'application/pdf' as const,
-          data: base64,
-        },
-      }
-
-  const response = await withRetry(() => client.messages.create({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response: any = await withRetry(() => (client.messages.create as any)({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4000,
     messages: [{
       role: 'user',
-      content: [
-        contentBlock,
-        { type: 'text' as const, text: prompt },
-      ],
+      content: [contentBlock, { type: 'text', text: prompt }],
     }],
   }))
 

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.40'
+export const APP_VERSION = '1.8.41'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.41',
+    date: '2026-04-13',
+    label: 'Fix Vision : images via URL (plus de limite 4MB)',
+    features: [
+      'extractTextFromScan : nouveau paramètre options.sourceUrl — utilise source URL Claude pour les images (pas de limite taille)',
+      'Route extract-cv-text : JPG/PNG/WEBP passent cv_url directement à Claude → images de n\'importe quelle taille supportées',
+      'DOCX JSZip images (buffers en mémoire) conservent le chemin base64',
+    ],
+  },
   {
     version: '1.8.40',
     date: '2026-04-13',
