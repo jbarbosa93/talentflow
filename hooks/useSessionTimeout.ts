@@ -30,6 +30,8 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
   const doLogout = useCallback(async () => {
     clearAll()
     localStorage.removeItem(LS_KEY)
+    // Marquer le logout comme automatique (inactivité) → skip OTP à la reconnexion
+    sessionStorage.setItem('auto_logout', 'true')
     const supabase = createClient()
     await supabase.auth.signOut()
     await fetch('/api/auth/logout', { method: 'POST' })

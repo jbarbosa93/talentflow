@@ -1,5 +1,14 @@
 # Changelog TalentFlow
 
+## [1.8.18] — 13 avril 2026
+
+### Fix — OTP : skip uniquement sur logout automatique (inactivité)
+- Logout manuel → OTP obligatoire à la reconnexion (comportement inchangé)
+- Logout automatique (timeout 2h) → OTP skippé : `sessionStorage.setItem('auto_logout', 'true')` posé par `doLogout`, lu + consommé au montage de la page login
+- MFA TOTP non touché
+
+---
+
 ## [1.8.17] — 13 avril 2026
 
 ### Fix — Hydration Error sur /dashboard

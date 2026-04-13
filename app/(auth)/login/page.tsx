@@ -1,5 +1,5 @@
 'use client'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,16 @@ function LoginForm() {
   const [forgotEmail, setForgotEmail]       = useState('')
   const [forgotLoading, setForgotLoading]   = useState(false)
   const [forgotSent, setForgotSent]         = useState(false)
+
+  // Logout automatique (inactivité 2h) → OTP non requis à la reconnexion
+  const [isAutoLogout, setIsAutoLogout] = useState(false)
+  useEffect(() => {
+    const flag = sessionStorage.getItem('auto_logout')
+    if (flag === 'true') {
+      sessionStorage.removeItem('auto_logout')
+      setIsAutoLogout(true)
+    }
+  }, [])
 
   // Erreurs depuis le middleware
   const urlError = searchParams.get('error')
@@ -111,6 +121,20 @@ function LoginForm() {
         setLoading(false)
         return
       }
+    }
+
+    // Logout automatique (inactivité) → créer la session sans OTP
+    if (isAutoLogout) {
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (!signInError) {
+        logAccess('login_success_auto_logout')
+        router.push('/dashboard')
+        router.refresh()
+        setLoading(false)
+        return
+      }
+      // Fallback sécurisé : si signIn échoue → continuer avec OTP
     }
 
     // ✅ Aucune session active à ce stade — envoyer le code OTP
