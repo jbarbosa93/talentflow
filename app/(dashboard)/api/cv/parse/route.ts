@@ -628,6 +628,43 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         .eq('id', candidatExistant.id).single()
       existingFullPre = ef
 
+      // Fix 2 — GARDE PRIMAIRE : comparer le texte AVANT hasNewContent
+      // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
+      const memeContenu = !!(ef?.cv_texte_brut && texteCV &&
+        (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
+
+      // Fix 4 — debug skip (activer localement si besoin, ne pas déployer)
+      // console.log('[SKIP DEBUG]', { memeContenu, extrait500Length: texteCV.slice(0,500).trim().length, stocke500Length: (ef?.cv_texte_brut||'').slice(0,500).trim().length, resolvedCreatedAt, ef_created_at: ef?.created_at })
+
+      if (memeContenu) {
+        // memeDate : tolérance ±1 minute
+        const memeDate = ef ? Math.abs(
+          new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()
+        ) <= 60_000 : false
+
+        if (memeDate) {
+          // SKIP COMPLET — 0 upload, 0 DB write
+          dbg(`[CV Parse] Skip : ${candidatExistant.prenom} ${candidatExistant.nom} (même contenu + même date)`)
+          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_contenu' } })
+          return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+        } else {
+          // Même contenu, date différente → update dates + import_status, 0 upload, jamais archiver
+          // Fix 5 — ne rétrograder que si la date importée est plus récente
+          const importedIsNewer = ef ? new Date(resolvedCreatedAt).getTime() > new Date(ef.created_at as string).getTime() : true
+          dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom} (importedIsNewer=${importedIsNewer})`)
+          await adminClient.from('candidats').update({
+            ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
+            updated_at: new Date().toISOString(),
+            import_status: 'a_traiter',
+          } as any).eq('id', candidatExistant.id)
+          // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+          await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
+          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
+          return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+        }
+      }
+
+      // memeContenu = false → vérifier les données structurées pour décider du type de mise à jour
       const hasNewContent = (() => {
         if (!ef) return true
         if ((analyse.experiences || []).length > (ef.experiences || []).length) return true
@@ -639,37 +676,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       })()
 
       if (!hasNewContent) {
-        // memeContenu : comparer les 500 premiers caractères du texte brut (robuste aux changements de date)
-        const memeContenu = !!(ef?.cv_texte_brut && texteCV &&
-          (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
-
-        if (memeContenu) {
-          // memeDate : tolérance ±1 minute
-          const memeDate = ef ? Math.abs(
-            new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()
-          ) <= 60_000 : false
-
-          if (memeDate) {
-            // SKIP COMPLET — 0 upload, 0 DB write
-            dbg(`[CV Parse] Skip : ${candidatExistant.prenom} ${candidatExistant.nom} (même contenu + même date)`)
-            await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_contenu' } })
-            return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
-          } else {
-            // Même contenu, date différente → update dates + import_status, 0 upload
-            dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
-            await adminClient.from('candidats').update({
-              created_at: resolvedCreatedAt,
-              updated_at: new Date().toISOString(),
-              import_status: 'a_traiter',
-            } as any).eq('id', candidatExistant.id)
-            await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
-            return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
-          }
-        }
-        // memeContenu = false → texte différent, traiter comme nouveau contenu → upload
         dbg(`[CV Parse] Texte différent malgré structure similaire : ${candidatExistant.prenom} ${candidatExistant.nom} → upload`)
       }
-      // hasNewContent = true OU memeContenu = false → on continue vers l'upload
+      // memeContenu = false → on continue vers l'upload (hasNewContent ou texte légèrement différent)
     }
   }
 
@@ -853,6 +862,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: `Erreur mise à jour : ${updateError.message}` }, { status: 500 })
     }
 
+    // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+    await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', updateId)
     await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim() } })
     return NextResponse.json({
       success: true,
@@ -888,10 +899,32 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // CV avec nouveau contenu → update complet + archiver ancien CV
     // existingFullPre disponible si détecté en 7_pre, sinon re-fetch
     const existingFull = existingFullPre || (await adminClient.from('candidats')
-      .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents')
+      .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at')
       .eq('id', candidatExistant.id).single()).data
 
     if (existingFull) {
+      // Fix 5 — ne jamais rétrograder : si le CV importé est plus ancien, archiver dans documents[]
+      const existingCreatedAt = (existingFull as any).created_at as string | null
+      const importedIsOlder = !!(existingCreatedAt && new Date(resolvedCreatedAt).getTime() < new Date(existingCreatedAt).getTime())
+
+      if (importedIsOlder && existingFull.cv_url) {
+        // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
+        const existingDocs = (existingFull.documents as any[]) || []
+        if (cvUrl && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
+          existingDocs.push({ name: `[Archive] ${file.name}`, url: cvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
+        }
+        await adminClient.from('candidats').update({
+          documents: existingDocs,
+          updated_at: new Date().toISOString(),
+          import_status: 'a_traiter',
+        } as any).eq('id', candidatExistant.id)
+        // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+        await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
+        dbg(`[CV Parse] CV plus ancien archivé : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+        await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_plus_ancien_archive' } })
+        return NextResponse.json({ isDuplicate: true, updated: true, olderCV: true, candidatExistant, candidat: candidatExistant, analyse, message: `CV plus ancien archivé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+      }
+
       const existingDocs = (existingFull.documents as any[]) || []
       if (existingFull.cv_url && !existingDocs.some((d: any) => d.url === existingFull.cv_url)) {
         existingDocs.push({ name: `[Ancien] ${existingFull.cv_nom_fichier || 'Ancien CV'}`, url: existingFull.cv_url, type: 'cv', uploaded_at: new Date().toISOString() })
@@ -913,6 +946,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         updated_at: new Date().toISOString(),
         import_status: 'a_traiter',
       } as any).eq('id', candidatExistant.id)
+      // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+      await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
       dbg(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
       return NextResponse.json({ isDuplicate: true, updated: true, cvUpdated: true, candidatExistant, candidat: candidatExistant, analyse, message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}` })

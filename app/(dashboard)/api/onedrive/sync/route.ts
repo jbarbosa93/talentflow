@@ -824,7 +824,7 @@ export async function POST(request: Request) {
           if (existingCandidat) {
             // Smart update: fetch existing candidate fields needed for update logic
             const { data: candidatExistant } = await supabase.from('candidats')
-              .select('id, nom, prenom, cv_nom_fichier, cv_url, documents, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp, cv_texte_brut')
+              .select('id, nom, prenom, cv_nom_fichier, cv_url, documents, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp, cv_texte_brut, created_at')
               .eq('id', existingCandidat.id).single() as { data: any }
 
             if (!candidatExistant) {
@@ -917,15 +917,17 @@ export async function POST(request: Request) {
             const extrait500 = texteCV.slice(0, 500).replace(/\s+/g, ' ').trim()
             const stocke500 = (candidatExistant.cv_texte_brut || '').slice(0, 500).replace(/\s+/g, ' ').trim()
             const peutComparer = extrait500.length >= 100 && stocke500.length >= 100
-            // Fallback images/scans : texteCV vide ou trop court (<100 chars) → comparer le nom de fichier
-            // Évite de réuploader le même scan à chaque changement de date OneDrive
-            const contenuIdentique = peutComparer
-              ? extrait500 === stocke500
-              : filename === (candidatExistant.cv_nom_fichier || '')
 
             // Comparaison date : lastModifiedDateTime du fichier OneDrive vs last_modified_at en DB
             const rowFichier = (allFichiersUpdated || []).find((f: any) => f.onedrive_item_id === fichier.id)
             const dateDernierTraitement = rowFichier?.last_modified_at || null
+
+            // Fix 1 — fallback images/scans : si fichier déjà lié à ce candidat → traiter comme contenu identique
+            // Évite de réuploader le même scan/image à chaque changement de date OneDrive (OCR non déterministe)
+            const memeItemLiee = !!(rowFichier?.candidat_id && rowFichier.candidat_id === existingCandidat.id)
+            const contenuIdentique =
+              (peutComparer ? extrait500 === stocke500 : filename === (candidatExistant.cv_nom_fichier || ''))
+              || memeItemLiee
             // Comparaison via Date objects — les formats diffèrent : OneDrive "...Z" vs DB "...+00:00"
             const memeDate = !!(dateDernierTraitement && fileDate &&
               Math.abs(new Date(fileDate).getTime() - new Date(dateDernierTraitement).getTime()) < 1000)
@@ -948,11 +950,15 @@ export async function POST(request: Request) {
 
             // Cas 2 : contenu identique + date plus récente → RÉACTIVATION (created_at uniquement)
             if (contenuIdentique && !memeDate) {
+              // Fix 5 — ne rétrograder que si la date importée est plus récente
+              const importedIsNewer = !candidatExistant.created_at || new Date(fileDate).getTime() > new Date(candidatExistant.created_at).getTime()
               await (supabase as any).from('candidats').update({
-                created_at: fileDate,
+                ...(importedIsNewer ? { created_at: fileDate } : {}),
                 updated_at: new Date().toISOString(),
                 import_status: 'a_traiter',
               }).eq('id', candidatExistant.id)
+              // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+              await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id).catch(() => {})
               try {
                 await upsertFichier({
                   integration_id: integrationId,
@@ -992,11 +998,15 @@ export async function POST(request: Request) {
                 if (storageData?.path) {
                   await supabase.storage.from('cvs').remove([storageData.path]).catch(() => {})
                 }
+                // Fix 5 — ne rétrograder que si la date importée est plus récente
+                const importedIsNewerSafety = !candidatExistant.created_at || new Date(fileDate).getTime() > new Date(candidatExistant.created_at).getTime()
                 await (supabase as any).from('candidats').update({
-                  created_at: fileDate,
+                  ...(importedIsNewerSafety ? { created_at: fileDate } : {}),
                   updated_at: new Date().toISOString(),
                   import_status: 'a_traiter',
                 }).eq('id', candidatExistant.id)
+                // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+                await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id).catch(() => {})
                 try {
                   await upsertFichier({
                     integration_id: integrationId,
@@ -1011,6 +1021,39 @@ export async function POST(request: Request) {
                   })
                 } catch (err) { console.warn('[OneDrive Sync] upsertFichier (safety guard) échec:', err instanceof Error ? err.message : String(err)) }
                 return { status: 'reactivated', name: candidatDisplayName }
+              }
+
+              // Fix 5 — ne jamais rétrograder : si le fichier importé est plus ancien → archiver dans documents[]
+              const importedIsOlder = !!(candidatExistant.created_at && fileDate &&
+                new Date(fileDate).getTime() < new Date(candidatExistant.created_at).getTime())
+
+              if (importedIsOlder) {
+                // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
+                const existingDocs = candidatExistant.documents || []
+                if (newCvUrl && !existingDocs.some((d: any) => d.url === newCvUrl || d.name === filename)) {
+                  existingDocs.push({ name: `[Archive] ${filename}`, url: newCvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
+                }
+                await (supabase as any).from('candidats').update({
+                  documents: existingDocs,
+                  updated_at: new Date().toISOString(),
+                  import_status: 'a_traiter',
+                }).eq('id', candidatExistant.id)
+                // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+                await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id).catch(() => {})
+                try {
+                  await upsertFichier({
+                    integration_id: integrationId,
+                    onedrive_item_id: fichier.id,
+                    nom_fichier: filename,
+                    traite: true,
+                    traite_le: new Date().toISOString(),
+                    last_modified_at: fichier.lastModifiedDateTime || null,
+                    statut_action: 'updated',
+                    candidat_id: existingCandidat.id,
+                    erreur: `Archivé (plus ancien) — ${candidatDisplayName}`,
+                  })
+                } catch (err) { console.warn('[OneDrive Sync] upsertFichier (archivé plus ancien) échec:', err instanceof Error ? err.message : String(err)) }
+                return { status: 'updated', name: candidatDisplayName, candidatId: existingCandidat.id, filename }
               }
 
               // Move old CV to documents array
@@ -1078,11 +1121,13 @@ export async function POST(request: Request) {
                 cv_nom_fichier: filename,
                 cv_texte_brut: texteCV.slice(0, 10000) || candidatExistant.cv_texte_brut,
                 documents: existingDocs,
-                created_at: fileDate, // Date de candidature = date du fichier sur OneDrive
+                created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
                 updated_at: new Date().toISOString(),
                 import_status: 'a_traiter',
                 ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
+              // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
+              await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id).catch(() => {})
 
               try {
                 await upsertFichier({

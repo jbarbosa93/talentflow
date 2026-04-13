@@ -1,5 +1,16 @@
 # Changelog TalentFlow
 
+## [1.8.21] — 13 avril 2026
+
+### Fix — Logique CV import normal et OneDrive (5 fixes)
+- **Fix 1 — OneDrive memeItemLiee** : si un fichier OneDrive est déjà lié à ce candidat dans `onedrive_fichiers`, `contenuIdentique = true` même si l'OCR retourne un texte différent (non-déterministe). Empêche les re-uploads systématiques sur les images/scans.
+- **Fix 2 — cv/parse garde primaire** (v1.8.20) : `memeContenu` (500 chars) vérifié AVANT `hasNewContent`. L'IA peut extraire légèrement des données différentes du même CV → `hasNewContent=true` ne bypasse plus la comparaison de texte.
+- **Fix 3 — badge rouge après update** : suppression de l'entrée dans `candidats_vus` sur tous les paths de mise à jour (réactivation, update complet, updateId, safety guard). Le badge réapparaît dans l'onglet "À traiter" après chaque modification.
+- **Fix 4 — debug** : commentaires `console.log('[SKIP DEBUG]', ...)` ajoutés (commentés, local uniquement).
+- **Fix 5 — jamais rétrograder un CV** : si la date du fichier importé est antérieure à `created_at` en DB, le nouveau CV est archivé dans `documents[]` au lieu de remplacer `cv_url` et `created_at`. Appliqué dans cv/parse (doublon memeContenu + doublon contenu différent) et OneDrive (Cas 2 réactivation, safety guard, Cas 3&4 update).
+
+---
+
 ## [1.8.20] — 13 avril 2026
 
 ### Fix — Badges + statuts import OneDrive et import normal
