@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-const INACTIVITY_LIMIT_MS = 25 * 60 * 1000  // 25 minutes
+const INACTIVITY_LIMIT_MS = 2 * 60 * 60 * 1000  // 2 heures
 const WARNING_BEFORE_MS   = 2 * 60 * 1000    // avertir 2 min avant
 const LS_KEY              = 'talentflow_last_activity'
 

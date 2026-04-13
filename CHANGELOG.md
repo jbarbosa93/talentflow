@@ -1,5 +1,22 @@
 # Changelog TalentFlow
 
+## [1.8.17] — 13 avril 2026
+
+### Fix — Hydration Error sur /dashboard
+- `dateDuJour()` remplacé par `useState('')` + `useEffect` dans `DashboardPage` et `SecretaireDashboard`
+- La date n'est plus rendue côté serveur (SSR) → plus de mismatch serveur/client lié à la timezone
+
+### Fix — Timeout inactivité : 25 min → 2 heures
+- `INACTIVITY_LIMIT_MS` dans `useSessionTimeout.ts` passé à `2 * 60 * 60 * 1000`
+- Countdown d'avertissement 2 min avant logout : inchangé
+
+### Fix — OTP email obligatoire à chaque login
+- Suppression complète de la grace period 4h (`/api/auth/otp-grace`)
+- Le code OTP par email est désormais toujours demandé, sans exception
+- MFA TOTP non touché
+
+---
+
 ## [1.8.15] — 13 avril 2026
 
 ### Fix — Import CV : skip sur contenu identique indépendamment de la date

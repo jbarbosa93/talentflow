@@ -8,7 +8,7 @@ function WaIcon({ size = 13 }: { size?: number }) {
 }
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import NumberTicker from '@/components/magicui/number-ticker'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
@@ -65,6 +65,12 @@ export default function DashboardPage() {
     : 'Consultant'
 
   const [chartPeriod, setChartPeriod] = useState<'jour' | 'semaine' | 'mois'>('jour')
+  const [dateStr, setDateStr] = useState('')
+  useEffect(() => {
+    setDateStr(new Date().toLocaleDateString('fr-CH', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }))
+  }, [])
 
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -157,7 +163,7 @@ export default function DashboardPage() {
       >
         <div>
           <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
-          <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateDuJour()}</p>
+          {dateStr && <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateStr}</p>}
         </div>
       </motion.div>
 
@@ -513,6 +519,12 @@ const URGENCE_CFG = {
 
 function SecretaireDashboard({ user }: { user: any }) {
   const prenom = user?.user_metadata?.prenom || user?.user_metadata?.name?.split(' ')[0] || 'Secrétaire'
+  const [dateStr, setDateStr] = useState('')
+  useEffect(() => {
+    setDateStr(new Date().toLocaleDateString('fr-CH', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }))
+  }, [])
 
   const { data: stats, isLoading } = useQuery<SecStats>({
     queryKey: ['secretariat-dashboard-stats'],
@@ -537,7 +549,7 @@ function SecretaireDashboard({ user }: { user: any }) {
             <ClipboardList size={24} color="var(--primary)" />
             Bonjour, {prenom} 👋
           </h1>
-          <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateDuJour()}</p>
+          {dateStr && <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateStr}</p>}
         </div>
       </motion.div>
 
