@@ -379,14 +379,45 @@ export async function analyserCVDepuisPDF(pdfBuffer: Buffer, options?: { transla
   }
 }
 
-// ─── Extraction texte brut depuis PDF scanné (Vision légère) ────────────────
-// Utilisé par l'outil extract-cv-text pour les PDFs dont le texte est < 50 chars
+// ─── Extraction texte brut depuis scan (Vision légère) ───────────────────────
+// Supporte : PDF (document), JPG/PNG (image)
 // Beaucoup plus léger que analyserCVDepuisPDF (pas de JSON structuré, juste le texte)
 
-export async function extractTextFromScan(pdfBuffer: Buffer): Promise<string> {
+type ScanMediaType = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'
+
+export async function extractTextFromScan(buffer: Buffer, mediaType: ScanMediaType = 'application/pdf'): Promise<string> {
   const client = getClient()
-  const trimmedBuffer = await limitPDFPages(pdfBuffer, 3)
-  const base64 = trimmedBuffer.toString('base64')
+
+  const isImage = mediaType.startsWith('image/')
+  let base64: string
+
+  if (!isImage) {
+    // PDF : limiter à 3 pages pour réduire les tokens
+    const trimmedBuffer = await limitPDFPages(buffer, 3)
+    base64 = trimmedBuffer.toString('base64')
+  } else {
+    base64 = buffer.toString('base64')
+  }
+
+  const prompt = 'Extrais tout le texte visible de ce document. Retourne UNIQUEMENT le texte brut, sans formatage, sans commentaire, sans introduction. Si le document est pivoté ou à l\'envers, lis-le dans la bonne orientation.'
+
+  const contentBlock = isImage
+    ? {
+        type: 'image' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: mediaType as 'image/jpeg' | 'image/png' | 'image/webp',
+          data: base64,
+        },
+      }
+    : {
+        type: 'document' as const,
+        source: {
+          type: 'base64' as const,
+          media_type: 'application/pdf' as const,
+          data: base64,
+        },
+      }
 
   const response = await withRetry(() => client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -394,18 +425,8 @@ export async function extractTextFromScan(pdfBuffer: Buffer): Promise<string> {
     messages: [{
       role: 'user',
       content: [
-        {
-          type: 'document' as const,
-          source: {
-            type: 'base64' as const,
-            media_type: 'application/pdf' as const,
-            data: base64,
-          },
-        },
-        {
-          type: 'text' as const,
-          text: 'Extrais tout le texte visible de ce document. Retourne UNIQUEMENT le texte brut, sans formatage, sans commentaire, sans introduction. Si le document est pivoté ou à l\'envers, lis-le dans la bonne orientation.',
-        },
+        contentBlock,
+        { type: 'text' as const, text: prompt },
       ],
     }],
   }))

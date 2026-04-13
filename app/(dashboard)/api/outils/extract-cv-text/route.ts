@@ -88,11 +88,18 @@ export async function POST(request: NextRequest) {
           texte = ''
         }
 
-        // Etape 2 : si texte trop court et PDF → fallback Vision IA
-        if (texte.trim().length < MIN_TEXT_LENGTH && ext === 'pdf') {
+        // Etape 2 : si texte trop court → fallback Vision IA (PDF, JPG, PNG)
+        const visionMediaType =
+          ext === 'pdf' ? 'application/pdf' :
+          ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+          ext === 'png' ? 'image/png' :
+          ext === 'webp' ? 'image/webp' :
+          null
+
+        if (texte.trim().length < MIN_TEXT_LENGTH && visionMediaType) {
           try {
-            console.log(`[extract-cv-text] Scan detecte pour ${candidat.id} (${filename}), fallback Vision...`)
-            const visionText = await extractTextFromScan(buffer)
+            console.log(`[extract-cv-text] Scan detecte pour ${candidat.id} (${filename}), fallback Vision (${visionMediaType})...`)
+            const visionText = await extractTextFromScan(buffer, visionMediaType as any)
             if (visionText && visionText.trim().length >= MIN_TEXT_LENGTH) {
               texte = visionText
               visionUsed++

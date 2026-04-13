@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.37'
+export const APP_VERSION = '1.8.38'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.38',
+    date: '2026-04-13',
+    label: 'Vision IA : support JPG/PNG pour extraction texte CVs scannés',
+    features: [
+      'extractTextFromScan() étendu : supporte PDF (document), JPG/JPEG, PNG, WEBP (image)',
+      'Route extract-cv-text : fallback Vision déclenché pour pdf/jpg/jpeg/png/webp (plus seulement pdf)',
+      'DOC/DOCX sans texte → [scan-non-lisible] direct (Vision ne supporte pas les binaires Word)',
+    ],
+  },
   {
     version: '1.8.36',
     date: '2026-04-13',
