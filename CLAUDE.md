@@ -57,7 +57,7 @@
 ---
 
 ## Version actuelle
-**1.8.21 production** — 13/04/2026
+**1.8.29 production** — 13/04/2026
 
 ---
 
@@ -261,7 +261,21 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - `'archive'` = onglet **Archivé**
 - Ne pas confondre les valeurs — les filtres serveur et les basculements d'onglet en dépendent
 
-**6. Modaux / overlays avec `position: fixed`**
+**6. has_update — badge "non vu" pour candidats mis à jour**
+- `has_update: true` en DB = badge rouge sur la carte ET compteur sidebar
+- Défini par les imports (cv/parse, onedrive/sync) quand un candidat existant est réactivé ou mis à jour
+- Clearing : la fiche candidat PATCH `has_update: false` + `queryClient.setQueriesData` (cache React Query) + `dispatchBadgesChanged()` (sidebar)
+- `hasBadge()` : `has_update` = toujours badge visible (inconditionnel). Le clearing se fait via le PATCH + cache update, PAS via viewedSet
+- `dispatchBadgesChanged()` doit être appelé après tout événement qui modifie `has_update` en DB (UploadCV, IntégrationsOneDrive, fiche candidat)
+
+**7. Normalisation noms de fichiers CV**
+- Storage encode les espaces en underscores : `"BENCHAAR salim.pdf"` → `"1776xxx_BENCHAAR_salim.pdf"`
+- Toute comparaison de noms de fichiers doit utiliser `normFn()` : strip timestamp `^\d+_` + normalise `[_\s]+` → `_` + lowercase
+- `memeContenu`/`contenuIdentique` : compare AUSSI le nom de base (pas seulement le texte OCR, qui varie pour les images)
+- Early filename match dans cv/parse : fallback `cleanName = file.name.replace(/^\d+_/, '').replace(/_/g, ' ')` pour matcher les noms storage→original
+- Ne JAMAIS comparer `file.name` directement avec `cv_nom_fichier` sans normalisation
+
+**8. Modaux / overlays avec `position: fixed`**
 - Tout composant utilisant `position: fixed` (modaux, panels, tooltips, popovers) doit être rendu via `createPortal(jsx, document.body)`
 - Framer Motion `transform` et d'autres propriétés CSS (filter, will-change) créent un nouveau "containing block" → cassent `position: fixed` sur les enfants
 - Pattern validé : `if (typeof window === 'undefined') return null; return createPortal(modal, document.body)`
