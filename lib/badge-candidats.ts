@@ -153,7 +153,7 @@ export function isRecent(created_at: string | null | undefined): boolean {
 }
 
 /** Un candidat est "non vu" si :
- *  - has_update = true (CV mis à jour via import/sync) → badge toujours visible
+ *  - has_update = true ET pas dans viewedSet → badge visible (viewedSet synchrone pour feedback immédiat)
  *  - OU récent ET pas dans viewedSet ET pas couvert par viewedAllAt
  */
 export function hasBadge(
@@ -163,8 +163,8 @@ export function hasBadge(
   viewedAllAt?: string | null,
   has_update?: boolean,
 ): boolean {
-  // Priorité 1 : has_update flag (CV mis à jour) → badge quoi qu'il arrive
-  if (has_update) return true
+  // Priorité 1 : has_update flag (CV mis à jour) → badge sauf si déjà vu (viewedSet synchrone)
+  if (has_update && !viewedSet.has(id)) return true
   // Priorité 2 : logique "non vu" classique
   if (!isRecent(created_at)) return false
   if (viewedSet.has(id)) return false

@@ -655,9 +655,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         .eq('id', candidatExistant.id).single()
       existingFullPre = ef
 
-      // Fix 2 — GARDE PRIMAIRE : comparer le texte AVANT hasNewContent
+      // Fix 2 — GARDE PRIMAIRE : comparer le texte OU le nom de fichier de base AVANT hasNewContent
       // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
-      const memeContenu = !!(ef?.cv_texte_brut && texteCV &&
+      // Fix v1.8.26 — nom de base : strip le préfixe timestamp (OneDrive stocke "1234_nom.pdf", import normal "nom.pdf")
+      const stripTs = (n: string) => n.replace(/^\d+_/, '')
+      const memeNomBase = !!(ef?.cv_nom_fichier &&
+        stripTs(ef.cv_nom_fichier as string) === stripTs(file.name))
+      const memeContenu = memeNomBase || !!(ef?.cv_texte_brut && texteCV &&
         (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
 
       // Fix 4 — debug skip (activer localement si besoin, ne pas déployer)
@@ -837,8 +841,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (cvUrl && existing?.cv_url && existing.cv_url !== cvUrl) {
         const existingDocs = (existing.documents as any[]) || []
         const oldName = existing.cv_nom_fichier || 'Ancien CV'
+        // Fix v1.8.26 — ne pas archiver si même fichier de base (timestamp prefix différent)
+        const stripTsUpd = (n: string) => n.replace(/^\d+_/, '')
+        const isSameBaseUpd = stripTsUpd(oldName) === stripTsUpd(file.name)
         // Ne pas archiver si déjà présent (par URL ou par nom — signed URLs ont des tokens différents)
-        const isAlreadyArchived = existingDocs.some((d: any) =>
+        const isAlreadyArchived = isSameBaseUpd || existingDocs.some((d: any) =>
           d.url === existing.cv_url || d.name === oldName || d.name === `[Ancien] ${oldName}`
         )
         if (!isAlreadyArchived) {
@@ -939,8 +946,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
       if (importedIsOlder && existingFull.cv_url) {
         // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
+        // Fix v1.8.26 — skip si même fichier de base (timestamp prefix différent)
+        const stripTsOld = (n: string) => n.replace(/^\d+_/, '')
+        const isSameBaseOld = stripTsOld(existingFull.cv_nom_fichier || '') === stripTsOld(file.name)
         const existingDocs = (existingFull.documents as any[]) || []
-        if (cvUrl && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
+        if (cvUrl && !isSameBaseOld && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
           existingDocs.push({ name: `[Archive] ${file.name}`, url: cvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
         }
         await adminClient.from('candidats').update({
@@ -957,7 +967,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
       const existingDocs = (existingFull.documents as any[]) || []
       const oldCvName = existingFull.cv_nom_fichier || 'Ancien CV'
-      const isOldCvArchived = !existingFull.cv_url || existingDocs.some((d: any) =>
+      // Fix v1.8.26 — ne pas archiver si même fichier de base (timestamp prefix différent)
+      const stripTsPost = (n: string) => n.replace(/^\d+_/, '')
+      const isSameBaseFile = stripTsPost(oldCvName) === stripTsPost(file.name)
+      const isOldCvArchived = !existingFull.cv_url || isSameBaseFile || existingDocs.some((d: any) =>
         d.url === existingFull.cv_url || d.name === oldCvName || d.name === `[Ancien] ${oldCvName}`
       )
       if (existingFull.cv_url && !isOldCvArchived) {
