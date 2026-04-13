@@ -18,7 +18,7 @@ const LIST_COLUMNS = [
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'permis_conduire', 'date_naissance',
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
-  'cfc', 'deja_engage',
+  'cfc', 'deja_engage', 'has_update',
   'pipeline_consultant', 'pipeline_metier',
   'created_at', 'updated_at',
   'notes_candidat(id, contenu, created_at, auteur)',

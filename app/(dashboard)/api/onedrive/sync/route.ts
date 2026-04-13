@@ -924,7 +924,11 @@ export async function POST(request: Request) {
 
             // Fix 1 — fallback images/scans : si fichier déjà lié à ce candidat → traiter comme contenu identique
             // Évite de réuploader le même scan/image à chaque changement de date OneDrive (OCR non déterministe)
-            const memeItemLiee = !!(rowFichier?.candidat_id && rowFichier.candidat_id === existingCandidat.id)
+            // v1.8.23 — élargi pour records legacy (pré-v1.8.21) où candidat_id est null :
+            // si traite=true ET (candidat_id match OU candidat_id null) → même item
+            const memeItemLiee = !!(rowFichier?.traite && (
+              !rowFichier.candidat_id || rowFichier.candidat_id === existingCandidat.id
+            ))
             const contenuIdentique =
               (peutComparer ? extrait500 === stocke500 : filename === (candidatExistant.cv_nom_fichier || ''))
               || memeItemLiee
