@@ -1,5 +1,16 @@
 # Changelog TalentFlow
 
+## [1.8.14] — 13 avril 2026
+
+### Fix — Import normal : skip complet si doublon même date
+- Détection doublon (email/tel/nom) déplacée AVANT l'upload Storage
+- `memeDate` (±1min) : skip total si même CV même date → 0 upload, 0 tokens IA, 0 DB write
+- Même contenu + date différente → update dates uniquement, pas d'upload, `cv_url` inchangé
+- Nouveau contenu → upload + update complet (comportement inchangé)
+- `multipleMatches` → early return sans upload (confirmation utilisateur)
+
+---
+
 ## [1.8.13] — 13 avril 2026
 
 ### Fix — Import CV : cv_url préservé sur doublon "même contenu"

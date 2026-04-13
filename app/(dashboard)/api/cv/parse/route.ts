@@ -526,8 +526,145 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 7. Upload Supabase Storage — timeout 15s
+  // 7_pre. Détection doublons AVANT upload Storage — évite gaspillage pour doublons "même CV"
   const adminClient = createAdminClient()
+
+  const filenameDate = extractDateFromFilename(file.name)
+  const resolvedCreatedAt = fileDate || filenameDate || new Date().toISOString()
+  const isNotCV = docType !== 'cv'
+
+  let candidatExistant: any = null
+  let existingFullPre: any = null
+
+  const nomsSimilaires = (a: any, e: any): boolean => {
+    if (!a.nom || !e.nom) return true
+    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    const pNom = norm(a.nom), eNom = norm(e.nom)
+    const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
+      pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((ex: string) => ex.includes(p) || p.includes(ex)))
+    if (nomOk) return true
+    const pPrenom = norm(a.prenom || ''), ePrenom = norm(e.prenom || '')
+    return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
+  }
+
+  if (!forceInsert && !replaceId && !updateId) {
+    // — Email —
+    if (analyse.email) {
+      const { data: byEmail } = await adminClient
+        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .eq('email', analyse.email).maybeSingle()
+      if (byEmail) {
+        if (!nomsSimilaires(analyse, byEmail)) {
+          return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: [byEmail], analyse, cv_url: null, message: `L'email est déjà utilisé par ${byEmail.prenom} ${byEmail.nom} — est-ce la même personne ?` })
+        }
+        candidatExistant = byEmail
+      }
+    }
+    // — Téléphone —
+    if (!candidatExistant && analyse.telephone) {
+      const telNormalise = analyse.telephone.replace(/\D/g, '')
+      if (telNormalise.length >= 8) {
+        const tel9 = telNormalise.slice(-9)
+        const prenomFilter = analyse.prenom ? analyse.prenom.split(/\s+/)[0] : null
+        let telQuery = adminClient.from('candidats').select('id, prenom, nom, email, titre_poste, created_at, telephone').not('telephone', 'is', null)
+        if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
+        const { data: telCandidats } = await telQuery.limit(150)
+        if (telCandidats) {
+          const telMatch = telCandidats.find((c: any) => {
+            const stored = (c.telephone || '').replace(/\D/g, '')
+            return stored.length >= 8 && stored.slice(-9) === tel9
+          })
+          if (telMatch) {
+            if (!nomsSimilaires(analyse, telMatch)) {
+              return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: [telMatch], analyse, cv_url: null, message: `Le téléphone est déjà utilisé par ${telMatch.prenom} ${telMatch.nom} — est-ce la même personne ?` })
+            }
+            candidatExistant = telMatch
+          }
+        }
+      }
+    }
+    // — Nom + prénom —
+    if (!candidatExistant && analyse.nom && analyse.prenom) {
+      const { data: byName } = await adminClient
+        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
+      candidatExistant = byName
+
+      if (!candidatExistant) {
+        const nomParts = analyse.nom.split(/\s+/).filter((w: string) => w.length >= 3)
+        let byPartialName: any[] | null = null
+        if (nomParts.length === 1) {
+          const { data } = await adminClient.from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at').ilike('nom', `%${nomParts[0]}%`).limit(20)
+          byPartialName = data
+        } else if (nomParts.length > 1) {
+          const orClauses = nomParts.map((p: string) => `nom.ilike.%${p}%`).join(',')
+          const { data } = await adminClient.from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at').or(orClauses).limit(20)
+          byPartialName = data
+        }
+        if (byPartialName && byPartialName.length > 0) {
+          const prenomWords = analyse.prenom.split(/\s+/).map((w: string) => w.toLowerCase()).filter((w: string) => w.length >= 2)
+          const matches = byPartialName.filter((c: any) => {
+            const cPrenom = (c.prenom || '').toLowerCase()
+            const cPrenomFirst = cPrenom.split(/\s+/)[0]
+            return prenomWords.some((pw: string) => cPrenom.includes(pw) || pw.includes(cPrenomFirst))
+          })
+          if (matches.length >= 1) {
+            if (isNotCV && matches.length === 1) {
+              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
+              candidatExistant = matches[0]
+            } else {
+              dbg(`[CV Parse] Match(es) partiel(s): ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
+              return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: matches, analyse, cv_url: null, message: matches.length === 1 ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?` : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon` })
+            }
+          }
+        }
+      }
+    }
+
+    // — Si doublon CV : décider si upload nécessaire —
+    if (candidatExistant && !isNotCV) {
+      const { data: ef } = await adminClient.from('candidats')
+        .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at')
+        .eq('id', candidatExistant.id).single()
+      existingFullPre = ef
+
+      const hasNewContent = (() => {
+        if (!ef) return true
+        if ((analyse.experiences || []).length > (ef.experiences || []).length) return true
+        if (analyse.titre_poste && ef.titre_poste && analyse.titre_poste.toLowerCase() !== ef.titre_poste.toLowerCase()) return true
+        const oldComp = new Set((ef.competences || []).map((s: string) => s.toLowerCase()))
+        if ((analyse.competences || []).filter((s: string) => !oldComp.has(s.toLowerCase())).length >= 3) return true
+        if ((analyse.formations_details || []).length > (ef.formations_details || []).length) return true
+        return false
+      })()
+
+      if (!hasNewContent) {
+        // memeDate : tolérance ±1 minute
+        const memeDate = ef ? Math.abs(
+          new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()
+        ) <= 60_000 : false
+
+        if (memeDate) {
+          // SKIP COMPLET — 0 upload, 0 DB write
+          dbg(`[CV Parse] Skip : ${candidatExistant.prenom} ${candidatExistant.nom} (même date + même contenu)`)
+          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_date' } })
+          return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+        } else {
+          // Même contenu, date différente → update dates uniquement, 0 upload
+          dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+          await adminClient.from('candidats').update({
+            created_at: resolvedCreatedAt,
+            updated_at: new Date().toISOString(),
+          } as any).eq('id', candidatExistant.id)
+          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
+          return NextResponse.json({ isDuplicate: true, sameFile: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+        }
+      }
+      // hasNewContent = true → on continue vers l'upload
+    }
+  }
+
+  // 7. Upload Supabase Storage — timeout 15s
   const timestamp = Date.now()
   const nomFichierStorage = `${timestamp}_${filenameEffectif.replace(/[^a-zA-Z0-9._-]/g, '_')}`
 
@@ -718,200 +855,38 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     })
   }
 
-  // 8b. Vérifier les doublons (email → téléphone → nom+prénom)
-  let candidatExistant: any = null
-  // Helper : vérifier si deux personnes ont des noms suffisamment similaires
-  // Évite les faux positifs quand deux personnes différentes partagent un email/téléphone
-  const nomsSimilaires = (analyse: any, existant: any): boolean => {
-    if (!analyse.nom || !existant.nom) return true // pas de nom parsé → on laisse passer
-    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-    const pNom = norm(analyse.nom), eNom = norm(existant.nom)
-    const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
-      pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((e: string) => e.includes(p) || p.includes(e)))
-    if (nomOk) return true
-    // Noms différents → vérifier le prénom comme dernier recours
-    const pPrenom = norm(analyse.prenom || ''), ePrenom = norm(existant.prenom || '')
-    return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
-  }
-
-  if (!forceInsert && !replaceId && !updateId && analyse.email) {
-    const { data: byEmail } = await adminClient
-      .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-      .eq('email', analyse.email).maybeSingle()
-    if (byEmail) {
-      if (!nomsSimilaires(analyse, byEmail)) {
-        return NextResponse.json({
-          isDuplicate: true, multipleMatches: true,
-          candidatsMatches: [byEmail], analyse, cv_url: cvUrl,
-          message: `L'email est déjà utilisé par ${byEmail.prenom} ${byEmail.nom} — est-ce la même personne ?`,
-        })
-      }
-      candidatExistant = byEmail
-    }
-  }
-  if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.telephone) {
-    // Normaliser le téléphone des deux côtés — ilike('%digits%') échoue sur "+41 77 423 99 95" (espaces)
-    const telNormalise = analyse.telephone.replace(/\D/g, '')
-    if (telNormalise.length >= 8) {
-      const tel9 = telNormalise.slice(-9)
-      const prenomFilter = analyse.prenom ? analyse.prenom.split(/\s+/)[0] : null
-      let telQuery = adminClient.from('candidats').select('id, prenom, nom, email, titre_poste, created_at, telephone').not('telephone', 'is', null)
-      if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
-      const { data: telCandidats } = await telQuery.limit(150)
-      if (telCandidats) {
-        const telMatch = telCandidats.find((c: any) => {
-          const stored = (c.telephone || '').replace(/\D/g, '')
-          return stored.length >= 8 && stored.slice(-9) === tel9
-        })
-        if (telMatch) {
-          if (!nomsSimilaires(analyse, telMatch)) {
-            return NextResponse.json({
-              isDuplicate: true, multipleMatches: true,
-              candidatsMatches: [telMatch], analyse, cv_url: cvUrl,
-              message: `Le téléphone est déjà utilisé par ${telMatch.prenom} ${telMatch.nom} — est-ce la même personne ?`,
-            })
-          }
-          candidatExistant = telMatch
-        }
-      }
-    }
-  }
-  if (!forceInsert && !replaceId && !updateId && !candidatExistant && analyse.nom && analyse.prenom) {
-    // Essai 1 : match exact nom + prénom
-    const { data: byName } = await adminClient
-      .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-      .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
-    candidatExistant = byName
-
-    // Essai 2 : match flexible — le nom parsé contient le nom en base ou vice versa
-    // Utile pour les certificats où le nom est "FERREIRA GONÇALVES" mais en base c'est "Gonçalves"
-    // Pour les documents non-CV avec 1 seul match → auto-attach (pas de confirmation)
-    // Pour les CV → toujours demander confirmation (risque de faux positif)
-    if (!candidatExistant) {
-      // Chercher TOUS les mots du nom composé (pas juste le dernier)
-      // Ex: certificat "Marmolejo Zambrano" → en base "Marmolejo" → trouvé par le 1er mot
-      const nomParts = analyse.nom.split(/\s+/).filter((w: string) => w.length >= 3)
-      let byPartialName: any[] | null = null
-      if (nomParts.length === 1) {
-        const { data } = await adminClient
-          .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at')
-          .ilike('nom', `%${nomParts[0]}%`).limit(20)
-        byPartialName = data
-      } else if (nomParts.length > 1) {
-        const orClauses = nomParts.map((p: string) => `nom.ilike.%${p}%`).join(',')
-        const { data } = await adminClient
-          .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at')
-          .or(orClauses).limit(20)
-        byPartialName = data
-      }
-      if (byPartialName && byPartialName.length > 0) {
-          // Vérifier TOUS les mots du prénom (pas juste le premier)
-          // Ex: certificat "Marjorie Yanina" → en base "Yanina" → "yanina" match le 2ème mot
-          const prenomWords = analyse.prenom.split(/\s+/).map((w: string) => w.toLowerCase()).filter((w: string) => w.length >= 2)
-          const matches = byPartialName.filter((c: any) => {
-            const cPrenom = (c.prenom || '').toLowerCase()
-            const cPrenomFirst = cPrenom.split(/\s+/)[0]
-            return prenomWords.some((pw: string) =>
-              cPrenom.includes(pw) || pw.includes(cPrenomFirst)
-            )
-          })
-          if (matches.length >= 1) {
-            const isNonCVDoc = analyse.document_type && analyse.document_type !== 'cv'
-            if (isNonCVDoc && matches.length === 1) {
-              // Document non-CV + 1 seul match → auto-attach (le certificat mentionne explicitement le nom)
-              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
-              candidatExistant = matches[0]
-            } else {
-              // CV ou multiple matches → demander confirmation
-              dbg(`[CV Parse] Match(es) partiel(s) de nom: ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
-              return NextResponse.json({
-                isDuplicate: true,
-                multipleMatches: true,
-                candidatsMatches: matches,
-                analyse,
-                cv_url: cvUrl,
-                message: matches.length === 1
-                  ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?`
-                  : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon`,
-              })
-            }
-          }
-        }
-      }
-    }
-  // Classification document
-  const isNotCV = analyse.document_type && analyse.document_type !== 'cv'
-
-  // 8c. Doublon trouvé
+  // 8c. Doublon trouvé avec nouveau contenu OU document non-CV → traitement post-upload
   if (candidatExistant) {
-    dbg(`[CV Parse] Doublon : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+    dbg(`[CV Parse] Doublon post-upload : ${candidatExistant.prenom} ${candidatExistant.nom}`)
 
-    // Pour les documents non-CV, auto-ajouter au candidat existant (pas demander)
+    // Document non-CV → auto-ajouter au candidat existant
     if (isNotCV && cvUrl) {
       const mappedType = mapDocumentType(analyse.document_type)
       const { data: existDoc } = await adminClient.from('candidats').select('documents').eq('id', candidatExistant.id).single()
       const docs = (existDoc?.documents as any[]) || []
-      // Vérifier si ce fichier exact existe déjà (par URL ou nom de fichier)
       const alreadyExists = docs.some((d: any) => d.url === cvUrl || d.name === file.name)
       if (!alreadyExists) {
         docs.push({ name: file.name, url: cvUrl, type: mappedType, uploaded_at: new Date().toISOString() })
       } else {
         dbg(`[CV Parse] Document déjà présent: ${file.name}, skip`)
       }
-      // Ne PAS mettre à jour created_at pour un document non-CV — c'est la date du CV qui compte
       await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
       dbg(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
-      return NextResponse.json({
-        isDuplicate: true,
-        candidatExistant,
-        analyse,
-        updated: true,
-        candidat: candidatExistant,
-        message: `Document ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`,
-      })
+      return NextResponse.json({ isDuplicate: true, candidatExistant, analyse, updated: true, candidat: candidatExistant, message: `Document ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}` })
     }
 
-    // ── Smart update : comparer ancien vs nouveau CV ──
-    // Récupérer les données complètes du candidat existant
-    const { data: existingFull } = await adminClient.from('candidats')
+    // CV avec nouveau contenu → update complet + archiver ancien CV
+    // existingFullPre disponible si détecté en 7_pre, sinon re-fetch
+    const existingFull = existingFullPre || (await adminClient.from('candidats')
       .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents')
-      .eq('id', candidatExistant.id).single()
+      .eq('id', candidatExistant.id).single()).data
 
-    // Vérifier si le CV a du nouveau contenu
-    const hasNewContent = (() => {
-      if (!existingFull) return true
-      const oldExpCount = (existingFull.experiences || []).length
-      const newExpCount = (analyse.experiences || []).length
-      if (newExpCount > oldExpCount) return true
-      if (analyse.titre_poste && existingFull.titre_poste &&
-        analyse.titre_poste.toLowerCase() !== existingFull.titre_poste.toLowerCase()) return true
-      const oldComp = new Set((existingFull.competences || []).map((s: string) => s.toLowerCase()))
-      const newComp = (analyse.competences || []).filter((s: string) => !oldComp.has(s.toLowerCase()))
-      if (newComp.length >= 3) return true
-      const oldFormCount = (existingFull.formations_details || []).length
-      const newFormCount = (analyse.formations_details || []).length
-      if (newFormCount > oldFormCount) return true
-      return false
-    })()
-
-    // Date d'ajout : lastModified du fichier > date dans le nom > maintenant
-    const filenameDate = extractDateFromFilename(file.name)
-    const resolvedCreatedAt = fileDate || filenameDate || new Date().toISOString()
-
-    if (hasNewContent && existingFull) {
-      // CV mis à jour — mettre à jour la fiche + archiver l'ancien CV
+    if (existingFull) {
       const existingDocs = (existingFull.documents as any[]) || []
       if (existingFull.cv_url && !existingDocs.some((d: any) => d.url === existingFull.cv_url)) {
-        const oldName = existingFull.cv_nom_fichier || 'Ancien CV'
-        existingDocs.push({
-          name: `[Ancien] ${oldName}`,
-          url: existingFull.cv_url,
-          type: 'cv',
-          uploaded_at: new Date().toISOString(),
-        })
+        existingDocs.push({ name: `[Ancien] ${existingFull.cv_nom_fichier || 'Ancien CV'}`, url: existingFull.cv_url, type: 'cv', uploaded_at: new Date().toISOString() })
       }
-
       await adminClient.from('candidats').update({
         titre_poste: analyse.titre_poste || existingFull.titre_poste,
         competences: analyse.competences || existingFull.competences,
@@ -928,34 +903,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         created_at: resolvedCreatedAt,
         updated_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
-
       dbg(`[CV Parse] CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'cv_mis_a_jour' } })
-      return NextResponse.json({
-        isDuplicate: true,
-        updated: true,
-        cvUpdated: true,
-        candidatExistant,
-        candidat: candidatExistant,
-        analyse,
-        message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`,
-      })
-    } else {
-      // Même CV — mettre à jour la date d'ajout + cv_url si manquant
-      await adminClient.from('candidats').update({
-        created_at: resolvedCreatedAt,
-        updated_at: new Date().toISOString(),
-        ...(cvUrl ? { cv_url: cvUrl, cv_nom_fichier: file.name } : {}),
-      } as any).eq('id', candidatExistant.id)
-      dbg(`[CV Parse] Même CV, date mise à jour : ${candidatExistant.prenom} ${candidatExistant.nom}`)
-      return NextResponse.json({
-        isDuplicate: true,
-        sameFile: true,
-        candidatExistant,
-        candidat: candidatExistant,
-        analyse,
-        message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}`,
-      })
+      return NextResponse.json({ isDuplicate: true, updated: true, cvUpdated: true, candidatExistant, candidat: candidatExistant, analyse, message: `CV mis à jour : ${candidatExistant.prenom} ${candidatExistant.nom}` })
     }
   }
 
