@@ -189,11 +189,27 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   //     Évite de consommer l'API Claude pour des CVs déjà en base
   //     Note : on utilise file.name ici (avant split) pour détecter le doublon du fichier source
   if (!forceInsert && !replaceId && !updateId) {
-    const { data: existingByFile } = await supabase
+    let existingByFile = null
+    const { data: exactMatch } = await supabase
       .from('candidats')
       .select('id, prenom, nom, email, titre_poste, created_at')
       .eq('cv_nom_fichier', file.name)
       .maybeSingle()
+    existingByFile = exactMatch
+
+    // Fix v1.8.28 — fallback : file.name vient du storage path (timestamp + underscores)
+    // Convertir "1776xxx_BENCHAAR_salim_20.10.2025.pdf" → "BENCHAAR salim 20.10.2025.pdf"
+    if (!existingByFile) {
+      const cleanName = file.name.replace(/^\d+_/, '').replace(/_/g, ' ')
+      if (cleanName !== file.name) {
+        const { data: fuzzy } = await supabase
+          .from('candidats')
+          .select('id, prenom, nom, email, titre_poste, created_at')
+          .eq('cv_nom_fichier', cleanName)
+          .maybeSingle()
+        existingByFile = fuzzy
+      }
+    }
 
     if (existingByFile) {
       const dateToUse = fileDate || new Date().toISOString()
@@ -657,10 +673,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
       // Fix 2 — GARDE PRIMAIRE : comparer le texte OU le nom de fichier de base AVANT hasNewContent
       // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
-      // Fix v1.8.26 — nom de base : strip le préfixe timestamp (OneDrive stocke "1234_nom.pdf", import normal "nom.pdf")
-      const stripTs = (n: string) => n.replace(/^\d+_/, '')
+      // Fix v1.8.28 — normalisation : strip timestamp + espaces/underscores + lowercase
+      // Storage encode "BENCHAAR salim.pdf" → "1776xxx_BENCHAAR_salim.pdf" (espaces→underscores)
+      const normFn = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const memeNomBase = !!(ef?.cv_nom_fichier &&
-        stripTs(ef.cv_nom_fichier as string) === stripTs(file.name))
+        normFn(ef.cv_nom_fichier as string) === normFn(file.name))
       const memeContenu = memeNomBase || !!(ef?.cv_texte_brut && texteCV &&
         (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
 
@@ -841,9 +858,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (cvUrl && existing?.cv_url && existing.cv_url !== cvUrl) {
         const existingDocs = (existing.documents as any[]) || []
         const oldName = existing.cv_nom_fichier || 'Ancien CV'
-        // Fix v1.8.26 — ne pas archiver si même fichier de base (timestamp prefix différent)
-        const stripTsUpd = (n: string) => n.replace(/^\d+_/, '')
-        const isSameBaseUpd = stripTsUpd(oldName) === stripTsUpd(file.name)
+        // Fix v1.8.28 — normalisation espaces/underscores/timestamp pour comparaison noms fichiers
+        const normFnUpd = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const isSameBaseUpd = normFnUpd(oldName) === normFnUpd(file.name)
         // Ne pas archiver si déjà présent (par URL ou par nom — signed URLs ont des tokens différents)
         const isAlreadyArchived = isSameBaseUpd || existingDocs.some((d: any) =>
           d.url === existing.cv_url || d.name === oldName || d.name === `[Ancien] ${oldName}`
@@ -946,9 +963,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
       if (importedIsOlder && existingFull.cv_url) {
         // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
-        // Fix v1.8.26 — skip si même fichier de base (timestamp prefix différent)
-        const stripTsOld = (n: string) => n.replace(/^\d+_/, '')
-        const isSameBaseOld = stripTsOld(existingFull.cv_nom_fichier || '') === stripTsOld(file.name)
+        // Fix v1.8.28 — normalisation espaces/underscores/timestamp
+        const normFnOld = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const isSameBaseOld = normFnOld(existingFull.cv_nom_fichier || '') === normFnOld(file.name)
         const existingDocs = (existingFull.documents as any[]) || []
         if (cvUrl && !isSameBaseOld && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
           existingDocs.push({ name: `[Archive] ${file.name}`, url: cvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
@@ -967,9 +984,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
       const existingDocs = (existingFull.documents as any[]) || []
       const oldCvName = existingFull.cv_nom_fichier || 'Ancien CV'
-      // Fix v1.8.26 — ne pas archiver si même fichier de base (timestamp prefix différent)
-      const stripTsPost = (n: string) => n.replace(/^\d+_/, '')
-      const isSameBaseFile = stripTsPost(oldCvName) === stripTsPost(file.name)
+      // Fix v1.8.28 — normalisation espaces/underscores/timestamp
+      const normFnPost = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+      const isSameBaseFile = normFnPost(oldCvName) === normFnPost(file.name)
       const isOldCvArchived = !existingFull.cv_url || isSameBaseFile || existingDocs.some((d: any) =>
         d.url === existingFull.cv_url || d.name === oldCvName || d.name === `[Ancien] ${oldCvName}`
       )
