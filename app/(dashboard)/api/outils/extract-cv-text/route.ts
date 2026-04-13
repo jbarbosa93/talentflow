@@ -25,47 +25,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Compter le total restant (NULL ou vide = à retraiter)
-    const { count: totalNull } = await supabase
+    // Filtre commun : NULL, vide ou scan-non-lisible + doit avoir un CV
+    const orFilter = 'cv_texte_brut.is.null,cv_texte_brut.eq.,cv_texte_brut.eq.[scan-non-lisible]'
+
+    // Compter le total restant
+    const { count: totalRestant } = await supabase
       .from('candidats')
       .select('id', { count: 'exact', head: true })
-      .is('cv_texte_brut', null)
+      .or(orFilter)
       .not('cv_url', 'is', null)
 
-    const { count: totalVide } = await supabase
-      .from('candidats')
-      .select('id', { count: 'exact', head: true })
-      .eq('cv_texte_brut' as any, '')
-      .not('cv_url', 'is', null)
-
-    const totalRestant = (totalNull ?? 0) + (totalVide ?? 0)
-
-    // Recuperer le batch : d'abord les NULL, puis les vides (scans non traites)
-    let candidats: any[] = []
-
-    const { data: nullCandidats, error: fetchErr } = await supabase
+    // Recuperer le batch
+    const { data: candidats, error: fetchErr } = await supabase
       .from('candidats')
       .select('id, cv_url, cv_nom_fichier')
-      .is('cv_texte_brut', null)
+      .or(orFilter)
       .not('cv_url', 'is', null)
       .limit(batchSize)
 
     if (fetchErr) {
       return NextResponse.json({ error: `Erreur DB : ${fetchErr.message}` }, { status: 500 })
-    }
-
-    candidats = nullCandidats || []
-
-    // S'il reste de la place dans le batch, prendre les vides (scans a retraiter avec Vision)
-    if (candidats.length < batchSize) {
-      const remaining = batchSize - candidats.length
-      const { data: videCandidats } = await supabase
-        .from('candidats')
-        .select('id, cv_url, cv_nom_fichier')
-        .eq('cv_texte_brut' as any, '')
-        .not('cv_url', 'is', null)
-        .limit(remaining)
-      if (videCandidats) candidats = [...candidats, ...videCandidats]
     }
 
     if (candidats.length === 0) {
@@ -152,7 +131,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const restants = totalRestant - traites
+    const restants = (totalRestant ?? 0) - traites
 
     return NextResponse.json({
       traites,
