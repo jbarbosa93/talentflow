@@ -114,10 +114,10 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         // cache-bust pour éviter la réponse mise en cache
         const res = await fetch(`/api/candidats/count-new?t=${Date.now()}`)
         if (!res.ok) return
-        const { ids } = await res.json() as { ids: { id: string; import_status: string; created_at: string }[] }
+        const { ids } = await res.json() as { ids: { id: string; import_status: string; created_at: string; has_update?: boolean }[] }
         const vs = getViewedSet()
         const allAt = getViewedAllAt()
-        setSidebarBadgeCount(ids.filter(item => hasBadge(item.id, item.created_at, vs, allAt)).length)
+        setSidebarBadgeCount(ids.filter(item => hasBadge(item.id, item.created_at, vs, allAt, item.has_update)).length)
       } catch { /* silencieux */ }
     }
 
