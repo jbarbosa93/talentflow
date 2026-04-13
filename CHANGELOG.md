@@ -1,5 +1,16 @@
 # Changelog TalentFlow
 
+## [1.8.15] — 13 avril 2026
+
+### Fix — Import CV : skip sur contenu identique indépendamment de la date
+- `memeContenu` : comparaison des 500 premiers caractères de `cv_texte_brut` comme critère principal
+- `memeContenu = true + memeDate = true` → skip total (0 upload, 0 DB)
+- `memeContenu = true + memeDate = false` → update dates uniquement, 0 upload
+- `memeContenu = false` → nouveau contenu → upload normal (même si `hasNewContent = false`)
+- Corrige le cas où la date `created_at` avait été modifiée manuellement en DB (rendait `memeDate` inefficace)
+
+---
+
 ## [1.8.14] — 13 avril 2026
 
 ### Fix — Import normal : skip complet si doublon même date

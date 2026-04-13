@@ -624,7 +624,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // — Si doublon CV : décider si upload nécessaire —
     if (candidatExistant && !isNotCV) {
       const { data: ef } = await adminClient.from('candidats')
-        .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at')
+        .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at, cv_texte_brut')
         .eq('id', candidatExistant.id).single()
       existingFullPre = ef
 
@@ -639,28 +639,36 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       })()
 
       if (!hasNewContent) {
-        // memeDate : tolérance ±1 minute
-        const memeDate = ef ? Math.abs(
-          new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()
-        ) <= 60_000 : false
+        // memeContenu : comparer les 500 premiers caractères du texte brut (robuste aux changements de date)
+        const memeContenu = !!(ef?.cv_texte_brut && texteCV &&
+          (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
 
-        if (memeDate) {
-          // SKIP COMPLET — 0 upload, 0 DB write
-          dbg(`[CV Parse] Skip : ${candidatExistant.prenom} ${candidatExistant.nom} (même date + même contenu)`)
-          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_date' } })
-          return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
-        } else {
-          // Même contenu, date différente → update dates uniquement, 0 upload
-          dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
-          await adminClient.from('candidats').update({
-            created_at: resolvedCreatedAt,
-            updated_at: new Date().toISOString(),
-          } as any).eq('id', candidatExistant.id)
-          await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
-          return NextResponse.json({ isDuplicate: true, sameFile: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+        if (memeContenu) {
+          // memeDate : tolérance ±1 minute
+          const memeDate = ef ? Math.abs(
+            new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()
+          ) <= 60_000 : false
+
+          if (memeDate) {
+            // SKIP COMPLET — 0 upload, 0 DB write
+            dbg(`[CV Parse] Skip : ${candidatExistant.prenom} ${candidatExistant.nom} (même contenu + même date)`)
+            await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_contenu' } })
+            return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+          } else {
+            // Même contenu, date différente → update dates uniquement, 0 upload
+            dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
+            await adminClient.from('candidats').update({
+              created_at: resolvedCreatedAt,
+              updated_at: new Date().toISOString(),
+            } as any).eq('id', candidatExistant.id)
+            await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
+            return NextResponse.json({ isDuplicate: true, sameFile: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+          }
         }
+        // memeContenu = false → texte différent, traiter comme nouveau contenu → upload
+        dbg(`[CV Parse] Texte différent malgré structure similaire : ${candidatExistant.prenom} ${candidatExistant.nom} → upload`)
       }
-      // hasNewContent = true → on continue vers l'upload
+      // hasNewContent = true OU memeContenu = false → on continue vers l'upload
     }
   }
 
