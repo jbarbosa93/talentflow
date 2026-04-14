@@ -1447,7 +1447,7 @@ export async function POST(request: Request) {
     }
 
     // 5b. Retry non-CVs "introuvable" — le candidat a peut-être été créé dans ce même batch
-    if (retryQueue.length > 0 && created.length > 0) {
+    if (retryQueue.length > 0) {
       dbg(`[OneDrive Sync] Retry ${retryQueue.length} documents non-CV après création de ${created.length} candidats`)
       for (const fichier of retryQueue) {
         try {
