@@ -35,16 +35,18 @@ function isCVFile(name: string): boolean {
  */
 export async function listerDossiers(
   accessToken: string,
-  folderId?: string
+  folderId?: string,
+  driveId?: string
 ): Promise<OneDriveFolder[]> {
   const folders: OneDriveFolder[] = []
+  const drivePrefix = driveId ? `/drives/${driveId}` : '/me/drive'
 
   // Récupère les dossiers de premier niveau
   let rootItems: any[] = []
   try {
     const endpoint = folderId
-      ? `/me/drive/items/${folderId}/children?$select=id,name,folder,parentReference&$top=100`
-      : `/me/drive/root/children?$select=id,name,folder,parentReference&$top=100`
+      ? `${drivePrefix}/items/${folderId}/children?$select=id,name,folder,parentReference&$top=100`
+      : `${drivePrefix}/root/children?$select=id,name,folder,parentReference&$top=100`
 
     const data = await callGraph(accessToken, endpoint)
     rootItems = (data?.value || []).filter((item: any) => item.folder)
@@ -65,7 +67,7 @@ export async function listerDossiers(
     try {
       const subData = await callGraph(
         accessToken,
-        `/me/drive/items/${item.id}/children?$select=id,name,folder,parentReference&$top=100`
+        `${drivePrefix}/items/${item.id}/children?$select=id,name,folder,parentReference&$top=100`
       )
       const subFolders = (subData?.value || []).filter((sub: any) => sub.folder)
       for (const sub of subFolders) {
@@ -78,7 +80,7 @@ export async function listerDossiers(
         try {
           const sub2Data = await callGraph(
             accessToken,
-            `/me/drive/items/${sub.id}/children?$select=id,name,folder,parentReference&$top=100`
+            `${drivePrefix}/items/${sub.id}/children?$select=id,name,folder,parentReference&$top=100`
           )
           const sub2Folders = (sub2Data?.value || []).filter((s: any) => s.folder)
           for (const s of sub2Folders) {

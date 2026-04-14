@@ -27,8 +27,8 @@ export async function GET() {
     if (!integration) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
     const accessToken = await getValidAccessToken(integration.id)
-    const folders = await listerDossiers(accessToken)
     const meta = (integration.metadata as any) || {}
+    const folders = await listerDossiers(accessToken, undefined, meta.sharepoint_drive_id)
 
     return NextResponse.json({
       folders,
