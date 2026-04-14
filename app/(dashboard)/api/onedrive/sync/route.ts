@@ -367,7 +367,18 @@ export async function POST(request: Request) {
     }
     dedupedFichiers.push(...seenBaseNames.values())
 
-    const fichiersToProcess = dedupedFichiers.slice(0, MAX_NEW)
+    // Trier : CVs en premier, documents non-CV en dernier
+    // Les non-CVs (certificat, permis, attestation) ont besoin que le candidat existe déjà en DB
+    const nonCvPatterns = /certificat|permis|attestation|diplome|diplôme|lettre|motivation|bulletin|salaire|formation|contrat/i
+    const sortedFichiers = dedupedFichiers.sort((a, b) => {
+      const aIsNonCV = nonCvPatterns.test(a.name)
+      const bIsNonCV = nonCvPatterns.test(b.name)
+      if (aIsNonCV && !bIsNonCV) return 1  // non-CV après
+      if (!aIsNonCV && bIsNonCV) return -1 // CV avant
+      return 0
+    })
+    const fichiersToProcess = sortedFichiers.slice(0, MAX_NEW)
+    const retryQueue: typeof fichiers = [] // Non-CVs "introuvable" à retenter après le batch
 
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
@@ -826,14 +837,10 @@ export async function POST(request: Request) {
           }
 
           // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
-          // Ne pas créer un candidat depuis un certificat — logguer erreur pour correction manuelle
+          // Mettre en file de retry — le candidat est peut-être en cours de création dans ce même batch
           if (isNotCV && !existingCandidat) {
-            const nameStr = [candidatPrenom, candidatNom].filter(Boolean).join(' ') || 'inconnu'
-            const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'formation' ? 'Formation' : docType === 'attestation' ? 'Attestation' : docType === 'permis' ? 'Permis' : `Document (${docType})`
-            throw new Error(
-              `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. ` +
-              `Importez d'abord le CV de ce candidat, puis ce fichier sera rattaché automatiquement.`
-            )
+            retryQueue.push(fichier)
+            return { status: 'error', filename: fichier.name }
           }
 
           if (existingCandidat) {
@@ -1435,6 +1442,89 @@ export async function POST(request: Request) {
           await (supabase as any).from('activites').insert(individualLogs)
         } catch (e) {
           console.error('[OneDrive Sync] Erreur log activites individuelles:', e)
+        }
+      }
+    }
+
+    // 5b. Retry non-CVs "introuvable" — le candidat a peut-être été créé dans ce même batch
+    if (retryQueue.length > 0 && created.length > 0) {
+      dbg(`[OneDrive Sync] Retry ${retryQueue.length} documents non-CV après création de ${created.length} candidats`)
+      for (const fichier of retryQueue) {
+        try {
+          const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
+          const ext = fichier.name.split('.').pop()?.toLowerCase()
+          const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')
+          const isPDF = ext === 'pdf'
+          const mimeType = isPDF ? 'application/pdf' : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'
+
+          const dlRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${fichier.id}/content`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          })
+          if (!dlRes.ok) continue
+          const buffer = Buffer.from(await dlRes.arrayBuffer())
+
+          // Upload
+          const timestamp = Date.now()
+          const storageName = `${timestamp}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const { data: storageData } = await supabase.storage.from('cvs').upload(storageName, buffer, { contentType: mimeType, upsert: false })
+          let docUrl: string | null = null
+          if (storageData?.path) {
+            const { data: urlData } = await supabase.storage.from('cvs').createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+            docUrl = urlData?.signedUrl || null
+          }
+          if (!docUrl) continue
+
+          // Extraction nom via IA (déjà fait au premier passage — on refait léger)
+          let texteCV = ''
+          try { texteCV = await extractTextFromCV(buffer, fichier.name) } catch {}
+          const analyse = texteCV.length >= 50
+            ? await analyserCV(texteCV.slice(0, 3000))
+            : isImage
+              ? await analyserCVDepuisImage(buffer, mimeType as any)
+              : isPDF
+                ? await analyserCVDepuisPDF(buffer, fichier.name)
+                : { nom: '', prenom: '' } as any
+
+          const candidatNom = analyse?.nom || ''
+          const candidatPrenom = analyse?.prenom || ''
+          if (!candidatNom) continue
+
+          // Chercher le candidat (maintenant en DB)
+          const unaccent = (s: string): string => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+          const { data: found } = await supabase.from('candidats')
+            .select('id, nom, prenom, documents')
+            .or(`nom.ilike.%${unaccent(candidatNom.split(/\s+/).pop() || candidatNom)}%`)
+            .limit(20)
+          const match = (found || []).find((c: any) => {
+            const eNom = unaccent(c.nom || '')
+            const ePrenom = unaccent(c.prenom || '')
+            const pNom = unaccent(candidatNom)
+            const pPrenom = unaccent(candidatPrenom)
+            const nomOk = pNom.split(/\s+/).some((w: string) => w.length >= 3 && eNom.includes(w))
+            const prenomOk = !pPrenom || !ePrenom || pPrenom.split(/\s+/).some((w: string) => w.length >= 2 && ePrenom.includes(w))
+            return nomOk && prenomOk
+          })
+
+          if (match) {
+            const existingDocs = (match.documents as any[]) || []
+            const docType = analyse.document_type || 'autre'
+            const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'permis' ? 'Permis' : docType === 'attestation' ? 'Attestation' : `Document (${docType})`
+            if (!existingDocs.some((d: any) => d.url === docUrl || d.name === fichier.name)) {
+              existingDocs.push({ name: fichier.name, url: docUrl, type: docTypeLabel, uploaded_at: new Date().toISOString() })
+              await (supabase as any).from('candidats').update({ documents: existingDocs, updated_at: new Date().toISOString() }).eq('id', match.id)
+            }
+            await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: true, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'document', candidat_id: match.id, erreur: `${docTypeLabel} rattaché (retry) — ${match.prenom || ''} ${match.nom}`.trim() })
+            errors--
+            const idx = errorFiles.indexOf(fichier.name)
+            if (idx !== -1) errorFiles.splice(idx, 1)
+            dbg(`[OneDrive Sync] Retry OK: ${fichier.name} → ${match.prenom} ${match.nom}`)
+          } else {
+            const nameStr = [candidatPrenom, candidatNom].filter(Boolean).join(' ') || 'inconnu'
+            const docTypeLabel = analyse.document_type === 'certificat' ? 'Certificat' : analyse.document_type === 'permis' ? 'Permis' : `Document`
+            await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: false, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'error', erreur: `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. Importez d'abord le CV de ce candidat, puis ce fichier sera rattaché automatiquement.` })
+          }
+        } catch (err) {
+          dbg(`[OneDrive Sync] Retry échec: ${fichier.name} — ${err instanceof Error ? err.message : String(err)}`)
         }
       }
     }
