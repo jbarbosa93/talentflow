@@ -198,7 +198,7 @@ async function runAnalysisLoop(offreId: string) {
               },
               ...data.score,
             }
-            _results = [..._results, entry].sort((a, b) => b.score - a.score)
+            _results = [..._results, entry].sort((a, b) => b.score - a.score || a.candidat.id.localeCompare(b.candidat.id))
             _onUpdate?.({ results: [..._results] })
           }
         } catch { /* ignore single-candidat errors */ }
@@ -207,6 +207,11 @@ async function runAnalysisLoop(offreId: string) {
         _onUpdate?.({ doneCount: _doneCount })
         lsSnap()
       }))
+    }
+    // Re-sort final : élimine les artifacts d'ordre d'arrivée des batches parallèles
+    if (!_abortFlag) {
+      _results = [..._results].sort((a, b) => b.score - a.score || a.candidat.id.localeCompare(b.candidat.id))
+      _onUpdate?.({ results: [..._results] })
     }
   } catch { /* top-level error */ }
 

@@ -163,8 +163,8 @@ export default function CandidatDetailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromPage = searchParams.get('from')
-  const backRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : '/candidats'
-  const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : 'Retour aux candidats'
+  const backRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : '/candidats'
+  const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : 'Retour aux candidats'
   const queryClient = useQueryClient()
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)

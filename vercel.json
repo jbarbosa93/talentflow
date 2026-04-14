@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/onedrive-sync",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/extract-cv-text",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

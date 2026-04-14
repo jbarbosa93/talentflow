@@ -561,8 +561,8 @@ export async function calculerScoreMatching(
     .map(e => `${e.poste} chez ${e.entreprise} (${e.periode})${e.description ? ': ' + e.description.slice(0, 100) : ''}`)
     .join('\n')
 
-  // CV brut tronqué à 1500 chars pour ne pas dépasser les tokens
-  const cvBrut = (candidat.cv_texte_brut || '').slice(0, 1500)
+  // CV brut tronqué à 2500 chars pour améliorer la précision du scoring
+  const cvBrut = (candidat.cv_texte_brut || '').slice(0, 2500)
 
   // Contexte complet de l'offre (description + notes = cahier des charges)
   const offreContext = [offre.description, offre.notes].filter(Boolean).join('\n').slice(0, 1200)

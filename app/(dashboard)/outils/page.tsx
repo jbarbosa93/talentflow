@@ -1,8 +1,8 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FolderInput, Camera, Copy, ArrowRight, Wrench, ClipboardList, FileText, Play, Square, AlertTriangle } from 'lucide-react'
+import { FolderInput, Camera, Copy, ArrowRight, Wrench, ClipboardList, FileText, Loader2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 // ─── Outils ─────────────────────────────────────────────────────────────────
 
@@ -103,77 +103,28 @@ export default function OutilsPage() {
 // ─── Extract CV Text Card ───────────────────────────────────────────────────
 
 function ExtractCVTextCard() {
-  const [running, setRunning] = useState(false)
-  const [traites, setTraites] = useState(0)
-  const [restants, setRestants] = useState<number | null>(null)
-  const [visionUsed, setVisionUsed] = useState(0)
-  const [erreurs, setErreurs] = useState<string[]>([])
-  const [done, setDone] = useState(false)
-  const stopRef = useRef(false)
-
   const color = '#06B6D4'
 
-  const start = useCallback(async () => {
-    setRunning(true)
-    setTraites(0)
-    setRestants(null)
-    setVisionUsed(0)
-    setErreurs([])
-    setDone(false)
-    stopRef.current = false
+  const { data: status, isLoading } = useQuery({
+    queryKey: ['extract-cv-status'],
+    queryFn: async () => {
+      const res = await fetch('/api/cron/extract-cv-text/status')
+      if (!res.ok) return null
+      return res.json() as Promise<{ restants: number; total: number; pourcentage: number }>
+    },
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  })
 
-    let totalTraites = 0
-    let totalVision = 0
-
-    while (!stopRef.current) {
-      try {
-        const res = await fetch('/api/outils/extract-cv-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ batch_size: 5 }),
-        })
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: 'Erreur serveur' }))
-          setErreurs(prev => [...prev, err.error || `HTTP ${res.status}`])
-          break
-        }
-
-        const data = await res.json()
-        totalTraites += data.traites
-        totalVision += data.vision_used || 0
-        setTraites(totalTraites)
-        setRestants(data.restants)
-        setVisionUsed(totalVision)
-
-        if (data.erreurs?.length > 0) {
-          setErreurs(prev => [...prev, ...data.erreurs])
-        }
-
-        if (data.restants === 0 || data.traites === 0) {
-          break
-        }
-      } catch (err: any) {
-        setErreurs(prev => [...prev, err?.message || 'Erreur reseau'])
-        break
-      }
-    }
-
-    setRunning(false)
-    setDone(true)
-  }, [])
-
-  const stop = useCallback(() => {
-    stopRef.current = true
-  }, [])
-
-  const total = restants !== null ? traites + restants : 0
-  const pct = total > 0 ? Math.round((traites / total) * 100) : 0
+  const restants = status?.restants ?? null
+  const pourcentage = status?.pourcentage ?? 0
+  const isActive = restants !== null && restants > 0
+  const allDone = restants === 0
 
   return (
     <div style={{
       background: 'var(--card)',
-      border: '1.5px solid var(--border)',
+      border: `1.5px solid ${isActive ? color + '44' : 'var(--border)'}`,
       borderRadius: 16,
       padding: 28,
       position: 'relative',
@@ -182,6 +133,7 @@ function ExtractCVTextCard() {
       display: 'flex',
       flexDirection: 'column',
       boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      transition: 'border-color 0.3s',
     }}>
       {/* Top accent line */}
       <div style={{
@@ -189,8 +141,8 @@ function ExtractCVTextCard() {
         background: `linear-gradient(90deg, ${color}, ${color}66)`,
       }} />
 
-      {/* Icon */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 18, marginTop: 4 }}>
+      {/* Icon + badge statut */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18, marginTop: 4 }}>
         <div style={{
           width: 56, height: 56, borderRadius: 16,
           background: `${color}14`,
@@ -199,6 +151,22 @@ function ExtractCVTextCard() {
         }}>
           <FileText size={26} style={{ color }} />
         </div>
+        {/* Badge statut */}
+        {!isLoading && restants !== null && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '4px 10px',
+            borderRadius: 99, display: 'flex', alignItems: 'center', gap: 5,
+            background: isActive ? `${color}14` : '#F0FDF4',
+            border: `1px solid ${isActive ? color + '40' : '#86EFAC'}`,
+            color: isActive ? color : '#16A34A',
+            whiteSpace: 'nowrap',
+          }}>
+            {isActive
+              ? <><Loader2 size={11} style={{ animation: 'spin 1.2s linear infinite', flexShrink: 0 }} />Traitement auto actif</>
+              : <>✅ Tous traités</>
+            }
+          </span>
+        )}
       </div>
 
       {/* Title */}
@@ -214,96 +182,44 @@ function ExtractCVTextCard() {
         fontSize: 13, color: 'var(--muted)', lineHeight: 1.65,
         margin: '0 0 18px 0', flex: 1,
       }}>
-        Extrait le texte depuis les CVs stockes. Utilise la Vision IA pour les PDFs scannes (images).
+        Extrait le texte depuis les CVs stockés. Vision IA pour les PDFs scannés.
+        {isActive && <> Le cron tourne automatiquement toutes les <strong>5 min</strong>.</>}
+        {allDone && <> Tous les CVs ont été traités.</>}
       </p>
 
-      {/* Progress */}
-      {(running || done) && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 6,
-          }}>
+      {/* Barre de progression */}
+      {restants !== null && status && (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>
-              {traites} traite{traites > 1 ? 's' : ''}
-              {restants !== null && ` / ${traites + restants} total`}
-              {visionUsed > 0 && <span style={{ color: '#F59E0B', marginLeft: 6 }}>({visionUsed} scans IA)</span>}
+              {isActive
+                ? <>{restants.toLocaleString('fr-CH')} restant{restants > 1 ? 's' : ''} sur {status.total.toLocaleString('fr-CH')}</>
+                : <>{status.total.toLocaleString('fr-CH')} CVs traités</>
+              }
             </span>
-            {total > 0 && (
-              <span style={{ fontSize: 11, fontWeight: 700, color }}>{pct}%</span>
-            )}
+            <span style={{ fontSize: 11, fontWeight: 700, color }}>{pourcentage}%</span>
           </div>
-          {/* Progress bar */}
-          <div style={{
-            height: 6, borderRadius: 3,
-            background: 'var(--border)',
-            overflow: 'hidden',
-          }}>
+          <div style={{ height: 6, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 3,
-              background: color,
-              width: `${pct}%`,
-              transition: 'width 0.3s ease',
+              background: isActive
+                ? `linear-gradient(90deg, ${color}, ${color}99)`
+                : '#22C55E',
+              width: `${pourcentage}%`,
+              transition: 'width 0.5s ease',
             }} />
           </div>
         </div>
       )}
 
-      {/* Errors */}
-      {erreurs.length > 0 && (
-        <div style={{
-          marginBottom: 14, padding: '8px 10px', borderRadius: 8,
-          background: '#FEF2F2', border: '1px solid #FECACA',
-          maxHeight: 100, overflowY: 'auto',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <AlertTriangle size={12} style={{ color: '#DC2626' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>
-              {erreurs.length} erreur{erreurs.length > 1 ? 's' : ''}
-            </span>
-          </div>
-          {erreurs.slice(-5).map((e, i) => (
-            <div key={i} style={{ fontSize: 10, color: '#991B1B', lineHeight: 1.5 }}>{e}</div>
-          ))}
+      {isLoading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+          <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+          Chargement…
         </div>
       )}
 
-      {/* CTA buttons */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-        {!running ? (
-          <button
-            onClick={start}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, border: 'none',
-              background: color, color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-          >
-            <Play size={14} />
-            {done ? 'Relancer' : 'Lancer l\'extraction'}
-          </button>
-        ) : (
-          <button
-            onClick={stop}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 16px', borderRadius: 8, border: 'none',
-              background: '#EF4444', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-          >
-            <Square size={14} />
-            Stop
-          </button>
-        )}
-      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

@@ -500,7 +500,7 @@ export default function MatchingHistoriquePage() {
                             {c.label}
                           </span>
                           <Link
-                            href={`/candidats/${r.candidat.id}`}
+                            href={`/candidats/${r.candidat.id}?from=matching`}
                             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
                           >
                             Profil <ArrowRight size={11} />

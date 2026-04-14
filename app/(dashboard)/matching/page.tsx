@@ -1,8 +1,7 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown } from 'lucide-react'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
 import Link from 'next/link'
@@ -28,8 +27,35 @@ export default function MatchingPage() {
   const [selectedOffre, setSelectedOffre] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showContactModal, setShowContactModal] = useState(false)
-  const { data: offres } = useOffres(true)
+  const { data: offres } = useOffres()
   const matching = useMatching()
+
+  // ── Combobox offres ──────────────────────────────────────────────────────────
+  const [offreOpen, setOffreOpen] = useState(false)
+  const [offreSearch, setOffreSearch] = useState('')
+  const offreComboRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!offreOpen) return
+    function handleClick(e: MouseEvent) {
+      if (offreComboRef.current && !offreComboRef.current.contains(e.target as Node)) {
+        setOffreOpen(false)
+        setOffreSearch('')
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [offreOpen])
+
+  const filteredOffres = (offres ?? []).filter(o => {
+    if (!offreSearch) return true
+    const q = offreSearch.toLowerCase()
+    return (
+      o.titre.toLowerCase().includes(q) ||
+      (o.client_nom ?? '').toLowerCase().includes(q) ||
+      (o.localisation ?? '').toLowerCase().includes(q)
+    )
+  })
 
   const toggleSelect = (id: string) => setSelectedIds(prev => {
     const next = new Set(prev)
@@ -91,30 +117,89 @@ export default function MatchingPage() {
       {/* Sélection commande + boutons */}
       <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--card-shadow)', marginBottom: 24 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 260 }}>
+          {/* Combobox offres avec recherche intégrée */}
+          <div ref={offreComboRef} style={{ flex: 1, minWidth: 260, position: 'relative' }}>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
               Commande client
             </label>
-            <Select
-              value={isActive ? matching.offreId : selectedOffre}
-              onValueChange={v => { if (isIdle || isDone) { setSelectedOffre(v); matching.reset() } }}
+            <button
+              type="button"
               disabled={isActive}
+              onClick={() => { if (!isActive) setOffreOpen(v => !v) }}
+              style={{
+                width: '100%', height: 44, padding: '0 12px',
+                background: 'var(--secondary)', border: `1.5px solid ${offreOpen ? 'var(--primary)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius)', cursor: isActive ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                color: (isActive ? matching.offreId : selectedOffre) ? 'var(--foreground)' : 'var(--muted)',
+                fontSize: 14, fontFamily: 'var(--font-body)', opacity: isActive ? 0.7 : 1,
+                transition: 'border-color 0.15s',
+              }}
             >
-              <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 44 }}>
-                <SelectValue placeholder="Choisir une commande..." />
-              </SelectTrigger>
-              <SelectContent>
-                {!offres?.length ? (
-                  <SelectItem value="_" disabled>Aucune commande — créez-en une d&apos;abord</SelectItem>
-                ) : (
-                  offres.map(o => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.client_nom ? `${o.client_nom} — ` : ''}{o.titre}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {(() => {
+                  const activeId = isActive ? matching.offreId : selectedOffre
+                  const o = offres?.find(x => x.id === activeId)
+                  if (!o) return 'Choisir une commande...'
+                  return o.client_nom ? `${o.client_nom} — ${o.titre}` : o.titre
+                })()}
+              </span>
+              <ChevronDown size={14} style={{ flexShrink: 0, color: 'var(--muted)', transform: offreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+            </button>
+
+            {offreOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+                background: 'var(--card)', border: '1.5px solid var(--border)',
+                borderRadius: 'var(--radius)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                maxHeight: 340, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              }}>
+                {/* Barre de recherche */}
+                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                  <input
+                    autoFocus
+                    value={offreSearch}
+                    onChange={e => setOffreSearch(e.target.value)}
+                    placeholder="Rechercher une commande…"
+                    style={{
+                      width: '100%', height: 34, padding: '0 10px', boxSizing: 'border-box',
+                      background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                      borderRadius: 7, fontSize: 13, fontFamily: 'var(--font-body)',
+                      color: 'var(--foreground)', outline: 'none',
+                    }}
+                  />
+                </div>
+                {/* Liste filtrée */}
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {filteredOffres.length === 0 ? (
+                    <div style={{ padding: '14px', fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+                      Aucune commande trouvée
+                    </div>
+                  ) : (
+                    filteredOffres.map(o => (
+                      <div
+                        key={o.id}
+                        onClick={() => { setSelectedOffre(o.id); matching.reset(); setOffreOpen(false); setOffreSearch('') }}
+                        style={{
+                          padding: '10px 14px', cursor: 'pointer',
+                          background: o.id === selectedOffre ? 'rgba(245,167,35,0.08)' : 'transparent',
+                          borderLeft: `2px solid ${o.id === selectedOffre ? 'var(--primary)' : 'transparent'}`,
+                        }}
+                        onMouseEnter={e => { if (o.id !== selectedOffre) (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+                        onMouseLeave={e => { if (o.id !== selectedOffre) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 3 }}>{o.titre}</div>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          {o.client_nom && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>👤 {o.client_nom}</span>}
+                          {o.localisation && <span style={{ fontSize: 11, color: 'var(--muted)' }}>📍 {o.localisation}</span>}
+                          {o.exp_requise > 0 && <span style={{ fontSize: 11, color: 'var(--muted)' }}>⏱ {o.exp_requise} ans exp.</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bouton principal */}
@@ -489,7 +574,7 @@ function CandidatMatchCard({ result, rank, selected, onToggle }: { result: Match
           </div>
 
           <Link
-            href={`/candidats/${candidat.id}`}
+            href={`/candidats/${candidat.id}?from=matching`}
             onClick={e => e.stopPropagation()}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
           >

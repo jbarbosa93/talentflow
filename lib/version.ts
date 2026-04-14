@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.41'
+export const APP_VERSION = '1.8.43'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,30 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.43',
+    date: '2026-04-14',
+    label: 'Extraction cv_texte_brut — Cron Vercel automatique',
+    features: [
+      'Cron Vercel */5min : app/api/cron/extract-cv-text — batch 20, filtre NULL/vide, Vision IA, early return si rien à traiter',
+      'Route GET /api/cron/extract-cv-text/status — restants/total/pourcentage (requireAuth, lecture seule)',
+      'vercel.json : ajout du cron extract-cv-text en parallèle du cron OneDrive',
+      'Card Outils "Extraire texte CVs" : badge "Traitement auto actif" / "Tous traités", barre de progression live (polling 30s), sans Start/Stop',
+      'Sidebar : indicateur orange sous "Outils" si CVs restants > 0 (Admin + Consultant uniquement, masqué si 0)',
+    ],
+  },
+  {
+    version: '1.8.42',
+    date: '2026-04-14',
+    label: 'Matching IA — déterminisme + combobox + précision',
+    features: [
+      'Résultats déterministes : tiebreaker candidat.id sur le sort + re-sort final post-batches parallèles',
+      'Lien "Voir profil" matching/historique → fiche candidat avec ?from=matching (bouton Retour fonctionnel)',
+      'Dropdown offres remplacé par Combobox avec recherche texte intégrée (titre, client, localisation, exp)',
+      'Matching affiche uniquement les offres actives (statut=active)',
+      'cv_texte_brut 1500 → 2500 chars dans le prompt Claude Haiku (meilleure précision)',
+    ],
+  },
   {
     version: '1.8.41',
     date: '2026-04-13',
