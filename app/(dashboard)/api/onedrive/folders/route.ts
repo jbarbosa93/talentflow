@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     await supabase.from('integrations').update({
-      metadata: { ...currentMeta, onedrive_folder_id: folder_id, onedrive_folder_name: folder_name },
+      metadata: { ...currentMeta, sharepoint_folder_id: folder_id, sharepoint_folder_name: folder_name },
       updated_at: new Date().toISOString(),
     }).eq('id', integration.id)
 

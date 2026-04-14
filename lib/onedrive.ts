@@ -95,6 +95,26 @@ export async function listerDossiers(
     }
   }
 
+  // Drives SharePoint partagés (même logique profondeur 3)
+  try {
+    const sharedDrives = await callGraph(accessToken, `/me/drives?$select=id,name,driveType&$top=50`)
+    for (const drive of (sharedDrives?.value || []).filter((d: any) => d.driveType === 'business' || d.driveType === 'documentLibrary')) {
+      try {
+        const driveRoot = await callGraph(accessToken, `/drives/${drive.id}/root/children?$select=id,name,folder,parentReference&$top=100`)
+        const driveFolders = (driveRoot?.value || []).filter((item: any) => item.folder)
+        for (const item of driveFolders) {
+          folders.push({ id: item.id, name: item.name, path: `${drive.name} › ${item.name}` })
+          try {
+            const subData = await callGraph(accessToken, `/drives/${drive.id}/items/${item.id}/children?$select=id,name,folder,parentReference&$top=100`)
+            for (const sub of (subData?.value || []).filter((s: any) => s.folder)) {
+              folders.push({ id: sub.id, name: sub.name, path: `${drive.name} › ${item.name} › ${sub.name}` })
+            }
+          } catch { /* sous-dossiers SharePoint inaccessibles */ }
+        }
+      } catch { /* drive inaccessible */ }
+    }
+  } catch { /* pas de drives partagés */ }
+
   return folders
 }
 
