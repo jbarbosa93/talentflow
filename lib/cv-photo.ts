@@ -29,6 +29,9 @@ export function scoreHeadshot(img: ImageCandidate): number {
   // --- Détection photo N&B / niveaux de gris ---
   const likelyBW = img.uniqueColors <= 20 && img.skinRatio >= 0.04
 
+  // --- Rejet peau < 5% sans N&B → icône/logo, pas un visage ---
+  if (img.skinRatio < 0.05 && !likelyBW) return -100
+
   // --- Rejet icône monochrome (≤5 couleurs ET pas N&B) ---
   if (img.uniqueColors <= 5 && !likelyBW) return -100
 
@@ -96,7 +99,7 @@ export function scoreHeadshot(img: ImageCandidate): number {
   return score
 }
 
-const MIN_HEADSHOT_SCORE = 20
+const MIN_HEADSHOT_SCORE = 35
 
 /**
  * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.

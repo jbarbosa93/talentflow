@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.1'
+export const APP_VERSION = '1.9.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.2',
+    date: '2026-04-14',
+    label: 'Fix outil correction photos — boucle complète + seuil 35 + anti-faux positifs',
+    features: [
+      'Outil correction photos : candidats en erreur marqués \'checked\' → plus de boucle infinie',
+      'Photo seuil minimum : 35 points (était 20) — réduit les faux positifs (icônes, logos)',
+      'Photo rejet : peau < 5% sans N&B → rejet immédiat (icône/logo confirmé)',
+    ],
+  },
   {
     version: '1.9.1',
     date: '2026-04-14',

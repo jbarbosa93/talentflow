@@ -199,6 +199,8 @@ export async function POST(request: NextRequest) {
       processed++
     } catch (e) {
       console.error(`Photo extraction failed for ${cand.id}:`, e)
+      // Marquer 'checked' même en erreur pour ne pas boucler sur le même candidat
+      try { await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id) } catch {}
       processed++
     }
     })) // end Promise.allSettled + chunk.map
