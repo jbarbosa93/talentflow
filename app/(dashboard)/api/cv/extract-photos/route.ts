@@ -91,26 +91,10 @@ export async function POST(request: NextRequest) {
 
   const FIELDS = 'id, nom, prenom, titre_poste, cv_url, cv_nom_fichier, photo_url'
 
-  if (force) {
-    // Force mode: re-extract ALL candidates with a CV (even those with photos)
-    const countResult = await supabase
-      .from('candidats')
-      .select('*', { count: 'exact', head: true })
-      .not('cv_url', 'is', null)
-    totalToProcess = countResult.count || 0
-
-    const result = await supabase
-      .from('candidats')
-      .select(FIELDS)
-      .not('cv_url', 'is', null)
-      .order('created_at', { ascending: true })
-      .range(offset, offset + batchSize - 1)
-
-    candidates = result.data
-    error = result.error
-  } else {
-    // Normal mode: only candidates with photo_url IS NULL (not yet analyzed)
-    // 'checked' = already analyzed, no photo found → skip to avoid re-doing work
+  // Uniquement les candidats jamais analysés (photo_url IS NULL)
+  // 'checked' = déjà analysé, pas de photo → ignoré
+  // URL = photo existante → ignoré totalement
+  {
     const { data: nullPhotos, error: e1 } = await supabase
       .from('candidats')
       .select(FIELDS)
@@ -140,7 +124,7 @@ export async function POST(request: NextRequest) {
       const ext = (cand.cv_nom_fichier || cand.cv_url || '').toLowerCase().split('.').pop()
       const isSupportedFormat = ['pdf', 'docx', 'doc'].includes(ext || '')
       if (!isSupportedFormat) {
-        if (!cand.photo_url || cand.photo_url === 'checked' || force) {
+        if (!cand.photo_url || cand.photo_url === 'checked') {
           await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         }
         processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
@@ -208,15 +192,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
-        // No headshot found → delete old bad photo if force mode, mark as checked
-        if (force && cand.photo_url && cand.photo_url !== 'checked') {
-          try {
-            const oldPath = cand.photo_url.split('/cvs/')[1]?.split('?')[0]
-            if (oldPath) {
-              await supabase.storage.from('cvs').remove([decodeURIComponent(oldPath)])
-            }
-          } catch {}
-        }
+        // No headshot found → mark as checked
         await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
         processedCandidats.push({ id: cand.id, nom: cand.nom, prenom: cand.prenom, titre_poste: cand.titre_poste, hadPhoto: false, cv_nom_fichier: cand.cv_nom_fichier })
       }
@@ -231,17 +207,13 @@ export async function POST(request: NextRequest) {
 
   // Calculate remaining
   let remaining = 0
-  if (force) {
-    remaining = Math.max(0, totalToProcess - offset - processed)
-  } else {
-    // Only count NULL (not yet analyzed) — 'checked' means already done
-    const { count: nullCount } = await supabase
-      .from('candidats')
-      .select('*', { count: 'exact', head: true })
-      .is('photo_url', null)
-      .not('cv_url', 'is', null)
-    remaining = nullCount || 0
-  }
+  // Only count NULL (not yet analyzed) — 'checked' means already done
+  const { count: nullCount } = await supabase
+    .from('candidats')
+    .select('*', { count: 'exact', head: true })
+    .is('photo_url', null)
+    .not('cv_url', 'is', null)
+  remaining = nullCount || 0
 
   return NextResponse.json({
     done: remaining === 0,
@@ -249,7 +221,7 @@ export async function POST(request: NextRequest) {
     found,
     rejected,
     remaining,
-    nextOffset: force ? offset + processed : undefined,
+    nextOffset: undefined,
     foundCandidats,
     processedCandidats,
   })

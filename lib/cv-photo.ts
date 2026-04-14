@@ -2,7 +2,7 @@
 // Collects ALL candidate images, scores them, and picks the most likely headshot
 // Returns a JPEG buffer or null if no suitable headshot found
 
-interface ImageCandidate {
+export interface ImageCandidate {
   buffer: Buffer
   width: number
   height: number
@@ -19,23 +19,33 @@ interface ImageCandidate {
  * Score an image candidate on how likely it is to be a real headshot photo.
  * Higher score = more likely a headshot.
  */
-function scoreHeadshot(img: ImageCandidate): number {
+export function scoreHeadshot(img: ImageCandidate): number {
+  // --- Rejets explicites (anti-icônes / anti-logos / anti-scans) ---
+  if (img.ratio >= 0.9 && img.ratio <= 1.1 && img.width < 80) return -100 // icône carrée petite
+  if (img.width > 2000) return -100 // scan document entier, pas une photo
+
   let score = 0
 
   // --- Détection photo N&B / niveaux de gris ---
-  // Une photo N&B a peu de couleurs uniques (R=G=B → max ~16 bins) MAIS
-  // a quand même des pixels "face" en luminance moyenne (skinRatio partiel > 0.04).
-  // Un logo a aussi peu de couleurs mais skinRatio ≈ 0.
   const likelyBW = img.uniqueColors <= 20 && img.skinRatio >= 0.04
 
-  // --- COLOR DIVERSITY is the strongest discriminator ---
+  // --- Rejet icône monochrome (≤5 couleurs ET pas N&B) ---
+  if (img.uniqueColors <= 5 && !likelyBW) return -100
+
+  // --- COLOR DIVERSITY ---
   if (likelyBW) {
-    score += 5 // photo N&B confirmée — pas de pénalité couleur
+    score += 5
   } else {
     if (img.uniqueColors <= 10) score -= 80
     else if (img.uniqueColors <= 20) score -= 40
     else if (img.uniqueColors >= 80) score += 25
     else if (img.uniqueColors >= 40) score += 15
+  }
+
+  // --- Photos passeport fond blanc : annuler pénalité couleurs ---
+  // Si ratio portrait + peau détectée → le fond blanc n'est pas un problème
+  if (score < 0 && img.ratio >= 1.2 && img.ratio <= 1.55 && img.skinRatio >= 0.08) {
+    score = 5
   }
 
   // --- RATIO ---
@@ -62,9 +72,6 @@ function scoreHeadshot(img: ImageCandidate): number {
   else if (img.area > 1500000) score -= 40
 
   // --- Full-page scan detection ---
-  // Pénalité réduite à -20 (était -60) pour ne pas rejeter les CVs scannés
-  // avec une vraie photo portrait. Les portraits auront ratio ~1.2-1.5 et
-  // skinRatio > 0.10 qui compenseront partiellement cette pénalité.
   if (img.width > 500 && img.height > 700 && img.ratio >= 1.3 && img.ratio <= 1.5 && img.area > 400000) {
     score -= 20
   }
@@ -79,12 +86,12 @@ function scoreHeadshot(img: ImageCandidate): number {
   else score -= 5
 
   // --- SKIN TONE detection ---
-  // Pour les photos N&B : detectSkinRatio donne 0.3× crédit par pixel de face.
-  // On ramène à crédit plein (÷ 0.3) pour équivalence avec les photos couleur.
-  const effectiveSkinRatio = likelyBW ? Math.min(img.skinRatio / 0.3, 1.0) : img.skinRatio
+  // N&B : ×0.6 si portrait avec bonnes dimensions, ×0.3 sinon
+  const bwBoost = likelyBW && img.ratio >= 1.1 && img.ratio <= 1.7 && img.width >= 80 && img.height >= 100
+  const effectiveSkinRatio = likelyBW ? Math.min(img.skinRatio / (bwBoost ? 0.6 : 0.3), 1.0) : img.skinRatio
   if (effectiveSkinRatio >= 0.10 && effectiveSkinRatio <= 0.55) score += 30
   else if (effectiveSkinRatio >= 0.05 && effectiveSkinRatio < 0.10) score += 10
-  else if (effectiveSkinRatio < 0.02) score -= 15 // Pas de peau → logo/icône
+  else if (effectiveSkinRatio < 0.02) score -= 15
 
   return score
 }
@@ -94,7 +101,7 @@ const MIN_HEADSHOT_SCORE = 20
 /**
  * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.
  */
-async function countUniqueColors(imageBuffer: Buffer, isRaw: boolean, rawOpts?: { width: number; height: number; channels: 1 | 3 | 4 }): Promise<number> {
+export async function countUniqueColors(imageBuffer: Buffer, isRaw?: boolean, rawOpts?: { width: number; height: number; channels: 1 | 3 | 4 }): Promise<number> {
   try {
     const sharpMod = (await import('sharp')).default
     const pipeline = isRaw && rawOpts
@@ -128,7 +135,7 @@ async function countUniqueColors(imageBuffer: Buffer, isRaw: boolean, rawOpts?: 
  * - Value: 50-255 (not too dark)
  * For grayscale/N&B photos: checks luminance range typical of faces (80-200)
  */
-async function detectSkinRatio(imageBuffer: Buffer): Promise<number> {
+export async function detectSkinRatio(imageBuffer: Buffer): Promise<number> {
   try {
     const sharpMod = (await import('sharp')).default
     const { data, info } = await sharpMod(imageBuffer)

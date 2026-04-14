@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.0'
+export const APP_VERSION = '1.9.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.1',
+    date: '2026-04-14',
+    label: 'Extraction photos améliorée — scoring + anti-icônes + support images',
+    features: [
+      'Photo scoring : photos passeport fond blanc acceptées (pénalité couleurs annulée si portrait + peau ≥8%)',
+      'Photo scoring : N&B multiplicateur peau ×0.6 au lieu de ×0.3 pour portraits avec bonnes dimensions',
+      'Photo scoring : rejets explicites — icônes carrées <80px, monochrome ≤5 couleurs, scans >2000px',
+      'Photo extraction : support JPG/PNG uploadés comme CV (scoreHeadshot direct sur l\'image)',
+      'Outil correction photos : mode force supprimé — ne touche JAMAIS aux photos existantes',
+    ],
+  },
   {
     version: '1.9.0',
     date: '2026-04-14',

@@ -282,14 +282,7 @@ export default function CorrigerPhotosPage() {
                 </button>
               )}
 
-              {/* Ré-analyser tout — secondaire */}
-              <button
-                onClick={() => { if (confirm('Ré-analyser tous les CVs ? Même ceux déjà traités. Les photos incorrectes seront remplacées.')) handleStartAuto(true) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
-                title="Ré-analyse tous les CVs (y compris déjà traités)"
-              >
-                <RotateCcw size={14} /> Ré-analyser tout
-              </button>
+              {/* Bouton ré-analyser supprimé — ne jamais toucher aux photos existantes */}
 
               {/* Messages état */}
               {photos.phase === 'done' && (
