@@ -945,11 +945,11 @@ export async function POST(request: Request) {
               !rowFichier.candidat_id || rowFichier.candidat_id === existingCandidat.id
             ))
             // Fix v1.8.28 — normalisation complète : timestamp + espaces/underscores + lowercase
-            const normFnOd = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
+            const normFnOd = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
             const memeNomBase = normFnOd(filename) === normFnOd(candidatExistant.cv_nom_fichier || '')
             const contenuIdentique =
               memeNomBase ||
-              (peutComparer ? extrait500 === stocke500 : filename === (candidatExistant.cv_nom_fichier || ''))
+              (peutComparer ? extrait500 === stocke500 : normFnOd(filename) === normFnOd(candidatExistant.cv_nom_fichier || ''))
               || memeItemLiee
             // Comparaison via Date objects — les formats diffèrent : OneDrive "...Z" vs DB "...+00:00"
             const memeDate = !!(dateDernierTraitement && fileDate &&

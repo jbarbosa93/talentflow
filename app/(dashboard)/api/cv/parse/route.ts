@@ -700,7 +700,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
       // Fix v1.8.28 — normalisation : strip timestamp + espaces/underscores + lowercase
       // Storage encode "BENCHAAR salim.pdf" → "1776xxx_BENCHAAR_salim.pdf" (espaces→underscores)
-      const normFn = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
+      const normFn = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const memeNomBase = !!(ef?.cv_nom_fichier &&
         normFn(ef.cv_nom_fichier as string) === normFn(file.name))
       const memeContenu = memeNomBase || !!(ef?.cv_texte_brut && texteCV &&
@@ -884,7 +884,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const existingDocs = (existing.documents as any[]) || []
         const oldName = existing.cv_nom_fichier || 'Ancien CV'
         // Fix v1.8.28 — normalisation espaces/underscores/timestamp pour comparaison noms fichiers
-        const normFnUpd = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const normFnUpd = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
         const isSameBaseUpd = normFnUpd(oldName) === normFnUpd(file.name)
         // Ne pas archiver si déjà présent (par URL ou par nom — signed URLs ont des tokens différents)
         const isAlreadyArchived = isSameBaseUpd || existingDocs.some((d: any) =>
@@ -989,7 +989,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (importedIsOlder && existingFull.cv_url) {
         // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
         // Fix v1.8.28 — normalisation espaces/underscores/timestamp
-        const normFnOld = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const normFnOld = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
         const isSameBaseOld = normFnOld(existingFull.cv_nom_fichier || '') === normFnOld(file.name)
         const existingDocs = (existingFull.documents as any[]) || []
         if (cvUrl && !isSameBaseOld && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
@@ -1010,7 +1010,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const existingDocs = (existingFull.documents as any[]) || []
       const oldCvName = existingFull.cv_nom_fichier || 'Ancien CV'
       // Fix v1.8.28 — normalisation espaces/underscores/timestamp
-      const normFnPost = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
+      const normFnPost = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const isSameBaseFile = normFnPost(oldCvName) === normFnPost(file.name)
       const isOldCvArchived = !existingFull.cv_url || isSameBaseFile || existingDocs.some((d: any) =>
         d.url === existingFull.cv_url || d.name === oldCvName || d.name === `[Ancien] ${oldCvName}`
