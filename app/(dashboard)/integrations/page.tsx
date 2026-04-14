@@ -466,27 +466,36 @@ function IntegrationsContent() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       {onedriveFolderName ? (
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          padding: '6px 12px', borderRadius: 8,
-                          background: '#EFF6FF', border: '2px solid #BFDBFE',
-                          fontWeight: 700, fontSize: 13, color: 'var(--foreground)',
-                        }}>
-                          <FolderOpen size={13} style={{ color: '#0078D4' }} />
-                          {onedriveFolderName}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 8,
+                            background: '#EFF6FF', border: '2px solid #BFDBFE',
+                            fontWeight: 700, fontSize: 13, color: 'var(--foreground)',
+                          }}>
+                            <FolderOpen size={13} style={{ color: '#0078D4' }} />
+                            {onedriveFolderName}
+                          </div>
+                          <button onClick={() => setShowOneDriveFolderPicker(p => !p)} style={{
+                            padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+                            background: 'var(--surface)', border: '1.5px solid var(--border)',
+                            color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
+                          }}>
+                            Changer
+                          </button>
                         </div>
                       ) : (
-                        <div style={{
+                        <button onClick={() => setShowOneDriveFolderPicker(true)} style={{
                           display: 'flex', alignItems: 'center', gap: 6,
                           padding: '6px 12px', borderRadius: 8,
                           background: 'var(--background)', border: '1.5px dashed var(--border)',
                           fontWeight: 600, fontSize: 12, color: 'var(--muted)',
+                          cursor: 'pointer', fontFamily: 'inherit',
                         }}>
                           <FolderOpen size={12} />
-                          Aucun dossier configure
-                        </div>
+                          Choisir un dossier
+                        </button>
                       )}
-                      {/* Bouton Changer supprime — dossier fixe */}
                     </div>
                   </div>
 

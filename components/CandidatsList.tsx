@@ -718,7 +718,7 @@ export default function CandidatsList() {
 
     // Ouvrir Messages avec le message pré-rempli (sans numéros dans l'URL)
     // Les numéros sont dans le presse-papier → Cmd+V dans le champ "À :"
-    window.open(`sms:${formatted.length === 1 ? formatted[0] : ''}${body ? `${formatted.length === 1 ? '?' : ''}body=${body}` : ''}`, '_self')
+    window.open(`sms:${formatted.length === 1 ? formatted[0] : ''}${body ? `?body=${body}` : ''}`, '_self')
   }
 
   const handleBulkDelete = () => {

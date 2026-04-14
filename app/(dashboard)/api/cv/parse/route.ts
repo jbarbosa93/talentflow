@@ -203,7 +203,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // Fix v1.8.28 — fallback : file.name vient du storage path (timestamp + underscores)
     // Convertir "1776xxx_BENCHAAR_salim_20.10.2025.pdf" → "BENCHAAR salim 20.10.2025.pdf"
     if (!existingByFile) {
-      const cleanName = file.name.replace(/^\d+_/, '').replace(/_/g, ' ')
+      const cleanName = file.name.replace(/^(\d+_)+/, '').replace(/_/g, ' ')
       if (cleanName !== file.name) {
         const { data: fuzzy } = await supabase
           .from('candidats')
@@ -632,9 +632,22 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // — Nom + prénom —
     if (!candidatExistant && analyse.nom && analyse.prenom) {
       const { data: byName } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
+        .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, localisation, created_at')
         .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
-      candidatExistant = byName
+      if (byName) {
+        const telOk = analyse.telephone && byName.telephone &&
+          analyse.telephone.replace(/\D/g, '').slice(-9) === byName.telephone.replace(/\D/g, '').slice(-9)
+        const emailOk = analyse.email && byName.email &&
+          analyse.email.toLowerCase() === byName.email.toLowerCase()
+        const locMetierOk = analyse.localisation && byName.localisation && analyse.titre_poste && byName.titre_poste &&
+          analyse.localisation.toLowerCase().includes(byName.localisation.toLowerCase().split(/[\s,]+/)[0]) &&
+          analyse.titre_poste.toLowerCase().includes(byName.titre_poste.toLowerCase().split(/[\s,\/]+/)[0])
+        if (telOk || emailOk || locMetierOk) {
+          candidatExistant = byName
+        } else {
+          dbg(`[CV Parse] Match nom exact "${analyse.prenom} ${analyse.nom}" sans signal fort → traité comme nouveau`)
+        }
+      }
 
       if (!candidatExistant) {
         const nomParts = analyse.nom.split(/\s+/).filter((w: string) => w.length >= 3)
@@ -656,8 +669,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           })
           if (matches.length >= 1) {
             if (isNotCV && matches.length === 1) {
-              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
-              candidatExistant = matches[0]
+              const m = matches[0]
+              const telOk = analyse.telephone && m.telephone &&
+                analyse.telephone.replace(/\D/g, '').slice(-9) === m.telephone.replace(/\D/g, '').slice(-9)
+              const emailOk = analyse.email && m.email &&
+                analyse.email.toLowerCase() === m.email.toLowerCase()
+              if (telOk || emailOk) {
+                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique confirmé par tel/email: ${m.prenom} ${m.nom} → auto-attach`)
+                candidatExistant = m
+              } else {
+                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match nom seul "${m.prenom} ${m.nom}" sans signal fort → ignoré`)
+              }
             } else {
               dbg(`[CV Parse] Match(es) partiel(s): ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
               return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: matches, analyse, cv_url: null, message: matches.length === 1 ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?` : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon` })
@@ -678,7 +700,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
       // Fix v1.8.28 — normalisation : strip timestamp + espaces/underscores + lowercase
       // Storage encode "BENCHAAR salim.pdf" → "1776xxx_BENCHAAR_salim.pdf" (espaces→underscores)
-      const normFn = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+      const normFn = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const memeNomBase = !!(ef?.cv_nom_fichier &&
         normFn(ef.cv_nom_fichier as string) === normFn(file.name))
       const memeContenu = memeNomBase || !!(ef?.cv_texte_brut && texteCV &&
@@ -862,7 +884,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const existingDocs = (existing.documents as any[]) || []
         const oldName = existing.cv_nom_fichier || 'Ancien CV'
         // Fix v1.8.28 — normalisation espaces/underscores/timestamp pour comparaison noms fichiers
-        const normFnUpd = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const normFnUpd = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
         const isSameBaseUpd = normFnUpd(oldName) === normFnUpd(file.name)
         // Ne pas archiver si déjà présent (par URL ou par nom — signed URLs ont des tokens différents)
         const isAlreadyArchived = isSameBaseUpd || existingDocs.some((d: any) =>
@@ -967,7 +989,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       if (importedIsOlder && existingFull.cv_url) {
         // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
         // Fix v1.8.28 — normalisation espaces/underscores/timestamp
-        const normFnOld = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+        const normFnOld = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
         const isSameBaseOld = normFnOld(existingFull.cv_nom_fichier || '') === normFnOld(file.name)
         const existingDocs = (existingFull.documents as any[]) || []
         if (cvUrl && !isSameBaseOld && !existingDocs.some((d: any) => d.url === cvUrl || d.name === file.name)) {
@@ -988,7 +1010,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const existingDocs = (existingFull.documents as any[]) || []
       const oldCvName = existingFull.cv_nom_fichier || 'Ancien CV'
       // Fix v1.8.28 — normalisation espaces/underscores/timestamp
-      const normFnPost = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+      const normFnPost = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const isSameBaseFile = normFnPost(oldCvName) === normFnPost(file.name)
       const isOldCvArchived = !existingFull.cv_url || isSameBaseFile || existingDocs.some((d: any) =>
         d.url === existingFull.cv_url || d.name === oldCvName || d.name === `[Ancien] ${oldCvName}`
@@ -1061,6 +1083,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter',
+    has_update: true,
   }
 
   // Genre (pas dans le type mais dans la table)

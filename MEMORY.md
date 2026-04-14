@@ -132,11 +132,72 @@ Scroll container (overflow: auto, cursor: grab, drag handlers)
 - Barre de recherche agrandie
 - Métiers sélectionnés en haut du popover
 
-### Non déployé sur Vercel
-- L'utilisateur a demandé de NE PAS déployer tant que le zoom n'est pas réglé
-- Le zoom est maintenant réglé → prêt pour déploiement quand l'utilisateur le demande
-
 ### Points d'attention
 - Turbopack peut se corrompre → `rm -rf .next` en cas de comportement bizarre
 - Le `max_rows` Supabase a été changé à 10000 dans le dashboard (pas dans le code)
 - Les couleurs du dropdown métier dépendent de `useMetierCategories()` — si les catégories ne sont pas configurées, le dropdown fallback sur une liste plate
+- **Ne JAMAIS déconnecter les intégrations (Microsoft, WhatsApp) depuis localhost** — même DB que prod, supprime les tokens
+
+---
+
+# Session 14 avril 2026 — v1.8.45
+
+## Bugs corrigés
+
+### SMS masse — URI sms: mal formée
+- **Problème** : le message pré-rempli n'apparaissait pas dans l'app Messages pour multi-destinataires
+- **Cause** : `?` manquant avant `body=` dans l'URI `sms:` quand `formatted.length > 1`
+- **Fichier** : `components/CandidatsList.tsx` (ligne 721)
+
+### Pipeline fantômes — trigger DB vestige
+- **Problème** : candidats apparaissaient automatiquement dans le pipeline sans action manuelle
+- **Cause** : trigger PostgreSQL `trg_sync_candidat_statut` sur table `pipeline` copiait `pipeline.etape` → `candidats.statut_pipeline` à chaque UPDATE (déclenché par le matching via upsert)
+- **Fix** : DROP TRIGGER + migration `20260414_drop_trigger_sync_candidat_statut.sql`
+
+### Dédup homonymes — faux positifs import
+- **Problème** : "Cardoso Costa Paulo Augusto" fusionné avec "Paulo Augus Cardoso Da Costa" (personnes différentes)
+- **Cause** : match nom+prénom seul suffisait pour fusionner, sans vérification email/tel
+- **Fix** : match nom seul exige signal supplémentaire (tel, email, ou localisation+métier)
+- **Fichiers** : `api/cv/parse/route.ts`, `api/onedrive/sync/route.ts`
+
+### normFn timestamps empilés
+- **Problème** : doublons CV non détectés quand le nom contient 2+ timestamps (`1776..._20260414..._001.pdf`)
+- **Cause** : regex `/^\d+_/` ne strip qu'un seul préfixe
+- **Fix** : `/^(\d+_)+/` dans toutes les occurrences (6 au total dans cv/parse + onedrive/sync)
+
+### Badge rouge nouveaux candidats
+- **Problème** : nouveaux candidats importés n'avaient pas le badge rouge
+- **Fix** : `has_update: true` ajouté à l'INSERT dans cv/parse, cv/bulk, onedrive/sync, sharepoint/import
+
+## Features ajoutées
+
+### Pipeline — couleurs métiers par catégorie
+- Badges filtre (barre horizontale) colorés par catégorie via `getColorForMetier()`
+- Badges métier dans les cartes candidats colorés par catégorie (prop passée à `CandidatCard`)
+- Fallback `#F5A623` pour "Tous", "Autres", et métiers sans catégorie
+
+### OneDrive — bouton Choisir/Changer dossier
+- Bouton "Choisir un dossier" quand aucun dossier configuré
+- Bouton "Changer" à côté du nom du dossier actuel
+- **Fichier** : `app/(dashboard)/integrations/page.tsx`
+
+### Localhost — /admin bypass + Admin override
+- `/admin` connecte directement sans OTP (session côté serveur)
+- TopBar affiche "Admin" / "Administrateur" sur localhost
+- **Fichiers** : `app/admin/route.ts`, `components/layout/TopBar.tsx`
+
+## Fichiers modifiés
+| Fichier | Changements |
+|---------|-------------|
+| `components/CandidatsList.tsx` | Fix URI sms: multi-destinataires |
+| `app/admin/route.ts` | Bypass login dev — session côté serveur |
+| `components/layout/TopBar.tsx` | Admin override localhost (useState hydration-safe) |
+| `app/(dashboard)/pipeline/page.tsx` | Couleurs métiers filtres + cartes (getColorForMetier prop) |
+| `app/(dashboard)/api/cv/parse/route.ts` | Fix dédup homonymes + normFn + has_update nouveaux |
+| `app/(dashboard)/api/cv/bulk/route.ts` | has_update nouveaux candidats |
+| `app/(dashboard)/api/onedrive/sync/route.ts` | Fix dédup homonymes + normFn + has_update nouveaux |
+| `app/(dashboard)/api/sharepoint/import/route.ts` | has_update nouveaux candidats |
+| `app/(dashboard)/integrations/page.tsx` | Bouton Choisir/Changer dossier OneDrive |
+| `supabase/migrations/20260414_drop_trigger_sync_candidat_statut.sql` | Drop trigger vestige |
+| `lib/version.ts` | Bump v1.8.45 + changelog |
+| `CLAUDE.md` | Version 1.8.45 |

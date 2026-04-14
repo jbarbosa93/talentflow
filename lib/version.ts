@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.43'
+export const APP_VERSION = '1.8.45'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.45',
+    date: '2026-04-14',
+    label: 'Fix SMS + Dédup homonymes + Pipeline couleurs + Badge imports',
+    features: [
+      'Fix SMS masse : ? manquant dans URI sms: multi-destinataires — message pré-rempli fonctionne',
+      'Fix dédup homonymes : match nom seul exige signal supplémentaire (tel/email/loc+métier) — évite fusions erronées',
+      'Fix normFn timestamps empilés : /^(\\d+_)+/ au lieu de /^\\d+_/ — détection doublons fiable avec noms scannés',
+      'Drop trigger trg_sync_candidat_statut : suppression du trigger vestige pipeline.etape → candidats.statut_pipeline',
+      'Badge rouge imports : has_update=true sur tous les nouveaux candidats (cv/parse, cv/bulk, onedrive/sync, sharepoint/import)',
+      'Pipeline couleurs métiers : badges filtres + cartes colorés par catégorie via getColorForMetier()',
+      'OneDrive : bouton Choisir/Changer dossier sur la page Intégrations',
+      'Localhost : /admin bypass login + affichage Admin dans TopBar',
+    ],
+  },
   {
     version: '1.8.43',
     date: '2026-04-14',

@@ -703,8 +703,23 @@ export async function POST(request: Request) {
               })
 
               if (candidates.length === 1) {
-                // Un seul candidat → match direct
-                existingCandidat = candidates[0]
+                // Un seul candidat → vérifier signal supplémentaire (éviter faux positifs homonymes)
+                const c = candidates[0]
+                const telOk = candidatTel.length >= 8 && c.telephone &&
+                  c.telephone.replace(/\D/g, '').slice(-9) === candidatTel.slice(-9)
+                const emailOk = candidatEmail && c.email &&
+                  candidatEmail.toLowerCase() === c.email.toLowerCase()
+                const locNorm = unaccent(analyse.localisation || '')
+                const cLocNorm = unaccent(c.localisation || '')
+                const titreNorm = unaccent(analyse.titre_poste || '')
+                const cTitreNorm = unaccent(c.titre_poste || '')
+                const locMetierOk = locNorm && cLocNorm && titreNorm && cTitreNorm &&
+                  cLocNorm.includes(locNorm.split(/[\s,]+/)[0]) &&
+                  titreNorm.includes(cTitreNorm.split(/[\s,\/]+/)[0])
+                if (telOk || emailOk || locMetierOk) {
+                  existingCandidat = c
+                }
+                // Sinon → pas de match, sera traité comme nouveau candidat
               } else if (candidates.length > 1) {
                 // Plusieurs candidats → affiner par email, tel, localisation, expériences
                 let refined: any = null
@@ -930,7 +945,7 @@ export async function POST(request: Request) {
               !rowFichier.candidat_id || rowFichier.candidat_id === existingCandidat.id
             ))
             // Fix v1.8.28 — normalisation complète : timestamp + espaces/underscores + lowercase
-            const normFnOd = (n: string) => n.replace(/^\d+_/, '').replace(/[_\s]+/g, '_').toLowerCase()
+            const normFnOd = (n: string) => n.replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
             const memeNomBase = normFnOd(filename) === normFnOd(candidatExistant.cv_nom_fichier || '')
             const contenuIdentique =
               memeNomBase ||
@@ -1300,6 +1315,7 @@ export async function POST(request: Request) {
               cv_texte_brut: texteCV.slice(0, 10000),
               statut_pipeline: null, // JAMAIS d'ajout auto en pipeline
               import_status: 'a_traiter',
+              has_update: true,
               source: 'ONEDRIVE',
               tags: [],
               created_at: fileDate, // Date de modification du fichier OneDrive

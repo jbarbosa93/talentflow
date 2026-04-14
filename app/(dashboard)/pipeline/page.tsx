@@ -468,7 +468,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
 }
 
 // ─── CandidatCard ─────────────────────────────────────────────────────────────
-function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, onRetirer }: {
+function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, onRetirer, getColorForMetier }: {
   candidat: Candidat
   rappel: Rappel | null
   cvHook: ReturnType<typeof useCvHoverPreview>
@@ -476,6 +476,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
   onRappel: () => void
   onModifier: () => void
   onRetirer: () => void
+  getColorForMetier: (metier: string) => string | undefined
 }) {
   const age = calcAge(candidat.date_naissance)
   const nom = formatFullName(candidat.prenom, candidat.nom)
@@ -513,11 +514,14 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
       </div>
 
       {/* Métier badge */}
-      {candidat.pipeline_metier && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#F5A62318', border: '1px solid #F5A62344', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, color: '#c07a00', width: 'fit-content' }}>
-          {candidat.pipeline_metier}
-        </div>
-      )}
+      {candidat.pipeline_metier && (() => {
+        const mc = getColorForMetier(candidat.pipeline_metier) || '#F5A623'
+        return (
+          <div style={{ display: 'inline-flex', alignItems: 'center', background: `${mc}18`, border: `1px solid ${mc}44`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, color: mc, width: 'fit-content' }}>
+            {candidat.pipeline_metier}
+          </div>
+        )
+      })()}
 
       {/* Notes preview */}
       {candidat.notes && (
@@ -570,7 +574,7 @@ export default function PipelinePage() {
   const qc = useQueryClient()
   const cvHook = useCvHoverPreview()
   const { metiers } = useMetiers()
-  const { categories } = useMetierCategories()
+  const { categories, getColorForMetier } = useMetierCategories()
 
   // Tabs
   const [activeConsultant, setActiveConsultant] = useState('Tous')
@@ -769,19 +773,21 @@ export default function PipelinePage() {
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
           {metierTabs.map(({ label, count }) => {
             const active = activeMetier === label
+            const catColor = label !== 'Tous' && label !== 'Autres' ? (getColorForMetier(label) || '#F5A623') : '#F5A623'
             return (
               <button key={label} onClick={() => setActiveMetier(label)} style={{
                 padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                borderRadius: 20, border: '1.5px solid var(--border)',
-                background: active ? '#F5A623' : 'var(--secondary)',
-                color: active ? '#000' : 'var(--muted-foreground)',
+                borderRadius: 20, border: `1.5px solid ${active ? catColor : 'var(--border)'}`,
+                background: active ? catColor : 'var(--secondary)',
+                color: active ? '#fff' : 'var(--muted-foreground)',
                 transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
               }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: catColor, flexShrink: 0 }} />
                 {label}
                 <span style={{
                   fontSize: 10, fontWeight: 800, padding: '0px 5px', borderRadius: 8,
                   background: active ? 'rgba(0,0,0,0.15)' : 'var(--border)',
-                  color: active ? '#000' : 'var(--muted-foreground)',
+                  color: active ? '#fff' : 'var(--muted-foreground)',
                 }}>{count}</span>
               </button>
             )
@@ -817,6 +823,7 @@ export default function PipelinePage() {
                   onRappel={() => setRappelModal({ candidat })}
                   onModifier={() => setModifierModal({ candidat })}
                   onRetirer={() => handleRetirer(candidat)}
+                  getColorForMetier={getColorForMetier}
                 />
               ))}
             </div>

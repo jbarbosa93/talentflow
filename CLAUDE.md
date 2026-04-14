@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.8.43 production** — 14/04/2026
+**1.8.45 production** — 14/04/2026
 
 ---
 
@@ -181,7 +181,7 @@ Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/
 ## Features principales
 
 - **Candidats** : import masse (ZIP/PDF/Word, rotation 180°, fallback Vision, timeouts par étape), parsing IA multi-modèle, fiche détaillée, CV viewer zoomable, photos, normalisation affichage (Prénom Nom, email minuscule, ville capitalisée)
-- **cv_texte_brut** : colonne texte brut du CV (max 10 000 chars). Alimentée automatiquement par les 3 pipelines (import normal, import masse, OneDrive sync). Utilisée par : matching (pré-sélection 3000 chars + score final), recherche IA (snippet 300 chars), doublons (400 chars), recheck-batch (source principale), dédup import (500 chars anti-doublon). L'outil `/outils/extract-cv-text` sert uniquement à rattraper le stock historique (candidats importés avant création de la colonne). Vision IA (Claude Haiku) en fallback pour PDFs scannés et images JPG/PNG — passés via URL source (pas de limite taille).
+- **cv_texte_brut** : colonne texte brut du CV (max 10 000 chars). Alimentée automatiquement par les 3 pipelines (import normal, import masse, OneDrive sync). Utilisée par : matching (pré-sélection 3000 chars + score final 2500 chars), recherche IA (snippet 300 chars), doublons (400 chars), recheck-batch (source principale), dédup import (500 chars anti-doublon). **Cron Vercel `*/5min`** (`/api/cron/extract-cv-text`) traite automatiquement les candidats avec cv_texte_brut NULL/vide — batch 20, filtre exclut `[scan-non-lisible]`/`[pdf-chiffre]`. Route status `/api/cron/extract-cv-text/status` (requireAuth) utilisée par la card Outils et la Sidebar. L'outil `/api/outils/extract-cv-text` reste disponible pour forçage manuel. Vision IA (Claude Haiku) en fallback pour PDFs scannés et images JPG/PNG — passés via URL source (pas de limite taille).
 - **Doublons** : détection instantanée par critères exacts (email score 100, téléphone normalisé +41 score 95, nom+prénom score 85), historique en DB (`doublons_historique`), fusion guidée champ par champ — sans IA
 - **Clients** : base de 1200+ entreprises, campagnes e-mail, gestion des contacts, filtre géographique, recherche IA (Claude web_search + zefix.ch/local.ch)
 - **Pipeline** : grille 3 colonnes, onglets consultants (João/Seb) avec compteurs, sous-onglets métiers filtrés par consultant actif avec compteurs, cards enrichies, rappels (toast permanent), ModifierModal, aperçu CV au survol, catégorie "Non classés". Consultant **obligatoire** — erreur 400 si ajout sans consultant

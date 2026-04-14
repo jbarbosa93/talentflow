@@ -162,13 +162,15 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
     window.location.href = '/login'
   }
 
-  const prenom      = user?.user_metadata?.prenom     || ''
-  const nom         = user?.user_metadata?.nom        || ''
-  const role        = user?.user_metadata?.role       || 'Consultant'
+  const [isDev, setIsDev] = useState(false)
+  useEffect(() => { setIsDev(window.location.hostname === 'localhost') }, [])
+  const prenom      = isDev ? 'Admin' : (user?.user_metadata?.prenom     || '')
+  const nom         = isDev ? '' : (user?.user_metadata?.nom        || '')
+  const role        = isDev ? 'Administrateur' : (user?.user_metadata?.role       || 'Consultant')
   const entreprise  = user?.user_metadata?.entreprise || ''
-  const avatarUrl   = user?.user_metadata?.avatar_url || null
-  const initiales   = `${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
-  const fullName    = [prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Mon profil'
+  const avatarUrl   = isDev ? null : (user?.user_metadata?.avatar_url || null)
+  const initiales   = isDev ? 'A' : (`${prenom[0] || ''}${nom[0] || ''}`.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U')
+  const fullName    = isDev ? 'Admin' : ([prenom, nom].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Mon profil')
 
   const showDropdown = open && (filtered.length > 0 || aiSearching || aiResults !== null)
 
