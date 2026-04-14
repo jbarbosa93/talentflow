@@ -479,10 +479,10 @@ async function traiterUnFichier(
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter', // Fix 5
-    has_update: true as any,
   }
 
-  // Fix 6 : genre
+  // Champs hors type CandidatInsert
+  ;(nouveauCandidat as any).has_update = true
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
   // Fix 5 : created_at depuis date ZIP ou nom de fichier
   const insertDate = fileDate || extractDateFromFilename(filename)
