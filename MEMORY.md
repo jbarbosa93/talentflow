@@ -160,44 +160,74 @@ Scroll container (overflow: auto, cursor: grab, drag handlers)
 - **Fix** : match nom seul exige signal supplémentaire (tel, email, ou localisation+métier)
 - **Fichiers** : `api/cv/parse/route.ts`, `api/onedrive/sync/route.ts`
 
-### normFn timestamps empilés
-- **Problème** : doublons CV non détectés quand le nom contient 2+ timestamps (`1776..._20260414..._001.pdf`)
-- **Cause** : regex `/^\d+_/` ne strip qu'un seul préfixe
-- **Fix** : `/^(\d+_)+/` dans toutes les occurrences (6 au total dans cv/parse + onedrive/sync)
+### normFn timestamps empilés + accents Unicode
+- **Problème** : doublons CV non détectés quand le nom contient 2+ timestamps ou des accents encodés différemment
+- **Fix** : `/^(\d+_)+/` + `.normalize('NFD').replace(/[\u0300-\u036f]/g, '')` dans toutes les normFn
 
 ### Badge rouge nouveaux candidats
 - **Problème** : nouveaux candidats importés n'avaient pas le badge rouge
 - **Fix** : `has_update: true` ajouté à l'INSERT dans cv/parse, cv/bulk, onedrive/sync, sharepoint/import
+
+### Matching non-CV — documents introuvables
+- **Problème** : certificats/permis/LM ne trouvaient pas leur candidat (signal tel/email requis, noms inversés)
+- **Fix** : pour les non-CVs, match nom seul suffit (pas de risque de doublon). Recherche croisée nom/prénom pour noms inversés (GUHAD/MAHMOUD). Catégorie "autre" affinée par filename.
+
+### OneDrive — documents non-CV traités avant le candidat
+- **Problème** : CV et certificats du même candidat traités en parallèle → certificat échoue "introuvable"
+- **Fix** : tri CVs avant non-CVs + retry automatique des documents introuvables après le batch
 
 ## Features ajoutées
 
 ### Pipeline — couleurs métiers par catégorie
 - Badges filtre (barre horizontale) colorés par catégorie via `getColorForMetier()`
 - Badges métier dans les cartes candidats colorés par catégorie (prop passée à `CandidatCard`)
-- Fallback `#F5A623` pour "Tous", "Autres", et métiers sans catégorie
 
-### OneDrive — bouton Choisir/Changer dossier
-- Bouton "Choisir un dossier" quand aucun dossier configuré
-- Bouton "Changer" à côté du nom du dossier actuel
-- **Fichier** : `app/(dashboard)/integrations/page.tsx`
+### OneDrive — folder picker SharePoint + profondeur 3
+- Support drives SharePoint (pas seulement OneDrive personnel)
+- Profondeur 3 niveaux de sous-dossiers
+- Bouton "Choisir un dossier" / "Changer" sur la page Intégrations
+- Fix metadata key mismatch (`onedrive_folder_id` → `sharepoint_folder_id`)
+- `listerDossiers` utilise `drivePrefix` pour scanner le bon drive
 
 ### Localhost — /admin bypass + Admin override
 - `/admin` connecte directement sans OTP (session côté serveur)
 - TopBar affiche "Admin" / "Administrateur" sur localhost
-- **Fichiers** : `app/admin/route.ts`, `components/layout/TopBar.tsx`
 
 ## Fichiers modifiés
 | Fichier | Changements |
 |---------|-------------|
 | `components/CandidatsList.tsx` | Fix URI sms: multi-destinataires |
-| `app/admin/route.ts` | Bypass login dev — session côté serveur |
+| `app/admin/route.ts` | Bypass login dev — session côté serveur, redirect /parametres/admin |
 | `components/layout/TopBar.tsx` | Admin override localhost (useState hydration-safe) |
-| `app/(dashboard)/pipeline/page.tsx` | Couleurs métiers filtres + cartes (getColorForMetier prop) |
-| `app/(dashboard)/api/cv/parse/route.ts` | Fix dédup homonymes + normFn + has_update nouveaux |
+| `app/(dashboard)/pipeline/page.tsx` | Couleurs métiers filtres + cartes (getColorForMetier prop → CandidatCard) |
+| `app/(dashboard)/api/cv/parse/route.ts` | Dédup homonymes + normFn NFD + has_update + non-CV match nom seul + catégorie "autre" affinée |
 | `app/(dashboard)/api/cv/bulk/route.ts` | has_update nouveaux candidats |
-| `app/(dashboard)/api/onedrive/sync/route.ts` | Fix dédup homonymes + normFn + has_update nouveaux |
+| `app/(dashboard)/api/onedrive/sync/route.ts` | Dédup + normFn NFD + has_update + non-CV intelligent + retry auto + tri CVs/non-CVs + noms inversés |
 | `app/(dashboard)/api/sharepoint/import/route.ts` | has_update nouveaux candidats |
+| `app/(dashboard)/api/onedrive/folders/route.ts` | Support sharepoint_drive_id + metadata key fix |
 | `app/(dashboard)/integrations/page.tsx` | Bouton Choisir/Changer dossier OneDrive |
+| `lib/onedrive.ts` | listerDossiers profondeur 3 + drivePrefix SharePoint + scan drives partagés |
 | `supabase/migrations/20260414_drop_trigger_sync_candidat_statut.sql` | Drop trigger vestige |
 | `lib/version.ts` | Bump v1.8.45 + changelog |
 | `CLAUDE.md` | Version 1.8.45 |
+
+## Décisions techniques importantes
+
+### Dédup CVs vs non-CVs — règles différentes
+- **CVs** : match nom seul exige signal fort (tel/email/loc+métier) → évite fusions homonymes
+- **Non-CVs** (certificats, permis, diplômes, LM) : match nom seul suffit → pas de risque de doublon (on ne crée pas de candidat)
+- Recherche croisée : tous les mots du nom ET prénom sont cherchés dans les deux champs DB (gère noms inversés)
+
+### normFn — normalisation complète
+```
+.normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
+.replace(/^(\d+_)+/, '')                            // strip timestamps empilés
+.replace(/[_\s]+/g, '_')                            // normalise espaces
+.toLowerCase()
+```
+
+### OneDrive — ordre de traitement
+1. CVs traités en premier (triés avant non-CVs dans le batch)
+2. Non-CVs traités après → candidats déjà en DB
+3. Si "introuvable" → retry automatique après le batch
+4. Matching intelligent : nom seul pour non-CVs, catégorie "autre" affinée par filename
