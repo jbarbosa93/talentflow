@@ -727,8 +727,9 @@ export async function POST(request: Request) {
                 const locMetierOk = locNorm && cLocNorm && titreNorm && cTitreNorm &&
                   cLocNorm.includes(locNorm.split(/[\s,]+/)[0]) &&
                   titreNorm.includes(cTitreNorm.split(/[\s,\/]+/)[0])
-                if (telOk || emailOk || locMetierOk) {
+                if (telOk || emailOk || locMetierOk || isNotCV) {
                   existingCandidat = c
+                  if (isNotCV) dbg(`[OneDrive Sync] Non-CV match unique par nom: ${c.prenom} ${c.nom}`)
                 }
                 // Sinon → pas de match, sera traité comme nouveau candidat
               } else if (candidates.length > 1) {
@@ -837,7 +838,52 @@ export async function POST(request: Request) {
           }
 
           // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
-          // Mettre en file de retry — le candidat est peut-être en cours de création dans ce même batch
+          // Matching intelligent : nom + (métier OU date_naissance) suffisent pour les non-CVs
+          if (isNotCV && !existingCandidat && (candidatNom || candidatPrenom)) {
+            const nomSearch = unaccent(candidatNom || '').split(/\s+/).filter((w: string) => w.length >= 3)
+            const prenomSearch = unaccent(candidatPrenom || '').split(/\s+/).filter((w: string) => w.length >= 2)
+            if (nomSearch.length > 0) {
+              const orClauses = nomSearch.map((p: string) => `nom.ilike.%${p}%`).join(',')
+              const { data: candidates } = await supabase.from('candidats')
+                .select('id, nom, prenom, titre_poste, date_naissance')
+                .or(orClauses).limit(30)
+              if (candidates && candidates.length > 0) {
+                // Filtre strict : au moins un mot du nom + un mot du prénom
+                const filtered = candidates.filter((c: any) => {
+                  const eNom = unaccent(c.nom || '')
+                  const ePrenom = unaccent(c.prenom || '')
+                  const nomOk = nomSearch.some((w: string) => eNom.split(/\s+/).some((e: string) => e.includes(w) || w.includes(e)))
+                  if (!nomOk) return false
+                  if (prenomSearch.length === 0) return true
+                  return prenomSearch.some((w: string) => ePrenom.split(/\s+/).some((e: string) => e.includes(w) || w.includes(e)))
+                })
+                if (filtered.length === 1) {
+                  // Match unique par nom → auto-attach (pas de risque de doublon pour un non-CV)
+                  existingCandidat = filtered[0]
+                  dbg(`[OneDrive Sync] Non-CV match unique par nom: ${filtered[0].prenom} ${filtered[0].nom}`)
+                } else if (filtered.length > 1) {
+                  // Plusieurs candidats → affiner par métier ou date de naissance
+                  const titreNorm = unaccent(analyse.titre_poste || '')
+                  const dateNaiss = analyse.date_naissance || ''
+                  const refined = filtered.find((c: any) => {
+                    // Match par date de naissance
+                    if (dateNaiss && c.date_naissance && c.date_naissance.includes(dateNaiss.slice(0, 10))) return true
+                    // Match par métier (premier mot significatif du titre)
+                    if (titreNorm && c.titre_poste) {
+                      const cTitre = unaccent(c.titre_poste)
+                      const titreWords = titreNorm.split(/[\s,\/]+/).filter((w: string) => w.length >= 4)
+                      if (titreWords.some((w: string) => cTitre.includes(w))) return true
+                    }
+                    return false
+                  })
+                  if (refined) {
+                    existingCandidat = refined
+                    dbg(`[OneDrive Sync] Non-CV match affiné par métier/date: ${refined.prenom} ${refined.nom}`)
+                  }
+                }
+              }
+            }
+          }
           if (isNotCV && !existingCandidat) {
             retryQueue.push(fichier)
             return { status: 'error', filename: fichier.name }

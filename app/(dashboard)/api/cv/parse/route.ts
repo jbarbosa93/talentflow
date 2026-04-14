@@ -642,8 +642,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const locMetierOk = analyse.localisation && byName.localisation && analyse.titre_poste && byName.titre_poste &&
           analyse.localisation.toLowerCase().includes(byName.localisation.toLowerCase().split(/[\s,]+/)[0]) &&
           analyse.titre_poste.toLowerCase().includes(byName.titre_poste.toLowerCase().split(/[\s,\/]+/)[0])
-        if (telOk || emailOk || locMetierOk) {
+        if (telOk || emailOk || locMetierOk || isNotCV) {
           candidatExistant = byName
+          if (isNotCV) dbg(`[CV Parse] Non-CV match nom exact: ${byName.prenom} ${byName.nom} → auto-attach`)
         } else {
           dbg(`[CV Parse] Match nom exact "${analyse.prenom} ${analyse.nom}" sans signal fort → traité comme nouveau`)
         }
@@ -669,17 +670,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           })
           if (matches.length >= 1) {
             if (isNotCV && matches.length === 1) {
-              const m = matches[0]
-              const telOk = analyse.telephone && m.telephone &&
-                analyse.telephone.replace(/\D/g, '').slice(-9) === m.telephone.replace(/\D/g, '').slice(-9)
-              const emailOk = analyse.email && m.email &&
-                analyse.email.toLowerCase() === m.email.toLowerCase()
-              if (telOk || emailOk) {
-                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique confirmé par tel/email: ${m.prenom} ${m.nom} → auto-attach`)
-                candidatExistant = m
-              } else {
-                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match nom seul "${m.prenom} ${m.nom}" sans signal fort → ignoré`)
-              }
+              // Non-CV + match unique par nom → auto-attach (pas de risque de doublon)
+              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique par nom: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
+              candidatExistant = matches[0]
             } else {
               dbg(`[CV Parse] Match(es) partiel(s): ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
               return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: matches, analyse, cv_url: null, message: matches.length === 1 ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?` : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon` })
