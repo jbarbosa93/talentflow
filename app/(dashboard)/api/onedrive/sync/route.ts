@@ -538,7 +538,7 @@ export async function POST(request: Request) {
           // Le check par nom de fichier utilise detectDocCategory (assez fiable — un fichier nommé "certificat" en est un).
           // Le check par contenu utilise des patterns STRICTS (titres de document, pas de mots isolés)
           // pour éviter les faux positifs sur les CVs mentionnant "formation", "permis B", "CFC", etc.
-          if (!isNotCV) {
+          if (!isNotCV || docType === 'autre') {
             const filenameType = detectDocCategory(filename, '')
             if (filenameType && filenameType !== 'autre') {
               docType = filenameType
@@ -840,22 +840,20 @@ export async function POST(request: Request) {
           // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
           // Matching intelligent : nom + (métier OU date_naissance) suffisent pour les non-CVs
           if (isNotCV && !existingCandidat && (candidatNom || candidatPrenom)) {
-            const nomSearch = unaccent(candidatNom || '').split(/\s+/).filter((w: string) => w.length >= 3)
-            const prenomSearch = unaccent(candidatPrenom || '').split(/\s+/).filter((w: string) => w.length >= 2)
-            if (nomSearch.length > 0) {
-              const orClauses = nomSearch.map((p: string) => `nom.ilike.%${p}%`).join(',')
+            // Chercher tous les mots du nom ET prénom dans nom ET prénom DB (noms inversés)
+            const allSearchWords = [...unaccent(candidatNom || '').split(/[\s-]+/), ...unaccent(candidatPrenom || '').split(/[\s-]+/)].filter((w: string) => w.length >= 3)
+            if (allSearchWords.length > 0) {
+              const orClauses = allSearchWords.map((p: string) => `nom.ilike.%${p}%,prenom.ilike.%${p}%`).join(',')
               const { data: candidates } = await supabase.from('candidats')
                 .select('id, nom, prenom, titre_poste, date_naissance')
                 .or(orClauses).limit(30)
               if (candidates && candidates.length > 0) {
-                // Filtre strict : au moins un mot du nom + un mot du prénom
+                // Filtre : au moins 1 mot du document trouvé dans le nom complet DB
                 const filtered = candidates.filter((c: any) => {
-                  const eNom = unaccent(c.nom || '')
-                  const ePrenom = unaccent(c.prenom || '')
-                  const nomOk = nomSearch.some((w: string) => eNom.split(/\s+/).some((e: string) => e.includes(w) || w.includes(e)))
-                  if (!nomOk) return false
-                  if (prenomSearch.length === 0) return true
-                  return prenomSearch.some((w: string) => ePrenom.split(/\s+/).some((e: string) => e.includes(w) || w.includes(e)))
+                  const fullDB = `${unaccent(c.nom || '')} ${unaccent(c.prenom || '')}`
+                  const dbWords = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
+                  const matchCount = allSearchWords.filter((w: string) => dbWords.some((e: string) => e.includes(w) || w.includes(e))).length
+                  return matchCount >= 1 && (matchCount >= 2 || allSearchWords.length <= 2)
                 })
                 if (filtered.length === 1) {
                   // Match unique par nom → auto-attach (pas de risque de doublon pour un non-CV)
@@ -1535,28 +1533,34 @@ export async function POST(request: Request) {
           const candidatPrenom = analyse?.prenom || ''
           if (!candidatNom) continue
 
-          // Chercher le candidat (maintenant en DB)
-          const unaccent = (s: string): string => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+          // Chercher le candidat (maintenant en DB) — chercher tous les mots du nom ET prénom (noms inversés)
+          const _un = (s: string): string => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+          const allWords = [..._un(candidatNom).split(/[\s-]+/), ..._un(candidatPrenom).split(/[\s-]+/)].filter((w: string) => w.length >= 3)
+          const orClauses = allWords.map((w: string) => `nom.ilike.%${w}%,prenom.ilike.%${w}%`).join(',')
           const { data: found } = await supabase.from('candidats')
             .select('id, nom, prenom, documents')
-            .or(`nom.ilike.%${unaccent(candidatNom.split(/\s+/).pop() || candidatNom)}%`)
-            .limit(20)
+            .or(orClauses)
+            .limit(30)
           const match = (found || []).find((c: any) => {
-            const eNom = unaccent(c.nom || '')
-            const ePrenom = unaccent(c.prenom || '')
-            const pNom = unaccent(candidatNom)
-            const pPrenom = unaccent(candidatPrenom)
-            const nomOk = pNom.split(/\s+/).some((w: string) => w.length >= 3 && eNom.includes(w))
-            const prenomOk = !pPrenom || !ePrenom || pPrenom.split(/\s+/).some((w: string) => w.length >= 2 && ePrenom.includes(w))
-            return nomOk && prenomOk
+            const eNom = _un(c.nom || '')
+            const ePrenom = _un(c.prenom || '')
+            const fullDB = `${eNom} ${ePrenom}`
+            const fullParsed = `${_un(candidatNom)} ${_un(candidatPrenom)}`
+            // Au moins 1 mot significatif du document trouvé dans le nom complet DB (ou vice-versa)
+            const wordsDoc = fullParsed.split(/[\s-]+/).filter((w: string) => w.length >= 3)
+            const wordsDB = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
+            const matchCount = wordsDoc.filter((w: string) => wordsDB.some((e: string) => e.includes(w) || w.includes(e))).length
+            return matchCount >= 1 && (matchCount >= 2 || wordsDoc.length <= 2)
           })
 
           if (match) {
             const existingDocs = (match.documents as any[]) || []
             const docType = analyse.document_type || 'autre'
+            const docTypeMap: Record<string, string> = { 'certificat': 'certificat', 'diplome': 'diplome', 'formation': 'formation', 'attestation': 'certificat', 'permis': 'permis', 'contrat': 'contrat', 'lettre_motivation': 'lettre_motivation', 'reference': 'reference', 'bulletin_salaire': 'bulletin_salaire' }
+            const mappedType = docTypeMap[docType] || 'autre'
             const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'permis' ? 'Permis' : docType === 'attestation' ? 'Attestation' : `Document (${docType})`
             if (!existingDocs.some((d: any) => d.url === docUrl || d.name === fichier.name)) {
-              existingDocs.push({ name: fichier.name, url: docUrl, type: docTypeLabel, uploaded_at: new Date().toISOString() })
+              existingDocs.push({ name: fichier.name, url: docUrl, type: mappedType, uploaded_at: new Date().toISOString() })
               await (supabase as any).from('candidats').update({ documents: existingDocs, updated_at: new Date().toISOString() }).eq('id', match.id)
             }
             await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: true, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'document', candidat_id: match.id, erreur: `${docTypeLabel} rattaché (retry) — ${match.prenom || ''} ${match.nom}`.trim() })

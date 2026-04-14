@@ -455,7 +455,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 6a-ter. Second avis : si l'IA dit "cv", vérifier via filename + patterns contenu stricts
   // Rattrape les scans avec nom générique ("Scanné 6 janv...") où l'IA rate le type.
   let docType: string = analyse?.document_type || 'cv'
-  if (docType === 'cv') {
+  if (docType === 'cv' || docType === 'autre') {
     const detectDocCategoryParse = (fn: string, txt: string): string | null => {
       const check = (source: string) => {
         const s = source.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
