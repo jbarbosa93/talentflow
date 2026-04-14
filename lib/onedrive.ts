@@ -74,6 +74,21 @@ export async function listerDossiers(
           name: sub.name,
           path: `${item.name} › ${sub.name}`,
         })
+        // Sous-sous-dossiers (profondeur 3)
+        try {
+          const sub2Data = await callGraph(
+            accessToken,
+            `/me/drive/items/${sub.id}/children?$select=id,name,folder,parentReference&$top=100`
+          )
+          const sub2Folders = (sub2Data?.value || []).filter((s: any) => s.folder)
+          for (const s of sub2Folders) {
+            folders.push({
+              id: s.id,
+              name: s.name,
+              path: `${item.name} › ${sub.name} › ${s.name}`,
+            })
+          }
+        } catch { /* profondeur 3 inaccessible */ }
       }
     } catch {
       // Sous-dossiers inaccessibles — on continue
