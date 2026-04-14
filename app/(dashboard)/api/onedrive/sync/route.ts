@@ -877,6 +877,13 @@ export async function POST(request: Request) {
                   if (refined) {
                     existingCandidat = refined
                     dbg(`[OneDrive Sync] Non-CV match affiné par métier/date: ${refined.prenom} ${refined.nom}`)
+                  } else {
+                    // Ambiguïté non résolue — erreur explicite avec les candidats possibles
+                    const names = filtered.map((c: any) => `${c.prenom || ''} ${c.nom}`.trim()).join(', ')
+                    throw new Error(
+                      `Ambiguïté — ${filtered.length} candidats correspondent au nom "${[candidatPrenom, candidatNom].filter(Boolean).join(' ')}" : ${names}. ` +
+                      `Rattachez manuellement depuis la fiche candidat.`
+                    )
                   }
                 }
               }

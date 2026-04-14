@@ -669,10 +669,38 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
             return prenomWords.some((pw: string) => cPrenom.includes(pw) || pw.includes(cPrenomFirst))
           })
           if (matches.length >= 1) {
-            if (isNotCV && matches.length === 1) {
-              // Non-CV + match unique par nom → auto-attach (pas de risque de doublon)
-              dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique par nom: ${matches[0].prenom} ${matches[0].nom} → auto-attach`)
-              candidatExistant = matches[0]
+            if (isNotCV) {
+              // Non-CV : matching intelligent — nom seul suffit, recherche croisée nom/prénom
+              const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+              const allWords = [...norm(analyse.nom).split(/[\s-]+/), ...norm(analyse.prenom).split(/[\s-]+/)].filter((w: string) => w.length >= 3)
+              const nonCvFiltered = byPartialName!.filter((c: any) => {
+                const fullDB = `${norm(c.nom || '')} ${norm(c.prenom || '')}`
+                const dbWords = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
+                const matchCount = allWords.filter((w: string) => dbWords.some((e: string) => e.includes(w) || w.includes(e))).length
+                return matchCount >= 1 && (matchCount >= 2 || allWords.length <= 2)
+              })
+              if (nonCvFiltered.length === 1) {
+                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${nonCvFiltered[0].prenom} ${nonCvFiltered[0].nom} → auto-attach`)
+                candidatExistant = nonCvFiltered[0]
+              } else if (nonCvFiltered.length > 1) {
+                // Affiner par métier ou date de naissance
+                const titreNorm = norm(analyse.titre_poste || '')
+                const dateNaiss = analyse.date_naissance || ''
+                const refined = nonCvFiltered.find((c: any) => {
+                  if (dateNaiss && c.date_naissance && c.date_naissance.includes(dateNaiss.slice(0, 10))) return true
+                  if (titreNorm && c.titre_poste) {
+                    const cTitre = norm(c.titre_poste)
+                    const titreWords = titreNorm.split(/[\s,\/]+/).filter((w: string) => w.length >= 4)
+                    if (titreWords.some((w: string) => cTitre.includes(w))) return true
+                  }
+                  return false
+                })
+                if (refined) {
+                  dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match affiné par métier/date: ${refined.prenom} ${refined.nom}`)
+                  candidatExistant = refined
+                }
+                // Sinon : pas de match → sera géré par l'erreur non-CV plus bas
+              }
             } else {
               dbg(`[CV Parse] Match(es) partiel(s): ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
               return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: matches, analyse, cv_url: null, message: matches.length === 1 ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?` : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon` })

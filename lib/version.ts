@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.8.45'
+export const APP_VERSION = '1.9.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -14,21 +14,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.8.45',
+    version: '1.9.0',
     date: '2026-04-14',
-    label: 'Fix SMS + Dédup + Pipeline couleurs + OneDrive non-CV intelligent',
+    label: 'Moteur d\'import intelligent — dédup + non-CV + OneDrive SharePoint',
     features: [
-      'Fix SMS masse : ? manquant dans URI sms: multi-destinataires',
-      'Fix dédup CVs : match nom seul exige signal fort (tel/email/loc+métier) — évite fusions homonymes',
-      'Fix dédup non-CV : match nom seul suffit pour certificats/permis/diplômes — noms inversés gérés',
-      'Fix normFn : /^(\\d+_)+/ timestamps empilés + NFD strip accents Unicode',
-      'Drop trigger trg_sync_candidat_statut (pipeline fantômes)',
-      'Badge rouge : has_update=true sur tous les imports (nouveau + update)',
-      'Pipeline : couleurs métiers par catégorie (filtres + cartes)',
-      'OneDrive : folder picker SharePoint + profondeur 3 + bouton Changer',
-      'OneDrive : tri CVs avant non-CVs + retry auto documents introuvables',
-      'OneDrive : catégorie "autre" affinée par filename (Permis-machiniste → permis)',
-      'OneDrive : matching noms inversés (recherche croisée nom/prénom DB)',
+      'Dédup CVs : match nom seul exige signal fort (tel/email/loc+métier) — fini les fusions homonymes',
+      'Dédup non-CV : matching intelligent — nom croisé + métier + date naissance, noms inversés gérés',
+      'Dédup non-CV : ambiguïté multi-candidats → erreur explicite avec noms des candidats possibles',
+      'normFn : strip timestamps empilés + accents Unicode (NFD) — détection doublons fiable',
+      'Import : badge rouge (has_update) sur TOUS les imports — nouveau + update + réactivation',
+      'Import : catégorie "autre" affinée par filename (Permis-machiniste → permis)',
+      'OneDrive : folder picker SharePoint (profondeur 3) + bouton Choisir/Changer dossier',
+      'OneDrive : tri CVs avant non-CVs + retry auto documents introuvables après le batch',
+      'Pipeline : couleurs métiers par catégorie (filtres horizontaux + cartes candidats)',
+      'Pipeline : suppression trigger fantôme trg_sync_candidat_statut',
+      'SMS masse : fix URI sms: multi-destinataires — message pré-rempli fonctionne',
+      'RPC merge_candidats versionnée dans les migrations (sécurité DB)',
+      'Cron extract-cv-text : batch 50 + timeout 300s (traitement accéléré)',
       'Localhost : /admin bypass login + affichage Admin dans TopBar',
     ],
   },
