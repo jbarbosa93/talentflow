@@ -1083,10 +1083,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter',
-    has_update: true,
   }
 
-  // Genre (pas dans le type mais dans la table)
+  // Champs hors type CandidatInsert (pas dans types/database.ts auto-généré)
+  ;(nouveauCandidat as any).has_update = true
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 
   // Date d'ajout : lastModified > date dans le nom de fichier > maintenant

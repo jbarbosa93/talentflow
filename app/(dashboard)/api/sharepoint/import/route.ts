@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
       notes: null,
       source: 'sharepoint',
       import_status: 'a_traiter',
-      has_update: true,
     }
+    ;(nouveauCandidat as any).has_update = true
 
     const { data: candidatRaw, error: dbError } = await supabase
       .from('candidats')

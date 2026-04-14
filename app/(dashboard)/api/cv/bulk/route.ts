@@ -479,7 +479,7 @@ async function traiterUnFichier(
     experiences: analyse.experiences?.length ? analyse.experiences : null,
     formations_details: analyse.formations_details?.length ? analyse.formations_details : null,
     import_status: 'a_traiter', // Fix 5
-    has_update: true,
+    has_update: true as any,
   }
 
   // Fix 6 : genre
