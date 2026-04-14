@@ -8,10 +8,10 @@ import { extractTextFromCV } from '@/lib/cv-parser'
 import { extractTextFromScan } from '@/lib/claude'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const MIN_TEXT_LENGTH = 50
-const BATCH_SIZE = 20
+const BATCH_SIZE = 50
 
 // Extensions supportées par Vision IA
 const VISION_MEDIA_TYPES: Record<string, string> = {
