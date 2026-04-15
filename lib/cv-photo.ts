@@ -260,7 +260,23 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
                 role: 'user',
                 content: [
                   { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-                  { type: 'text', text: 'This is a scanned CV/resume page. Look for a REAL PHOTOGRAPH of a person (headshot/portrait photo showing a human face). Do NOT confuse with logos, icons, clipart, decorative images, or text headers. A portrait photo is a real photograph with a human face clearly visible. If a real portrait photo exists, give me TIGHT bounding box coordinates around JUST THE FACE AND SHOULDERS (not the surrounding text or decorations). Respond ONLY with JSON: {"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH} where x,y = top-left corner, w,h = width/height, all as fractions of page dimensions (0.0 to 1.0). The box should be tight around the person only. If NO real photograph of a person exists on this page, respond: {"found":false}' }
+                  { type: 'text', text: `Analyze this scanned CV/resume. Find the passport-style portrait PHOTOGRAPH of the candidate (a real photo showing a human face, NOT a logo, icon, illustration, or clipart).
+
+Rules:
+- Only detect REAL PHOTOGRAPHS with visible human facial features (eyes, nose, mouth)
+- IGNORE: logos, company icons, illustrations, decorative graphics, QR codes, signatures
+- The portrait is usually small (5-20% of page), located in a corner or top section
+
+If a real portrait photo exists, return EXACT coordinates as JSON:
+{"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH}
+
+Where x,y = center of the face (not top-left), w,h = width and height of just the head+shoulders area.
+All values as fractions of page dimensions (0.0 to 1.0).
+Make the box TIGHT: just the person's head and upper shoulders, no surrounding text.
+Typical portrait size: w=0.10-0.18, h=0.08-0.15
+
+If NO real photograph: {"found":false}
+Respond with JSON only, no other text.` }
                 ]
               }]
             }),
@@ -273,11 +289,16 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
           if (jsonMatch) {
             const coords = JSON.parse(jsonMatch[0])
             if (coords.found && coords.x != null && coords.y != null && coords.w != null && coords.h != null) {
-              // Convertir fractions → pixels sur l'image originale
-              const cropLeft = Math.max(0, Math.round(coords.x * origW))
-              const cropTop = Math.max(0, Math.round(coords.y * origH))
-              const cropW = Math.min(Math.round(coords.w * origW), origW - cropLeft)
-              const cropH = Math.min(Math.round(coords.h * origH), origH - cropTop)
+              // x,y = centre du visage, w,h = taille → convertir en top-left + dimensions
+              const cxPx = coords.x * origW, cyPx = coords.y * origH
+              const wPx = coords.w * origW, hPx = coords.h * origH
+              // Ajouter 20% de marge autour pour ne pas couper trop serré
+              const margin = 1.2
+              const finalW = wPx * margin, finalH = hPx * margin
+              const cropLeft = Math.max(0, Math.round(cxPx - finalW / 2))
+              const cropTop = Math.max(0, Math.round(cyPx - finalH / 2))
+              const cropW = Math.min(Math.round(finalW), origW - cropLeft)
+              const cropH = Math.min(Math.round(finalH), origH - cropTop)
 
               if (cropW > 50 && cropH > 50) {
                 const cropped = await sharp(rawBytes)
