@@ -572,31 +572,19 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 6e. Extraction photo depuis image CV (JPG/PNG/WEBP) — le fichier est lui-même la photo potentielle
+  // 6e. Extraction photo depuis image CV (JPG/PNG/WEBP) — Vision localise le portrait
   if (isImage && !photoUrl && analyse && docType === 'cv') {
     try {
-      const sharpMod = (await import('sharp')).default
-      const metadata = await sharpMod(buffer).metadata()
-      if (metadata.width && metadata.height) {
-        const { scoreHeadshot, countUniqueColors, detectSkinRatio } = await import('@/lib/cv-photo')
-        const resized = await sharpMod(buffer).resize({ width: Math.min(metadata.width, 600), fit: 'inside' }).jpeg({ quality: 85 }).toBuffer()
-        const resizedMeta = await sharpMod(resized).metadata()
-        const w = resizedMeta.width || metadata.width
-        const h = resizedMeta.height || metadata.height
-        const uniqueColors = await countUniqueColors(resized)
-        const skinRatio = await detectSkinRatio(resized)
-        const candidate = { buffer: resized, width: w, height: h, ratio: h / w, area: w * h, compressedSize: resized.length, uniqueColors, skinRatio, pageIndex: 0, source: 'image-cv' }
-        const photoScore = scoreHeadshot(candidate)
-        dbg(`[CV Parse] Image CV photo score: ${photoScore}`)
-        if (photoScore >= 25) {
-          const photoTimestamp = Date.now()
-          const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
-          const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, resized, { contentType: 'image/jpeg', upsert: false })
-          if (photoData?.path) {
-            const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
-            photoUrl = photoUrlData?.signedUrl || null
-            if (photoUrl) dbg('[CV Parse] Photo extraite depuis image CV')
-          }
+      const { extractPhotoFromImage } = await import('@/lib/cv-photo')
+      const photoBuffer = await extractPhotoFromImage(buffer)
+      if (photoBuffer) {
+        const photoTimestamp = Date.now()
+        const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
+        const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, photoBuffer, { contentType: 'image/jpeg', upsert: false })
+        if (photoData?.path) {
+          const { data: photoUrlData } = await (createAdminClient()).storage.from('cvs').createSignedUrl(photoData.path, 60 * 60 * 24 * 365 * 10)
+          photoUrl = photoUrlData?.signedUrl || null
+          if (photoUrl) dbg('[CV Parse] Photo extraite depuis image CV via Vision')
         }
       }
     } catch (photoErr) {
