@@ -250,7 +250,8 @@ export async function extractPhotoFromImage(imageBuffer: Buffer): Promise<Buffer
         const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
         const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH))
 
-        if (cropW > 50 && cropH > 50) {
+        // Rejeter si le crop est trop large (>40% de la page = pas un portrait, c'est la page entière)
+        if (cropW > 50 && cropH > 50 && cropW < origW * 0.4 && cropH < origH * 0.4) {
           return await sharp(imageBuffer)
             .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
             .resize({ width: 300, height: 400, fit: 'cover' })
@@ -356,7 +357,7 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
               const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
               const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH)) // visage dans le tiers supérieur
 
-              if (cropW > 50 && cropH > 50) {
+              if (cropW > 50 && cropH > 50 && cropW < origW * 0.4 && cropH < origH * 0.4) {
                 const cropped = await sharp(rawBytes)
                   .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
                   .resize({ width: 300, height: 400, fit: 'cover' })
