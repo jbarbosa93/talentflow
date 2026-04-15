@@ -294,8 +294,8 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
               const sr = await detectSkinRatio(cropped)
               const score = scoreHeadshot({ buffer: cropped, width: w, height: h, ratio: h / w, area: w * h, compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr, pageIndex: 0, source: `vision:${answer}` })
 
-              // Seulement si le crop a vraiment de la peau (>5%) = un vrai visage
-              if (score >= MIN_HEADSHOT_SCORE && sr >= 0.05) {
+              // Claude a confirmé un portrait → on fait confiance sauf rejet explicite (-100)
+              if (score > -100) {
                 candidates.push({
                   buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
                   compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr,
