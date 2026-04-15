@@ -1161,7 +1161,7 @@ export async function POST(request: Request) {
 
               // Extraction photo si le candidat n'en a pas encore
               let updatedPhotoUrl: string | null = null
-              if (!candidatExistant.photo_url && (isPDF || isDocx || isDoc)) {
+              if (!candidatExistant.photo_url && (isPDF || isDocx || isDoc || isImage)) {
                 try {
                   const timeoutPhoto = new Promise<null>((resolve) => setTimeout(() => resolve(null), 35000))
                   let photoBuffer: Buffer | null = null
@@ -1174,6 +1174,10 @@ export async function POST(request: Request) {
                   } else if (isDoc) {
                     const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
                     photoBuffer = await Promise.race([extractPhotoFromDOC(buffer), timeoutPhoto])
+                  } else if (isImage) {
+                    // Image CV (WhatsApp/scan) — Strategy 3 Vision pour localiser le portrait
+                    const { extractPhotoFromImage } = await import('@/lib/cv-photo')
+                    photoBuffer = await Promise.race([extractPhotoFromImage(buffer), timeoutPhoto])
                   }
                   if (photoBuffer) {
                     const photoTs = Date.now()
@@ -1250,7 +1254,7 @@ export async function POST(request: Request) {
 
           // Extraction photo du PDF, DOCX ou DOC (timeout 35s — Vercel Pro)
           let photoUrl: string | null = null
-          if (isPDF || isDocx || isDoc) {
+          if (isPDF || isDocx || isDoc || isImage) {
             try {
               const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 35000))
               let photoBuffer: Buffer | null = null
@@ -1263,6 +1267,9 @@ export async function POST(request: Request) {
               } else if (isDoc) {
                 const { extractPhotoFromDOC } = await import('@/lib/cv-photo')
                 photoBuffer = await Promise.race([extractPhotoFromDOC(buffer), timeoutPromise])
+              } else if (isImage) {
+                const { extractPhotoFromImage } = await import('@/lib/cv-photo')
+                photoBuffer = await Promise.race([extractPhotoFromImage(buffer), timeoutPromise])
               }
               if (photoBuffer) {
                 const photoName = `photos/${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`

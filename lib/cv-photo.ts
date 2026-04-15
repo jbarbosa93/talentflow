@@ -199,6 +199,73 @@ export async function detectSkinRatio(imageBuffer: Buffer): Promise<number> {
   }
 }
 
+// ─── Extract portrait from image CV (WhatsApp screenshot, phone scan) ────────
+
+export async function extractPhotoFromImage(imageBuffer: Buffer): Promise<Buffer | null> {
+  try {
+    const sharp = (await import('sharp')).default
+    const meta = await sharp(imageBuffer).metadata()
+    const origW = meta.width || 800, origH = meta.height || 1200
+
+    // Convertir en JPEG pour Vision
+    const visionWidth = 800
+    const scale = visionWidth / origW
+    const visionHeight = Math.round(origH * scale)
+    const visionBuf = await sharp(imageBuffer).resize({ width: visionWidth, fit: 'inside' }).jpeg({ quality: 75 }).toBuffer()
+    const b64 = visionBuf.toString('base64')
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return null
+
+    const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+            { type: 'text', text: `This image is ${visionWidth}x${visionHeight} pixels. Is there a passport-style photograph of a real person (showing eyes, nose, mouth)? Not a logo or icon. If YES, give the pixel coordinates of the face center and size. Reply ONLY with JSON: {"face":true,"cx":XXX,"cy":YYY,"size":ZZZ} where cx,cy is the center of the face in pixels and size is the approximate face width in pixels. If no face: {"face":false}` }
+          ]
+        }]
+      }),
+    })
+    if (!visionFetch.ok) return null
+    const visionRes = await visionFetch.json() as any
+    const visionText = ((visionRes.content?.[0]?.text) || '').trim()
+    const jsonMatch = visionText.match(/\{[^}]+\}/)
+
+    if (jsonMatch) {
+      const faceData = JSON.parse(jsonMatch[0])
+      if (faceData.face && faceData.cx != null && faceData.cy != null && faceData.size != null) {
+        const faceCx = faceData.cx / scale
+        const faceCy = faceData.cy / scale
+        const faceSize = faceData.size / scale
+
+        const cropSize = faceSize * 1.8
+        const cropW = Math.min(Math.round(cropSize), origW)
+        const cropH = Math.min(Math.round(cropSize * 1.25), origH)
+        const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
+        const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH))
+
+        if (cropW > 50 && cropH > 50) {
+          return await sharp(imageBuffer)
+            .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
+            .resize({ width: 300, height: 400, fit: 'cover' })
+            .jpeg({ quality: 90 })
+            .toBuffer()
+        }
+      }
+    }
+    return null
+  } catch (e) {
+    console.warn('[CV Photo] Image extraction failed:', (e as Error).message)
+    return null
+  }
+}
+
 // ─── Main entry points ───────────────────────────────────────────────────────
 
 export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | null> {
