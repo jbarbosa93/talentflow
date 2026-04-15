@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.6'
+export const APP_VERSION = '1.9.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -14,64 +14,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.9.6',
+    version: '1.9.7',
     date: '2026-04-15',
-    label: 'Extraction photos Vision + nettoyage UI',
+    label: 'Moteur import intelligent + extraction photos Vision + rotation 4 angles',
     features: [
-      'Photo Strategy 3 : Claude Vision localise les portraits dans les PDF scannés (320 nouvelles photos extraites)',
-      'Photo scoring : fix PDFRef NaN (Width/Height comme références), fix doc→pdfDoc, rejets anti-icônes',
+      // ── Import & Dédup ──
+      'Dédup CVs : match nom seul exige signal fort (tel/email/loc+métier) — fini les fusions homonymes',
+      'Dédup non-CV : matching intelligent — nom croisé + métier + date naissance, noms inversés gérés',
+      'normFn : timestamps empilés /^(\\d+_)+/ + accents Unicode NFD — détection doublons fiable',
+      'Badge rouge : has_update=true sur TOUS les imports (nouveau + update + réactivation)',
+      'Rotation 4 angles : 0°/90°/180°/270° automatique pour PDF (pdf-parse) et images (Vision)',
+      // ── OneDrive ──
+      'OneDrive : folder picker SharePoint (profondeur 3) + bouton Changer dossier',
+      'OneDrive : tri CVs avant non-CVs + retry auto documents introuvables après batch',
+      'OneDrive : matching noms inversés + catégorie "autre" affinée par filename',
+      'OneDrive : ambiguïté multi-candidats non-CV → erreur explicite avec noms',
+      // ── Photos ──
+      'Photo Strategy 3 : Claude Vision Haiku localise les portraits dans les PDF scannés (+320 photos)',
+      'Photo extractPhotoFromImage : Vision crop pour images JPG/PNG (WhatsApp, scans téléphone)',
+      'Photo scoring : fix PDFRef NaN, fix doc→pdfDoc, passeport fond blanc OK, anti-icônes, seuil 25',
+      'Photo crop 40% max : rejette si crop trop large (évite CV entier comme portrait)',
+      // ── Pipeline & UI ──
+      'Pipeline : couleurs métiers par catégorie (filtres + cartes candidats)',
+      'Pipeline : suppression trigger fantôme trg_sync_candidat_statut',
+      'SMS masse : fix URI sms: multi-destinataires — message pré-rempli fonctionne',
       'Fiche candidat : cv_texte_brut masqué (reste en DB pour dédup/matching)',
-      'Outil "Extraire texte CVs" supprimé de /outils et sidebar (cron continue en arrière-plan)',
-    ],
-  },
-  {
-    version: '1.9.5',
-    date: '2026-04-15',
-    label: 'Strategy 3 Vision — Claude Haiku localise les portraits dans les PDF scannés',
-    features: [
-      'PDF scannés : Claude Vision Haiku détecte et croppe automatiquement le portrait (bounding box)',
-      'Remplace le crop à positions fixes (trop rigide pour les différents layouts de CV)',
-      'Coût : ~1 appel Haiku par PDF scanné sans photo XObject séparée',
-    ],
-  },
-  {
-    version: '1.9.4',
-    date: '2026-04-15',
-    label: 'Extraction photos scans — crop régions portrait + fix PDFRef dimensions',
-    features: [
-      'Strategy 3 : PDF scannés (1 image pleine page) → crop automatique des régions portrait (haut-gauche, haut-droite, centre, milieu)',
-      'Fix PDFRef : dimensions Width/Height comme références PDF résolues via context.lookup (bug NaN)',
-      'Fix variable doc→pdfDoc dans processXObjects (ReferenceError silencieuse)',
-    ],
-  },
-  {
-    version: '1.9.3',
-    date: '2026-04-15',
-    label: 'Outil correction photos — support images JPG/PNG + investigation extraction',
-    features: [
-      'Outil correction photos : support images JPG/PNG/WEBP comme CV (scorer portrait si image < 1200px)',
-    ],
-  },
-  {
-    version: '1.9.2',
-    date: '2026-04-14',
-    label: 'Fix outil correction photos — boucle complète + seuil 35 + anti-faux positifs',
-    features: [
-      'Outil correction photos : candidats en erreur marqués \'checked\' → plus de boucle infinie',
-      'Photo seuil minimum : 35 points (était 20) — réduit les faux positifs (icônes, logos)',
-      'Photo rejet : peau < 5% sans N&B → rejet immédiat (icône/logo confirmé)',
-    ],
-  },
-  {
-    version: '1.9.1',
-    date: '2026-04-14',
-    label: 'Extraction photos améliorée — scoring + anti-icônes + support images',
-    features: [
-      'Photo scoring : photos passeport fond blanc acceptées (pénalité couleurs annulée si portrait + peau ≥8%)',
-      'Photo scoring : N&B multiplicateur peau ×0.6 au lieu de ×0.3 pour portraits avec bonnes dimensions',
-      'Photo scoring : rejets explicites — icônes carrées <80px, monochrome ≤5 couleurs, scans >2000px',
-      'Photo extraction : support JPG/PNG uploadés comme CV (scoreHeadshot direct sur l\'image)',
-      'Outil correction photos : mode force supprimé — ne touche JAMAIS aux photos existantes',
+      'Outil extraction texte CVs supprimé de /outils et sidebar (cron en arrière-plan)',
+      // ── Infra ──
+      'RPC merge_candidats versionnée dans les migrations (sécurité DB)',
+      'Cron extract-cv-text : batch 50 + timeout 300s',
+      'Localhost : /admin bypass login + affichage Admin dans TopBar',
     ],
   },
   {

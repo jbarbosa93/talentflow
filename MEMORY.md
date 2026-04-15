@@ -140,7 +140,7 @@ Scroll container (overflow: auto, cursor: grab, drag handlers)
 
 ---
 
-# Session 14 avril 2026 — v1.8.45
+# Sessions 14-15 avril 2026 — v1.8.43 → v1.9.7
 
 ## Bugs corrigés
 
@@ -244,16 +244,20 @@ Scroll container (overflow: auto, cursor: grab, drag handlers)
 
 ---
 
-# Session 15 avril 2026 — v1.9.6
-
-## Extraction photos améliorée
-- **Strategy 3 Vision** : Claude Haiku localise les portraits dans les PDF scannés — 320 nouvelles photos extraites
-- **Fix PDFRef NaN** : Width/Height comme références PDF résolues — corrige l'extraction pour les PDFs avec dimensions indirectes
-- **Fix doc→pdfDoc** : ReferenceError silencieuse dans processXObjects corrigée
-- **Scoring** : seuil 25, rejet peau <3%, anti-icônes, photos passeport fond blanc OK
+## Extraction photos (15 avril)
+- **Strategy 3 Vision** : Claude Haiku localise les portraits dans les PDF scannés — 320 nouvelles photos
+- **extractPhotoFromImage** : Vision crop pour images JPG/PNG (WhatsApp, scans téléphone)
+- **Fix PDFRef NaN** : Width/Height comme références PDF résolues via `pdfDoc.context.lookup()`
+- **Fix doc→pdfDoc** : ReferenceError silencieuse dans processXObjects
+- **Scoring** : seuil 25, rejet peau <3%, anti-icônes, passeport fond blanc OK, crop 40% max
 - **Mode force supprimé** de l'outil correction — ne touche jamais aux photos existantes
 
-## Nettoyage UI
+## Rotation 4 angles (15 avril)
+- PDF : `extractTextWithRotation` tente pdf-parse sur 0°/90°/180°/270°, arrête au premier ≥50 chars
+- Images : Vision retry avec sharp.rotate(90/180/270) si analyse vide
+- Appliqué dans cv/parse ET onedrive/sync
+
+## Nettoyage UI (15 avril)
 - `cv_texte_brut` masqué dans fiche candidat (reste en DB)
 - Outil "Extraire texte CVs" supprimé de /outils et sidebar
 - Cron extract-cv-text continue en arrière-plan (batch 50, 300s)
