@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.5'
+export const APP_VERSION = '1.9.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.6',
+    date: '2026-04-15',
+    label: 'Extraction photos Vision + nettoyage UI',
+    features: [
+      'Photo Strategy 3 : Claude Vision localise les portraits dans les PDF scannés (320 nouvelles photos extraites)',
+      'Photo scoring : fix PDFRef NaN (Width/Height comme références), fix doc→pdfDoc, rejets anti-icônes',
+      'Fiche candidat : cv_texte_brut masqué (reste en DB pour dédup/matching)',
+      'Outil "Extraire texte CVs" supprimé de /outils et sidebar (cron continue en arrière-plan)',
+    ],
+  },
   {
     version: '1.9.5',
     date: '2026-04-15',

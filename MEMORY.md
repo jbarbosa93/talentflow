@@ -231,3 +231,29 @@ Scroll container (overflow: auto, cursor: grab, drag handlers)
 2. Non-CVs traités après → candidats déjà en DB
 3. Si "introuvable" → retry automatique après le batch
 4. Matching intelligent : nom seul pour non-CVs, catégorie "autre" affinée par filename
+
+### Extraction photos — 3 stratégies
+1. **Strategy 1** : pdf-lib XObjects (JPEG/FlateDecode/JPEG2000) — photos intégrées séparées dans les PDFs Word/Canva
+2. **Strategy 2** : pdfjs-dist fallback si Strategy 1 = 0 candidats
+3. **Strategy 3** : Claude Vision Haiku — pour PDF scannés (1 image pleine page). Envoie la page à 800px, Claude retourne cx/cy/size du visage en pixels, crop 1.8× centré sur le visage, ratio 4:5
+- Fix PDFRef : Width/Height comme références résolues via `pdfDoc.context.lookup()`
+- Seuil scoring : 25 points minimum
+- Rejet : peau <3% sans N&B, icônes carrées <80px, scans >2000px, monochrome ≤5 couleurs
+- `photo_url` 3 états : NULL (pas analysé), 'checked' (analysé, pas de photo), URL (photo extraite)
+- Outil correction supprimé de l'UI — le cron + l'outil correction photos gèrent tout
+
+---
+
+# Session 15 avril 2026 — v1.9.6
+
+## Extraction photos améliorée
+- **Strategy 3 Vision** : Claude Haiku localise les portraits dans les PDF scannés — 320 nouvelles photos extraites
+- **Fix PDFRef NaN** : Width/Height comme références PDF résolues — corrige l'extraction pour les PDFs avec dimensions indirectes
+- **Fix doc→pdfDoc** : ReferenceError silencieuse dans processXObjects corrigée
+- **Scoring** : seuil 25, rejet peau <3%, anti-icônes, photos passeport fond blanc OK
+- **Mode force supprimé** de l'outil correction — ne touche jamais aux photos existantes
+
+## Nettoyage UI
+- `cv_texte_brut` masqué dans fiche candidat (reste en DB)
+- Outil "Extraire texte CVs" supprimé de /outils et sidebar
+- Cron extract-cv-text continue en arrière-plan (batch 50, 300s)
