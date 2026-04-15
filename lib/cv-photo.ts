@@ -213,21 +213,19 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
       await collectImagesViaPdfjs(pdfBuffer, candidates)
     }
 
-    // --- Strategy 3: Scan pleine page → découper régions portrait ---
+    // --- Strategy 3: Scan pleine page → Claude Vision localise le portrait ---
     // Si un seul candidat = scan de page entière (>1000px, ratio page ~1.2-1.6)
-    // → découper les coins supérieurs où se trouve généralement la photo portrait
+    // → envoyer à Claude Haiku Vision pour localiser les coordonnées du portrait
     if (candidates.length === 1 && candidates[0].width > 1000 && candidates[0].ratio >= 1.2 && candidates[0].ratio <= 1.6) {
       try {
         const sharp = (await import('sharp')).default
-        // Récupérer les dimensions réelles depuis le buffer JPEG original (pas le redimensionné)
-        const scan = candidates[0]
-        // Le buffer dans candidates est redimensionné (300x400). On a besoin de l'original.
-        // On va re-extraire le JPEG depuis le PDF pour avoir le buffer original.
+        // Re-extraire le JPEG original depuis le PDF
         const pdflib = await import('pdf-lib')
         const pdfDoc = await pdflib.PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
         const page = pdfDoc.getPage(0)
         const rawRes = page.node.get(pdflib.PDFName.of('Resources'))
         const resources = rawRes instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawRes) : rawRes
+        let rawBytes: Buffer | null = null
         if (resources instanceof pdflib.PDFDict) {
           const rawXObj = resources.get(pdflib.PDFName.of('XObject'))
           const xObjects = rawXObj instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawXObj) : rawXObj
@@ -236,48 +234,72 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
             if (firstKey) {
               const rawRef = xObjects.get(firstKey)
               const xobj = rawRef instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawRef) : rawRef
-              if (xobj instanceof pdflib.PDFRawStream) {
-                const rawBytes = Buffer.from(xobj.getContents())
-                // Décoder les dimensions réelles
-                const meta = await sharp(rawBytes).metadata()
-                const origW = meta.width || scan.width
-                const origH = meta.height || scan.height
+              if (xobj instanceof pdflib.PDFRawStream) rawBytes = Buffer.from(xobj.getContents())
+            }
+          }
+        }
 
-                // Régions réduites (~20% × 22%) pour cibler le portrait sans le texte autour
-                const pw = Math.round(origW * 0.22), ph = Math.round(origH * 0.22)
-                const regions = [
-                  { left: Math.round(origW * 0.02), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-left' },
-                  { left: Math.round(origW * 0.76), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-right' },
-                  { left: Math.round(origW * 0.38), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-center' },
-                  { left: Math.round(origW * 0.02), top: Math.round(origH * 0.12), width: pw, height: ph, name: 'mid-left' },
-                  { left: Math.round(origW * 0.76), top: Math.round(origH * 0.12), width: pw, height: ph, name: 'mid-right' },
+        if (rawBytes) {
+          const meta = await sharp(rawBytes).metadata()
+          const origW = meta.width || 1600, origH = meta.height || 2300
+
+          // Redimensionner pour l'envoi à Vision (max 800px large pour économiser tokens)
+          const visionBuf = await sharp(rawBytes).resize({ width: 800, fit: 'inside' }).jpeg({ quality: 70 }).toBuffer()
+          const base64 = visionBuf.toString('base64')
+
+          // Appel Claude Vision pour localiser le portrait
+          const apiKey = process.env.ANTHROPIC_API_KEY
+          if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
+          const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 200,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+                  { type: 'text', text: 'This is a scanned CV/resume. Is there a portrait/headshot photo of the person on this page? If YES, respond with ONLY the bounding box as JSON: {"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH} where x,y are the top-left corner and w,h are width/height, all as fractions of the page (0.0-1.0). If NO portrait photo exists, respond: {"found":false}' }
                 ]
+              }]
+            }),
+          })
+          if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
+          const visionRes = await visionFetch.json() as any
 
-                for (const region of regions) {
-                  try {
-                    const cropped = await sharp(rawBytes)
-                      .extract(region)
-                      .resize({ width: 300, height: 400, fit: 'inside' })
-                      .jpeg({ quality: 85 })
-                      .toBuffer()
-                    const cMeta = await sharp(cropped).metadata()
-                    const w = cMeta.width || 300, h = cMeta.height || 400
-                    const uc = await countUniqueColors(cropped, false)
-                    const sr = await detectSkinRatio(cropped)
-                    candidates.push({
-                      buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
-                      compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr,
-                      pageIndex: 0, source: `scan-crop:${region.name}`,
-                    })
-                  } catch { /* crop failed */ }
-                }
-                // Retirer le scan pleine page des candidats
+          const visionText = (visionRes.content?.[0]?.text) || ''
+          const jsonMatch = visionText.match(/\{[^}]+\}/)
+          if (jsonMatch) {
+            const coords = JSON.parse(jsonMatch[0])
+            if (coords.found && coords.x != null && coords.y != null && coords.w != null && coords.h != null) {
+              // Convertir fractions → pixels sur l'image originale
+              const cropLeft = Math.max(0, Math.round(coords.x * origW))
+              const cropTop = Math.max(0, Math.round(coords.y * origH))
+              const cropW = Math.min(Math.round(coords.w * origW), origW - cropLeft)
+              const cropH = Math.min(Math.round(coords.h * origH), origH - cropTop)
+
+              if (cropW > 50 && cropH > 50) {
+                const cropped = await sharp(rawBytes)
+                  .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
+                  .resize({ width: 300, height: 400, fit: 'inside' })
+                  .jpeg({ quality: 90 })
+                  .toBuffer()
+
+                const cMeta = await sharp(cropped).metadata()
+                const w = cMeta.width || 300, h = cMeta.height || 400
+                candidates.push({
+                  buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
+                  compressedSize: cropped.length, uniqueColors: await countUniqueColors(cropped, false),
+                  skinRatio: await detectSkinRatio(cropped), pageIndex: 0, source: 'vision-crop',
+                })
+                // Retirer le scan pleine page
                 candidates.shift()
               }
             }
           }
         }
-      } catch (e) { console.warn('[CV Photo] Strategy 3 (scan crop) failed:', (e as Error).message) }
+      } catch (e) { console.warn('[CV Photo] Strategy 3 (Vision crop) failed:', (e as Error).message) }
     }
 
     if (candidates.length === 0) return null

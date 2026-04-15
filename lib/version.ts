@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.4'
+export const APP_VERSION = '1.9.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.5',
+    date: '2026-04-15',
+    label: 'Strategy 3 Vision — Claude Haiku localise les portraits dans les PDF scannés',
+    features: [
+      'PDF scannés : Claude Vision Haiku détecte et croppe automatiquement le portrait (bounding box)',
+      'Remplace le crop à positions fixes (trop rigide pour les différents layouts de CV)',
+      'Coût : ~1 appel Haiku par PDF scanné sans photo XObject séparée',
+    ],
+  },
   {
     version: '1.9.4',
     date: '2026-04-15',
