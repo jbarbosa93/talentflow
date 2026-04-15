@@ -1,5 +1,22 @@
 # Changelog TalentFlow
 
+## [1.9.8] — 15 avril 2026
+
+### Fix — Session timeout (timer inactivité)
+- `setInterval` 30s au lieu de `setTimeout` — survit à la veille Mac/Windows sans drift
+
+### Fix — Extraction photo CV (Strategy 1b Vision validation)
+- Quand Strategy 1 (XObject PDF) trouve plusieurs images candidates avec score > 20, validation Vision sur le top 3
+- Prompt Claude Haiku : distingue photo personnelle (ID/passport/headshot) vs stock photo / image template
+- Si aucune photo perso confirmée → fallback Strategy 2 (pdfjs) puis Strategy 3 (Vision crop)
+- Si une seule image XObject → pas de validation Vision (pas d'ambiguïté)
+
+### Feat — Rotation 4 angles PDF + images
+- Support rotation 0°/90°/180°/270° dans cv/parse + onedrive/sync
+- Appliqué aux PDF et images (WhatsApp, scans)
+
+---
+
 ## [1.8.21] — 13 avril 2026
 
 ### Fix — Logique CV import normal et OneDrive (5 fixes)

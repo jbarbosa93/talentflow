@@ -276,6 +276,74 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
     // --- Strategy 1: Extract raw JPEG/image data from PDF XObjects ---
     await collectImagesFromPdfRaw(pdfBuffer, candidates)
 
+    // --- Strategy 1b: Vision validation when multiple XObjects compete ---
+    // If multiple candidates score > 20, scoreHeadshot alone can't distinguish
+    // a real face from a landscape/template image. Validate top 3 via Claude Haiku Vision.
+    if (candidates.length > 1) {
+      const scored = candidates.map(c => ({ candidate: c, score: scoreHeadshot(c) }))
+      const viable = scored.filter(s => s.score > 20)
+      if (viable.length > 1) {
+        // Sort by score descending, take top 3
+        viable.sort((a, b) => b.score - a.score)
+        const top3 = viable.slice(0, 3)
+
+        const apiKey = process.env.ANTHROPIC_API_KEY
+        if (apiKey) {
+          const confirmed: ImageCandidate[] = []
+          for (const { candidate } of top3) {
+            try {
+              const sharp = (await import('sharp')).default
+              // Convert candidate buffer to base64 for Vision
+              const visionBuf = await sharp(candidate.buffer)
+                .resize({ width: 200, height: 260, fit: 'inside' })
+                .jpeg({ quality: 70 })
+                .toBuffer()
+              const b64 = visionBuf.toString('base64')
+
+              const resp = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  model: 'claude-haiku-4-5-20251001',
+                  max_tokens: 10,
+                  messages: [{
+                    role: 'user',
+                    content: [
+                      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+                      { type: 'text', text: 'Is this a real personal photo (ID photo, passport photo, CV headshot of a specific person) and NOT a stock photo, template illustration, or decorative image? Answer only YES or NO.' }
+                    ]
+                  }]
+                }),
+              })
+              if (resp.ok) {
+                const res = await resp.json() as any
+                const answer = ((res.content?.[0]?.text) || '').trim().toUpperCase()
+                console.log(`[CV Photo] Vision validation: ${candidate.source} ${candidate.width}x${candidate.height} → ${answer}`)
+                if (answer.includes('YES') || answer.includes('OUI')) {
+                  confirmed.push(candidate)
+                }
+              }
+            } catch (e) {
+              console.warn(`[CV Photo] Vision validation failed for ${candidate.source}:`, (e as Error).message)
+              // On error, keep candidate as fallback
+              confirmed.push(candidate)
+            }
+          }
+
+          if (confirmed.length > 0) {
+            // Replace candidates with only Vision-confirmed faces
+            candidates.length = 0
+            candidates.push(...confirmed)
+            console.log(`[CV Photo] Vision validated ${confirmed.length} face(s) from ${top3.length} candidates`)
+          } else {
+            // No face confirmed → clear candidates so Strategy 2/3 can try
+            candidates.length = 0
+            console.log('[CV Photo] Vision confirmed no faces in XObject candidates, falling back')
+          }
+        }
+      }
+    }
+
     // --- Strategy 2: Use pdfjs-dist as fallback ---
     if (candidates.length === 0) {
       await collectImagesViaPdfjs(pdfBuffer, candidates)
