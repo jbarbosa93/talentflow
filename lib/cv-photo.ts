@@ -260,7 +260,7 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
                 role: 'user',
                 content: [
                   { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-                  { type: 'text', text: 'This is a scanned CV/resume. Is there a portrait/headshot photo of the person on this page? If YES, respond with ONLY the bounding box as JSON: {"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH} where x,y are the top-left corner and w,h are width/height, all as fractions of the page (0.0-1.0). If NO portrait photo exists, respond: {"found":false}' }
+                  { type: 'text', text: 'This is a scanned CV/resume page. Look for a REAL PHOTOGRAPH of a person (headshot/portrait photo showing a human face). Do NOT confuse with logos, icons, clipart, decorative images, or text headers. A portrait photo is a real photograph with a human face clearly visible. If a real portrait photo exists, give me TIGHT bounding box coordinates around JUST THE FACE AND SHOULDERS (not the surrounding text or decorations). Respond ONLY with JSON: {"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH} where x,y = top-left corner, w,h = width/height, all as fractions of page dimensions (0.0 to 1.0). The box should be tight around the person only. If NO real photograph of a person exists on this page, respond: {"found":false}' }
                 ]
               }]
             }),
