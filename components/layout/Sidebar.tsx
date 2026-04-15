@@ -159,19 +159,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
-  // Progression extraction cv_texte_brut (cron toutes les 5min) — Admin + Consultant uniquement
-  const { data: cvStatus } = useQuery({
-    queryKey: ['extract-cv-status'],
-    queryFn: async () => {
-      const res = await fetch('/api/cron/extract-cv-text/status')
-      if (!res.ok) return null
-      return res.json() as Promise<{ restants: number; total: number; pourcentage: number }>
-    },
-    enabled: !isSecretaire,
-    staleTime: 20_000,
-    refetchInterval: 30_000,
-    placeholderData: null,
-  })
+  // cvStatus supprimé — le cron extract-cv-text tourne en arrière-plan sans UI
 
   // Compteur demandes d'accès en attente
   const { data: demandesCount } = useQuery({
@@ -593,27 +581,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       }} />
                     )}
                   </Link>
-                {/* Indicateur extraction CV sous le lien Outils */}
-                {isOutils && !isSecretaire && cvStatus && cvStatus.restants > 0 && (
-                  <div style={{ margin: '-2px 0 6px', padding: '0 10px 0 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>
-                        {cvStatus.restants.toLocaleString('fr-CH')} CVs en cours…
-                      </span>
-                      <span style={{ fontSize: 10, color: '#F5A623', fontWeight: 700 }}>
-                        {cvStatus.pourcentage}%
-                      </span>
-                    </div>
-                    <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 99,
-                        background: 'linear-gradient(90deg, #F5A623, #F97316)',
-                        width: `${cvStatus.pourcentage}%`,
-                        transition: 'width 0.5s ease',
-                      }} />
-                    </div>
-                  </div>
-                )}
+                {/* Indicateur extraction CV supprimé — cron en arrière-plan */}
 
                 {/* Sous-menu Administration : Sécurité & Demandes d'accès */}
                 {isAdmin && active && (

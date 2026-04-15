@@ -1676,19 +1676,7 @@ export default function CandidatDetailPage() {
           )}
           </div>
 
-          {/* Texte brut */}
-          {candidat.cv_texte_brut && (
-            <details className="neo-card-soft" style={{ padding: 0 }}>
-              <summary style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500, color: 'var(--muted)', cursor: 'pointer', borderRadius: 'var(--radius-lg)', userSelect: 'none', listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                Texte brut du CV <span style={{ fontSize: 11, color: 'var(--muted)' }}>cliquer pour déplier</span>
-              </summary>
-              <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border)' }}>
-                <pre style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'pre-wrap', fontFamily: 'monospace', lineHeight: 1.6, maxHeight: 240, overflowY: 'auto', marginTop: 10 }}>
-                  {candidat.cv_texte_brut}
-                </pre>
-              </div>
-            </details>
-          )}
+          {/* cv_texte_brut masqué — reste en DB pour dédup/matching mais plus affiché */}
         </div>
 
         {/* ══ Resize handle ══ */}

@@ -92,9 +92,7 @@ export default function OutilsPage() {
         {OUTILS.map(outil => (
           <OutilCard key={outil.href} outil={outil} />
         ))}
-        <motion.div variants={cardVariants}>
-          <ExtractCVTextCard />
-        </motion.div>
+        {/* ExtractCVTextCard supprimé — le cron tourne en arrière-plan */}
       </motion.div>
     </div>
   )
