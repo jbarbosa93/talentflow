@@ -247,63 +247,71 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
           const visionBuf = await sharp(rawBytes).resize({ width: 800, fit: 'inside' }).jpeg({ quality: 70 }).toBuffer()
           const base64 = visionBuf.toString('base64')
 
-          // Appel Claude Vision — demander le COIN où se trouve la photo (pas des coordonnées exactes)
+          // Cropper 6 régions candidates puis envoyer à Claude pour identifier le visage
           const apiKey = process.env.ANTHROPIC_API_KEY
           if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
-          const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 50,
-              messages: [{
-                role: 'user',
-                content: [
-                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-                  { type: 'text', text: 'Is there a real passport-style PHOTOGRAPH of a person on this CV? Not a logo, icon, or illustration. Answer ONLY with one word: TL (top-left), TR (top-right), CL (center-left), CR (center-right), or NO if no photo.' }
-                ]
-              }]
-            }),
-          })
-          if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
-          const visionRes = await visionFetch.json() as any
-          const answer = ((visionRes.content?.[0]?.text) || '').trim().toUpperCase()
 
-          if (answer && answer !== 'NO') {
-            // Zones calibrées par position — 18% × 20% de la page
-            const pw = Math.round(origW * 0.18), ph = Math.round(origH * 0.20)
-            const pad = Math.round(origW * 0.02) // petit padding du bord
-            const zones: Record<string, { left: number; top: number }> = {
-              'TL': { left: pad, top: pad },
-              'TR': { left: origW - pw - pad, top: pad },
-              'CL': { left: pad, top: Math.round(origH * 0.10) },
-              'CR': { left: origW - pw - pad, top: Math.round(origH * 0.10) },
-            }
-            const zone = zones[answer] || zones['TL']
+          const pw = Math.round(origW * 0.20), ph = Math.round(origH * 0.22)
+          const pad = Math.round(origW * 0.01)
+          const regionDefs = [
+            { left: pad, top: pad, name: 'TL' },
+            { left: origW - pw - pad, top: pad, name: 'TR' },
+            { left: pad, top: Math.round(origH * 0.12), name: 'CL' },
+            { left: origW - pw - pad, top: Math.round(origH * 0.12), name: 'CR' },
+            { left: Math.round(origW * 0.40), top: pad, name: 'TC' },
+            { left: Math.round(origW * 0.40), top: Math.round(origH * 0.12), name: 'CC' },
+          ]
 
+          const crops: { name: string; buffer: Buffer; b64: string }[] = []
+          for (const r of regionDefs) {
             try {
-              const cropped = await sharp(rawBytes)
-                .extract({ left: zone.left, top: zone.top, width: pw, height: ph })
+              const buf = await sharp(rawBytes)
+                .extract({ left: r.left, top: r.top, width: pw, height: ph })
+                .resize({ width: 200, fit: 'inside' })
+                .jpeg({ quality: 70 })
+                .toBuffer()
+              crops.push({ name: r.name, buffer: buf, b64: buf.toString('base64') })
+            } catch { /* crop failed */ }
+          }
+
+          if (crops.length > 0) {
+            // Envoyer tous les crops à Claude — il identifie lequel contient un visage
+            const content: any[] = []
+            for (let i = 0; i < crops.length; i++) {
+              content.push({ type: 'text', text: `Image ${i + 1} (${crops[i].name}):` })
+              content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: crops[i].b64 } })
+            }
+            content.push({ type: 'text', text: 'Which image contains a REAL human face (eyes, nose, mouth visible)? Not text, logos, icons, or illustrations. Answer with ONLY the number (1-' + crops.length + ') or 0 if none contains a real face.' })
+
+            const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+              body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content }] }),
+            })
+            if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
+            const visionRes = await visionFetch.json() as any
+            const answer = ((visionRes.content?.[0]?.text) || '').trim()
+            const chosen = parseInt(answer)
+
+            if (chosen >= 1 && chosen <= crops.length) {
+              const winnerCrop = crops[chosen - 1]
+              // Re-crop en haute qualité depuis l'original
+              const r = regionDefs[chosen - 1]
+              const hqCropped = await sharp(rawBytes)
+                .extract({ left: r.left, top: r.top, width: pw, height: ph })
                 .resize({ width: 300, height: 400, fit: 'inside' })
                 .jpeg({ quality: 90 })
                 .toBuffer()
 
-              const cMeta = await sharp(cropped).metadata()
+              const cMeta = await sharp(hqCropped).metadata()
               const w = cMeta.width || 300, h = cMeta.height || 400
-              const uc = await countUniqueColors(cropped, false)
-              const sr = await detectSkinRatio(cropped)
-              const score = scoreHeadshot({ buffer: cropped, width: w, height: h, ratio: h / w, area: w * h, compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr, pageIndex: 0, source: `vision:${answer}` })
-
-              // Claude a confirmé un portrait → on fait confiance sauf rejet explicite (-100)
-              if (score > -100) {
-                candidates.push({
-                  buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
-                  compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr,
-                  pageIndex: 0, source: `vision:${answer}`,
-                })
-                candidates.shift() // retirer le scan pleine page
-              }
-            } catch { /* crop failed */ }
+              candidates.push({
+                buffer: hqCropped, width: w, height: h, ratio: h / w, area: w * h,
+                compressedSize: hqCropped.length, uniqueColors: await countUniqueColors(hqCropped, false),
+                skinRatio: await detectSkinRatio(hqCropped), pageIndex: 0, source: `vision:${winnerCrop.name}`,
+              })
+              candidates.shift() // retirer le scan pleine page
+            }
           }
         }
       } catch (e) { console.warn('[CV Photo] Strategy 3 (Vision crop) failed:', (e as Error).message) }
