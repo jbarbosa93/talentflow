@@ -588,7 +588,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         const candidate = { buffer: resized, width: w, height: h, ratio: h / w, area: w * h, compressedSize: resized.length, uniqueColors, skinRatio, pageIndex: 0, source: 'image-cv' }
         const photoScore = scoreHeadshot(candidate)
         dbg(`[CV Parse] Image CV photo score: ${photoScore}`)
-        if (photoScore >= 35) {
+        if (photoScore >= 25) {
           const photoTimestamp = Date.now()
           const photoFileName = `photos/${photoTimestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}.jpg`
           const { data: photoData } = await (createAdminClient()).storage.from('cvs').upload(photoFileName, resized, { contentType: 'image/jpeg', upsert: false })
