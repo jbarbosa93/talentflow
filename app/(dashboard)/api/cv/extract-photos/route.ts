@@ -122,8 +122,7 @@ export async function POST(request: NextRequest) {
     const chunkResults = await Promise.allSettled(chunk.map(async (cand) => {
     try {
       const ext = (cand.cv_nom_fichier || cand.cv_url || '').toLowerCase().split('.').pop()
-      const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')
-      const isSupportedFormat = ['pdf', 'docx', 'doc'].includes(ext || '') || isImage
+      const isSupportedFormat = ['pdf', 'docx', 'doc'].includes(ext || '')
       if (!isSupportedFormat) {
         if (!cand.photo_url || cand.photo_url === 'checked') {
           await supabase.from('candidats').update({ photo_url: 'checked' }).eq('id', cand.id)
@@ -149,30 +148,7 @@ export async function POST(request: NextRequest) {
       const buffer = Buffer.from(await cvRes.arrayBuffer())
 
       let photoBuffer: Buffer | null = null
-      if (isImage) {
-        // Image CV (JPG/PNG) — vérifier si c'est une photo portrait directe (pas un scan de CV complet)
-        try {
-          const sharpMod = (await import('sharp')).default
-          const { scoreHeadshot, countUniqueColors, detectSkinRatio } = await import('@/lib/cv-photo')
-          const metadata = await sharpMod(buffer).metadata()
-          const w = metadata.width || 0
-          const h = metadata.height || 0
-          // Seulement si l'image est petite (< 1200px large) et ratio portrait
-          // Les grands scans de CV (WhatsApp, scanner) sont > 1200px et ratio page (~1.4)
-          if (w > 0 && h > 0 && w <= 1200) {
-            const resized = await sharpMod(buffer).resize({ width: Math.min(w, 600), fit: 'inside' }).jpeg({ quality: 85 }).toBuffer()
-            const rMeta = await sharpMod(resized).metadata()
-            const rw = rMeta.width || w, rh = rMeta.height || h
-            const uniqueColors = await countUniqueColors(resized)
-            const skinRatio = await detectSkinRatio(resized)
-            const candidate = { buffer: resized, width: rw, height: rh, ratio: rh / rw, area: rw * rh, compressedSize: resized.length, uniqueColors, skinRatio, pageIndex: 0, source: 'image-cv' }
-            const photoScore = scoreHeadshot(candidate)
-            if (photoScore >= 35) {
-              photoBuffer = resized
-            }
-          }
-        } catch {}
-      } else if (ext === 'pdf') {
+      if (ext === 'pdf') {
         const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
         photoBuffer = await extractPhotoFromPDF(buffer)
       } else if (ext === 'docx') {
