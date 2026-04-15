@@ -247,7 +247,7 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
           const visionBuf = await sharp(rawBytes).resize({ width: 800, fit: 'inside' }).jpeg({ quality: 70 }).toBuffer()
           const base64 = visionBuf.toString('base64')
 
-          // Appel Claude Vision pour localiser le portrait
+          // Appel Claude Vision — demander le COIN où se trouve la photo (pas des coordonnées exactes)
           const apiKey = process.env.ANTHROPIC_API_KEY
           if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
           const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
@@ -255,69 +255,55 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
             headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
             body: JSON.stringify({
               model: 'claude-haiku-4-5-20251001',
-              max_tokens: 200,
+              max_tokens: 50,
               messages: [{
                 role: 'user',
                 content: [
                   { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-                  { type: 'text', text: `Analyze this scanned CV/resume. Find the passport-style portrait PHOTOGRAPH of the candidate (a real photo showing a human face, NOT a logo, icon, illustration, or clipart).
-
-Rules:
-- Only detect REAL PHOTOGRAPHS with visible human facial features (eyes, nose, mouth)
-- IGNORE: logos, company icons, illustrations, decorative graphics, QR codes, signatures
-- The portrait is usually small (5-20% of page), located in a corner or top section
-
-If a real portrait photo exists, return EXACT coordinates as JSON:
-{"found":true,"x":0.XX,"y":0.YY,"w":0.WW,"h":0.HH}
-
-Where x,y = center of the face (not top-left), w,h = width and height of just the head+shoulders area.
-All values as fractions of page dimensions (0.0 to 1.0).
-Make the box TIGHT: just the person's head and upper shoulders, no surrounding text.
-Typical portrait size: w=0.10-0.18, h=0.08-0.15
-
-If NO real photograph: {"found":false}
-Respond with JSON only, no other text.` }
+                  { type: 'text', text: 'Is there a real passport-style PHOTOGRAPH of a person on this CV? Not a logo, icon, or illustration. Answer ONLY with one word: TL (top-left), TR (top-right), CL (center-left), CR (center-right), or NO if no photo.' }
                 ]
               }]
             }),
           })
           if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
           const visionRes = await visionFetch.json() as any
+          const answer = ((visionRes.content?.[0]?.text) || '').trim().toUpperCase()
 
-          const visionText = (visionRes.content?.[0]?.text) || ''
-          const jsonMatch = visionText.match(/\{[^}]+\}/)
-          if (jsonMatch) {
-            const coords = JSON.parse(jsonMatch[0])
-            if (coords.found && coords.x != null && coords.y != null && coords.w != null && coords.h != null) {
-              // x,y = centre du visage, w,h = taille → convertir en top-left + dimensions
-              const cxPx = coords.x * origW, cyPx = coords.y * origH
-              const wPx = coords.w * origW, hPx = coords.h * origH
-              // Ajouter 20% de marge autour pour ne pas couper trop serré
-              const margin = 1.2
-              const finalW = wPx * margin, finalH = hPx * margin
-              const cropLeft = Math.max(0, Math.round(cxPx - finalW / 2))
-              const cropTop = Math.max(0, Math.round(cyPx - finalH / 2))
-              const cropW = Math.min(Math.round(finalW), origW - cropLeft)
-              const cropH = Math.min(Math.round(finalH), origH - cropTop)
+          if (answer && answer !== 'NO') {
+            // Zones calibrées par position — 18% × 20% de la page
+            const pw = Math.round(origW * 0.18), ph = Math.round(origH * 0.20)
+            const pad = Math.round(origW * 0.02) // petit padding du bord
+            const zones: Record<string, { left: number; top: number }> = {
+              'TL': { left: pad, top: pad },
+              'TR': { left: origW - pw - pad, top: pad },
+              'CL': { left: pad, top: Math.round(origH * 0.10) },
+              'CR': { left: origW - pw - pad, top: Math.round(origH * 0.10) },
+            }
+            const zone = zones[answer] || zones['TL']
 
-              if (cropW > 50 && cropH > 50) {
-                const cropped = await sharp(rawBytes)
-                  .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
-                  .resize({ width: 300, height: 400, fit: 'inside' })
-                  .jpeg({ quality: 90 })
-                  .toBuffer()
+            try {
+              const cropped = await sharp(rawBytes)
+                .extract({ left: zone.left, top: zone.top, width: pw, height: ph })
+                .resize({ width: 300, height: 400, fit: 'inside' })
+                .jpeg({ quality: 90 })
+                .toBuffer()
 
-                const cMeta = await sharp(cropped).metadata()
-                const w = cMeta.width || 300, h = cMeta.height || 400
+              const cMeta = await sharp(cropped).metadata()
+              const w = cMeta.width || 300, h = cMeta.height || 400
+              const uc = await countUniqueColors(cropped, false)
+              const sr = await detectSkinRatio(cropped)
+              const score = scoreHeadshot({ buffer: cropped, width: w, height: h, ratio: h / w, area: w * h, compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr, pageIndex: 0, source: `vision:${answer}` })
+
+              // Seulement si le crop a vraiment de la peau (>5%) = un vrai visage
+              if (score >= MIN_HEADSHOT_SCORE && sr >= 0.05) {
                 candidates.push({
                   buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
-                  compressedSize: cropped.length, uniqueColors: await countUniqueColors(cropped, false),
-                  skinRatio: await detectSkinRatio(cropped), pageIndex: 0, source: 'vision-crop',
+                  compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr,
+                  pageIndex: 0, source: `vision:${answer}`,
                 })
-                // Retirer le scan pleine page
-                candidates.shift()
+                candidates.shift() // retirer le scan pleine page
               }
-            }
+            } catch { /* crop failed */ }
           }
         }
       } catch (e) { console.warn('[CV Photo] Strategy 3 (Vision crop) failed:', (e as Error).message) }
