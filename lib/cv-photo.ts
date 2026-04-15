@@ -282,12 +282,12 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
               const faceCy = faceData.cy / scale
               const faceSize = faceData.size / scale
 
-              // Crop carré autour du visage avec marge pour tête + épaules (2× la taille du visage)
-              const cropSize = faceSize * 2.5
-              const cropLeft = Math.max(0, Math.round(faceCx - cropSize / 2))
-              const cropTop = Math.max(0, Math.round(faceCy - cropSize * 0.4)) // décalé vers le haut (front + cheveux)
-              const cropW = Math.min(Math.round(cropSize), origW - cropLeft)
-              const cropH = Math.min(Math.round(cropSize * 1.3), origH - cropTop) // légèrement plus haut que large (portrait)
+              // Crop serré autour du visage — 1.8× pour tête + haut épaules
+              const cropSize = faceSize * 1.8
+              const cropW = Math.min(Math.round(cropSize), origW)
+              const cropH = Math.min(Math.round(cropSize * 1.25), origH) // ratio portrait ~4:5
+              const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
+              const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH)) // visage dans le tiers supérieur
 
               if (cropW > 50 && cropH > 50) {
                 const cropped = await sharp(rawBytes)
