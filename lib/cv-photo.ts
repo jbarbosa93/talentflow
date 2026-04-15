@@ -213,6 +213,71 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
       await collectImagesViaPdfjs(pdfBuffer, candidates)
     }
 
+    // --- Strategy 3: Scan pleine page → découper régions portrait ---
+    // Si un seul candidat = scan de page entière (>1000px, ratio page ~1.2-1.6)
+    // → découper les coins supérieurs où se trouve généralement la photo portrait
+    if (candidates.length === 1 && candidates[0].width > 1000 && candidates[0].ratio >= 1.2 && candidates[0].ratio <= 1.6) {
+      try {
+        const sharp = (await import('sharp')).default
+        // Récupérer les dimensions réelles depuis le buffer JPEG original (pas le redimensionné)
+        const scan = candidates[0]
+        // Le buffer dans candidates est redimensionné (300x400). On a besoin de l'original.
+        // On va re-extraire le JPEG depuis le PDF pour avoir le buffer original.
+        const pdflib = await import('pdf-lib')
+        const pdfDoc = await pdflib.PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+        const page = pdfDoc.getPage(0)
+        const rawRes = page.node.get(pdflib.PDFName.of('Resources'))
+        const resources = rawRes instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawRes) : rawRes
+        if (resources instanceof pdflib.PDFDict) {
+          const rawXObj = resources.get(pdflib.PDFName.of('XObject'))
+          const xObjects = rawXObj instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawXObj) : rawXObj
+          if (xObjects instanceof pdflib.PDFDict) {
+            const firstKey = [...xObjects.keys()][0]
+            if (firstKey) {
+              const rawRef = xObjects.get(firstKey)
+              const xobj = rawRef instanceof pdflib.PDFRef ? pdfDoc.context.lookup(rawRef) : rawRef
+              if (xobj instanceof pdflib.PDFRawStream) {
+                const rawBytes = Buffer.from(xobj.getContents())
+                // Décoder les dimensions réelles
+                const meta = await sharp(rawBytes).metadata()
+                const origW = meta.width || scan.width
+                const origH = meta.height || scan.height
+
+                const regions = [
+                  { left: 0, top: 0, width: Math.round(origW * 0.30), height: Math.round(origH * 0.35), name: 'top-left' },
+                  { left: Math.round(origW * 0.70), top: 0, width: Math.round(origW * 0.30), height: Math.round(origH * 0.35), name: 'top-right' },
+                  { left: Math.round(origW * 0.30), top: 0, width: Math.round(origW * 0.40), height: Math.round(origH * 0.30), name: 'top-center' },
+                  { left: 0, top: Math.round(origH * 0.15), width: Math.round(origW * 0.30), height: Math.round(origH * 0.30), name: 'mid-left' },
+                  { left: Math.round(origW * 0.70), top: Math.round(origH * 0.15), width: Math.round(origW * 0.30), height: Math.round(origH * 0.30), name: 'mid-right' },
+                ]
+
+                for (const region of regions) {
+                  try {
+                    const cropped = await sharp(rawBytes)
+                      .extract(region)
+                      .resize({ width: 300, height: 400, fit: 'inside' })
+                      .jpeg({ quality: 85 })
+                      .toBuffer()
+                    const cMeta = await sharp(cropped).metadata()
+                    const w = cMeta.width || 300, h = cMeta.height || 400
+                    const uc = await countUniqueColors(cropped, false)
+                    const sr = await detectSkinRatio(cropped)
+                    candidates.push({
+                      buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
+                      compressedSize: cropped.length, uniqueColors: uc, skinRatio: sr,
+                      pageIndex: 0, source: `scan-crop:${region.name}`,
+                    })
+                  } catch { /* crop failed */ }
+                }
+                // Retirer le scan pleine page des candidats
+                candidates.shift()
+              }
+            }
+          }
+        }
+      } catch (e) { console.warn('[CV Photo] Strategy 3 (scan crop) failed:', (e as Error).message) }
+    }
+
     if (candidates.length === 0) return null
     return pickBestCandidate(candidates)
 
@@ -372,8 +437,9 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
     const { PDFDocument, PDFName, PDFRawStream, PDFRef } = pdflib
     const PDFDict = pdflib.PDFDict
 
-    const pdfDoc = await PDFDocument.load(pdfBuffer)
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
     const sharp = (await import('sharp')).default
+    // Debug removed
 
     const pagesToCheck = Math.min(3, pdfDoc.getPageCount())
 
@@ -396,6 +462,7 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
       if (!(xObjects instanceof PDFDict)) continue
 
       // Process XObjects — including Form XObjects (recursive)
+      // Debug removed
       await processXObjects(xObjects, pdfDoc, sharp, pageIdx, candidates, 0)
     }
   } catch (e) {
@@ -447,13 +514,17 @@ async function processXObjects(
       // ── Image XObject ──
       if (subtype.toString() !== '/Image') continue
 
-      const widthObj  = dict.get(PDFName.of('Width'))
-      const heightObj = dict.get(PDFName.of('Height'))
+      let widthObj  = dict.get(PDFName.of('Width'))
+      let heightObj = dict.get(PDFName.of('Height'))
       if (!widthObj || !heightObj) continue
+      // Résoudre les références PDF (ex: "6 0 R" → valeur réelle)
+      if (widthObj instanceof PDFRef) widthObj = pdfDoc.context.lookup(widthObj)
+      if (heightObj instanceof PDFRef) heightObj = pdfDoc.context.lookup(heightObj)
 
-      const width  = Number(widthObj.toString())
-      const height = Number(heightObj.toString())
+      const width  = Number(widthObj?.toString())
+      const height = Number(heightObj?.toString())
 
+      if (isNaN(width) || isNaN(height)) continue
       if (width < 60 || height < 60) continue
       if (width > 2000 || height > 2500) continue
       const ratio = height / width
@@ -477,8 +548,10 @@ async function processXObjects(
             const smaskFilter = smaskObj.dict.get(PDFName.of('Filter'))
             const smaskFilterName = smaskFilter ? smaskFilter.toString() : ''
             const smaskRaw: Uint8Array = smaskObj.getContents()
-            const smaskWObj = smaskObj.dict.get(PDFName.of('Width'))
-            const smaskHObj = smaskObj.dict.get(PDFName.of('Height'))
+            let smaskWObj = smaskObj.dict.get(PDFName.of('Width'))
+            let smaskHObj = smaskObj.dict.get(PDFName.of('Height'))
+            if (smaskWObj instanceof PDFRef) smaskWObj = pdfDoc.context.lookup(smaskWObj)
+            if (smaskHObj instanceof PDFRef) smaskHObj = pdfDoc.context.lookup(smaskHObj)
             if (smaskWObj) smaskW = Number(smaskWObj.toString())
             if (smaskHObj) smaskH = Number(smaskHObj.toString())
 
@@ -514,7 +587,7 @@ async function processXObjects(
               .jpeg({ quality: 85 })
               .toBuffer()
           }
-        } catch { continue }
+        } catch (err) { console.warn(`[CV Photo] DCTDecode resize failed: ${(err as Error).message}`); continue }
       }
 
       // --- FlateDecode = deflate-compressed raw pixel data ---
@@ -531,9 +604,11 @@ async function processXObjects(
           })
         } catch { continue }
 
-        const colorSpaceObj = dict.get(PDFName.of('ColorSpace'))
+        let colorSpaceObj = dict.get(PDFName.of('ColorSpace'))
+        if (colorSpaceObj instanceof PDFRef) colorSpaceObj = pdfDoc.context.lookup(colorSpaceObj)
         const colorSpace    = colorSpaceObj ? colorSpaceObj.toString() : ''
-        const bpcObj        = dict.get(PDFName.of('BitsPerComponent'))
+        let bpcObj        = dict.get(PDFName.of('BitsPerComponent'))
+        if (bpcObj instanceof PDFRef) bpcObj = pdfDoc.context.lookup(bpcObj)
         const bpc           = bpcObj ? Number(bpcObj.toString()) : 8
         if (bpc !== 8) continue
 
@@ -588,7 +663,8 @@ async function processXObjects(
           source: `pdf-lib:${filterName}:p${pageIdx + 1}:${key.toString()}${smaskBuffer ? ':smask' : ''}`,
         })
       }
-    } catch {
+    } catch (err) {
+      console.warn(`[CV Photo] XObject ${key.toString()} error:`, (err as Error).message)
       continue
     }
   }

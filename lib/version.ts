@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.3'
+export const APP_VERSION = '1.9.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.4',
+    date: '2026-04-15',
+    label: 'Extraction photos scans — crop régions portrait + fix PDFRef dimensions',
+    features: [
+      'Strategy 3 : PDF scannés (1 image pleine page) → crop automatique des régions portrait (haut-gauche, haut-droite, centre, milieu)',
+      'Fix PDFRef : dimensions Width/Height comme références PDF résolues via context.lookup (bug NaN)',
+      'Fix variable doc→pdfDoc dans processXObjects (ReferenceError silencieuse)',
+    ],
+  },
   {
     version: '1.9.3',
     date: '2026-04-15',
