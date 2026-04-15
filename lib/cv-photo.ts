@@ -243,12 +243,14 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
                 const origW = meta.width || scan.width
                 const origH = meta.height || scan.height
 
+                // Régions réduites (~20% × 22%) pour cibler le portrait sans le texte autour
+                const pw = Math.round(origW * 0.22), ph = Math.round(origH * 0.22)
                 const regions = [
-                  { left: 0, top: 0, width: Math.round(origW * 0.30), height: Math.round(origH * 0.35), name: 'top-left' },
-                  { left: Math.round(origW * 0.70), top: 0, width: Math.round(origW * 0.30), height: Math.round(origH * 0.35), name: 'top-right' },
-                  { left: Math.round(origW * 0.30), top: 0, width: Math.round(origW * 0.40), height: Math.round(origH * 0.30), name: 'top-center' },
-                  { left: 0, top: Math.round(origH * 0.15), width: Math.round(origW * 0.30), height: Math.round(origH * 0.30), name: 'mid-left' },
-                  { left: Math.round(origW * 0.70), top: Math.round(origH * 0.15), width: Math.round(origW * 0.30), height: Math.round(origH * 0.30), name: 'mid-right' },
+                  { left: Math.round(origW * 0.02), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-left' },
+                  { left: Math.round(origW * 0.76), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-right' },
+                  { left: Math.round(origW * 0.38), top: Math.round(origH * 0.02), width: pw, height: ph, name: 'top-center' },
+                  { left: Math.round(origW * 0.02), top: Math.round(origH * 0.12), width: pw, height: ph, name: 'mid-left' },
+                  { left: Math.round(origW * 0.76), top: Math.round(origH * 0.12), width: pw, height: ph, name: 'mid-right' },
                 ]
 
                 for (const region of regions) {
