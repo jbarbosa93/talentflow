@@ -243,74 +243,68 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
           const meta = await sharp(rawBytes).metadata()
           const origW = meta.width || 1600, origH = meta.height || 2300
 
-          // Redimensionner pour l'envoi à Vision (max 800px large pour économiser tokens)
-          const visionBuf = await sharp(rawBytes).resize({ width: 800, fit: 'inside' }).jpeg({ quality: 70 }).toBuffer()
-          const base64 = visionBuf.toString('base64')
-
-          // Cropper 6 régions candidates puis envoyer à Claude pour identifier le visage
+          // Envoyer la page entière à Claude — coordonnées en pixels sur image 800px
           const apiKey = process.env.ANTHROPIC_API_KEY
           if (!apiKey) throw new Error('ANTHROPIC_API_KEY manquant')
 
-          const pw = Math.round(origW * 0.20), ph = Math.round(origH * 0.22)
-          const pad = Math.round(origW * 0.01)
-          const regionDefs = [
-            { left: pad, top: pad, name: 'TL' },
-            { left: origW - pw - pad, top: pad, name: 'TR' },
-            { left: pad, top: Math.round(origH * 0.12), name: 'CL' },
-            { left: origW - pw - pad, top: Math.round(origH * 0.12), name: 'CR' },
-            { left: Math.round(origW * 0.40), top: pad, name: 'TC' },
-            { left: Math.round(origW * 0.40), top: Math.round(origH * 0.12), name: 'CC' },
-          ]
+          // Image réduite pour Vision
+          const visionWidth = 800
+          const scale = visionWidth / origW
+          const visionHeight = Math.round(origH * scale)
+          const visionBuf = await sharp(rawBytes).resize({ width: visionWidth, fit: 'inside' }).jpeg({ quality: 75 }).toBuffer()
+          const b64 = visionBuf.toString('base64')
 
-          const crops: { name: string; buffer: Buffer; b64: string }[] = []
-          for (const r of regionDefs) {
-            try {
-              const buf = await sharp(rawBytes)
-                .extract({ left: r.left, top: r.top, width: pw, height: ph })
-                .resize({ width: 200, fit: 'inside' })
-                .jpeg({ quality: 70 })
-                .toBuffer()
-              crops.push({ name: r.name, buffer: buf, b64: buf.toString('base64') })
-            } catch { /* crop failed */ }
-          }
+          const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 100,
+              messages: [{
+                role: 'user',
+                content: [
+                  { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+                  { type: 'text', text: `This image is ${visionWidth}x${visionHeight} pixels. Is there a passport-style photograph of a real person (showing eyes, nose, mouth)? Not a logo or icon. If YES, give the pixel coordinates of the face center and size. Reply ONLY with JSON: {"face":true,"cx":XXX,"cy":YYY,"size":ZZZ} where cx,cy is the center of the face in pixels and size is the approximate face width in pixels. If no face: {"face":false}` }
+                ]
+              }]
+            }),
+          })
+          if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
+          const visionRes = await visionFetch.json() as any
+          const visionText = ((visionRes.content?.[0]?.text) || '').trim()
+          const jsonMatch = visionText.match(/\{[^}]+\}/)
 
-          if (crops.length > 0) {
-            // Envoyer tous les crops à Claude — il identifie lequel contient un visage
-            const content: any[] = []
-            for (let i = 0; i < crops.length; i++) {
-              content.push({ type: 'text', text: `Image ${i + 1} (${crops[i].name}):` })
-              content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: crops[i].b64 } })
-            }
-            content.push({ type: 'text', text: 'Which image contains a REAL human face (eyes, nose, mouth visible)? Not text, logos, icons, or illustrations. Answer with ONLY the number (1-' + crops.length + ') or 0 if none contains a real face.' })
+          if (jsonMatch) {
+            const faceData = JSON.parse(jsonMatch[0])
+            if (faceData.face && faceData.cx != null && faceData.cy != null && faceData.size != null) {
+              // Convertir pixels Vision → pixels original
+              const faceCx = faceData.cx / scale
+              const faceCy = faceData.cy / scale
+              const faceSize = faceData.size / scale
 
-            const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
-              method: 'POST',
-              headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-              body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content }] }),
-            })
-            if (!visionFetch.ok) throw new Error(`Vision API ${visionFetch.status}`)
-            const visionRes = await visionFetch.json() as any
-            const answer = ((visionRes.content?.[0]?.text) || '').trim()
-            const chosen = parseInt(answer)
+              // Crop carré autour du visage avec marge pour tête + épaules (2× la taille du visage)
+              const cropSize = faceSize * 2.5
+              const cropLeft = Math.max(0, Math.round(faceCx - cropSize / 2))
+              const cropTop = Math.max(0, Math.round(faceCy - cropSize * 0.4)) // décalé vers le haut (front + cheveux)
+              const cropW = Math.min(Math.round(cropSize), origW - cropLeft)
+              const cropH = Math.min(Math.round(cropSize * 1.3), origH - cropTop) // légèrement plus haut que large (portrait)
 
-            if (chosen >= 1 && chosen <= crops.length) {
-              const winnerCrop = crops[chosen - 1]
-              // Re-crop en haute qualité depuis l'original
-              const r = regionDefs[chosen - 1]
-              const hqCropped = await sharp(rawBytes)
-                .extract({ left: r.left, top: r.top, width: pw, height: ph })
-                .resize({ width: 300, height: 400, fit: 'inside' })
-                .jpeg({ quality: 90 })
-                .toBuffer()
+              if (cropW > 50 && cropH > 50) {
+                const cropped = await sharp(rawBytes)
+                  .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
+                  .resize({ width: 300, height: 400, fit: 'cover' })
+                  .jpeg({ quality: 90 })
+                  .toBuffer()
 
-              const cMeta = await sharp(hqCropped).metadata()
-              const w = cMeta.width || 300, h = cMeta.height || 400
-              candidates.push({
-                buffer: hqCropped, width: w, height: h, ratio: h / w, area: w * h,
-                compressedSize: hqCropped.length, uniqueColors: await countUniqueColors(hqCropped, false),
-                skinRatio: await detectSkinRatio(hqCropped), pageIndex: 0, source: `vision:${winnerCrop.name}`,
-              })
-              candidates.shift() // retirer le scan pleine page
+                const cMeta = await sharp(cropped).metadata()
+                const w = cMeta.width || 300, h = cMeta.height || 400
+                candidates.push({
+                  buffer: cropped, width: w, height: h, ratio: h / w, area: w * h,
+                  compressedSize: cropped.length, uniqueColors: await countUniqueColors(cropped, false),
+                  skinRatio: await detectSkinRatio(cropped), pageIndex: 0, source: 'vision-face',
+                })
+                candidates.shift()
+              }
             }
           }
         }
