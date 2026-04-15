@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.8'
+export const APP_VERSION = '1.9.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,34 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.9',
+    date: '2026-04-15',
+    label: 'Missions : vacances, arrêts, badges colorés, ETP prorata',
+    features: [
+      'Missions : colonnes vacances et arrêts (JSONB) — saisie dans le modal',
+      'Missions : badges colorés par priorité (arrêt orange, vacances bleu, absence jaune, début bientôt, fin de mission)',
+      'Missions : badge "Fin dans X jours" si date_fin ≤ 5 jours',
+      'Missions : statut déplacé entre Coeff et Marge, LPP affiché sous la marge',
+      'Missions : tri automatique arrêt → vacances → absence → début bientôt → actifs → fin',
+      'Missions : onglet "En Mission" renommé "Actifs", en-tête "Coeff" renommé "Répart."',
+      'Missions : ETP prorata exclut absences + vacances + arrêts de la semaine en cours',
+      'Missions : bilan mensuel déduit vacances et arrêts des jours ouvrables',
+      'Missions : marge moyenne calculée sur missions dès avril 2026 (déjà commencées)',
+      'Missions : fins de mission comptées du 01.04 à la semaine en cours',
+      'Missions : filtre métier supprimé, tailles texte augmentées',
+    ],
+  },
+  {
+    version: '1.9.8',
+    date: '2026-04-15',
+    label: 'Session timeout + photo Vision validation + rotation 4 angles',
+    features: [
+      'Session timeout : setInterval 30s au lieu de setTimeout (survit à la veille Mac/Windows)',
+      'Photo Vision : validation stock vs perso améliorée',
+      'Rotation : support 4 angles (0°/90°/180°/270°)',
+    ],
+  },
   {
     version: '1.9.7',
     date: '2026-04-15',
