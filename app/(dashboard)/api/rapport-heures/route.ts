@@ -3,6 +3,24 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+type LineType = 'travail' | 'ferie' | 'vacances' | 'absence' | 'maladie'
+
+const TYPE_LABELS: Record<LineType, string> = {
+  travail: '',
+  ferie: 'Férié',
+  vacances: 'Vac.',
+  absence: 'Abs.',
+  maladie: 'Mal.',
+}
+
+const TYPE_COLORS: Record<LineType, { r: number; g: number; b: number }> = {
+  travail:  { r: 0, g: 0, b: 0 },
+  ferie:    { r: 0.96, g: 0.62, b: 0.04 },  // amber
+  vacances: { r: 0.23, g: 0.51, b: 0.96 },  // blue
+  absence:  { r: 0.94, g: 0.27, b: 0.27 },  // red
+  maladie:  { r: 0.55, g: 0.36, b: 0.96 },  // purple
+}
+
 interface RapportPayload {
   collaborateur: string
   entreprise: string
@@ -10,6 +28,7 @@ interface RapportPayload {
   annee: number
   dates: string[]   // ['21.03', '22.03', ...]  — 7 entries
   gridData: { [rowKey: string]: { [day: string]: string } }
+  dayTypes?: { [day: string]: LineType }
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -56,7 +75,7 @@ function wrapText(
 export async function POST(req: NextRequest) {
   try {
     const body: RapportPayload = await req.json()
-    const { collaborateur, entreprise, semaine, dates, gridData } = body
+    const { collaborateur, entreprise, semaine, dates, gridData, dayTypes } = body
 
     const pdfDoc = await PDFDocument.create()
     // A4 portrait
@@ -191,17 +210,51 @@ export async function POST(req: NextRequest) {
     drawRow(headerRowY, `Semaine N\u00b0${semaine}`, '', DAYS, 'TOTAL', true)
     curY = headerRowY
 
-    // ── Section 1: Date / Heures normales / Repas ──
-    const sec1 = [
-      { key: 'date',           label: 'Date',            sub: '',             isDate: true  },
-      { key: 'heuresNormales', label: 'Heures normales', sub: 'en centi\u00e8mes', isDate: false },
-      { key: 'repas',          label: 'Repas',           sub: '',             isDate: false },
-    ]
-    for (const row of sec1) {
+    // ── Section 1: Date / Type / Heures normales / Repas ──
+
+    // Date row
+    curY -= rH
+    const dateVals = DAYS.map((_, di) => dates[di] || '')
+    drawRow(curY, 'Date', '', dateVals, '', true)
+
+    // Type row (only if dayTypes has non-travail entries)
+    const hasTypes = dayTypes && DAYS.some(d => dayTypes[d] && dayTypes[d] !== 'travail')
+    if (hasTypes) {
       curY -= rH
-      const vals = DAYS.map((d, di) => row.isDate ? (dates[di] || '') : (gridData[row.key]?.[d] || ''))
-      const tot  = row.isDate ? '' : calcTotal(row.key, gridData)
-      drawRow(curY, row.label, row.sub, vals, tot, row.isDate)
+      // Draw row manually with colored text
+      page.drawRectangle({ x: tX, y: curY, width: cW, height: rH, borderColor: K, borderWidth: 0.5, color: W })
+      page.drawText('Type', { x: tX + 6, y: curY + rH / 2 - 3, size: 8, font: fB, color: K })
+      page.drawLine({ start: { x: tX + lCW, y: curY }, end: { x: tX + lCW, y: curY + rH }, thickness: 0.5, color: K })
+      for (let di = 0; di < 7; di++) {
+        const cX = tX + lCW + di * dCW
+        page.drawLine({ start: { x: cX, y: curY }, end: { x: cX, y: curY + rH }, thickness: 0.5, color: K })
+        const dayType = (dayTypes?.[DAYS[di]] || 'travail') as LineType
+        const label = TYPE_LABELS[dayType]
+        if (label) {
+          const tc = TYPE_COLORS[dayType]
+          const vW = fB.widthOfTextAtSize(label, 7)
+          // Colored background pill
+          page.drawRectangle({
+            x: cX + (dCW - vW) / 2 - 3, y: curY + rH / 2 - 5,
+            width: vW + 6, height: 12, color: rgb(tc.r, tc.g, tc.b),
+            borderWidth: 0,
+          })
+          page.drawText(label, { x: cX + (dCW - vW) / 2, y: curY + rH / 2 - 3, size: 7, font: fB, color: W })
+        }
+      }
+      page.drawLine({ start: { x: tCX, y: curY }, end: { x: tCX, y: curY + rH }, thickness: 0.5, color: K })
+    }
+
+    // Heures normales + Repas rows
+    const sec1Rest = [
+      { key: 'heuresNormales', label: 'Heures normales', sub: 'en centi\u00e8mes' },
+      { key: 'repas',          label: 'Repas',           sub: '' },
+    ]
+    for (const row of sec1Rest) {
+      curY -= rH
+      const vals = DAYS.map(d => gridData[row.key]?.[d] || '')
+      const tot = calcTotal(row.key, gridData)
+      drawRow(curY, row.label, row.sub, vals, tot)
     }
 
     // ── Gap between sections ──

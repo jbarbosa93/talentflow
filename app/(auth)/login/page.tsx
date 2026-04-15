@@ -32,7 +32,8 @@ function LoginForm() {
   const [forgotLoading, setForgotLoading]   = useState(false)
   const [forgotSent, setForgotSent]         = useState(false)
 
-  // Logout automatique (inactivité 2h) → OTP non requis à la reconnexion
+  // Reconnexion transparente après auto-logout (cookie tf_remember)
+  const [autoReconnecting, setAutoReconnecting] = useState(false)
   const [isAutoLogout, setIsAutoLogout] = useState(false)
   useEffect(() => {
     const flag = sessionStorage.getItem('auto_logout')
@@ -40,6 +41,21 @@ function LoginForm() {
       sessionStorage.removeItem('auto_logout')
       setIsAutoLogout(true)
     }
+    // Tenter la reconnexion silencieuse via cookie httpOnly
+    const tryAutoReconnect = async () => {
+      try {
+        const res = await fetch('/api/auth/auto-reconnect')
+        const data = await res.json()
+        if (data.reconnected) {
+          setAutoReconnecting(true)
+          router.push('/dashboard')
+          router.refresh()
+          return
+        }
+      } catch {} // cookie absent ou expiré → login normal
+    }
+    tryAutoReconnect()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Erreurs depuis le middleware
@@ -286,7 +302,12 @@ function LoginForm() {
         </motion.div>
 
         {/* ── States ── */}
-        {forgotMode ? (
+        {autoReconnecting ? (
+          <motion.div {...fadeUp(0.25)} style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Loader2 size={28} className="animate-spin" style={{ color: '#F5A623', margin: '0 auto 16px' }} />
+            <p style={{ color: '#6B7280', fontSize: 14 }}>Reconnexion en cours...</p>
+          </motion.div>
+        ) : forgotMode ? (
           /* ── Réinitialisation mot de passe ── */
           <>
             <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>

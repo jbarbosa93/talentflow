@@ -33,5 +33,9 @@ export async function POST(request: Request) {
   res.cookies.set('talentflow_otp_grace', '', {
     httpOnly: true, secure: true, sameSite: 'strict', maxAge: 0, path: '/',
   })
+  // Supprimer le cookie de reconnexion auto (logout manuel = pas de reconnexion)
+  res.cookies.set('tf_remember', '', {
+    httpOnly: true, secure: true, sameSite: 'strict', maxAge: 0, path: '/',
+  })
   return res
 }

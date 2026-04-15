@@ -103,6 +103,8 @@ export async function POST(request: NextRequest) {
         statut: statut || 'en_cours',
         notes: notes || null,
         absences: body.absences ?? [],
+        vacances: body.vacances ?? [],
+        arrets: body.arrets ?? [],
       })
       .select()
       .single()

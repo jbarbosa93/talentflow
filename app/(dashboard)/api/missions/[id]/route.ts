@@ -25,7 +25,7 @@ export async function PATCH(
       'candidat_id', 'client_id',
       'candidat_nom', 'client_nom',
       'metier', 'date_debut', 'date_fin',
-      'marge_brute', 'marge_avec_lpp', 'coefficient', 'statut', 'notes', 'absences',
+      'marge_brute', 'marge_avec_lpp', 'coefficient', 'statut', 'notes', 'absences', 'vacances', 'arrets',
     ]
     const filtered: Record<string, any> = { updated_at: new Date().toISOString() }
     for (const k of allowed) {

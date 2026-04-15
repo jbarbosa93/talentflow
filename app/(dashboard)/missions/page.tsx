@@ -31,6 +31,8 @@ interface Mission {
   photo_url: string | null
   client_canton: string | null
   absences: { debut: string; fin: string }[]
+  vacances: { debut: string; fin: string }[]
+  arrets: { debut: string; fin: string }[]
   created_at: string
   updated_at: string
 }
@@ -58,6 +60,8 @@ const EMPTY_FORM = {
   statut: 'en_cours' as 'en_cours' | 'annulee',
   notes: '',
   absences: [] as { debut: string; fin: string }[],
+  vacances: [] as { debut: string; fin: string }[],
+  arrets: [] as { debut: string; fin: string }[],
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -90,12 +94,73 @@ const STATUT_CONFIG = {
   terminee:    { label: 'Terminée',      bg: 'rgba(99,102,241,0.12)',  color: '#818CF8', icon: CheckCircle2 },
 } as const
 
+function isInPeriod(periods: { debut: string; fin: string }[], dateStr: string): { debut: string; fin: string } | null {
+  for (const p of periods) {
+    if (p.debut && p.fin && dateStr >= p.debut && dateStr <= p.fin) return p
+  }
+  return null
+}
+
+function formatDateShort(d: string): string {
+  if (!d) return '—'
+  const [, m, day] = d.split('-')
+  return `${day}.${m}`
+}
+
+function getMissionBadge(m: Mission & { _expired?: boolean }): { label: string; bg: string; color: string } {
+  const todayStr = new Date().toISOString().slice(0, 10)
+  // Priorité 1 : En arrêt (orange)
+  const arret = isInPeriod(m.arrets || [], todayStr)
+  if (arret && m.statut === 'en_cours' && !m._expired) {
+    return { label: `Arrêt dès ${formatDateShort(arret.debut)}`, bg: 'rgba(249,115,22,0.12)', color: '#F97316' }
+  }
+  // Priorité 2 : En vacances (bleu)
+  const vacance = isInPeriod(m.vacances || [], todayStr)
+  if (vacance && m.statut === 'en_cours' && !m._expired) {
+    return { label: `Vacances ${formatDateShort(vacance.debut)}→${formatDateShort(vacance.fin)}`, bg: 'rgba(56,189,248,0.12)', color: '#38BDF8' }
+  }
+  // Priorité 3 : Absence (jaune-orange)
+  const absence = isInPeriod(m.absences || [], todayStr)
+  if (absence && m.statut === 'en_cours' && !m._expired) {
+    return { label: `Absence ${formatDateShort(absence.debut)}→${formatDateShort(absence.fin)}`, bg: 'rgba(245,166,35,0.12)', color: '#F5A623' }
+  }
+  // Priorité 4 : Début bientôt (jaune) — date_debut entre demain et +7 jours
+  if (m.statut === 'en_cours' && !m._expired) {
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+    const in7 = new Date(); in7.setDate(in7.getDate() + 7)
+    const debut = new Date(m.date_debut)
+    if (debut >= tomorrow && debut <= in7) {
+      const diffDays = Math.ceil((debut.getTime() - new Date().getTime()) / 86400000)
+      return { label: `Début dans ${diffDays}j`, bg: 'rgba(234,179,8,0.12)', color: '#EAB308' }
+    }
+  }
+  // Priorité 4 : Fin de mission (rouge)
+  if (m._expired) {
+    return { label: 'Fin de Mission', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' }
+  }
+  // Priorité 5 : Actif (vert)
+  if (m.statut === 'en_cours') {
+    return { label: 'En mission', bg: 'rgba(34,197,94,0.12)', color: '#22C55E' }
+  }
+  // Sans emploi
+  return { label: 'Sans Emploi', bg: 'rgba(100,116,139,0.12)', color: '#64748B' }
+}
+
 function StatutBadge({ statut }: { statut: string }) {
   const cfg = STATUT_CONFIG[statut as keyof typeof STATUT_CONFIG] || STATUT_CONFIG.terminee
   const Icon = cfg.icon
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 99, background: cfg.bg, color: cfg.color, fontSize: 11, fontWeight: 700 }}>
       <Icon size={10} />{cfg.label}
+    </span>
+  )
+}
+
+function MissionBadge({ mission }: { mission: Mission & { _expired?: boolean } }) {
+  const badge = getMissionBadge(mission)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', borderRadius: 99, background: badge.bg, color: badge.color, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+      {badge.label}
     </span>
   )
 }
@@ -189,6 +254,8 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
     statut: ((mission.statut as string) === 'terminee' ? 'en_cours' : mission.statut) as 'en_cours' | 'annulee',
     notes: mission.notes || '',
     absences: mission.absences || [],
+    vacances: mission.vacances || [],
+    arrets: mission.arrets || [],
   } : { ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
   const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
@@ -210,6 +277,8 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
           coefficient: Number(form.coefficient || 1),
           statut: form.statut, notes: form.notes || null,
           absences: form.absences,
+          vacances: form.vacances,
+          arrets: form.arrets,
         }),
       })
       const data = await res.json()
@@ -292,17 +361,17 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Commentaires…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
 
-          {/* Absences / Vacances */}
+          {/* Absences */}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <label style={{ ...S.label, margin: 0 }}>Absences / Vacances</label>
+              <label style={{ ...S.label, margin: 0 }}>Absences</label>
               <button type="button" onClick={() => setForm(f => ({ ...f, absences: [...f.absences, { debut: '', fin: '' }] }))}
                 style={{ padding: '3px 10px', borderRadius: 6, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', color: 'var(--primary)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                 + Ajouter
               </button>
             </div>
             {form.absences.length === 0 && (
-              <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune absence — les jours ouvrables sont comptés intégralement</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune absence</div>
             )}
             {form.absences.map((abs, i) => (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 6, alignItems: 'center' }}>
@@ -330,6 +399,96 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
                   let total = 0
                   for (const abs of form.absences) {
                     if (abs.debut && abs.fin) total += countWorkingDays(new Date(abs.debut), new Date(abs.fin))
+                  }
+                  return total > 0 ? `→ ${total} jour${total > 1 ? 's' : ''} ouvrable${total > 1 ? 's' : ''} déduit${total > 1 ? 's' : ''} (${total * 8}h)` : ''
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Vacances (bleu) */}
+          <div style={{ borderTop: '1px solid rgba(56,189,248,0.3)', paddingTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label style={{ ...S.label, margin: 0, color: '#38BDF8' }}>Vacances</label>
+              <button type="button" onClick={() => setForm(f => ({ ...f, vacances: [...f.vacances, { debut: '', fin: '' }] }))}
+                style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(56,189,248,0.08)', border: '1.5px solid rgba(56,189,248,0.4)', color: '#38BDF8', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                + Ajouter
+              </button>
+            </div>
+            {form.vacances.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune vacance</div>
+            )}
+            {form.vacances.map((vac, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                <div>
+                  {i === 0 && <div style={{ fontSize: 10, color: '#38BDF8', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase' }}>Début</div>}
+                  <input type="date" value={vac.debut} onChange={e => setForm(f => ({ ...f, vacances: f.vacances.map((a, j) => j === i ? { ...a, debut: e.target.value } : a) }))}
+                    style={{ ...S.input, colorScheme: 'inherit', fontSize: 12 }} />
+                </div>
+                <div>
+                  {i === 0 && <div style={{ fontSize: 10, color: '#38BDF8', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase' }}>Fin</div>}
+                  <input type="date" value={vac.fin} onChange={e => setForm(f => ({ ...f, vacances: f.vacances.map((a, j) => j === i ? { ...a, fin: e.target.value } : a) }))}
+                    style={{ ...S.input, colorScheme: 'inherit', fontSize: 12 }} />
+                </div>
+                <div style={{ paddingTop: i === 0 ? 18 : 0 }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, vacances: f.vacances.filter((_, j) => j !== i) }))}
+                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {form.vacances.length > 0 && (
+              <div style={{ fontSize: 10, color: '#38BDF8', marginTop: 4 }}>
+                {(() => {
+                  let total = 0
+                  for (const v of form.vacances) {
+                    if (v.debut && v.fin) total += countWorkingDays(new Date(v.debut), new Date(v.fin))
+                  }
+                  return total > 0 ? `→ ${total} jour${total > 1 ? 's' : ''} ouvrable${total > 1 ? 's' : ''} déduit${total > 1 ? 's' : ''} (${total * 8}h)` : ''
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Arrêts (orange) */}
+          <div style={{ borderTop: '1px solid rgba(249,115,22,0.3)', paddingTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <label style={{ ...S.label, margin: 0, color: '#F97316' }}>Arrêts</label>
+              <button type="button" onClick={() => setForm(f => ({ ...f, arrets: [...f.arrets, { debut: '', fin: '' }] }))}
+                style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(249,115,22,0.08)', border: '1.5px solid rgba(249,115,22,0.4)', color: '#F97316', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                + Ajouter
+              </button>
+            </div>
+            {form.arrets.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun arrêt</div>
+            )}
+            {form.arrets.map((arr, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                <div>
+                  {i === 0 && <div style={{ fontSize: 10, color: '#F97316', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase' }}>Début</div>}
+                  <input type="date" value={arr.debut} onChange={e => setForm(f => ({ ...f, arrets: f.arrets.map((a, j) => j === i ? { ...a, debut: e.target.value } : a) }))}
+                    style={{ ...S.input, colorScheme: 'inherit', fontSize: 12 }} />
+                </div>
+                <div>
+                  {i === 0 && <div style={{ fontSize: 10, color: '#F97316', fontWeight: 700, marginBottom: 3, textTransform: 'uppercase' }}>Fin</div>}
+                  <input type="date" value={arr.fin} onChange={e => setForm(f => ({ ...f, arrets: f.arrets.map((a, j) => j === i ? { ...a, fin: e.target.value } : a) }))}
+                    style={{ ...S.input, colorScheme: 'inherit', fontSize: 12 }} />
+                </div>
+                <div style={{ paddingTop: i === 0 ? 18 : 0 }}>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, arrets: f.arrets.filter((_, j) => j !== i) }))}
+                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {form.arrets.length > 0 && (
+              <div style={{ fontSize: 10, color: '#F97316', marginTop: 4 }}>
+                {(() => {
+                  let total = 0
+                  for (const a of form.arrets) {
+                    if (a.debut && a.fin) total += countWorkingDays(new Date(a.debut), new Date(a.fin))
                   }
                   return total > 0 ? `→ ${total} jour${total > 1 ? 's' : ''} ouvrable${total > 1 ? 's' : ''} déduit${total > 1 ? 's' : ''} (${total * 8}h)` : ''
                 })()}
@@ -438,14 +597,6 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         )}
       </div>
 
-      {/* Statut */}
-      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <StatutBadge statut={effectifStatut} />
-        {lppActive && (
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#818CF8', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: 99 }}>LPP</span>
-        )}
-      </div>
-
       {/* Candidat */}
       <div style={{ flex: '1 1 180px', minWidth: 0, maxWidth: 220 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -461,7 +612,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
             </span>
           )}
         </div>
-        {mission.metier && <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, marginTop: 2, marginLeft: 17 }}>{mission.metier}</div>}
+        {mission.metier && <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, marginTop: 2, marginLeft: 17 }}>{mission.metier}</div>}
       </div>
 
       {/* Client */}
@@ -475,12 +626,12 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
       </div>
 
       {/* Dates */}
-      <div style={{ flex: '0 1 155px', minWidth: 0, fontSize: 12, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ flex: '0 1 155px', minWidth: 0, fontSize: 13, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-          <Calendar size={11} style={{ flexShrink: 0 }} />{formatDate(mission.date_debut)}{mission.date_fin ? ` → ${formatDate(mission.date_fin)}` : ''}
+          <Calendar size={12} style={{ flexShrink: 0 }} />{formatDate(mission.date_debut)}{mission.date_fin ? ` → ${formatDate(mission.date_fin)}` : ''}
         </div>
         {!mission.date_fin && (
-          <span style={{ fontSize: 9, fontWeight: 700, color: '#818CF8', marginLeft: 15 }}>∞ Indéterminée</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8', marginLeft: 16 }}>∞ Indéterminée</span>
         )}
         {(() => {
           const debut = new Date(mission.date_debut)
@@ -489,7 +640,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
           const semaines = Math.floor(jours / 7)
           const mois = Math.floor(jours / 30)
           const label = mois >= 1 ? `${mois} mois` : semaines >= 1 ? `${semaines} sem.` : `${jours} j`
-          return <span style={{ fontSize: 9, color: 'var(--muted)', marginLeft: 15 }}>{label}</span>
+          return <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 16 }}>{label}</span>
         })()}
       </div>
 
@@ -500,15 +651,29 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         </span>
       </div>
 
-      {/* Marge */}
-      <div style={{ flex: 1, textAlign: 'right', fontSize: 15, fontWeight: 800, color: '#22C55E' }}>
-        {formatCHF(Number(mission.marge_brute))}
+      {/* Statut badge */}
+      <div style={{ flex: '1 1 140px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <MissionBadge mission={mission} />
+        {(() => {
+          if (!mission.date_fin || mission._expired) return null
+          const todayMs = new Date(new Date().toISOString().slice(0, 10)).getTime()
+          const finMs = new Date(mission.date_fin).getTime()
+          const diffDays = Math.round((finMs - todayMs) / 86400000)
+          if (diffDays < 0 || diffDays > 5) return null
+          const label = diffDays === 0 ? 'Fin aujourd\'hui' : `Fin dans ${diffDays}j`
+          return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10, fontWeight: 800, color: '#EF4444', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>{label}</span>
+        })()}
       </div>
 
-      {/* Notes dot */}
-      {mission.notes && (
-        <div title={mission.notes} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--muted)', flexShrink: 0 }} />
-      )}
+      {/* Marge + LPP */}
+      <div style={{ flex: '0 0 90px', textAlign: 'right' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: '#22C55E' }}>
+          {formatCHF(Number(mission.marge_brute))}
+        </div>
+        {lppActive && (
+          <span style={{ fontSize: 9, fontWeight: 800, color: '#818CF8', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: 99 }}>LPP</span>
+        )}
+      </div>
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
@@ -543,8 +708,7 @@ export default function MissionsPage() {
   })
   const [sortKey, setSortKey] = useState<'candidat' | 'client' | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-  const [filtreMetier, setFiltreMetier] = useState('')
-  const [filtreStatut, setFiltreStatut] = useState<'tous' | 'en_cours' | 'fin_mission'>('tous')
+  const [filtreStatut, setFiltreStatut] = useState<'en_cours' | 'fin_mission'>('en_cours')
   const [mounted, setMounted] = useState(false)
   const [activeMainTab, setActiveMainTab] = useState<'missions' | 'bilan'>('missions')
 
@@ -571,15 +735,52 @@ export default function MissionsPage() {
 
   // Stats client-side
   const activeEnCours = withEffectif.filter(m => m.statut === 'en_cours' && !m._expired)
+
+  // ETP prorata semaine en cours (lundi-vendredi)
+  const now = new Date()
+  const nowDow = now.getDay() // 0=dim, 1=lun...
+  const mondayOffset = nowDow === 0 ? -6 : 1 - nowDow
+  const weekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset)
+  const weekFriday = new Date(weekMonday)
+  weekFriday.setDate(weekMonday.getDate() + 4)
+
   const stats = {
     total_en_cours: activeEnCours.length,
-    total_fin_mission: withEffectif.filter(m => m._expired).length,
+    total_fin_mission: withEffectif.filter(m => {
+      if (!m.date_fin || m.statut !== 'en_cours') return false
+      return m.date_fin >= '2026-04-01' && m.date_fin <= weekFriday.toISOString().slice(0, 10)
+    }).length,
     total_sans_emploi: withEffectif.filter(m => m.statut === 'annulee').length,
-    total_etp: activeEnCours.reduce((s, m) => s + Number(m.coefficient || 1), 0),
+    total_etp: activeEnCours.reduce((s, m) => {
+      const coeff = Number(m.coefficient || 1)
+      const debut = new Date(m.date_debut)
+      const fin = m.date_fin ? new Date(m.date_fin) : weekFriday
+      const effStart = debut > weekMonday ? debut : weekMonday
+      const effEnd = fin < weekFriday ? fin : weekFriday
+      if (effStart > effEnd) return s
+      const effDays = countWorkingDays(effStart, effEnd)
+      const absDays = countAbsenceDays(m.absences || [], effStart, effEnd)
+      const vacDays = countAbsenceDays(m.vacances || [], effStart, effEnd)
+      const arrDays = countAbsenceDays(m.arrets || [], effStart, effEnd)
+      const netDays = Math.max(0, effDays - absDays - vacDays - arrDays)
+      const totalDays = countWorkingDays(weekMonday, weekFriday)
+      return s + coeff * (totalDays > 0 ? netDays / totalDays : 0)
+    }, 0),
     marge_en_cours: activeEnCours.reduce((s, m) => s + Number(m.marge_brute || 0), 0),
-    marge_moyenne: activeEnCours.length
-      ? activeEnCours.reduce((s, m) => s + Number(m.marge_brute || 0), 0) / activeEnCours.length
-      : 0,
+    marge_moyenne: (() => {
+      // Missions qui chevauchent avril+ ET déjà commencées
+      const avrilPlus = withEffectif.filter(m => {
+        if (m.statut === 'annulee') return false
+        const fin = m.date_fin || '9999-12-31'
+        return fin >= '2026-04-01' && m.date_debut <= todayStr
+      })
+      return avrilPlus.length ? avrilPlus.reduce((s, m) => s + Number(m.marge_brute || 0), 0) / avrilPlus.length : 0
+    })(),
+    _marge_moyenne_count: withEffectif.filter(m => {
+      if (m.statut === 'annulee') return false
+      const fin = m.date_fin || '9999-12-31'
+      return fin >= '2026-04-01' && m.date_debut <= todayStr
+    }).length,
   }
 
   // Liste : uniquement en_cours (En Mission + Fin de Mission)
@@ -588,23 +789,45 @@ export default function MissionsPage() {
   // Filtrage par statut (onglets)
   const rawByStatut = filtreStatut === 'en_cours'
     ? rawMissions.filter(m => !m._expired)
-    : filtreStatut === 'fin_mission'
-      ? rawMissions.filter(m => m._expired)
-      : rawMissions
+    : rawMissions.filter(m => m._expired)
 
-  // Filtrage par métier
-  const filteredMissions = filtreMetier
-    ? rawByStatut.filter(m => (m.metier || '').toLowerCase().includes(filtreMetier.toLowerCase()))
-    : rawByStatut
+  const filteredMissions = rawByStatut
 
-  // Tri
+  // Tri par priorité
+  function getMissionSortOrder(m: Mission & { _expired?: boolean }): number {
+    const todayStr = new Date().toISOString().slice(0, 10)
+    // 0 = Arrêt
+    if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.arrets || [], todayStr)) return 0
+    // 1 = Vacances
+    if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.vacances || [], todayStr)) return 1
+    // 2 = Absence
+    if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.absences || [], todayStr)) return 2
+    // 3 = Début bientôt
+    if (m.statut === 'en_cours' && !m._expired) {
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+      const in7 = new Date(); in7.setDate(in7.getDate() + 7)
+      const debut = new Date(m.date_debut)
+      if (debut >= tomorrow && debut <= in7) return 3
+    }
+    // 4 = Actif
+    if (m.statut === 'en_cours' && !m._expired) return 4
+    // 5 = Fin de mission
+    return 5
+  }
+
   const missions = sortKey
     ? [...filteredMissions].sort((a, b) => {
         const va = sortKey === 'candidat' ? (a.candidat_nom || '') : (a.client_nom || '')
         const vb = sortKey === 'candidat' ? (b.candidat_nom || '') : (b.client_nom || '')
         return sortDir === 'asc' ? va.localeCompare(vb, 'fr') : vb.localeCompare(va, 'fr')
       })
-    : filteredMissions
+    : [...filteredMissions].sort((a, b) => {
+        const oa = getMissionSortOrder(a)
+        const ob = getMissionSortOrder(b)
+        if (oa !== ob) return oa - ob
+        // Actifs triés par date_debut desc
+        return new Date(b.date_debut).getTime() - new Date(a.date_debut).getTime()
+      })
 
   // Bilan mensuel — jours ouvrables prorata
   const today = new Date()
@@ -676,7 +899,9 @@ export default function MissionsPage() {
       const feriesLabels = feriesOuvrablesLabels(feriesList, effStart, effEnd)
       const wdBrut = countWorkingDays(effStart, effEnd, feries)
       const absJours = countAbsenceDays(m.absences || [], effStart, effEnd)
-      const wd = Math.max(0, wdBrut - absJours)
+      const vacJours = countAbsenceDays(m.vacances || [], effStart, effEnd)
+      const arrJours = countAbsenceDays(m.arrets || [], effStart, effEnd)
+      const wd = Math.max(0, wdBrut - absJours - vacJours - arrJours)
       const heures = wd * 8
       const missionAgeDays = Math.floor((bilanEnd.getTime() - new Date(m.date_debut).getTime()) / (1000 * 60 * 60 * 24))
       const lppEligible = m.marge_avec_lpp != null && missionAgeDays > 90
@@ -684,7 +909,10 @@ export default function MissionsPage() {
         ? Number(m.marge_avec_lpp)
         : (Number(m.marge_brute) > 0 ? Number(m.marge_brute) : (m.marge_avec_lpp != null ? Number(m.marge_avec_lpp) : 0))
       const margeBrute = tauxHoraire > 0 ? tauxHoraire * Number(m.coefficient) * heures : 0
-      return { mission: m, wd, heures, tauxHoraire, margeBrute, absJours, feriesCount, feriesLabels, canton }
+      // ETP prorata : jours ouvrés effectifs de la mission / jours ouvrés totaux de la période
+      const totalWdPeriod = countWorkingDays(bilanStart, bilanEnd, feries)
+      const etpProrata = totalWdPeriod > 0 ? (wdBrut / totalWdPeriod) * Number(m.coefficient) : 0
+      return { mission: m, wd, heures, tauxHoraire, margeBrute, absJours, vacJours, arrJours, feriesCount, feriesLabels, canton, etpProrata }
     })
     .sort((a, b) => (a.mission.candidat_nom || '').localeCompare(b.mission.candidat_nom || '', 'fr'))
 
@@ -694,22 +922,28 @@ export default function MissionsPage() {
     const effectiveMarge = r.tauxHoraire > 0 ? r.tauxHoraire * Number(r.mission.coefficient) * effectiveH : 0
     return s + effectiveMarge
   }, 0)
-  const etpActifs = bilanRows.reduce((s, r) => s + Number(r.mission.coefficient), 0)
+  const etpActifs = bilanRows.reduce((s, r) => s + r.etpProrata, 0)
 
   // Résumé semaines (pour vue mois)
   const weekSummaries = monthWeeks.map(w => {
+    const totalWdWeek = countWorkingDays(w.start, w.end)
     const rows = allMissions.filter(m => {
       if (m.statut === 'annulee') return false
       const debut = new Date(m.date_debut)
       const fin = m.date_fin ? new Date(m.date_fin) : w.end
       return debut <= w.end && fin >= w.start
     })
-    const totalCoeff = rows.reduce((s, m) => s + Number(m.coefficient), 0)
+    const totalCoeff = rows.reduce((s, m) => {
+      const debut = new Date(m.date_debut)
+      const fin = m.date_fin ? new Date(m.date_fin) : w.end
+      const effStart = debut < w.start ? w.start : debut
+      const effEnd = fin > w.end ? w.end : fin
+      const effWd = countWorkingDays(effStart, effEnd)
+      const prorata = totalWdWeek > 0 ? effWd / totalWdWeek : 0
+      return s + Number(m.coefficient) * prorata
+    }, 0)
     return { ...w, count: rows.length, avgCoeff: rows.length ? totalCoeff / rows.length : 0, totalCoeff }
   })
-
-  // Liste des métiers uniques pour le filtre
-  const metiersUniques = Array.from(new Set(rawByStatut.map(m => m.metier).filter(Boolean) as string[])).sort()
 
   const toggleSort = (key: 'candidat' | 'client') => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -774,7 +1008,7 @@ export default function MissionsPage() {
           <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>{stats.total_en_cours}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
             {stats.total_fin_mission > 0
-              ? <span style={{ color: '#EF4444', fontWeight: 700 }}>⚠ {stats.total_fin_mission} fin de mission</span>
+              ? <span style={{ color: '#EF4444', fontWeight: 700 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
               : <span>Toutes actives</span>}
           </div>
         </div>
@@ -789,8 +1023,8 @@ export default function MissionsPage() {
         {/* Marge moyenne */}
         <div style={{ ...S.card, padding: '14px 18px', flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Marge moy. / candidat</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#22C55E', lineHeight: 1 }}>{stats.total_en_cours > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{stats.total_en_cours > 0 ? `Sur ${stats.total_en_cours} mission${stats.total_en_cours !== 1 ? 's' : ''} actives` : 'Aucune mission active'}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: '#22C55E', lineHeight: 1 }}>{stats._marge_moyenne_count > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{stats._marge_moyenne_count > 0 ? `Sur ${stats._marge_moyenne_count} mission${stats._marge_moyenne_count !== 1 ? 's' : ''} (dès avril)` : 'Aucune mission depuis avril'}</div>
         </div>
       </div>
 
@@ -912,7 +1146,7 @@ export default function MissionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bilanRows.map(({ mission: m, wd, heures, tauxHoraire, absJours, feriesCount, feriesLabels, canton }) => {
+                  {bilanRows.map(({ mission: m, wd, heures, tauxHoraire, absJours, vacJours, arrJours, feriesCount, feriesLabels, canton }) => {
                     const hOverride = heuresOverride[m.id]
                     const effectiveH = hOverride !== undefined ? Number(hOverride) : heures
                     const effectiveMarge = tauxHoraire > 0 ? tauxHoraire * Number(m.coefficient) * effectiveH : 0
@@ -937,6 +1171,8 @@ export default function MissionsPage() {
                         <td style={{ padding: '7px 12px', textAlign: 'right', color: 'var(--muted)' }}>
                           {wd}
                           {absJours > 0 && <span style={{ fontSize: 9, color: '#F5A623', marginLeft: 3 }} title={`${absJours} j. absence déduit${absJours > 1 ? 's' : ''}`}>-{absJours}</span>}
+                          {vacJours > 0 && <span style={{ fontSize: 9, color: '#38BDF8', marginLeft: 3 }} title={`${vacJours} j. vacances déduit${vacJours > 1 ? 's' : ''}`}>-{vacJours}v</span>}
+                          {arrJours > 0 && <span style={{ fontSize: 9, color: '#F97316', marginLeft: 3 }} title={`${arrJours} j. arrêt déduit${arrJours > 1 ? 's' : ''}`}>-{arrJours}a</span>}
                           {feriesCount > 0 && (
                             <span
                               style={{ fontSize: 9, color: '#818CF8', marginLeft: 3, cursor: 'default' }}
@@ -982,8 +1218,7 @@ export default function MissionsPage() {
       {rawMissions.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
           {([
-            { key: 'tous',        label: 'Tous',            count: rawMissions.length },
-            { key: 'en_cours',    label: 'En Mission',      count: rawMissions.filter(m => !m._expired).length,  color: '#22C55E' },
+            { key: 'en_cours',    label: 'Actifs',           count: rawMissions.filter(m => !m._expired).length,  color: '#22C55E' },
             { key: 'fin_mission', label: 'Fin de Mission',  count: rawMissions.filter(m => m._expired).length,   color: '#EF4444' },
           ] as { key: typeof filtreStatut; label: string; count: number; color?: string }[]).map(tab => (
             <button key={tab.key} onClick={() => setFiltreStatut(tab.key)}
@@ -998,33 +1233,22 @@ export default function MissionsPage() {
       {/* Filtres + en-tête colonnes */}
       {rawMissions.length > 0 && (
         <>
-          {/* Filtre métier */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-            <select value={filtreMetier} onChange={e => setFiltreMetier(e.target.value)}
-              style={{ ...S.input, width: 'auto', minWidth: 180, fontSize: 12, padding: '6px 10px' }}>
-              <option value="">Tous les métiers</option>
-              {metiersUniques.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-            {filtreMetier && (
-              <button onClick={() => setFiltreMetier('')} style={{ padding: '5px 10px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 11, cursor: 'pointer' }}>
-                Effacer
-              </button>
-            )}
-            <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 'auto' }}>{missions.length} résultat{missions.length !== 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{missions.length} résultat{missions.length !== 1 ? 's' : ''}</span>
           </div>
           {/* En-tête colonnes */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', marginBottom: 6 }}>
             <div style={{ flex: '0 0 48px' }}></div>
-            <div style={{ flex: '0 0 90px' }}></div>
-            <button onClick={() => toggleSort('candidat')} style={{ flex: '0 0 220px', fontSize: 11, fontWeight: 700, color: sortKey === 'candidat' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => toggleSort('candidat')} style={{ flex: '1 1 180px', maxWidth: 220, fontSize: 11, fontWeight: 700, color: sortKey === 'candidat' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               Candidat {sortKey === 'candidat' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
-            <button onClick={() => toggleSort('client')} style={{ flex: '0 0 200px', fontSize: 11, fontWeight: 700, color: sortKey === 'client' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => toggleSort('client')} style={{ flex: '1 1 150px', maxWidth: 200, fontSize: 11, fontWeight: 700, color: sortKey === 'client' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               Client {sortKey === 'client' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
-            <div style={{ flex: '0 0 155px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dates</div>
-            <div style={{ flex: '0 0 50px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Coeff</div>
-            <div style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Marge</div>
+            <div style={{ flex: '0 1 155px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dates</div>
+            <div style={{ flex: '0 0 50px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Répart.</div>
+            <div style={{ flex: '1 1 140px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</div>
+            <div style={{ flex: '0 0 90px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Marge</div>
             <div style={{ width: 78 }}></div>
           </div>
         </>

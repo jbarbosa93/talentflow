@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ClipboardList, FileDown, Loader2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, FileDown, Loader2, Clock, Umbrella, Sun, UserX, Thermometer } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -13,6 +13,17 @@ type GridData = {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+
+// Types de lignes pour le rapport
+type LineType = 'travail' | 'ferie' | 'vacances' | 'absence' | 'maladie'
+
+const LINE_TYPES: { key: LineType; label: string; color: string; icon: typeof Clock; autoHours: number | null }[] = [
+  { key: 'travail',  label: 'Heures travaillées', color: '#22C55E', icon: Clock,        autoHours: null },
+  { key: 'ferie',    label: 'Jour férié',         color: '#F59E0B', icon: Sun,           autoHours: 8 },
+  { key: 'vacances', label: 'Vacances',           color: '#3B82F6', icon: Umbrella,      autoHours: 8 },
+  { key: 'absence',  label: 'Absence',            color: '#EF4444', icon: UserX,         autoHours: null },
+  { key: 'maladie',  label: 'Maladie',            color: '#8B5CF6', icon: Thermometer,   autoHours: null },
+]
 
 const ROWS: { key: string; label: string; type: 'number' | 'text' }[] = [
   { key: 'heuresNormales', label: 'Heures normales (en centièmes)', type: 'number' },
@@ -84,6 +95,9 @@ export default function RapportHeuresPage() {
   const [entreprise, setEntreprise] = useState('')
   const [semaine, setSemaine] = useState<number>(getCurrentWeek())
   const [grid, setGrid] = useState<GridData>(initGrid())
+  const [dayTypes, setDayTypes] = useState<{ [day: string]: LineType }>(
+    () => Object.fromEntries(DAYS.map(d => [d, 'travail' as LineType]))
+  )
 
   const [pdfLoading, setPdfLoading] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
@@ -102,6 +116,24 @@ export default function RapportHeuresPage() {
     }))
   }, [])
 
+  const updateDayType = useCallback((day: string, type: LineType) => {
+    setDayTypes(prev => ({ ...prev, [day]: type }))
+    const typeDef = LINE_TYPES.find(t => t.key === type)
+    if (typeDef?.autoHours !== null) {
+      // Auto-remplir heures normales avec la valeur fixe
+      setGrid(prev => ({
+        ...prev,
+        heuresNormales: { ...prev.heuresNormales, [day]: String(typeDef!.autoHours) },
+      }))
+    } else if (type === 'travail') {
+      // Remettre à vide si retour en "travail"
+      setGrid(prev => ({
+        ...prev,
+        heuresNormales: { ...prev.heuresNormales, [day]: '' },
+      }))
+    }
+  }, [])
+
   // Build payload for API
   const buildPayload = () => ({
     collaborateur,
@@ -110,6 +142,7 @@ export default function RapportHeuresPage() {
     annee: currentYear,
     dates: dates.map(d => formatDate(d)),
     gridData: grid,
+    dayTypes,
   })
 
   // ── Generate PDF ──
@@ -240,6 +273,43 @@ export default function RapportHeuresPage() {
             </tr>
           </thead>
           <tbody>
+            {/* Ligne type de jour */}
+            <tr style={{ background: 'rgba(0,0,0,0.03)' }}>
+              <td style={{
+                padding: '6px 12px', borderBottom: '1px solid var(--border)',
+                fontWeight: 600, color: 'var(--muted)', fontSize: 11,
+                borderRight: '1px solid var(--border)',
+              }}>
+                Type de journée
+              </td>
+              {DAYS.map(day => {
+                const currentType = dayTypes[day] || 'travail'
+                const typeDef = LINE_TYPES.find(t => t.key === currentType)!
+                const Icon = typeDef.icon
+                return (
+                  <td key={day} style={{
+                    padding: 2, borderBottom: '1px solid var(--border)',
+                    borderRight: '1px solid var(--border)', textAlign: 'center',
+                  }}>
+                    <select
+                      value={currentType}
+                      onChange={e => updateDayType(day, e.target.value as LineType)}
+                      style={{
+                        width: '100%', border: 'none', outline: 'none', cursor: 'pointer',
+                        background: `${typeDef.color}15`, color: typeDef.color,
+                        fontSize: 10, fontWeight: 700, padding: '4px 2px',
+                        borderRadius: 4, textAlign: 'center',
+                      }}
+                    >
+                      {LINE_TYPES.map(lt => (
+                        <option key={lt.key} value={lt.key}>{lt.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                )
+              })}
+              <td style={{ borderBottom: '1px solid var(--border)', padding: 4 }} />
+            </tr>
             {ROWS.map((row, rowIdx) => {
               const isEven = rowIdx % 2 === 0
               const total = calcRowTotal(row.key, grid)
@@ -252,24 +322,36 @@ export default function RapportHeuresPage() {
                   }}>
                     {row.label}
                   </td>
-                  {DAYS.map(day => (
-                    <td key={day} style={{
-                      padding: 4, borderBottom: '1px solid var(--border)',
-                      borderRight: '1px solid var(--border)', textAlign: 'center',
-                    }}>
-                      <input
-                        type={row.type}
-                        value={grid[row.key]?.[day] ?? ''}
-                        onChange={e => updateCell(row.key, day, e.target.value)}
-                        placeholder="—"
-                        style={{
-                          width: '100%', background: 'none', border: 'none', outline: 'none',
-                          textAlign: 'center', fontSize: 13, color: 'var(--foreground)',
-                          padding: '4px 2px', boxSizing: 'border-box',
-                        }}
-                      />
-                    </td>
-                  ))}
+                  {DAYS.map(day => {
+                    const currentType = dayTypes[day] || 'travail'
+                    const typeDef = LINE_TYPES.find(t => t.key === currentType)!
+                    const isAutoHours = row.key === 'heuresNormales' && typeDef.autoHours !== null
+                    const isNonWorkDay = currentType !== 'travail'
+                    return (
+                      <td key={day} style={{
+                        padding: 4, borderBottom: '1px solid var(--border)',
+                        borderRight: '1px solid var(--border)', textAlign: 'center',
+                        background: isNonWorkDay ? `${typeDef.color}08` : undefined,
+                      }}>
+                        <input
+                          type={row.type}
+                          value={grid[row.key]?.[day] ?? ''}
+                          onChange={e => updateCell(row.key, day, e.target.value)}
+                          placeholder="—"
+                          disabled={isAutoHours}
+                          style={{
+                            width: '100%', background: 'none', border: 'none', outline: 'none',
+                            textAlign: 'center', fontSize: 13,
+                            color: isAutoHours ? typeDef.color : 'var(--foreground)',
+                            fontWeight: isAutoHours ? 700 : 400,
+                            padding: '4px 2px', boxSizing: 'border-box',
+                            cursor: isAutoHours ? 'not-allowed' : undefined,
+                            opacity: isAutoHours ? 0.8 : 1,
+                          }}
+                        />
+                      </td>
+                    )
+                  })}
                   <td style={{
                     padding: '8px 10px', borderBottom: '1px solid var(--border)',
                     textAlign: 'center', fontWeight: 700,

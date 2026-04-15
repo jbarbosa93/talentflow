@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.8 production** — 15/04/2026
+**1.9.9 production** — 15/04/2026
 
 ---
 
@@ -185,7 +185,7 @@ Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/
 - **Doublons** : détection instantanée par critères exacts (email score 100, téléphone normalisé +41 score 95, nom+prénom score 85), historique en DB (`doublons_historique`), fusion guidée champ par champ — sans IA
 - **Clients** : base de 1200+ entreprises, campagnes e-mail, gestion des contacts, filtre géographique, recherche IA (Claude web_search + zefix.ch/local.ch)
 - **Pipeline** : grille 3 colonnes, onglets consultants (João/Seb) avec compteurs, sous-onglets métiers filtrés par consultant actif avec compteurs, cards enrichies, rappels (toast permanent), ModifierModal, aperçu CV au survol, catégorie "Non classés". Consultant **obligatoire** — erreur 400 si ajout sans consultant
-- **Missions** : CRUD complet, stats marge brute/coefficient, bilan mensuel (jours fériés cantonaux), import Notion, sync Quadrigis (validation manuelle via missions_pending)
+- **Missions** : CRUD complet, stats marge brute/coefficient, bilan mensuel (jours fériés cantonaux), import Notion, sync Quadrigis (validation manuelle via missions_pending). Colonnes `vacances` et `arrets` (JSONB) — badges colorés par priorité (arrêt orange, vacances bleu, absence jaune, début bientôt, fin de mission), tri automatique, ETP prorata déduit absences/vacances/arrêts, marge moyenne dès avril 2026
 - **Secrétariat** : dashboard séparé (rôle Secrétaire), 6 tables DB (candidats, accidents, ALFA, paiements, loyers, notifications), import Excel (430 candidats + 113 accidents + 180 ALFA + 76 paiements + 2 loyers), historique modifications, notifications auto+manuelles avec badge sidebar, WhatsApp partout, lien fiche candidat
 - **Entretiens / Suivi** : vue liste, rappels avec notification, badge sidebar (lien sidebar masqué)
 - **OneDrive** : sync automatique récursif (cron 10min), déduplication, historique fichiers, `cvScore=0` classé diplôme/certificat

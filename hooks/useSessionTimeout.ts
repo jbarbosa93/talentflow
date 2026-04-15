@@ -34,7 +34,18 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
     clearAll()
     localStorage.removeItem(LS_KEY)
     sessionStorage.setItem('auto_logout', 'true')
+    // Poser le cookie tf_remember AVANT le signOut (nécessite la session pour lire l'email)
     const supabase = createClient()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) {
+        await fetch('/api/auth/auto-reconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email }),
+        })
+      }
+    } catch {} // best-effort — ne pas bloquer le logout
     await supabase.auth.signOut()
     await fetch('/api/auth/logout', { method: 'POST' })
     onLogout()
