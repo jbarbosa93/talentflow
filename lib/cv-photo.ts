@@ -29,8 +29,8 @@ export function scoreHeadshot(img: ImageCandidate): number {
   // --- Détection photo N&B / niveaux de gris ---
   const likelyBW = img.uniqueColors <= 20 && img.skinRatio >= 0.04
 
-  // Peau < 3% sans N&B et petite image → probablement icône/logo
-  if (img.skinRatio < 0.03 && !likelyBW && img.area < 50000) return -100
+  // Peau < 3% sans N&B → probablement icône/logo/image décorative
+  if (img.skinRatio < 0.03 && !likelyBW) return -100
 
   // --- Rejet icône monochrome (≤5 couleurs ET pas N&B) ---
   if (img.uniqueColors <= 5 && !likelyBW) return -100
