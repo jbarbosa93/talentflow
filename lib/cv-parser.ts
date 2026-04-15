@@ -171,6 +171,57 @@ export async function extractTextFromCV(
 }
 
 /**
+ * Extraction texte avec rotation automatique — PDF et images
+ * Tente 0°, 90°, 180°, 270° et retourne le premier résultat ≥ minLength chars
+ * Pour PDF : rotation via pdf-lib (pas d'appel Vision)
+ * Pour images : rotation via sharp puis Vision
+ */
+export async function extractTextWithRotation(
+  buffer: Buffer,
+  filename: string,
+  minLength: number = 50
+): Promise<{ text: string; rotatedBuffer: Buffer; rotation: number }> {
+  const ext = filename.toLowerCase().split('.').pop() || ''
+  const isPDF = ext === 'pdf'
+  const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
+
+  // Tentative 0° (original)
+  if (isPDF) {
+    const text = await extractTextFromCV(buffer, filename)
+    if (text.length >= minLength) return { text, rotatedBuffer: buffer, rotation: 0 }
+
+    // Tenter 90°, 180°, 270° via pdf-lib
+    const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
+    for (const angle of [90, 180, 270]) {
+      try {
+        const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
+        for (let p = 0; p < pdfDoc.getPageCount(); p++) {
+          const page = pdfDoc.getPage(p)
+          const curr = page.getRotation().angle
+          page.setRotation(pdfDegrees((curr + angle) % 360))
+        }
+        const rotated = Buffer.from(await pdfDoc.save())
+        const rotText = await extractTextFromCV(rotated, filename)
+        if (rotText.length >= minLength) return { text: rotText, rotatedBuffer: rotated, rotation: angle }
+      } catch { /* rotation failed */ }
+    }
+
+    // Toutes les rotations échouent → retourner l'original (vide)
+    return { text: '', rotatedBuffer: buffer, rotation: 0 }
+  }
+
+  if (isImage) {
+    // Images : rotation via sharp, texte via Vision dans la route
+    // On retourne les buffers tournés pour que la route teste avec Vision
+    return { text: '', rotatedBuffer: buffer, rotation: 0 }
+  }
+
+  // Autres formats (DOCX, DOC) — pas de rotation
+  const text = await extractTextFromCV(buffer, filename)
+  return { text, rotatedBuffer: buffer, rotation: 0 }
+}
+
+/**
  * Valide un fichier CV avant upload
  */
 export function validateCVFile(file: File): { valid: boolean; error?: string } {

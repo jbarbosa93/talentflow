@@ -303,11 +303,17 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 5. Extraire le texte — timeout 10s (pdf-parse peut bloquer sur des PDFs corrompus)
+  // 5. Extraire le texte — avec rotation automatique pour les PDFs
   dbg('[CV Parse] Extraction texte...')
   let texteCV = ''
   try {
-    texteCV = await withTimeout(extractTextFromCV(buffer, filenameEffectif, file.type), 10_000, 'extraction texte')
+    const { extractTextWithRotation } = await import('@/lib/cv-parser')
+    const result = await withTimeout(extractTextWithRotation(buffer, filenameEffectif), 30_000, 'extraction texte + rotation')
+    texteCV = result.text
+    if (result.rotation !== 0) {
+      dbg(`[CV Parse] Rotation ${result.rotation}° nécessaire pour "${filenameEffectif}"`)
+      buffer = result.rotatedBuffer // utiliser le buffer tourné pour le reste du pipeline
+    }
   } catch (err: any) {
     if (err?.message === 'PDF_ENCRYPTED') {
       return NextResponse.json({ error: 'Ce PDF est protégé par mot de passe. Ouvrez-le, enregistrez-le sans protection, puis réimportez-le.' }, { status: 422 })
@@ -330,6 +336,24 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       dbg(`[CV Parse] Image (${ext}) → vision Claude...`)
       const mimeType = (file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
       analyse = await withTimeout(analyserCVDepuisImage(buffer, mimeType), 50_000, 'analyse image')
+      // Si Vision retourne quasi-vide → tenter rotations 90°, 180°, 270°
+      const imgVide = !analyse?.nom && !analyse?.prenom && !analyse?.titre_poste && !(analyse?.competences?.length)
+      if (imgVide) {
+        const sharp = (await import('sharp')).default
+        for (const angle of [90, 180, 270]) {
+          try {
+            const rotated = await sharp(buffer).rotate(angle).jpeg({ quality: 85 }).toBuffer()
+            const retryAnalyse = await withTimeout(analyserCVDepuisImage(rotated, mimeType), 50_000, `analyse image ${angle}°`)
+            const ok = retryAnalyse?.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1
+            if (ok) {
+              dbg(`[CV Parse] Image rotation ${angle}° réussie : ${retryAnalyse.nom}`)
+              analyse = retryAnalyse
+              buffer = rotated
+              break
+            }
+          } catch { /* rotation failed */ }
+        }
+      }
     } else if (isScanned && isPDF) {
       dbg('[CV Parse] PDF scanné détecté → envoi direct à Claude...')
       analyse = await withTimeout(analyserCVDepuisPDF(buffer), 55_000, 'analyse PDF scanné')

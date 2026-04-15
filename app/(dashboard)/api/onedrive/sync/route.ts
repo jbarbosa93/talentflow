@@ -434,7 +434,7 @@ export async function POST(request: Request) {
             })
             return { status: 'error', filename: fichier.name }
           }
-          const buffer = Buffer.from(await dlRes.arrayBuffer())
+          let buffer = Buffer.from(await dlRes.arrayBuffer())
           const filename = fichier.name
           const ext = filename.toLowerCase().split('.').pop() || ''
           const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
@@ -454,18 +454,41 @@ export async function POST(request: Request) {
           if (isImage) {
             // Images (JPG, PNG, etc.) → envoi direct à Claude vision
             analyse = await analyserCVDepuisImage(buffer, mimeType as any)
+            // Si quasi-vide → tenter rotations 90°, 180°, 270°
+            const imgVide = !analyse?.nom && !analyse?.prenom && !analyse?.titre_poste && !(analyse?.competences?.length)
+            if (imgVide) {
+              const sharpR = (await import('sharp')).default
+              for (const angle of [90, 180, 270]) {
+                try {
+                  const rotated = await sharpR(buffer).rotate(angle).jpeg({ quality: 85 }).toBuffer()
+                  const retryAnalyse = await analyserCVDepuisImage(rotated, mimeType as any)
+                  if (retryAnalyse?.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1) {
+                    dbg(`[OneDrive Sync] Image rotation ${angle}° pour "${filename}"`)
+                    analyse = retryAnalyse
+                    break
+                  }
+                } catch { /* rotation failed */ }
+              }
+            }
           } else if (isPDF) {
-            // PDF → essayer d'extraire le texte, sinon vision
-            try { texteCV = await extractTextFromCV(buffer, filename, mimeType) } catch (err: any) {
+            // PDF → extraction texte avec rotation automatique (0°, 90°, 180°, 270°)
+            try {
+              const { extractTextWithRotation } = await import('@/lib/cv-parser')
+              const result = await extractTextWithRotation(buffer, filename)
+              texteCV = result.text
+              if (result.rotation !== 0) {
+                dbg(`[OneDrive Sync] Rotation ${result.rotation}° pour "${filename}"`)
+                buffer = result.rotatedBuffer as any
+              }
+            } catch (err: any) {
               if (err?.message === 'PDF_ENCRYPTED') throw new Error('PDF chiffré — importez-le sans mot de passe')
               console.warn(`[OneDrive Sync] Extraction texte PDF "${filename}":`, err instanceof Error ? err.message : String(err))
             }
             if (texteCV && texteCV.trim().length >= 50) {
               analyse = await analyserCV(texteCV)
-              // Si le texte était illisible (scan rotaté) → fallback vision avec correction rotation
               const estVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
               if (estVide) {
-                dbg(`[OneDrive Sync] Texte extrait mais résultat vide (PDF rotaté?) → fallback vision`)
+                dbg(`[OneDrive Sync] Texte extrait mais résultat vide → fallback vision`)
                 analyse = await analyserCVDepuisPDF(buffer)
               }
             } else {
@@ -491,35 +514,13 @@ export async function POST(request: Request) {
             throw new Error(`Format non supporté: .${ext}`)
           }
 
-          // ── Vérification analyse vide (CV rotaté / illisible) ──────────────────
-          // Si l'analyse ne retourne ni nom, ni prénom, ni titre → réessayer avec vision PDF
+          // ── Vérification analyse vide → fallback Vision PDF ──────────────────
+          // Les rotations texte sont déjà gérées par extractTextWithRotation
+          // Ici on retente avec Vision si l'analyse IA est vide malgré le texte extrait
           const analyseVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
           if (analyseVide && isPDF) {
-            dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → retry forcé avec vision PDF (CV peut-être rotaté)`)
+            dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → retry forcé avec vision PDF`)
             try { analyse = await analyserCVDepuisPDF(buffer) } catch (err) { console.warn(`[OneDrive Sync] Vision PDF retry échoué "${filename}":`, err instanceof Error ? err.message : String(err)) }
-            // Si toujours vide → tenter rotation 180° (PDF à l'envers)
-            const encoreVide = !analyse.nom && !analyse.prenom && !analyse.titre_poste && !(analyse.competences?.length)
-            if (encoreVide) {
-              dbg(`[OneDrive Sync] Vision aussi vide → fallback rotation 180° pour "${filename}"`)
-              try {
-                const { PDFDocument, degrees: pdfDegrees } = await import('pdf-lib')
-                const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true })
-                for (let p = 0; p < pdfDoc.getPageCount(); p++) {
-                  const page = pdfDoc.getPage(p)
-                  const curr = page.getRotation().angle
-                  page.setRotation(pdfDegrees((curr + 180) % 360))
-                }
-                const rotatedBuffer = Buffer.from(await pdfDoc.save())
-                const retryAnalyse = await analyserCVDepuisPDF(rotatedBuffer)
-                const retryHasName = retryAnalyse.nom && retryAnalyse.nom !== 'Candidat' && retryAnalyse.nom.length > 1
-                if (retryHasName || retryAnalyse.email || retryAnalyse.telephone || retryAnalyse.competences?.length) {
-                  dbg(`[OneDrive Sync] Rotation 180° réussie : ${retryAnalyse.nom} ${retryAnalyse.prenom}`)
-                  analyse = retryAnalyse
-                } else {
-                  dbg(`[OneDrive Sync] Rotation 180° aussi vide`)
-                }
-              } catch (rotErr) { console.warn(`[OneDrive Sync] Rotation 180° échouée "${filename}":`, rotErr instanceof Error ? rotErr.message : String(rotErr)) }
-            }
           }
           if (analyseVide && isImage) {
             dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → image illisible, sera retentée`)
