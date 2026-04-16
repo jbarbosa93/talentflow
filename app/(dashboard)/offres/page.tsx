@@ -1,7 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench } from 'lucide-react'
+import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench, Search, Globe, Eye, Filter, ArrowUpRight, X, Zap } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Offre, OffreStatut } from '@/types/database'
 import FranceTravailComposer from '@/components/FranceTravailComposer'
+import { useOffresExternes, useOffresATraiterCount, useUpdateOffreExterneStatut, type OffreExterne, type OffreExterneStatut } from '@/hooks/useOffresExternes'
 
 const supabase = createClient()
 
@@ -38,7 +40,7 @@ function useDeleteOffre() {
 }
 
 export default function OffresPage() {
-  const [activeTab, setActiveTab] = useState<'offres' | 'analyse' | 'facebook' | 'france-travail'>('offres')
+  const [activeTab, setActiveTab] = useState<'offres' | 'analyse' | 'facebook' | 'france-travail' | 'externes'>('offres')
   const [showCreate, setShowCreate] = useState(false)
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -105,6 +107,10 @@ export default function OffresPage() {
               <span style={{ fontSize: 13 }}>🇫🇷</span>
               France Travail
             </button>
+            <button style={tabStyle(activeTab === 'externes')} onClick={() => setActiveTab('externes')}>
+              <Globe size={13} />
+              Veille offres
+            </button>
           </div>
           {activeTab === 'offres' && (
             <button onClick={() => setShowCreate(true)} className="neo-btn-yellow">
@@ -118,6 +124,7 @@ export default function OffresPage() {
       {activeTab === 'facebook' && <JobRoomComposer offres={offres || []} />}
       {activeTab === 'analyse' && <AnalyseCDC onCommandeCreated={() => setActiveTab('offres')} />}
       {activeTab === 'france-travail' && <FranceTravailComposer />}
+      {activeTab === 'externes' && <OffresExternesTab />}
       {activeTab === 'offres' && (<>
 
       {isLoading ? (
@@ -309,6 +316,373 @@ export default function OffresPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Onglet Offres Externes (Veille) ────────────────────────────────────────
+
+const CANTONS_CH = [
+  'AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU',
+  'NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH',
+]
+
+const SOURCE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  'jobs.ch':    { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
+  'jobup.ch':   { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0' },
+  'indeed.ch':  { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA' },
+}
+
+const STATUT_TABS: { key: OffreExterneStatut; label: string }[] = [
+  { key: 'a_traiter', label: 'A traiter' },
+  { key: 'ouverte', label: 'Ouvertes' },
+  { key: 'ignoree', label: 'Ignorees' },
+]
+
+function OffresExternesTab() {
+  const router = useRouter()
+  const [statutTab, setStatutTab] = useState<OffreExterneStatut>('a_traiter')
+  const [search, setSearch] = useState('')
+  const [source, setSource] = useState('')
+  const [canton, setCanton] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const { data: aTraiterCount } = useOffresATraiterCount()
+  const updateStatut = useUpdateOffreExterneStatut()
+
+  const { data: offres, isLoading } = useOffresExternes({
+    statut: statutTab,
+    source: source || undefined,
+    canton: canton || undefined,
+    search: search || undefined,
+    hideAgences: true,
+  })
+
+  const handleStatutChange = (id: string, newStatut: OffreExterneStatut) => {
+    updateStatut.mutate({ id, statut: newStatut }, {
+      onSuccess: () => {
+        toast.success(newStatut === 'ouverte' ? 'Offre ouverte' : 'Offre ignoree')
+      },
+    })
+  }
+
+  const formatDate = (d: string | null) => {
+    if (!d) return null
+    try { return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) } catch { return d }
+  }
+
+  const selectStyle: React.CSSProperties = {
+    padding: '7px 12px', border: '1.5px solid var(--border)', borderRadius: 8,
+    fontSize: 12, fontWeight: 600, color: 'var(--foreground)', background: 'var(--surface)',
+    fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+  }
+
+  const subTabStyle = (active: boolean): React.CSSProperties => ({
+    padding: '6px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    border: 'none', borderRadius: 7, fontFamily: 'inherit',
+    color: active ? 'var(--foreground)' : 'var(--muted)',
+    background: active ? 'var(--surface)' : 'transparent',
+    boxShadow: active ? '0 1px 3px rgba(0,0,0,0.10)' : 'none',
+    display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
+  })
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Sous-onglets statut */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16, background: 'var(--secondary)', borderRadius: 9, padding: 3, width: 'fit-content' }}>
+        {STATUT_TABS.map(tab => (
+          <button key={tab.key} style={subTabStyle(statutTab === tab.key)} onClick={() => setStatutTab(tab.key)}>
+            {tab.label}
+            {tab.key === 'a_traiter' && typeof aTraiterCount === 'number' && aTraiterCount > 0 && (
+              <span style={{
+                minWidth: 18, height: 18, borderRadius: 99, padding: '0 5px',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 800, lineHeight: 1,
+              }}>
+                {aTraiterCount > 99 ? '99+' : aTraiterCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtres */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1 1 220px', maxWidth: 320 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un poste..."
+            style={{
+              width: '100%', padding: '7px 12px 7px 32px', border: '1.5px solid var(--border)',
+              borderRadius: 8, fontSize: 12, fontFamily: 'inherit', color: 'var(--foreground)',
+              background: 'var(--surface)', outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+        <select value={source} onChange={e => setSource(e.target.value)} style={selectStyle}>
+          <option value="">Toutes les sources</option>
+          <option value="jobs.ch">jobs.ch</option>
+          <option value="jobup.ch">jobup.ch</option>
+          <option value="indeed.ch">indeed.ch</option>
+        </select>
+        <select value={canton} onChange={e => setCanton(e.target.value)} style={selectStyle}>
+          <option value="">Tous les cantons</option>
+          {CANTONS_CH.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {offres && (
+          <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginLeft: 'auto' }}>
+            {offres.length} offre{offres.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
+      {/* Contenu */}
+      {isLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+          {[...Array(6)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 0.4, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              style={{ height: 180, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}
+            />
+          ))}
+        </div>
+      ) : !offres?.length ? (
+        <div className="neo-empty">
+          <div className="neo-empty-icon"><Globe size={32} /></div>
+          <div className="neo-empty-title">
+            {statutTab === 'a_traiter' ? 'Aucune offre a traiter' : statutTab === 'ouverte' ? 'Aucune offre ouverte' : 'Aucune offre ignoree'}
+          </div>
+          <div className="neo-empty-sub">
+            {statutTab === 'a_traiter'
+              ? 'Les nouvelles offres apparaitront ici apres la prochaine synchronisation.'
+              : statutTab === 'ouverte'
+              ? 'Ouvrez des offres depuis l\'onglet "A traiter" pour les rendre disponibles au matching.'
+              : 'Les offres ignorees ne sont pas proposees au matching.'}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+          <AnimatePresence mode="popLayout">
+            {offres.map((offre, i) => {
+              const srcColor = SOURCE_COLORS[offre.source] || { bg: '#F1F5F9', color: '#475569', border: '#CBD5E1' }
+              const isExpanded = expandedId === offre.id
+              return (
+                <motion.div
+                  key={offre.id}
+                  layout
+                  initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: i * 0.03, type: 'spring', stiffness: 300, damping: 26 } }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  whileHover={{ y: -3, boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
+                  className="neo-card-soft"
+                  style={{ padding: 0, cursor: 'pointer', position: 'relative' }}
+                  onClick={() => setExpandedId(isExpanded ? null : offre.id)}
+                >
+                  {/* Color bar par source */}
+                  <div style={{
+                    height: 3, borderRadius: '14px 14px 0 0',
+                    background: offre.source === 'jobs.ch' ? '#3B82F6'
+                      : offre.source === 'jobup.ch' ? '#16A34A' : '#EA580C',
+                  }} />
+
+                  <div style={{ padding: '14px 16px 16px' }}>
+                    {/* Header: source badge + agence + date */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 6,
+                        background: srcColor.bg, color: srcColor.color, border: `1px solid ${srcColor.border}`,
+                        letterSpacing: '0.03em',
+                      }}>
+                        {offre.source}
+                      </span>
+                      {offre.canton && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6,
+                          background: 'var(--secondary)', color: 'var(--muted)', border: '1px solid var(--border)',
+                        }}>
+                          {offre.canton}
+                        </span>
+                      )}
+                      {offre.date_publication && (
+                        <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>
+                          {formatDate(offre.date_publication)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Titre */}
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, marginBottom: 6 }}>
+                      {offre.titre}
+                    </h3>
+
+                    {/* Entreprise + lieu */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginBottom: 8 }}>
+                      {offre.entreprise && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Building2 size={11} />{offre.entreprise}
+                        </span>
+                      )}
+                      {offre.lieu && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={11} />{offre.lieu}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Taux + salaire + contrat */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      {offre.taux_occupation && (
+                        <span className="neo-tag" style={{ fontSize: 10, padding: '2px 8px' }}>{offre.taux_occupation}</span>
+                      )}
+                      {offre.type_contrat && (
+                        <span className="neo-tag" style={{ fontSize: 10, padding: '2px 8px' }}>{offre.type_contrat}</span>
+                      )}
+                      {offre.salaire && (
+                        <span className="neo-tag" style={{ fontSize: 10, padding: '2px 8px' }}>{offre.salaire}</span>
+                      )}
+                    </div>
+
+                    {/* Competences */}
+                    {offre.competences?.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                        {offre.competences.slice(0, 4).map(c => (
+                          <span key={c} className="neo-tag" style={{ fontSize: 9, padding: '2px 7px', background: 'var(--background)' }}>{c}</span>
+                        ))}
+                        {offre.competences.length > 4 && (
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{offre.competences.length - 4}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Description expanded */}
+                    <AnimatePresence>
+                      {isExpanded && offre.description && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <div style={{
+                            marginTop: 8, padding: '10px 12px',
+                            background: 'var(--background)', borderRadius: 8, border: '1px solid var(--border)',
+                            fontSize: 12, color: 'var(--muted)', lineHeight: 1.6,
+                            maxHeight: 200, overflowY: 'auto',
+                            whiteSpace: 'pre-wrap',
+                          }}>
+                            {offre.description.slice(0, 1000)}
+                            {offre.description.length > 1000 && '...'}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                      <a
+                        href={offre.url_source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 5,
+                          fontSize: 11, fontWeight: 700, color: srcColor.color,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        Voir l&apos;offre <ArrowUpRight size={12} />
+                      </a>
+                      <span style={{ flex: 1 }} />
+                      {/* Boutons moderation */}
+                      {statutTab === 'a_traiter' && (
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleStatutChange(offre.id, 'ouverte') }}
+                            disabled={updateStatut.isPending}
+                            style={{
+                              background: '#10B981', color: '#fff', border: 'none', borderRadius: 6,
+                              padding: '5px 12px', fontSize: 11, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <Check size={12} /> Confirmer
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleStatutChange(offre.id, 'ignoree') }}
+                            disabled={updateStatut.isPending}
+                            style={{
+                              background: 'none', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 6,
+                              padding: '5px 12px', fontSize: 11, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <X size={12} /> Ignorer
+                          </button>
+                        </>
+                      )}
+                      {statutTab === 'ouverte' && (
+                        <>
+                          <button
+                            onClick={e => { e.stopPropagation(); router.push(`/matching?externe=${offre.id}&from=offres`) }}
+                            style={{
+                              background: 'linear-gradient(135deg, #F59E0B, #D97706)', color: '#fff', border: 'none', borderRadius: 6,
+                              padding: '5px 12px', fontSize: 11, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                              boxShadow: '0 1px 3px rgba(217,119,6,0.3)',
+                            }}
+                          >
+                            <Zap size={11} /> Matcher
+                          </button>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleStatutChange(offre.id, 'ignoree') }}
+                            disabled={updateStatut.isPending}
+                            style={{
+                              background: 'none', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 6,
+                              padding: '4px 10px', fontSize: 10, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                            }}
+                          >
+                            <X size={11} /> Ignorer
+                          </button>
+                        </>
+                      )}
+                      {statutTab === 'ignoree' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); handleStatutChange(offre.id, 'ouverte') }}
+                          disabled={updateStatut.isPending}
+                          style={{
+                            background: 'none', color: '#10B981', border: '1px solid #BBF7D0', borderRadius: 6,
+                            padding: '4px 10px', fontSize: 10, fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          <Check size={11} /> Rouvrir
+                        </button>
+                      )}
+                      <button
+                        onClick={e => { e.stopPropagation(); setExpandedId(isExpanded ? null : offre.id) }}
+                        style={{
+                          background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                          padding: '4px 10px', fontSize: 10, fontWeight: 700, color: 'var(--muted)',
+                          cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        <Eye size={11} /> {isExpanded ? 'Reduire' : 'Details'}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
+        </div>
+      )}
+    </motion.div>
   )
 }
 

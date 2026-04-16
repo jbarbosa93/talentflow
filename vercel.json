@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/extract-cv-text",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/offres-sync",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

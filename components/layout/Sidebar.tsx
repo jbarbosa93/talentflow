@@ -17,6 +17,7 @@ import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
 import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/useNewItemsBadges'
 import { hasBadge, getViewedSet, getViewedAllAt, ensureInit } from '@/lib/badge-candidats'
+import { useOffresATraiterCount } from '@/hooks/useOffresExternes'
 
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -159,7 +160,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     placeholderData: 0,
   })
 
-  // cvStatus supprimé — le cron extract-cv-text tourne en arrière-plan sans UI
+  // Badge offres externes à traiter
+  const { data: offresATraiterCount } = useOffresATraiterCount()
 
   // Compteur demandes d'accès en attente
   const { data: demandesCount } = useQuery({
@@ -491,6 +493,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                     }}>
                       {rappelsCount > 9 ? '9+' : rappelsCount}
+                    </span>
+                  )}
+                  {/* Badge offres externes à traiter */}
+                  {item.href === '/offres' && typeof offresATraiterCount === 'number' && offresATraiterCount > 0 && !isSecretaire && (
+                    <span style={{
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#F97316', color: '#fff',
+                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                    }}>
+                      {offresATraiterCount > 99 ? '99+' : offresATraiterCount}
                     </span>
                   )}
                   {/* Badge notifications secrétariat */}

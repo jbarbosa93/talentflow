@@ -1,9 +1,11 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
-import { useState, useEffect, useRef } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown, Globe, ArrowLeft } from 'lucide-react'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 // ─── Couleurs par score ───────────────────────────────────────────────────────
@@ -24,11 +26,46 @@ function toPhone(raw?: string | null) {
 }
 
 export default function MatchingPage() {
+  return (
+    <Suspense fallback={<div className="d-page" style={{ maxWidth: 860 }}><div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Chargement...</div></div>}>
+      <MatchingPageInner />
+    </Suspense>
+  )
+}
+
+function MatchingPageInner() {
   const [selectedOffre, setSelectedOffre] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showContactModal, setShowContactModal] = useState(false)
   const { data: offres } = useOffres()
   const matching = useMatching()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // ── Mode offre externe (arrivée depuis /offres?externe=<id>) ────────────────
+  const externeId = searchParams.get('externe')
+  const fromPage = searchParams.get('from')
+  const [externeOffre, setExterneOffre] = useState<{ id: string; titre: string; entreprise: string | null; source: string } | null>(null)
+  const externeLoaded = useRef(false)
+
+  useEffect(() => {
+    if (!externeId || externeLoaded.current) return
+    externeLoaded.current = true
+    const supabase = createClient()
+    ;(supabase as any).from('offres_externes')
+      .select('id, titre, entreprise, source')
+      .eq('id', externeId)
+      .single()
+      .then(({ data }: any) => {
+        if (data) {
+          setExterneOffre(data)
+          // Lancer l'analyse automatiquement
+          const name = data.entreprise ? `${data.entreprise} — ${data.titre}` : data.titre
+          matching.reset()
+          setTimeout(() => matching.startAnalysis(data.id, name, true), 100)
+        }
+      })
+  }, [externeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Combobox offres ──────────────────────────────────────────────────────────
   const [offreOpen, setOffreOpen] = useState(false)
@@ -68,17 +105,22 @@ export default function MatchingPage() {
   const offre = offres?.find(o => o.id === selectedOffre)
 
   // À l'arrivée sur la page : toujours repartir en mode nouvelle recherche,
-  // SAUF si une analyse est déjà en cours (running/paused)
+  // SAUF si une analyse est déjà en cours (running/paused) ou si on arrive en mode externe
   const didInit = useRef(false)
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
-    if (matching.phase !== 'running' && matching.phase !== 'paused') {
+    if (!externeId && matching.phase !== 'running' && matching.phase !== 'paused') {
       matching.reset()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => {
+    if (externeOffre) {
+      const name = externeOffre.entreprise ? `${externeOffre.entreprise} — ${externeOffre.titre}` : externeOffre.titre
+      matching.startAnalysis(externeOffre.id, name, true)
+      return
+    }
     if (!selectedOffre) return
     const name = offre ? (offre.client_nom ? `${offre.client_nom} — ${offre.titre}` : offre.titre) : ''
     matching.startAnalysis(selectedOffre, name)
@@ -90,7 +132,7 @@ export default function MatchingPage() {
   const isIdle    = matching.phase === 'idle'
   const isActive  = isRunning || isPaused
 
-  const ready = !!selectedOffre && isIdle
+  const ready = (!!selectedOffre || !!externeOffre) && isIdle
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -98,12 +140,28 @@ export default function MatchingPage() {
       {/* Header */}
       <div className="d-page-header" style={{ marginBottom: 28 }}>
         <div>
+          {fromPage && (
+            <button
+              onClick={() => router.push(`/${fromPage}`)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', fontFamily: 'inherit', padding: 0, marginBottom: 6 }}
+            >
+              <ArrowLeft size={13} /> Retour aux {fromPage === 'offres' ? 'commandes' : fromPage}
+            </button>
+          )}
           <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Sparkles size={22} color="var(--primary)" />
             Matching IA
+            {externeOffre && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 6, background: '#FFF7ED', color: '#EA580C', border: '1px solid #FED7AA', marginLeft: 4 }}>
+                <Globe size={11} /> Offre externe
+              </span>
+            )}
           </h1>
           <p className="d-page-sub">
-            Sélectionnez une commande — l&apos;IA pré-sélectionne et classe vos candidats
+            {externeOffre
+              ? <>{externeOffre.entreprise && <strong>{externeOffre.entreprise} — </strong>}{externeOffre.titre} <span style={{ color: 'var(--muted)', fontSize: 11 }}>({externeOffre.source})</span></>
+              : <>Selectionnez une commande — l&apos;IA pre-selectionne et classe vos candidats</>
+            }
           </p>
         </div>
         <Link

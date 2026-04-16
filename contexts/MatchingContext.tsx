@@ -68,6 +68,7 @@ type LsData = {
   offreName: string
   totalBase: number
   keywords: string[]
+  isExterne?: boolean
 }
 
 function lsSave(data: LsData) {
@@ -112,11 +113,12 @@ interface MatchingState {
   offreName: string
   totalBase: number      // nb total de candidats dans la base
   keywords: string[]     // mots-clés extraits de l'offre
+  isExterne: boolean     // true si matching sur offre externe
 }
 
 interface MatchingContextType extends MatchingState {
   progress: number
-  startAnalysis: (offreId: string, offreName: string) => void
+  startAnalysis: (offreId: string, offreName: string, isExterne?: boolean) => void
   pause: () => void
   resume: () => void
   stop: () => void
@@ -126,6 +128,7 @@ interface MatchingContextType extends MatchingState {
 // Extra module-level fields for new state props
 let _totalBase = 0
 let _keywords: string[] = []
+let _isExterne = false
 
 const MatchingContext = createContext<MatchingContextType | null>(null)
 
@@ -138,16 +141,19 @@ export function useMatching() {
 // ─── Analysis loop (module-level — survives soft navigation) ──────────────────
 
 function lsSnap() {
-  lsSave({ phase: _phase, results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName, totalBase: _totalBase, keywords: _keywords })
+  lsSave({ phase: _phase, results: _results, total: _total, doneCount: _doneCount, offreId: _offreId, offreName: _offreName, totalBase: _totalBase, keywords: _keywords, isExterne: _isExterne })
 }
 
-async function runAnalysisLoop(offreId: string) {
+async function runAnalysisLoop(offreId: string, isExterne = false) {
   try {
     // ── Étape 1 : pré-sélection rapide (pas de Claude) ───────────────────────
+    const preselectBody = isExterne
+      ? { offre_externe_id: offreId }
+      : { offre_id: offreId }
     const preRes = await fetch('/api/matching/preselect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ offre_id: offreId }),
+      body: JSON.stringify(preselectBody),
     })
     const preData = await preRes.json()
     const candidats = preData.candidats || []
@@ -185,7 +191,10 @@ async function runAnalysisLoop(offreId: string) {
           const r = await fetch('/api/matching', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ candidat_id: c.id, offre_id: offreId }),
+            body: JSON.stringify(isExterne
+              ? { candidat_id: c.id, offre_externe_id: offreId }
+              : { candidat_id: c.id, offre_id: offreId }
+            ),
           })
           if (r.ok) {
             const data = await r.json()
@@ -239,10 +248,11 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
       _offreName = saved.offreName
       _totalBase = saved.totalBase || 0
       _keywords  = saved.keywords || []
+      _isExterne = saved.isExterne || false
       if (restoredPhase !== saved.phase) lsSave({ ...saved, phase: restoredPhase })
-      return { phase: restoredPhase, results: saved.results, total: saved.total, doneCount: saved.doneCount, offreId: saved.offreId, offreName: saved.offreName, totalBase: _totalBase, keywords: _keywords }
+      return { phase: restoredPhase, results: saved.results, total: saved.total, doneCount: saved.doneCount, offreId: saved.offreId, offreName: saved.offreName, totalBase: _totalBase, keywords: _keywords, isExterne: _isExterne }
     }
-    return { phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] }
+    return { phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [], isExterne: false }
   })
 
   const pathname = usePathname()
@@ -267,7 +277,7 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     setState({
       phase: _phase, results: _results, total: _total,
       doneCount: _doneCount, offreId: _offreId, offreName: _offreName,
-      totalBase: _totalBase, keywords: _keywords,
+      totalBase: _totalBase, keywords: _keywords, isExterne: _isExterne,
     })
     return () => { if (_onUpdate === update) _onUpdate = null }
   }, [update])
@@ -303,7 +313,7 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     prevPhaseRef.current = state.phase
   }, [state.phase, state.results.length, state.offreId, state.offreName, state.totalBase, state.total, state.keywords, state.results, router])
 
-  const startAnalysis = useCallback((offreId: string, offreName: string) => {
+  const startAnalysis = useCallback((offreId: string, offreName: string, isExterne = false) => {
     _abortFlag = false
     _pauseFlag = false
     _phase     = 'running'
@@ -314,9 +324,10 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     _offreName = offreName
     _totalBase = 0
     _keywords  = []
-    lsSave({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [] })
-    setState({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [] })
-    runAnalysisLoop(offreId)
+    _isExterne = isExterne
+    lsSave({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [], isExterne })
+    setState({ phase: 'running', results: [], total: 0, doneCount: 0, offreId, offreName, totalBase: 0, keywords: [], isExterne })
+    runAnalysisLoop(offreId, isExterne)
   }, [])
 
   const pause = useCallback(() => {
@@ -361,8 +372,9 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     _offreName = ''
     _totalBase = 0
     _keywords  = []
+    _isExterne = false
     lsClear()
-    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] })
+    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [], isExterne: false })
   }, [])
 
   // reset = vider sans sauvegarder (nouvelle recherche, vider résultats)
@@ -377,8 +389,9 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
     _offreName = ''
     _totalBase = 0
     _keywords  = []
+    _isExterne = false
     lsClear()
-    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [] })
+    setState({ phase: 'idle', results: [], total: 0, doneCount: 0, offreId: '', offreName: '', totalBase: 0, keywords: [], isExterne: false })
   }, [])
 
   const progress = state.total > 0 ? Math.round((state.doneCount / state.total) * 100) : 0

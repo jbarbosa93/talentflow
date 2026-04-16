@@ -13,22 +13,46 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
 
   try {
-    const { candidat_id, offre_id } = await request.json()
-    if (!candidat_id || !offre_id) {
-      return NextResponse.json({ error: 'candidat_id et offre_id sont requis' }, { status: 400 })
+    const body = await request.json()
+    const { candidat_id, offre_id, offre_externe_id } = body
+
+    if (!candidat_id || (!offre_id && !offre_externe_id)) {
+      return NextResponse.json({ error: 'candidat_id et (offre_id ou offre_externe_id) sont requis' }, { status: 400 })
     }
 
     const admin = createAdminClient()
-    const [{ data: candidatRaw }, { data: offreRaw }] = await Promise.all([
-      admin.from('candidats').select('*').eq('id', candidat_id).single(),
-      admin.from('offres').select('*').eq('id', offre_id).single(),
-    ])
+    const isExterne = !!offre_externe_id
+
+    // Charger candidat + offre en parallèle
+    const candidatPromise = admin.from('candidats').select('*').eq('id', candidat_id).single()
+    const offrePromise = isExterne
+      ? (admin as any).from('offres_externes').select('*').eq('id', offre_externe_id).single()
+      : admin.from('offres').select('*').eq('id', offre_id).single()
+
+    const [{ data: candidatRaw }, { data: offreRaw }] = await Promise.all([candidatPromise, offrePromise])
 
     const candidat = candidatRaw as Candidat | null
-    const offre = offreRaw as Offre | null
-
     if (!candidat) return NextResponse.json({ error: 'Candidat introuvable' }, { status: 404 })
-    if (!offre) return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
+    if (!offreRaw) return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
+
+    // Construire l'objet offre pour calculerScoreMatching (même shape)
+    const offreForMatching = isExterne
+      ? {
+          titre: offreRaw.titre,
+          competences: offreRaw.competences || [],
+          exp_requise: 0,
+          description: offreRaw.description,
+          localisation: offreRaw.lieu,
+          notes: null,
+        }
+      : {
+          titre: (offreRaw as Offre).titre,
+          competences: (offreRaw as Offre).competences,
+          exp_requise: (offreRaw as Offre).exp_requise,
+          description: (offreRaw as Offre).description,
+          localisation: (offreRaw as Offre).localisation,
+          notes: (offreRaw as Offre).notes,
+        }
 
     const result = await calculerScoreMatching(
       {
@@ -41,23 +65,20 @@ export async function POST(request: NextRequest) {
         cv_texte_brut: candidat.cv_texte_brut,
         experiences: candidat.experiences,
       },
-      {
-        titre: offre.titre,
-        competences: offre.competences,
-        exp_requise: offre.exp_requise,
-        description: offre.description,
-        localisation: offre.localisation,
-        notes: offre.notes,
-      }
+      offreForMatching
     )
 
-    const { data: pipeline, error } = await admin
-      .from('pipeline')
-      .upsert({ candidat_id, offre_id, score_ia: result.score, score_detail: { score_competences: result.score_competences, score_experience: result.score_experience } as Record<string, number>, etape: 'nouveau' }, { onConflict: 'candidat_id,offre_id', ignoreDuplicates: false })
-      .select().single()
+    // Upsert pipeline uniquement pour les offres internes
+    if (!isExterne) {
+      const { error } = await admin
+        .from('pipeline')
+        .upsert({ candidat_id, offre_id, score_ia: result.score, score_detail: { score_competences: result.score_competences, score_experience: result.score_experience } as Record<string, number>, etape: 'nouveau' }, { onConflict: 'candidat_id,offre_id', ignoreDuplicates: false })
+        .select().single()
 
-    if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
-    return NextResponse.json({ success: true, score: result, pipeline })
+      if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, score: result })
   } catch (error) {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }

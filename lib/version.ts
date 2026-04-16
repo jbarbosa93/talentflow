@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.9'
+export const APP_VERSION = '1.9.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.10',
+    date: '2026-04-16',
+    label: 'Veille offres — scraping jobs.ch, jobup.ch, Indeed CH',
+    features: [
+      'Veille offres : scraping automatique jobs.ch, jobup.ch, Indeed CH via Apify (27 requêtes métier × 3 sources)',
+      'Veille offres : 4 secteurs couverts — bâtiment (17), industrie (4), tertiaire (3), spécialisé (3)',
+      'Veille offres : ciblage Suisse romande uniquement (cantons FR/VD/GE/VS/NE/JU/FR/BE)',
+      'Veille offres : détection automatique agences (60+ mots-clés suisses) — masquées par défaut',
+      'Veille offres : modération 3 onglets (À traiter / Ouvertes / Ignorées) + bouton Confirmer',
+      'Veille offres : badge sidebar avec compteur offres à traiter',
+      'Veille offres : cron Vercel toutes les 6h + sync manuelle',
+      'Veille offres : upsert par url_source (déduplication automatique)',
+      'Matching IA : résultats déterministes (tiebreaker candidat.id + re-sort final)',
+      'Matching IA : combobox offres avec recherche texte (titre/client/localisation)',
+      'Matching IA : cv_texte_brut 1500→2500 chars dans le prompt (meilleure précision)',
+      'Matching IA : lien fiche candidat avec ?from=matching (bouton Retour fonctionnel)',
+    ],
+  },
   {
     version: '1.9.9',
     date: '2026-04-15',

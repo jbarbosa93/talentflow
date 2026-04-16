@@ -105,22 +105,45 @@ export async function POST(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError
   try {
-    const { offre_id } = await request.json()
-    if (!offre_id) {
-      return NextResponse.json({ error: 'offre_id requis' }, { status: 400 })
+    const body = await request.json()
+    const { offre_id, offre_externe_id } = body
+
+    if (!offre_id && !offre_externe_id) {
+      return NextResponse.json({ error: 'offre_id ou offre_externe_id requis' }, { status: 400 })
     }
 
     const admin = createAdminClient()
 
-    // 1. Charger l'offre
-    const { data: offre, error: offreErr } = await admin
-      .from('offres')
-      .select('id, titre, competences, exp_requise, description, localisation')
-      .eq('id', offre_id)
-      .single()
+    // 1. Charger l'offre (interne ou externe)
+    let offre: any = null
 
-    if (offreErr || !offre) {
-      return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
+    if (offre_externe_id) {
+      const { data, error } = await (admin as any)
+        .from('offres_externes')
+        .select('id, titre, competences, description, lieu, canton')
+        .eq('id', offre_externe_id)
+        .single()
+      if (error || !data) {
+        return NextResponse.json({ error: 'Offre externe introuvable' }, { status: 404 })
+      }
+      // Normaliser vers le même format que les offres internes
+      offre = {
+        titre: data.titre,
+        competences: data.competences || [],
+        exp_requise: 0, // pas de champ exp sur les offres externes
+        description: data.description,
+        localisation: data.lieu,
+      }
+    } else {
+      const { data, error } = await admin
+        .from('offres')
+        .select('id, titre, competences, exp_requise, description, localisation')
+        .eq('id', offre_id)
+        .single()
+      if (error || !data) {
+        return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
+      }
+      offre = data
     }
 
     // 2. Extraire mots-clés de l'offre

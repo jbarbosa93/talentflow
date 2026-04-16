@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.9 production** — 15/04/2026
+**1.9.10 production** — 16/04/2026
 
 ---
 
@@ -124,7 +124,7 @@ supabase/migrations/  — SQL migrations versionnées
 | Pipeline | `/pipeline` | Admin, Consultant | Grille 3 cols, onglets consultants (João/Seb), onglets métiers, rappels |
 | Clients | `/clients` | Admin, Consultant | 1200+ entreprises, recherche IA (Claude web_search) |
 | Fiche client | `/clients/[id]` | Admin, Consultant | Détail + missions + candidats proposés |
-| Offres | `/offres` | Admin, Consultant | CRUD offres emploi |
+| Offres | `/offres` | Admin, Consultant | CRUD offres emploi + veille offres externes (scraping) |
 | Entretiens | `/entretiens` | Tous | Calendrier entretiens, rappels, badge sidebar |
 | Matching | `/matching` | Admin, Consultant | Scoring candidats ↔ offres (IA) |
 | Missions | `/missions` | Admin, Consultant | CRUD missions, stats marge, bilan mensuel, sync Quadrigis |
@@ -153,7 +153,7 @@ supabase/migrations/  — SQL migrations versionnées
 ⚠️ **État au 13/04/2026 (v1.8.33)** : Le middleware.ts exclut TOUTES les routes `/api/` de son matcher. La protection repose uniquement sur `requireAuth()` dans chaque route. **51 routes** sur 63 sont désormais protégées.
 
 ### Routes avec `requireAuth()` — 51 routes protégées (v1.8.33)
-Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/users`, `smtp/*`, `entretiens/*`, `integrations/*`, `cv/*`, `notes/*`, `matching/*`, `pipeline/*`, `logs`, `activites/*`, `whatsapp/send`, `microsoft/send`, `microsoft/email-*`, `email-templates`, `sharepoint/import`, `onedrive/folders`, `onedrive/reset-orphans`, `annonces/france-travail`, `candidats/audit/*`, `candidats/doublons/*`, `candidats/recheck-*`, `demande-acces/[id]`
+Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/users`, `smtp/*`, `entretiens/*`, `integrations/*`, `cv/*`, `notes/*`, `matching/*`, `pipeline/*`, `logs`, `activites/*`, `whatsapp/send`, `microsoft/send`, `microsoft/email-*`, `email-templates`, `sharepoint/import`, `onedrive/folders`, `onedrive/reset-orphans`, `annonces/france-travail`, `candidats/audit/*`, `candidats/doublons/*`, `candidats/recheck-*`, `demande-acces/[id]`, `offres/externes`, `offres/externes/count`, `offres/externes/statut`, `offres/sync`
 
 ### Routes sans requireAuth — restant (12 routes, toutes justifiées)
 - `/api/onedrive/sync` — protégé par header CRON_SECRET
@@ -174,6 +174,7 @@ Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/
 ### Routes spéciales
 - **`/api/cv/print`** — Proxy PDF (force `Content-Disposition: inline`)
 - **`/api/cron/onedrive-sync`** — Cron Vercel 10min
+- **`/api/cron/offres-sync`** — Cron Vercel 6h (scraping offres externes)
 - **`/api/auth/*`** — Auth flows (OTP, MDP, OAuth callback)
 
 ---
@@ -192,6 +193,7 @@ Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/
 - **France Travail** : formulaire Word pré-rempli, envoi Resend, CC fixe, historique
 - **Messages** : email/SMS/WhatsApp avec templates, activité loggée
 - **Intégrations** : Microsoft 365 OAuth par utilisateur (Outlook multi-compte)
+- **Veille offres** : scraping automatique jobs.ch, jobup.ch, Indeed CH via Apify (27 requêtes métier × 3 sources). Table `offres_externes` avec upsert par `url_source`. Détection agences (60+ mots-clés). Modération 3 onglets (À traiter / Ouvertes / Ignorées). Badge sidebar compteur. Cron Vercel 6h + sync manuelle. Ciblage Suisse romande uniquement.
 - **Activité** : timeline par onglets (Pipeline, Messages, Candidats, Imports OneDrive)
 
 ---
@@ -221,6 +223,7 @@ WHATSAPP_VERIFY_TOKEN             Webhook verify
 CRON_SECRET                       Protège /api/cron/*
 ADMIN_EMAIL                       Email admin (OBLIGATOIRE sur Vercel, pas de fallback)
 NOTION_TOKEN                      Import missions Notion
+APIFY_API_KEY                     Scraping offres externes (Apify)
 JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 ```
 
@@ -339,3 +342,12 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - `sync-quadrigis` : appelé par Cowork (externe) → implémenter API key Bearer token
 - Dashboard : 5 count queries séparées (optimiser avec RPC agrégée)
 - 21 instances `<img>` au lieu de `<Image>` Next.js (performance)
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
