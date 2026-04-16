@@ -112,7 +112,7 @@ function getMissionBadge(m: Mission & { _expired?: boolean }): { label: string; 
   // Priorité 1 : En arrêt (orange)
   const arret = isInPeriod(m.arrets || [], todayStr)
   if (arret && m.statut === 'en_cours' && !m._expired) {
-    return { label: `Arrêt dès ${formatDateShort(arret.debut)}`, bg: 'rgba(249,115,22,0.12)', color: '#F97316' }
+    return { label: `Arrêt ${formatDateShort(arret.debut)}→${formatDateShort(arret.fin)}`, bg: 'rgba(249,115,22,0.12)', color: '#F97316' }
   }
   // Priorité 2 : En vacances (bleu)
   const vacance = isInPeriod(m.vacances || [], todayStr)
