@@ -11,6 +11,8 @@ import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import AlertsBanner from '@/components/AlertsBanner'
+import TestFolderRunner from '@/components/TestFolderRunner'
 
 
 function IntegrationsContent() {
@@ -283,6 +285,12 @@ function IntegrationsContent() {
           <p className="d-page-sub">Connectez vos outils pour automatiser le recrutement</p>
         </div>
       </div>
+
+      {/* Bannière alertes admin (affichée si anomalies détectées) */}
+      <AlertsBanner />
+
+      {/* Banc de test DRY-RUN OneDrive */}
+      <TestFolderRunner />
 
       {/* Configuration API */}
       <div style={{ background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>

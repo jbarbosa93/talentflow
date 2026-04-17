@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.16'
+export const APP_VERSION = '1.9.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.17',
+    date: '2026-04-17',
+    label: 'Observabilité — détecteur anomalies + banc de test DRY-RUN OneDrive',
+    features: [
+      'Nouveau : fonction Postgres admin_detect_anomalies() (SECURITY DEFINER, accessible uniquement service_role) — scanne 3 familles d\'incohérences : cv_texte_brut qui ne contient ni nom ni prénom du candidat, imports OneDrive 48h avec nom de fichier ne matchant pas l\'identité, cv_url pointant vers des objets storage inexistants.',
+      'Route /api/admin/detect-anomalies (admin only via requireAdmin() — vérif user.email === ADMIN_EMAIL) — appelle la RPC et retourne le JSON agrégé avec durée d\'exécution.',
+      'Composant AlertsBanner affiché sur /integrations au chargement — bannière orange cliquable avec 3 sections dépliables (texte mismatch, OneDrive mismatch, CV orphelins), liens directs vers les fiches concernées. Silencieux pour non-admin.',
+      'Route POST /api/onedrive/sync-test : pipeline d\'import OneDrive en DRY-RUN STRICT — télécharge, analyse IA, appelle findExistingCandidat, retourne la décision simulée (create/update/ambiguous/insufficient/reject/reject_diplome) SANS rien écrire en DB ni Storage. Aucun activites log.',
+      'Route GET /api/onedrive/sync-test : liste les 30 derniers onedrive_fichiers + drive_id de l\'intégration active — alimente le sélecteur UI.',
+      'Composant TestFolderRunner sur /integrations : section dépliable listant les fichiers OneDrive récents, bouton "Tester" par fichier qui appelle le dry-run, affiche inline la décision + nom/prénom extraits + candidat matché + durée. Permet de valider le matching sur le dossier de prod "3. CANDIDATURES RECUES à traiter" sans polluer la DB.',
+      'Accès stricts : fonction Postgres REVOKE FROM PUBLIC/anon/authenticated + GRANT EXECUTE TO service_role uniquement. Tests rôles validés (anon bloqué, authenticated bloqué, service_role OK). Perf mesurée <1s sur 6083 candidats.',
+      'Purement additif — aucun chemin de code existant modifié. Zéro risque sur l\'import prod qui fonctionne.',
+    ],
+  },
   {
     version: '1.9.16',
     date: '2026-04-17',
