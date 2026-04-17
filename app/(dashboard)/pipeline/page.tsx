@@ -178,16 +178,18 @@ function NoteModal({ nom, notes, onClose, onSave }: {
       style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 420, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Notes — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
         </div>
-        <textarea
-          autoFocus value={value} onChange={e => setValue(e.target.value)}
-          style={{ width: '100%', minHeight: 120, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 14, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit' }}
-        />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+        <div style={{ padding: '0 24px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <textarea
+            autoFocus value={value} onChange={e => setValue(e.target.value)}
+            style={{ width: '100%', minHeight: 120, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 14, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
           <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
           <button onClick={() => { onSave(value); onClose() }} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>Enregistrer</button>
         </div>
@@ -239,20 +241,22 @@ function RappelModal({ candidatId, nom, existingRappel, onClose, onSaved }: {
   if (typeof window === 'undefined') return null
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 380, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 380, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}><Bell size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />Rappel — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
         </div>
-        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Date et heure</label>
-        <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
-          style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 12 }}
-        />
-        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Note (optionnel)</label>
-        <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Rappeler pour l'entretien"
-          style={{ width: '100%', minHeight: 72, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit', marginBottom: 16 }}
-        />
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+        <div style={{ padding: '0 24px 12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Date et heure</label>
+          <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
+            style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 12, boxSizing: 'border-box' }}
+          />
+          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Note (optionnel)</label>
+          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Rappeler pour l'entretien"
+            style={{ width: '100%', minHeight: 72, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
           <div>
             {existingRappel && (
               <button onClick={handleDelete} style={{ background: 'none', border: '1.5px solid #EF4444', color: '#EF4444', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
@@ -297,31 +301,33 @@ function ModifierModal({ candidat, metiers, categories, onClose, onSaved }: {
   if (typeof window === 'undefined') return null
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 420, maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Modifier — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
         </div>
 
-        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {['João', 'Seb'].map(c => (
-            <button key={c} onClick={() => setConsultant(c)} style={{
-              padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-              border: `1.5px solid ${consultant === c ? '#F5A623' : 'var(--border)'}`,
-              background: consultant === c ? '#F5A623' : 'var(--secondary)',
-              color: consultant === c ? '#000' : 'var(--foreground)',
-              fontWeight: consultant === c ? 700 : 400,
-            }}>{c}</button>
-          ))}
+        <div style={{ padding: '0 24px 12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {['João', 'Seb'].map(c => (
+              <button key={c} onClick={() => setConsultant(c)} style={{
+                padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                border: `1.5px solid ${consultant === c ? '#F5A623' : 'var(--border)'}`,
+                background: consultant === c ? '#F5A623' : 'var(--secondary)',
+                color: consultant === c ? '#000' : 'var(--foreground)',
+                fontWeight: consultant === c ? 700 : 400,
+              }}>{c}</button>
+            ))}
+          </div>
+
+          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier</label>
+          <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8 }}>
+            <MetierPicker metiers={metiers} categories={categories} value={metier} onChange={setMetier} />
+          </div>
         </div>
 
-        <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier</label>
-        <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, marginBottom: 16 }}>
-          <MetierPicker metiers={metiers} categories={categories} value={metier} onChange={setMetier} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
           <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
           <button onClick={handleSave} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>{saving ? '…' : 'Enregistrer'}</button>
         </div>

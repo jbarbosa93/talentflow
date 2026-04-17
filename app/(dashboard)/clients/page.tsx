@@ -391,6 +391,36 @@ export default function ClientsPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Restaurer position scroll au retour (depuis fiche client OU autre page)
+  useEffect(() => {
+    const saved = sessionStorage.getItem('clients_scroll')
+    if (!saved) return
+    const y = parseInt(saved, 10)
+    setTimeout(() => {
+      const container = document.querySelector('.d-content') as HTMLElement | null
+      if (container) container.scrollTop = y
+      else window.scrollTo(0, y)
+    }, 100)
+  }, [])
+
+  // Sauvegarde continue de la position scroll (debounced)
+  useEffect(() => {
+    const container = document.querySelector('.d-content') as HTMLElement | null
+    if (!container) return
+    let t: ReturnType<typeof setTimeout> | null = null
+    const onScroll = () => {
+      if (t) clearTimeout(t)
+      t = setTimeout(() => {
+        sessionStorage.setItem('clients_scroll', String(container.scrollTop))
+      }, 150)
+    }
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (t) clearTimeout(t)
+      container.removeEventListener('scroll', onScroll)
+    }
+  }, [])
+
   // Build combined search: merge text search + advanced filters
   const buildSearch = () => {
     const parts = [debouncedSearch]

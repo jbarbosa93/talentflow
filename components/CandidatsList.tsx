@@ -402,6 +402,71 @@ export default function CandidatsList() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [messageText, setMessageText]     = useState('')
+  const [smsTemplates, setSmsTemplates]   = useState<any[]>([])
+  const [showSmsTplDropdown, setShowSmsTplDropdown] = useState(false)
+  const [smsTplId, setSmsTplId]           = useState<string | null>(null)
+  const [smsMetier, setSmsMetier]         = useState('')
+  const [smsLieu, setSmsLieu]             = useState('')
+  const [showSaveTpl, setShowSaveTpl]     = useState(false)
+  const [saveTplName, setSaveTplName]     = useState('')
+
+  // Charger les templates SMS à l'ouverture du modal
+  useEffect(() => {
+    if (!showMessage) return
+    fetch('/api/email-templates?type=sms')
+      .then(r => r.json())
+      .then(d => setSmsTemplates(d.templates || []))
+      .catch(() => {})
+  }, [showMessage])
+
+  // Recalcul live du message quand on change métier/lieu avec un template actif
+  const selectedSmsTpl = smsTemplates.find(t => t.id === smsTplId) || null
+  useEffect(() => {
+    if (!selectedSmsTpl) return
+    const out = (selectedSmsTpl.corps || '')
+      .replace(/\[MÉTIER\]/g, smsMetier || '[MÉTIER]')
+      .replace(/\[LIEU\]/g, smsLieu || '[LIEU]')
+    setMessageText(out)
+  }, [selectedSmsTpl, smsMetier, smsLieu])
+
+  const applySmsTemplate = (id: string) => {
+    const t = smsTemplates.find(x => x.id === id)
+    if (!t) return
+    setSmsTplId(id)
+    setShowSmsTplDropdown(false)
+    const out = (t.corps || '')
+      .replace(/\[MÉTIER\]/g, smsMetier || '[MÉTIER]')
+      .replace(/\[LIEU\]/g, smsLieu || '[LIEU]')
+    setMessageText(out)
+  }
+
+  const saveAsSmsTemplate = async () => {
+    const nom = saveTplName.trim()
+    if (!nom || !messageText.trim()) return
+    try {
+      const res = await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom,
+          corps: messageText,
+          categorie: 'general',
+          type: 'sms',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
+      setSmsTemplates(prev => [...prev, data.template])
+      setShowSaveTpl(false)
+      setSaveTplName('')
+      toast.success('Template SMS sauvegardé')
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur')
+    }
+  }
+
+  const tplHasMetier = selectedSmsTpl && /\[MÉTIER\]/.test(selectedSmsTpl.corps || '')
+  const tplHasLieu   = selectedSmsTpl && /\[LIEU\]/.test(selectedSmsTpl.corps || '')
   const [numCopied, setNumCopied]         = useState(false)
 
   const [aiSearching, setAiSearching] = useState(false)
@@ -547,7 +612,7 @@ export default function CandidatsList() {
     return () => document.removeEventListener('click', close)
   }, [])
 
-  // Restaurer la position scroll au retour depuis une fiche candidat
+  // Restaurer la position scroll au retour (depuis une fiche candidat OU une autre page)
   const scrollRestored = useRef(false)
   useEffect(() => {
     if (scrollRestored.current || isLoading) return
@@ -560,10 +625,28 @@ export default function CandidatsList() {
         if (container) container.scrollTop = y
         else window.scrollTo(0, y)
       }, 100)
-      sessionStorage.removeItem('candidats_scroll')
+      // NE PAS removeItem : on garde la position pour restaurer aussi depuis /messages, /clients, etc.
       sessionStorage.removeItem('candidats_last_id')
     }
   }, [isLoading])
+
+  // Sauvegarde continue de la position scroll (debounced)
+  useEffect(() => {
+    const container = document.querySelector('.d-content') as HTMLElement | null
+    if (!container) return
+    let t: ReturnType<typeof setTimeout> | null = null
+    const onScroll = () => {
+      if (t) clearTimeout(t)
+      t = setTimeout(() => {
+        sessionStorage.setItem('candidats_scroll', String(container.scrollTop))
+      }, 150)
+    }
+    container.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      if (t) clearTimeout(t)
+      container.removeEventListener('scroll', onScroll)
+    }
+  }, [])
 
   // Filtrage — la plupart des filtres sont côté serveur
   // Restent côté client : âge (format mixte), dropdown par métier/localisation, exp min
@@ -2458,38 +2541,40 @@ export default function CandidatsList() {
       {showBulkPipelineModal && typeof window !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowBulkPipelineModal(false)}>
-          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 400, maxWidth: '90vw' }}
+          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 400, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter {selCount} candidat{selCount > 1 ? 's' : ''} au pipeline</span>
               <button onClick={() => setShowBulkPipelineModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}>
                 <X size={18} />
               </button>
             </div>
-            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              {['João', 'Seb'].map(c => (
-                <button key={c} onClick={() => setBulkPipelineConsultant(c)} style={{
-                  padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                  border: `1.5px solid ${bulkPipelineConsultant === c ? '#F5A623' : 'var(--border)'}`,
-                  background: bulkPipelineConsultant === c ? '#F5A623' : 'var(--secondary)',
-                  color: bulkPipelineConsultant === c ? '#000' : 'var(--foreground)',
-                  fontWeight: bulkPipelineConsultant === c ? 700 : 400,
-                }}>{c}</button>
-              ))}
+            <div style={{ padding: '0 24px 12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Consultant</label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {['João', 'Seb'].map(c => (
+                  <button key={c} onClick={() => setBulkPipelineConsultant(c)} style={{
+                    padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                    border: `1.5px solid ${bulkPipelineConsultant === c ? '#F5A623' : 'var(--border)'}`,
+                    background: bulkPipelineConsultant === c ? '#F5A623' : 'var(--secondary)',
+                    color: bulkPipelineConsultant === c ? '#000' : 'var(--foreground)',
+                    fontWeight: bulkPipelineConsultant === c ? 700 : 400,
+                  }}>{c}</button>
+                ))}
+              </div>
+              <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier (optionnel)</label>
+              <input
+                value={bulkPipelineMetier}
+                onChange={e => setBulkPipelineMetier(e.target.value)}
+                placeholder="Ex: Électricien, Maçon…"
+                list="bulk-metiers-list"
+                style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', boxSizing: 'border-box' }}
+              />
+              <datalist id="bulk-metiers-list">
+                {agenceMetiers.map(m => <option key={m} value={m} />)}
+              </datalist>
             </div>
-            <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier (optionnel)</label>
-            <input
-              value={bulkPipelineMetier}
-              onChange={e => setBulkPipelineMetier(e.target.value)}
-              placeholder="Ex: Électricien, Maçon…"
-              list="bulk-metiers-list"
-              style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 16 }}
-            />
-            <datalist id="bulk-metiers-list">
-              {agenceMetiers.map(m => <option key={m} value={m} />)}
-            </datalist>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
               <button onClick={() => setShowBulkPipelineModal(false)} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
               <button onClick={addSelectionToPipeline} disabled={bulkPipelineSaving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>
                 {bulkPipelineSaving ? '…' : 'Ajouter au pipeline'}
@@ -2541,7 +2626,7 @@ export default function CandidatsList() {
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
           }}>
-            <div className="neo-card" style={{ maxWidth: 500, width: '92%', padding: 0, overflow: 'hidden' }}>
+            <div className="neo-card" style={{ maxWidth: 500, width: '92%', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2558,7 +2643,7 @@ export default function CandidatsList() {
                 </button>
               </div>
 
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Numéros à coller dans Messages
@@ -2641,14 +2726,127 @@ export default function CandidatsList() {
                 </div>
 
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Message
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Message
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowSmsTplDropdown(v => !v)}
+                        style={{
+                          padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                          border: '1.5px solid var(--border)', borderRadius: 7,
+                          background: selectedSmsTpl ? '#EEF2FF' : 'var(--surface)',
+                          color: selectedSmsTpl ? '#4F46E5' : 'var(--foreground)',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        {selectedSmsTpl ? `📄 ${selectedSmsTpl.nom}` : 'Templates'}
+                        <ChevronDown size={11} />
+                      </button>
+                      {messageText.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSaveTpl(true)}
+                          title="Sauvegarder le message courant comme template"
+                          style={{
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                            border: '1.5px solid var(--border)', borderRadius: 7,
+                            background: 'var(--surface)', color: 'var(--foreground)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Sauvegarder
+                        </button>
+                      )}
+                      {showSmsTplDropdown && (
+                        <div style={{
+                          position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                          padding: 4, minWidth: 200, maxHeight: 260, overflowY: 'auto', zIndex: 60,
+                        }}>
+                          {smsTemplates.length === 0 ? (
+                            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--muted)' }}>
+                              Aucun template SMS
+                            </div>
+                          ) : (
+                            smsTemplates.map(t => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => applySmsTemplate(t.id)}
+                                style={{
+                                  display: 'block', width: '100%', textAlign: 'left',
+                                  padding: '6px 10px', borderRadius: 6, border: 'none',
+                                  background: smsTplId === t.id ? 'var(--primary-soft)' : 'transparent',
+                                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                  color: 'var(--foreground)', fontFamily: 'inherit',
+                                }}
+                              >
+                                {t.nom}
+                              </button>
+                            ))
+                          )}
+                          {selectedSmsTpl && (
+                            <button
+                              type="button"
+                              onClick={() => { setSmsTplId(null); setShowSmsTplDropdown(false); setSmsMetier(''); setSmsLieu('') }}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left',
+                                padding: '6px 10px', borderRadius: 6, border: 'none',
+                                background: 'transparent', cursor: 'pointer',
+                                fontSize: 11, fontWeight: 600, color: '#DC2626',
+                                fontFamily: 'inherit', marginTop: 4, borderTop: '1px solid var(--border)',
+                              }}
+                            >
+                              ✕ Retirer template
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {(tplHasMetier || tplHasLieu) && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      {tplHasMetier && (
+                        <input
+                          type="text"
+                          value={smsMetier}
+                          onChange={e => setSmsMetier(e.target.value)}
+                          placeholder="Métier recherché"
+                          style={{
+                            flex: 1, padding: '7px 10px', fontSize: 13,
+                            border: '1.5px solid #C7D2FE', borderRadius: 8,
+                            background: '#EEF2FF', color: 'var(--foreground)',
+                            outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                          }}
+                        />
+                      )}
+                      {tplHasLieu && (
+                        <input
+                          type="text"
+                          value={smsLieu}
+                          onChange={e => setSmsLieu(e.target.value)}
+                          placeholder="Lieu de mission"
+                          style={{
+                            flex: 1, padding: '7px 10px', fontSize: 13,
+                            border: '1.5px solid #C7D2FE', borderRadius: 8,
+                            background: '#EEF2FF', color: 'var(--foreground)',
+                            outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+
                   <textarea
                     value={messageText}
                     onChange={e => setMessageText(e.target.value)}
                     placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
-                    rows={4}
+                    rows={selectedSmsTpl ? 8 : 4}
                     style={{
                       width: '100%', padding: '10px 14px', fontSize: 14,
                       border: '1.5px solid var(--border)', borderRadius: 10,
@@ -2661,6 +2859,15 @@ export default function CandidatsList() {
                   </div>
                 </div>
 
+              </div>
+
+              {/* Footer sticky — boutons toujours visibles */}
+              <div style={{ padding: '14px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+                {avecTel.length === 0 && (
+                  <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>
+                    Aucun candidat sélectionné n&apos;a de numéro de téléphone.
+                  </p>
+                )}
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => setShowMessage(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
                     Annuler
@@ -2675,17 +2882,59 @@ export default function CandidatsList() {
                     Ouvrir Messages
                   </button>
                 </div>
-
-                {avecTel.length === 0 && (
-                  <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>
-                    Aucun candidat sélectionné n&apos;a de numéro de téléphone.
-                  </p>
-                )}
               </div>
             </div>
           </div>
         )
       })()}
+
+      {/* Modal Sauvegarder template SMS */}
+      {showSaveTpl && typeof window !== 'undefined' && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000,
+        }} onClick={() => setShowSaveTpl(false)}>
+          <div
+            className="neo-card"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 420, width: '92%', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ padding: '20px 24px 12px', flexShrink: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
+              Sauvegarder comme template SMS
+            </div>
+            <div style={{ padding: '0 24px 14px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <input
+                type="text"
+                autoFocus
+                value={saveTplName}
+                onChange={e => setSaveTplName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveAsSmsTemplate() }}
+                placeholder="Nom du template (ex: Recherche maçon)"
+                style={{
+                  width: '100%', padding: '10px 14px', fontSize: 14,
+                  border: '1.5px solid var(--border)', borderRadius: 10,
+                  background: 'var(--background)', color: 'var(--foreground)',
+                  outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10, padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <button onClick={() => setShowSaveTpl(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
+                Annuler
+              </button>
+              <button
+                onClick={saveAsSmsTemplate}
+                disabled={!saveTplName.trim()}
+                className="neo-btn"
+                style={{ flex: 1, justifyContent: 'center', background: '#4F46E5', color: 'white', boxShadow: 'none', opacity: saveTplName.trim() ? 1 : 0.4 }}
+              >
+                Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Pipeline dropdown (fixed position — bypass overflow clipping) — all mode only */}
       {importStatusFilter === 'traite' && openPipelineId && pipelinePos && (() => {

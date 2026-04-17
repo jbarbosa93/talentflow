@@ -157,9 +157,10 @@ export type Entretien = {
 export type EmailTemplate = {
   id: string
   nom: string
-  sujet: string
+  sujet: string | null
   corps: string
   categorie: EmailTemplateCategorie
+  type: 'email' | 'sms'
   created_at: string
   updated_at: string
 }
@@ -407,15 +408,17 @@ export type Database = {
         Row: EmailTemplate
         Insert: {
           nom: string
-          sujet: string
+          sujet?: string | null
           corps: string
           categorie?: EmailTemplateCategorie
+          type?: 'email' | 'sms'
         }
         Update: {
           nom?: string
-          sujet?: string
+          sujet?: string | null
           corps?: string
           categorie?: EmailTemplateCategorie
+          type?: 'email' | 'sms'
           updated_at?: string
         }
         Relationships: []

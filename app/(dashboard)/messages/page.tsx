@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin } from 'lucide-react'
 import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
@@ -17,6 +18,8 @@ import { useClients, type Client } from '@/hooks/useClients'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { renderTemplate, hasContexteIA, TEMPLATE_VARS, type Civilite } from '@/lib/template-vars'
+import { createClient as createSupaClient } from '@/lib/supabase/client'
 
 const CAT_LABELS: Record<string, string> = {
   invitation_entretien: 'Entretien',
@@ -647,36 +650,212 @@ function ClientPickerModal({
 
 // ─── Email Tab ────────────────────────────────────────────────────────────────
 
+const MAILING_KEY = 'talentflow_mailing_session'
+type MailingSession = {
+  candidatIds: string[]
+  destinataires: string[]
+  templateId: string
+  sujet: string
+  corps: string
+  includeSignature: boolean
+}
+function loadMailingSession(): Partial<MailingSession> {
+  if (typeof window === 'undefined') return {}
+  try { return JSON.parse(sessionStorage.getItem(MAILING_KEY) || '{}') } catch { return {} }
+}
+
 function EmailTab() {
-  const [candidatIds, setCandidatIds] = useState<string[]>([])
+  const initial = loadMailingSession()
+  const [candidatIds, setCandidatIds] = useState<string[]>(initial.candidatIds || [])
   const [cvCandidatId, setCvCandidatId] = useState<string | null>(null)
   const [cvAttached, setCvAttached] = useState<Record<string, any>>({})
-  const [templateId, setTemplateId] = useState('')
-  const [destinataires, setDestinataires] = useState<string[]>([])
-  const [sujet, setSujet] = useState('')
-  const [corps, setCorps] = useState('')
+  const [templateId, setTemplateId] = useState(initial.templateId || '')
+  const [destinataires, setDestinataires] = useState<string[]>(initial.destinataires || [])
+  const [sujet, setSujet] = useState(initial.sujet || '')
+  const [corps, setCorps] = useState(initial.corps || '')
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
   const [msConfig, setMsConfig] = useState<{ configured: boolean; email?: string; nom?: string } | null>(null)
+
+  // Variables
+  const [consultantPrenom, setConsultantPrenom] = useState<string>('')
+  const [contexteIA, setContexteIA] = useState<string>('')
+  const [generatingContexte, setGeneratingContexte] = useState(false)
+  const [civiliteByCandidat, setCiviliteByCandidat] = useState<Record<string, Civilite>>({})
+  const [customByCandidat, setCustomByCandidat] = useState<Record<string, { titre_poste?: string; resume_ia?: string; nom_complet?: string }>>({})
 
   const { data: _candidatsData } = useCandidats({ per_page: 500 })
   const candidats = (_candidatsData?.candidats || []).filter((c: any) => c.import_status !== 'archive')
-  const { data: templates } = useEmailTemplates()
+  const { data: templates } = useEmailTemplates('email')
+  const { data: _clientsData } = useClients({ per_page: 2000, statut: 'actif' })
+  const clients = _clientsData?.clients || []
 
-  // Envoyer via Microsoft Graph API (pas SMTP — SMTP est désactivé chez la plupart des organisations)
-  const sendEmail = useMutation({
-    mutationFn: async (body: any) => {
-      const res = await fetch('/api/microsoft/send', {
+  // Signature HTML (chargée depuis user_metadata) + toggle persistant (session)
+  const [signatureHtml, setSignatureHtml] = useState<string>('')
+  const [includeSignature, setIncludeSignature] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    if (typeof initial.includeSignature === 'boolean') return initial.includeSignature
+    const v = localStorage.getItem('talentflow_include_signature')
+    return v === null ? true : v === '1'
+  })
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('talentflow_include_signature', includeSignature ? '1' : '0')
+    }
+  }, [includeSignature])
+
+  // Persiste l'état du mailing dans sessionStorage à chaque changement
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const session: MailingSession = { candidatIds, destinataires, templateId, sujet, corps, includeSignature }
+    const isEmpty = candidatIds.length === 0 && destinataires.length === 0 && !templateId && !sujet && !corps
+    if (isEmpty) sessionStorage.removeItem(MAILING_KEY)
+    else sessionStorage.setItem(MAILING_KEY, JSON.stringify(session))
+  }, [candidatIds, destinataires, templateId, sujet, corps, includeSignature])
+
+  const hasMailingData = candidatIds.length > 0 || destinataires.length > 0 || !!templateId || !!sujet || !!corps
+
+  const resetMailing = () => {
+    setCandidatIds([])
+    setDestinataires([])
+    setTemplateId('')
+    setSujet('')
+    setCorps('')
+    setContexteIA('')
+    setCvAttached({})
+    setCiviliteByCandidat({})
+    setCustomByCandidat({})
+    if (typeof window !== 'undefined') sessionStorage.removeItem(MAILING_KEY)
+    toast.success('Nouveau envoi')
+  }
+
+  // Charger le prénom du consultant + signature
+  useEffect(() => {
+    const supa = createSupaClient()
+    supa.auth.getUser().then(({ data: { user } }) => {
+      const meta = user?.user_metadata || {}
+      setConsultantPrenom(meta.prenom || meta.first_name || (user?.email?.split('@')[0]) || '')
+      setSignatureHtml(typeof meta.signature_html === 'string' ? meta.signature_html : '')
+    })
+  }, [])
+
+  // Premier candidat sélectionné → contexte des variables
+  const firstCandidat = candidatIds.length > 0
+    ? (candidats as any[]).find((c: any) => c.id === candidatIds[0]) || null
+    : null
+
+  // Charger la customization CV (civilité + titre + résumé) pour le candidat actif
+  useEffect(() => {
+    if (!firstCandidat) return
+    if (customByCandidat[firstCandidat.id]) return
+    fetch(`/api/cv-customizations?candidat_id=${firstCandidat.id}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then((json: any) => {
+        const data = json?.customization?.data
+        if (!data) return
+        const civ = data.civilite
+        if (civ === 'Monsieur' || civ === 'Madame' || civ === 'Monsieur/Madame') {
+          setCiviliteByCandidat(prev => ({ ...prev, [firstCandidat.id]: civ }))
+        }
+        const cc = data.customContent || {}
+        setCustomByCandidat(prev => ({
+          ...prev,
+          [firstCandidat.id]: {
+            titre_poste: cc.titre_poste || undefined,
+            resume_ia: cc.resume_ia || undefined,
+            nom_complet: cc.nom_complet || undefined,
+          },
+        }))
+      })
+      .catch(() => {})
+  }, [firstCandidat?.id])
+
+  // Résout le client + contact à partir d'un email destinataire (matching dans contacts[])
+  const resolveClientByEmail = (email: string): { client: Client | null; contact: any | null } => {
+    const lower = (email || '').toLowerCase().trim()
+    if (!lower) return { client: null, contact: null }
+    for (const c of clients) {
+      if ((c.email || '').toLowerCase().trim() === lower) {
+        return { client: c, contact: null }
+      }
+      const contacts = Array.isArray(c.contacts) ? c.contacts : []
+      for (const ct of contacts) {
+        const ctEmail = (ct?.email || '').toLowerCase().trim()
+        if (ctEmail && ctEmail === lower) return { client: c, contact: ct }
+      }
+    }
+    return { client: null, contact: null }
+  }
+
+  // Construit le contexte de rendu pour un destinataire donné
+  const buildRenderCtx = (destinataireEmail: string | null) => {
+    const resolved = destinataireEmail ? resolveClientByEmail(destinataireEmail) : { client: null, contact: null }
+    return {
+      candidat: firstCandidat
+        ? (() => {
+            const cc = customByCandidat[firstCandidat.id]
+            // Si le consultant a personnalisé le nom complet, on split sur le premier espace
+            let prenom = firstCandidat.prenom
+            let nom = firstCandidat.nom
+            if (cc?.nom_complet && cc.nom_complet.trim()) {
+              const parts = cc.nom_complet.trim().split(/\s+/)
+              prenom = parts[0] || ''
+              nom = parts.slice(1).join(' ')
+            }
+            return {
+              prenom,
+              nom,
+              titre_poste: cc?.titre_poste || firstCandidat.titre_poste,
+              genre: firstCandidat.genre,
+              resume_ia: cc?.resume_ia || firstCandidat.resume_ia,
+            }
+          })()
+        : null,
+      client: resolved.client
+        ? {
+            nom_entreprise: resolved.client.nom_entreprise,
+            contact_prenom: resolved.contact?.prenom || resolved.contact?.firstName || '',
+            contact_nom: resolved.contact?.nom || resolved.contact?.lastName || '',
+            contacts: resolved.client.contacts,
+          }
+        : null,
+      consultant: { prenom: consultantPrenom },
+      civilite_override: firstCandidat ? (civiliteByCandidat[firstCandidat.id] || null) : null,
+      contexte_ia: contexteIA || null,
+    }
+  }
+
+  // Preview : premier destinataire (fallback sans client)
+  const previewDest = destinataires[0] || null
+  const previewCtx = buildRenderCtx(previewDest)
+  const previewResolved = previewDest ? resolveClientByEmail(previewDest) : { client: null, contact: null }
+  const renderedSujet = renderTemplate(sujet, previewCtx)
+  const renderedCorps = renderTemplate(corps, previewCtx)
+  const templateHasContexteIA = hasContexteIA(corps) || hasContexteIA(sujet)
+
+  const handleGenerateContexteIA = async () => {
+    if (!firstCandidat) {
+      toast.error('Sélectionnez d\'abord un candidat')
+      return
+    }
+    setGeneratingContexte(true)
+    try {
+      const res = await fetch('/api/templates/contexte-ia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        credentials: 'include',
+        body: JSON.stringify({ candidat_id: firstCandidat.id }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      return data
-    },
-    onSuccess: (data: any) => toast.success(data.count > 1 ? `Email envoyé à ${data.count} destinataires (CCI)` : 'Email envoyé ✓'),
-    onError: (e: Error) => toast.error(`Erreur : ${e.message}`),
-  })
+      if (!res.ok) throw new Error(data?.error || 'Erreur IA')
+      setContexteIA(data.text || '')
+      toast.success('Contexte IA généré')
+    } catch (e: any) {
+      toast.error(e?.message || 'Erreur génération')
+    } finally {
+      setGeneratingContexte(false)
+    }
+  }
 
   // Vérifier si l'utilisateur a son propre compte Outlook connecté
   useEffect(() => {
@@ -702,35 +881,74 @@ function EmailTab() {
     setTemplateId(id)
     const t = templates?.find((t: any) => t.id === id)
     if (t) {
-      const firstCandidat = candidats?.find(c => candidatIds.includes(c.id))
-      const prenom = firstCandidat?.prenom || '{{prenom}}'
-      const nom = firstCandidat?.nom || '{{nom}}'
-      setSujet(t.sujet.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
-      setCorps(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+      // On garde le template brut — les variables seront remplacées dans la preview + à l'envoi
+      setSujet(t.sujet || '')
+      setCorps(t.corps || '')
+      // Reset du contexte IA pour éviter d'injecter un ancien paragraphe
+      setContexteIA('')
     }
   }
 
   const [doublonAlert, setDoublonAlert] = useState<{ doublons: any[]; onConfirm: () => void } | null>(null)
   const [showClientPicker, setShowClientPicker] = useState(false)
 
-  const doSend = () => {
-    sendEmail.mutate({
-      candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
-      attach_cvs: Object.keys(cvAttached).length > 0,
-      cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
-      destinataires,
-      sujet,
-      corps,
-      use_bcc: true,
-    }, {
-      onSuccess: () => {
+  const doSend = async () => {
+    // UN mail PAR destinataire, personnalisé avec son contexte client
+    setSending(true)
+    try {
+      let ok = 0
+      let fail = 0
+      for (const email of destinataires) {
+        const ctx = buildRenderCtx(email)
+        const perSujet = renderTemplate(sujet, ctx)
+        const perCorps = renderTemplate(corps, ctx)
+        try {
+          const res = await fetch('/api/microsoft/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
+              attach_cvs: Object.keys(cvAttached).length > 0,
+              cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
+              destinataires: [email],
+              sujet: perSujet,
+              corps: perCorps,
+              use_bcc: false,
+              include_signature: includeSignature,
+            }),
+          })
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            throw new Error(data?.error || 'Erreur envoi')
+          }
+          ok++
+        } catch (e: any) {
+          fail++
+          console.warn('[mailing per-recipient]', email, e?.message)
+        }
+      }
+
+      if (ok > 0) {
+        toast.success(
+          ok === 1
+            ? 'Email envoyé ✓'
+            : `${ok} emails envoyés ✓${fail > 0 ? ` (${fail} échec${fail > 1 ? 's' : ''})` : ''}`,
+        )
         setSent(true)
         setDoublonAlert(null)
         setTimeout(() => setSent(false), 3000)
         setCorps('')
         setSujet('')
+        setContexteIA('')
+      } else {
+        toast.error('Aucun email envoyé')
       }
-    })
+    } catch (e: any) {
+      toast.error(`Erreur : ${e?.message || 'envoi'}`)
+    } finally {
+      setSending(false)
+    }
   }
 
   const handleSend = async () => {
@@ -761,6 +979,29 @@ function EmailTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Bandeau session mailing — bouton Nouveau envoi visible quand données présentes */}
+      {hasMailingData && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 14px', borderRadius: 10,
+          border: '1.5px solid #C7D2FE', background: '#EEF2FF',
+        }}>
+          <div style={{ fontSize: 13, color: '#4338CA', fontWeight: 600 }}>
+            ✉️ Brouillon en cours — {candidatIds.length} candidat{candidatIds.length > 1 ? 's' : ''}, {destinataires.length} destinataire{destinataires.length > 1 ? 's' : ''}
+          </div>
+          <button
+            onClick={resetMailing}
+            style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: '1.5px solid #4F46E5', background: 'white', color: '#4F46E5',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            + Nouveau envoi
+          </button>
+        </div>
+      )}
+
       {/* Microsoft Graph API Status */}
       {msConfig?.configured ? (
         <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: '#F0FDF4', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -899,10 +1140,10 @@ function EmailTab() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>
-              Destinataires clients (CCI) *
+              Destinataires clients *
               {destinataires.length > 0 && (
                 <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
-                  {destinataires.length} destinataire{destinataires.length > 1 ? 's' : ''} — envoi en copie cachée
+                  {destinataires.length} email{destinataires.length > 1 ? 's' : ''} — envoi individuel personnalisé
                 </span>
               )}
             </label>
@@ -936,7 +1177,30 @@ function EmailTab() {
         </div>
 
         <div>
-          <label style={labelStyle}>Message *</label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Message *</label>
+            {templateHasContexteIA && (
+              <button
+                type="button"
+                onClick={handleGenerateContexteIA}
+                disabled={!firstCandidat || generatingContexte}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '5px 12px', borderRadius: 8,
+                  border: '2px solid var(--border)',
+                  background: contexteIA ? '#D1FAE5' : 'var(--card)',
+                  color: contexteIA ? '#065F46' : 'var(--foreground)',
+                  fontSize: 12, fontWeight: 700,
+                  cursor: !firstCandidat || generatingContexte ? 'not-allowed' : 'pointer',
+                  opacity: !firstCandidat || generatingContexte ? 0.5 : 1,
+                  fontFamily: 'var(--font-body)',
+                }}
+                title={!firstCandidat ? 'Sélectionnez un candidat pour activer' : 'Générer le paragraphe de présentation'}
+              >
+                {generatingContexte ? '…' : contexteIA ? <><Check size={12} /> Contexte IA</> : '✨ Générer contexte IA'}
+              </button>
+            )}
+          </div>
           <Textarea
             value={corps}
             onChange={e => setCorps(e.target.value)}
@@ -944,13 +1208,63 @@ function EmailTab() {
             rows={8}
             style={{ resize: 'none', fontFamily: 'monospace', fontSize: 13 }}
           />
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Variables : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+            <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>
+              Variables : {TEMPLATE_VARS.map(v => v.key).join(', ')}
+            </p>
+            {signatureHtml && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 11, color: 'var(--muted)', cursor: 'pointer', userSelect: 'none',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={includeSignature}
+                  onChange={e => setIncludeSignature(e.target.checked)}
+                  style={{ accentColor: '#8B5CF6' }}
+                />
+                Inclure ma signature
+              </label>
+            )}
+          </div>
+
+          {/* Preview — rendu avec les variables remplacées */}
+          {(sujet || corps) && (
+            <div style={{
+              marginTop: 12, padding: '12px 14px',
+              background: 'var(--secondary)', border: '1.5px dashed var(--border)',
+              borderRadius: 10,
+            }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6,
+              }}>
+                Aperçu {firstCandidat ? `— ${firstCandidat.prenom} ${firstCandidat.nom}` : ''}
+                {previewDest ? ` → ${previewResolved.client?.nom_entreprise || previewDest}` : ''}
+                {destinataires.length > 1 ? ` (1/${destinataires.length})` : ''}
+              </div>
+              {renderedSujet && (
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6 }}>
+                  {renderedSujet}
+                </div>
+              )}
+              <div style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
+                {renderedCorps}
+              </div>
+              {includeSignature && signatureHtml && (
+                <div
+                  style={{ marginTop: 16, paddingTop: 12, borderTop: '1px dashed var(--border)' }}
+                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-              <Mail size={12} />{msConfig?.configured ? `Envoi depuis ${msConfig.email}` : 'Microsoft 365 non connecté'} {destinataires.length > 1 ? '(CCI)' : ''}
+              <Mail size={12} />{msConfig?.configured ? `Envoi depuis ${msConfig.email}` : 'Microsoft 365 non connecté'} {destinataires.length > 1 ? `· ${destinataires.length} emails individuels` : ''}
             </p>
             {Object.keys(cvAttached).length > 0 && (
               <p style={{ fontSize: 11, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>
@@ -958,11 +1272,11 @@ function EmailTab() {
               </p>
             )}
           </div>
-          <Button onClick={handleSend} disabled={destinataires.length === 0 || !sujet || !corps || sendEmail.isPending || sent}>
+          <Button onClick={handleSend} disabled={destinataires.length === 0 || !sujet || !corps || sending || sent}>
             {sent ? (
               <><Check className="w-3.5 h-3.5 mr-2" />Envoyé</>
             ) : (
-              <><Send className="w-3.5 h-3.5 mr-2" />{sendEmail.isPending ? 'Envoi...' : `Envoyer${destinataires.length > 1 ? ` (${destinataires.length})` : ''}`}</>
+              <><Send className="w-3.5 h-3.5 mr-2" />{sending ? 'Envoi...' : `Envoyer${destinataires.length > 1 ? ` (${destinataires.length})` : ''}`}</>
             )}
           </Button>
         </div>
@@ -986,47 +1300,53 @@ function EmailTab() {
         />
       )}
 
-      {/* Alerte doublon envoi */}
-      {doublonAlert && (
+      {/* Alerte doublon envoi — rendue via Portal (CLAUDE.md #10) */}
+      {doublonAlert && typeof window !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 10000,
           background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }} onClick={() => setDoublonAlert(null)}>
           <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--card)', borderRadius: 16, padding: 28,
-            width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            background: 'var(--card)', borderRadius: 16,
+            width: '100%', maxWidth: 520, maxHeight: '90vh',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            display: 'flex', flexDirection: 'column',
           }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 12, margin: '0 auto 16px',
-              background: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 24 }}>⚠️</span>
+            <div style={{ padding: '28px 28px 0', flexShrink: 0 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, margin: '0 auto 16px',
+                background: 'rgba(245,158,11,0.12)', border: '2px solid rgba(245,158,11,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <span style={{ fontSize: 24 }}>⚠️</span>
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px', textAlign: 'center' }}>
+                Envoi déjà effectué
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', textAlign: 'center', lineHeight: 1.5 }}>
+                {doublonAlert.doublons.length === 1 ? 'Ce candidat a déjà été envoyé à ce destinataire' : `${doublonAlert.doublons.length} envois similaires détectés`} :
+              </p>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px', textAlign: 'center' }}>
-              Envoi déjà effectué
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px', textAlign: 'center', lineHeight: 1.5 }}>
-              {doublonAlert.doublons.length === 1 ? 'Ce candidat a déjà été envoyé à ce destinataire' : `${doublonAlert.doublons.length} envois similaires détectés`} :
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
-              {doublonAlert.doublons.map((d: any, i: number) => (
-                <div key={i} style={{
-                  background: '#FFF7ED', border: '1.5px solid #FED7AA', borderRadius: 10,
-                  padding: '10px 14px', fontSize: 13,
-                }}>
-                  <div style={{ fontWeight: 700, color: '#92400E' }}>
-                    {d.candidat_nom || 'Candidat'} → {d.destinataire}
+            <div style={{ padding: '0 28px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {doublonAlert.doublons.map((d: any, i: number) => (
+                  <div key={i} style={{
+                    background: '#FFF7ED', border: '1.5px solid #FED7AA', borderRadius: 10,
+                    padding: '10px 14px', fontSize: 13,
+                  }}>
+                    <div style={{ fontWeight: 700, color: '#92400E' }}>
+                      {d.candidat_nom || 'Candidat'} → {d.destinataire}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
+                      Envoyé le {new Date(d.date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} à {new Date(d.date).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}
+                      {d.user_name ? ` par ${d.user_name}` : ''}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
-                    Envoyé le {new Date(d.date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} à {new Date(d.date).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}
-                    {d.user_name ? ` par ${d.user_name}` : ''}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', padding: '16px 28px 24px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, flexShrink: 0 }}>
               <button onClick={() => setDoublonAlert(null)} style={{
                 height: 42, padding: '0 20px', borderRadius: 8,
                 border: '1.5px solid #E5E7EB', background: '#F9FAFB',
@@ -1041,7 +1361,8 @@ function EmailTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Modale Personnaliser CV */}
@@ -1077,7 +1398,7 @@ function WhatsAppTab() {
 
   const { data: _candidatsData } = useCandidats()
   const candidats = _candidatsData?.candidats
-  const { data: templates } = useEmailTemplates()
+  const { data: templates } = useEmailTemplates('email')
 
   const handleCandidatChange = (id: string) => {
     setCandidatId(id)
@@ -1090,9 +1411,12 @@ function WhatsAppTab() {
     const t = templates?.find((t: any) => t.id === id)
     if (t) {
       const c = candidats?.find(c => c.id === candidatId)
-      const prenom = c?.prenom || '{{prenom}}'
-      const nom = c?.nom || '{{nom}}'
-      setMessage(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+      setMessage(renderTemplate(t.corps || '', {
+        candidat: c ? {
+          prenom: c.prenom, nom: c.nom, titre_poste: c.titre_poste,
+          genre: (c as any).genre, resume_ia: c.resume_ia,
+        } : null,
+      }))
     }
   }
 
@@ -1203,7 +1527,7 @@ function SmsTab() {
 
   const { data: _candidatsData } = useCandidats()
   const candidats = _candidatsData?.candidats
-  const { data: templates } = useEmailTemplates()
+  const { data: templates } = useEmailTemplates('email')
 
   const handleCandidatChange = (id: string) => {
     setCandidatId(id)
@@ -1216,9 +1540,12 @@ function SmsTab() {
     const t = templates?.find((t: any) => t.id === id)
     if (t) {
       const c = candidats?.find(c => c.id === candidatId)
-      const prenom = c?.prenom || '{{prenom}}'
-      const nom = c?.nom || '{{nom}}'
-      setMessage(t.corps.replace(/\{\{prenom\}\}/g, prenom).replace(/\{\{nom\}\}/g, nom))
+      setMessage(renderTemplate(t.corps || '', {
+        candidat: c ? {
+          prenom: c.prenom, nom: c.nom, titre_poste: c.titre_poste,
+          genre: (c as any).genre, resume_ia: c.resume_ia,
+        } : null,
+      }))
     }
   }
 
@@ -1311,7 +1638,7 @@ function SmsTab() {
 
 function TemplatesTab() {
   const [showCreate, setShowCreate] = useState(false)
-  const { data: templates, isLoading } = useEmailTemplates()
+  const { data: templates, isLoading } = useEmailTemplates('email')
   const queryClient = useQueryClient()
 
   const deleteTemplate = useMutation({
@@ -1451,11 +1778,21 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
       <div>
         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Corps du message *</label>
-        <textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {{prenom}},..." rows={6} required style={{
+        <textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {candidat_prenom},..." rows={6} required style={{
           width: '100%', padding: '12px 14px', background: 'var(--card)', border: '2px solid var(--border)',
           borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'monospace', outline: 'none', resize: 'none',
         }} />
-        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Variables : {'{{prenom}}'}, {'{{nom}}'}, {'{{offre}}'}, {'{{date}}'}</p>
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.55 }}>
+          <strong>Variables disponibles :</strong>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+            {TEMPLATE_VARS.map(v => (
+              <code key={v.key} title={v.label} style={{
+                fontSize: 10, padding: '2px 6px', borderRadius: 4,
+                background: 'var(--secondary)', color: 'var(--foreground)',
+              }}>{v.key}</code>
+            ))}
+          </div>
+        </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button

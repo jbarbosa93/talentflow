@@ -223,6 +223,11 @@ export default function ProfilPage() {
   const [savingAvatar, setSavingAvatar]   = useState(false)
   const [outlookLoading, setOutlookLoading] = useState(false)
 
+  // Signature email
+  const [signatureHtml, setSignatureHtml] = useState('')
+  const [savingSignature, setSavingSignature] = useState(false)
+  const [showSignatureSource, setShowSignatureSource] = useState(false)
+
   // ── Outlook : intégration email personnelle ────────────────────────────────
   const { data: outlookIntegration, refetch: refetchOutlook } = useQuery({
     queryKey: ['outlook-integration'],
@@ -281,7 +286,26 @@ export default function ProfilPage() {
     })
     setEmailForm(prev => ({ ...prev, email: user.email || '' }))
     if (m.avatar_url) setAvatarPreview(m.avatar_url)
+    setSignatureHtml(m.signature_html || '')
   }, [user])
+
+  // ── Sauvegarder la signature email ────────────────────────────────────────
+  const saveSignature = async () => {
+    if (!user) return
+    setSavingSignature(true)
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { ...user.user_metadata, signature_html: signatureHtml },
+      })
+      if (error) throw error
+      queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      toast.success('Signature mise à jour ✓')
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur sauvegarde signature')
+    } finally {
+      setSavingSignature(false)
+    }
+  }
 
   // ── Avatar — ouvre le crop modal ──────────────────────────────────────────
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -562,6 +586,87 @@ export default function ProfilPage() {
             }}
           >
             {savingProfile ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enregistrement...</> : <><Save size={14} /> Enregistrer</>}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Signature email ── */}
+      <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
+        <p style={sectionTitle}><Mail size={15} style={{ color: '#8B5CF6' }} /> Ma signature email</p>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Signature HTML ajoutée automatiquement à la fin de chaque mail envoyé depuis <code>/messages</code> (Outlook).
+          Les images doivent utiliser des URLs externes publiques (pas de <code>cid:</code> ni base64).
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <button
+            type="button"
+            onClick={() => setShowSignatureSource(false)}
+            style={{
+              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+              border: '1px solid var(--border)',
+              background: !showSignatureSource ? 'var(--foreground)' : 'transparent',
+              color: !showSignatureSource ? 'white' : 'var(--foreground)',
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >Aperçu</button>
+          <button
+            type="button"
+            onClick={() => setShowSignatureSource(true)}
+            style={{
+              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
+              border: '1px solid var(--border)',
+              background: showSignatureSource ? 'var(--foreground)' : 'transparent',
+              color: showSignatureSource ? 'white' : 'var(--foreground)',
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >HTML source</button>
+        </div>
+
+        {showSignatureSource ? (
+          <textarea
+            value={signatureHtml}
+            onChange={e => setSignatureHtml(e.target.value)}
+            rows={16}
+            spellCheck={false}
+            placeholder="<div>Cordialement,<br>Prénom Nom<br>L-AGENCE SA</div>"
+            style={{
+              ...inputStyle, height: 'auto', padding: 12, resize: 'vertical',
+              fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace',
+              fontSize: 12, lineHeight: 1.5,
+            }}
+            onFocus={e => (e.target.style.borderColor = '#8B5CF6')}
+            onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+          />
+        ) : (
+          <div
+            style={{
+              minHeight: 160, padding: 16, border: '1px solid var(--border)',
+              borderRadius: 8, background: '#FAFAFA', overflow: 'auto',
+            }}
+            dangerouslySetInnerHTML={{
+              __html: signatureHtml || '<p style="color:#9CA3AF;font-size:13px;margin:0">Aucune signature définie. Bascule sur <b>HTML source</b> pour la coller.</p>',
+            }}
+          />
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {signatureHtml.length} caractères
+          </span>
+          <button
+            onClick={saveSignature}
+            disabled={savingSignature}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '10px 22px', borderRadius: 9,
+              background: '#8B5CF6', border: 'none', color: 'white',
+              fontSize: 13, fontWeight: 700,
+              cursor: savingSignature ? 'default' : 'pointer',
+              opacity: savingSignature ? 0.7 : 1, fontFamily: 'var(--font-body)',
+            }}
+          >
+            {savingSignature ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enregistrement...</> : <><Save size={14} /> Enregistrer</>}
           </button>
         </div>
       </div>

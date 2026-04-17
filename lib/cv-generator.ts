@@ -6,6 +6,18 @@ import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from 'pdf-lib'
 import fs from 'fs'
 import path from 'path'
 
+export interface ExperienceData {
+  poste: string
+  entreprise: string
+  // Legacy format (texte libre) — conservé pour rétro-compat
+  periode?: string
+  // Nouveau format (préféré) — édition structurée
+  date_debut?: string  // "YYYY-MM" ou texte libre (ex: "2022")
+  date_fin?: string    // "YYYY-MM" ou texte libre — ignoré si current=true
+  current?: boolean    // "Actuellement"
+  description: string
+}
+
 interface CandidatData {
   prenom?: string | null
   nom?: string | null
@@ -19,7 +31,7 @@ interface CandidatData {
   formation?: string | null
   langues?: string[] | null
   permis_conduire?: boolean | null
-  experiences?: { poste: string; entreprise: string; periode: string; description: string }[] | null
+  experiences?: ExperienceData[] | null
   formations_details?: { diplome: string; etablissement: string; annee: string }[] | null
 }
 
@@ -35,6 +47,38 @@ interface CVOptions {
   recruiterInfo?: RecruiterInfo
   includedSections?: string[]
   customContent?: Record<string, string>
+  experiencesOverride?: ExperienceData[]  // remplace candidat.experiences si fourni
+}
+
+// Formatte "YYYY-MM" → "septembre 2022" (locale fr). Retourne la valeur brute si non parseable.
+const FR_MONTHS = [
+  'janvier','février','mars','avril','mai','juin',
+  'juillet','août','septembre','octobre','novembre','décembre',
+]
+function formatMonth(value: string | undefined | null): string {
+  if (!value) return ''
+  const v = value.trim()
+  const match = /^(\d{4})-(\d{1,2})$/.exec(v)
+  if (match) {
+    const year = match[1]
+    const month = Math.max(1, Math.min(12, parseInt(match[2], 10)))
+    return `${FR_MONTHS[month - 1]} ${year}`
+  }
+  return v  // texte libre tel quel
+}
+
+function formatPeriod(exp: ExperienceData): string {
+  // Priorité au nouveau format date_debut/date_fin/current
+  const hasStructured = exp.date_debut !== undefined || exp.date_fin !== undefined || exp.current !== undefined
+  if (hasStructured) {
+    const debut = formatMonth(exp.date_debut)
+    const fin = exp.current ? 'Actuellement' : formatMonth(exp.date_fin)
+    if (debut && fin) return `${debut} - ${fin}`
+    if (debut) return debut
+    if (fin) return fin
+  }
+  // Fallback legacy
+  return exp.periode || ''
 }
 
 // Couleurs
@@ -280,12 +324,17 @@ export async function generateBrandedCV(
 
   // ═══════════════════ EXPÉRIENCES ═══════════════════
 
-  if (shouldInclude('experiences') && candidat.experiences && candidat.experiences.length > 0) {
+  const effectiveExperiences = options.experiencesOverride ?? candidat.experiences
+  if (shouldInclude('experiences') && effectiveExperiences && effectiveExperiences.length > 0) {
     drawSectionTitle('Expériences professionnelles')
-    for (const exp of candidat.experiences) {
+    for (const exp of effectiveExperiences) {
       newPageIfNeeded(50)
-      drawText(exp.poste, { font: helveticaBold, fontSize: 11 })
-      drawText(`${exp.entreprise}  ·  ${exp.periode}`, { fontSize: 9, color: GRAY })
+      if (exp.poste) drawText(exp.poste, { font: helveticaBold, fontSize: 11 })
+      const period = formatPeriod(exp)
+      const entreprise = exp.entreprise || ''
+      // Ordre : PÉRIODE  ·  ENTREPRISE (date avant entreprise)
+      const metaLine = [period, entreprise].filter(Boolean).join('  ·  ')
+      if (metaLine) drawText(metaLine, { fontSize: 9, color: GRAY })
       if (exp.description) {
         y -= 2
         drawText(exp.description, { fontSize: 9, color: GRAY, indent: 0 })

@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('email_templates')
-    .select('*')
-    .order('categorie')
+  const { searchParams } = new URL(request.url)
+  const type = searchParams.get('type')
+  let query = supabase.from('email_templates').select('*').order('categorie')
+  if (type === 'email' || type === 'sms') {
+    query = query.eq('type', type)
+  }
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   return NextResponse.json({ templates: data || [] })
 }

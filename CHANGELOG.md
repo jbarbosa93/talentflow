@@ -1,5 +1,52 @@
 # Changelog TalentFlow
 
+## [1.9.13] — 17 avril 2026
+
+### Feat — Signature email Outlook personnalisable
+- **Stockage HTML** dans `auth.users.user_metadata.signature_html` (pas de table profiles, suit le pattern existant de `prenom`/`avatar_url`)
+- **Bucket Supabase Storage `public-assets`** : portrait, banner et icônes sociaux migrés depuis services externes (imgur, image2url, imgmsgen) — indépendance totale
+- **Preset par défaut** : si aucune signature personnalisée, fallback automatique avec `<p>Cordialement,<br><strong>{prénom}</strong><br>L-AGENCE SA<br>+41 24 552 18 70<br>info@l-agence.ch</p>` — prénom dynamique du consultant connecté
+- **Éditeur** dans `/parametres/profil` : preview live (`dangerouslySetInnerHTML`) + onglet HTML source (textarea) + bouton enregistrer (purple `#8B5CF6`)
+- **Toggle "Inclure ma signature"** dans /messages EmailTab (persistant `localStorage` `talentflow_include_signature`)
+- **`/api/microsoft/send`** : ajoute la signature au body HTML uniquement si `include_signature: true`, priorité custom > preset
+- Suppression de la signature texte dupliquée du template "Proposition de candidature" (la signature HTML est ajoutée par l'API, plus de doublon)
+
+### Feat — Templates SMS en masse (CandidatsList)
+- **Migration DB** `20260417_sms_templates.sql` : colonne `type TEXT NOT NULL DEFAULT 'email' CHECK (type IN ('email','sms'))`, `sujet` nullable (les SMS n'ont pas de sujet), index `idx_email_templates_type`
+- **Seed** template "Recherche de candidat" avec variables `[MÉTIER]` et `[LIEU]` (corps complet L-AGENCE)
+- **API `/api/email-templates`** : GET accepte `?type=email|sms` pour filtrer ; hook `useEmailTemplates(type?)` étendu
+- **UI** : bouton "Templates" + dropdown dans le modal "Envoyer un message", sélection d'un template charge le corps + affiche 2 champs rapides Métier/Lieu (substitution live)
+- **Bouton "Sauvegarder"** : crée un template SMS custom depuis le message courant (modal portalisé)
+- /messages EmailTab forcé en `useEmailTemplates('email')` partout (isolation : les templates SMS n'apparaissent pas dans les listes email)
+
+### Feat — WhatsApp fiche candidat avec signature consultant
+- Bouton WhatsApp (`whatsapp://send?phone=...&text=...`) sur fiche candidat envoie désormais un message complet : salutation + accroche "Je suis à la recherche d'un profil comme vous..." + signature
+- **Prénom dynamique** : `useEffect` lit `user_metadata.prenom` du consultant connecté → "Cordialement, João" pour João, "Cordialement, Seb" pour Seb (fallback "João")
+
+### Feat — Persistance session mailing
+- **`MAILING_KEY = 'talentflow_mailing_session'`** dans sessionStorage : sauvegarde de `candidatIds`, `destinataires`, `templateId`, `sujet`, `corps`, `includeSignature`
+- Restauration auto au retour sur /messages (init useState depuis `loadMailingSession()`)
+- Persist on every change via `useEffect`, clear si tout est vide
+- **Bouton "+ Nouveau envoi"** dans bandeau bleu en haut d'EmailTab (visible si `hasMailingData`) — `resetMailing()` clear tout (state + sessionStorage)
+
+### Fix — Scroll restore /candidats et /clients
+- **CandidatsList** : la clé `candidats_scroll` n'est plus supprimée après lecture (permet de revenir depuis n'importe quelle page, pas que la fiche candidat) ; ajout d'un listener scroll continu (debounced 150ms)
+- **clients/page.tsx** : ajout du même pattern (restore au mount + save continu débounce 150ms sur `.d-content`)
+
+### Fix — 6 modals HAUTE priorité (scroll interne + footer sticky)
+Pattern uniforme appliqué : `maxHeight: '90vh'` + `flex column` sur la card, header `flexShrink: 0`, contenu wrappé `flex: 1, minHeight: 0, overflowY: 'auto'`, footer wrappé `borderTop` + `background: var(--card)` + `flexShrink: 0`.
+- `pipeline/page.tsx:178` — Notes pipeline (textarea libre)
+- `pipeline/page.tsx:241` — Rappel pipeline (datetime + note)
+- `pipeline/page.tsx:299` — Modifier pipeline (consultant + métier)
+- `messages/page.tsx:1240` — Alerte doublon envoi (peut lister N candidats)
+- `CandidatsList.tsx:2523` — Bulk pipeline (consultant + métier)
+- `CandidatsList.tsx:2870` — Sauvegarder template SMS
+
+### Fix — Dropdown templates SMS clippé
+- Retrait de `overflow: 'hidden'` sur la `neo-card` du modal "Envoyer un message" (CandidatsList) — le dropdown `position: absolute` était coupé par le parent
+
+---
+
 ## [1.9.12] — 17 avril 2026
 
 ### Feat — Matching preselect amélioré (déterminisme + pertinence)

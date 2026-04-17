@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       : body.destinataire
         ? [body.destinataire]
         : []
-    const { candidat_ids, sujet, corps, use_bcc = false } = body
+    const { candidat_ids, sujet, corps, use_bcc = false, include_signature = true } = body
     const candidat_id = body.candidat_id || (candidat_ids?.[0]) || null
 
     if (destinataires.length === 0 || !sujet || !corps) {
@@ -64,13 +64,19 @@ export async function POST(request: NextRequest) {
     const accessToken = await getValidAccessToken(integration.id)
 
     // Signature dynamique du consultant connecté
+    // Priorité 1 : user_metadata.signature_html (custom)
+    // Priorité 2 : preset par défaut (prenom du consultant)
     let signature = ''
-    if (currentUser?.user_metadata) {
+    if (include_signature && currentUser?.user_metadata) {
       const m = currentUser.user_metadata
-      const fullName = [m.prenom, m.nom].filter(Boolean).join(' ')
-      const entreprise = m.entreprise || 'L-Agence'
-      if (fullName) {
-        signature = `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-family:Arial,sans-serif;font-size:13px;color:#6b7280"><strong style="color:#111827">${fullName}</strong><br>${entreprise} — Recrutement<br><span style="color:#F5A623">TalentFlow</span></div>`
+      const customHtml = typeof m.signature_html === 'string' ? m.signature_html.trim() : ''
+      if (customHtml) {
+        signature = `<br><br>${customHtml}`
+      } else {
+        const prenom = (m.prenom || m.first_name || '').toString().trim()
+        if (prenom) {
+          signature = `<br><br><p style="font-family:Arial,sans-serif;font-size:13px;color:#111827;margin:0">Cordialement,<br><strong>${prenom}</strong><br>L-AGENCE SA<br>+41 24 552 18 70<br>info@l-agence.ch</p>`
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.12'
+export const APP_VERSION = '1.9.13'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.13',
+    date: '2026-04-17',
+    label: 'Signature email + Templates SMS + Persistance session mailing + Fix modals scroll',
+    features: [
+      'Signature email Outlook : stockage HTML dans user_metadata.signature_html (pas de table profiles), upload assets (portrait, banner, icônes sociaux) dans bucket public-assets',
+      'Signature email : preset par défaut (prénom + L-AGENCE SA + tel + email) si aucune signature personnalisée — signée dynamiquement avec le prénom du consultant connecté',
+      'Signature email : éditeur dans /parametres/profil avec preview + onglet HTML source, toggle "Inclure ma signature" persistant dans /messages',
+      'Suppression de la signature texte dupliquée du template "Proposition de candidature" (la signature HTML est ajoutée par /api/microsoft/send)',
+      'Templates SMS en masse (CandidatsList) : migration email_templates avec colonne type (email|sms), sujet nullable, seed "Recherche de candidat" avec variables [MÉTIER]/[LIEU]',
+      'Templates SMS : dropdown dans le modal envoi, champs rapides Métier/Lieu (substitution live), bouton "Sauvegarder" pour créer des templates custom',
+      'WhatsApp fiche candidat : message complet (salutation + accroche + signature) avec prénom du consultant connecté (João/Seb dynamique)',
+      'Persistance session mailing : sessionStorage de candidatIds/destinataires/templateId/sujet/corps/includeSignature, restauration auto au retour',
+      'Bouton "+ Nouveau envoi" dans EmailTab (bandeau bleu visible si données présentes) — reset complet du brouillon',
+      'Fix scroll restore : /candidats et /clients sauvegardent désormais le scroll en continu (debounced 150ms), restauration depuis n importe quelle page de retour',
+      'Fix 6 modals HAUTE priorité : maxHeight 90vh + scroll interne + footer sticky (Pipeline Notes/Rappel/Modifier, Messages alerte doublon, CandidatsList Bulk pipeline + Sauvegarder template SMS)',
+      'Fix dropdown templates SMS : retrait de overflow:hidden sur la card du modal "Envoyer un message" (clippait le dropdown)',
+    ],
+  },
   {
     version: '1.9.12',
     date: '2026-04-17',

@@ -166,6 +166,15 @@ export default function CandidatDetailPage() {
   const backRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : '/candidats'
   const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : 'Retour aux candidats'
   const queryClient = useQueryClient()
+  const [consultantPrenom, setConsultantPrenom] = useState('João')
+  useEffect(() => {
+    const supa = createClient()
+    supa.auth.getUser().then(({ data }) => {
+      const m = data.user?.user_metadata || {}
+      const p = (m.prenom || m.first_name || '').toString().trim()
+      if (p) setConsultantPrenom(p)
+    })
+  }, [])
   const [note, setNote]                   = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
@@ -1321,7 +1330,7 @@ export default function CandidatDetailPage() {
                     <Phone size={12} style={{ flexShrink: 0, color: 'var(--muted)' }} />
                     <a href={`tel:${candidat.telephone}`} style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none', flex: 1 }}>{candidat.telephone}</a>
                     <a
-                      href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},`)}`}
+                      href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},\n\nJ'espère que vous allez bien.\n\nJe suis à la recherche d'un profil comme vous, n'hésitez pas à me répondre à ce message ou m'appeler.\n\nCordialement,\n${consultantPrenom}\nL-AGENCE SA`)}`}
                       title="Envoyer un message WhatsApp"
                       style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
                     >

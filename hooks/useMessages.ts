@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-export function useEmailTemplates() {
+export function useEmailTemplates(type?: 'email' | 'sms') {
   return useQuery({
-    queryKey: ['email-templates'],
+    queryKey: ['email-templates', type || 'all'],
     queryFn: async () => {
-      const res = await fetch('/api/email-templates')
+      const url = type ? `/api/email-templates?type=${type}` : '/api/email-templates'
+      const res = await fetch(url)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       return data.templates as any[]

@@ -4,6 +4,48 @@
 
 ---
 
+# Session 17 avril 2026 — v1.9.12 → v1.9.13
+
+## Signature email Outlook personnalisable
+- Stockage HTML dans `auth.users.user_metadata.signature_html` (pas de table profiles, suit le pattern existant `prenom`/`avatar_url`)
+- Bucket Supabase Storage `public-assets` : portrait, banner, icônes sociaux migrés depuis services externes (imgur, image2url, imgmsgen)
+- Preset par défaut si pas de signature custom : `<p>Cordialement,<br><strong>{prénom}</strong><br>L-AGENCE SA<br>+41 24 552 18 70<br>info@l-agence.ch</p>` — prénom dynamique du consultant connecté
+- Éditeur dans `/parametres/profil` : preview live + onglet HTML source + bouton enregistrer
+- Toggle "Inclure ma signature" dans /messages (persistant `localStorage` `talentflow_include_signature`)
+- `/api/microsoft/send` : ajoute la signature au body HTML uniquement si `include_signature: true`, priorité custom > preset
+- Suppression de la signature texte dupliquée du template "Proposition de candidature"
+
+## Templates SMS en masse
+- Migration `20260417_sms_templates.sql` : colonne `type TEXT NOT NULL DEFAULT 'email' CHECK (type IN ('email','sms'))`, `sujet` nullable, index, seed "Recherche de candidat" avec `[MÉTIER]`/`[LIEU]`
+- API `/api/email-templates` : GET accepte `?type=email|sms`
+- Hook `useEmailTemplates(type?)` : paramètre optionnel
+- /messages EmailTab forcé en `useEmailTemplates('email')` partout (isolation)
+- CandidatsList modal "Envoyer un message" : bouton Templates + dropdown + champs rapides Métier/Lieu (substitution live) + bouton Sauvegarder (modal portalisé)
+
+## WhatsApp fiche candidat
+- Bouton WhatsApp envoie message complet (salutation + accroche + signature)
+- Prénom dynamique via `user_metadata.prenom` du consultant connecté (João/Seb), fallback "João"
+
+## Persistance session mailing
+- `MAILING_KEY = 'talentflow_mailing_session'` dans sessionStorage : sauvegarde de candidatIds, destinataires, templateId, sujet, corps, includeSignature
+- Restauration auto au retour sur /messages
+- Bouton "+ Nouveau envoi" dans bandeau bleu en haut d'EmailTab (visible si données présentes) — `resetMailing()` clear tout
+
+## Scroll restore /candidats et /clients
+- CandidatsList : la clé `candidats_scroll` n'est plus supprimée après lecture + listener scroll continu (debounced 150ms)
+- clients/page.tsx : ajout du même pattern (restore au mount + save continu débounce 150ms sur `.d-content`)
+
+## 6 modals HAUTE priorité (scroll interne + footer sticky)
+Pattern uniforme : `maxHeight: '90vh'` + `flex column` sur la card, header `flexShrink: 0`, contenu wrappé `flex: 1, minHeight: 0, overflowY: 'auto'`, footer wrappé `borderTop` + `background: var(--card)` + `flexShrink: 0`.
+- pipeline/page.tsx : Notes (178), Rappel (241), Modifier (299)
+- messages/page.tsx : Alerte doublon (1240)
+- CandidatsList.tsx : Bulk pipeline (2523), Sauvegarder template SMS (2870)
+
+## Fix dropdown templates SMS clippé
+- Retrait de `overflow: 'hidden'` sur la `neo-card` du modal "Envoyer un message" (dropdown `position: absolute` était coupé)
+
+---
+
 # Session 30 mars 2026 — Rapport complet
 
 ## 1. Bugs corrigés
