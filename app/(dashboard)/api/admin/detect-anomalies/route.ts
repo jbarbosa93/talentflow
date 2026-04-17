@@ -38,7 +38,7 @@ export async function GET() {
   try {
     const supabase = createAdminClient()
     const t0 = Date.now()
-    const { data, error } = await supabase.rpc('admin_detect_anomalies')
+    const { data, error } = await (supabase as any).rpc('admin_detect_anomalies')
     const duration = Date.now() - t0
 
     if (error) {
