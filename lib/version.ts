@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.17'
+export const APP_VERSION = '1.9.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.18',
+    date: '2026-04-17',
+    label: 'Résolution collaborative des anomalies observabilité',
+    features: [
+      'Nouvelle table anomalies_resolved (candidat_id + anomaly_type en PK, resolution IN faux_positif/corrige, resolved_by, resolved_by_email, resolved_at, resolved_cv_url, note). RLS collaborative : tous les consultants authentifiés lisent/écrivent.',
+      'admin_detect_anomalies() v2 : LEFT JOIN anomalies_resolved et exclut les cas résolus SI cv_url actuel = resolved_cv_url. Si le CV change (ré-import), l\'anomalie réapparaît automatiquement — détecte une nouvelle contamination sur fiche déjà nettoyée.',
+      'Route /api/admin/anomalies-resolve (POST/DELETE/GET ?history=1) : requireAuth seul (collaboratif, pas admin-only). POST upsert la résolution en figeant cv_url actuel. DELETE annule. GET retourne les 50 dernières résolutions avec nom/prénom + email du résolveur.',
+      'AlertsBanner (v1.9.18) : 3 boutons par ligne — 🔗 Ouvrir (nouvel onglet, workflow de triage), ✅ Faux positif (nom présent mais pas au début du CV), 🔧 Corrigé (fiche nettoyée). Retrait optimiste + refetch historique.',
+      'Section "Historique" dépliable dans la bannière : 50 dernières résolutions avec badge couleur par résolution, email du résolveur, date — visible par tous (Seb et João voient qui a résolu quoi).',
+      'Tooltip au survol des lignes résolues récemment : "Résolu comme X par Y le Z". Aide à repérer les doublons d\'action entre consultants.',
+      'Bouton "Tout marquer faux positif (N)" par section dépliée — confirmation window.confirm obligatoire, Promise.all sur la route de résolution.',
+      'Banc de test DRY-RUN — fix bouton "Tester" : check res.ok, affichage des erreurs HTTP/exceptions (avant : silencieux), désactivation explicite avec title si drive_id manquant ou extension non supportée.',
+      'Banc de test DRY-RUN — toggle "Fichiers scannés (DB)" / "Dossier OneDrive en live (Graph)". Le mode live liste directement via Graph API /drives/{id}/items/{folder}/children (tri lastModified desc, top 30) + join onedrive_fichiers pour indiquer "déjà rattaché". Permet de tester un fichier fraîchement déposé sans attendre le cron de sync.',
+      'Banc de test DRY-RUN — banner rouge "Intégration OneDrive incomplète" si sharepoint_drive_id absent, au lieu d\'un bouton silencieusement désactivé.',
+    ],
+  },
   {
     version: '1.9.17',
     date: '2026-04-17',

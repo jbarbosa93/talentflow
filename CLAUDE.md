@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.17 production** — 17/04/2026
+**1.9.18 production** — 17/04/2026
 
 ---
 

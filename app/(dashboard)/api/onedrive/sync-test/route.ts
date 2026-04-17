@@ -49,16 +49,20 @@ function mimeForImage(ext: string): 'image/jpeg' | 'image/png' {
   return ext === 'png' ? 'image/png' : 'image/jpeg'
 }
 
-// GET — liste les derniers fichiers OneDrive vus (pour peupler le sélecteur UI)
-export async function GET() {
+// GET — liste les fichiers pour peupler le sélecteur UI.
+// ?mode=db    → fichiers déjà scannés par le cron (onedrive_fichiers, max 30)
+// ?mode=live  → listing direct Graph API du dossier surveillé (max 30, tri lastModified desc)
+export async function GET(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError
   const denied = await requireAdmin()
   if (denied) return denied
 
+  const mode = new URL(request.url).searchParams.get('mode') === 'live' ? 'live' : 'db'
+
   try {
     const supabase = createAdminClient()
-    // Récupérer driveId depuis l'intégration active
+    // Récupérer config intégration active
     const { data: integration } = await (supabase as any)
       .from('integrations')
       .select('metadata')
@@ -67,8 +71,71 @@ export async function GET() {
       .maybeSingle()
     const meta = integration?.metadata || {}
     const driveId = meta.sharepoint_drive_id || null
+    const folderId = meta.sharepoint_folder_id || null
     const folderName = meta.sharepoint_folder_name || null
 
+    if (mode === 'live') {
+      if (!driveId || !folderId) {
+        return NextResponse.json({
+          drive_id: driveId,
+          folder_name: folderName,
+          files: [],
+          mode: 'live',
+          error: !driveId ? 'sharepoint_drive_id manquant dans integrations.metadata' : 'sharepoint_folder_id manquant dans integrations.metadata',
+        }, { status: 200 })
+      }
+
+      try {
+        const { token } = await getAccessTokenForPurpose('onedrive')
+        // Listing direct Graph, non récursif, tri par date de modification desc
+        const url = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${folderId}/children?$select=name,id,file,size,lastModifiedDateTime&$top=30&$orderby=lastModifiedDateTime desc`
+        const gr = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        if (!gr.ok) {
+          const txt = await gr.text().catch(() => gr.statusText)
+          return NextResponse.json({
+            drive_id: driveId, folder_name: folderName, files: [], mode: 'live',
+            error: `Graph API ${gr.status}: ${txt.slice(0, 200)}`,
+          }, { status: 200 })
+        }
+        const data = await gr.json()
+        const items: any[] = Array.isArray(data.value) ? data.value : []
+
+        // Charger les candidat_id déjà rattachés pour indiquer "déjà importé"
+        const itemIds = items.filter(it => it.file).map(it => it.id)
+        const { data: linked } = itemIds.length > 0 ? await (supabase as any)
+          .from('onedrive_fichiers')
+          .select('onedrive_item_id, candidat_id, statut_action, traite_le')
+          .in('onedrive_item_id', itemIds) : { data: [] as any[] }
+        const linkedMap = new Map<string, any>((linked || []).map((l: any) => [l.onedrive_item_id, l]))
+
+        const files = items
+          .filter(it => it.file)
+          .map(it => {
+            const ext = (it.name || '').toLowerCase().split('.').pop() || ''
+            const supported = ['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'webp'].includes(ext)
+            const known = linkedMap.get(it.id)
+            return {
+              id: it.id, // utiliser l'item_id comme key (pas de row DB)
+              onedrive_item_id: it.id,
+              nom_fichier: it.name,
+              statut_action: known?.statut_action || (supported ? 'nouveau (live)' : 'extension ignorée'),
+              traite_le: it.lastModifiedDateTime || null,
+              candidat_id: known?.candidat_id || null,
+              erreur: null,
+              _supported: supported,
+            }
+          })
+
+        return NextResponse.json({ drive_id: driveId, folder_name: folderName, files, mode: 'live' })
+      } catch (e) {
+        return NextResponse.json({
+          drive_id: driveId, folder_name: folderName, files: [], mode: 'live',
+          error: e instanceof Error ? e.message : 'Erreur Graph',
+        }, { status: 200 })
+      }
+    }
+
+    // mode === 'db'
     const { data: files } = await (supabase as any)
       .from('onedrive_fichiers')
       .select('id, onedrive_item_id, nom_fichier, statut_action, traite_le, candidat_id, erreur')
@@ -79,6 +146,7 @@ export async function GET() {
       drive_id: driveId,
       folder_name: folderName,
       files: files || [],
+      mode: 'db',
     })
   } catch (e) {
     return NextResponse.json(
