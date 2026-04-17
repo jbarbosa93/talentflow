@@ -152,23 +152,29 @@ export function isRecent(created_at: string | null | undefined): boolean {
   return Date.now() - new Date(created_at).getTime() < SEUIL_MS
 }
 
-/** Un candidat est "non vu" si :
- *  - has_update = true ET pas dans viewedSet → badge visible (viewedSet synchrone pour feedback immédiat)
+/** Un candidat est "non vu" PAR CE USER si :
+ *  - last_import_at renseigné ET pas dans viewedSet ET last_import_at > viewedAllAt (ré-import non vu par ce user)
  *  - OU récent ET pas dans viewedSet ET pas couvert par viewedAllAt
+ *
+ *  Note : à chaque import, candidats_vus est purgé par candidat_id côté serveur → tous les users
+ *  retrouvent un viewedSet vide pour ce candidat, donc le badge réapparaît pour TOUT LE MONDE jusqu'à ré-ouverture.
  */
 export function hasBadge(
   id: string,
   created_at: string | null | undefined,
   viewedSet: Set<string>,
   viewedAllAt?: string | null,
-  has_update?: boolean,
+  last_import_at?: string | null,
 ): boolean {
-  // Priorité 1 : has_update flag (CV mis à jour) → badge toujours visible
-  // Le clear se fait via PATCH has_update:false + update cache React Query depuis la fiche
-  if (has_update) return true
-  // Priorité 2 : logique "non vu" classique
-  if (!isRecent(created_at)) return false
+  // Déjà vu individuellement par ce user → jamais de badge
   if (viewedSet.has(id)) return false
+
+  // Priorité 1 : ré-import récent non encore vu par ce user
+  if (last_import_at) {
+    if (!viewedAllAt || new Date(last_import_at) > new Date(viewedAllAt)) return true
+  }
+  // Priorité 2 : candidat récemment créé non couvert par viewedAllAt
+  if (!isRecent(created_at)) return false
   if (viewedAllAt && created_at && new Date(created_at) < new Date(viewedAllAt)) return false
   return true
 }

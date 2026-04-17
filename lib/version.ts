@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.15'
+export const APP_VERSION = '1.9.16'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.16',
+    date: '2026-04-17',
+    label: 'Badges per-user strict (fix bug multi-user has_update global)',
+    features: [
+      'Bug multi-user corrigé : has_update était une colonne globale — un user qui cliquait "Tout marquer vu" resettait les badges pour TOUS les users (Seb a effacé les 76 badges de João à 16:07).',
+      'Nouvelle colonne candidats.last_import_at TIMESTAMPTZ : timestamp du dernier import CV (remplace le bool has_update comme source de vérité).',
+      'hasBadge() : logique per-user stricte — badge visible si (last_import_at > viewedAllAt du USER COURANT) OU (candidat récent non vu). Chaque consultant voit/clear ses propres badges indépendamment.',
+      'mark-all-vu : suppression du UPDATE global has_update=false. Seul le user_metadata.candidats_viewed_all_at + candidats_vus du user courant sont modifiés.',
+      'Fiche candidat ouverture : suppression du PATCH has_update:false global. Seul markCandidatVu(id) → POST candidats_vus (per-user) est appelé.',
+      'Imports (cv/parse, cv/bulk, onedrive/sync, sharepoint/import) : écrivent last_import_at = now() à chaque import/maj + DELETE candidats_vus par candidat_id → tous les users retrouvent un badge rouge sur candidat ré-importé.',
+      'Migration SQL : ADD COLUMN last_import_at + backfill updated_at >= 14:00 → restaure automatiquement les 76 badges perdus aujourd\'hui chez João sans toucher à Seb.',
+      'has_update reste en DB pour rétrocompat — drop prévu v1.9.17 après 24h de stabilité.',
+    ],
+  },
   {
     version: '1.9.15',
     date: '2026-04-17',

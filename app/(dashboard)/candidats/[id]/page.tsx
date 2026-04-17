@@ -282,25 +282,13 @@ export default function CandidatDetailPage() {
 
   const candidat = data as any
 
-  // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît
+  // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît (CE USER uniquement)
+  // v1.9.16 : le clear se fait exclusivement via candidats_vus (per-user), plus de PATCH has_update global.
   useEffect(() => {
     if (!id) return
-    markCandidatVu(id)
-    // Reset has_update flag en DB puis mettre à jour cache React Query + sidebar
-    fetch(`/api/candidats/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ has_update: false }),
-    }).then(() => {
-      // 1. Mettre à jour le cache liste candidats → badge card disparaît au retour
-      queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) => {
-        if (!old?.candidats) return old
-        return { ...old, candidats: old.candidats.map((c: any) => c.id === id ? { ...c, has_update: false } : c) }
-      })
-      // 2. Sidebar : re-fetch count-new (has_update=false en DB → pas compté)
-      dispatchBadgesChanged()
-    }).catch(() => {})
-  }, [id, queryClient])
+    markCandidatVu(id) // POST /api/candidats/vus {ids:[id]} → upsert candidats_vus pour CE user
+    dispatchBadgesChanged() // refresh sidebar count
+  }, [id])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
   useEffect(() => {

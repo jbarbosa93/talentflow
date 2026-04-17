@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.15 production** — 17/04/2026
+**1.9.16 production** — 17/04/2026
 
 ---
 
@@ -270,12 +270,14 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - OneDrive sync : même logique, cron 10min = sync manuel
 - `memeContenu` / `contenuIdentique` = gardes anti-doublons (texte 500 chars OU nom normalisé)
 
-**7. has_update — badge "non vu" pour candidats mis à jour**
-- `has_update: true` en DB = badge rouge sur la carte ET compteur sidebar
-- Défini par les imports (cv/parse, onedrive/sync) quand un candidat existant est réactivé ou mis à jour
-- Clearing : la fiche candidat PATCH `has_update: false` + `queryClient.setQueriesData` (cache React Query) + `dispatchBadgesChanged()` (sidebar)
-- `hasBadge()` : `has_update` = toujours badge visible (inconditionnel). Le clearing se fait via le PATCH + cache update, PAS via viewedSet
-- `dispatchBadgesChanged()` doit être appelé après tout événement qui modifie `has_update` en DB (UploadCV, IntégrationsOneDrive, fiche candidat)
+**7. Badges per-user (v1.9.16) — last_import_at timestamp**
+- `candidats.last_import_at TIMESTAMPTZ` = timestamp du dernier import CV (remplace has_update bool). Mise à jour par tous les imports (cv/parse, cv/bulk, onedrive/sync, sharepoint/import).
+- **Per-user strict** : chaque consultant a son propre état de lecture via `candidats_vus (user_id, candidat_id, viewed_at)` + `auth.users.raw_user_meta_data.candidats_viewed_all_at`
+- **`hasBadge()`** : badge visible si `last_import_at > max(viewedAllAt du user courant, viewed_at dans candidats_vus)` OU (candidat récent ET pas vu)
+- **Ouverture fiche** : `markCandidatVu(id)` → POST `/api/candidats/vus` (upsert candidats_vus du user courant). **Aucun UPDATE global sur la colonne candidats.**
+- **"Tout marquer vu"** : DELETE candidats_vus du user + UPDATE user_metadata.candidats_viewed_all_at = now(). **JAMAIS de UPDATE global has_update=false** (c'était le bug multi-user réglé en v1.9.16).
+- **Ré-import CV** : écrit `last_import_at=now()` + DELETE candidats_vus par candidat_id → badge réapparaît chez TOUS les users (même ceux qui avaient déjà vu la fiche).
+- `has_update` bool reste en DB jusqu'à v1.9.17 pour rétrocompat, mais PLUS LU par le code.
 
 **8. Normalisation noms de fichiers CV**
 - Storage encode les espaces en underscores : `"BENCHAAR salim.pdf"` → `"1776xxx_BENCHAAR_salim.pdf"`

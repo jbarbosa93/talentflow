@@ -483,6 +483,7 @@ async function traiterUnFichier(
 
   // Champs hors type CandidatInsert
   ;(nouveauCandidat as any).has_update = true
+  ;(nouveauCandidat as any).last_import_at = new Date().toISOString()
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
   // Fix 5 : created_at depuis date ZIP ou nom de fichier
   const insertDate = fileDate || extractDateFromFilename(filename)

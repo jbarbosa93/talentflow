@@ -848,6 +848,7 @@ export async function POST(request: Request) {
                 ...(importedIsNewer ? { created_at: fileDate } : {}),
                 updated_at: new Date().toISOString(),
                 has_update: true,
+                last_import_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
               // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
               try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}
@@ -896,6 +897,7 @@ export async function POST(request: Request) {
                   ...(importedIsNewerSafety ? { created_at: fileDate } : {}),
                   updated_at: new Date().toISOString(),
                   has_update: true,
+                  last_import_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
                 try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}
@@ -931,6 +933,7 @@ export async function POST(request: Request) {
                   documents: existingDocs,
                   updated_at: new Date().toISOString(),
                   has_update: true,
+                  last_import_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
                 try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}
@@ -1024,6 +1027,7 @@ export async function POST(request: Request) {
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
                 updated_at: new Date().toISOString(),
                 has_update: true,
+                last_import_at: new Date().toISOString(),
                 ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
               // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1192,6 +1196,7 @@ export async function POST(request: Request) {
               statut_pipeline: null, // JAMAIS d'ajout auto en pipeline
               import_status: 'a_traiter',
               has_update: true,
+              last_import_at: new Date().toISOString(),
               source: 'ONEDRIVE',
               tags: [],
               created_at: fileDate, // Date de modification du fichier OneDrive

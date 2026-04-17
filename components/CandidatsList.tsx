@@ -373,9 +373,9 @@ export default function CandidatsList() {
     if (!isReady) return
     fetch(`/api/candidats/count-new?t=${Date.now()}`)
       .then(r => r.json())
-      .then(({ ids }: { ids: { id: string; import_status: string; created_at: string; has_update?: boolean }[] }) => {
+      .then(({ ids }: { ids: { id: string; import_status: string; created_at: string; last_import_at?: string | null }[] }) => {
         const vs = getViewedSet()
-        const nonVus = ids.filter(item => hasBadge(item.id, item.created_at, vs, viewedAllAt, item.has_update))
+        const nonVus = ids.filter(item => hasBadge(item.id, item.created_at, vs, viewedAllAt, item.last_import_at))
         nonVusBadgeLoaded.current = true
         setNonVusTotal(nonVus.length)
         const parStatut: Record<string, number> = {}
@@ -722,7 +722,7 @@ export default function CandidatsList() {
     // Filtre "non vu" — client-side
     if (filterNonVu) {
       const vs = getViewedSet()
-      result = result.filter((c: any) => hasBadge(c.id, c.created_at, vs, viewedAllAt, c.has_update))
+      result = result.filter((c: any) => hasBadge(c.id, c.created_at, vs, viewedAllAt, c.last_import_at))
     }
     return result
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1014,7 +1014,7 @@ export default function CandidatsList() {
 
   // Compter les badges actifs (pour le bouton "Tout marquer vu")
   const badgeCount = useMemo(() => {
-    return sorted.filter(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).has_update)).length
+    return sorted.filter(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).last_import_at)).length
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sorted, badgeTick, viewedAllAt])
 
@@ -1023,8 +1023,8 @@ export default function CandidatsList() {
     const age = calculerAge(c.date_naissance)
     const hasCv = !!c.cv_url
     const cvExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || ''
-    // Badge rouge si : has_update=true OU (créé dans les 30 derniers jours ET fiche jamais ouverte)
-    const isNewCandidat = hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).has_update)
+    // Badge rouge si : last_import_at > seen_at OU (créé dans les 30 derniers jours ET fiche jamais ouverte)
+    const isNewCandidat = hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, (c as any).last_import_at)
 
     return (
       <motion.div
@@ -1683,22 +1683,12 @@ export default function CandidatsList() {
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
                 } finally {
-                  // Persister cross-device dans Supabase user metadata + reset has_update DB
+                  // v1.9.16 : persister cross-device dans Supabase user_metadata UNIQUEMENT.
+                  // Plus de reset has_update global — le badge est filtré per-user via viewedAllAt + candidats_vus.
                   fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
                   markAllVu()
                   // Sync React state (sinon hasBadge() utilise l'ancien viewedAllAt du closure)
                   setViewedAllAt(new Date().toISOString())
-                  // Clear has_update dans le cache React Query — évite refetch complet
-                  queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) => {
-                    if (!old) return old
-                    if (Array.isArray(old?.candidats)) {
-                      return { ...old, candidats: old.candidats.map((c: any) => c?.has_update ? { ...c, has_update: false } : c) }
-                    }
-                    if (Array.isArray(old)) {
-                      return old.map((c: any) => c?.has_update ? { ...c, has_update: false } : c)
-                    }
-                    return old
-                  })
                 }
               }}
               className="neo-btn-ghost"

@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
       import_status: 'a_traiter',
     }
     ;(nouveauCandidat as any).has_update = true
+    ;(nouveauCandidat as any).last_import_at = new Date().toISOString()
 
     const { data: candidatRaw, error: dbError } = await supabase
       .from('candidats')

@@ -5,8 +5,8 @@ import { requireAuth } from '@/lib/auth-guard'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Retourne les candidats créés dans les 30 derniers jours OU avec has_update=true
-// Le filtrage "vu/non vu" se fait côté client via hasBadge (viewedSet + viewedAllAt + has_update)
+// Retourne les candidats créés OU ré-importés dans les 30 derniers jours
+// Le filtrage "vu/non vu" per-user se fait côté client via hasBadge (viewedSet + viewedAllAt + last_import_at)
 export async function GET() {
   const authError = await requireAuth()
   if (authError) return authError
@@ -14,18 +14,18 @@ export async function GET() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
     const admin = createAdminClient()
-    // Récupérer : récents (badge classique) OU has_update=true (badge mise à jour CV)
+    // Récents (badge classique) OU ré-importés récemment (badge mise à jour CV)
     const { data } = await (admin as any)
       .from('candidats')
-      .select('id, import_status, created_at, has_update')
-      .or(`created_at.gte.${thirtyDaysAgo},has_update.eq.true`)
+      .select('id, import_status, created_at, last_import_at')
+      .or(`created_at.gte.${thirtyDaysAgo},last_import_at.gte.${thirtyDaysAgo}`)
 
     return NextResponse.json({
       ids: (data || []).map((c: any) => ({
         id: c.id,
         import_status: c.import_status ?? 'traite',
         created_at: c.created_at,
-        has_update: c.has_update ?? false,
+        last_import_at: c.last_import_at ?? null,
       })),
     })
   } catch {
