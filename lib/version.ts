@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.14'
+export const APP_VERSION = '1.9.15'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.15',
+    date: '2026-04-17',
+    label: 'Fix fausse ambiguïté homonymes portugais (bug Jo26)',
+    features: [
+      'lib/candidat-matching.ts : strictNomPrenomMatch durci — remplace wordsOverlap (≥1 mot commun) par containment bidirectionnel (tous les mots d\'une identité doivent être présents dans l\'autre). Rejette les faux homonymes portugais partageant seulement "Silva/Santos/Ferreira + José/Manuel" tout en conservant les vrais doublons (nom tronqué, inversé, permuté)',
+      'Fail-safe cascade désambiguïsation : si input contient un signal fort (email/tel/DDN) et qu\'aucun homonyme ne le matche → retourne none au lieu de ambiguous, autorisant la création d\'un nouveau candidat (fix bug Jo26.pdf qui bloquait José Pedro Queirós Maia Moreira sur 5 faux homonymes "Jose X")',
+      'Dry-run 6078 candidats DB : 849 paires de faux homonymes éliminées, 224 vrais doublons conservés, 8/8 self-matches OK',
+    ],
+  },
   {
     version: '1.9.14',
     date: '2026-04-17',

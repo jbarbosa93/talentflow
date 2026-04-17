@@ -43,32 +43,48 @@ const wordsOf = (s: string, minLen = 3): string[] =>
   unaccent(s).split(/[\s-]+/).filter(w => w.length >= minLen)
 
 // Deux listes de mots "matchent" si au moins un mot de chaque côté s'inclut dans l'autre
+// (utilisé uniquement pour compat partielle email/tel)
 const wordsOverlap = (a: string[], b: string[]): boolean => {
   if (a.length === 0 || b.length === 0) return false
   return a.some(wa => b.some(wb => wa.includes(wb) || wb.includes(wa)))
 }
 
-// Filtre strict nom+prénom : les deux moitiés d'identité doivent overlapper
+// Sous-ensemble bidirectionnel : TOUS les mots de a sont dans b, OU tous les mots de b sont dans a
+// Comparaison par égalité stricte (pas de substring) pour éviter "jos" ⊂ "jose"
+const isSubsetEither = (a: string[], b: string[]): boolean => {
+  if (a.length === 0 || b.length === 0) return false
+  const aInB = a.every(wa => b.includes(wa))
+  if (aInB) return true
+  const bInA = b.every(wb => a.includes(wb))
+  return bInA
+}
+
+// Filtre strict nom+prénom (v1.9.15) :
+// - Les MOTS de l'identité input doivent être un sous-ensemble de l'identité DB combinée (nom+prénom),
+//   ou inversement. Tolère l'inversion nom↔prénom et les noms portugais/espagnols composés,
+//   mais rejette les "Jose X" vs "Jose Y" (bug Jo26) où un seul prénom commun suffisait.
 const strictNomPrenomMatch = (input: CandidatMatchInput, c: any): boolean => {
   const iNom = wordsOf(input.nom || '')
   const iPrenom = wordsOf(input.prenom || '')
   const cNom = wordsOf(c.nom || '')
   const cPrenom = wordsOf(c.prenom || '')
   if (iNom.length === 0 || iPrenom.length === 0) return false
-  if (cNom.length === 0 || cPrenom.length === 0) return false
+  if (cNom.length === 0 && cPrenom.length === 0) return false
 
-  // Nom doit matcher (bidirectionnel)
-  if (!wordsOverlap(iNom, cNom)) {
-    // Cas noms composés/inversés : le nom entier peut se retrouver dans nom+prenom DB concaténés
-    const combined = wordsOf(`${c.nom || ''} ${c.prenom || ''}`)
-    if (!wordsOverlap(iNom, combined)) return false
-  }
-  // Prénom doit matcher
-  if (!wordsOverlap(iPrenom, cPrenom)) {
-    const combined = wordsOf(`${c.nom || ''} ${c.prenom || ''}`)
-    if (!wordsOverlap(iPrenom, combined)) return false
-  }
-  return true
+  // On teste l'identité combinée pour tolérer les inversions et les noms composés split
+  // entre nom/prenom DB différemment de l'input.
+  const iCombined = Array.from(new Set([...iNom, ...iPrenom]))
+  const cCombined = Array.from(new Set([...cNom, ...cPrenom]))
+
+  // 1. Sous-ensemble bidirectionnel sur l'identité complète
+  //    (ex: "Martínez / José Luis Monreal" ↔ "Monreal Martínez / José Luis")
+  if (!isSubsetEither(iCombined, cCombined)) return false
+
+  // 2. Vérif finale : chaque moitié input (nom puis prénom) doit être entièrement présente
+  //    dans l'identité DB combinée. Cela rejette le cas où seulement 1 mot commun survit.
+  const nomOk = iNom.every(w => cCombined.includes(w))
+  const prenomOk = iPrenom.every(w => cCombined.includes(w))
+  return nomOk && prenomOk
 }
 
 // Compatibilité "partielle" — utilisée quand on matche par email/tel et qu'on a UNE moitié d'identité
@@ -171,6 +187,11 @@ export async function findExistingCandidat(
       if (byDdn) return { kind: 'match', candidat: byDdn, reason: 'nom_prenom_ddn', diffs: [] }
     }
 
+    // Fail-safe : si l'input contient un signal fort (email/tel/DDN) et qu'AUCUN
+    // des homonymes candidats ne matche ce signal → ce ne sont pas les bons homonymes,
+    // on renvoie 'none' pour autoriser la création d'un nouveau candidat (bug Jo26).
+    const hasStrongSignal = hasEmail || hasTelValid || !!input.date_naissance
+    if (hasStrongSignal) return { kind: 'none' }
     return { kind: 'ambiguous', candidates, reason: `Homonymes non résolus (${candidates.length} candidats)` }
   }
 
