@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.18'
+export const APP_VERSION = '1.9.19'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.19',
+    date: '2026-04-17',
+    label: 'Matching : fail-safe DDN + fin des faux positifs homonymes portugais/espagnols',
+    features: [
+      'CORRECTIF 1 — fail-safe DDN (immutable) : dans la branche nominale, si l\'homonyme direct (length=1) a une DDN renseignée ET l\'input aussi, ET qu\'elles diffèrent → kind:\'none\' (création nouveau candidat). Fail-safe identique sur désambiguïsation tel. Bug edb7a8f3 (Rodrigues André Soudeur Lausanne DDN 16/12/1985 écrasé par CV André Rodrigues Champéry DDN 10/02/1984) ne peut plus se produire.',
+      'CORRECTIF 2 — wordsOverlapExact remplace wordsOverlap (.includes bidir) dans partialIdentityCompatible : "Andre" ne matche plus "Andres", "Ana" ne matche plus "Anais", "Luis" ne matche plus "Luisa". Égalité stricte sur mots unaccent uniquement.',
+      'CORRECTIF 3 — collision tel9 seule ne suffit plus (branche hasTelValid hors nominale) : exige strictNomPrenomMatch OU DDN identique. Protège les scénarios couples/familles/colocs qui partagent un numéro. Bug 5b25b055 (CV "Rodrigues André" tel9=794258097 matché à "Rodriguez Verdugo Andrés" tel9=794258097 via "andres".includes("andre")) éliminé.',
+      'Helper ddnCompareStrict : normalise ISO YYYY-MM-DD et DD/MM/YYYY (ou DD.MM.YYYY, DD-MM-YYYY), retourne true/false/null. null si l\'une des deux est manquante ou format non-comparable (année seule). Aucun rejet silencieux.',
+      'Nettoyage données : fiche André Rodrigues plaquiste Champéry (DDN 10/02/1984, tel 0794258097) créée manuellement — elle manquait en DB, donc les 3 écrasements du 17/04 étaient structurellement impossibles à éviter sans création de nouvelle fiche. cv_texte_brut nullifié sur 5b25b055 (pollué avec texte plaquiste) — cron */5min re-extraira automatiquement.',
+      'Banc de test DRY-RUN — fix nom de colonne : .eq(\'active\', true) → .eq(\'actif\', true) (schéma français). Le banc ne retrouvait jamais l\'intégration OneDrive active → bannière "sharepoint_drive_id manquant" permanente. Désormais fonctionnel.',
+    ],
+  },
   {
     version: '1.9.18',
     date: '2026-04-17',

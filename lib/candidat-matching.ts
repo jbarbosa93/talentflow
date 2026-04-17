@@ -42,11 +42,35 @@ export const tel9 = (t: string | null | undefined): string => {
 const wordsOf = (s: string, minLen = 3): string[] =>
   unaccent(s).split(/[\s-]+/).filter(w => w.length >= minLen)
 
-// Deux listes de mots "matchent" si au moins un mot de chaque côté s'inclut dans l'autre
-// (utilisé uniquement pour compat partielle email/tel)
-const wordsOverlap = (a: string[], b: string[]): boolean => {
+// v1.9.19 — égalité stricte sur mots unaccent (plus d'includes/subset).
+// Élimine les faux matches type "Andre" ⊂ "Andres", "Ana" ⊂ "Anais", "Luis" ⊂ "Luisa".
+// Un candidat doit partager un mot COMPLET pour être considéré compatible.
+const wordsOverlapExact = (a: string[], b: string[]): boolean => {
   if (a.length === 0 || b.length === 0) return false
-  return a.some(wa => b.some(wb => wa.includes(wb) || wb.includes(wa)))
+  return a.some(wa => b.includes(wa))
+}
+
+// Compare deux DDN (string ISO ou DD/MM/YYYY) — retourne true si identiques après normalisation,
+// false si différentes, null si l'une des deux est manquante/non-comparable.
+const ddnCompareStrict = (a: string | null | undefined, b: string | null | undefined): boolean | null => {
+  const norm = (d: string | null | undefined): string | null => {
+    if (!d) return null
+    const s = String(d).trim()
+    if (!s) return null
+    // ISO YYYY-MM-DD
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
+    // DD/MM/YYYY ou DD.MM.YYYY
+    const dmy = s.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/)
+    if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`
+    // Année seule → non comparable
+    if (/^\d{4}$/.test(s)) return null
+    return null
+  }
+  const na = norm(a)
+  const nb = norm(b)
+  if (!na || !nb) return null
+  return na === nb
 }
 
 // Sous-ensemble bidirectionnel : TOUS les mots de a sont dans b, OU tous les mots de b sont dans a
@@ -88,6 +112,7 @@ const strictNomPrenomMatch = (input: CandidatMatchInput, c: any): boolean => {
 }
 
 // Compatibilité "partielle" — utilisée quand on matche par email/tel et qu'on a UNE moitié d'identité
+// v1.9.19 — égalité stricte sur mots (wordsOverlapExact) : plus de "Andre ⊂ Andres"
 const partialIdentityCompatible = (input: CandidatMatchInput, c: any): boolean => {
   const iNom = unaccent(input.nom || '')
   const iPrenom = unaccent(input.prenom || '')
@@ -97,22 +122,22 @@ const partialIdentityCompatible = (input: CandidatMatchInput, c: any): boolean =
   // Si rien en DB → on ne peut rien valider, on rejette
   if (!cNom && !cPrenom) return false
 
-  // Cas 1 : on a un nom extrait → doit matcher au moins dans nom OU prenom DB
+  // Cas 1 : on a un nom extrait → doit matcher au moins un mot COMPLET dans nom OU prenom DB
   if (iNom) {
     const iNomWords = wordsOf(iNom)
     const combined = `${cNom} ${cPrenom}`
     const cCombinedWords = wordsOf(combined)
-    if (wordsOverlap(iNomWords, cCombinedWords)) return true
+    if (wordsOverlapExact(iNomWords, cCombinedWords)) return true
     // Pas de nom extrait qui matche → rejet
     return false
   }
 
-  // Cas 2 : on a seulement un prénom → doit matcher au moins dans prenom OU nom DB
+  // Cas 2 : on a seulement un prénom → doit matcher au moins un mot COMPLET dans prenom OU nom DB
   if (iPrenom) {
     const iPrenomWords = wordsOf(iPrenom)
     const combined = `${cNom} ${cPrenom}`
     const cCombinedWords = wordsOf(combined)
-    return wordsOverlap(iPrenomWords, cCombinedWords)
+    return wordsOverlapExact(iPrenomWords, cCombinedWords)
   }
 
   return false
@@ -168,6 +193,12 @@ export async function findExistingCandidat(
 
     if (candidates.length === 1) {
       const c = candidates[0]
+      // v1.9.19 CORRECTIF 1 — fail-safe DDN : la DDN est immutable. Si les deux DDN sont
+      // renseignées et DIFFÉRENTES → ce sont 2 personnes distinctes, même nom+prénom.
+      // (Bug edb7a8f3 : "Rodrigues André" Lausanne DDN 16/12/1985 écrasé par CV André Rodrigues
+      //  Champéry DDN 10/02/1984 — même identité, DDN contradictoires → 2 personnes.)
+      const ddnCheck = ddnCompareStrict(input.date_naissance, c.date_naissance)
+      if (ddnCheck === false) return { kind: 'none' }
       return { kind: 'match', candidat: c, reason: 'nom_prenom_exact', diffs: computeDiffs(c, input) }
     }
 
@@ -179,7 +210,12 @@ export async function findExistingCandidat(
     if (hasTelValid) {
       const target = tel9(input.telephone)
       const byTel = candidates.find(c => tel9(c.telephone) === target)
-      if (byTel) return { kind: 'match', candidat: byTel, reason: 'nom_prenom_tel', diffs: [] }
+      if (byTel) {
+        // v1.9.19 CORRECTIF 1 — fail-safe DDN aussi sur désambiguïsation tel
+        const ddnCheck = ddnCompareStrict(input.date_naissance, byTel.date_naissance)
+        if (ddnCheck === false) return { kind: 'none' }
+        return { kind: 'match', candidat: byTel, reason: 'nom_prenom_tel', diffs: [] }
+      }
     }
     if (input.date_naissance) {
       const target = input.date_naissance.slice(0, 10)
@@ -218,8 +254,24 @@ export async function findExistingCandidat(
     const { data } = await q.limit(200)
     if (data) {
       const byTel = data.filter((c: any) => tel9(c.telephone) === target)
-      const compatible = byTel.find((c: any) => partialIdentityCompatible(input, c))
-      if (compatible) return { kind: 'match', candidat: compatible, reason: 'tel_identite_partielle', diffs: computeDiffs(compatible, input) }
+      // v1.9.19 CORRECTIF 3 — collision tel9 seule ne suffit PLUS. On exige :
+      //   (a) strictNomPrenomMatch (identité complète et cohérente), OU
+      //   (b) DDN identique (signal fort alternatif)
+      // Le tel peut être partagé (couple, famille, coloc) → nom-différent + tel-partagé ≠ même personne.
+      // (Bug 5b25b055 : CV "Rodrigues André" tel9=794258097 matché à "Rodriguez Verdugo Andrés" tel9=794258097
+      //  alors que nom+prénom sont différents — ne doit plus arriver.)
+      const compatible = byTel.find((c: any) => {
+        if (!partialIdentityCompatible(input, c)) return false
+        if (strictNomPrenomMatch(input, c)) return true
+        if (ddnCompareStrict(input.date_naissance, c.date_naissance) === true) return true
+        return false
+      })
+      if (compatible) {
+        // Fail-safe DDN aussi ici
+        const ddnCheck = ddnCompareStrict(input.date_naissance, compatible.date_naissance)
+        if (ddnCheck === false) return { kind: 'none' }
+        return { kind: 'match', candidat: compatible, reason: 'tel_identite_partielle', diffs: computeDiffs(compatible, input) }
+      }
     }
   }
 

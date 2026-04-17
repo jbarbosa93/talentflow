@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       .from('integrations')
       .select('metadata')
       .eq('type', 'microsoft_onedrive')
-      .eq('active', true)
+      .eq('actif', true)
       .maybeSingle()
     const meta = integration?.metadata || {}
     const driveId = meta.sharepoint_drive_id || null
