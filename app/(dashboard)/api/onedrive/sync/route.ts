@@ -9,6 +9,7 @@ import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import { logActivity } from '@/lib/activity-log'
 import { normaliserGenre } from '@/lib/normaliser-genre'
+import { findExistingCandidat } from '@/lib/candidat-matching'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -124,6 +125,35 @@ export async function POST(request: Request) {
       .from('onedrive_fichiers')
       .select('onedrive_item_id, traite, traite_le, last_modified_at, created_at, erreur, candidat_id')
       .limit(10000)
+
+    // Watchdog "pending orphelins" : fichier pré-enregistré il y a >24h mais jamais traité
+    // (typiquement dropped par la dédup d'un cycle précédent)
+    // → marquer erreur pour qu'il apparaisse dans l'UI + subisse MAX_ERROR_DAYS
+    const WATCHDOG_THRESHOLD_MS = 24 * 60 * 60 * 1000
+    const nowMs = Date.now()
+    const orphanPendingIds = ((allFichiersUpdated || []) as any[])
+      .filter(f =>
+        f.traite === false &&
+        !f.erreur &&
+        f.created_at &&
+        (nowMs - new Date(f.created_at).getTime()) > WATCHDOG_THRESHOLD_MS
+      )
+      .map(f => f.onedrive_item_id)
+    if (orphanPendingIds.length > 0) {
+      await (supabase as any)
+        .from('onedrive_fichiers')
+        .update({
+          erreur: 'Fichier pré-enregistré mais jamais traité (bloqué par dédup ou abandon silencieux) — sera retenté',
+        })
+        .in('onedrive_item_id', orphanPendingIds)
+      dbg(`[OneDrive Sync] Watchdog : ${orphanPendingIds.length} pending orphelin(s) marqué(s) en erreur`)
+      // Re-injecter l'erreur dans la collection locale pour ce cycle
+      for (const f of (allFichiersUpdated as any[])) {
+        if (orphanPendingIds.includes(f.onedrive_item_id)) {
+          f.erreur = 'Fichier pré-enregistré mais jamais traité (bloqué par dédup ou abandon silencieux) — sera retenté'
+        }
+      }
+    }
 
     for (const row of (allFichiersUpdated || [])) {
       if (row.traite === true) {
@@ -324,30 +354,27 @@ export async function POST(request: Request) {
     // 5. Pour chaque fichier CV NON traité (max 50 par batch, 5 en parallèle)
     const MAX_NEW = 50 // 50 CVs par batch (Vercel Pro 300s — ~100-140s max)
 
-    // Catégorisation automatique des documents non-CV selon nom de fichier puis contenu extrait
-    const detectDocCategory = (filename: string, textExtrait: string): string => {
-      const check = (source: string) => {
-        const s = source.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-        if (/certificat|certificate|attestation|\bct\b/.test(s)) return 'certificat'
-        if (/lettre|motivation|\blm\b/.test(s)) return 'lettre_motivation'
-        if (/diplome|diplome|cfc|afp|formation|brevet/.test(s)) return 'diplome'
-        if (/permis|licence/.test(s)) return 'permis'
-        if (/reference|recommandation/.test(s)) return 'reference'
-        if (/contrat|avenant/.test(s)) return 'contrat'
-        if (/bulletin|salaire|fiche de paie/.test(s)) return 'bulletin_salaire'
-        return null
-      }
-      return check(filename.replace(/\.[^.]+$/, ''))
-        ?? check(textExtrait.slice(0, 200))
-        ?? 'autre'
+    // Catégorisation automatique des documents non-CV — CONTENU OCR UNIQUEMENT
+    // Fix v1.9.14 : le nom de fichier n'est PLUS utilisé (faux positifs "CV_PASCALI..." classés non-CV)
+    const detectDocCategory = (_filename: string, textExtrait: string): string => {
+      const s = (textExtrait || '').slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      if (/certificat|certificate|attestation/.test(s)) return 'certificat'
+      if (/lettre de motivation|motivation/.test(s)) return 'lettre_motivation'
+      if (/diplome|cfc|afp|brevet federal|certificat federal/.test(s)) return 'diplome'
+      if (/permis de conduire|permis de travail|permis b|permis c/.test(s)) return 'permis'
+      if (/lettre de reference|recommandation/.test(s)) return 'reference'
+      if (/contrat de travail|avenant/.test(s)) return 'contrat'
+      if (/bulletin de salaire|fiche de paie/.test(s)) return 'bulletin_salaire'
+      return 'autre'
     }
 
-    // Déduplication noms fichiers : si OneDrive crée "CV [45].pdf" en doublon de "CV.pdf"
-    // → on garde uniquement le plus récent par nom de base normalisé
+    // Déduplication noms fichiers — UNIQUEMENT vraies copies user "nom (1).pdf"
+    // Fix v1.9.14 : NE PLUS supprimer "[N]" — OneDrive ajoute [N] pour disambiguer
+    //   des fichiers DIFFÉRENTS (candidats distincts avec même filename, ex CV[40].pdf ≠ CV.pdf)
+    // La dédup inter-item repose déjà sur onedrive_item_id (unique Graph API).
     const normalizeBaseName = (name: string): string =>
       name
-        .replace(/\s*[\[(]\d+[\])]\s*/g, '') // supprime [45], (45), [1], etc.
-        .replace(/\s+_\d+(\.[^.]+)$/, '$1')  // supprime _45 avant l'extension
+        .replace(/\s+\(\d+\)(\.[^.]+)$/, '$1') // supprime " (1)"/" (2)" avant l'extension
         .replace(/\s+/g, ' ')
         .trim()
         .toLowerCase()
@@ -534,31 +561,22 @@ export async function POST(request: Request) {
           let docType = analyse.document_type || 'cv'
           let isNotCV = docType && docType !== 'cv'
 
-          // ── Second avis : si l'IA dit "cv", vérifier via detectDocCategory (nom fichier) + patterns stricts (contenu) ──
-          // Rattrape les scans avec nom générique ("Scanné 6 janv...") où l'IA rate le type.
-          // Le check par nom de fichier utilise detectDocCategory (assez fiable — un fichier nommé "certificat" en est un).
-          // Le check par contenu utilise des patterns STRICTS (titres de document, pas de mots isolés)
-          // pour éviter les faux positifs sur les CVs mentionnant "formation", "permis B", "CFC", etc.
+          // ── Second avis : si l'IA dit "cv", vérifier via patterns stricts du CONTENU uniquement ──
+          // Fix v1.9.14 : le nom de fichier n'est PLUS utilisé (faux positifs du type "CV_PASCALI..." classés non-CV)
+          // Patterns stricts = formulations de TITRE de document, pas mots isolés
           if (!isNotCV || docType === 'autre') {
-            const filenameType = detectDocCategory(filename, '')
-            if (filenameType && filenameType !== 'autre') {
-              docType = filenameType
+            const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+            const strictContentType =
+              /certificat de travail|certificat d'emploi|arbeitszeugnis/.test(contentLower) ? 'certificat' :
+              /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
+              /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
+              /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
+              /lettre de recommandation|lettre de reference|referenzschreiben/.test(contentLower) ? 'reference' :
+              /contrat de travail|avenant au contrat|arbeitsvertrag/.test(contentLower) ? 'contrat' :
+              null
+            if (strictContentType) {
+              docType = strictContentType
               isNotCV = true
-            } else {
-              // Check contenu strict — uniquement des formulations de TITRE de document
-              const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-              const strictContentType =
-                /certificat de travail|certificat d'emploi|arbeitszeugnis/.test(contentLower) ? 'certificat' :
-                /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
-                /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
-                /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
-                /lettre de recommandation|lettre de reference|referenzschreiben/.test(contentLower) ? 'reference' :
-                /contrat de travail|avenant au contrat|arbeitsvertrag/.test(contentLower) ? 'contrat' :
-                null
-              if (strictContentType) {
-                docType = strictContentType
-                isNotCV = true
-              }
             }
           }
 
@@ -612,14 +630,52 @@ export async function POST(request: Request) {
             return { status: 'skipped', name: `⚠️ ${filename} (${docType})` }
           }
 
-          // f. Vérifie doublon candidat (5 méthodes, du plus fiable au moins fiable)
+          // f. Vérifie doublon candidat via cascade unifiée (lib/candidat-matching.ts)
+          // Identité (nom+prénom) en premier, email/tel/DDN pour désambiguïsation.
+          // Aucune référence au nom de fichier — tout vient du contenu extrait par IA.
           let existingCandidat: any = null
+          const matchResult = await findExistingCandidat(supabase, {
+            nom: candidatNom,
+            prenom: candidatPrenom,
+            email: candidatEmail,
+            telephone: candidatTel,
+            date_naissance: analyse.date_naissance || null,
+          }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, localisation, titre_poste' })
 
-          // Helper : retire accents + lowercase — utilisé dans toutes les comparaisons de noms
+          if (matchResult.kind === 'match') {
+            existingCandidat = matchResult.candidat
+            // Log silencieux des diffs de coordonnées (homonymes parfaits avec coords différentes)
+            if (matchResult.diffs && matchResult.diffs.length > 0) {
+              try {
+                const diffsText = matchResult.diffs
+                  .map(d => `${d.field}: "${d.from || ''}" → "${d.to || ''}"`).join(', ')
+                await (supabase as any).from('activites').insert({
+                  type: 'candidat_modifie',
+                  description: `Coordonnées mises à jour via import OneDrive — ${diffsText}`,
+                  candidat_id: existingCandidat.id,
+                  metadata: { source: 'onedrive', filename, diffs: matchResult.diffs, reason: matchResult.reason },
+                  created_at: new Date().toISOString(),
+                })
+              } catch (err) { console.warn('[OneDrive Sync] log diff coords échec:', err instanceof Error ? err.message : String(err)) }
+            }
+            dbg(`[OneDrive Sync] Match ${matchResult.reason}: ${existingCandidat.prenom} ${existingCandidat.nom}`)
+          } else if (matchResult.kind === 'ambiguous') {
+            const names = matchResult.candidates
+              .map((c: any) => `${c.prenom || ''} ${c.nom} (${c.id.slice(0, 8)})`.trim()).join(', ')
+            throw new Error(
+              `Ambiguïté — ${matchResult.candidates.length} candidats homonymes correspondent : ${names}. ` +
+              `Rattachez manuellement depuis la fiche candidat.`
+            )
+          } else if (matchResult.kind === 'insufficient' && !isNotCV) {
+            // CV sans identité extraite → erreur explicite (pas de création anonyme)
+            throw new Error(`Identité non extractible — ${matchResult.reason}`)
+          }
+          // kind === 'none' OU ('insufficient' && isNotCV) → existingCandidat reste null
+          // Pour non-CV sans match : retryQueue ci-dessous. Pour CV : création nouveau candidat.
+
+          // Helpers conservés pour anti-race check (lignes ~1320) — plus utilisés pour matching principal
           const unaccent = (s: string): string =>
             (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-
-          // Helper : évite les faux positifs quand deux personnes différentes partagent un email/tel
           const nomsSimilaires = (parsed: any, existing: any): boolean => {
             // Si le parsé n'a pas de nom → on accepte (pas assez d'info pour rejeter)
             if (!parsed?.nom) return true
@@ -641,255 +697,9 @@ export async function POST(request: Request) {
             return false
           }
 
-          // 1. Par email
-          if (candidatEmail && !existingCandidat) {
-            const { data } = await supabase.from('candidats').select('id, nom, prenom')
-              .ilike('email', candidatEmail).maybeSingle()
-            if (data && nomsSimilaires(analyse, data)) existingCandidat = data
-          }
-          // 2. Par téléphone — comparaison normalisée côté JS (évite le problème des espaces/formats)
-          //    Ex: "+41 77 423 99 95" en DB ne contient pas "774239995" en ilike → on normalise les deux
-          if (!existingCandidat && candidatTel.length >= 8) {
-            const tel9 = candidatTel.slice(-9)
-            // ✅ FIX 1 : Suppression du filtre prenom en DB — trop restrictif pour les noms composés/inversés.
-            // Ex: Claude extrait prenom="Marjorie Yanina" mais DB a prenom="Yanina" → filtre ilike('%marjorie%') éliminait le bon candidat.
-            // Le téléphone sur 9 chiffres est quasi-unique → nomsSimilaires() suffit comme validation post-match.
-            // Filtre optionnel par la dernière partie du nom (> 3 chars) pour limiter les résultats côté DB.
-            let telQuery = supabase.from('candidats').select('id, nom, prenom, telephone').not('telephone', 'is', null)
-            if (candidatNom) {
-              const lastNomPart = unaccent(candidatNom.split(/\s+/).pop()!)
-              if (lastNomPart.length >= 4) telQuery = (telQuery as any).ilike('nom', `%${lastNomPart}%`)
-            }
-            const { data: telCandidats } = await telQuery.limit(300)
-            if (telCandidats) {
-              const telMatch = telCandidats.find((c: any) => {
-                const stored = (c.telephone || '').replace(/\D/g, '')
-                return stored.length >= 8 && stored.slice(-9) === tel9
-              })
-              if (telMatch && nomsSimilaires(analyse, telMatch)) existingCandidat = telMatch
-            }
-          }
-          // 3. Par nom + prénom (insensible aux accents — noms composés)
-          //    Ex: Parsé "Marmolejo Zambrano" + "Marjorie Yanina" → DB nom="Marmolejo" prenom="Yanina"
-          //    Requête: OR sur tous les mots du nom. Filtre strict: nom word match + prenom word match.
-          if (!existingCandidat && candidatNom && candidatPrenom) {
-            const nomNorm = unaccent(candidatNom)
-            const prenomNorm = unaccent(candidatPrenom)
-            // Requête DB avec TOUS les mots du nom via OR (pas juste le dernier)
-            const nomParts = nomNorm.split(/\s+/).filter((p: string) => p.length >= 3)
-            let byNomPrenom: any[] | null = null
-            if (nomParts.length === 1) {
-              const { data } = await supabase.from('candidats')
-                .select('id, nom, prenom, telephone, email, localisation, experiences, formations_details')
-                .ilike('nom', `%${nomParts[0]}%`)
-                .limit(20)
-              byNomPrenom = data
-            } else if (nomParts.length > 1) {
-              const orClauses = nomParts.map((p: string) => `nom.ilike.%${p}%`).join(',')
-              const { data } = await supabase.from('candidats')
-                .select('id, nom, prenom, telephone, email, localisation, experiences, formations_details')
-                .or(orClauses)
-                .limit(20)
-              byNomPrenom = data
-            }
-            if (byNomPrenom) {
-              // Filtre strict : nom word match + prenom word match
-              // Évite faux positifs noms composés : "Zambrano" seul ne suffit pas sans prenom match
-              const candidates = byNomPrenom.filter((c: any) => {
-                const eNom = unaccent(c.nom || '')
-                const ePrenom = unaccent(c.prenom || '')
-                // Nom : au moins un mot du parsé correspond à un mot du DB (inclusion)
-                const nomWords_p = nomNorm.split(/\s+/).filter((w: string) => w.length >= 3)
-                const nomWords_e = eNom.split(/\s+/).filter((w: string) => w.length >= 3)
-                const nomMatch = nomWords_p.some((p: string) => nomWords_e.some((e: string) => p.includes(e) || e.includes(p)))
-                if (!nomMatch) return false
-                // Prenom : au moins un mot exact ou startsWith (≥4 chars)
-                // Ex: "Marjorie Yanina" vs "Yanina" → "yanina"="yanina" ✓
-                // Ex: "Marjorie" vs "Marina" → "marjorie".startsWith("marina")=false ✗
-                const prenomWords_p = prenomNorm.split(/\s+/).filter((w: string) => w.length >= 3)
-                const prenomWords_e = ePrenom.split(/\s+/).filter((w: string) => w.length >= 3)
-                if (prenomWords_p.length === 0 || prenomWords_e.length === 0) return true // pas assez d'info prenom
-                return prenomWords_p.some((p: string) => prenomWords_e.some((e: string) =>
-                  p === e || (p.length >= 4 && e.length >= 4 && (p.startsWith(e) || e.startsWith(p)))
-                ))
-              })
-
-              if (candidates.length === 1) {
-                // Un seul candidat → vérifier signal supplémentaire (éviter faux positifs homonymes)
-                const c = candidates[0]
-                const telOk = candidatTel.length >= 8 && c.telephone &&
-                  c.telephone.replace(/\D/g, '').slice(-9) === candidatTel.slice(-9)
-                const emailOk = candidatEmail && c.email &&
-                  candidatEmail.toLowerCase() === c.email.toLowerCase()
-                const locNorm = unaccent(analyse.localisation || '')
-                const cLocNorm = unaccent(c.localisation || '')
-                const titreNorm = unaccent(analyse.titre_poste || '')
-                const cTitreNorm = unaccent(c.titre_poste || '')
-                const locMetierOk = locNorm && cLocNorm && titreNorm && cTitreNorm &&
-                  cLocNorm.includes(locNorm.split(/[\s,]+/)[0]) &&
-                  titreNorm.includes(cTitreNorm.split(/[\s,\/]+/)[0])
-                if (telOk || emailOk || locMetierOk || isNotCV) {
-                  existingCandidat = c
-                  if (isNotCV) dbg(`[OneDrive Sync] Non-CV match unique par nom: ${c.prenom} ${c.nom}`)
-                }
-                // Sinon → pas de match, sera traité comme nouveau candidat
-              } else if (candidates.length > 1) {
-                // Plusieurs candidats → affiner par email, tel, localisation, expériences
-                let refined: any = null
-
-                // a. Email
-                if (!refined && candidatEmail) {
-                  refined = candidates.find((c: any) =>
-                    c.email && c.email.toLowerCase() === candidatEmail.toLowerCase()
-                  ) || null
-                }
-                // b. Téléphone
-                if (!refined && candidatTel.length >= 8) {
-                  refined = candidates.find((c: any) => {
-                    const stored = (c.telephone || '').replace(/\D/g, '')
-                    return stored.length >= 8 && stored.slice(-9) === candidatTel.slice(-9)
-                  }) || null
-                }
-                // c. Localisation (ville)
-                if (!refined && analyse.localisation) {
-                  const locNorm = unaccent(analyse.localisation)
-                  refined = candidates.find((c: any) =>
-                    c.localisation && unaccent(c.localisation).includes(locNorm.split(/[\s,]+/)[0])
-                  ) || null
-                }
-                // d. Nom de l'établissement dans experiences[] ou formations_details[]
-                //    Utile pour les certificats/diplômes : "McDonald's" → chercher dans historique
-                if (!refined && filename) {
-                  const fileBase = unaccent(normalizeBaseName(filename).replace(/\.[^.]+$/, ''))
-                  // Extraire mots significatifs du nom de fichier (≥4 chars, pas de mots vides)
-                  const fileWords = fileBase.split(/[\s_-]+/).filter((w: string) => w.length >= 4)
-                  if (fileWords.length > 0) {
-                    refined = candidates.find((c: any) => {
-                      const exps = JSON.stringify(c.experiences || []).toLowerCase()
-                      const forms = JSON.stringify(c.formations_details || []).toLowerCase()
-                      const haystack = exps + ' ' + forms
-                      return fileWords.some((w: string) => haystack.includes(w))
-                    }) || null
-                  }
-                }
-
-                if (refined) {
-                  existingCandidat = refined
-                } else {
-                  // Ambiguïté non résolue → erreur explicite, pas de rattachement automatique
-                  const names = candidates.map((c: any) =>
-                    `${c.prenom || ''} ${c.nom} (${c.id.slice(0, 8)})`.trim()
-                  ).join(', ')
-                  throw new Error(
-                    `Ambiguïté — ${candidates.length} candidats correspondent : ${names}. ` +
-                    `Rattachez manuellement depuis la fiche candidat.`
-                  )
-                }
-              }
-            }
-          }
-          // 4. Match partiel nom (dernière partie) + prénom + téléphone OU email confirmé
-          //    Email et téléphone sont uniques → seuls signaux fiables pour confirmer l'identité
-          //    Localisation / date_naissance volontairement exclues (pas uniques)
-          //    Comparaison insensible aux accents via unaccent()
-          if (!existingCandidat && candidatNom && candidatPrenom) {
-            const lastNamePart = unaccent(candidatNom.split(/\s+/).pop()!) // ex: "tavares" depuis "Vieira Tavares"
-            const firstNamePart = unaccent(candidatPrenom.split(/\s+/)[0])
-            if (lastNamePart.length >= 4) {
-              const { data: byPartialName } = await supabase.from('candidats')
-                .select('id, nom, prenom, telephone, email')
-                .ilike('nom', `%${lastNamePart}%`)
-                .limit(30)
-              if (byPartialName) {
-                const match = byPartialName.find((c: any) => {
-                  // 1. Prénom doit correspondre (premier mot) — insensible aux accents
-                  const cPrenom = unaccent(c.prenom || '')
-                  const prenomOk = cPrenom.includes(firstNamePart) || firstNamePart.includes(cPrenom.split(/\s+/)[0])
-                  if (!prenomOk) return false
-                  // 2. Obligatoirement : téléphone OU email correspondent
-                  const telOk = candidatTel.length >= 8 && c.telephone &&
-                    c.telephone.replace(/\D/g, '').slice(-9) === candidatTel.slice(-9)
-                  const emailOk = candidatEmail && c.email &&
-                    candidatEmail.toLowerCase() === c.email.toLowerCase()
-                  return telOk || emailOk
-                })
-                if (match) existingCandidat = match
-              }
-            }
-          }
-          // 5. Par cv_nom_fichier (dernier recours — si l'IA a mal extrait email/tel/nom)
-          //    Utile pour les re-syncs où le fichier est déjà connu en DB par son nom exact
-          //    On normalise pour ignorer les suffixes OneDrive [45], (1), etc.
-          if (!existingCandidat && filename) {
-            const normalizedFilename = normalizeBaseName(filename)
-            const { data: byFilename } = await supabase.from('candidats')
-              .select('id, nom, prenom, cv_nom_fichier')
-              .ilike('cv_nom_fichier', filename) // cherche d'abord le nom exact
-              .maybeSingle()
-            if (byFilename && nomsSimilaires(analyse, byFilename)) {
-              existingCandidat = byFilename
-            } else if (!byFilename && normalizedFilename !== filename.toLowerCase()) {
-              // Si pas de match exact, essayer avec le nom normalisé (sans suffixe [45])
-              const { data: byNormalizedFilename } = await supabase.from('candidats')
-                .select('id, nom, prenom, cv_nom_fichier')
-                .ilike('cv_nom_fichier', normalizedFilename)
-                .maybeSingle()
-              if (byNormalizedFilename && nomsSimilaires(analyse, byNormalizedFilename)) existingCandidat = byNormalizedFilename
-            }
-          }
-
-          // ── Document non-CV (certificat, diplôme, etc.) SANS candidat correspondant ──
-          // Matching intelligent : nom + (métier OU date_naissance) suffisent pour les non-CVs
-          if (isNotCV && !existingCandidat && (candidatNom || candidatPrenom)) {
-            // Chercher tous les mots du nom ET prénom dans nom ET prénom DB (noms inversés)
-            const allSearchWords = [...unaccent(candidatNom || '').split(/[\s-]+/), ...unaccent(candidatPrenom || '').split(/[\s-]+/)].filter((w: string) => w.length >= 3)
-            if (allSearchWords.length > 0) {
-              const orClauses = allSearchWords.map((p: string) => `nom.ilike.%${p}%,prenom.ilike.%${p}%`).join(',')
-              const { data: candidates } = await supabase.from('candidats')
-                .select('id, nom, prenom, titre_poste, date_naissance')
-                .or(orClauses).limit(30)
-              if (candidates && candidates.length > 0) {
-                // Filtre : au moins 1 mot du document trouvé dans le nom complet DB
-                const filtered = candidates.filter((c: any) => {
-                  const fullDB = `${unaccent(c.nom || '')} ${unaccent(c.prenom || '')}`
-                  const dbWords = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
-                  const matchCount = allSearchWords.filter((w: string) => dbWords.some((e: string) => e.includes(w) || w.includes(e))).length
-                  return matchCount >= 1 && (matchCount >= 2 || allSearchWords.length <= 2)
-                })
-                if (filtered.length === 1) {
-                  // Match unique par nom → auto-attach (pas de risque de doublon pour un non-CV)
-                  existingCandidat = filtered[0]
-                  dbg(`[OneDrive Sync] Non-CV match unique par nom: ${filtered[0].prenom} ${filtered[0].nom}`)
-                } else if (filtered.length > 1) {
-                  // Plusieurs candidats → affiner par métier ou date de naissance
-                  const titreNorm = unaccent(analyse.titre_poste || '')
-                  const dateNaiss = analyse.date_naissance || ''
-                  const refined = filtered.find((c: any) => {
-                    // Match par date de naissance
-                    if (dateNaiss && c.date_naissance && c.date_naissance.includes(dateNaiss.slice(0, 10))) return true
-                    // Match par métier (premier mot significatif du titre)
-                    if (titreNorm && c.titre_poste) {
-                      const cTitre = unaccent(c.titre_poste)
-                      const titreWords = titreNorm.split(/[\s,\/]+/).filter((w: string) => w.length >= 4)
-                      if (titreWords.some((w: string) => cTitre.includes(w))) return true
-                    }
-                    return false
-                  })
-                  if (refined) {
-                    existingCandidat = refined
-                    dbg(`[OneDrive Sync] Non-CV match affiné par métier/date: ${refined.prenom} ${refined.nom}`)
-                  } else {
-                    // Ambiguïté non résolue — erreur explicite avec les candidats possibles
-                    const names = filtered.map((c: any) => `${c.prenom || ''} ${c.nom}`.trim()).join(', ')
-                    throw new Error(
-                      `Ambiguïté — ${filtered.length} candidats correspondent au nom "${[candidatPrenom, candidatNom].filter(Boolean).join(' ')}" : ${names}. ` +
-                      `Rattachez manuellement depuis la fiche candidat.`
-                    )
-                  }
-                }
-              }
-            }
-          }
+          // ── Les 5 anciennes méthodes de matching + branche non-CV ambiguïté ont été
+          //    remplacées par findExistingCandidat() ci-dessus (cf. lib/candidat-matching.ts).
+          //    Matching unifié identité-first, plus d'usage du nom de fichier. ──
           if (isNotCV && !existingCandidat) {
             retryQueue.push(fichier)
             return { status: 'error', filename: fichier.name }

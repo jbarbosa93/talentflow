@@ -12,6 +12,7 @@ import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { requireAuth } from '@/lib/auth-guard'
+import { findExistingCandidat } from '@/lib/candidat-matching'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -626,133 +627,46 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let candidatExistant: any = null
   let existingFullPre: any = null
 
-  const nomsSimilaires = (a: any, e: any): boolean => {
-    if (!a.nom || !e.nom) return true
-    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-    const pNom = norm(a.nom), eNom = norm(e.nom)
-    const nomOk = pNom.includes(eNom) || eNom.includes(pNom) ||
-      pNom.split(/\s+/).some((p: string) => p.length >= 3 && eNom.split(/\s+/).some((ex: string) => ex.includes(p) || p.includes(ex)))
-    if (nomOk) return true
-    const pPrenom = norm(a.prenom || ''), ePrenom = norm(e.prenom || '')
-    return !!pPrenom && !!ePrenom && pPrenom.slice(0, 3) === ePrenom.slice(0, 3)
-  }
-
   if (!forceInsert && !replaceId && !updateId) {
-    // — Email —
-    if (analyse.email) {
-      const { data: byEmail } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, titre_poste, created_at')
-        .eq('email', analyse.email).maybeSingle()
-      if (byEmail) {
-        if (!nomsSimilaires(analyse, byEmail)) {
-          return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: [byEmail], analyse, cv_url: null, message: `L'email est déjà utilisé par ${byEmail.prenom} ${byEmail.nom} — est-ce la même personne ?` })
-        }
-        candidatExistant = byEmail
-      }
-    }
-    // — Téléphone —
-    if (!candidatExistant && analyse.telephone) {
-      const telNormalise = analyse.telephone.replace(/\D/g, '')
-      if (telNormalise.length >= 8) {
-        const tel9 = telNormalise.slice(-9)
-        const prenomFilter = analyse.prenom ? analyse.prenom.split(/\s+/)[0] : null
-        let telQuery = adminClient.from('candidats').select('id, prenom, nom, email, titre_poste, created_at, telephone').not('telephone', 'is', null)
-        if (prenomFilter) telQuery = telQuery.ilike('prenom', `%${prenomFilter}%`)
-        const { data: telCandidats } = await telQuery.limit(150)
-        if (telCandidats) {
-          const telMatch = telCandidats.find((c: any) => {
-            const stored = (c.telephone || '').replace(/\D/g, '')
-            return stored.length >= 8 && stored.slice(-9) === tel9
-          })
-          if (telMatch) {
-            if (!nomsSimilaires(analyse, telMatch)) {
-              return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: [telMatch], analyse, cv_url: null, message: `Le téléphone est déjà utilisé par ${telMatch.prenom} ${telMatch.nom} — est-ce la même personne ?` })
-            }
-            candidatExistant = telMatch
-          }
-        }
-      }
-    }
-    // — Nom + prénom —
-    if (!candidatExistant && analyse.nom && analyse.prenom) {
-      const { data: byName } = await adminClient
-        .from('candidats').select('id, prenom, nom, email, telephone, titre_poste, localisation, created_at')
-        .ilike('nom', analyse.nom).ilike('prenom', analyse.prenom).maybeSingle()
-      if (byName) {
-        const telOk = analyse.telephone && byName.telephone &&
-          analyse.telephone.replace(/\D/g, '').slice(-9) === byName.telephone.replace(/\D/g, '').slice(-9)
-        const emailOk = analyse.email && byName.email &&
-          analyse.email.toLowerCase() === byName.email.toLowerCase()
-        const locMetierOk = analyse.localisation && byName.localisation && analyse.titre_poste && byName.titre_poste &&
-          analyse.localisation.toLowerCase().includes(byName.localisation.toLowerCase().split(/[\s,]+/)[0]) &&
-          analyse.titre_poste.toLowerCase().includes(byName.titre_poste.toLowerCase().split(/[\s,\/]+/)[0])
-        if (telOk || emailOk || locMetierOk || isNotCV) {
-          candidatExistant = byName
-          if (isNotCV) dbg(`[CV Parse] Non-CV match nom exact: ${byName.prenom} ${byName.nom} → auto-attach`)
-        } else {
-          dbg(`[CV Parse] Match nom exact "${analyse.prenom} ${analyse.nom}" sans signal fort → traité comme nouveau`)
-        }
-      }
+    // ── Cascade unifiée identité-first (lib/candidat-matching.ts) ──
+    // Identité (nom+prénom) en premier, email/tel/DDN pour désambiguïsation.
+    // Aucune référence au nom de fichier — tout vient du contenu extrait par IA.
+    const matchResult = await findExistingCandidat(adminClient as any, {
+      nom: analyse.nom, prenom: analyse.prenom,
+      email: analyse.email, telephone: analyse.telephone,
+      date_naissance: analyse.date_naissance || null,
+    }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, titre_poste, localisation, created_at' })
 
-      if (!candidatExistant) {
-        const nomParts = analyse.nom.split(/\s+/).filter((w: string) => w.length >= 3)
-        let byPartialName: any[] | null = null
-        if (nomParts.length === 1) {
-          const { data } = await adminClient.from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at').ilike('nom', `%${nomParts[0]}%`).limit(20)
-          byPartialName = data
-        } else if (nomParts.length > 1) {
-          const orClauses = nomParts.map((p: string) => `nom.ilike.%${p}%`).join(',')
-          const { data } = await adminClient.from('candidats').select('id, prenom, nom, email, telephone, titre_poste, created_at').or(orClauses).limit(20)
-          byPartialName = data
-        }
-        if (byPartialName && byPartialName.length > 0) {
-          const prenomWords = analyse.prenom.split(/\s+/).map((w: string) => w.toLowerCase()).filter((w: string) => w.length >= 2)
-          const matches = byPartialName.filter((c: any) => {
-            const cPrenom = (c.prenom || '').toLowerCase()
-            const cPrenomFirst = cPrenom.split(/\s+/)[0]
-            return prenomWords.some((pw: string) => cPrenom.includes(pw) || pw.includes(cPrenomFirst))
+    if (matchResult.kind === 'match') {
+      candidatExistant = matchResult.candidat
+      // Log silencieux des diffs de coordonnées (homonymes parfaits avec coords différentes)
+      if (matchResult.diffs && matchResult.diffs.length > 0) {
+        try {
+          const diffsText = matchResult.diffs
+            .map(d => `${d.field}: "${d.from || ''}" → "${d.to || ''}"`).join(', ')
+          await (adminClient as any).from('activites').insert({
+            type: 'candidat_modifie',
+            description: `Coordonnées mises à jour via import CV — ${diffsText}`,
+            candidat_id: candidatExistant.id,
+            metadata: { source: 'cv_import', filename: file.name, diffs: matchResult.diffs, reason: matchResult.reason },
+            created_at: new Date().toISOString(),
           })
-          if (matches.length >= 1) {
-            if (isNotCV) {
-              // Non-CV : matching intelligent — nom seul suffit, recherche croisée nom/prénom
-              const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-              const allWords = [...norm(analyse.nom).split(/[\s-]+/), ...norm(analyse.prenom).split(/[\s-]+/)].filter((w: string) => w.length >= 3)
-              const nonCvFiltered = byPartialName!.filter((c: any) => {
-                const fullDB = `${norm(c.nom || '')} ${norm(c.prenom || '')}`
-                const dbWords = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
-                const matchCount = allWords.filter((w: string) => dbWords.some((e: string) => e.includes(w) || w.includes(e))).length
-                return matchCount >= 1 && (matchCount >= 2 || allWords.length <= 2)
-              })
-              if (nonCvFiltered.length === 1) {
-                dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match unique: ${nonCvFiltered[0].prenom} ${nonCvFiltered[0].nom} → auto-attach`)
-                candidatExistant = nonCvFiltered[0]
-              } else if (nonCvFiltered.length > 1) {
-                // Affiner par métier ou date de naissance
-                const titreNorm = norm(analyse.titre_poste || '')
-                const dateNaiss = analyse.date_naissance || ''
-                const refined = nonCvFiltered.find((c: any) => {
-                  if (dateNaiss && c.date_naissance && c.date_naissance.includes(dateNaiss.slice(0, 10))) return true
-                  if (titreNorm && c.titre_poste) {
-                    const cTitre = norm(c.titre_poste)
-                    const titreWords = titreNorm.split(/[\s,\/]+/).filter((w: string) => w.length >= 4)
-                    if (titreWords.some((w: string) => cTitre.includes(w))) return true
-                  }
-                  return false
-                })
-                if (refined) {
-                  dbg(`[CV Parse] Non-CV "${analyse.document_type}" — match affiné par métier/date: ${refined.prenom} ${refined.nom}`)
-                  candidatExistant = refined
-                }
-                // Sinon : pas de match → sera géré par l'erreur non-CV plus bas
-              }
-            } else {
-              dbg(`[CV Parse] Match(es) partiel(s): ${matches.map((m: any) => `${m.prenom} ${m.nom}`).join(', ')} — confirmation requise`)
-              return NextResponse.json({ isDuplicate: true, multipleMatches: true, candidatsMatches: matches, analyse, cv_url: null, message: matches.length === 1 ? `Un candidat similaire trouvé pour "${analyse.prenom} ${analyse.nom}" — est-ce la même personne ?` : `Plusieurs candidats trouvés pour "${analyse.prenom} ${analyse.nom}" — choisissez le bon` })
-            }
-          }
-        }
+        } catch (err) { console.warn('[CV Parse] log diff coords échec:', err instanceof Error ? err.message : String(err)) }
       }
+      dbg(`[CV Parse] Match ${matchResult.reason}: ${candidatExistant.prenom} ${candidatExistant.nom}`)
+    } else if (matchResult.kind === 'ambiguous') {
+      // Homonymes non résolus → UI demande confirmation manuelle
+      return NextResponse.json({
+        isDuplicate: true, multipleMatches: true,
+        candidatsMatches: matchResult.candidates, analyse, cv_url: null,
+        message: `Plusieurs candidats homonymes trouvés (${matchResult.candidates.length}) — choisissez le bon ou créez un nouveau candidat.`,
+      })
+    } else if (matchResult.kind === 'insufficient' && isNotCV) {
+      // Non-CV sans identité → erreur explicite gérée plus bas par le flow normal
+      // (pas de candidatExistant → création refusée pour non-CV via le check isNotCV)
     }
+    // kind === 'none' OU ('insufficient' && !isNotCV) → candidatExistant reste null → création nouveau
+
 
     // — Si doublon CV : décider si upload nécessaire —
     if (candidatExistant && !isNotCV) {

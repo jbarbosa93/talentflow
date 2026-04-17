@@ -30,11 +30,20 @@ export async function GET(request: NextRequest) {
     const rawPerPage = parseInt(searchParams.get('per_page') || '20')
     const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
 
-    let query = supabase
-      .from('clients')
-      .select(LIST_COLUMNS, { count: 'exact' })
+    // Si recherche → RPC unaccent sur tous les champs (y compris contacts jsonb, notes, site_web, npa)
+    // Sinon → select standard
+    let query: any
+    if (search && search.trim()) {
+      // Phrase complète passée à unaccent ILIKE '%phrase%' — couvre aussi les requêtes multi-mots contiguës
+      query = supabase
+        .rpc('search_clients_filtered', { search_query: search.trim() }, { count: 'exact' })
+    } else {
+      query = supabase
+        .from('clients')
+        .select(LIST_COLUMNS, { count: 'exact' })
+    }
 
-    // Filtre statut
+    // Filtre statut (chaînable sur RPC SETOF clients)
     if (statut && statut !== 'all') {
       query = query.eq('statut', statut)
     }
@@ -42,17 +51,6 @@ export async function GET(request: NextRequest) {
     // Filtre canton
     if (canton) {
       query = query.ilike('canton', canton)
-    }
-
-    // Recherche textuelle
-    if (search) {
-      const words = search.trim().split(/\s+/).filter(Boolean)
-      for (const word of words) {
-        const pattern = `%${word}%`
-        query = query.or(
-          `nom_entreprise.ilike.${pattern},ville.ilike.${pattern},secteur.ilike.${pattern},email.ilike.${pattern},canton.ilike.${pattern},telephone.ilike.${pattern},adresse.ilike.${pattern}`
-        )
-      }
     }
 
     // Tri par nom d'entreprise

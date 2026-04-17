@@ -8,6 +8,13 @@ interface ClientItem {
   ville?: string | null
   email?: string | null
   canton?: string | null
+  telephone?: string | null
+  secteur?: string | null
+  notes?: string | null
+  adresse?: string | null
+  npa?: string | null
+  site_web?: string | null
+  contacts?: any[] | null
 }
 
 interface ClientSearchProps {
@@ -45,14 +52,22 @@ export default function ClientSearch({
   const selected = (clients || []).filter(c => selectedIds.includes(c.id))
 
   const filtered = (clients || []).filter(c => {
-    if (!query.trim()) return true
-    const q = normalize(query)
-    return (
-      normalize(c.nom_entreprise || '').includes(q) ||
-      normalize(c.ville || '').includes(q) ||
-      normalize(c.email || '').includes(q) ||
-      normalize(c.canton || '').includes(q)
-    )
+    const q = query.trim()
+    if (!q) return true
+    const words = q.split(/\s+/).map(normalize).filter(Boolean)
+    if (words.length === 0) return true
+
+    const contactsText = Array.isArray(c.contacts)
+      ? c.contacts.map(ct => [ct?.prenom, ct?.nom, ct?.email, ct?.telephone, ct?.fonction].filter(Boolean).join(' ')).join(' ')
+      : ''
+
+    const haystack = normalize([
+      c.nom_entreprise, c.ville, c.email, c.canton, c.telephone,
+      c.secteur, c.notes, c.adresse, c.npa, c.site_web, contactsText,
+    ].filter(Boolean).join(' '))
+
+    // OR : au moins UN mot doit matcher
+    return words.some(w => haystack.includes(w))
   }).slice(0, query.trim() ? 50 : 20)
 
   function toggle(id: string) {

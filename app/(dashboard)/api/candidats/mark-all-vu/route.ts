@@ -24,6 +24,9 @@ export async function POST() {
     // Supprimer toutes les lignes individuelles (le timestamp suffit désormais)
     await (admin as any).from('candidats_vus').delete().eq('user_id', user.id)
 
+    // Reset le flag has_update sur tous les candidats concernés
+    await (admin as any).from('candidats').update({ has_update: false }).eq('has_update', true)
+
     // Poser le timestamp — tous les candidats créés AVANT sont considérés vus
     const { error } = await supabase.auth.updateUser({
       data: { candidats_viewed_all_at: new Date().toISOString() },

@@ -294,6 +294,14 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           }
         }
       }
+
+      // Safety net : toute entrée encore 'pending + needsRetry' après Pass 2 → erreur explicite
+      // (évite les fichiers bloqués indéfiniment en "En attente (2ème tentative)")
+      setFiles(prev => prev.map(f =>
+        f.status === 'pending' && f.needsRetry
+          ? { ...f, status: 'error' as FileStatus, error: 'Aucun candidat correspondant — cherchez manuellement', needsRetry: false }
+          : f
+      ))
     }
 
     // Marquer les fichiers encore en attente comme annulés

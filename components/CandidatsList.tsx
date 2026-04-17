@@ -1683,9 +1683,22 @@ export default function CandidatsList() {
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
                 } finally {
-                  // Persister cross-device dans Supabase user metadata
+                  // Persister cross-device dans Supabase user metadata + reset has_update DB
                   fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
                   markAllVu()
+                  // Sync React state (sinon hasBadge() utilise l'ancien viewedAllAt du closure)
+                  setViewedAllAt(new Date().toISOString())
+                  // Clear has_update dans le cache React Query — évite refetch complet
+                  queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) => {
+                    if (!old) return old
+                    if (Array.isArray(old?.candidats)) {
+                      return { ...old, candidats: old.candidats.map((c: any) => c?.has_update ? { ...c, has_update: false } : c) }
+                    }
+                    if (Array.isArray(old)) {
+                      return old.map((c: any) => c?.has_update ? { ...c, has_update: false } : c)
+                    }
+                    return old
+                  })
                 }
               }}
               className="neo-btn-ghost"

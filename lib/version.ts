@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.13'
+export const APP_VERSION = '1.9.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.14',
+    date: '2026-04-17',
+    label: 'Dédup candidat unifié identité-first + Recherche clients OR + Fix import bloqué',
+    features: [
+      'Nouveau module lib/candidat-matching.ts : cascade unifiée identité-first (nom+prénom AND strict), email/tel/DDN réservés à la désambiguïsation — fix scénario couple (même email/tel, identités différentes = 2 personnes)',
+      'OneDrive sync : remplacement des 5 anciennes méthodes de matching + branche non-CV ambiguïté par findExistingCandidat() — plus aucune référence au nom de fichier (tout vient du contenu extrait par IA)',
+      'CV parse : même cascade unifiée — homonymes parfaits (nom+prénom identiques, coords différentes) update silencieux + log activité candidat_modifie avec diff email/tel/DDN',
+      'detectDocCategory (OneDrive) : classification CV/non-CV basée uniquement sur le texte OCR — plus de détection via extension/nom de fichier',
+      'Recherche clients : RPC search_clients_filtered avec unaccent + booléen OR multi-mots sur 11 champs (nom_entreprise, email, tel, notes, secteur, ville, canton, adresse, npa, site_web, contacts JSONB)',
+      'ClientSearch.tsx : filtre client symétrique OR sur mêmes champs (ex: "peintre plâtrier" matche les clients contenant peintre OU plâtrier)',
+      'Fix "Tout marquer vu" : setViewedAllAt() après markAllVu(), reset has_update=false global via admin client + React Query cache update',
+      'Fix UploadCV : safety net après Pass 2 — toute entrée encore pending+needsRetry est forcée en error (plus de fichiers bloqués en "En attente (2ème tentative)")',
+      'Fix dédup OneDrive : normalizeBaseName ne supprime plus "[N]" (OneDrive l\'ajoute pour disambiguer des candidats DIFFÉRENTS, ex CV[40].pdf ≠ CV.pdf) — seuls les " (N)" en fin de nom (vraies copies user) sont encore fusionnés',
+      'Watchdog pending OneDrive : fichier pré-enregistré depuis >24h sans erreur ni traitement → marqué erreur automatiquement puis soumis au cycle MAX_ERROR_DAYS=7j (plus de fichiers immortels en queue à cause d\'un bug dédup)',
+    ],
+  },
   {
     version: '1.9.13',
     date: '2026-04-17',
