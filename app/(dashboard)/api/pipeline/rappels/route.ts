@@ -6,16 +6,20 @@ import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
-// GET /api/pipeline/rappels — tous les rappels non-done (ou ?candidat_id=xxx)
+// GET /api/pipeline/rappels — rappels du user connecté uniquement (ou ?candidat_id=xxx)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
     const { searchParams } = new URL(request.url)
     const candidatId = searchParams.get('candidat_id')
 
     let query = (supabase as any)
       .from('pipeline_rappels')
       .select('*, candidats(id, nom, prenom, photo_url)')
+      .eq('user_id', user.id)  // isolation par consultant (ceinture + bretelles avec RLS)
       .order('rappel_at', { ascending: true })
 
     if (candidatId) {

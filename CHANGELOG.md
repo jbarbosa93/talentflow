@@ -1,5 +1,33 @@
 # Changelog TalentFlow
 
+## [1.9.12] — 17 avril 2026
+
+### Feat — Matching preselect amélioré (déterminisme + pertinence)
+- **Tiebreaker `candidat.id`** sur le sort final (fix déterminisme — 2 runs identiques retournent le même ordre de candidats)
+- **Bonus localisation** : `+6` même ville (match exact ou inclusion bidirectionnelle), `+4` même canton. Map de 26 cantons suisses + principales villes romandes (Sion, Monthey, Lausanne, Genève, Fribourg, Delémont, Bienne...)
+- **Stop-words allégés** : `chef`, `poste`, `responsable` retirés des exclusions — pertinents dans les titres métiers
+- **Bonus `cv_texte_brut`** : `+2` si non vide (favorise les profils complets que Claude pourra bien analyser)
+- **Normalisation compétences** (Option B) : `compScore / max(1, N_competences)` — une offre avec 10 compétences ne gonfle plus artificiellement les scores par rapport à une offre avec 2 compétences
+- **Pénalité ancienneté candidat** basée sur `created_at` :
+  - `< 6 mois` → 0
+  - `6-12 mois` → −3
+  - `12-24 mois` → −6
+  - `> 24 mois` → −10
+
+### Fix — Isolation des rappels pipeline par consultant
+- **Bug** : Seb créait un rappel, João le recevait aussi (toast + badge sidebar + liste)
+- **Cause racine** : policy RLS SELECT sur `pipeline_rappels` utilisait `USING (true)` — tout utilisateur authentifié voyait tous les rappels
+- **Fix migration** `20260417_fix_pipeline_rappels_select_rls.sql` :
+  ```sql
+  DROP POLICY IF EXISTS "pipeline_rappels_select" ON pipeline_rappels;
+  CREATE POLICY "pipeline_rappels_select" ON pipeline_rappels
+    FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+  ```
+- **Fix API** `/api/pipeline/rappels` GET : `getUser()` + `.eq('user_id', user.id)` + 401 si non authentifié (ceinture + bretelles avec la RLS)
+- Chaque consultant voit désormais uniquement ses propres rappels pipeline (toast permanent, liste, badge sidebar)
+
+---
+
 ## [1.9.11] — 17 avril 2026
 
 ### Feat — CDC viewer sur les commandes

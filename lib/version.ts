@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.11'
+export const APP_VERSION = '1.9.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.12',
+    date: '2026-04-17',
+    label: 'Matching preselect amélioré + Fix isolation rappels pipeline',
+    features: [
+      'Matching preselect : tiebreaker candidat.id sur le sort final (fix déterminisme — 2 runs identiques → même ordre)',
+      'Matching preselect : bonus localisation +6 (même ville) / +4 (même canton), map 26 cantons suisses + principales villes romandes',
+      'Matching preselect : stop-words allégés (chef/poste/responsable retirés — pertinents dans les titres)',
+      'Matching preselect : bonus +2 si cv_texte_brut non vide (profil plus complet pour Claude)',
+      'Matching preselect : normalisation du bloc compétences (compScore / N) — les offres courtes ne sont plus écrasées par les offres à 10+ compétences',
+      'Matching preselect : pénalité ancienneté candidat (< 6 mois = 0, 6-12 = -3, 12-24 = -6, > 24 = -10)',
+      'Fix RLS pipeline_rappels : policy SELECT filtrée par user_id (était USING (true) — tous les consultants voyaient tous les rappels)',
+      'Fix API /api/pipeline/rappels : ajout filtre explicite .eq(user_id, user.id) + 401 si non authentifié (ceinture + bretelles)',
+      'Rappels pipeline strictement isolés par consultant (Seb voit ses rappels, João les siens)',
+    ],
+  },
   {
     version: '1.9.11',
     date: '2026-04-17',
