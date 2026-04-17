@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.10 production** — 16/04/2026
+**1.9.11 production** — 17/04/2026
 
 ---
 
@@ -194,6 +194,7 @@ Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/
 - **Messages** : email/SMS/WhatsApp avec templates, activité loggée
 - **Intégrations** : Microsoft 365 OAuth par utilisateur (Outlook multi-compte)
 - **Veille offres** : scraping automatique jobs.ch, jobup.ch, Indeed CH via Apify (27 requêtes métier × 3 sources). Table `offres_externes` avec upsert par `url_source`. Détection agences (60+ mots-clés). Modération 3 onglets (À traiter / Ouvertes / Ignorées). Badge sidebar compteur. Cron Vercel 6h + sync manuelle. Ciblage Suisse romande uniquement.
+- **CDC viewer** : analyse IA d'un cahier des charges (PDF/DOCX/image) upload le fichier original vers `cvs/cdc/` (signed URL 10 ans), stocké dans `offres.cdc_url`. Bouton 📄 CDC sur les cards commandes ouvre un modal portalisé (`createPortal`). PDF/image via iframe `/api/cv/print`, DOCX/DOC via Office Web Viewer (`view.officeapps.live.com`), fallback "Télécharger" sinon.
 - **Activité** : timeline par onglets (Pipeline, Messages, Candidats, Imports OneDrive)
 
 ---

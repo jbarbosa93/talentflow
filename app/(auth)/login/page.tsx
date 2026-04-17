@@ -48,6 +48,7 @@ function LoginForm() {
         const data = await res.json()
         if (data.reconnected) {
           setAutoReconnecting(true)
+          localStorage.setItem('talentflow_last_activity', Date.now().toString())
           router.push('/dashboard')
           router.refresh()
           return
@@ -145,6 +146,7 @@ function LoginForm() {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (!signInError) {
         logAccess('login_success_auto_logout')
+        localStorage.setItem('talentflow_last_activity', Date.now().toString())
         router.push('/dashboard')
         router.refresh()
         setLoading(false)
@@ -201,6 +203,7 @@ function LoginForm() {
         return
       }
 
+      localStorage.setItem('talentflow_last_activity', Date.now().toString())
       router.push('/dashboard')
       router.refresh()
     } catch {
@@ -263,6 +266,7 @@ function LoginForm() {
 
     // 3. Log + redirect
     logAccess('login_success')
+    localStorage.setItem('talentflow_last_activity', Date.now().toString())
     router.push('/dashboard')
     router.refresh()
   }

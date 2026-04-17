@@ -1,5 +1,40 @@
 # Changelog TalentFlow
 
+## [1.9.11] — 17 avril 2026
+
+### Feat — CDC viewer sur les commandes
+- Upload du cahier des charges analysé vers Supabase Storage (bucket `cvs`, préfixe `cdc/`) en parallèle de l'analyse IA
+- Nouvelle colonne `offres.cdc_url` (TEXT) — signed URL 10 ans
+- Bouton 📄 CDC sur les cards de commandes si `cdc_url` existe
+- Modal portalisé (`createPortal(document.body)`) avec backdrop blur + Framer Motion
+- PDF/JPG/PNG/WEBP : iframe via `/api/cv/print` (Content-Disposition inline forcé)
+- DOCX/DOC : iframe via Office Web Viewer (`view.officeapps.live.com/op/embed.aspx`)
+- Route `/api/commandes/analyse-cdc` : ajout `requireAuth()` + retourne `cdc_url` dans la réponse
+
+### Fix — Timer inactivité après login (déconnexion immédiate après OTP)
+- `localStorage('talentflow_last_activity')` reset à `Date.now()` sur les 4 chemins de login :
+  - Auto-reconnect (session existante)
+  - Auto-logout re-login (MDP)
+  - MFA 2FA (OTP secondaire)
+  - OTP email (cas principal du bug)
+- Corrige le bug : après veille Mac, le timestamp en localStorage pouvait dépasser les 2h → déconnexion 1-2s après login
+
+### Feat — Matching IA avec offres externes
+- `/matching?externe=<id>` : matching candidats ↔ offre externe scrapée (jobs.ch/jobup.ch/Indeed CH)
+- Preselect adapté pour offres externes (compétences extraites par IA)
+- `MatchingContext` étendu pour gérer les deux sources (offres internes + externes)
+
+### Fix — Logo L-AGENCE dans les CV générés
+- `lib/cv-generator.ts` : remplace `drawText('L-AGENCE')` en serif par `drawImage(logoPng)` (header 160×49px + footer 85×26px)
+- Nouveau fichier `public/logo-lagence.png` (ratio horizontal 3.24:1)
+- Fallback texte `helveticaBold` si le PNG est introuvable
+
+### Tooling
+- Graphify knowledge graph installé (AST-based, dossier `graphify-out/` ignoré en git)
+- Context7 MCP installé pour docs libraires à jour
+
+---
+
 ## [1.9.8] — 15 avril 2026
 
 ### Fix — Session timeout (timer inactivité)

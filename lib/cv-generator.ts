@@ -102,10 +102,10 @@ export async function generateBrandedCV(
   const helvetica = await doc.embedFont(StandardFonts.Helvetica)
   const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold)
 
-  // Essayer de charger le logo
+  // Charger le logo
   let logoPng: Awaited<ReturnType<typeof doc.embedPng>> | null = null
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'logo-agence.png')
+    const logoPath = path.join(process.cwd(), 'public', 'logo-lagence.png')
     const logoBytes = fs.readFileSync(logoPath)
     logoPng = await doc.embedPng(logoBytes)
   } catch {
@@ -159,14 +159,14 @@ export async function generateBrandedCV(
 
   // ═══════════════════ HEADER — CLEAN, NO YELLOW ═══════════════════
 
-  const timesRoman = await doc.embedFont(StandardFonts.TimesRoman)
-  const timesBold = await doc.embedFont(StandardFonts.TimesRomanBold)
-
-  // Logo text "L-AGENCE" in serif (same weight, no bold on L)
   const logoY = PAGE_HEIGHT - MARGIN - 10
-  page.drawText('L', { x: MARGIN, y: logoY, font: timesRoman, size: 36, color: DARK })
-  page.drawText('-AGENCE', { x: MARGIN + timesRoman.widthOfTextAtSize('L', 36), y: logoY, font: timesRoman, size: 22, color: DARK })
-  page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: logoY - 18, font: helvetica, size: 8, color: GRAY })
+  if (logoPng) {
+    // Logo image 550×170 (horizontal, ratio 3.24:1) — affiché à 160×49px
+    page.drawImage(logoPng, { x: MARGIN, y: logoY - 45, width: 160, height: 49 })
+  } else {
+    page.drawText('L-AGENCE', { x: MARGIN, y: logoY - 10, font: helveticaBold, size: 20, color: DARK })
+    page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: logoY - 28, font: helvetica, size: 8, color: GRAY })
+  }
 
   // Recruiter info top-right
   const rightX = PAGE_WIDTH - MARGIN
@@ -185,20 +185,20 @@ export async function generateBrandedCV(
   }
 
   // Thin separator line
-  page.drawRectangle({ x: MARGIN, y: logoY - 48, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
+  page.drawRectangle({ x: MARGIN, y: logoY - 58, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
   // "Dossier candidat · date" small, right-aligned under separator
   const dateStr = new Date().toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' })
   const dossierLabel = `Dossier candidat · ${dateStr}`
   page.drawText(dossierLabel, {
     x: PAGE_WIDTH - MARGIN - helvetica.widthOfTextAtSize(dossierLabel, 8),
-    y: logoY - 62,
+    y: logoY - 72,
     font: helvetica,
     size: 8,
     color: GRAY,
   })
 
-  y = logoY - 72
+  y = logoY - 82
 
   // ═══════════════════ CANDIDAT NAME ═══════════════════
 
@@ -324,11 +324,15 @@ export async function generateBrandedCV(
   // Separator line
   page.drawRectangle({ x: MARGIN, y: footerTop, width: CONTENT_WIDTH, height: 1, color: LIGHT_GRAY })
 
-  // Left side: L-AGENCE + agency info
+  // Left side: logo + agency info
   const fLeftY = footerTop - 16
-  page.drawText('L', { x: MARGIN, y: fLeftY, font: timesRoman, size: 20, color: DARK })
-  page.drawText('-AGENCE', { x: MARGIN + timesRoman.widthOfTextAtSize('L', 20), y: fLeftY, font: timesRoman, size: 14, color: DARK })
-  page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: fLeftY - 14, font: helvetica, size: 7, color: GRAY })
+  if (logoPng) {
+    // Logo image horizontal à 85×26px dans le footer
+    page.drawImage(logoPng, { x: MARGIN, y: fLeftY - 16, width: 85, height: 26 })
+  } else {
+    page.drawText('L-AGENCE', { x: MARGIN, y: fLeftY, font: helveticaBold, size: 12, color: DARK })
+    page.drawText('Emplois fixes & temporaires', { x: MARGIN, y: fLeftY - 12, font: helvetica, size: 7, color: GRAY })
+  }
   page.drawText('+41 24 552 18 70  |  info@l-agence.ch', { x: MARGIN, y: fLeftY - 26, font: helvetica, size: 8, color: GRAY })
   page.drawText('Avenue des Alpes 3, 1870 Monthey - CH', { x: MARGIN, y: fLeftY - 38, font: helvetica, size: 7, color: GRAY })
 

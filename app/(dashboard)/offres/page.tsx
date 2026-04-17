@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench, Search, Globe, Eye, Filter, ArrowUpRight, X, Zap } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -44,6 +45,7 @@ export default function OffresPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [cdcViewer, setCdcViewer] = useState<{ url: string; titre: string } | null>(null)
   const { data: offres, isLoading } = useOffres(true)
   const updateOffre = useUpdateOffre()
   const deleteOffre = useDeleteOffre()
@@ -175,6 +177,17 @@ export default function OffresPage() {
                     current={offre.statut}
                     onSelect={(s) => handleStatusChange(offre.id, s)}
                   />
+                  {(offre as any).cdc_url && (
+                    <button
+                      onClick={() => setCdcViewer({ url: (offre as any).cdc_url, titre: offre.titre })}
+                      title="Voir le cahier des charges"
+                      className="d-icon-btn"
+                      style={{ height: 28, borderRadius: 7, padding: '0 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700 }}
+                    >
+                      <FileText size={12} />
+                      CDC
+                    </button>
+                  )}
                   <button
                     onClick={() => setEditOffre(offre)}
                     title="Modifier"
@@ -315,6 +328,14 @@ export default function OffresPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* CDC Viewer Modal */}
+      <CDCViewerModal
+        open={cdcViewer !== null}
+        url={cdcViewer?.url || ''}
+        titre={cdcViewer?.titre || ''}
+        onClose={() => setCdcViewer(null)}
+      />
     </div>
   )
 }
@@ -711,6 +732,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<CDCResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [cdcUrl, setCdcUrl] = useState<string | null>(null)
   // Editable fields after analysis
   const [edited, setEdited] = useState<CDCResult | null>(null)
   const [saving, setSaving] = useState(false)
@@ -755,6 +777,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
       if (!res.ok) throw new Error(data.error || 'Erreur analyse')
       setResult(data.commande)
       setEdited(data.commande)
+      setCdcUrl(data.cdc_url || null)
     } catch (e: any) {
       setError(e.message || 'Erreur lors de l\'analyse')
     } finally {
@@ -783,6 +806,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
         edited.taux_activite ? `Taux d\'activité : ${edited.taux_activite}` : '',
       ].filter(Boolean).join('\n') || undefined,
       exp_requise: edited.exp_requise || 0,
+      cdc_url: cdcUrl || undefined,
     }, {
       onSuccess: () => { setSaving(false); toast.success('Commande créée avec succès !'); onCommandeCreated() },
       onError: () => { setSaving(false); toast.error('Erreur lors de la création') },
@@ -804,7 +828,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
               {file?.name} · Corrigez si nécessaire puis créez la commande
             </div>
           </div>
-          <button onClick={() => { setResult(null); setEdited(null); setFile(null) }}
+          <button onClick={() => { setResult(null); setEdited(null); setFile(null); setCdcUrl(null) }}
             style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
             Nouvelle analyse
           </button>
@@ -1687,3 +1711,122 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
     </div>
   )
 }
+
+// ─── CDC Viewer Modal ───────────────────────────────────────────────────────
+
+function CDCViewerModal({ open, url, titre, onClose }: { open: boolean; url: string; titre: string; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [open, onClose])
+
+  if (!open || typeof window === 'undefined') return null
+
+  const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase()
+  const isPdfOrImg = ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(ext)
+  const isDocx = ext === 'docx' || ext === 'doc'
+  const isIframeCompatible = isPdfOrImg || isDocx
+  const iframeSrc = isDocx
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
+    : `/api/cv/print?url=${encodeURIComponent(url)}`
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      onClick={onClose}
+      style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 9999, padding: 24,
+      }}
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.96, opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 1100, height: '90vh',
+          background: 'var(--surface)', borderRadius: 16,
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, var(--primary), #EA8A0E)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FileText size={16} color="white" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cahier des charges</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{titre}</div>
+          </div>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Télécharger"
+            className="d-icon-btn"
+            style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+          >
+            <ExternalLink size={14} />
+          </a>
+          <button
+            onClick={onClose}
+            title="Fermer"
+            className="d-icon-btn"
+            style={{ width: 32, height: 32, borderRadius: 8 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ flex: 1, background: 'var(--background)', overflow: 'hidden' }}>
+          {isIframeCompatible ? (
+            <iframe
+              src={iframeSrc}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title="Cahier des charges"
+            />
+          ) : (
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 40 }}>
+              <FileText size={48} style={{ color: 'var(--muted)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6 }}>
+                  Aperçu non disponible ({ext.toUpperCase()})
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
+                  Les fichiers {ext.toUpperCase()} ne peuvent pas être affichés directement dans le navigateur
+                </div>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="neo-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                >
+                  <ExternalLink size={14} />
+                  Télécharger le fichier
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body
+  )
+}
+

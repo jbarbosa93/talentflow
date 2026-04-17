@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -72,6 +74,9 @@ async function limitPDFPages(buffer: Buffer, maxPages = 8): Promise<Buffer> {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -93,6 +98,33 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const client = getClient()
+
+    // Upload du fichier original vers Storage (bucket cvs, préfixe cdc/)
+    // Parallèle à l'analyse IA pour gagner du temps
+    const uploadPromise = (async (): Promise<string | null> => {
+      try {
+        const admin = createAdminClient()
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        const storagePath = `cdc/${Date.now()}_${safeName}`
+        const contentType = isPdf ? 'application/pdf'
+          : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : mimeType || 'application/octet-stream'
+        const { data: upData, error: upErr } = await admin.storage.from('cvs').upload(storagePath, buffer, {
+          contentType,
+          upsert: false,
+        })
+        if (upErr || !upData) {
+          console.error('[analyse-cdc] upload error:', upErr)
+          return null
+        }
+        // Signed URL 10 ans (pattern TalentFlow)
+        const { data: signed } = await admin.storage.from('cvs').createSignedUrl(upData.path, 60 * 60 * 24 * 365 * 10)
+        return signed?.signedUrl || null
+      } catch (e) {
+        console.error('[analyse-cdc] upload exception:', e)
+        return null
+      }
+    })()
 
     let messageContent: Anthropic.MessageParam['content']
 
@@ -150,7 +182,9 @@ export async function POST(request: NextRequest) {
     parsed.nb_postes = parseInt(parsed.nb_postes) || 1
     parsed.exp_requise = parseInt(parsed.exp_requise) || 0
 
-    return NextResponse.json({ success: true, commande: parsed })
+    const cdc_url = await uploadPromise
+
+    return NextResponse.json({ success: true, commande: parsed, cdc_url })
   } catch (error) {
     console.error('[analyse-cdc]', error)
     return NextResponse.json(

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.10'
+export const APP_VERSION = '1.9.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.11',
+    date: '2026-04-17',
+    label: 'CDC viewer + fix timer login + matching offres externes + logo PNG',
+    features: [
+      'CDC viewer : upload du cahier des charges analysé vers Supabase Storage (bucket cvs, préfixe cdc/)',
+      'CDC viewer : colonne offres.cdc_url + bouton 📄 CDC sur les cards commandes',
+      'CDC viewer : modal portalisé avec backdrop blur + iframe proxy /api/cv/print (PDF/JPG/PNG)',
+      'CDC viewer : DOCX/DOC affichés via Office Web Viewer (view.officeapps.live.com)',
+      'Fix timer inactivité : reset localStorage talentflow_last_activity sur 4 chemins de login (auto-reconnect, auto-logout re-login, MFA 2FA, OTP email) — fix déconnexion immédiate après OTP',
+      'Matching IA : support offres externes via /matching?externe=<id>, preselect adapté, MatchingContext étendu',
+      'Logo L-AGENCE : drawImage() avec vrai logo PNG (public/logo-lagence.png) dans cv-generator.ts (header + footer)',
+      'Tooling : Graphify knowledge graph + Context7 MCP installés',
+    ],
+  },
   {
     version: '1.9.10',
     date: '2026-04-16',

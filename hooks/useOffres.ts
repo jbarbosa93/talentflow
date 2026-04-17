@@ -38,6 +38,7 @@ export function useCreateOffre() {
       date_debut?: string
       duree_mission?: string
       notes?: string
+      cdc_url?: string
     }) => {
       const { data, error } = await supabase.from('offres').insert(offre).select().single()
       if (error) throw error
