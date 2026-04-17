@@ -640,6 +640,7 @@ export async function POST(request: Request) {
             email: candidatEmail,
             telephone: candidatTel,
             date_naissance: analyse.date_naissance || null,
+            localisation: (analyse as any).localisation || null,
           }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, localisation, titre_poste' })
 
           if (matchResult.kind === 'match') {
@@ -659,18 +660,11 @@ export async function POST(request: Request) {
               } catch (err) { console.warn('[OneDrive Sync] log diff coords échec:', err instanceof Error ? err.message : String(err)) }
             }
             dbg(`[OneDrive Sync] Match ${matchResult.reason}: ${existingCandidat.prenom} ${existingCandidat.nom}`)
-          } else if (matchResult.kind === 'ambiguous') {
-            const names = matchResult.candidates
-              .map((c: any) => `${c.prenom || ''} ${c.nom} (${c.id.slice(0, 8)})`.trim()).join(', ')
-            throw new Error(
-              `Ambiguïté — ${matchResult.candidates.length} candidats homonymes correspondent : ${names}. ` +
-              `Rattachez manuellement depuis la fiche candidat.`
-            )
           } else if (matchResult.kind === 'insufficient' && !isNotCV) {
             // CV sans identité extraite → erreur explicite (pas de création anonyme)
             throw new Error(`Identité non extractible — ${matchResult.reason}`)
           }
-          // kind === 'none' OU ('insufficient' && isNotCV) → existingCandidat reste null
+          // v1.9.20 — kind:'ambiguous' supprimé. kind === 'none' OU 'insufficient' → existingCandidat reste null.
           // Pour non-CV sans match : retryQueue ci-dessous. Pour CV : création nouveau candidat.
 
           // Helpers conservés pour anti-race check (lignes ~1320) — plus utilisés pour matching principal

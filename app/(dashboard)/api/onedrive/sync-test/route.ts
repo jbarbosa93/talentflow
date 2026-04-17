@@ -223,9 +223,8 @@ export async function POST(request: NextRequest) {
     })
 
     // 5. Déterminer la décision qui serait prise
-    let decision: 'create' | 'update' | 'skip_doublon' | 'ambiguous' | 'insufficient' = 'create'
+    let decision: 'create' | 'update' | 'skip_doublon' | 'insufficient' = 'create'
     if (match.kind === 'match') decision = 'update'
-    else if (match.kind === 'ambiguous') decision = 'ambiguous'
     else if (match.kind === 'insufficient') decision = 'insufficient'
     else decision = 'create'
 
@@ -262,10 +261,6 @@ export async function POST(request: NextRequest) {
         candidat_id: match.candidat.id,
         candidat_nom: `${match.candidat.prenom || ''} ${match.candidat.nom || ''}`.trim(),
         diffs: match.diffs,
-      } : match.kind === 'ambiguous' ? {
-        kind: 'ambiguous',
-        reason: match.reason,
-        candidates: match.candidates.map((c: any) => ({ id: c.id, nom: c.nom, prenom: c.prenom, email: c.email })),
       } : match.kind === 'insufficient' ? {
         kind: 'insufficient',
         reason: match.reason,

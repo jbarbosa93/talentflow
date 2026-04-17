@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.19'
+export const APP_VERSION = '1.9.20'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.20',
+    date: '2026-04-18',
+    label: 'Matching — refonte IDENTITÉ-FIRST ÉLARGIE (scoring 3 niveaux)',
+    features: [
+      'Refonte complète de lib/candidat-matching.ts : plus de cascade, plus de partialIdentityCompatible, plus de branches tel_identite_partielle / email_identite_partielle, plus de kind:\'ambiguous\'. L\'algo est désormais en 5 étapes : présélection tokens nom+prenom (LIMIT 50, OR ilike) → reject DDN contradictoire → scoring individuel → filtre seuil différencié → meilleur match avec tiebreak déterministe.',
+      'Scoring pondéré : DDN match = +10, tel9 match = +8, email match = +8, strict_nom_exact = +5, strict_nom_subset = +3, ville match = +3. Ville extrait avant virgule et strip code postal (ex. "Champéry, Suisse" = "Champéry" = "1920 Champéry").',
+      'Trois niveaux de similarité nom : strict_exact (tokens rigoureusement égaux dans les 2 sens, accepte l\'inversion nom↔prénom et les accents) → seuil 5 ; strict_subset (tokens du plus court ⊂ plus long + diff ≤ 2 tokens, capture les noms tronqués et prénoms composés) → seuil 11 ; aucune similarité nom → seuil 16 (exige 2 signaux forts DDN+tel / DDN+email / tel+email).',
+      'Simulation dry-run sur 6083 candidats : 117 643 paires présélectionnées → 70 387 rejetées pour DDN contradictoire → ~25-35 matches finaux estimés avec ≈0 FP. Comparé à l\'ancien algo (seuil containment permissif) : élimine les faux positifs type "Cá Miguel / Cardenete Henestrosa Luis Miguel", "Ferreira Miguel / Ferreira Pinto Pedro Miguel", "Santos André / Santos Alexandre", "de Oliveira Armando / Correia Armando" (DDN+ville seuls), "Giovanola Cédric/Christophe" (frères même DDN même ville).',
+      'kind:\'ambiguous\' supprimé du type CandidatMatchResult. Les cas non clairs (doublons suspects) retournent kind:\'none\' → création nouveau candidat autorisée en aval. Les doublons post-import sont détectés via /parametres/doublons (script dédié, pas le pipeline import). Consumers mis à jour : cv/parse, onedrive/sync, onedrive/sync-test.',
+      'Identité incomplète (nom OU prénom manquant) → kind:\'insufficient\'. Le tel partagé (couple/famille/coloc) et l\'email générique ne peuvent plus JAMAIS déclencher un match sans identité nominale.',
+      'Tiebreak déterministe sur ex-aequo : DDN > tel > email > ordre id (localeCompare). Deux exécutions consécutives donnent le même résultat.',
+      'Champ localisation ajouté à CandidatMatchInput et passé par cv/parse + onedrive/sync. Bonus ville activé.',
+      'Note : cv/bulk et sharepoint/import ne passent pas par findExistingCandidat (dedup custom ou création directe respectivement) — aligner dans une session ultérieure si nécessaire.',
+    ],
+  },
   {
     version: '1.9.19',
     date: '2026-04-17',

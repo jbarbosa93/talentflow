@@ -1,14 +1,33 @@
 // lib/candidat-matching.ts
-// Moteur unifié de détection de candidat existant lors d'un import CV/document.
-// Règle principale : IDENTITÉ (nom + prénom) d'abord, email/tel/DDN servent de confirmation
-// ou de désambiguïsation en cas d'homonymes — JAMAIS pour matcher seul un candidat.
+// v1.9.20 — Refonte IDENTITÉ-FIRST ÉLARGIE + scoring 3 niveaux
 //
-// Contexte métier :
-// - Scénario couple : même email/tel partagés, noms différents → personnes distinctes
-// - Scénario homonyme parfait : même nom+prenom avec coordonnées différentes → on update
-//   silencieusement et on logge le changement de coordonnées (vraie détection via /parametres/doublons)
+// Règle définitive : on ne matche JAMAIS sans similarité de nom, mais on tolère
+// les variations (accents, ordre nom/prénom, sous-ensemble de tokens).
 //
-// Aucune référence au nom de fichier n'est utilisée — tout vient du contenu extrait par IA.
+// Pipeline :
+//   1. Présélection DB : LIMIT 50 candidats partageant ≥1 token (≥3 chars, unaccent lower)
+//      avec les tokens nom+prenom de l'input.
+//   2. Early reject : DDN contradictoire (les 2 renseignées et différentes) → exclu.
+//   3. Scoring par candidat restant :
+//        DDN match          = +10
+//        tel9 match         = +8
+//        email match        = +8
+//        strict_nom_exact   = +5  (tokens identiques à l'ensemble près)
+//        strict_nom_subset  = +3  (tokens du plus court ⊂ plus long, diff ≤ 2)
+//        ville match        = +3  (unaccent lower strict)
+//   4. Seuils différenciés :
+//        strict_exact  → score ≥ 5   (accepte nom-seul si tokens exactement égaux)
+//        strict_subset → score ≥ 11  (exige +1 signal fort OU DDN)
+//        no_strict     → score ≥ 16  (exige 2 signaux forts : DDN+tel, DDN+email, tel+email)
+//   5. Meilleur score gagne. En cas d'ex-aequo : DDN > tel > email > ordre id.
+//
+// Fin de kind:'ambiguous' — tout ce qui n'est pas un match clair devient kind:'none'
+// et laisse le consommateur créer un nouveau candidat. Les doublons suspects sont
+// détectés après coup via /parametres/doublons (script dédié, pas le pipeline import).
+//
+// Disparition des branches tel_identite_partielle / email_identite_partielle /
+// partialIdentityCompatible : un email ou un tel sans identité nominale ne suffit
+// plus JAMAIS à matcher (tel partagé couple/famille, email générique, etc.).
 
 export type CandidatMatchInput = {
   nom?: string | null
@@ -16,13 +35,13 @@ export type CandidatMatchInput = {
   email?: string | null
   telephone?: string | null
   date_naissance?: string | null
+  localisation?: string | null
 }
 
 export type CoordDiff = { field: 'email' | 'telephone' | 'date_naissance'; from: string | null; to: string | null }
 
 export type CandidatMatchResult =
   | { kind: 'match'; candidat: any; reason: string; diffs: CoordDiff[] }
-  | { kind: 'ambiguous'; candidates: any[]; reason: string }
   | { kind: 'none' }
   | { kind: 'insufficient'; reason: string }
 
@@ -36,114 +55,82 @@ export const normalizeTel = (t: string | null | undefined): string =>
 
 export const tel9 = (t: string | null | undefined): string => {
   const d = normalizeTel(t)
-  return d.length >= 8 ? d.slice(-9) : ''
+  return d.length >= 9 ? d.slice(-9) : ''
 }
 
-const wordsOf = (s: string, minLen = 3): string[] =>
-  unaccent(s).split(/[\s-]+/).filter(w => w.length >= minLen)
-
-// v1.9.19 — égalité stricte sur mots unaccent (plus d'includes/subset).
-// Élimine les faux matches type "Andre" ⊂ "Andres", "Ana" ⊂ "Anais", "Luis" ⊂ "Luisa".
-// Un candidat doit partager un mot COMPLET pour être considéré compatible.
-const wordsOverlapExact = (a: string[], b: string[]): boolean => {
-  if (a.length === 0 || b.length === 0) return false
-  return a.some(wa => b.includes(wa))
+// Tokens nom+prenom unaccent lowercase, ≥3 chars, set (pas de doublon)
+const tokensOfIdentity = (nom: string | null | undefined, prenom: string | null | undefined): string[] => {
+  const raw = `${nom || ''} ${prenom || ''}`
+  const toks = unaccent(raw).split(/[^a-z0-9]+/).filter(w => w.length >= 3)
+  return Array.from(new Set(toks))
 }
 
-// Compare deux DDN (string ISO ou DD/MM/YYYY) — retourne true si identiques après normalisation,
-// false si différentes, null si l'une des deux est manquante/non-comparable.
-const ddnCompareStrict = (a: string | null | undefined, b: string | null | undefined): boolean | null => {
-  const norm = (d: string | null | undefined): string | null => {
-    if (!d) return null
-    const s = String(d).trim()
-    if (!s) return null
-    // ISO YYYY-MM-DD
-    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
-    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
-    // DD/MM/YYYY ou DD.MM.YYYY
-    const dmy = s.match(/^(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/)
-    if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`
-    // Année seule → non comparable
-    if (/^\d{4}$/.test(s)) return null
-    return null
-  }
-  const na = norm(a)
-  const nb = norm(b)
+// Normalisation DDN → 'YYYY-MM-DD' ou null si non-comparable (année seule, vide, format inconnu)
+const normDdn = (d: string | null | undefined): string | null => {
+  if (!d) return null
+  const s = String(d).trim()
+  if (!s) return null
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
+  const dmy = s.match(/^(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/)
+  if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`
+  return null // année seule ou format inconnu → non-comparable
+}
+
+// Retourne true si identiques, false si différentes, null si l'une est non-comparable
+const ddnCompare = (a: string | null | undefined, b: string | null | undefined): boolean | null => {
+  const na = normDdn(a)
+  const nb = normDdn(b)
   if (!na || !nb) return null
   return na === nb
 }
 
-// Sous-ensemble bidirectionnel : TOUS les mots de a sont dans b, OU tous les mots de b sont dans a
-// Comparaison par égalité stricte (pas de substring) pour éviter "jos" ⊂ "jose"
-const isSubsetEither = (a: string[], b: string[]): boolean => {
-  if (a.length === 0 || b.length === 0) return false
-  const aInB = a.every(wa => b.includes(wa))
-  if (aInB) return true
-  const bInA = b.every(wb => a.includes(wb))
-  return bInA
+// strict_nom_exact : l'ensemble des tokens est identique (après dédup + sort),
+// peu importe l'ordre / la répartition nom↔prenom.
+// Exemples match : "Mendes Fabio" / "Mendes Fábio" (accent) ; "Seare Andemichael" / "Andemichael Seare".
+const strictNomExact = (input: CandidatMatchInput, c: any): boolean => {
+  const i = tokensOfIdentity(input.nom, input.prenom).sort()
+  const cc = tokensOfIdentity(c.nom, c.prenom).sort()
+  if (i.length === 0 || cc.length === 0) return false
+  if (i.length !== cc.length) return false
+  return i.every((t, idx) => t === cc[idx])
 }
 
-// Filtre strict nom+prénom (v1.9.15) :
-// - Les MOTS de l'identité input doivent être un sous-ensemble de l'identité DB combinée (nom+prénom),
-//   ou inversement. Tolère l'inversion nom↔prénom et les noms portugais/espagnols composés,
-//   mais rejette les "Jose X" vs "Jose Y" (bug Jo26) où un seul prénom commun suffisait.
-const strictNomPrenomMatch = (input: CandidatMatchInput, c: any): boolean => {
-  const iNom = wordsOf(input.nom || '')
-  const iPrenom = wordsOf(input.prenom || '')
-  const cNom = wordsOf(c.nom || '')
-  const cPrenom = wordsOf(c.prenom || '')
-  if (iNom.length === 0 || iPrenom.length === 0) return false
-  if (cNom.length === 0 && cPrenom.length === 0) return false
-
-  // On teste l'identité combinée pour tolérer les inversions et les noms composés split
-  // entre nom/prenom DB différemment de l'input.
-  const iCombined = Array.from(new Set([...iNom, ...iPrenom]))
-  const cCombined = Array.from(new Set([...cNom, ...cPrenom]))
-
-  // 1. Sous-ensemble bidirectionnel sur l'identité complète
-  //    (ex: "Martínez / José Luis Monreal" ↔ "Monreal Martínez / José Luis")
-  if (!isSubsetEither(iCombined, cCombined)) return false
-
-  // 2. Vérif finale : chaque moitié input (nom puis prénom) doit être entièrement présente
-  //    dans l'identité DB combinée. Cela rejette le cas où seulement 1 mot commun survit.
-  const nomOk = iNom.every(w => cCombined.includes(w))
-  const prenomOk = iPrenom.every(w => cCombined.includes(w))
-  return nomOk && prenomOk
+// strict_nom_subset : tokens du plus court entièrement inclus dans le plus long,
+// ET différence ≤ 2 tokens (garde-fou contre les inclusions fortuites dans noms composés).
+// Exemples match : "Dos Santos Francisco Jorge" / "Dos Santos Ramalho Francisco Jorge" (+1 token).
+// Exemples rejet : "Ferreira Miguel" / "Ferreira Da Silva Ricardo Miguel" (+3 tokens).
+const strictNomSubset = (input: CandidatMatchInput, c: any): boolean => {
+  const i = tokensOfIdentity(input.nom, input.prenom)
+  const cc = tokensOfIdentity(c.nom, c.prenom)
+  if (i.length === 0 || cc.length === 0) return false
+  if (i.length === cc.length && i.every(t => cc.includes(t))) return false // c'est exact, pas subset
+  const [small, large] = i.length <= cc.length ? [i, cc] : [cc, i]
+  if (large.length - small.length > 2) return false
+  return small.every(t => large.includes(t))
 }
 
-// Compatibilité "partielle" — utilisée quand on matche par email/tel et qu'on a UNE moitié d'identité
-// v1.9.19 — égalité stricte sur mots (wordsOverlapExact) : plus de "Andre ⊂ Andres"
-const partialIdentityCompatible = (input: CandidatMatchInput, c: any): boolean => {
-  const iNom = unaccent(input.nom || '')
-  const iPrenom = unaccent(input.prenom || '')
-  const cNom = unaccent(c.nom || '')
-  const cPrenom = unaccent(c.prenom || '')
-
-  // Si rien en DB → on ne peut rien valider, on rejette
-  if (!cNom && !cPrenom) return false
-
-  // Cas 1 : on a un nom extrait → doit matcher au moins un mot COMPLET dans nom OU prenom DB
-  if (iNom) {
-    const iNomWords = wordsOf(iNom)
-    const combined = `${cNom} ${cPrenom}`
-    const cCombinedWords = wordsOf(combined)
-    if (wordsOverlapExact(iNomWords, cCombinedWords)) return true
-    // Pas de nom extrait qui matche → rejet
-    return false
-  }
-
-  // Cas 2 : on a seulement un prénom → doit matcher au moins un mot COMPLET dans prenom OU nom DB
-  if (iPrenom) {
-    const iPrenomWords = wordsOf(iPrenom)
-    const combined = `${cNom} ${cPrenom}`
-    const cCombinedWords = wordsOf(combined)
-    return wordsOverlapExact(iPrenomWords, cCombinedWords)
-  }
-
-  return false
+// Normalisation ville : unaccent lower strict + trim. On extrait avant virgule
+// pour gérer "Champéry, Suisse" vs "Champéry", et avant code postal "1933 Sembrancher".
+const normVille = (v: string | null | undefined): string | null => {
+  if (!v) return null
+  let s = unaccent(String(v))
+  // Retirer codes postaux 4 chiffres (position variable)
+  s = s.replace(/\b\d{4}\b/g, ' ')
+  // Garder la première partie avant virgule
+  const comma = s.indexOf(',')
+  if (comma > 0) s = s.slice(0, comma)
+  s = s.trim().replace(/\s+/g, ' ')
+  return s.length > 1 ? s : null
 }
 
-// Calcul des diffs de coordonnées entre input et DB (pour log update silencieux)
+const normEmail = (e: string | null | undefined): string | null => {
+  if (!e) return null
+  const s = e.toLowerCase().trim()
+  return s.includes('@') ? s : null
+}
+
+// Diffs coordonnées entre input et DB (pour log update silencieux)
 const computeDiffs = (c: any, input: CandidatMatchInput): CoordDiff[] => {
   const diffs: CoordDiff[] = []
   if (input.email && c.email && input.email.toLowerCase() !== c.email.toLowerCase()) {
@@ -152,10 +139,75 @@ const computeDiffs = (c: any, input: CandidatMatchInput): CoordDiff[] => {
   if (input.telephone && c.telephone && tel9(input.telephone) !== tel9(c.telephone)) {
     diffs.push({ field: 'telephone', from: c.telephone, to: input.telephone })
   }
-  if (input.date_naissance && c.date_naissance && input.date_naissance.slice(0, 10) !== String(c.date_naissance).slice(0, 10)) {
+  if (input.date_naissance && c.date_naissance && normDdn(input.date_naissance) !== normDdn(String(c.date_naissance))) {
     diffs.push({ field: 'date_naissance', from: String(c.date_naissance), to: input.date_naissance })
   }
   return diffs
+}
+
+// ── Scoring individuel ────────────────────────────────────────────────────────
+
+type ScoreDetail = {
+  candidat: any
+  score: number
+  ddnMatch: boolean
+  telMatch: boolean
+  emailMatch: boolean
+  strictExact: boolean
+  strictSubset: boolean
+  villeMatch: boolean
+  reason: string
+}
+
+const scoreCandidat = (input: CandidatMatchInput, c: any): ScoreDetail | null => {
+  // Early reject DDN contradictoire
+  if (ddnCompare(input.date_naissance, c.date_naissance) === false) return null
+
+  const ddnMatch = ddnCompare(input.date_naissance, c.date_naissance) === true
+  const telMatch = tel9(input.telephone).length === 9 && tel9(input.telephone) === tel9(c.telephone)
+  const emailMatch = !!normEmail(input.email) && normEmail(input.email) === normEmail(c.email)
+  const strictExact = strictNomExact(input, c)
+  const strictSubset = !strictExact && strictNomSubset(input, c)
+  const villeMatch =
+    !!normVille(input.localisation) && normVille(input.localisation) === normVille(c.localisation)
+
+  let score = 0
+  if (ddnMatch) score += 10
+  if (telMatch) score += 8
+  if (emailMatch) score += 8
+  if (strictExact) score += 5
+  else if (strictSubset) score += 3
+  if (villeMatch) score += 3
+
+  // Reason label pour traçabilité
+  let reason = 'score'
+  if (strictExact && ddnMatch) reason = 'nom_exact_ddn'
+  else if (strictExact && telMatch) reason = 'nom_exact_tel'
+  else if (strictExact && emailMatch) reason = 'nom_exact_email'
+  else if (strictExact) reason = 'nom_exact'
+  else if (strictSubset && ddnMatch) reason = 'nom_subset_ddn'
+  else if (strictSubset && telMatch) reason = 'nom_subset_tel'
+  else if (strictSubset && emailMatch) reason = 'nom_subset_email'
+  else if (ddnMatch && telMatch) reason = 'ddn_tel'
+  else if (ddnMatch && emailMatch) reason = 'ddn_email'
+  else if (telMatch && emailMatch) reason = 'tel_email'
+
+  return { candidat: c, score, ddnMatch, telMatch, emailMatch, strictExact, strictSubset, villeMatch, reason }
+}
+
+const passesThreshold = (d: ScoreDetail): boolean => {
+  if (d.strictExact) return d.score >= 5
+  if (d.strictSubset) return d.score >= 11
+  return d.score >= 16
+}
+
+// Départage ex-aequo : DDN > tel > email > id (déterminisme)
+const tiebreak = (a: ScoreDetail, b: ScoreDetail): number => {
+  if (a.score !== b.score) return b.score - a.score
+  if (a.ddnMatch !== b.ddnMatch) return a.ddnMatch ? -1 : 1
+  if (a.telMatch !== b.telMatch) return a.telMatch ? -1 : 1
+  if (a.emailMatch !== b.emailMatch) return a.emailMatch ? -1 : 1
+  return String(a.candidat.id).localeCompare(String(b.candidat.id))
 }
 
 // ── Fonction principale ───────────────────────────────────────────────────────
@@ -165,117 +217,68 @@ export async function findExistingCandidat(
   input: CandidatMatchInput,
   opts?: { selectColumns?: string }
 ): Promise<CandidatMatchResult> {
-  const cols = opts?.selectColumns || 'id, nom, prenom, email, telephone, date_naissance, localisation, titre_poste'
+  const cols =
+    opts?.selectColumns ||
+    'id, nom, prenom, email, telephone, date_naissance, localisation, titre_poste'
+
   const hasNom = !!(input.nom || '').trim()
   const hasPrenom = !!(input.prenom || '').trim()
-  const hasEmail = !!(input.email || '').trim()
-  const hasTelValid = tel9(input.telephone).length === 9
 
-  // ── Rien d'utilisable → insufficient ────────────────────────────────────────
-  if (!hasNom && !hasPrenom && !hasEmail && !hasTelValid) {
-    return { kind: 'insufficient', reason: 'Aucune identité ni coordonnée extraite du contenu' }
-  }
-
-  // ── Cas nominal : nom + prénom extraits (identité complète) ─────────────────
-  if (hasNom && hasPrenom) {
-    const nomWords = wordsOf(input.nom!)
-    let query = supabase.from('candidats').select(cols)
-    if (nomWords.length === 1) {
-      query = query.ilike('nom', `%${nomWords[0]}%`)
-    } else if (nomWords.length > 1) {
-      const orClauses = nomWords.map(p => `nom.ilike.%${p}%,prenom.ilike.%${p}%`).join(',')
-      query = query.or(orClauses)
-    }
-    const { data: rows } = await query.limit(30)
-    const candidates: any[] = (rows || []).filter((c: any) => strictNomPrenomMatch(input, c))
-
-    if (candidates.length === 0) return { kind: 'none' }
-
-    if (candidates.length === 1) {
-      const c = candidates[0]
-      // v1.9.19 CORRECTIF 1 — fail-safe DDN : la DDN est immutable. Si les deux DDN sont
-      // renseignées et DIFFÉRENTES → ce sont 2 personnes distinctes, même nom+prénom.
-      // (Bug edb7a8f3 : "Rodrigues André" Lausanne DDN 16/12/1985 écrasé par CV André Rodrigues
-      //  Champéry DDN 10/02/1984 — même identité, DDN contradictoires → 2 personnes.)
-      const ddnCheck = ddnCompareStrict(input.date_naissance, c.date_naissance)
-      if (ddnCheck === false) return { kind: 'none' }
-      return { kind: 'match', candidat: c, reason: 'nom_prenom_exact', diffs: computeDiffs(c, input) }
-    }
-
-    // Désambiguïsation homonymes → email > tel > DDN
-    if (hasEmail) {
-      const byEmail = candidates.find(c => c.email && c.email.toLowerCase() === input.email!.toLowerCase())
-      if (byEmail) return { kind: 'match', candidat: byEmail, reason: 'nom_prenom_email', diffs: [] }
-    }
-    if (hasTelValid) {
-      const target = tel9(input.telephone)
-      const byTel = candidates.find(c => tel9(c.telephone) === target)
-      if (byTel) {
-        // v1.9.19 CORRECTIF 1 — fail-safe DDN aussi sur désambiguïsation tel
-        const ddnCheck = ddnCompareStrict(input.date_naissance, byTel.date_naissance)
-        if (ddnCheck === false) return { kind: 'none' }
-        return { kind: 'match', candidat: byTel, reason: 'nom_prenom_tel', diffs: [] }
-      }
-    }
-    if (input.date_naissance) {
-      const target = input.date_naissance.slice(0, 10)
-      const byDdn = candidates.find(c => c.date_naissance && String(c.date_naissance).slice(0, 10) === target)
-      if (byDdn) return { kind: 'match', candidat: byDdn, reason: 'nom_prenom_ddn', diffs: [] }
-    }
-
-    // Fail-safe : si l'input contient un signal fort (email/tel/DDN) et qu'AUCUN
-    // des homonymes candidats ne matche ce signal → ce ne sont pas les bons homonymes,
-    // on renvoie 'none' pour autoriser la création d'un nouveau candidat (bug Jo26).
-    const hasStrongSignal = hasEmail || hasTelValid || !!input.date_naissance
-    if (hasStrongSignal) return { kind: 'none' }
-    return { kind: 'ambiguous', candidates, reason: `Homonymes non résolus (${candidates.length} candidats)` }
-  }
-
-  // ── Identité incomplète : seul nom OU seul prénom → on essaie email/tel + validation partielle ──
-  if (hasEmail) {
-    const { data } = await supabase.from('candidats').select(cols).ilike('email', input.email!).limit(5)
-    if (data && data.length > 0) {
-      const compatible = data.find((c: any) => partialIdentityCompatible(input, c))
-      if (compatible) return { kind: 'match', candidat: compatible, reason: 'email_identite_partielle', diffs: computeDiffs(compatible, input) }
+  // Identité incomplète → on ne tente rien, création autorisée en aval.
+  // (v1.9.20 : fin du fallback email/tel sans nom. Le tel peut être partagé,
+  // l'email peut être générique. Sans nom, trop dangereux.)
+  if (!hasNom || !hasPrenom) {
+    return {
+      kind: 'insufficient',
+      reason: 'Identité incomplète (nom ET prénom requis pour matcher)',
     }
   }
 
-  if (hasTelValid) {
-    const target = tel9(input.telephone)
-    // Optionnel : restreindre via un mot du nom pour limiter la requête
-    let q = supabase.from('candidats').select(cols).not('telephone', 'is', null)
-    if (hasNom) {
-      const w = wordsOf(input.nom!)[0]
-      if (w && w.length >= 4) q = q.ilike('nom', `%${w}%`)
-    } else if (hasPrenom) {
-      const w = wordsOf(input.prenom!)[0]
-      if (w && w.length >= 4) q = q.ilike('prenom', `%${w}%`)
-    }
-    const { data } = await q.limit(200)
-    if (data) {
-      const byTel = data.filter((c: any) => tel9(c.telephone) === target)
-      // v1.9.19 CORRECTIF 3 — collision tel9 seule ne suffit PLUS. On exige :
-      //   (a) strictNomPrenomMatch (identité complète et cohérente), OU
-      //   (b) DDN identique (signal fort alternatif)
-      // Le tel peut être partagé (couple, famille, coloc) → nom-différent + tel-partagé ≠ même personne.
-      // (Bug 5b25b055 : CV "Rodrigues André" tel9=794258097 matché à "Rodriguez Verdugo Andrés" tel9=794258097
-      //  alors que nom+prénom sont différents — ne doit plus arriver.)
-      const compatible = byTel.find((c: any) => {
-        if (!partialIdentityCompatible(input, c)) return false
-        if (strictNomPrenomMatch(input, c)) return true
-        if (ddnCompareStrict(input.date_naissance, c.date_naissance) === true) return true
-        return false
-      })
-      if (compatible) {
-        // Fail-safe DDN aussi ici
-        const ddnCheck = ddnCompareStrict(input.date_naissance, compatible.date_naissance)
-        if (ddnCheck === false) return { kind: 'none' }
-        return { kind: 'match', candidat: compatible, reason: 'tel_identite_partielle', diffs: computeDiffs(compatible, input) }
-      }
-    }
+  // ── Étape 1 : présélection élargie par tokens nom+prenom ──
+  const iTokens = tokensOfIdentity(input.nom, input.prenom)
+  if (iTokens.length === 0) {
+    return { kind: 'insufficient', reason: 'Aucun token identité ≥3 chars' }
   }
 
-  // Identité incomplète + aucun email/tel exploitable → rien trouvé
-  // (le consommateur décide : créer nouveau candidat ou rejeter selon le contexte)
-  return { kind: 'none' }
+  // Build OR clause : chaque token matché dans nom OU prenom
+  const orClauses = iTokens.map(t => `nom.ilike.%${t}%,prenom.ilike.%${t}%`).join(',')
+  const { data: rows } = await supabase.from('candidats').select(cols).or(orClauses).limit(50)
+  const candidates: any[] = rows || []
+
+  if (candidates.length === 0) return { kind: 'none' }
+
+  // ── Étape 2 + 3 : scoring individuel + early reject DDN contradictoire ──
+  const scored: ScoreDetail[] = []
+  for (const c of candidates) {
+    const s = scoreCandidat(input, c)
+    if (s) scored.push(s)
+  }
+
+  // ── Étape 4 : filtre seuil différencié ──
+  const kept = scored.filter(passesThreshold)
+  if (kept.length === 0) return { kind: 'none' }
+
+  // ── Étape 5 : meilleur match après tiebreak ──
+  kept.sort(tiebreak)
+  const winner = kept[0]
+
+  return {
+    kind: 'match',
+    candidat: winner.candidat,
+    reason: winner.reason,
+    diffs: computeDiffs(winner.candidat, input),
+  }
+}
+
+// ── Exports internes pour tests / outils diagnostics ──
+export const _internal = {
+  tokensOfIdentity,
+  strictNomExact,
+  strictNomSubset,
+  normDdn,
+  ddnCompare,
+  normVille,
+  normEmail,
+  scoreCandidat,
+  passesThreshold,
 }

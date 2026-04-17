@@ -636,6 +636,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       nom: analyse.nom, prenom: analyse.prenom,
       email: analyse.email, telephone: analyse.telephone,
       date_naissance: analyse.date_naissance || null,
+      localisation: analyse.localisation || null,
     }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, titre_poste, localisation, created_at' })
 
     if (matchResult.kind === 'match') {
@@ -655,18 +656,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         } catch (err) { console.warn('[CV Parse] log diff coords échec:', err instanceof Error ? err.message : String(err)) }
       }
       dbg(`[CV Parse] Match ${matchResult.reason}: ${candidatExistant.prenom} ${candidatExistant.nom}`)
-    } else if (matchResult.kind === 'ambiguous') {
-      // Homonymes non résolus → UI demande confirmation manuelle
-      return NextResponse.json({
-        isDuplicate: true, multipleMatches: true,
-        candidatsMatches: matchResult.candidates, analyse, cv_url: null,
-        message: `Plusieurs candidats homonymes trouvés (${matchResult.candidates.length}) — choisissez le bon ou créez un nouveau candidat.`,
-      })
     } else if (matchResult.kind === 'insufficient' && isNotCV) {
       // Non-CV sans identité → erreur explicite gérée plus bas par le flow normal
       // (pas de candidatExistant → création refusée pour non-CV via le check isNotCV)
     }
-    // kind === 'none' OU ('insufficient' && !isNotCV) → candidatExistant reste null → création nouveau
+    // v1.9.20 — kind:'ambiguous' supprimé. kind === 'none' OU 'insufficient' → candidatExistant
+    // reste null → création nouveau candidat. Les doublons suspects sont détectés après coup
+    // via /parametres/doublons (pas dans le pipeline d'import).
 
 
     // — Si doublon CV : décider si upload nécessaire —
