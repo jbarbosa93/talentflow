@@ -674,7 +674,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       localisation: analyse.localisation || null,
     }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, titre_poste, localisation, created_at' })
 
-    if (matchResult.kind === 'match') {
+    // v1.9.31 — Import manuel : 'uncertain' traité comme 'match' → passe par la modale existante
+    // de confirmation côté UI (confirmation_required). L'utilisateur décide Update/Create/View.
+    // Le pending_validation automatique est réservé au cron OneDrive silencieux.
+    if (matchResult.kind === 'match' || matchResult.kind === 'uncertain') {
       candidatExistant = matchResult.candidat
       matchReasonDetail = matchResult.reason
       matchDiffsDetail = matchResult.diffs

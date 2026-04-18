@@ -675,11 +675,69 @@ export async function POST(request: Request) {
               } catch (err) { console.warn('[OneDrive Sync] log diff coords échec:', err instanceof Error ? err.message : String(err)) }
             }
             dbg(`[OneDrive Sync] Match ${matchResult.reason}: ${existingCandidat.prenom} ${existingCandidat.nom}`)
+          } else if (matchResult.kind === 'uncertain' && !isNotCV) {
+            // v1.9.31 — Pending validation : score 8-10 (strictExact + ville seule sans contact fort).
+            // Cas type : 2 homonymes dans la même ville (ex: 2 "Daniel Costa" à Martigny) avec
+            // emails/tels différents. On upload le CV, on stocke l'analyse IA, et on attend que
+            // l'utilisateur valide dans /integrations (confirmer match, créer nouveau, ou ignorer).
+            try {
+              const timestamp = Date.now()
+              const storageName = `${timestamp}_${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+              const { data: storageData } = await supabase.storage
+                .from('cvs')
+                .upload(storageName, buffer, { contentType: mimeType, upsert: false })
+              let cvUrlTemp: string | null = null
+              if (storageData?.path) {
+                const { data: urlData } = await supabase.storage
+                  .from('cvs')
+                  .createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+                cvUrlTemp = urlData?.signedUrl || null
+              }
+
+              await upsertFichier({
+                integration_id: integrationId,
+                onedrive_item_id: fichier.id,
+                nom_fichier: filename,
+                traite: true,
+                traite_le: new Date().toISOString(),
+                last_modified_at: fichier.lastModifiedDateTime || null,
+                statut_action: 'pending_validation',
+                candidat_id: null,
+                match_suspect_candidat_id: matchResult.candidat.id,
+                match_suspect_score: matchResult.scoreBreakdown.score,
+                cv_url_temp: cvUrlTemp,
+                analyse_json: { ...analyse, _source_filename: filename, _file_date: fileDate },
+                erreur: `⏳ À valider — match incertain avec ${matchResult.candidat.prenom || ''} ${matchResult.candidat.nom || ''}`.trim(),
+              })
+
+              try {
+                await (supabase as any).from('activites').insert({
+                  type: 'import_pending_validation',
+                  description: `CV en attente de validation — match incertain avec ${matchResult.candidat.prenom || ''} ${matchResult.candidat.nom || ''}`.trim(),
+                  candidat_id: matchResult.candidat.id,
+                  metadata: {
+                    source: 'onedrive',
+                    filename,
+                    match_score: matchResult.scoreBreakdown.score,
+                    match_reason: matchResult.reason,
+                    signals: matchResult.scoreBreakdown,
+                  },
+                  created_at: new Date().toISOString(),
+                })
+              } catch {}
+
+              dbg(`[OneDrive Sync] PENDING_VALIDATION ${filename} — suspect ${matchResult.candidat.id} score=${matchResult.scoreBreakdown.score}`)
+              return { status: 'skipped', name: `⏳ ${filename} — en attente validation`, filename }
+            } catch (err) {
+              console.warn('[OneDrive Sync] pending_validation échec:', err instanceof Error ? err.message : String(err))
+              // Tombe dans le flow normal (création nouveau candidat) si l'upload/insert échoue
+            }
           } else if (matchResult.kind === 'insufficient' && !isNotCV) {
             // CV sans identité extraite → erreur explicite (pas de création anonyme)
             throw new Error(`Identité non extractible — ${matchResult.reason}`)
           }
           // v1.9.20 — kind:'ambiguous' supprimé. kind === 'none' OU 'insufficient' → existingCandidat reste null.
+          // v1.9.31 — kind:'uncertain' + isNotCV → même flow que 'none' (retryQueue attachmentMode).
           // Pour non-CV sans match : retryQueue ci-dessous. Pour CV : création nouveau candidat.
 
           // Helpers conservés pour anti-race check (lignes ~1320) — plus utilisés pour matching principal

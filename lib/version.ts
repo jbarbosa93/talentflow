@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.30'
+export const APP_VERSION = '1.9.31'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.31',
+    date: '2026-04-18',
+    label: 'Pending Validation OneDrive — matches incertains (score 8-10) validés manuellement',
+    features: [
+      'Feature majeure — Nouveau flux pour les matches incertains du cron OneDrive. Quand findExistingCandidat retourne un match score 8-10 (strictExact + ville seule, SANS contact fort type email/tel/DDN), le CV est uploadé dans storage, l\'analyse IA est stockée, et le fichier est mis en statut_action=\'pending_validation\' au lieu d\'écraser silencieusement la fiche existante.',
+      'Nouveau kind:\'uncertain\' dans lib/candidat-matching.ts (zone 8-10 strictExact sans signal fort). Import manuel cv/parse traite uncertain comme match → passe par la modale existante (UX inchangée). OneDrive sync cron route uncertain vers pending_validation (validation manuelle).',
+      'UI components/PendingValidationPanel.tsx — nouvelle section sur /integrations : diff side-by-side (candidat suspect DB ↔ données CV extraites) avec badges rouges sur les champs divergents. 3 actions : ✅ "Oui même candidat" (update fiche), ❌ "Non créer nouveau" (INSERT nouvelle fiche), 🗑️ "Ignorer" (archive sans action).',
+      'API route /api/onedrive/pending-validation — GET liste les fichiers en attente enrichis avec candidat suspect, POST body { id, action:\'confirm\'|\'reject\'|\'ignore\' }. Chaque décision est loggée dans la table decisions_matching (dataset ML futur).',
+      'Migration DB — ALTER onedrive_fichiers ADD COLUMNS (match_suspect_candidat_id FK, match_suspect_score INT, cv_url_temp TEXT, analyse_json JSONB). Nouvelle table decisions_matching (fichier_id, candidat_id, decision, score, signals JSONB, decided_by, decided_at, note) avec RLS authenticated r/w + 3 index.',
+      'Sidebar — badge compteur rouge sur /integrations dès qu\'il y a des fichiers en attente. Refresh au focus window + interval 2min + event talentflow:pending-validation-changed (émis par PendingValidationPanel).',
+      'Non-CVs en doute (certificat/lettre motivation) : comportement actuel conservé (erreur "candidat introuvable" + retryQueue attachmentMode v1.9.27). Pas de pending_validation pour les non-CVs car impossible de créer une fiche depuis un certificat seul.',
+      'Simulation sim-v1931-pending-validation.mjs : 0 paires actuellement en bande 8-10 dans la DB (~6062 candidats). La feature est un filet de sécurité qui s\'activera sur les futurs imports critiques (ex: 2 homonymes exacts dans même ville sans contact commun).',
+    ],
+  },
   {
     version: '1.9.30',
     date: '2026-04-18',

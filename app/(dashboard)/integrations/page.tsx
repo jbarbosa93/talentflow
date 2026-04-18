@@ -13,6 +13,7 @@ import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import AlertsBanner from '@/components/AlertsBanner'
 import TestFolderRunner from '@/components/TestFolderRunner'
+import PendingValidationPanel from '@/components/PendingValidationPanel'
 
 
 function IntegrationsContent() {
@@ -284,6 +285,9 @@ function IntegrationsContent() {
           <p className="d-page-sub">Connectez vos outils pour automatiser le recrutement</p>
         </div>
       </div>
+
+      {/* v1.9.31 — Fichiers OneDrive en attente de validation (matches incertains 8-10) */}
+      <PendingValidationPanel />
 
       {/* Bannière alertes admin (affichée si anomalies détectées) */}
       <AlertsBanner />

@@ -58,6 +58,7 @@ export type MatchScoreBreakdown = {
 
 export type CandidatMatchResult =
   | { kind: 'match'; candidat: any; reason: string; diffs: CoordDiff[]; scoreBreakdown: MatchScoreBreakdown }
+  | { kind: 'uncertain'; candidat: any; reason: string; diffs: CoordDiff[]; scoreBreakdown: MatchScoreBreakdown }
   | { kind: 'none' }
   | { kind: 'insufficient'; reason: string }
 
@@ -222,6 +223,15 @@ const passesThreshold = (d: ScoreDetail): boolean => {
   return d.score >= 16
 }
 
+// v1.9.31 — Zone "uncertain" : strictExact + ville seule (score 8-10) sans contact fort.
+// Cas type Daniel Fragoso Costa / Costa Daniel (2 homonymes, même ville théorique,
+// emails/tels différents). Routé vers pending_validation côté sync OneDrive.
+// Import manuel (cv/parse) traite uncertain comme match → modale de confirmation.
+const isUncertainBand = (d: ScoreDetail): boolean => {
+  if (!d.strictExact) return false
+  return d.score >= 8 && d.score <= 10
+}
+
 // Départage ex-aequo : DDN > tel > email > id (déterminisme)
 const tiebreak = (a: ScoreDetail, b: ScoreDetail): number => {
   if (a.score !== b.score) return b.score - a.score
@@ -330,20 +340,36 @@ export async function findExistingCandidat(
   kept.sort(tiebreak)
   const winner = kept[0]
 
+  const scoreBreakdown: MatchScoreBreakdown = {
+    score: winner.score,
+    ddnMatch: winner.ddnMatch,
+    telMatch: winner.telMatch,
+    emailMatch: winner.emailMatch,
+    strictExact: winner.strictExact,
+    strictSubset: winner.strictSubset,
+    villeMatch: winner.villeMatch,
+  }
+
+  // v1.9.31 — Zone uncertain : strictExact + ville seule (score 8-10), sans signal fort.
+  // OneDrive sync route ces matches vers pending_validation (validation manuelle).
+  // Import manuel (cv/parse) traite uncertain comme match → passe par la modale existante.
+  // Ignoré en attachmentMode (non-CVs retry, logique dédiée inchangée).
+  if (!opts?.attachmentMode && isUncertainBand(winner)) {
+    return {
+      kind: 'uncertain',
+      candidat: winner.candidat,
+      reason: winner.reason,
+      diffs: computeDiffs(winner.candidat, input),
+      scoreBreakdown,
+    }
+  }
+
   return {
     kind: 'match',
     candidat: winner.candidat,
     reason: winner.reason,
     diffs: computeDiffs(winner.candidat, input),
-    scoreBreakdown: {
-      score: winner.score,
-      ddnMatch: winner.ddnMatch,
-      telMatch: winner.telMatch,
-      emailMatch: winner.emailMatch,
-      strictExact: winner.strictExact,
-      strictSubset: winner.strictSubset,
-      villeMatch: winner.villeMatch,
-    },
+    scoreBreakdown,
   }
 }
 

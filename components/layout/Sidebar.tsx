@@ -106,6 +106,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
   // Badge sidebar : candidats créés dans les 30 derniers jours et pas encore vus
   const [sidebarBadgeCount, setSidebarBadgeCount] = useState(0)
+  // v1.9.31 — Badge pending_validation OneDrive sur /integrations
+  const [pendingValidationCount, setPendingValidationCount] = useState(0)
 
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -144,6 +146,34 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       window.removeEventListener('focus', onFocus)
       clearInterval(interval)
       if (debounceTimer) clearTimeout(debounceTimer)
+    }
+  }, [])
+
+  // v1.9.31 — Fetch count pending_validation OneDrive
+  useEffect(() => {
+    let cancelled = false
+    const fetchPending = async () => {
+      try {
+        const res = await fetch('/api/onedrive/pending-validation', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as { count?: number }
+        if (!cancelled) setPendingValidationCount(data.count || 0)
+      } catch { /* silencieux */ }
+    }
+    fetchPending()
+    const onFocus = () => fetchPending()
+    const onPendingChanged = (e: any) => {
+      if (typeof e?.detail === 'number') setPendingValidationCount(e.detail)
+      else fetchPending()
+    }
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('talentflow:pending-validation-changed', onPendingChanged)
+    const interval = setInterval(fetchPending, 2 * 60_000)
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('talentflow:pending-validation-changed', onPendingChanged)
+      clearInterval(interval)
     }
   }, [])
 
@@ -589,6 +619,17 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
                         fontSize: 10, fontWeight: 800, flexShrink: 0,
                       }}>
                         {demandesCount}
+                      </span>
+                    )}
+                    {/* v1.9.31 — Badge fichiers pending_validation sur Intégrations */}
+                    {item.href === '/integrations' && pendingValidationCount > 0 && (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                        padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: '#EF4444', color: 'white',
+                        fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      }}>
+                        {pendingValidationCount > 99 ? '99+' : pendingValidationCount}
                       </span>
                     )}
                     {showDot && (
