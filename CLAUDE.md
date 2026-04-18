@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.32 prod** — 19/04/2026
+**1.9.33 prod** — 18/04/2026
 
 ---
 
@@ -311,6 +311,11 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Paramètre `?from=pipeline|missions|secretariat` dans l'URL de la fiche
 - Bouton retour lit ce paramètre → route dynamique
 - Ajouter `?from=NOM_PAGE` à TOUS les liens vers `/candidats/[id]` depuis chaque page
+
+**14. Classification document CV/non-CV — source unique `lib/document-classification.ts`**
+- Utiliser `classifyDocument({ analyse, texteCV })` partout : import manuel (`cv/parse`), cron OneDrive (`onedrive/sync`), banc DRY-RUN (`onedrive/sync-test`)
+- **JAMAIS de détection par nom de fichier** (ni `file.name`, ni `filename`). Règle dure depuis v1.9.33. Faux positifs trop nombreux ("CV_PASCALI..." classé non-CV, inverse possible aussi). Source unique de vérité : IA `document_type` + contenu texte + signaux structurels (email générique entreprise, absence d'expériences)
+- Toute nouvelle règle de classification doit être ajoutée dans `lib/document-classification.ts`, pas dans un call site spécifique — sinon les 3 routes divergent et le DRY-RUN se met à mentir
 
 ---
 

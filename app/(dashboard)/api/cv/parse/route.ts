@@ -15,6 +15,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { findExistingCandidat } from '@/lib/candidat-matching'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
+import { classifyDocument } from '@/lib/document-classification'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -505,45 +506,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 6a-ter. Second avis : si l'IA dit "cv", vérifier via filename + patterns contenu stricts
-  // Rattrape les scans avec nom générique ("Scanné 6 janv...") où l'IA rate le type.
-  docType = analyse?.document_type || 'cv'
-  if (docType === 'cv' || docType === 'autre') {
-    const detectDocCategoryParse = (fn: string, txt: string): string | null => {
-      const check = (source: string) => {
-        const s = source.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-        if (/certificat|certificate|attestation|\bct\b/.test(s)) return 'certificat'
-        if (/lettre|motivation|\blm\b/.test(s)) return 'lettre_motivation'
-        if (/diplome|diplome|cfc|afp|formation|brevet/.test(s)) return 'diplome'
-        if (/permis|licence/.test(s)) return 'permis'
-        if (/reference|recommandation/.test(s)) return 'reference'
-        if (/contrat|avenant/.test(s)) return 'contrat'
-        if (/bulletin|salaire|fiche de paie/.test(s)) return 'bulletin_salaire'
-        return null
-      }
-      return check(fn.replace(/\.[^.]+$/, '')) ?? check(txt.slice(0, 200)) ?? null
-    }
-    const filenameType = detectDocCategoryParse(file.name, '')
-    if (filenameType) {
-      docType = filenameType
-      ;(analyse as any).document_type = filenameType
-      dbg(`[CV Parse] Second avis filename → ${filenameType}`)
-    } else {
-      // Check contenu strict — uniquement des formulations de TITRE de document
-      const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-      const strictContentType =
-        /certificat de travail|certificat d'emploi|arbeitszeugnis/.test(contentLower) ? 'certificat' :
-        /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
-        /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
-        /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
-        /lettre de recommandation|lettre de reference|referenzschreiben/.test(contentLower) ? 'reference' :
-        /contrat de travail|avenant au contrat|arbeitsvertrag/.test(contentLower) ? 'contrat' :
-        null
-      if (strictContentType) {
-        docType = strictContentType
-        ;(analyse as any).document_type = strictContentType
-        dbg(`[CV Parse] Second avis contenu → ${strictContentType}`)
-      }
+  // 6a-ter. v1.9.33 — Classification unifiée via lib/document-classification.ts
+  // Source unique partagée avec onedrive/sync et sync-test.
+  {
+    const classification = classifyDocument({ analyse, texteCV })
+    docType = classification.docType
+    if (classification.isNotCV) {
+      ;(analyse as any).document_type = classification.docType
+      dbg(`[CV Parse] Classification non-CV : ${classification.docType} (${classification.reason})`)
     }
   }
   dbg(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)

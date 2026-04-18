@@ -11,6 +11,7 @@ import { logActivity } from '@/lib/activity-log'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { findExistingCandidat } from '@/lib/candidat-matching'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
+import { classifyDocument } from '@/lib/document-classification'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -573,46 +574,14 @@ export async function POST(request: Request) {
           const candidatNom = (analyse.nom || '').trim()
           const candidatPrenom = (analyse.prenom || '').trim()
           const candidatTel = (analyse.telephone || '').replace(/\D/g, '')
-          let docType = analyse.document_type || 'cv'
-          let isNotCV = docType && docType !== 'cv'
-
-          // ── Second avis : si l'IA dit "cv", vérifier via patterns stricts du CONTENU uniquement ──
-          // Fix v1.9.14 : le nom de fichier n'est PLUS utilisé (faux positifs du type "CV_PASCALI..." classés non-CV)
-          // Patterns stricts = formulations de TITRE de document, pas mots isolés
-          if (!isNotCV || docType === 'autre') {
-            const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-            // v1.9.32 — Bug 1 : patterns regex enrichis (allemand + variantes suisses romandes).
-            const strictContentType =
-              /certificat de travail|certificat d'emploi|certificat d'apprentissage|attestation de travail|arbeitszeugnis|zeugnis/.test(contentLower) ? 'certificat' :
-              /attestation de formation|attestation de reussite|zertifikat/.test(contentLower) ? 'attestation' :
-              /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
-              /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
-              /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
-              /lettre de recommandation|lettre de reference|referenzschreiben/.test(contentLower) ? 'reference' :
-              /contrat de travail|avenant au contrat|arbeitsvertrag/.test(contentLower) ? 'contrat' :
-              null
-            if (strictContentType) {
-              docType = strictContentType
-              isNotCV = true
-            }
-          }
-
-          // ── v1.9.32 — Bug 1 : un CV légitime DOIT avoir au moins 1 expérience professionnelle.
-          // Un document avec juste un titre/contact mais AUCUNE expérience est un certificat/
-          // diplôme/lettre, PAS un CV. hasTitle+hasContact ne suffisent plus (une attestation
-          // de formation affiche souvent un titre et des coords mais aucune expérience).
-          // Simulation 6057 candidats en DB : 37 (0.61%) ont un CV sans experiences — négligeable
-          // pour les jeunes diplômés, largement compensé par la prévention de création fantôme
-          // sur les non-CVs mal classifiés par l'IA.
-          if (!isNotCV) {
-            const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
-            const hasName        = !!(candidatNom && candidatNom !== 'Candidat' && candidatNom.length > 1)
-
-            if (hasName && !hasExperiences) {
-              dbg(`[OneDrive Sync] "${filename}" (${candidatNom}) sans expérience pro → traité comme non-CV (diplôme/certificat)`)
-              docType = 'diplome'
-              isNotCV = true
-            }
+          // ── v1.9.33 — Classification unifiée via lib/document-classification.ts ──
+          // Source unique partagée avec cv/parse et sync-test. Applique :
+          // 1) IA document_type  2) patterns contenu 2000 chars  3) email générique  4) hasName && !hasExperiences
+          const classification = classifyDocument({ analyse, texteCV })
+          let docType = classification.docType
+          let isNotCV = classification.isNotCV
+          if (isNotCV && classification.reason !== 'ia') {
+            dbg(`[OneDrive Sync] "${filename}" classifié non-CV (${docType}) via ${classification.reason}`)
           }
 
           // ── Si toujours vide après retry → erreur (traite: false → sera retenté) ──
@@ -1580,15 +1549,17 @@ export async function GET() {
       .limit(500)
 
     if (error) {
-      const msg = error.message || ''
-      if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('42P01')) {
-        return NextResponse.json(
-          {
-            fichiers: [],
-            migration_needed: true,
-            hint: 'Exécutez la migration SQL supabase/migrations/20260323_onedrive_fichiers.sql dans votre dashboard Supabase.',
-          }
-        )
+      // v1.9.33 — ne déclencher migration_needed QUE sur le code PostgreSQL strict 42P01
+      // (undefined_table). Avant : `msg.includes('relation')` déclenchait des faux
+      // positifs sur toute erreur mentionnant "relation" (colonne manquante, join cassé,
+      // contrainte, etc.) → bandeau "Migration SQL" affiché à tort.
+      console.error('[OneDrive Sync GET] Erreur query:', error.code, error.message, error.details)
+      if (error.code === '42P01') {
+        return NextResponse.json({
+          fichiers: [],
+          migration_needed: true,
+          hint: 'Exécutez la migration SQL supabase/migrations/20260323_onedrive_fichiers.sql dans votre dashboard Supabase.',
+        })
       }
       throw error
     }

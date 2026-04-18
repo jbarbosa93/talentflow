@@ -20,6 +20,7 @@ import { extractTextFromCV } from '@/lib/cv-parser'
 import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/claude'
 import { findExistingCandidat } from '@/lib/candidat-matching'
 import { requireAuth } from '@/lib/auth-guard'
+import { classifyDocument } from '@/lib/document-classification'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -212,7 +213,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Match existant
+    // 4. Classification document (source unique partagée avec sync + cv/parse)
+    const texteCVPourClassif = isImage ? '' : await extractTextFromCV(buffer, filename).catch(() => '')
+    const classification = classifyDocument({ analyse, texteCV: texteCVPourClassif })
+
+    // 5. Match existant (attachmentMode si non-CV, comme le vrai sync)
     const supabase = createAdminClient()
     const match = await findExistingCandidat(supabase, {
       nom: analyse.nom,
@@ -220,30 +225,41 @@ export async function POST(request: NextRequest) {
       email: analyse.email,
       telephone: analyse.telephone,
       date_naissance: analyse.date_naissance,
-    })
+    }, { attachmentMode: classification.isNotCV })
 
-    // 5. Déterminer la décision qui serait prise
-    let decision: 'create' | 'update' | 'skip_doublon' | 'insufficient' = 'create'
-    if (match.kind === 'match') decision = 'update'
-    else if (match.kind === 'insufficient') decision = 'insufficient'
-    else decision = 'create'
+    // 6. Déterminer la décision qui serait prise
+    let decision: 'create' | 'update' | 'skip_doublon' | 'insufficient' | 'attach_document' | 'reject_non_cv_sans_candidat' = 'create'
+    if (classification.isNotCV) {
+      decision = match.kind === 'match' || match.kind === 'uncertain'
+        ? 'attach_document'
+        : 'reject_non_cv_sans_candidat'
+    } else if (match.kind === 'match') {
+      decision = 'update'
+    } else if (match.kind === 'insufficient') {
+      decision = 'insufficient'
+    } else {
+      decision = 'create'
+    }
 
-    // Validation diplôme (mêmes règles que cv/parse)
     const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
     const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
     const hasContact = !!(analyse.email || analyse.telephone)
     const hasTitle = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
     const cvScore = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
-    const hasName = !!(analyse.nom && analyse.nom !== 'Candidat' && analyse.nom.length > 1)
-    const isDiplome = hasName && cvScore === 0
 
     return NextResponse.json({
       dry_run: true,
       filename,
       analyse_source: analyseSource,
-      decision: isDiplome ? 'reject_diplome' : decision,
+      decision,
       cv_score: cvScore,
-      is_diplome: isDiplome,
+      classification: {
+        doc_type: classification.docType,
+        is_not_cv: classification.isNotCV,
+        reason: classification.reason,
+      },
+      // Rétrocompat UI (ancien format)
+      is_diplome: classification.isNotCV,
       extracted: {
         nom: analyse.nom,
         prenom: analyse.prenom,
@@ -261,6 +277,11 @@ export async function POST(request: NextRequest) {
         candidat_id: match.candidat.id,
         candidat_nom: `${match.candidat.prenom || ''} ${match.candidat.nom || ''}`.trim(),
         diffs: match.diffs,
+      } : match.kind === 'uncertain' ? {
+        kind: 'uncertain',
+        reason: match.reason,
+        candidat_id: match.candidat.id,
+        candidat_nom: `${match.candidat.prenom || ''} ${match.candidat.nom || ''}`.trim(),
       } : match.kind === 'insufficient' ? {
         kind: 'insufficient',
         reason: match.reason,
