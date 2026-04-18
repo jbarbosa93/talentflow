@@ -1023,32 +1023,24 @@ export async function POST(request: Request) {
               // Update candidate with new CV data
               // created_at = date du fichier OneDrive = date de dernière candidature/disponibilité
               //
-              // v1.9.29 — Protection écrasement identité/bio : pour titre_poste, competences,
-              // langues, experiences, formations_details, formation, resume_ia, permis_conduire,
-              // date_naissance, genre, linkedin, annees_exp → remplir UNIQUEMENT si vide en DB
-              // (même logique que cv/parse v1.9.28). Évite la pollution d'une fiche existante
-              // par un match ambigu (homonyme mal matché). Les champs CV eux-mêmes (cv_url,
-              // cv_nom_fichier, cv_texte_brut) sont mis à jour — c'est le nouveau CV qui est
-              // importé ; l'ancien est archivé dans documents[] (logique déjà en place).
-              const isEmpty = (v: any): boolean =>
-                v === null || v === undefined || v === '' ||
-                (Array.isArray(v) && v.length === 0)
-              const keep = <T>(existing: T, fromAnalyse: T): T =>
-                isEmpty(existing) ? fromAnalyse : existing
-
+              // v1.9.30 — Revert du fix v1.9.29 : la logique d'enrichissement automatique
+              // via sync OneDrive est VOULUE. Quand le matching identifie le bon candidat,
+              // on écrase/enrichit avec les nouvelles données du CV (titre_poste, expériences,
+              // compétences, etc.). Le bug d'origine était le matching trop permissif, pas
+              // l'écrasement — ce point est résolu par le seuil strictExact 5→8 (v1.9.27).
               await (supabase as any).from('candidats').update({
-                titre_poste:        keep(candidatExistant.titre_poste,        analyse.titre_poste        || null),
-                competences:        keep(candidatExistant.competences,        analyse.competences        || []),
-                langues:            keep(candidatExistant.langues,            analyse.langues            || []),
-                experiences:        keep(candidatExistant.experiences,        analyse.experiences        || []),
-                formations_details: keep(candidatExistant.formations_details, analyse.formations_details || []),
-                formation:          keep(candidatExistant.formation,          analyse.formation          || null),
-                resume_ia:          keep(candidatExistant.resume_ia,          analyse.resume             || null),
-                permis_conduire:    candidatExistant.permis_conduire ?? analyse.permis_conduire ?? null,
-                date_naissance:     keep(candidatExistant.date_naissance,     analyse.date_naissance     || null),
-                genre:              candidatExistant.genre ?? normaliserGenre(analyse.genre) ?? null,
-                linkedin:           keep(candidatExistant.linkedin,           analyse.linkedin           || null),
-                annees_exp:         candidatExistant.annees_exp ?? analyse.annees_exp ?? null,
+                titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
+                competences: analyse.competences || candidatExistant.competences,
+                langues: analyse.langues || candidatExistant.langues,
+                experiences: analyse.experiences || candidatExistant.experiences,
+                formations_details: analyse.formations_details || candidatExistant.formations_details,
+                formation: analyse.formation || candidatExistant.formation,
+                resume_ia: analyse.resume || candidatExistant.resume_ia,
+                permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
+                date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
+                genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
+                linkedin: analyse.linkedin || candidatExistant.linkedin,
+                annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
                 cv_url: newCvUrl || candidatExistant.cv_url,
                 cv_nom_fichier: filename,
                 cv_texte_brut: texteCV.slice(0, 10000) || candidatExistant.cv_texte_brut,

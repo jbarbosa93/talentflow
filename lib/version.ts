@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.29'
+export const APP_VERSION = '1.9.30'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.30',
+    date: '2026-04-18',
+    label: 'Revert v1.9.29 — logique enrichissement automatique onedrive/sync restaurée',
+    features: [
+      'Revert du fix v1.9.29 sur onedrive/sync ligne 1025. Décision produit : la logique d\'enrichissement automatique via sync OneDrive est VOULUE. Quand le matching identifie que c\'est bien le même candidat, il faut bien écraser/enrichir les données (titre_poste, expériences, compétences, date_naissance, etc.) — c\'est le comportement attendu.',
+      'Le problème initial était le matching trop permissif (strictExact seuil 5 = nom exact seul suffisait), pas l\'écrasement. Ce point est résolu par le seuil 8 de v1.9.27 qui exige au moins un signal fort (ville/email/tel/DDN) en plus du nom exact.',
+      'Les divergences éventuelles restent loggées dans activités (type candidat_modifie, source onedrive) avec diffs complets — si un match incorrect écrit des données fausses, la trace est disponible pour rollback manuel.',
+      'Le fix cv/parse v1.9.28 (coords remplies seulement si vides) reste en place : l\'import manuel via UI est un contexte différent avec modale de confirmation, donc l\'écrasement automatique n\'est pas souhaitable à ce niveau.',
+    ],
+  },
   {
     version: '1.9.29',
     date: '2026-04-18',
