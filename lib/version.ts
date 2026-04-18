@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.27'
+export const APP_VERSION = '1.9.28'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.28',
+    date: '2026-04-18',
+    label: 'Fix écrasement coords — cv/parse mode merge ne plus remplacer email/tel/localisation existants',
+    features: [
+      'BUG secondaire — Après v1.9.27, João a reproduit le scénario : supprimer les 2 fiches polluées → import "COSTA DANIEL" → fiche créée → import "DANIEL FRAGOSO COSTA" → MATCH INCORRECT sur Costa Daniel + écrasement des coords (email/tel/localisation) par celles de Fragoso. Même avec le seuil 8 empêchant le match "propre", un match transitoire (via fiche B résiduelle ou cache) suivi d\'un update écrasait la fiche saine.',
+      'Cause racine — app/(dashboard)/api/cv/parse/route.ts lignes 902-904 en mode MERGE : `if (analyse.email) updateData.email = analyse.email` → commentaire "// Email, téléphone, lieu : toujours remplacer". Ce "toujours remplacer" est dangereux : n\'importe quel match (même ambigu) substitue les coords existantes par celles du CV importé. Une fois polluée, la fiche devient "vrai match" pour le prochain import, figeant l\'écrasement.',
+      'Fix — Remplacer "toujours remplacer" par "remplir SEULEMENT si vide en DB" (même logique que nom/prenom déjà en place). `if (analyse.email && !existing?.email) updateData.email = analyse.email`, idem pour telephone et localisation. Les divergences (homonyme avec coords différentes) restent loggées dans la table activités (ligne ~683-694). Pas de perte d\'info, juste protection contre l\'écrasement silencieux.',
+      'Fiche manuelle créée — INSERT Daniel Fragoso Costa (id=68d59d2e) avec ses vraies coords (danielfragoso173@gmail.com, +41 79 673 74 64, Montpreveyres, Ouvrier polyvalent). Pas besoin de re-importer via UI.',
+      'Note — onedrive/sync update (ligne 1025) ne touche déjà PAS email/tel/localisation, donc pas de fix nécessaire côté cron.',
+    ],
+  },
   {
     version: '1.9.27',
     date: '2026-04-18',
