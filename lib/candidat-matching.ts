@@ -231,7 +231,7 @@ const tiebreak = (a: ScoreDetail, b: ScoreDetail): number => {
 export async function findExistingCandidat(
   supabase: any,
   input: CandidatMatchInput,
-  opts?: { selectColumns?: string }
+  opts?: { selectColumns?: string; attachmentMode?: boolean }
 ): Promise<CandidatMatchResult> {
   const cols =
     opts?.selectColumns ||
@@ -309,8 +309,17 @@ export async function findExistingCandidat(
   }
 
   // ── Étape 4 : filtre seuil différencié ──
-  const kept = scored.filter(passesThreshold)
+  // v1.9.27 — attachmentMode : seuil relâché pour rattacher un document non-CV à un
+  // candidat existant. Le CV a pu être importé avec un nom tronqué (ex: "Costa" au
+  // lieu de "Fragoso Costa"), les certificats extraient le nom complet et n'ont
+  // pas d'autres signaux (DDN/tel/email absents). Accepte strictExact|strictSubset
+  // à score ≥ 3 MAIS exige qu'un SEUL candidat passe le filtre (pas d'ambiguïté).
+  const threshold = opts?.attachmentMode
+    ? (d: ScoreDetail) => (d.strictExact || d.strictSubset) && d.score >= 3
+    : passesThreshold
+  const kept = scored.filter(threshold)
   if (kept.length === 0) return { kind: 'none' }
+  if (opts?.attachmentMode && kept.length > 1) return { kind: 'none' }
 
   // ── Étape 5 : meilleur match après tiebreak ──
   kept.sort(tiebreak)

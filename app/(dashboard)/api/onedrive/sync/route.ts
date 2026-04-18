@@ -1347,14 +1347,26 @@ export async function POST(request: Request) {
           const mimeType = isPDF ? 'application/pdf' : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'
 
           // Re-matching avec la même logique que la 1re passe (identité-first)
-          const matchResult = await findExistingCandidat(supabase, {
+          const matchInput = {
             nom: candidatNom,
             prenom: candidatPrenom,
             email: candidatEmail,
             telephone: candidatTel,
             date_naissance: analyse?.date_naissance || null,
             localisation: analyse?.localisation || null,
-          }, { selectColumns: 'id, nom, prenom, documents' })
+          }
+          let matchResult = await findExistingCandidat(supabase, matchInput, { selectColumns: 'id, nom, prenom, documents' })
+
+          // v1.9.27 — Fallback attachmentMode : si le stricte ne trouve rien, retenter avec
+          // seuil relâché (strictExact|strictSubset à score ≥ 3) SEULEMENT si 1 seul candidat.
+          // Couvre les cas où le CV a été importé avec nom tronqué (ex: "Costa" au lieu de
+          // "Fragoso Costa") et les documents non-CV n'ont ni DDN/tel/email.
+          if (matchResult.kind !== 'match') {
+            matchResult = await findExistingCandidat(supabase, matchInput, {
+              selectColumns: 'id, nom, prenom, documents',
+              attachmentMode: true,
+            })
+          }
 
           const match = matchResult.kind === 'match' ? matchResult.candidat as any : null
 

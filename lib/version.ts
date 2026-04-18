@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.26'
+export const APP_VERSION = '1.9.27'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.27',
+    date: '2026-04-18',
+    label: 'Fix urgent — retryQueue non-CV avec seuil attachmentMode (nom tronqué en DB)',
+    features: [
+      'BUG v1.9.26 régression — le passage du OR ilike au findExistingCandidat dans le retry step 5b a durci le matching. Pour Daniel Fragoso Costa : CV stocké en DB avec nom="Costa" (IA CV a perdu "Fragoso"), certificat extrait correctement "Daniel Fragoso Costa" → strictSubset=TRUE à score 3 → < 11 → REJET. Le OR ilike précédent matchait à matchCount≥2.',
+      'Fix — lib/candidat-matching.ts : nouveau paramètre opts.attachmentMode sur findExistingCandidat. Quand true, le threshold devient (strictExact || strictSubset) && score ≥ 3, ET on exige kept.length === 1 (pas d\'ambiguïté). Les seuils stricts de création de candidat (5/11/16) restent inchangés.',
+      'Fix — app/(dashboard)/api/onedrive/sync/route.ts retry step 5b : appelle findExistingCandidat en stricte d\'abord, puis en attachmentMode:true si pas de match. Double garde-fou : (1) nom strictSubset exige que les tokens DB soient inclus dans l\'input (pas l\'inverse), (2) kept.length===1 garantit l\'unicité. Pas de faux positif possible sur homonymes.',
+      'Correctif DB ponctuel — UPDATE candidats SET nom=\'Fragoso Costa\' WHERE id=935cd080. Au prochain cron OneDrive (10 min), les 2 documents "certificat de travail Metalcolor.pdf" + "lettre de motivation Manutentionnaire.pdf" seront rattachés automatiquement via le retry attachmentMode (et désormais aussi via strictExact car le nom DB matche l\'extraction non-CV).',
+    ],
+  },
   {
     version: '1.9.26',
     date: '2026-04-18',
