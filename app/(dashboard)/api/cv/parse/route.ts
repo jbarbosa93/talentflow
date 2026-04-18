@@ -650,6 +650,27 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       attachmentMode: isNotCV,
     })
 
+    // v1.9.34 — Trace complète du matching (déboguage prod). console.error pour garantir
+    // la visibilité dans les logs Vercel quel que soit le niveau de log configuré.
+    console.error('[CV Parse MATCH TRACE]', JSON.stringify({
+      fichier: file.name,
+      input: {
+        nom: analyse.nom, prenom: analyse.prenom,
+        email: analyse.email, telephone: analyse.telephone,
+        date_naissance: analyse.date_naissance, localisation: analyse.localisation,
+      },
+      result_kind: matchResult.kind,
+      reason: (matchResult as any).reason,
+      score: (matchResult as any).scoreBreakdown,
+      diffs: (matchResult as any).diffs,
+      candidat: (matchResult as any).candidat ? {
+        id: (matchResult as any).candidat.id,
+        nom: (matchResult as any).candidat.nom, prenom: (matchResult as any).candidat.prenom,
+        email: (matchResult as any).candidat.email, telephone: (matchResult as any).candidat.telephone,
+      } : null,
+      isNotCV, storagePathInput, skipConfirmation, forceInsert, replaceId, updateId,
+    }))
+
     // v1.9.31 — Import manuel : 'uncertain' traité comme 'match' → passe par la modale existante
     // de confirmation côté UI (confirmation_required). L'utilisateur décide Update/Create/View.
     // Le pending_validation automatique est réservé au cron OneDrive silencieux.
