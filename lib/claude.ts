@@ -142,6 +142,13 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
 }
 
 Règles :
+- nom / prenom : extraire le nom COMPLET tel qu'il apparaît, SANS TRONQUER ni supprimer aucun élément. Conserver TOUS les mots du nom de famille (noms composés portugais, espagnols, arabes, etc.). Premier(s) mot(s) = prenom, le RESTE = nom. Exemples OBLIGATOIRES :
+  - "DANIEL FRAGOSO COSTA" → prenom="Daniel", nom="Fragoso Costa" (PAS "Costa")
+  - "José António DA CRUZ SOARES" → prenom="José António", nom="Da Cruz Soares"
+  - "MARIA DEL CARMEN GARCIA LOPEZ" → prenom="Maria Del Carmen", nom="Garcia Lopez"
+  - "Pedro Miguel Santos Ferreira" → prenom="Pedro Miguel", nom="Santos Ferreira"
+  - "Jean Dupont" → prenom="Jean", nom="Dupont"
+  Format de sortie : première lettre de chaque mot en majuscule, reste en minuscule (ex: "Fragoso Costa" pas "FRAGOSO COSTA" ni "fragoso costa"). Les particules (de, da, do, dos, del, van, von) restent en minuscules sauf en première position.
 - annees_exp : entier estimé (0 si non déterminable)
 - localisation : CHERCHER l'adresse ou la ville dans tout le document (en-tête, coordonnées, pied de page). Formats suisses courants : "1873 Val D'Illiez", "Rue XX 12, 1950 Sion", "Genève", "Sion, Valais". Inclure le NPA si présent (ex: "1873 Val D'Illiez, Suisse"). Si seul le NPA est visible sans ville, utiliser "NPA Suisse". Si aucune localisation trouvée → ""
 - competences : maximum 15, technologies/outils/méthodes clés uniquement

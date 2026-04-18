@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.34'
+export const APP_VERSION = '1.9.35'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.35',
+    date: '2026-04-19',
+    label: 'Fix extraction IA — noms composés préservés (Daniel Fragoso Costa, etc.)',
+    features: [
+      'Prompt IA enrichi : règle explicite pour extraire TOUS les mots du nom de famille (noms composés portugais, espagnols, arabes). Exemples OBLIGATOIRES dans le prompt — "DANIEL FRAGOSO COSTA" → prenom="Daniel" nom="Fragoso Costa" (plus de troncature)',
+      'Format normalisé Title Case (première lettre majuscule, reste minuscule, particules de/da/dos en minuscule sauf en 1ère position)',
+      'Correction DB : fiche Daniel Fragoso Costa (nom était "Costa", maintenant "Fragoso Costa") — permet le rattachement des non-CVs',
+    ],
+  },
   {
     version: '1.9.34',
     date: '2026-04-19',
