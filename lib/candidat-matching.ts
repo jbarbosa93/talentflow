@@ -212,7 +212,12 @@ const scoreCandidat = (input: CandidatMatchInput, c: any): ScoreDetail | null =>
 }
 
 const passesThreshold = (d: ScoreDetail): boolean => {
-  if (d.strictExact) return d.score >= 5
+  // v1.9.27 — strictExact seuil 5→8. strictExact SEUL (score 5) fusionnait 2 homonymes
+  // distincts (ex: "Daniel Costa" ≠ "Daniel Fragoso Costa" tronqué par l'IA).
+  // Nouveau seuil 8 exige strictExact (+5) ET au moins ville (+3) ou un signal fort
+  // (DDN +10 / tel +8 / email +8). Simulation 6086 candidats : 5 perdus sur 8, dont
+  // 4 faux positifs confirmés (Fabio Mendes vs Fábio Mendes, Tiago Silva ×2, etc.).
+  if (d.strictExact) return d.score >= 8
   if (d.strictSubset) return d.score >= 11
   return d.score >= 16
 }

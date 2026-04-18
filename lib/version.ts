@@ -16,12 +16,14 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.9.27',
     date: '2026-04-18',
-    label: 'Fix urgent — retryQueue non-CV avec seuil attachmentMode (nom tronqué en DB)',
+    label: 'Fix écrasement homonymes (seuil strictExact 5→8) + attachmentMode non-CVs retry',
     features: [
-      'BUG v1.9.26 régression — le passage du OR ilike au findExistingCandidat dans le retry step 5b a durci le matching. Pour Daniel Fragoso Costa : CV stocké en DB avec nom="Costa" (IA CV a perdu "Fragoso"), certificat extrait correctement "Daniel Fragoso Costa" → strictSubset=TRUE à score 3 → < 11 → REJET. Le OR ilike précédent matchait à matchCount≥2.',
-      'Fix — lib/candidat-matching.ts : nouveau paramètre opts.attachmentMode sur findExistingCandidat. Quand true, le threshold devient (strictExact || strictSubset) && score ≥ 3, ET on exige kept.length === 1 (pas d\'ambiguïté). Les seuils stricts de création de candidat (5/11/16) restent inchangés.',
-      'Fix — app/(dashboard)/api/onedrive/sync/route.ts retry step 5b : appelle findExistingCandidat en stricte d\'abord, puis en attachmentMode:true si pas de match. Double garde-fou : (1) nom strictSubset exige que les tokens DB soient inclus dans l\'input (pas l\'inverse), (2) kept.length===1 garantit l\'unicité. Pas de faux positif possible sur homonymes.',
-      'Correctif DB ponctuel — UPDATE candidats SET nom=\'Fragoso Costa\' WHERE id=935cd080. Au prochain cron OneDrive (10 min), les 2 documents "certificat de travail Metalcolor.pdf" + "lettre de motivation Manutentionnaire.pdf" seront rattachés automatiquement via le retry attachmentMode (et désormais aussi via strictExact car le nom DB matche l\'extraction non-CV).',
+      'BUG GRAVE — Sync OneDrive fusionnait 2 candidats homonymes distincts en une seule fiche. Cas concret : "Daniel Fragoso Costa" (Montpreveyres, danielfragoso173@, +41 79 673 74 64) écrasé sur la fiche de "Costa Daniel" (Martigny, dacostadaniel1997@, 0797736705). Aucun signal fort commun (email/tel/ville/DDN tous différents), mais l\'IA CV extrayait nom="Costa" prenom="Daniel" pour les DEUX → tokens strictement identiques → strictExact → score=5 → seuil passant.',
+      'Fix racine — lib/candidat-matching.ts passesThreshold : strictExact seuil 5 → 8. Exige désormais strictExact (+5) combiné à AU MOINS villeMatch (+3), ddnMatch (+10), telMatch (+8) ou emailMatch (+8). Un nom identique sans aucun autre signal → rejet → création d\'une nouvelle fiche au lieu d\'un écrasement silencieux.',
+      'Simulation 6086 candidats : 8 matches actuels → 3 retenus avec seuil 8. Sur les 5 paires perdues, 4 faux positifs confirmés (Fabio/Fábio Mendes, Tiago Silva ×2, Amadú Balde — emails/tels/villes différents) et 1 stub vide (Danijel Ganic, à fusionner via /parametres/doublons). 0 régression bloquante.',
+      'Fix annexe — lib/candidat-matching.ts : nouveau paramètre opts.attachmentMode pour le RATTACHEMENT de documents non-CV. Quand true, threshold = (strictExact || strictSubset) && score ≥ 3 ET kept.length === 1. Le retry step 5b de /api/onedrive/sync l\'utilise en fallback si le matching strict échoue. Couvre le cas où un certificat a le nom complet et la fiche DB a un nom tronqué.',
+      'Fix — app/(dashboard)/api/onedrive/sync/route.ts retry step 5b : double passage stricte puis attachmentMode:true, plus de re-download/re-analyse si pas de match.',
+      'Correctif DB ponctuel — delete des 3 entrées onedrive_fichiers pour "CV.Daniel Fragoso Costa.pdf", "certificat de travail Metalcolor.pdf", "lettre de motivation Manutentionnaire.pdf". Au prochain cron (10min), retraitement avec le nouveau seuil : création d\'une fiche dédiée à Daniel Fragoso Costa (personne B) et rattachement automatique des 2 documents via attachmentMode.',
     ],
   },
   {
