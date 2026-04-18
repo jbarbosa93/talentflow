@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.31'
+export const APP_VERSION = '1.9.32'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.32',
+    date: '2026-04-19',
+    label: 'Fix 3 bugs critiques prod — imports CV/non-CV (Bug 1 + Bug 2 + Bug 3)',
+    features: [
+      'Bug 1 — OneDrive non-CVs créaient des fiches fantômes. Un document mal classifié par l\'IA (ex: attestation de formation avec titre mais sans expériences) passait la garde `isNotCV` car hasTitle/hasContact comptaient dans cvScore. Fix : un CV légitime DOIT avoir au moins 1 expérience professionnelle. Sans experiences → classifié non-CV → pas de création fantôme. Patterns regex enrichis : certificat d\'apprentissage, attestation de travail, attestation de formation, zeugnis, zertifikat (variantes allemandes et suisses romandes).',
+      'Bug 1 — Simulation 6057 candidats : 37 (0.61%) ont un CV sans expériences en DB. Impact négligeable sur jeunes diplômés, largement compensé par la prévention de création fantôme sur non-CVs.',
+      'Bug 2 — Import manuel écrasait sans modale (Daniel Fragoso Costa cas type). Comparaison memeTexte passait de 500 à 2000 chars : les 500 premiers chars capturaient juste l\'en-tête stable (nom/tel/email), masquant les changements d\'expériences/compétences. 2000 chars couvre en-tête + 1-2 premières expériences → détecte les vraies différences → modale s\'affiche.',
+      'Bug 2 — Ajout check hasCoordsDiff : si matchResult.diffs contient des divergences email/tel/DDN/ville entre DB et nouveau CV, forcer la modale même si memeTexte=true. Capture le cas "CV re-uploadé avec coordonnées changées".',
+      'Bug 3 — Import manuel non-CV (certificat/lettre) ne trouvait pas le candidat existant. cv/parse appelait findExistingCandidat SANS l\'option attachmentMode, donc le seuil strict (score ≥ 8) rejetait les matches sur nom seul typiques des certificats. Fix : `attachmentMode: isNotCV` dans cv/parse (symétrique au retry step 5b d\'onedrive/sync v1.9.27). Pour non-CV : seuil relâché score ≥ 3 + kept.length===1 (pas d\'ambiguïté).',
+      'Aucun bug introduit par v1.9.31 — tous pré-existants. Rapport diagnostic complet dans rapport-nuit-18-04-2026.md (worktree claude/admiring-saha-4ee243).',
+    ],
+  },
   {
     version: '1.9.31',
     date: '2026-04-18',

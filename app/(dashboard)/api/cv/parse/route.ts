@@ -672,7 +672,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       email: analyse.email, telephone: analyse.telephone,
       date_naissance: analyse.date_naissance || null,
       localisation: analyse.localisation || null,
-    }, { selectColumns: 'id, nom, prenom, email, telephone, date_naissance, titre_poste, localisation, created_at' })
+    }, {
+      selectColumns: 'id, nom, prenom, email, telephone, date_naissance, titre_poste, localisation, created_at',
+      // v1.9.32 — Bug 3 : import manuel d'un non-CV (certificat/lettre) doit pouvoir
+      // matcher le candidat existant sur nom seul (un certificat n'a pas d'email/tel).
+      // Symétrique au retry step 5b d'onedrive/sync qui utilise déjà attachmentMode.
+      attachmentMode: isNotCV,
+    })
 
     // v1.9.31 — Import manuel : 'uncertain' traité comme 'match' → passe par la modale existante
     // de confirmation côté UI (confirmation_required). L'utilisateur décide Update/Create/View.
@@ -720,8 +726,12 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const normFn = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const memeNomBase = !!(ef?.cv_nom_fichier &&
         normFn(ef.cv_nom_fichier as string) === normFn(file.name))
+      // v1.9.32 — Bug 2 : comparer 2000 chars au lieu de 500. Les 500 premiers chars
+      // capturent souvent juste l'en-tête stable (nom/adresse/tel/email), masquant les
+      // changements d'expériences/compétences. 2000 chars couvre en-tête + au moins les
+      // 1-2 premières expériences → différences détectables → modale s'affiche.
       const memeTexte = !!(ef?.cv_texte_brut && texteCV &&
-        (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
+        (ef.cv_texte_brut as string).slice(0, 2000).trim() === texteCV.slice(0, 2000).trim())
       // v1.9.22 — Exiger un match texte explicite pour les imports manuels (skip_confirmation=false).
       // Sans ce durcissement, un fichier re-uploadé avec le même nom normalisé mais du contenu
       // totalement différent était silencieusement avalé → écrasement invisible. Pour les flux auto
@@ -729,10 +739,15 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       // (OCR peut varier, batch processing nécessite un shortcut).
       const memeContenu = memeTexte || (skipConfirmation && memeNomBase)
 
-      // Fix 4 — debug skip (activer localement si besoin, ne pas déployer)
-      // console.log('[SKIP DEBUG]', { memeContenu, extrait500Length: texteCV.slice(0,500).trim().length, stocke500Length: (ef?.cv_texte_brut||'').slice(0,500).trim().length, resolvedCreatedAt, ef_created_at: ef?.created_at })
+      // v1.9.32 — Bug 2 : forcer la modale si les coordonnées du CV diffèrent de la DB,
+      // même si memeTexte=true. Cas : CV re-uploadé avec nouveau email/tel/ville/DDN —
+      // matchResult.diffs capture déjà ces divergences via lib/candidat-matching.ts.
+      const hasCoordsDiff = Array.isArray(matchDiffsDetail) && matchDiffsDetail.length > 0
 
-      if (memeContenu) {
+      // Fix 4 — debug skip (activer localement si besoin, ne pas déployer)
+      // console.log('[SKIP DEBUG]', { memeContenu, extrait2000Length: texteCV.slice(0,2000).trim().length, stocke2000Length: (ef?.cv_texte_brut||'').slice(0,2000).trim().length, resolvedCreatedAt, ef_created_at: ef?.created_at, hasCoordsDiff })
+
+      if (memeContenu && !hasCoordsDiff) {
         // memeDate : tolérance ±1 minute
         const memeDate = ef ? Math.abs(
           new Date(resolvedCreatedAt).getTime() - new Date(ef.created_at as string).getTime()

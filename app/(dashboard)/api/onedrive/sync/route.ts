@@ -581,8 +581,10 @@ export async function POST(request: Request) {
           // Patterns stricts = formulations de TITRE de document, pas mots isolés
           if (!isNotCV || docType === 'autre') {
             const contentLower = texteCV.slice(0, 500).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+            // v1.9.32 — Bug 1 : patterns regex enrichis (allemand + variantes suisses romandes).
             const strictContentType =
-              /certificat de travail|certificat d'emploi|arbeitszeugnis/.test(contentLower) ? 'certificat' :
+              /certificat de travail|certificat d'emploi|certificat d'apprentissage|attestation de travail|arbeitszeugnis|zeugnis/.test(contentLower) ? 'certificat' :
+              /attestation de formation|attestation de reussite|zertifikat/.test(contentLower) ? 'attestation' :
               /lettre de motivation|bewerbungsschreiben/.test(contentLower) ? 'lettre_motivation' :
               /bulletin de salaire|fiche de paie|lohnabrechnung/.test(contentLower) ? 'bulletin_salaire' :
               /permis de travail|permis de sejour|autorisation de travail|aufenthaltsbewilligung/.test(contentLower) ? 'permis' :
@@ -595,17 +597,19 @@ export async function POST(request: Request) {
             }
           }
 
-          // ── Fix cvScore=0 : diplôme/certificat sans contenu CV → traiter comme non-CV ──
+          // ── v1.9.32 — Bug 1 : un CV légitime DOIT avoir au moins 1 expérience professionnelle.
+          // Un document avec juste un titre/contact mais AUCUNE expérience est un certificat/
+          // diplôme/lettre, PAS un CV. hasTitle+hasContact ne suffisent plus (une attestation
+          // de formation affiche souvent un titre et des coords mais aucune expérience).
+          // Simulation 6057 candidats en DB : 37 (0.61%) ont un CV sans experiences — négligeable
+          // pour les jeunes diplômés, largement compensé par la prévention de création fantôme
+          // sur les non-CVs mal classifiés par l'IA.
           if (!isNotCV) {
             const hasExperiences = Array.isArray(analyse.experiences) && analyse.experiences.length > 0
-            const hasCompetences = Array.isArray(analyse.competences) && analyse.competences.length >= 2
-            const hasContact     = !!(analyse.email || analyse.telephone)
-            const hasTitle       = !!(analyse.titre_poste && analyse.titre_poste !== 'Candidat' && analyse.titre_poste.length > 1)
-            const cvScore        = [hasExperiences, hasCompetences, hasContact, hasTitle].filter(Boolean).length
             const hasName        = !!(candidatNom && candidatNom !== 'Candidat' && candidatNom.length > 1)
 
-            if (hasName && cvScore === 0) {
-              dbg(`[OneDrive Sync] cvScore=0 pour "${filename}" (${candidatNom}) → traité comme non-CV (diplôme/certificat)`)
+            if (hasName && !hasExperiences) {
+              dbg(`[OneDrive Sync] "${filename}" (${candidatNom}) sans expérience pro → traité comme non-CV (diplôme/certificat)`)
               docType = 'diplome'
               isNotCV = true
             }
