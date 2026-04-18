@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.32'
+export const APP_VERSION = '1.9.34'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.34',
+    date: '2026-04-19',
+    label: 'Log trace matching cv/parse + classification unifiée + fix bandeau migration faux positif',
+    features: [
+      'lib/document-classification.ts — source unique partagée (cv/parse + onedrive/sync + sync-test) pour classifier CV vs non-CV (patterns contenu 2000 chars, email générique entreprise, hasName && !hasExperiences)',
+      'Filename matching définitivement retiré — la classification ne se base plus JAMAIS sur file.name',
+      'DRY-RUN sync-test aligné avec le vrai sync (attachmentMode + décisions attach_document / reject_non_cv_sans_candidat) — plus de "Créerait un candidat" menteur',
+      'Fix bandeau "Migration SQL requise" faux positif : filtre strict error.code === 42P01 au lieu de msg.includes("relation")',
+      'Log trace complet du matching cv/parse via console.error pour déboguer les matches inattendus en prod',
+    ],
+  },
   {
     version: '1.9.32',
     date: '2026-04-19',
