@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.38'
+export const APP_VERSION = '1.9.39'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.39',
+    date: '2026-04-19',
+    label: 'Intégration mission nuit — F1 Vision IA + F2 ML insights + F3 Merge intelligent',
+    features: [
+      'F1 Vision IA : lib/cv-extraction-validator.ts (detection suffixes entreprise SA/Sàrl/AG/GmbH/Ltd +32 variantes, validateAnalyse warnings par champ). Prompt CV_JSON_PROMPT enrichi section RÈGLES CRITIQUES NOMS : distinction candidat vs entreprise + anti-troncature noms composés portugais/espagnols. 21/21 tests validator.',
+      'F2 ML insights : scripts/ml-analyze-decisions.mjs + route GET /api/ml/insights. Analyse dataset decisions_matching (distribution, matrice scores × décisions, faux positifs par bande, fréquence signaux, recommandation seuil). Dataset vide aujourd\'hui, se remplit avec pending_validation.',
+      'F3 Merge intelligent : lib/merge-candidat.ts (240 lignes, logique pure). Champs IMMUABLES (email/tel/DDN/loc) préservés si valeur DB. Champs MERGE (competences/langues/experiences/formations) union + dédup. Champs ÉCRASÉS (titre_poste/resume_ia/annees_exp/permis). 16/16 tests. Intégré cv/parse (mode MERGE) + onedrive/sync conditionnel (score ≥ 16 = merge, 11-15 = écrasement v1.9.30 conservé, 8-10 = pending_validation v1.9.31).',
+    ],
+  },
   {
     version: '1.9.38',
     date: '2026-04-19',
