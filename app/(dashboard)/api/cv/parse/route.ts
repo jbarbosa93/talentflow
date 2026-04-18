@@ -14,6 +14,7 @@ import { normaliserGenre } from '@/lib/normaliser-genre'
 import { requireAuth } from '@/lib/auth-guard'
 import { findExistingCandidat } from '@/lib/candidat-matching'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
+import { normalizeCandidat } from '@/lib/normalize-candidat'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -644,6 +645,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   } // ════════════════ Fin bloc analyse ════════════════
+
+  // 7_pre. Normalisation identité (nom/prenom/email/tel/localisation) avant matching et stockage
+  if (analyse) normalizeCandidat(analyse)
 
   // 7_pre. Détection doublons AVANT upload Storage — évite gaspillage pour doublons "même CV"
   const adminClient = createAdminClient()

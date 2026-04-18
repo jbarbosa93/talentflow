@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.24'
+export const APP_VERSION = '1.9.25'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.25',
+    date: '2026-04-18',
+    label: 'Nettoyage données DB + lib/normalize-candidat.ts',
+    features: [
+      'Migration DB — emails vides → NULL : 329 candidats avec email = \'\' migrés vers NULL pour que le matching fonctionne proprement sur les champs vides.',
+      'Migration DB — DDN bizarres → NULL : 282 candidats nettoyés (79 vides ""/NULL, 17 format "Xans", 1 texte libre "1er juillet 1991", 186 âges nus/années seules "40"/"1998"). 17 DDN au format DD.MM.YYYY convertis en DD/MM/YYYY standard. Total : 629 candidats affectés.',
+      'lib/normalize-candidat.ts (nouveau) — 4 fonctions pures : normalizeEmail (lowercase + null si invalide), normalizeName (Title Case uniquement si tout en MAJUSCULES, particules de/da/dos/du/van/von… en minuscule), normalizeTelephone (+41 XX XXX XX XX Suisse, +33 X XX XX XX XX France, fix double-préfixe +41 0xxx), normalizeLocalisation (suppression codes postaux 4-5 chiffres, cantons suisses → Suisse, codes ISO pays → nom complet, format "Ville, Pays"). Wrapper normalizeCandidat() mute l\'objet analyse en place.',
+      'Intégration — normalizeCandidat(analyse) appelé juste avant findExistingCandidat dans /api/cv/parse et /api/onedrive/sync. Uniquement sur les nouveaux imports, pas de batch sur la DB existante.',
+    ],
+  },
   {
     version: '1.9.24',
     date: '2026-04-18',

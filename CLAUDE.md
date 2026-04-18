@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.24 prod** — 18/04/2026
+**1.9.25 prod** — 18/04/2026
 
 ---
 
@@ -106,7 +106,7 @@ app/
 components/           — composants React (PascalCase)
 contexts/             — Context API (Upload, Import, Matching, Photos, Doublons, Theme)
 hooks/                — custom hooks (useCandidats, useClients, useMetiers…)
-lib/                  — utils, supabase clients, cv-parser, onedrive, version, format-candidat
+lib/                  — utils, supabase clients, cv-parser, onedrive, version, format-candidat, normalize-candidat
 types/database.ts     — types Supabase auto-générés (snake_case)
 supabase/migrations/  — SQL migrations versionnées
 ```

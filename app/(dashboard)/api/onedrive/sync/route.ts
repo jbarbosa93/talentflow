@@ -10,6 +10,7 @@ import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/cl
 import { logActivity } from '@/lib/activity-log'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { findExistingCandidat } from '@/lib/candidat-matching'
+import { normalizeCandidat } from '@/lib/normalize-candidat'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -553,6 +554,9 @@ export async function POST(request: Request) {
             dbg(`[OneDrive Sync] Analyse vide pour "${filename}" → image illisible, sera retentée`)
             throw new Error('Image illisible — analyse vide')
           }
+
+          // Normalisation identité avant matching et stockage
+          normalizeCandidat(analyse)
 
           const candidatEmail = analyse.email || null
           const candidatNom = (analyse.nom || '').trim()
