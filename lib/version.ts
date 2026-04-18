@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.28'
+export const APP_VERSION = '1.9.29'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.29',
+    date: '2026-04-18',
+    label: 'Fix onedrive/sync — protection écrasement bio (titre_poste, competences, experiences…)',
+    features: [
+      'Extension du fix v1.9.28 à onedrive/sync/route.ts ligne 1025. Auparavant : `titre_poste: analyse.titre_poste || candidatExistant.titre_poste` → écrasement si l\'IA fournit une nouvelle valeur (risque de pollution d\'une fiche correcte par un match ambigu via cron OneDrive silencieux).',
+      'Nouveau comportement : helper `isEmpty()` + `keep()` — pour titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp → remplir UNIQUEMENT si vide en DB. Les champs CV eux-mêmes (cv_url, cv_nom_fichier, cv_texte_brut, documents, created_at) restent mis à jour car c\'est le nouveau CV qui est légitimement importé ; l\'ancien CV est archivé dans documents[] (logique existante).',
+      'Couverture complète du cercle vicieux : v1.9.27 (seuil strictExact 5→8) empêche le match initial faux ; v1.9.28 (cv/parse coords) bloque la pollution email/tel/localisation sur import manuel ; v1.9.29 (onedrive/sync bio) bloque la pollution des champs CV structurés sur sync cron.',
+      'Les divergences (ce que l\'IA a extrait vs ce qui est en DB) restent loggées dans la table activités (type candidat_modifie, source onedrive) — traçabilité conservée.',
+    ],
+  },
   {
     version: '1.9.28',
     date: '2026-04-18',
