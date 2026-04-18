@@ -20,20 +20,25 @@ export interface ImageCandidate {
  * Higher score = more likely a headshot.
  */
 export function scoreHeadshot(img: ImageCandidate): number {
-  // --- Rejets explicites (anti-icônes / anti-logos / anti-scans) ---
+  // --- Rejets explicites (anti-icônes / anti-logos / anti-scans / anti-motifs) ---
   if (img.ratio >= 0.9 && img.ratio <= 1.1 && img.width < 80) return -100 // icône carrée petite
   if (img.width > 2000) return -100 // scan document entier, pas une photo
+
+  // v1.9.37 — Veto motifs décoratifs (dots, trames, patterns géométriques).
+  // Une photo réelle (même compressée JPEG dégradée) conserve >= 25 couleurs uniques
+  // sur un échantillon 40×40 binné. Les motifs répétés (dots, lignes, fond uni)
+  // restent sous 15. Seuil volontairement strict pour exclure les fonds décoratifs.
+  if (img.uniqueColors < 15) return -100
 
   let score = 0
 
   // --- Détection photo N&B / niveaux de gris ---
-  const likelyBW = img.uniqueColors <= 20 && img.skinRatio >= 0.04
+  // Durci : vraie photo N&B a >=25 niveaux de gris (dégradés). Empêche de classer
+  // un motif 3-couleurs en "likelyBW" à cause d'un skinRatio accidentel.
+  const likelyBW = img.uniqueColors >= 25 && img.uniqueColors <= 60 && img.skinRatio >= 0.04
 
   // Peau < 3% sans N&B → probablement icône/logo/image décorative
   if (img.skinRatio < 0.03 && !likelyBW) return -100
-
-  // --- Rejet icône monochrome (≤5 couleurs ET pas N&B) ---
-  if (img.uniqueColors <= 5 && !likelyBW) return -100
 
   // --- COLOR DIVERSITY ---
   if (likelyBW) {

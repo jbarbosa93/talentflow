@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.36'
+export const APP_VERSION = '1.9.37'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.37',
+    date: '2026-04-19',
+    label: 'Fix extraction photo — rejet motifs décoratifs (dots, trames)',
+    features: [
+      'Veto strict uniqueColors < 15 : les motifs décoratifs du CV (dots marron sur blanc, lignes, trames) sont rejetés avant scoring.',
+      'Détection N&B durcie : exige désormais 25-60 couleurs uniques (dégradés gris réels) + skinRatio. Empêche qu\'un motif 3 couleurs soit classé "likelyBW" à cause d\'un skinRatio accidentel.',
+      'Photo fantaisie supprimée de la fiche Daniel Fragoso Costa (id 2cfcbac4).',
+    ],
+  },
   {
     version: '1.9.36',
     date: '2026-04-19',
