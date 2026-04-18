@@ -246,7 +246,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       await supabase.from('candidats').update({
         ...(importedIsNewer ? { created_at: dateToUse } : {}),
         updated_at: new Date().toISOString(),
-        has_update: true,
         last_import_at: new Date().toISOString(),
       } as any).eq('id', existingByFile.id)
       // Supprimer de candidats_vus pour faire réapparaître le badge
@@ -745,7 +744,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           await adminClient.from('candidats').update({
             ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
             updated_at: new Date().toISOString(),
-            has_update: true,
             last_import_at: new Date().toISOString(),
           } as any).eq('id', candidatExistant.id)
           // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1062,7 +1060,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         await adminClient.from('candidats').update({
           documents: existingDocs,
           updated_at: new Date().toISOString(),
-          has_update: true,
           last_import_at: new Date().toISOString(),
         } as any).eq('id', candidatExistant.id)
         // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1100,7 +1097,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         documents: existingDocs,
         ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
         updated_at: new Date().toISOString(),
-        has_update: true,
         last_import_at: new Date().toISOString(),
       } as any).eq('id', candidatExistant.id)
       // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1152,7 +1148,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   }
 
   // Champs hors type CandidatInsert (pas dans types/database.ts auto-généré)
-  ;(nouveauCandidat as any).has_update = true
   ;(nouveauCandidat as any).last_import_at = new Date().toISOString()
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
 

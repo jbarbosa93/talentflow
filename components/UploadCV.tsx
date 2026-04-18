@@ -459,7 +459,6 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
     setUploading(false)
     setDone(true)
-    // Rafraîchir le badge sidebar (has_update:true en DB → sidebar re-fetch count-new)
     dispatchBadgesChanged()
     if (lastSuccessCandidat) onSuccess?.(lastSuccessCandidat)
   }

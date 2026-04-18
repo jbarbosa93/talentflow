@@ -1683,8 +1683,6 @@ export default function CandidatsList() {
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
                 } finally {
-                  // v1.9.16 : persister cross-device dans Supabase user_metadata UNIQUEMENT.
-                  // Plus de reset has_update global — le badge est filtré per-user via viewedAllAt + candidats_vus.
                   fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
                   markAllVu()
                   // Sync React state (sinon hasBadge() utilise l'ancien viewedAllAt du closure)

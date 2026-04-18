@@ -44,7 +44,7 @@ const ALLOWED_COLS = new Set([
   'langues','permis_conduire','date_naissance','experiences','formations_details','photo_url','documents','import_status','rating','genre',
   'cv_url','cv_nom_fichier','cfc','deja_engage',
   'pipeline_consultant','pipeline_metier',
-  'created_at','has_update','last_import_at',
+  'created_at','last_import_at',
 ])
 
 // Labels français pour le suivi des modifications

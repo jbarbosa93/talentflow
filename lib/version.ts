@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.23'
+export const APP_VERSION = '1.9.24'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.24',
+    date: '2026-04-18',
+    label: 'Drop colonne zombie has_update + index DDN + analyse seuil strictExact',
+    features: [
+      'Bug 1 — Colonne has_update supprimée : zombie depuis v1.9.16 (remplacée par last_import_at). Migration 20260418_v1924_drop_has_update_index_ddn.sql : ALTER TABLE candidats DROP COLUMN has_update. 11 références supprimées du code (cv/parse ×5, onedrive/sync ×5, candidats/route.ts SELECT, candidats/[id]/route.ts ALLOWED_COLS). Commentaires obsolètes nettoyés (UploadCV, CandidatsList, integrations/page, candidats/[id]/page, mark-all-vu). hasBadge() utilise exclusivement last_import_at depuis v1.9.16 — aucun impact fonctionnel.',
+      'Bug 2 — Index date_naissance ajouté : CREATE INDEX IF NOT EXISTS idx_candidats_date_naissance ON candidats(date_naissance) WHERE date_naissance IS NOT NULL. Filtre partiel (exclut NULL) pour réduire la taille. Utilisé par matching DDN exact (signal fort +10 pts) et requête signal fort parallèle dans findExistingCandidat().',
+      'Bonus — Simulation seuil strictExact=5 : 6065 candidats analysés, 11 groupes avec tokens identiques. Résultat : 8 paires strictExact sans signal fort (DDN/tel/email). Verdict paire par paire : 5 protégées par early reject DDN contradictoire, 2 matches légitimes (Fábio/Fabio accent, Danijel stub), 1 cas risque marginal (Tiago Silva, nom commun sans DDN). Seuil=5 confirmé acceptable — élever à 8 casserait les correspondances accent type Fábio/Fabio. Cas Tiago Silva relève des doublons détectés après coup (/parametres/doublons).',
+    ],
+  },
   {
     version: '1.9.23',
     date: '2026-04-18',

@@ -126,7 +126,6 @@ function IntegrationsContent() {
 
     setOnedriveSyncing(false)
     queryClient.invalidateQueries({ queryKey: ['integrations'] })
-    // Rafraîchir le badge sidebar (candidats avec has_update:true)
     dispatchBadgesChanged()
   }, [queryClient])
 

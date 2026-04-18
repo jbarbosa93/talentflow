@@ -24,10 +24,6 @@ export async function POST() {
     // Supprimer toutes les lignes individuelles (le timestamp suffit désormais)
     await (admin as any).from('candidats_vus').delete().eq('user_id', user.id)
 
-    // ⚠️ v1.9.16 : PLUS de UPDATE global has_update=false — c'était le bug multi-user (Seb resettait les badges de João).
-    // Les badges sont désormais filtrés per-user via candidats_vus + candidats_viewed_all_at du USER COURANT
-    // dans hasBadge(). Rien d'autre à toucher en DB ici.
-
     // Poser le timestamp — tous les candidats créés AVANT sont considérés vus
     const { error } = await supabase.auth.updateUser({
       data: { candidats_viewed_all_at: new Date().toISOString() },

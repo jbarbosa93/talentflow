@@ -282,8 +282,6 @@ export default function CandidatDetailPage() {
 
   const candidat = data as any
 
-  // Marquer le candidat comme vu dès l'ouverture de la fiche → badge rouge disparaît (CE USER uniquement)
-  // v1.9.16 : le clear se fait exclusivement via candidats_vus (per-user), plus de PATCH has_update global.
   useEffect(() => {
     if (!id) return
     markCandidatVu(id) // POST /api/candidats/vus {ids:[id]} → upsert candidats_vus pour CE user

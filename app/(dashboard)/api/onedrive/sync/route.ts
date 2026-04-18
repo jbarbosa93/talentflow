@@ -841,7 +841,6 @@ export async function POST(request: Request) {
               await (supabase as any).from('candidats').update({
                 ...(importedIsNewer ? { created_at: fileDate } : {}),
                 updated_at: new Date().toISOString(),
-                has_update: true,
                 last_import_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
               // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -890,7 +889,6 @@ export async function POST(request: Request) {
                 await (supabase as any).from('candidats').update({
                   ...(importedIsNewerSafety ? { created_at: fileDate } : {}),
                   updated_at: new Date().toISOString(),
-                  has_update: true,
                   last_import_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -926,7 +924,6 @@ export async function POST(request: Request) {
                 await (supabase as any).from('candidats').update({
                   documents: existingDocs,
                   updated_at: new Date().toISOString(),
-                  has_update: true,
                   last_import_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1020,7 +1017,6 @@ export async function POST(request: Request) {
                 documents: existingDocs,
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
                 updated_at: new Date().toISOString(),
-                has_update: true,
                 last_import_at: new Date().toISOString(),
                 ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
@@ -1189,7 +1185,6 @@ export async function POST(request: Request) {
               cv_texte_brut: texteCV.slice(0, 10000),
               statut_pipeline: null, // JAMAIS d'ajout auto en pipeline
               import_status: 'a_traiter',
-              has_update: true,
               last_import_at: new Date().toISOString(),
               source: 'ONEDRIVE',
               tags: [],
