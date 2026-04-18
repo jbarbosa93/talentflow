@@ -1542,9 +1542,12 @@ export async function GET() {
   try {
     const supabase = createAdminClient()
 
+    // v1.9.36 — Désambiguïser la FK : deux relations vers candidats depuis v1.9.31
+    // (candidat_id + match_suspect_candidat_id). Sans préfixe explicite, PostgREST
+    // throw "Could not embed because more than one relationship was found".
     const { data, error } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('*, candidats(nom, prenom)')
+      .select('*, candidats!onedrive_fichiers_candidat_id_fkey(nom, prenom)')
       .order('traite_le', { ascending: false })
       .limit(500)
 

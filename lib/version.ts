@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.35'
+export const APP_VERSION = '1.9.36'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.36',
+    date: '2026-04-19',
+    label: 'Fix historique OneDrive 500 — FK ambiguë candidats depuis v1.9.31',
+    features: [
+      'Route GET /api/onedrive/sync retournait 500 depuis v1.9.31. Cause : v1.9.31 a ajouté une 2ème FK vers candidats (match_suspect_candidat_id), rendant le join PostgREST `candidats(nom, prenom)` ambigu.',
+      'Fix : préfixer la relation avec !onedrive_fichiers_candidat_id_fkey pour désambiguïser.',
+      'Conséquence : historique + compteurs "Aujourd\'hui" (0 Fichiers/CVs/Mis à jour/Réactivés) réapparaissent correctement.',
+    ],
+  },
   {
     version: '1.9.35',
     date: '2026-04-19',
