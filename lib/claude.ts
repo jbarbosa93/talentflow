@@ -3,6 +3,7 @@
 // Utilise Claude Haiku 4.5 (Anthropic) — rapide, précis, ~$0.008/CV
 
 import Anthropic from '@anthropic-ai/sdk'
+import { validateAnalyse, summarizeWarnings } from './cv-extraction-validator'
 
 // Singleton client
 let anthropicClient: Anthropic | null = null
@@ -141,14 +142,30 @@ Retourne UNIQUEMENT un JSON valide avec cette structure exacte (sans markdown, s
   "genre": "M"
 }
 
-Règles :
-- nom / prenom : extraire le nom COMPLET tel qu'il apparaît, SANS TRONQUER ni supprimer aucun élément. Conserver TOUS les mots du nom de famille (noms composés portugais, espagnols, arabes, etc.). Premier(s) mot(s) = prenom, le RESTE = nom. Exemples OBLIGATOIRES :
-  - "DANIEL FRAGOSO COSTA" → prenom="Daniel", nom="Fragoso Costa" (PAS "Costa")
-  - "José António DA CRUZ SOARES" → prenom="José António", nom="Da Cruz Soares"
-  - "MARIA DEL CARMEN GARCIA LOPEZ" → prenom="Maria Del Carmen", nom="Garcia Lopez"
-  - "Pedro Miguel Santos Ferreira" → prenom="Pedro Miguel", nom="Santos Ferreira"
-  - "Jean Dupont" → prenom="Jean", nom="Dupont"
-  Format de sortie : première lettre de chaque mot en majuscule, reste en minuscule (ex: "Fragoso Costa" pas "FRAGOSO COSTA" ni "fragoso costa"). Les particules (de, da, do, dos, del, van, von) restent en minuscules sauf en première position.
+━━━ RÈGLES CRITIQUES NOMS (lire attentivement) ━━━
+
+1. DISTINGUER NOM DU CANDIDAT vs NOM D'ENTREPRISE :
+   - Le nom recherché est celui de la PERSONNE qui a rédigé ce CV, PAS celui d'une société.
+   - Ignorer ABSOLUMENT tout nom contenant : SA, Sàrl, SARL, AG, GmbH, Ltd, LLC, Inc, Corp, SpA, Srl, SL, Lda, BV, NV, S.A., S.A.R.L., S.p.A., etc.
+   - Exemple piège : si un CV dit "Expérience chez METALCOLOR SA" et le candidat s'appelle "Daniel Fragoso Costa", le nom = "Fragoso Costa", PAS "Metalcolor".
+   - Le nom de la personne est typiquement en HAUT du CV, en gros caractères, SEUL (pas suivi d'un suffixe légal).
+
+2. NOMS COMPOSÉS — NE JAMAIS TRONQUER :
+   - Les noms portugais/espagnols/brésiliens ont souvent 2-4 parties (nom de famille double). Extraire TOUTES les parties visibles.
+   - Exemples OBLIGATOIRES (préserver TOUS les éléments, format Title Case) :
+     - "DANIEL FRAGOSO COSTA" → prenom="Daniel", nom="Fragoso Costa" (PAS "Costa")
+     - "José António DA CRUZ SOARES" → prenom="José António", nom="Da Cruz Soares"
+     - "MARIA DEL CARMEN GARCIA LOPEZ" → prenom="Maria Del Carmen", nom="Garcia Lopez"
+     - "Pedro Miguel dos Santos Silva" → prenom="Pedro Miguel", nom="dos Santos Silva"
+     - "Jean Dupont" → prenom="Jean", nom="Dupont"
+   - Les particules (de, da, dos, du, van, von, del, di) font partie du nom → les inclure, en minuscules sauf en 1ère position.
+   - Format de sortie : première lettre de chaque mot en majuscule, reste en minuscule (ex: "Fragoso Costa" pas "FRAGOSO COSTA").
+   - Si l'en-tête montre plusieurs mots en grand → tous font partie du nom complet, NE RIEN OMETTRE.
+
+3. SI DOUTE sur le nom → préférer extraire le nom complet visible plutôt qu'une version tronquée.
+
+━━━ RÈGLES D'EXTRACTION ━━━
+
 - annees_exp : entier estimé (0 si non déterminable)
 - localisation : CHERCHER l'adresse ou la ville dans tout le document (en-tête, coordonnées, pied de page). Formats suisses courants : "1873 Val D'Illiez", "Rue XX 12, 1950 Sion", "Genève", "Sion, Valais". Inclure le NPA si présent (ex: "1873 Val D'Illiez, Suisse"). Si seul le NPA est visible sans ville, utiliser "NPA Suisse". Si aucune localisation trouvée → ""
 - competences : maximum 15, technologies/outils/méthodes clés uniquement
@@ -220,6 +237,25 @@ function parseCV(text: string): CVAnalyse {
   if (!Array.isArray(result.experiences)) result.experiences = []
   if (!Array.isArray(result.formations_details)) result.formations_details = []
   result.document_type = result.document_type || 'cv'
+
+  // v1.9.32 — Validation post-extraction : détecte nom=entreprise, champs suspects
+  try {
+    const warnings = validateAnalyse(result)
+    if (warnings.length > 0) {
+      const summary = summarizeWarnings(warnings)
+      if (summary.hasErrors) {
+        console.warn(`[Claude Extract] ⚠️ ERRORS : ${summary.summary}`)
+        // Marqueur non-bloquant pour que les routes puissent décider (ex: re-analyse ou création sous réserve)
+        ;(result as any)._extraction_warnings = warnings
+      } else if (summary.hasWarnings) {
+        console.log(`[Claude Extract] ℹ️ Warnings : ${summary.summary}`)
+        ;(result as any)._extraction_warnings = warnings
+      }
+    }
+  } catch (err) {
+    console.warn('[Claude Extract] validateAnalyse a échoué (ignoré):', (err as Error).message)
+  }
+
   return result as CVAnalyse
 }
 
