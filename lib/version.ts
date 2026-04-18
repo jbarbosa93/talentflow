@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.25'
+export const APP_VERSION = '1.9.26'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.26',
+    date: '2026-04-18',
+    label: 'Fix badges après update OneDrive + retryQueue non-CV (analyse cachée)',
+    features: [
+      'BUG 1 fixé — Badge rouge absent après update CV OneDrive sur candidat "Actif" (ex: Daniel Fragoso Costa). Cause : initViewedFromDB faisait une UNION localStorage + DB → après suppression serveur de candidats_vus (triggered par ré-import CV), l\'ID était réinjecté par localStorage → hasBadge() court-circuitait sur viewedSet.has(id) → pas de badge.',
+      'Fix — lib/badge-candidats.ts : DB fait foi. UNION uniquement pendant la migration one-shot (toSync > 0), sinon viewedSet = dbSet pur. Les suppressions serveur se propagent au client au prochain fetch. Nouvelle fonction refreshViewedFromDB() exportée (re-init + remplace _initPromise).',
+      'Fix — Sidebar + CandidatsList : onFocus appelle refreshViewedFromDB() avant de recalculer les badges. Capte les candidats_vus DELETE faits par le cron OneDrive sans action utilisateur.',
+      'BUG 2 fixé — Documents non-CV (certificat, lettre motivation) non rattachés même si le candidat existe en DB. Message "Candidat introuvable, importez d\'abord le CV". Cause : le retry step 5b ré-analysait le document avec analyserCV, qui extrait souvent le nom de la société (ex: "Metalcolor" au lieu de "Daniel Fragoso Costa") ou rien (lettre générique).',
+      'Fix — app/(dashboard)/api/onedrive/sync/route.ts : retryQueue cache maintenant l\'analyse de la 1re passe (fichier, analyse, docType, candidatNom/Prenom/Email/Tel). Le retry step 5b utilise ces valeurs + findExistingCandidat (identité-first robuste, même logique que la 1re passe) au lieu du OR ilike simpliste. Pas de ré-téléchargement/ré-analyse si pas de match → économie d\'appels Claude et d\'I/O Storage.',
+    ],
+  },
   {
     version: '1.9.25',
     date: '2026-04-18',

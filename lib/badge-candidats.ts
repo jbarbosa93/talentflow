@@ -22,6 +22,13 @@ export function ensureInit(): Promise<{ viewedSet: Set<string>; viewedAllAt: str
   return _initPromise
 }
 
+/** Re-lance initViewedFromDB et remplace le cache _initPromise. Appelé sur focus
+ *  window pour capter les suppressions serveur (candidats_vus purgé par sync CV). */
+export function refreshViewedFromDB(): Promise<{ viewedSet: Set<string>; viewedAllAt: string | null }> {
+  _initPromise = initViewedFromDB()
+  return _initPromise
+}
+
 // ── localStorage (cache write-through) ───────────────────────────────────────
 
 export function getViewedSet(): Set<string> {
@@ -84,10 +91,15 @@ export async function initViewedFromDB(): Promise<{ viewedSet: Set<string>; view
       syncToDB(toSync) // fire-and-forget
     }
 
-    // Union des deux
-    const merged = new Set<string>([...dbSet, ...localSet])
-    writeViewedSet(merged)
-    return { viewedSet: merged, viewedAllAt: resolvedViewedAllAt }
+    // v1.9.26 — DB fait foi. Les suppressions serveur (candidats_vus DELETE lors
+    // d'un ré-import CV) se propagent au client. UNION uniquement pendant la
+    // migration one-shot (toSync > 0) pour ne pas perdre les IDs local-only
+    // avant qu'ils n'arrivent en DB.
+    const viewedSet = toSync.length > 0
+      ? new Set<string>([...dbSet, ...localSet])
+      : dbSet
+    writeViewedSet(viewedSet)
+    return { viewedSet, viewedAllAt: resolvedViewedAllAt }
   } catch {
     // Fallback : localStorage uniquement
     _dbSynced = false

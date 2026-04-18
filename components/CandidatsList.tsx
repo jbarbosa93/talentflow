@@ -24,7 +24,7 @@ import type { PipelineEtape, ImportStatus } from '@/types/database'
 
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
 // Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
-import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, hasBadge } from '@/lib/badge-candidats'
+import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, refreshViewedFromDB, hasBadge } from '@/lib/badge-candidats'
 export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -356,7 +356,18 @@ export default function CandidatsList() {
   useEffect(() => {
     const handler = () => setBadgeTick(t => t + 1)
     window.addEventListener('talentflow:badges-changed', handler)
-    return () => window.removeEventListener('talentflow:badges-changed', handler)
+    // v1.9.26 — rafraîchir viewedSet depuis DB au retour sur l'onglet (capte candidats_vus DELETE serveur)
+    const onFocus = () => {
+      refreshViewedFromDB().then(({ viewedAllAt: vaa }) => {
+        setViewedAllAt(vaa)
+        setBadgeTick(t => t + 1)
+      })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('talentflow:badges-changed', handler)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [])
 
   // Init au montage — charge les vus depuis DB (merge avec localStorage existant)

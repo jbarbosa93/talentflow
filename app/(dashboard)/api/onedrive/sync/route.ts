@@ -406,7 +406,18 @@ export async function POST(request: Request) {
       return 0
     })
     const fichiersToProcess = sortedFichiers.slice(0, MAX_NEW)
-    const retryQueue: typeof fichiers = [] // Non-CVs "introuvable" à retenter après le batch
+    // v1.9.26 — retryQueue cache l'analyse de la 1re passe (évite de ré-analyser un certificat
+    // qui ferait extraire le nom de la société au lieu du candidat).
+    type RetryItem = {
+      fichier: typeof fichiers[number]
+      analyse: any
+      docType: string
+      candidatNom: string
+      candidatPrenom: string
+      candidatEmail: string | null
+      candidatTel: string
+    }
+    const retryQueue: RetryItem[] = []
 
     for (let i = 0; i < fichiersToProcess.length; i += PARALLEL) {
       const chunk = fichiersToProcess.slice(i, i + PARALLEL)
@@ -699,7 +710,16 @@ export async function POST(request: Request) {
           //    remplacées par findExistingCandidat() ci-dessus (cf. lib/candidat-matching.ts).
           //    Matching unifié identité-first, plus d'usage du nom de fichier. ──
           if (isNotCV && !existingCandidat) {
-            retryQueue.push(fichier)
+            // v1.9.26 — préserver l'analyse de la 1re passe pour le retry (évite ré-extraction de "Metalcolor")
+            retryQueue.push({
+              fichier,
+              analyse,
+              docType,
+              candidatNom,
+              candidatPrenom,
+              candidatEmail,
+              candidatTel,
+            })
             return { status: 'error', filename: fichier.name }
           }
 
@@ -1314,74 +1334,53 @@ export async function POST(request: Request) {
     }
 
     // 5b. Retry non-CVs "introuvable" — le candidat a peut-être été créé dans ce même batch
+    // v1.9.26 — on réutilise l'analyse de la 1re passe (évite ré-extraction "Metalcolor" sur
+    // un certificat) et on passe par findExistingCandidat (même logique que la 1re passe).
     if (retryQueue.length > 0) {
       dbg(`[OneDrive Sync] Retry ${retryQueue.length} documents non-CV après création de ${created.length} candidats`)
-      for (const fichier of retryQueue) {
+      for (const item of retryQueue) {
+        const { fichier, analyse, docType, candidatNom, candidatPrenom, candidatEmail, candidatTel } = item
         try {
-          const fileDate = fichier.lastModifiedDateTime || new Date().toISOString()
           const ext = fichier.name.split('.').pop()?.toLowerCase()
           const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')
           const isPDF = ext === 'pdf'
           const mimeType = isPDF ? 'application/pdf' : isImage ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'application/octet-stream'
 
-          const dlRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${fichier.id}/content`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          if (!dlRes.ok) continue
-          const buffer = Buffer.from(await dlRes.arrayBuffer())
+          // Re-matching avec la même logique que la 1re passe (identité-first)
+          const matchResult = await findExistingCandidat(supabase, {
+            nom: candidatNom,
+            prenom: candidatPrenom,
+            email: candidatEmail,
+            telephone: candidatTel,
+            date_naissance: analyse?.date_naissance || null,
+            localisation: analyse?.localisation || null,
+          }, { selectColumns: 'id, nom, prenom, documents' })
 
-          // Upload
-          const timestamp = Date.now()
-          const storageName = `${timestamp}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-          const { data: storageData } = await supabase.storage.from('cvs').upload(storageName, buffer, { contentType: mimeType, upsert: false })
-          let docUrl: string | null = null
-          if (storageData?.path) {
-            const { data: urlData } = await supabase.storage.from('cvs').createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
-            docUrl = urlData?.signedUrl || null
-          }
-          if (!docUrl) continue
+          const match = matchResult.kind === 'match' ? matchResult.candidat as any : null
 
-          // Extraction nom via IA (déjà fait au premier passage — on refait léger)
-          let texteCV = ''
-          try { texteCV = await extractTextFromCV(buffer, fichier.name) } catch {}
-          const analyse = texteCV.length >= 50
-            ? await analyserCV(texteCV.slice(0, 3000))
-            : isImage
-              ? await analyserCVDepuisImage(buffer, mimeType as any)
-              : isPDF
-                ? await analyserCVDepuisPDF(buffer, fichier.name)
-                : { nom: '', prenom: '' } as any
-
-          const candidatNom = analyse?.nom || ''
-          const candidatPrenom = analyse?.prenom || ''
-          if (!candidatNom) continue
-
-          // Chercher le candidat (maintenant en DB) — chercher tous les mots du nom ET prénom (noms inversés)
-          const _un = (s: string): string => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-          const allWords = [..._un(candidatNom).split(/[\s-]+/), ..._un(candidatPrenom).split(/[\s-]+/)].filter((w: string) => w.length >= 3)
-          const orClauses = allWords.map((w: string) => `nom.ilike.%${w}%,prenom.ilike.%${w}%`).join(',')
-          const { data: found } = await supabase.from('candidats')
-            .select('id, nom, prenom, documents')
-            .or(orClauses)
-            .limit(30)
-          const match = (found || []).find((c: any) => {
-            const eNom = _un(c.nom || '')
-            const ePrenom = _un(c.prenom || '')
-            const fullDB = `${eNom} ${ePrenom}`
-            const fullParsed = `${_un(candidatNom)} ${_un(candidatPrenom)}`
-            // Au moins 1 mot significatif du document trouvé dans le nom complet DB (ou vice-versa)
-            const wordsDoc = fullParsed.split(/[\s-]+/).filter((w: string) => w.length >= 3)
-            const wordsDB = fullDB.split(/[\s-]+/).filter((w: string) => w.length >= 3)
-            const matchCount = wordsDoc.filter((w: string) => wordsDB.some((e: string) => e.includes(w) || w.includes(e))).length
-            return matchCount >= 1 && (matchCount >= 2 || wordsDoc.length <= 2)
-          })
+          const docTypeMap: Record<string, string> = { 'certificat': 'certificat', 'diplome': 'diplome', 'formation': 'formation', 'attestation': 'certificat', 'permis': 'permis', 'contrat': 'contrat', 'lettre_motivation': 'lettre_motivation', 'reference': 'reference', 'bulletin_salaire': 'bulletin_salaire' }
+          const mappedType = docTypeMap[docType] || 'autre'
+          const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'permis' ? 'Permis' : docType === 'attestation' ? 'Attestation' : `Document (${docType})`
 
           if (match) {
+            // Télécharger + uploader maintenant qu'on sait qu'on a un match
+            const dlRes = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/items/${fichier.id}/content`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            })
+            if (!dlRes.ok) continue
+            const buffer = Buffer.from(await dlRes.arrayBuffer())
+
+            const timestamp = Date.now()
+            const storageName = `${timestamp}_${fichier.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+            const { data: storageData } = await supabase.storage.from('cvs').upload(storageName, buffer, { contentType: mimeType, upsert: false })
+            let docUrl: string | null = null
+            if (storageData?.path) {
+              const { data: urlData } = await supabase.storage.from('cvs').createSignedUrl(storageData.path, 60 * 60 * 24 * 365 * 10)
+              docUrl = urlData?.signedUrl || null
+            }
+            if (!docUrl) continue
+
             const existingDocs = (match.documents as any[]) || []
-            const docType = analyse.document_type || 'autre'
-            const docTypeMap: Record<string, string> = { 'certificat': 'certificat', 'diplome': 'diplome', 'formation': 'formation', 'attestation': 'certificat', 'permis': 'permis', 'contrat': 'contrat', 'lettre_motivation': 'lettre_motivation', 'reference': 'reference', 'bulletin_salaire': 'bulletin_salaire' }
-            const mappedType = docTypeMap[docType] || 'autre'
-            const docTypeLabel = docType === 'certificat' ? 'Certificat' : docType === 'diplome' ? 'Diplôme' : docType === 'permis' ? 'Permis' : docType === 'attestation' ? 'Attestation' : `Document (${docType})`
             if (!existingDocs.some((d: any) => d.url === docUrl || d.name === fichier.name)) {
               existingDocs.push({ name: fichier.name, url: docUrl, type: mappedType, uploaded_at: new Date().toISOString() })
               await (supabase as any).from('candidats').update({ documents: existingDocs, updated_at: new Date().toISOString() }).eq('id', match.id)
@@ -1393,7 +1392,6 @@ export async function POST(request: Request) {
             dbg(`[OneDrive Sync] Retry OK: ${fichier.name} → ${match.prenom} ${match.nom}`)
           } else {
             const nameStr = [candidatPrenom, candidatNom].filter(Boolean).join(' ') || 'inconnu'
-            const docTypeLabel = analyse.document_type === 'certificat' ? 'Certificat' : analyse.document_type === 'permis' ? 'Permis' : `Document`
             await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: false, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'error', erreur: `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. Importez d'abord le CV de ce candidat, puis ce fichier sera rattaché automatiquement.` })
           }
         } catch (err) {

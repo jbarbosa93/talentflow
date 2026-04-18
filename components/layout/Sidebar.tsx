@@ -16,7 +16,7 @@ import { usePhotos } from '@/contexts/PhotosContext'
 import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
 import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/useNewItemsBadges'
-import { hasBadge, getViewedSet, getViewedAllAt, ensureInit } from '@/lib/badge-candidats'
+import { hasBadge, getViewedSet, getViewedAllAt, ensureInit, refreshViewedFromDB } from '@/lib/badge-candidats'
 import { useOffresATraiterCount } from '@/hooks/useOffresExternes'
 
 const NAV_ITEMS = [
@@ -134,7 +134,8 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
 
     window.addEventListener('talentflow:badges-changed', debouncedCompute)
     // v1.9.23 — refetch immédiat au retour sur l'onglet (capte crons OneDrive silencieux)
-    const onFocus = () => computeBadgeCount()
+    // v1.9.26 — rafraîchir viewedSet depuis DB AVANT compute (capte candidats_vus DELETE serveur)
+    const onFocus = () => { refreshViewedFromDB().then(() => computeBadgeCount()) }
     window.addEventListener('focus', onFocus)
     const interval = setInterval(computeBadgeCount, 60_000)
 
