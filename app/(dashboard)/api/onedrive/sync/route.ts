@@ -10,6 +10,7 @@ import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '@/lib/cl
 import { logActivity } from '@/lib/activity-log'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { findExistingCandidat } from '@/lib/candidat-matching'
+import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
 import { classifyDocument } from '@/lib/document-classification'
 
@@ -1054,24 +1055,45 @@ export async function POST(request: Request) {
               // Update candidate with new CV data
               // created_at = date du fichier OneDrive = date de dernière candidature/disponibilité
               //
-              // v1.9.30 — Revert du fix v1.9.29 : la logique d'enrichissement automatique
-              // via sync OneDrive est VOULUE. Quand le matching identifie le bon candidat,
-              // on écrase/enrichit avec les nouvelles données du CV (titre_poste, expériences,
-              // compétences, etc.). Le bug d'origine était le matching trop permissif, pas
-              // l'écrasement — ce point est résolu par le seuil strictExact 5→8 (v1.9.27).
+              // v1.9.30 : écrasement classique = enrichissement automatique voulu.
+              // v1.9.32 : pour les matches à TRÈS haut score (≥ 16, ex: nom exact + DDN
+              //   + email/tel + ville), on passe en merge intelligent — préserve les
+              //   expériences/compétences existantes (union au lieu d'écrasement).
+              //   En-dessous (score 11-15, match standard), on garde l'écrasement v1.9.30.
+              const matchScore = matchResult.kind === 'match' ? (matchResult.scoreBreakdown?.score || 0) : 0
+              const useMergeIntelligent = matchScore >= 16
+
+              const basePayload: Record<string, any> = useMergeIntelligent
+                ? (() => {
+                    // Merge intelligent : uniquement les champs modifiés sont écrits.
+                    // Les coords email/tel/localisation/DDN ne sont jamais touchées (immuables).
+                    const { payload, report } = mergeCandidat(candidatExistant as any, analyse as any)
+                    try {
+                      const reportText = mergeReportToText(report)
+                      if (report.merged.length || report.filledEmpty.length || report.replaced.length) {
+                        dbg(`[OneDrive Sync] Merge intelligent (score=${matchScore}) : ${reportText}`)
+                      }
+                    } catch {}
+                    return payload as Record<string, any>
+                  })()
+                : {
+                    // Comportement classique v1.9.30 (écrasement enrichissement)
+                    titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
+                    competences: analyse.competences || candidatExistant.competences,
+                    langues: analyse.langues || candidatExistant.langues,
+                    experiences: analyse.experiences || candidatExistant.experiences,
+                    formations_details: analyse.formations_details || candidatExistant.formations_details,
+                    formation: analyse.formation || candidatExistant.formation,
+                    resume_ia: analyse.resume || candidatExistant.resume_ia,
+                    permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
+                    date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
+                    genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
+                    linkedin: analyse.linkedin || candidatExistant.linkedin,
+                    annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
+                  }
+
               await (supabase as any).from('candidats').update({
-                titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
-                competences: analyse.competences || candidatExistant.competences,
-                langues: analyse.langues || candidatExistant.langues,
-                experiences: analyse.experiences || candidatExistant.experiences,
-                formations_details: analyse.formations_details || candidatExistant.formations_details,
-                formation: analyse.formation || candidatExistant.formation,
-                resume_ia: analyse.resume || candidatExistant.resume_ia,
-                permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
-                date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
-                genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
-                linkedin: analyse.linkedin || candidatExistant.linkedin,
-                annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
+                ...basePayload,
                 cv_url: newCvUrl || candidatExistant.cv_url,
                 cv_nom_fichier: filename,
                 cv_texte_brut: texteCV.slice(0, 10000) || candidatExistant.cv_texte_brut,

@@ -13,6 +13,7 @@ import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { requireAuth } from '@/lib/auth-guard'
 import { findExistingCandidat } from '@/lib/candidat-matching'
+import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
 import { classifyDocument } from '@/lib/document-classification'
@@ -899,56 +900,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
       dbg(`[CV Parse] Ré-analyse (écrasement) : ${file.name}`)
     } else {
-      // ═══ MODE MERGE : ajouter sans remplacer (import normal) ═══
-      // Nom/prénom : mettre à jour seulement si le nom actuel est "Candidat" ou vide
+      // ═══ MODE MERGE (v1.9.32) : logique centralisée via lib/merge-candidat.ts ═══
+      // Règles implémentées :
+      // - IMMUABLES (email/tel/DDN/loc) : remplis seulement si vide en DB
+      // - MERGE (competences/langues/experiences/formations_details) : union + dédup
+      // - ÉCRASÉS (titre_poste/resume_ia/annees_exp/permis_conduire) : nouvelle valeur
+      // - IGNORÉS (statut_pipeline/rating/tags/notes) : non touchés
+      //
+      // Nom/prénom : logique spécifique pour gérer le placeholder "Candidat"
       if (analyse.nom && (!existing?.nom || existing.nom === 'Candidat')) {
         updateData.nom = analyse.nom
       }
       if (analyse.prenom && !existing?.prenom) {
         updateData.prenom = analyse.prenom
       }
-      // v1.9.28 — Email, téléphone, lieu : remplir UNIQUEMENT si le champ est vide en DB.
-      // Ne JAMAIS écraser des coordonnées existantes (risque d'écrasement silencieux sur
-      // homonyme mal matché : 2 "Daniel Costa" avec coords différentes fusionnés en DB
-      // par un update qui substitue les vraies coords par celles du 2e candidat). Les
-      // divergences sont déjà loggées dans activités (ligne ~683-694).
-      if (analyse.email && !existing?.email) updateData.email = analyse.email
-      if (analyse.telephone && !existing?.telephone) updateData.telephone = analyse.telephone
-      if (analyse.localisation && !existing?.localisation) updateData.localisation = analyse.localisation
-      // Titre poste : toujours mettre à jour (peut évoluer)
-      if (analyse.titre_poste) updateData.titre_poste = analyse.titre_poste
-      // Compétences : fusionner (ajouter les nouvelles)
-      if (analyse.competences?.length) {
-        const existingComp = (existing?.competences as string[]) || []
-        const merged = [...new Set([...existingComp, ...analyse.competences])]
-        updateData.competences = merged
-      }
-      if (analyse.formation) updateData.formation = analyse.formation
-      // Langues : fusionner
-      if (analyse.langues?.length) {
-        const existingLang = (existing?.langues as string[]) || []
-        const merged = [...new Set([...existingLang, ...analyse.langues])]
-        updateData.langues = merged
-      }
-      if (analyse.linkedin) updateData.linkedin = analyse.linkedin
-      if (analyse.permis_conduire !== undefined) updateData.permis_conduire = analyse.permis_conduire
-      if (analyse.date_naissance) updateData.date_naissance = analyse.date_naissance
-      // Expériences : fusionner (ajouter celles qui n'existent pas encore)
-      if (analyse.experiences?.length) {
-        const existingExp = (existing?.experiences as any[]) || []
-        const existingKeys = new Set(existingExp.map((e: any) => `${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
-        const newExp = analyse.experiences.filter((e: any) => !existingKeys.has(`${e.titre || ''}_${e.entreprise || ''}_${e.debut || ''}`))
-        if (newExp.length > 0) updateData.experiences = [...existingExp, ...newExp]
-      }
-      // Formations : fusionner
-      if (analyse.formations_details?.length) {
-        const existingForm = (existing?.formations_details as any[]) || []
-        const existingKeys = new Set(existingForm.map((f: any) => `${f.titre || ''}_${f.etablissement || ''}`))
-        const newForm = analyse.formations_details.filter((f: any) => !existingKeys.has(`${f.titre || ''}_${f.etablissement || ''}`))
-        if (newForm.length > 0) updateData.formations_details = [...existingForm, ...newForm]
-      }
-      if (analyse.resume) updateData.resume_ia = analyse.resume
+
+      // Appel merge intelligent — retourne uniquement les champs modifiés
+      const { payload: mergePayload, report: mergeReport } = mergeCandidat(
+        existing as any,
+        analyse as any,
+      )
+      Object.assign(updateData, mergePayload)
+
       if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
+
+      // Log traçabilité du merge
+      try {
+        const reportText = mergeReportToText(mergeReport)
+        if (mergeReport.kept.length > 0 || mergeReport.filledEmpty.length > 0 || mergeReport.merged.length > 0) {
+          dbg(`[CV Parse] Merge intelligent : ${reportText}`)
+        }
+      } catch { /* ignore */ }
     }
 
     // Classification du document (commun aux deux modes)
