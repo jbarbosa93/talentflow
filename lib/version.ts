@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.37'
+export const APP_VERSION = '1.9.38'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.38',
+    date: '2026-04-19',
+    label: 'Fix extraction photo — seuil uniqueColors relevé 15→40',
+    features: [
+      'Le seuil v1.9.37 (15) n\'attrapait pas les motifs JPEG antialiasés : le pattern dots du CV dani.pdf mesurait 23 couleurs uniques (l\'antialiasing crée des teintes intermédiaires).',
+      'Mesures réelles : motif dots = 23 uniqueColors, vraie photo Ferreira Da Costa = 151 uniqueColors. Large gap → seuil fixé à 40.',
+      'likelyBW exige maintenant 50-100 uniqueColors (vrais dégradés N&B).',
+    ],
+  },
   {
     version: '1.9.37',
     date: '2026-04-19',

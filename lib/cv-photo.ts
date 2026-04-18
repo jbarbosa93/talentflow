@@ -24,18 +24,20 @@ export function scoreHeadshot(img: ImageCandidate): number {
   if (img.ratio >= 0.9 && img.ratio <= 1.1 && img.width < 80) return -100 // icône carrée petite
   if (img.width > 2000) return -100 // scan document entier, pas une photo
 
-  // v1.9.37 — Veto motifs décoratifs (dots, trames, patterns géométriques).
-  // Une photo réelle (même compressée JPEG dégradée) conserve >= 25 couleurs uniques
-  // sur un échantillon 40×40 binné. Les motifs répétés (dots, lignes, fond uni)
-  // restent sous 15. Seuil volontairement strict pour exclure les fonds décoratifs.
-  if (img.uniqueColors < 15) return -100
+  // v1.9.38 — Veto motifs décoratifs (dots, trames, patterns géométriques).
+  // Mesure concrète sur dani.pdf : motif dots 300×348 = 23 uniqueColors après
+  // binning 16 niveaux (l'antialiasing JPEG crée des teintes intermédiaires).
+  // Vraie photo (ex: Ferreira Da Costa) = 151 uniqueColors → large marge.
+  // Seuil 40 : rejette toutes les variantes de patterns décoratifs, garde les
+  // vraies photos même N&B basse qualité.
+  if (img.uniqueColors < 40) return -100
 
   let score = 0
 
   // --- Détection photo N&B / niveaux de gris ---
-  // Durci : vraie photo N&B a >=25 niveaux de gris (dégradés). Empêche de classer
-  // un motif 3-couleurs en "likelyBW" à cause d'un skinRatio accidentel.
-  const likelyBW = img.uniqueColors >= 25 && img.uniqueColors <= 60 && img.skinRatio >= 0.04
+  // Durci v1.9.38 : vraie photo N&B a au moins 50 niveaux de gris (dégradés fins).
+  // Le seuil 40 du veto garde passer les N&B réels.
+  const likelyBW = img.uniqueColors >= 50 && img.uniqueColors <= 100 && img.skinRatio >= 0.04
 
   // Peau < 3% sans N&B → probablement icône/logo/image décorative
   if (img.skinRatio < 0.03 && !likelyBW) return -100
