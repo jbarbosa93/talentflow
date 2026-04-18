@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.22 localhost** — 18/04/2026
+**1.9.23 localhost** — 18/04/2026
 
 ---
 
@@ -153,7 +153,9 @@ supabase/migrations/  — SQL migrations versionnées
 ⚠️ **État au 13/04/2026 (v1.8.33)** : Le middleware.ts exclut TOUTES les routes `/api/` de son matcher. La protection repose uniquement sur `requireAuth()` dans chaque route. **51 routes** sur 63 sont désormais protégées.
 
 ### Routes avec `requireAuth()` — 51 routes protégées (v1.8.33)
-Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/users`, `smtp/*`, `entretiens/*`, `integrations/*`, `cv/*`, `notes/*`, `matching/*`, `pipeline/*`, `logs`, `activites/*`, `whatsapp/send`, `microsoft/send`, `microsoft/email-*`, `email-templates`, `sharepoint/import`, `onedrive/folders`, `onedrive/reset-orphans`, `annonces/france-travail`, `candidats/audit/*`, `candidats/doublons/*`, `candidats/recheck-*`, `demande-acces/[id]`, `offres/externes`, `offres/externes/count`, `offres/externes/statut`, `offres/sync`
+Toutes les routes critiques et importantes : `candidats/*`, `clients/*`, `admin/users`, `smtp/*`, `entretiens/*`, `integrations/*`, `cv/*`, `notes/*`, `matching/*`, `pipeline/*`, `logs`, `activites/*`, `whatsapp/send`, `microsoft/send`, `microsoft/email-*`, `email-templates`, `onedrive/folders`, `onedrive/reset-orphans`, `annonces/france-travail`, `candidats/audit/*`, `candidats/doublons/*`, `candidats/recheck-*`, `demande-acces/[id]`, `offres/externes`, `offres/externes/count`, `offres/externes/statut`, `offres/sync`
+
+⚠️ v1.9.23 — Routes `cv/bulk` et `sharepoint/import` supprimées (orphelines, 0 trafic prod vérifié sur 30 jours). La route unifiée d'import est `/api/cv/parse` (appelée par UploadCV et public/import-worker.js pour les batches). Les syncs automatiques passent par `/api/onedrive/sync` (cron 10min).
 
 ### Routes sans requireAuth — restant (12 routes, toutes justifiées)
 - `/api/onedrive/sync` — protégé par header CRON_SECRET
@@ -271,7 +273,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - `memeContenu` / `contenuIdentique` = gardes anti-doublons (texte 500 chars OU nom normalisé)
 
 **7. Badges per-user (v1.9.16) — last_import_at timestamp**
-- `candidats.last_import_at TIMESTAMPTZ` = timestamp du dernier import CV (remplace has_update bool). Mise à jour par tous les imports (cv/parse, cv/bulk, onedrive/sync, sharepoint/import).
+- `candidats.last_import_at TIMESTAMPTZ` = timestamp du dernier import CV (remplace has_update bool). Mise à jour par tous les imports (cv/parse, onedrive/sync).
 - **Per-user strict** : chaque consultant a son propre état de lecture via `candidats_vus (user_id, candidat_id, viewed_at)` + `auth.users.raw_user_meta_data.candidats_viewed_all_at`
 - **`hasBadge()`** : badge visible si `last_import_at > max(viewedAllAt du user courant, viewed_at dans candidats_vus)` OU (candidat récent ET pas vu)
 - **Ouverture fiche** : `markCandidatVu(id)` → POST `/api/candidats/vus` (upsert candidats_vus du user courant). **Aucun UPDATE global sur la colonne candidats.**

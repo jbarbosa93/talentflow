@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.22'
+export const APP_VERSION = '1.9.23'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.23',
+    date: '2026-04-18',
+    label: 'Refetch on focus + suppression routes orphelines cv/bulk & sharepoint/import',
+    features: [
+      'Bug utilisateur : CV Alexandre Pereira mis à jour via cron OneDrive auto (10 min) → DB correctement à jour (last_import_at=18/04 10:10) mais badge rouge invisible sur la liste candidats. Cause : cron serveur silencieux → aucun signal envoyé au navigateur → React Query cache garde le snapshot d\'il y a 20 min avec last_import_at=null → hasBadge() lit stale data → false → pas de badge.',
+      'Fix Option 2 — refetchOnWindowFocus:true sur les queries candidats. À chaque retour sur l\'onglet Chrome/browser, React Query re-fetch automatiquement si la donnée dépasse staleTime (30s liste / 1min recherche / 2min fiche). Couvre TOUS les cas silencieux : cron OneDrive, actions multi-consultants, batchs automatisés. Appliqué à useCandidats(), useCandidat(id).',
+      'Sidebar badge — event focus ajouté sur window : computeBadgeCount() rappelé immédiatement au retour sur l\'onglet (en complément du setInterval 60s et du listener badges-changed). Le compteur "Non vus" se met à jour sans attendre la minute suivante.',
+      'Nettoyage routes orphelines v1.9.23 :',
+      '  • Suppression /api/cv/bulk (676 lignes) — logique inline doublons buggée (nomsSimilaires permissif, tel9 LIMIT 150 random), 0 trafic prod 30j vérifié via vercel logs, aucun consumer client (le flow import-masse passe par /api/cv/parse via Web Worker + fetch direct dans ImportContext).',
+      '  • Suppression /api/sharepoint/import (178 lignes) — aucun matching (insert direct → doublons garantis à chaque ré-import), 0 trafic prod 30j, aucun consumer (le sync SharePoint réel passe par /api/onedrive/sync cron + /api/sharepoint/files listing).',
+      '  • La route unifiée d\'import manuel est désormais /api/cv/parse — utilisée par UploadCV (individuel + modale confirmation) et public/import-worker.js (batch Web Worker). Les syncs automatiques restent sur /api/onedrive/sync (cron 10min).',
+      'CLAUDE.md mis à jour : liste des routes protégées, note explicite sur la route unifiée, section last_import_at nettoyée.',
+    ],
+  },
   {
     version: '1.9.22',
     date: '2026-04-18',

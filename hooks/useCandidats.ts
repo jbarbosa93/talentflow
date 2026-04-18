@@ -53,6 +53,11 @@ export function useCandidats(filters?: {
     staleTime: filters?.search ? 60_000 : 30_000, // recherche active : 1 min, liste : 30s
     gcTime: 5 * 60_000,                           // garder en mémoire 5 min
     placeholderData: (prev: any) => prev,
+    // v1.9.23 — refetch quand l'user revient sur l'onglet.
+    // Couvre les updates silencieux : cron OneDrive sync (10min), actions d'autres users
+    // (multi-consultants), ré-imports batch. Sans ça, la liste reste figée au snapshot de
+    // chargement et les badges (hasBadge) lisent du stale → badge rouge invisible.
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -68,6 +73,8 @@ export function useCandidat(id: string) {
     enabled: !!id,
     staleTime: 2 * 60_000,  // fiche candidat : 2 min (change rarement)
     gcTime: 10 * 60_000,    // garder 10 min en mémoire
+    // v1.9.23 — refetch on focus pour capter ré-imports OneDrive/bulk silencieux
+    refetchOnWindowFocus: true,
   })
 }
 

@@ -133,10 +133,14 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
     ensureInit().then(() => computeBadgeCount())
 
     window.addEventListener('talentflow:badges-changed', debouncedCompute)
+    // v1.9.23 — refetch immédiat au retour sur l'onglet (capte crons OneDrive silencieux)
+    const onFocus = () => computeBadgeCount()
+    window.addEventListener('focus', onFocus)
     const interval = setInterval(computeBadgeCount, 60_000)
 
     return () => {
       window.removeEventListener('talentflow:badges-changed', debouncedCompute)
+      window.removeEventListener('focus', onFocus)
       clearInterval(interval)
       if (debounceTimer) clearTimeout(debounceTimer)
     }
