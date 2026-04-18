@@ -975,7 +975,7 @@ export default function CandidatDetailPage() {
                       ✂️
                     </button>
                   )}
-                  {isEditing && candidat.photo_url && candidat.photo_url !== 'checked' && (
+                  {candidat.photo_url && candidat.photo_url !== 'checked' && (
                     <>
                       <button
                         onClick={handlePhotoRotate}
@@ -1072,72 +1072,72 @@ export default function CandidatDetailPage() {
                         </button>
                       ))}
                     </div>
-                    {/* Toggles rapides CFC + Déjà engagé */}
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 5 }}>
-                      {/* Toggle CFC */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const newVal = !candidat.cfc
-                          queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: newVal } : old)
-                          try {
-                            await fetch(`/api/candidats/${candidat.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ cfc: newVal }),
-                            })
-                            queryClient.invalidateQueries({ queryKey: ['candidats'] })
-                          } catch {
-                            queryClient.invalidateQueries({ queryKey: ['candidat', id] })
-                          }
-                        }}
-                        title={candidat.cfc ? 'CFC — cliquer pour désactiver' : 'CFC — cliquer pour activer'}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 3,
-                          padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                          border: `1.5px solid ${candidat.cfc ? '#F59E0B' : 'var(--border)'}`,
-                          background: candidat.cfc ? 'rgba(245,158,11,0.12)' : 'transparent',
-                          color: candidat.cfc ? '#F59E0B' : 'var(--muted)',
-                          cursor: 'pointer', transition: 'all 0.15s',
-                        }}
-                      >
-                        <GraduationCap size={11} />
-                        CFC
-                      </button>
-                      {/* Toggle Déjà engagé */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const newVal = !candidat.deja_engage
-                          queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, deja_engage: newVal } : old)
-                          try {
-                            await fetch(`/api/candidats/${candidat.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ deja_engage: newVal }),
-                            })
-                            queryClient.invalidateQueries({ queryKey: ['candidats'] })
-                          } catch {
-                            queryClient.invalidateQueries({ queryKey: ['candidat', id] })
-                          }
-                        }}
-                        title={candidat.deja_engage ? 'Déjà engagé — cliquer pour désactiver' : 'Déjà engagé — cliquer pour activer'}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 3,
-                          padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
-                          border: `1.5px solid ${candidat.deja_engage ? '#22C55E' : 'var(--border)'}`,
-                          background: candidat.deja_engage ? 'rgba(34,197,94,0.12)' : 'transparent',
-                          color: candidat.deja_engage ? '#22C55E' : 'var(--muted)',
-                          cursor: 'pointer', transition: 'all 0.15s',
-                        }}
-                      >
-                        <Briefcase size={11} />
-                        Engagé
-                      </button>
-                    </div>
                     {/* Pastilles métier déplacées sous la ville */}
                   </>
                 )}
+                {/* Toggles rapides CFC + Déjà engagé — toujours visibles (mode lecture + édition) */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 5, marginTop: 5 }}>
+                  {/* Toggle CFC */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newVal = !candidat.cfc
+                      queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: newVal } : old)
+                      try {
+                        await fetch(`/api/candidats/${candidat.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ cfc: newVal }),
+                        })
+                        queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                      } catch {
+                        queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                      }
+                    }}
+                    title={candidat.cfc ? 'CFC — cliquer pour désactiver' : 'CFC — cliquer pour activer'}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 3,
+                      padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
+                      border: `1.5px solid ${candidat.cfc ? '#F59E0B' : 'var(--border)'}`,
+                      background: candidat.cfc ? 'rgba(245,158,11,0.12)' : 'transparent',
+                      color: candidat.cfc ? '#F59E0B' : 'var(--muted)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    <GraduationCap size={11} />
+                    CFC
+                  </button>
+                  {/* Toggle Déjà engagé */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newVal = !candidat.deja_engage
+                      queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, deja_engage: newVal } : old)
+                      try {
+                        await fetch(`/api/candidats/${candidat.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ deja_engage: newVal }),
+                        })
+                        queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                      } catch {
+                        queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+                      }
+                    }}
+                    title={candidat.deja_engage ? 'Déjà engagé — cliquer pour désactiver' : 'Déjà engagé — cliquer pour activer'}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 3,
+                      padding: '3px 9px', borderRadius: 100, fontSize: 11, fontWeight: 700,
+                      border: `1.5px solid ${candidat.deja_engage ? '#22C55E' : 'var(--border)'}`,
+                      background: candidat.deja_engage ? 'rgba(34,197,94,0.12)' : 'transparent',
+                      color: candidat.deja_engage ? '#22C55E' : 'var(--muted)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    <Briefcase size={11} />
+                    Engagé
+                  </button>
+                </div>
               </div>
             </div>
 
