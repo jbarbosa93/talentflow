@@ -1,12 +1,18 @@
 // lib/candidat-matching.ts
+// v1.9.22 — Présélection durcie : Pass 1 AND + Pass 2 OR complément + signal fort parallèle
 // v1.9.20 — Refonte IDENTITÉ-FIRST ÉLARGIE + scoring 3 niveaux
 //
 // Règle définitive : on ne matche JAMAIS sans similarité de nom, mais on tolère
 // les variations (accents, ordre nom/prénom, sous-ensemble de tokens).
 //
 // Pipeline :
-//   1. Présélection DB : LIMIT 50 candidats partageant ≥1 token (≥3 chars, unaccent lower)
-//      avec les tokens nom+prenom de l'input.
+//   1. Présélection DB en 3 requêtes parallèles (v1.9.22) :
+//      - Pass 1 : AND de TOUS les tokens nom+prénom (chaque token ilike nom OU prenom)
+//                 → top 50 ORDER BY created_at DESC
+//      - Pass 2 (si Pass 1 < 50) : OR de chaque token → complément jusqu'à 50
+//      - Signal fort : email ou DDN exacts → top 20 ORDER BY created_at DESC
+//      Merge dedup par id. Fix le bug v1.9.21 où un token trop commun (Gomes, 99 rows)
+//      éjectait la vraie fiche hors du LIMIT 50.
 //   2. Early reject : DDN contradictoire (les 2 renseignées et différentes) → exclu.
 //   3. Scoring par candidat restant :
 //        DDN match          = +10
@@ -40,8 +46,18 @@ export type CandidatMatchInput = {
 
 export type CoordDiff = { field: 'email' | 'telephone' | 'date_naissance'; from: string | null; to: string | null }
 
+export type MatchScoreBreakdown = {
+  score: number
+  ddnMatch: boolean
+  telMatch: boolean
+  emailMatch: boolean
+  strictExact: boolean
+  strictSubset: boolean
+  villeMatch: boolean
+}
+
 export type CandidatMatchResult =
-  | { kind: 'match'; candidat: any; reason: string; diffs: CoordDiff[] }
+  | { kind: 'match'; candidat: any; reason: string; diffs: CoordDiff[]; scoreBreakdown: MatchScoreBreakdown }
   | { kind: 'none' }
   | { kind: 'insufficient'; reason: string }
 
@@ -234,17 +250,55 @@ export async function findExistingCandidat(
     }
   }
 
-  // ── Étape 1 : présélection élargie par tokens nom+prenom ──
+  // ── Étape 1 : présélection en 3 requêtes parallèles (v1.9.22) ──
   const iTokens = tokensOfIdentity(input.nom, input.prenom)
   if (iTokens.length === 0) {
     return { kind: 'insufficient', reason: 'Aucun token identité ≥3 chars' }
   }
 
-  // Build OR clause : chaque token matché dans nom OU prenom
-  const orClauses = iTokens.map(t => `nom.ilike.%${t}%,prenom.ilike.%${t}%`).join(',')
-  const { data: rows } = await supabase.from('candidats').select(cols).or(orClauses).limit(50)
-  const candidates: any[] = rows || []
+  // Pass 1 : AND de TOUS les tokens (chaîne de .or() = AND de chaque groupe)
+  //   supabase-js combine plusieurs .or() par AND → `(nom.ilike.%A% OR prenom.ilike.%A%) AND (nom.ilike.%B% OR prenom.ilike.%B%)`
+  let pass1Builder = supabase.from('candidats').select(cols)
+  for (const t of iTokens) {
+    pass1Builder = pass1Builder.or(`nom.ilike.%${t}%,prenom.ilike.%${t}%`)
+  }
+  const pass1Promise = pass1Builder.order('created_at', { ascending: false }).limit(50)
 
+  // Signal fort en parallèle : email (ilike case-insensitive) ou DDN exact.
+  //   Tel9 exclu : format stocké variable (espaces, +41...) → pas de match fiable
+  //   en SQL sans migration. Pass 1 + scoring post-scoring couvrent les cas tel.
+  const emailN = normEmail(input.email)
+  const ddnRaw = (input.date_naissance || '').trim()
+  const signalClauses: string[] = []
+  if (emailN) signalClauses.push(`email.ilike.${emailN}`)
+  if (ddnRaw) signalClauses.push(`date_naissance.eq.${ddnRaw}`)
+  const signalPromise = signalClauses.length > 0
+    ? supabase.from('candidats').select(cols).or(signalClauses.join(',')).order('created_at', { ascending: false }).limit(20)
+    : Promise.resolve({ data: [] as any[] })
+
+  const [pass1Res, signalRes] = await Promise.all([pass1Promise, signalPromise])
+  const pool = new Map<string, any>()
+  for (const c of (pass1Res.data as any[]) || []) pool.set(c.id, c)
+
+  // Pass 2 : si Pass 1 < 50, OR complément pour atteindre 50
+  if (pool.size < 50) {
+    const orClauses = iTokens.map(t => `nom.ilike.%${t}%,prenom.ilike.%${t}%`).join(',')
+    const { data: pass2Rows } = await supabase
+      .from('candidats')
+      .select(cols)
+      .or(orClauses)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    for (const c of (pass2Rows as any[]) || []) {
+      if (pool.size >= 50) break
+      if (!pool.has(c.id)) pool.set(c.id, c)
+    }
+  }
+
+  // Merge signal fort (peut ajouter jusqu'à 20 candidats si ids nouveaux)
+  for (const c of (signalRes.data as any[]) || []) pool.set(c.id, c)
+
+  const candidates: any[] = Array.from(pool.values())
   if (candidates.length === 0) return { kind: 'none' }
 
   // ── Étape 2 + 3 : scoring individuel + early reject DDN contradictoire ──
@@ -267,6 +321,15 @@ export async function findExistingCandidat(
     candidat: winner.candidat,
     reason: winner.reason,
     diffs: computeDiffs(winner.candidat, input),
+    scoreBreakdown: {
+      score: winner.score,
+      ddnMatch: winner.ddnMatch,
+      telMatch: winner.telMatch,
+      emailMatch: winner.emailMatch,
+      strictExact: winner.strictExact,
+      strictSubset: winner.strictSubset,
+      villeMatch: winner.villeMatch,
+    },
   }
 }
 

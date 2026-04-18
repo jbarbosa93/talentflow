@@ -4,7 +4,7 @@
     {
       "name": "talentflow",
       "runtimeExecutable": "/opt/homebrew/bin/node",
-      "runtimeArgs": ["node_modules/.bin/next", "dev", "--port", "3001", "--webpack"],
+      "runtimeArgs": ["--max-http-header-size=131072", "node_modules/.bin/next", "dev", "--port", "3001", "--webpack"],
       "port": 3001,
       "autoPort": false
     }

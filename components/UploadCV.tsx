@@ -6,8 +6,10 @@ import {
   Clock, RefreshCw, Plus, Search, Eye, UserPlus,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { dispatchBadgesChanged } from '@/lib/badge-candidats'
+import ConfirmMatchModal, { type ConfirmMatchPayload, type ConfirmMatchDecision } from './ConfirmMatchModal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -19,7 +21,7 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'uploading' | 'parsing' | 'success' | 'doublon_updated' | 'already_imported' | 'doc_added' | 'multiple_matches' | 'error'
+type FileStatus = 'pending' | 'uploading' | 'parsing' | 'awaiting_confirmation' | 'success' | 'doublon_updated' | 'already_imported' | 'doc_added' | 'multiple_matches' | 'error'
 
 interface FileItem {
   file: File
@@ -31,7 +33,12 @@ interface FileItem {
   candidatNom?: string
   storagePath?: string
   needsRetry?: boolean
+  // v1.9.21 — confirmation payload stocké quand confirmation_required reçue
+  confirmPayload?: ConfirmMatchPayload
 }
+
+// v1.9.21 — action mémorisée pour "appliquer à tous"
+type ApplyAllAction = 'update' | 'create' | null
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,6 +74,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const [manualSearchResults, setManualSearchResults] = useState<any[]>([])
   const [manualSearching, setManualSearching] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // v1.9.21 — modale de confirmation + apply-all queue
+  const [confirmQueue, setConfirmQueue] = useState<Array<{ fileIdx: number; payload: ConfirmMatchPayload }>>([])
+  const applyAllRef = useRef<ApplyAllAction>(null)
+  const queryClient = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
   const filesRef = useRef<FileItem[]>([])
   const cancelledRef = useRef(false)
@@ -144,7 +155,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   // ------- Process a single file -------
 
-  const processOneFile = async (idx: number, storagePath?: string): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean; needsSelection?: boolean }> => {
+  const processOneFile = async (idx: number, storagePath?: string, skipConfirmation = false): Promise<{ success: boolean; candidat?: any; needsRetry?: boolean; needsSelection?: boolean; needsConfirmation?: boolean }> => {
     if (cancelledRef.current) return { success: false }
     const item = filesRef.current[idx]
     if (!item) return { success: false }
@@ -162,6 +173,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       // 2. Call parse API — file_date = lastModified du fichier (date la plus fiable)
       const body: Record<string, any> = { storage_path: path, statut: 'nouveau', file_date: new Date(item.file.lastModified).toISOString() }
       if (offreId) body.offre_id = offreId
+      if (skipConfirmation) body.skip_confirmation = true
 
       const res = await fetch('/api/cv/parse', {
         method: 'POST',
@@ -181,6 +193,23 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       }
 
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+
+      // v1.9.21 — Confirmation requise (match détecté, pas de memeContenu) → modale
+      if (data.confirmation_required && data.candidat_existant) {
+        // Si une action "apply-all" a été mémorisée plus tôt, l'appliquer directement
+        if (applyAllRef.current === 'update') {
+          const r = await finalizeWithAction(idx, data as ConfirmMatchPayload, 'update')
+          return r
+        }
+        if (applyAllRef.current === 'create') {
+          const r = await finalizeWithAction(idx, data as ConfirmMatchPayload, 'create')
+          return r
+        }
+        // Sinon, on enqueue pour affichage modal (sérialisé dans l'ordre d'arrivée)
+        updateFile(idx, { status: 'awaiting_confirmation', storagePath: path, confirmPayload: data as ConfirmMatchPayload, candidatNom: `${data.candidat_existant.prenom || ''} ${data.candidat_existant.nom || ''}`.trim() })
+        setConfirmQueue(prev => [...prev, { fileIdx: idx, payload: data as ConfirmMatchPayload }])
+        return { success: false, needsConfirmation: true }
+      }
 
       // 4a. Plusieurs candidats matchent → demander à l'utilisateur
       if (data.isDuplicate && data.multipleMatches && data.candidatsMatches) {
@@ -246,6 +275,117 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     }
   }
 
+  // ------- v1.9.21 : confirmation modale -------
+
+  // Finalise un import en appelant /api/cv/parse/confirm-match
+  const finalizeWithAction = async (
+    idx: number,
+    payload: ConfirmMatchPayload,
+    action: 'update' | 'create',
+  ): Promise<{ success: boolean; candidat?: any }> => {
+    const item = filesRef.current[idx]
+    if (!item) return { success: false }
+    updateFile(idx, { status: 'parsing' })
+
+    try {
+      const body: Record<string, any> = {
+        storage_path: payload.storage_path,
+        action,
+        file_name: payload.file_name,
+        file_date: payload.file_date,
+        categorie: payload.categorie,
+      }
+      if (action === 'update') body.candidat_id = payload.candidat_existant.id
+      if (offreId) body.offre_id = offreId
+
+      const res = await fetch('/api/cv/parse/confirm-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+
+      const nom = `${data.candidat?.prenom || payload.candidat_existant.prenom || ''} ${data.candidat?.nom || payload.candidat_existant.nom || ''}`.trim()
+
+      if (action === 'update') {
+        // v1.9.22 — action utilisateur explicite "Mettre à jour" → toujours CV actualisé,
+        // jamais "doc ajouté" (le docAdded vient du flow auto non-CV, pas d'une décision user).
+        updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé', confirmPayload: undefined })
+      } else {
+        updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé', confirmPayload: undefined })
+      }
+      // v1.9.22 — invalide le cache React Query + dispatch badge event.
+      // Nécessaire : sans invalidateQueries, la liste candidats garde les vieilles
+      // données (last_import_at=null) → hasBadge() retourne false → badge invisible
+      // même après DB bien mise à jour.
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      queryClient.invalidateQueries({ queryKey: ['candidat', payload.candidat_existant.id] })
+      dispatchBadgesChanged()
+      return { success: true, candidat: data.candidat || payload.candidat_existant }
+    } catch (err: any) {
+      updateFile(idx, { status: 'error', error: err.message || 'Erreur confirmation', confirmPayload: undefined })
+      return { success: false }
+    }
+  }
+
+  // Annule un import : nettoyage Storage + cache
+  const cancelImport = async (storagePath: string) => {
+    try {
+      await fetch('/api/cv/parse/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage_path: storagePath }),
+      })
+    } catch {}
+  }
+
+  // Handler décision modale
+  const handleConfirmDecision = async (decision: ConfirmMatchDecision) => {
+    const head = confirmQueue[0]
+    if (!head) return
+    const { fileIdx, payload } = head
+
+    // Apply-all mémorisé pour les suivants (update/create seulement)
+    if (decision.applyToAll && (decision.action === 'update' || decision.action === 'create')) {
+      applyAllRef.current = decision.action
+    }
+
+    // Retirer head de la file
+    setConfirmQueue(prev => prev.slice(1))
+
+    if (decision.action === 'view') {
+      // Ouvrir la fiche existante + annuler cet import (storage + cache)
+      const url = `/candidats/${payload.candidat_existant.id}`
+      if (typeof window !== 'undefined') window.open(url, '_blank')
+      updateFile(fileIdx, { status: 'already_imported', candidatNom: `${payload.candidat_existant.prenom || ''} ${payload.candidat_existant.nom || ''}`.trim() || 'Fiche existante', confirmPayload: undefined })
+      cancelImport(payload.storage_path)
+
+      // Appliquer à toute la file si applyToAll=true (cas de masse : tout "voir" = tout annuler)
+      if (decision.applyToAll) {
+        const rest = confirmQueue.slice(1)
+        for (const entry of rest) {
+          updateFile(entry.fileIdx, { status: 'already_imported', candidatNom: `${entry.payload.candidat_existant.prenom || ''} ${entry.payload.candidat_existant.nom || ''}`.trim() || 'Fiche existante', confirmPayload: undefined })
+          cancelImport(entry.payload.storage_path)
+        }
+        setConfirmQueue([])
+      }
+      return
+    }
+
+    // Finalise la décision (update ou create)
+    await finalizeWithAction(fileIdx, payload, decision.action)
+
+    // Si apply-all : consommer TOUTE la file restante avec la même action
+    if (decision.applyToAll) {
+      const rest = confirmQueue.slice(1)
+      setConfirmQueue([])
+      for (const entry of rest) {
+        await finalizeWithAction(entry.fileIdx, entry.payload, decision.action)
+      }
+    }
+  }
+
   // ------- Two-pass processing -------
 
   const handleUpload = async () => {
@@ -257,6 +397,11 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     if (pendingIndices.length === 0) return
 
     cancelledRef.current = false
+    // v1.9.22 — reset apply-all + queue à chaque nouvelle session d'import. Sans reset,
+    // un ref persistait d'une session à l'autre → les imports suivants sautaient la modale
+    // silencieusement (applyAll='create' ou 'update' mémorisé d'un clic précédent).
+    applyAllRef.current = null
+    setConfirmQueue([])
     setUploading(true)
     setDone(false)
     setStartTime(Date.now())
@@ -339,6 +484,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'uploading':
       case 'parsing':
         return <Loader2 size={14} style={{ color: '#3B82F6', flexShrink: 0, animation: 'spin 1s linear infinite' }} />
+      case 'awaiting_confirmation':
+        return <AlertCircle size={14} style={{ color: '#D97706', flexShrink: 0 }} />
+      case 'already_imported':
+        return <CheckCircle size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
       case 'success':
         return <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
       case 'doc_added':
@@ -411,6 +560,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'pending': return item.needsRetry ? 'En attente (2ème tentative)' : 'En attente'
       case 'uploading': return 'Upload en cours...'
       case 'parsing': return 'Analyse IA en cours...'
+      case 'awaiting_confirmation': return `Confirmation requise — ${item.candidatNom || 'match détecté'}`
       case 'success': return `Importé — ${item.candidatNom}`
       case 'already_imported': return `Déjà importé — ${item.candidatNom}`
       case 'doc_added': return `Document ajouté — ${item.candidatNom}`
@@ -427,6 +577,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'pending': return '#9CA3AF'
       case 'uploading':
       case 'parsing': return '#3B82F6'
+      case 'awaiting_confirmation': return '#D97706'
       case 'success': return '#16A34A'
       case 'already_imported': return '#9CA3AF'
       case 'doc_added': return '#3B82F6'
@@ -439,6 +590,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const rowBg = (s: FileStatus) => {
     switch (s) {
       case 'success': return '#F0FDF4'
+      case 'awaiting_confirmation': return '#FEF3C7'
       case 'already_imported': return '#F9FAFB'
       case 'doc_added': return '#EFF6FF'
       case 'doublon_updated': return '#FFFBEB'
@@ -451,6 +603,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
   const rowBorder = (s: FileStatus) => {
     switch (s) {
       case 'success': return '#BBF7D0'
+      case 'awaiting_confirmation': return '#FCD34D'
       case 'doc_added': return '#BFDBFE'
       case 'doublon_updated': return '#FDE68A'
       case 'multiple_matches': return '#C4B5FD'
@@ -897,6 +1050,16 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           )}
         </div>
       </div>
+    )}
+
+    {/* v1.9.21 — Modale de confirmation match détecté */}
+    {confirmQueue.length > 0 && (
+      <ConfirmMatchModal
+        payload={confirmQueue[0].payload}
+        queueRemaining={confirmQueue.length - 1}
+        onDecide={handleConfirmDecision}
+        onClose={() => handleConfirmDecision({ action: 'view', applyToAll: false })}
+      />
     )}
 
     </>

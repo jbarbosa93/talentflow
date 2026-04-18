@@ -67,6 +67,7 @@ async function processJobDirect(job, t0) {
     if (job.forceInsert) formData.append('force_insert', 'true')
     if (job.replaceId)   formData.append('replace_id', job.replaceId)
     if (useFilenameDate) formData.append('use_filename_date', 'true')
+    formData.append('skip_confirmation', 'true') // v1.9.21 — import masse : jamais de modale
 
     const controller = new AbortController()
     const timeoutId  = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
@@ -129,6 +130,7 @@ async function processJobLarge(job, t0) {
           force_insert: job.forceInsert,
           replace_id: job.replaceId,
           use_filename_date: useFilenameDate,
+          skip_confirmation: true, // v1.9.21 — import masse : jamais de modale
         }),
         signal: controller.signal,
       })

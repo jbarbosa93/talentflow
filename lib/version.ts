@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.20'
+export const APP_VERSION = '1.9.22'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,45 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.22',
+    date: '2026-04-18',
+    label: 'Matching — fix présélection SQL (LIMIT 50 silencieusement saturé sur noms communs)',
+    features: [
+      'BUG fixé (v1.9.21) : l\'import de José Gomes (09/02/2001, Monthey, email josemiguel4gomes@gmail.com) créait un doublon alors qu\'une fiche Jose Gomes identique (DDN + email + nom + ville) existait déjà. Cause : la présélection SQL OR sur les tokens "jose" + "gomes" retourne 99 candidats en DB, LIMIT 50 sans ORDER BY éjecte silencieusement la vraie fiche hors du pool de scoring. 0 match possible même si score attendu = 26 (DDN+email+strict_exact+ville).',
+      'Refonte de la présélection dans lib/candidat-matching.ts en 3 requêtes parallèles (Promise.all) :',
+      '  • Pass 1 — AND de TOUS les tokens nom+prénom : chaîne de .or() = `(nom.ilike.%A% OR prenom.ilike.%A%) AND (nom.ilike.%B% OR prenom.ilike.%B%)`. Top 50 ORDER BY created_at DESC. Pour José Gomes, Pass 1 à elle seule retourne exactement la fiche cible (1 résultat au lieu de 50 noyés).',
+      '  • Pass 2 (fallback) — si Pass 1 < 50, OR classique sur chaque token pour compléter le pool jusqu\'à 50 (sert aux cas où un seul token est présent).',
+      '  • Signal fort — email (ilike case-insensitive) OU date_naissance exacte. Top 20 ORDER BY created_at DESC. Filet de sécurité : si les tokens nom sont dilués, une fiche partageant email ou DDN est ramenée dans le pool.',
+      'Dedup par id (Map) avant scoring. Taille finale ≤ 70 candidats. ORDER BY created_at DESC partout → résultat déterministe, prédictible.',
+      'Tel9 exclu du signal fort SQL (format téléphone stocké variable avec espaces/+41 → pas de match fiable sans migration d\'une colonne normalisée). Les matches tel restent détectés via Pass 1 (si nom match) + scoring post-preselect (+8 au score si tel9 identique).',
+      'Simulation dry-run sur 6085 candidats : ZÉRO régression (0 cas où v1.9.20 matchait et v1.9.22 ne matche plus). +15 nouveaux matches légitimes grâce au signal fort : doublons typo email (martinez vs martinezz), noms abrégés (Jorge Monteiro ⊂ Carlos Jorge Dias Monteiro), accents (Fabio/Fábio Mendes). Tests critiques préservés : André Rodrigues Champéry DDN 10/02/1984 reste séparé des homonymes, Werner Gomes ≠ William Egas, Ricardo ≠ José Ricardo.',
+      'Seuils et pondération scoreCandidat/passesThreshold INCHANGÉS (v1.9.20 préservé) — seule la présélection évolue.',
+      '3 fixes UI post-confirmation modale cv/parse update_id path :',
+      '  • BUG 1 — Status "doc ajouté" au lieu de "CV actualisé" après action user "Mettre à jour". Cause : route retournait `{updated: true}` sans `cvUpdated: true` → UploadCV tombait dans le branche docAdded. Fix : ajout `cvUpdated: true` dans la réponse + simplification finalizeWithAction (action=update → toujours doublon_updated, indépendamment des flags route).',
+      '  • BUG 2 — Date fiche pas rafraîchie après update. Cause : `last_import_at` absent de updateData sur le path updateId (alors que présent partout ailleurs). Fix : ajout updateData.last_import_at = now() — conformément à CLAUDE.md règle 7 (badges per-user v1.9.16).',
+      '  • BUG 3 — Badge rouge ne réapparaissait pas après update via modale. Cause double : last_import_at manquant (voir BUG 2) + dispatchBadgesChanged() appelé à la fin de handleUpload AVANT résolution des modales (timing). Fix : ajout dispatchBadgesChanged() à la fin de finalizeWithAction pour rafraîchir sidebar + liste dès décision user.',
+      '  • BUG 4 — Modale ne réapparaissait plus sur imports suivants après un clic "apply-all". Cause : applyAllRef (useRef) persistait d\'une session à l\'autre tant que UploadCV restait monté. Les imports suivants sautaient silencieusement la modale et appliquaient l\'action mémorisée (create ou update). Fix : reset applyAllRef.current=null + setConfirmQueue([]) au début de chaque handleUpload.',
+      '  • BUG 5 — Cache React Query pas invalidé → la liste candidats gardait l\'ancien last_import_at=null → hasBadge() retournait false → badge invisible malgré DB à jour. Fix : ajout queryClient.invalidateQueries([\'candidats\']) + ([\'candidat\', id]) dans finalizeWithAction.',
+      '  • BUG 6 — Bypass silencieux de la modale pour un fichier re-uploadé avec un nom collision mais contenu différent. Cause : `memeContenu = memeNomBase || memeTexte` (OR permissif) écrasait la fiche silencieusement dès que les noms normalisés correspondaient (strip timestamp + lowercase), sans vérifier le texte réel. Fix : pour imports manuels (skip_confirmation=false), exiger explicitement un match texte (500 chars). Le filename reste un proxy acceptable pour les flux auto (bulk/cron/sharepoint qui envoient skip_confirmation=true) où OCR peut varier.',
+    ],
+  },
+  {
+    version: '1.9.21',
+    date: '2026-04-18',
+    label: 'Import CV : modale de confirmation sur match détecté (Update / Créer / Voir)',
+    features: [
+      'Nouvelle modale ConfirmMatchModal affichée dans UploadCV quand /api/cv/parse détecte un match existant (hors memeContenu/sameFile). 3 actions : ✅ Mettre à jour la fiche / ❌ Créer un nouveau candidat / 👁️ Voir la fiche existante. L\'utilisateur garde le contrôle avant tout écrasement.',
+      'Affichage visuel du score : barre de confiance (0-34), badge texte (Très élevé ≥20 / Élevé ≥13 / Modéré ≥8 / Faible), signaux détectés (DDN/Tél/Email/Nom exact/Nom partiel/Ville) et table comparative champ par champ (rouge→vert sur les diffs email/téléphone/DDN).',
+      'Checkbox "Appliquer ce choix aux prochains matches" par action (Update ou Create) — évite 50 clics sur import groupé. La mémoire applyAll est un ref React, lue synchroniquement sur les files suivants.',
+      'Nouvelle route /api/cv/parse/confirm-match — proxy mince qui relaie vers /api/cv/parse avec skip_confirmation:true + update_id ou force_insert selon action. Cookies transférés pour requireAuth().',
+      'Nouvelle route /api/cv/parse/cancel — invalide le cache analyse + supprime l\'objet Storage cvs/temp_import/* quand l\'utilisateur clique "Voir la fiche existante". Non bloquant.',
+      'Cache mémoire 5min TTL par storage_path (lib/analyse-cache.ts) : l\'analyse Claude initiale est stockée en Map ; la confirmation n\'appelle PAS une 2e fois l\'IA si < 5min. Économie ≈$0.01/CV sur chaque confirmation.',
+      'Flag skip_confirmation:true ajouté dans public/import-worker.js (imports masse en batch) et /api/cv/parse/confirm-match. Les flux automatisés (OneDrive cron, SharePoint import, Web Worker bulk) bypassent la modale et conservent leur comportement auto-update.',
+      'Type CandidatMatchResult.match étendu avec scoreBreakdown (score + 6 booleans) — exposé pour alimenter la modale. Hoist de matchReasonDetail/matchDiffsDetail/matchScoreDetail dans /api/cv/parse pour construction de la réponse confirmation_required.',
+      'FileStatus étendu avec \'awaiting_confirmation\' + couleurs orange/amber sur l\'UI UploadCV. Modale rendue via createPortal (CLAUDE.md règle 10).',
+    ],
+  },
   {
     version: '1.9.20',
     date: '2026-04-18',

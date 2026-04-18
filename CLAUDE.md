@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.20 dev** — 18/04/2026 (prête, non déployée — validation prévue le matin)
+**1.9.22 localhost** — 18/04/2026
 
 ---
 

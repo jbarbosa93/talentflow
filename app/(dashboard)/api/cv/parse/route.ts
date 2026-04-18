@@ -13,6 +13,7 @@ import { analyserDocumentMultiType } from '@/lib/document-splitter'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 import { requireAuth } from '@/lib/auth-guard'
 import { findExistingCandidat } from '@/lib/candidat-matching'
+import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -130,6 +131,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   let mode: string | null = null // 'reanalyse' = écrasement total sauf nom/prénom/photo
   let fileDate: string | null = null // date de dernière modification du fichier (lastModified)
   let cvRotationHint = 0 // rotation appliquée dans le viewer (0/90/180/270) — à appliquer au PDF
+  let skipConfirmation = false // v1.9.21 — bypass la modale de confirmation (bulk/import-worker/re-appel après user confirm)
 
   if (ct.includes('application/json')) {
     const body = await request.json()
@@ -144,6 +146,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     mode             = body.mode || null
     fileDate         = body.file_date || null
     cvRotationHint   = typeof body.cv_rotation === 'number' ? body.cv_rotation : 0
+    skipConfirmation = body.skip_confirmation === true
   } else {
     const formData = await request.formData()
     file            = formData.get('cv') as File | null
@@ -157,6 +160,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     useFilenameDate  = formData.get('use_filename_date') === 'true'
     mode             = formData.get('mode') as string | null
     fileDate         = formData.get('file_date') as string | null
+    skipConfirmation = formData.get('skip_confirmation') === 'true'
   }
 
   // Si storage_path fourni → télécharger depuis Supabase
@@ -263,6 +267,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   const arrayBuffer = await file.arrayBuffer()
   let buffer: Buffer = Buffer.from(arrayBuffer)
 
+  // v1.9.21 — Cache short-circuit : si skip_confirmation + storage_path + cache hit,
+  // on récupère l'analyse Claude + photoUrl + docType etc. de la 1ère passe (il y a <5min)
+  // et on saute toute la phase d'analyse (Claude ~$0.01 économisé par CV).
+  // Fallback transparent : cache miss → re-analyse normale.
+  const cached = skipConfirmation && storagePathInput ? getCachedAnalyse(storagePathInput) : null
+
+  // v1.9.21 — Variables d'analyse déclarées ici pour permettre le skip via cache.
+  // Quand cached est présent, on saute tout le bloc 4c→6e (rotation, multi-doc, extraction texte,
+  // Claude, fallbacks, second avis, extraction photo). Buffer reste tel quel pour l'upload final.
+  let analyse: any
+  let texteCV = ''
+  let photoUrl: string | null = null
+  let docType: string = 'cv'
+  let filenameEffectif = file.name
+  let autresDocumentsMultiType: Awaited<ReturnType<typeof analyserDocumentMultiType>>['autresDocuments'] = []
+  const ext     = file.name.toLowerCase().split('.').pop() || ''
+  const isPDF   = ext === 'pdf' || file.type === 'application/pdf'
+  const isDoc   = ext === 'doc' || file.type === 'application/msword'
+  const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
+
+  if (cached) {
+    dbg(`[CV Parse] ⚡ Cache hit — skip analyse Claude (storage_path=${storagePathInput?.slice(-50)})`)
+    analyse = cached.analyse
+    texteCV = cached.texteCV
+    photoUrl = cached.photoUrl
+    docType = cached.docType
+    filenameEffectif = cached.filenameEffectif
+    autresDocumentsMultiType = cached.autresDocumentsMultiType
+  } else {
+  // ════════════════ Bloc analyse (skipé si cache hit) ════════════════
+
   // 4c. Appliquer la rotation du viewer si fournie (cv_rotation) — pour les PDFs physiquement tournés
   // Le viewer stocke la rotation en localStorage (cosmétique uniquement). Ici on l'inscrit dans les
   // métadonnées du PDF pour que limitPDFPages (claude.ts) la corrige avant envoi à Claude.
@@ -287,8 +322,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 4b. Détection multi-documents (PDFs uniquement, > 100 KB pour éviter les PDFs vides)
   const ext0    = file.name.toLowerCase().split('.').pop() || ''
   const isPDF0  = ext0 === 'pdf' || file.type === 'application/pdf'
-  let autresDocumentsMultiType: Awaited<ReturnType<typeof analyserDocumentMultiType>>['autresDocuments'] = []
-  let filenameEffectif = file.name
 
   if (isPDF0 && file.size > 100 * 1024) {
     try {
@@ -307,7 +340,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 5. Extraire le texte — avec rotation automatique pour les PDFs
   dbg('[CV Parse] Extraction texte...')
-  let texteCV = ''
   try {
     const { extractTextWithRotation } = await import('@/lib/cv-parser')
     const result = await withTimeout(extractTextWithRotation(buffer, filenameEffectif), 30_000, 'extraction texte + rotation')
@@ -323,15 +355,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // timeout ou autre erreur → traiter comme PDF scanné
   }
 
-  const ext      = filenameEffectif.toLowerCase().split('.').pop() || ''
-  const isPDF    = ext === 'pdf' || file.type === 'application/pdf'
-  const isDoc    = ext === 'doc' || file.type === 'application/msword'
-  const isImage  = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/')
   const isScanned = !texteCV || texteCV.trim().length < 50
 
   // 6. Analyse Claude — timeout 45s
   dbg('[CV Parse] Analyse Claude IA...')
-  let analyse
 
   try {
     if (isImage) {
@@ -480,7 +507,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 6a-ter. Second avis : si l'IA dit "cv", vérifier via filename + patterns contenu stricts
   // Rattrape les scans avec nom générique ("Scanné 6 janv...") où l'IA rate le type.
-  let docType: string = analyse?.document_type || 'cv'
+  docType = analyse?.document_type || 'cv'
   if (docType === 'cv' || docType === 'autre') {
     const detectDocCategoryParse = (fn: string, txt: string): string | null => {
       const check = (source: string) => {
@@ -522,7 +549,6 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   dbg(`[CV Parse] Document type: ${docType}, isPDF: ${isPDF}, file.type: ${file.type}, ext: ${ext}`)
 
   // 6b. Extraction photo candidat (PDFs CV uniquement — pas pour attestations/certificats)
-  let photoUrl: string | null = null
   if (isPDF && analyse && docType === 'cv') {
     try {
       const { extractPhotoFromPDF } = await import('@/lib/cv-photo')
@@ -618,6 +644,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  } // ════════════════ Fin bloc analyse ════════════════
+
   // 7_pre. Détection doublons AVANT upload Storage — évite gaspillage pour doublons "même CV"
   const adminClient = createAdminClient()
 
@@ -627,6 +655,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   let candidatExistant: any = null
   let existingFullPre: any = null
+  // v1.9.21 — détails du match hoistés pour la branche confirmation_required
+  let matchReasonDetail: string | null = null
+  let matchDiffsDetail: any[] = []
+  let matchScoreDetail: any = null
 
   if (!forceInsert && !replaceId && !updateId) {
     // ── Cascade unifiée identité-first (lib/candidat-matching.ts) ──
@@ -641,6 +673,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     if (matchResult.kind === 'match') {
       candidatExistant = matchResult.candidat
+      matchReasonDetail = matchResult.reason
+      matchDiffsDetail = matchResult.diffs
+      matchScoreDetail = matchResult.scoreBreakdown
       // Log silencieux des diffs de coordonnées (homonymes parfaits avec coords différentes)
       if (matchResult.diffs && matchResult.diffs.length > 0) {
         try {
@@ -679,8 +714,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const normFn = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
       const memeNomBase = !!(ef?.cv_nom_fichier &&
         normFn(ef.cv_nom_fichier as string) === normFn(file.name))
-      const memeContenu = memeNomBase || !!(ef?.cv_texte_brut && texteCV &&
+      const memeTexte = !!(ef?.cv_texte_brut && texteCV &&
         (ef.cv_texte_brut as string).slice(0, 500).trim() === texteCV.slice(0, 500).trim())
+      // v1.9.22 — Exiger un match texte explicite pour les imports manuels (skip_confirmation=false).
+      // Sans ce durcissement, un fichier re-uploadé avec le même nom normalisé mais du contenu
+      // totalement différent était silencieusement avalé → écrasement invisible. Pour les flux auto
+      // (bulk/cron/sharepoint avec skip_confirmation=true), le filename reste un proxy acceptable
+      // (OCR peut varier, batch processing nécessite un shortcut).
+      const memeContenu = memeTexte || (skipConfirmation && memeNomBase)
 
       // Fix 4 — debug skip (activer localement si besoin, ne pas déployer)
       // console.log('[SKIP DEBUG]', { memeContenu, extrait500Length: texteCV.slice(0,500).trim().length, stocke500Length: (ef?.cv_texte_brut||'').slice(0,500).trim().length, resolvedCreatedAt, ef_created_at: ef?.created_at })
@@ -712,6 +753,48 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
           return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
         }
+      }
+
+      // v1.9.21 — Confirmation requise côté UI (import manuel uniquement, pas bulk/worker/cron)
+      // Match détecté + contenu différent → STOP avant upload+update. L'utilisateur choisira
+      // dans la modale : Update / Create new / View existing. La 2e requête arrivera avec
+      // skip_confirmation:true et soit update_id, soit force_insert.
+      if (!skipConfirmation && storagePathInput) {
+        // Cache l'analyse complète → 2e requête évite re-analyse Claude (~$0.01/CV, TTL 5min)
+        setCachedAnalyse(storagePathInput, {
+          analyse, texteCV, photoUrl, docType, filenameEffectif, autresDocumentsMultiType,
+        })
+        dbg(`[CV Parse] → confirmation_required : ${candidatExistant.prenom} ${candidatExistant.nom} (reason=${matchReasonDetail}, score=${matchScoreDetail?.score})`)
+        return NextResponse.json({
+          confirmation_required: true,
+          candidat_existant: {
+            id: candidatExistant.id,
+            nom: candidatExistant.nom,
+            prenom: candidatExistant.prenom,
+            email: candidatExistant.email,
+            telephone: candidatExistant.telephone,
+            date_naissance: candidatExistant.date_naissance,
+            titre_poste: candidatExistant.titre_poste,
+            localisation: candidatExistant.localisation,
+            created_at: candidatExistant.created_at,
+          },
+          analyse_preview: {
+            nom: analyse.nom,
+            prenom: analyse.prenom,
+            email: analyse.email,
+            telephone: analyse.telephone,
+            date_naissance: analyse.date_naissance,
+            titre_poste: analyse.titre_poste,
+            localisation: analyse.localisation,
+          },
+          score: matchScoreDetail, // { score, ddnMatch, telMatch, emailMatch, strictExact, strictSubset, villeMatch }
+          reason: matchReasonDetail,
+          diffs: matchDiffsDetail,
+          storage_path: storagePathInput,
+          file_name: file.name,
+          file_date: fileDate,
+          categorie: categorie,
+        })
       }
 
       // memeContenu = false → vérifier les données structurées pour décider du type de mise à jour
@@ -905,6 +988,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     const now = new Date().toISOString()
     updateData.updated_at = now
+    // v1.9.22 — écrire last_import_at pour faire réapparaître le badge rouge + remonter
+    // le candidat dans la liste triée. CLAUDE.md rule 7 (v1.9.16).
+    updateData.last_import_at = now
     // Ne jamais toucher created_at en mode update — cela déplacerait le candidat dans la liste
 
     const { data: updated, error: updateError } = await adminClient
@@ -928,6 +1014,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       cv_url: cvUrl,
       message: `Candidat ${analyse.prenom} ${analyse.nom} actualisé`,
       updated: true,
+      cvUpdated: true, // v1.9.22 — signal à UploadCV pour afficher "CV actualisé" (pas "doc ajouté")
     })
   }
 
