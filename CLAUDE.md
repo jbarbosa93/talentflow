@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.43 prod** — 19/04/2026
+**1.9.44 prod** — 19/04/2026
 
 ---
 
@@ -341,6 +341,12 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Après `setOnedriveSyncing(false)` dans `integrations/page.tsx` : invalider `['candidats']` + `['onedrive-fichiers']` + `['integrations']`
 - Sans ça, le refetchInterval 30s fait attendre le badge rouge et le nouveau statut
 - Pattern à reproduire pour tout futur bouton de sync/refresh manuel
+
+**19. Invalidation React Query après import manuel UploadCV (v1.9.44)**
+- Dans `handleUpload` de `UploadCV.tsx`, au `setDone(true)` : invalider `['candidats']` + `['candidat']`
+- Couplé avec debounce Sidebar `badges-changed` réduit à 500ms (`components/layout/Sidebar.tsx`)
+- Cumul refetchInterval 30s + debounce 3s faisait attendre 10-15s l'apparition du badge après import
+- Règle générale : toute action user qui modifie des candidats doit invalider ces queries explicitement
 
 ---
 
