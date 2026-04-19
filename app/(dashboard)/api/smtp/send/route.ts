@@ -126,15 +126,45 @@ export async function POST(request: NextRequest) {
 
     await transporter.sendMail(mailOptions)
 
-    // Log
+    // Log — v1.9.60 : campagne_id + user_id + multi-candidats + CV perso/original
+    const campagneId = (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const cvPersonnalise = Object.values(cvOptions).some((o: any) => o?.includedSections || o?.customContent)
+    const cvUrlsUtilises: string[] = attachments
+      .filter((a: any) => a?.filename)
+      .map((a: any) => `attach:${a.filename}`)
+
+    let clientId: string | null = null
+    let clientNom: string | null = null
+    try {
+      const { data: matchedClients } = await (supabase as any)
+        .from('clients')
+        .select('id, nom')
+        .in('email_contact', destinataires)
+        .limit(5)
+      if (matchedClients && matchedClients.length === 1) {
+        clientId = (matchedClients[0] as any).id
+        clientNom = (matchedClients[0] as any).nom
+      } else if (matchedClients && matchedClients.length > 1) {
+        clientNom = matchedClients.map((c: any) => c.nom).join(', ')
+      }
+    } catch { /* colonne absente, ignore */ }
+
+    const routeUserForLog = await getRouteUser().catch(() => null)
     const logs = destinataires.map((dest: string) => ({
       candidat_id: candidat_ids[0] || null,
       sujet,
       corps,
       destinataire: dest,
       statut: 'envoye' as const,
+      user_id: (routeUserForLog as any)?.user_id ?? null,
+      campagne_id: campagneId,
+      candidat_ids: candidat_ids.length > 0 ? candidat_ids : null,
+      client_id: clientId,
+      client_nom: clientNom,
+      cv_personnalise: cvPersonnalise,
+      cv_urls_utilises: cvUrlsUtilises.length > 0 ? cvUrlsUtilises : null,
     }))
-    await supabase.from('emails_envoyes').insert(logs)
+    await supabase.from('emails_envoyes').insert(logs as any)
 
     // Log activité équipe
     try {

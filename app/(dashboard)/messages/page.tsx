@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useEmailTemplates, useCreateTemplate } from '@/hooks/useMessages'
 import { useCandidats } from '@/hooks/useCandidats'
 import { useClients, type Client } from '@/hooks/useClients'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { renderTemplate, hasContexteIA, TEMPLATE_VARS, type Civilite } from '@/lib/template-vars'
@@ -36,13 +36,14 @@ const CAT_COLORS: Record<string, { bg: string; color: string }> = {
   general:              { bg: 'var(--secondary)', color: 'var(--muted)' },
 }
 
-type TabId = 'email' | 'whatsapp' | 'sms' | 'templates'
+type TabId = 'email' | 'whatsapp' | 'sms' | 'templates' | 'historique'
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'email',     label: 'Mailing',         icon: Mail },
-  { id: 'whatsapp',  label: 'WhatsApp',        icon: MessageCircle },
-  { id: 'sms',       label: 'SMS / iMessage',  icon: Smartphone },
-  { id: 'templates', label: 'Templates',       icon: FileText },
+  { id: 'email',      label: 'Mailing',         icon: Mail },
+  { id: 'whatsapp',   label: 'WhatsApp',        icon: MessageCircle },
+  { id: 'sms',        label: 'SMS / iMessage',  icon: Smartphone },
+  { id: 'templates',  label: 'Templates',       icon: FileText },
+  { id: 'historique', label: 'Historique',      icon: History },
 ]
 
 export default function MessagesPage() {
@@ -85,10 +86,11 @@ export default function MessagesPage() {
         ))}
       </div>
 
-      {tab === 'email'     && <EmailTab />}
-      {tab === 'whatsapp'  && <WhatsAppTab />}
-      {tab === 'sms'       && <SmsTab />}
-      {tab === 'templates' && <TemplatesTab />}
+      {tab === 'email'      && <EmailTab />}
+      {tab === 'whatsapp'   && <WhatsAppTab />}
+      {tab === 'sms'        && <SmsTab />}
+      {tab === 'templates'  && <TemplatesTab />}
+      {tab === 'historique' && <HistoriqueTab />}
     </div>
   )
 }
@@ -1805,5 +1807,223 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </div>
     </form>
+  )
+}
+
+// ─── Historique Tab (v1.9.60) ─────────────────────────────────────────────────
+// Liste les campagnes email envoyées par l'utilisateur courant.
+// Groupement par campagne_id : 1 ligne = 1 envoi (multi-candidats × multi-destinataires).
+
+interface HistoriqueCampagne {
+  campagne_id: string
+  created_at: string
+  sujet: string
+  destinataires: string[]
+  nb_destinataires: number
+  candidat_ids: string[]
+  nb_candidats: number
+  candidats: { id: string; prenom: string | null; nom: string | null }[]
+  client_nom: string | null
+  cv_personnalise: boolean
+  cv_urls_utilises: string[]
+  corps_extract: string
+  statut: string
+}
+
+function HistoriqueTab() {
+  const [search, setSearch] = useState('')
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['emails-history', search],
+    queryFn: async () => {
+      const url = new URL('/api/emails/history', window.location.origin)
+      if (search) url.searchParams.set('search', search)
+      url.searchParams.set('limit', '100')
+      const res = await fetch(url.toString())
+      if (!res.ok) return { campagnes: [] as HistoriqueCampagne[] }
+      return (await res.json()) as { campagnes: HistoriqueCampagne[] }
+    },
+    staleTime: 30_000,
+  })
+
+  const campagnes = data?.campagnes ?? []
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par sujet, candidat, destinataire, client…"
+            style={{
+              width: '100%', padding: '9px 12px 9px 36px', borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--background)',
+              color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
+            }}
+          />
+        </div>
+        <button
+          onClick={() => refetch()}
+          style={{
+            padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+            background: 'var(--secondary)', border: '1.5px solid var(--border)',
+            color: 'var(--foreground)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+          }}
+        >
+          Actualiser
+        </button>
+      </div>
+
+      {/* État chargement / vide */}
+      {isLoading && (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+          Chargement de l'historique…
+        </div>
+      )}
+      {!isLoading && campagnes.length === 0 && (
+        <div style={{
+          padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13,
+          border: '1.5px dashed var(--border)', borderRadius: 12,
+        }}>
+          Aucun envoi pour le moment.
+          <br />
+          Tes prochaines campagnes email apparaîtront ici.
+        </div>
+      )}
+
+      {/* Liste */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {campagnes.map((c: HistoriqueCampagne) => {
+          const isOpen = expanded === c.campagne_id
+          const when = new Date(c.created_at)
+          const dateStr = when.toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })
+          const timeStr = when.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+          return (
+            <div
+              key={c.campagne_id}
+              style={{
+                border: '1.5px solid var(--border)', borderRadius: 12,
+                background: 'var(--card)', overflow: 'hidden',
+                transition: 'border-color 0.15s',
+              }}
+            >
+              {/* Ligne principale */}
+              <button
+                onClick={() => setExpanded(isOpen ? null : c.campagne_id)}
+                style={{
+                  width: '100%', padding: '14px 16px', background: 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit',
+                }}
+              >
+                <span style={{ color: 'var(--muted)', flexShrink: 0 }}>
+                  {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}>
+                      {c.sujet}
+                    </span>
+                    {c.cv_personnalise && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--info-soft)', color: 'var(--info)' }}>
+                        CV personnalisé
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: 'var(--muted-foreground)', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={11} /> {dateStr} · {timeStr}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Users size={11} /> {c.nb_candidats} candidat{c.nb_candidats > 1 ? 's' : ''}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Mail size={11} /> {c.nb_destinataires} destinataire{c.nb_destinataires > 1 ? 's' : ''}
+                    </span>
+                    {c.client_nom && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Briefcase size={11} /> {c.client_nom}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {/* Détails expandus */}
+              {isOpen && (
+                <div style={{ padding: '12px 16px 16px 44px', borderTop: '1px solid var(--border)', background: 'var(--background)' }}>
+                  {/* Candidats */}
+                  {c.candidats.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                        Candidats ({c.candidats.length})
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {c.candidats.map((cand: HistoriqueCampagne['candidats'][number]) => (
+                          <Link
+                            key={cand.id}
+                            href={`/candidats/${cand.id}?from=messages`}
+                            style={{
+                              fontSize: 12, padding: '3px 10px', borderRadius: 99,
+                              background: 'var(--primary-soft)', color: 'var(--primary)',
+                              textDecoration: 'none', fontWeight: 600,
+                            }}
+                          >
+                            {[cand.prenom, cand.nom].filter(Boolean).join(' ') || '(sans nom)'}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Destinataires */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                      Destinataires ({c.destinataires.length})
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {c.destinataires.map((d: string) => (
+                        <span
+                          key={d}
+                          style={{
+                            fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                            background: 'var(--muted)', color: 'var(--foreground)',
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {d}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Extrait corps */}
+                  {c.corps_extract && (
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                        Aperçu
+                      </div>
+                      <div style={{
+                        fontSize: 12, color: 'var(--muted-foreground)', lineHeight: 1.5,
+                        padding: '8px 10px', background: 'var(--card)', border: '1px solid var(--border)',
+                        borderRadius: 6, whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto',
+                      }}>
+                        {c.corps_extract}
+                        {c.corps_extract.length >= 220 && '…'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }

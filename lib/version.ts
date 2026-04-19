@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.59'
+export const APP_VERSION = '1.9.60'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.60',
+    date: '2026-04-19',
+    label: 'Historique envois email par campagne (per-user)',
+    features: [
+      'DB migration — emails_envoyes : ajout user_id (FK auth.users), campagne_id (uuid), candidat_ids[] (multi-candidats), client_id+client_nom, cv_personnalise (bool), cv_urls_utilises[]. Index sur user_id, campagne_id, created_at DESC. RLS per-user strict : user_id IS NULL (legacy) OR user_id = auth.uid() pour SELECT. INSERT/UPDATE/DELETE uniquement sur ses propres rows.',
+      'API /api/microsoft/send : génère un campagne_id partagé par tous les destinataires d\'un envoi. Remplit user_id depuis session, candidat_ids[], cv_personnalise (si pdfBase64 dans cv_options), cv_urls_utilises (URL originale OU marqueur custom:ID). Lookup client_id/nom via clients.email_contact si match unique (sinon concat noms).',
+      'API /api/smtp/send : même logique de log que Microsoft (campagne_id, user_id, candidat_ids, cv_perso flag, cv_urls_utilises, client lookup).',
+      'API GET /api/emails/history : agrège les envois par campagne_id (1 ligne = 1 envoi multi-destinataires). Hydrate les noms candidats via IN join. Filtre search (sujet, candidat, destinataire, client). Limit 50 par défaut (max 200). Retourne destinataires unique + nb_destinataires + nb_candidats.',
+      'UI /messages — Nouvel onglet "Historique" (icon History) : liste campagnes avec sujet, date+heure, nb candidats, nb destinataires, nom client, badge CV personnalisé. Expand row → détails candidats (chips cliquables vers fiche), destinataires (liste email monospace), aperçu corps (220 chars). Recherche instantanée (debounce inclut dans queryKey).',
+    ],
+  },
   {
     version: '1.9.59',
     date: '2026-04-19',

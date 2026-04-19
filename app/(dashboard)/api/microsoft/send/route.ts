@@ -166,7 +166,40 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({ message, saveToSentItems: true }),
     })
 
-    // Log sent emails — un log par destinataire
+    // Log sent emails — un log par destinataire, regroupés par campagne_id
+    // v1.9.60 : campagne_id uuid partagé + user_id + candidat_ids[] + client_nom + cv_personnalise + cv_urls_utilises
+    const campagneId = (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const cvPersonnalise = Object.values(cvOptions).some((o: any) => o?.pdfBase64)
+    const cvUrlsUtilises: string[] = []
+    if (allCandidatIds.length > 0 && attachCvs) {
+      const { data: candidatsCv } = await supabase
+        .from('candidats')
+        .select('id, cv_url')
+        .in('id', allCandidatIds)
+      for (const c of (candidatsCv || [])) {
+        const opts = cvOptions[c.id]
+        if (opts?.pdfBase64) cvUrlsUtilises.push(`custom:${c.id}`)
+        else if (c.cv_url) cvUrlsUtilises.push(c.cv_url)
+      }
+    }
+
+    // Résolution client_id/nom via destinataires email → clients.email_contact (si unique)
+    let clientId: string | null = null
+    let clientNom: string | null = null
+    try {
+      const { data: matchedClients } = await (supabase as any)
+        .from('clients')
+        .select('id, nom')
+        .in('email_contact', destinataires)
+        .limit(5)
+      if (matchedClients && matchedClients.length === 1) {
+        clientId = (matchedClients[0] as any).id
+        clientNom = (matchedClients[0] as any).nom
+      } else if (matchedClients && matchedClients.length > 1) {
+        clientNom = matchedClients.map((c: any) => c.nom).join(', ')
+      }
+    } catch { /* colonne absente, ignore */ }
+
     const logs = destinataires.map((dest: string) => ({
       candidat_id,
       integration_id: integration.id,
@@ -174,10 +207,17 @@ export async function POST(request: NextRequest) {
       corps,
       destinataire: dest,
       statut: 'envoye' as const,
+      user_id: currentUser?.id ?? null,
+      campagne_id: campagneId,
+      candidat_ids: allCandidatIds.length > 0 ? allCandidatIds : null,
+      client_id: clientId,
+      client_nom: clientNom,
+      cv_personnalise: cvPersonnalise,
+      cv_urls_utilises: cvUrlsUtilises.length > 0 ? cvUrlsUtilises : null,
     }))
-    await supabase.from('emails_envoyes').insert(logs)
+    await supabase.from('emails_envoyes').insert(logs as any)
 
-    return NextResponse.json({ success: true, count: destinataires.length })
+    return NextResponse.json({ success: true, count: destinataires.length, campagne_id: campagneId })
 
   } catch (error) {
     console.error('[MS Send] Error:', error)
