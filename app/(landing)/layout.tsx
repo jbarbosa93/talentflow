@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans } from 'next/font/google'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import '../globals.css'
 import './landing.css'
 
@@ -32,6 +33,7 @@ export default function LandingLayout({ children }: { children: React.ReactNode 
       </head>
       <body className={jakarta.variable}>
         {children}
+        <SpeedInsights />
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(() => {})

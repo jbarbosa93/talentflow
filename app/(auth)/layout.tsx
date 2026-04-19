@@ -1,5 +1,6 @@
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import type { Metadata } from 'next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import '../globals.css'
 import './auth.css'
 
@@ -19,6 +20,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body className={jakarta.variable}>
         {children}
+        <SpeedInsights />
       </body>
     </html>
   )
