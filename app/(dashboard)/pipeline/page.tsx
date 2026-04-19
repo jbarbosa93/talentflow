@@ -790,6 +790,7 @@ export default function PipelinePage() {
     staleTime: 30_000,
   })
   const rappels = rappelsData ?? []
+  const rappelsEnCoursCount = useMemo(() => rappels.filter(r => !r.done).length, [rappels])
 
   const rappelByCandidatId = useMemo(() => {
     const map = new Map<string, Rappel>()
@@ -919,9 +920,36 @@ export default function PipelinePage() {
             {allCandidats.length} candidat{allCandidats.length !== 1 ? 's' : ''} en suivi
           </p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="neo-btn-yellow" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px' }}>
-          <UserPlus size={15} /> Ajouter
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Cloche Mes rappels */}
+          <button
+            onClick={() => setShowRappelsPanel(true)}
+            title="Mes rappels"
+            style={{
+              position: 'relative', width: 40, height: 40, borderRadius: 10,
+              background: 'var(--secondary)', border: '1.5px solid var(--border)',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--foreground)', transition: 'all 0.15s',
+            }}
+          >
+            <Bell size={17} />
+            {rappelsEnCoursCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -5, right: -5,
+                minWidth: 18, height: 18, padding: '0 5px',
+                borderRadius: 99, background: 'var(--destructive)', color: 'var(--destructive-foreground)',
+                fontSize: 10, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid var(--background)',
+              }}>
+                {rappelsEnCoursCount}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setShowAdd(true)} className="neo-btn-yellow" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px' }}>
+            <UserPlus size={15} /> Ajouter
+          </button>
+        </div>
       </div>
 
       {/* Consultant tabs */}

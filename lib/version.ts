@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.54'
+export const APP_VERSION = '1.9.55'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.55',
+    date: '2026-04-19',
+    label: 'Fix crash /parametres + cloche rappels pipeline + photo cassée activité + bouton profil dark',
+    features: [
+      'PARAMETRES - Sidebar link /parametres → /parametres/profil directement (le redirect server-side du stub causait un crash client-side "Application error"). TopBar dropdown Paramètres aussi mis à jour.',
+      'PROFIL - Bouton Enregistrer : background var(--foreground) (clair en dark) + color white → invisible en dark mode. Fix : background var(--primary) + color var(--primary-foreground).',
+      'PIPELINE - Cloche rappels à côté du bouton Ajouter dans le header. Badge rouge var(--destructive) avec count des rappels en cours (done=false). Clic ouvre le panel Mes rappels (pattern identique badge dashboard).',
+      'DASHBOARD - ActRowAvatar component avec onError : si photo_url est une URL cassée, fallback sur initiales colorées. Avant : Next/Image affichait l\'image cassée par défaut.',
+    ],
+  },
   {
     version: '1.9.54',
     date: '2026-04-19',

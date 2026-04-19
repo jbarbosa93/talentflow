@@ -579,8 +579,8 @@ export default function ProfilPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '10px 22px', borderRadius: 9,
-              background: 'var(--foreground)', border: 'none',
-              color: 'white', fontSize: 13, fontWeight: 700,
+              background: 'var(--primary)', border: 'none',
+              color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700,
               cursor: savingProfile ? 'default' : 'pointer',
               opacity: savingProfile ? 0.7 : 1, fontFamily: 'var(--font-body)',
             }}

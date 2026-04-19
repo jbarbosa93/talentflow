@@ -37,7 +37,7 @@ const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug,      adminOnly: true },
   { href: '/outils',                     label: 'Outils',            icon: Wrench },
   { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
-  { href: '/parametres',                 label: 'Paramètres',        icon: Settings },
+  { href: '/parametres/profil',          label: 'Paramètres',        icon: Settings },
 ]
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'

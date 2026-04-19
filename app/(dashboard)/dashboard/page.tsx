@@ -592,6 +592,27 @@ interface SecStats {
   activite_recente: { nom: string; action: string; date: string }[]
 }
 
+// ─── Avatar activité (avec fallback initiales si photo cassée) ───
+function ActRowAvatar({ photoUrl, name }: { photoUrl: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  const showPhoto = !!photoUrl && !failed
+  return (
+    <div style={{
+      width: 34, height: 34, borderRadius: '50%',
+      background: showPhoto ? 'transparent' : 'var(--primary)',
+      color: 'var(--primary-foreground)',
+      fontSize: 11, fontWeight: 800,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      overflow: 'hidden', flexShrink: 0,
+    }}>
+      {showPhoto
+        ? <Image src={photoUrl!} alt="" width={34} height={34} unoptimized onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : actInitials(name)
+      }
+    </div>
+  )
+}
+
 // ─── Activité récente (10 derniers candidats importés) ───
 function ActiviteRecenteWidget() {
   const supabase = createClient()
@@ -634,19 +655,7 @@ function ActiviteRecenteWidget() {
               padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
               transition: 'background 0.12s',
             }} className="d-act-row">
-              <div style={{
-                width: 34, height: 34, borderRadius: '50%',
-                background: c.photo_url ? 'transparent' : 'var(--primary)',
-                color: 'var(--primary-foreground)',
-                fontSize: 11, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                {c.photo_url
-                  ? <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : actInitials(name)
-                }
-              </div>
+              <ActRowAvatar photoUrl={c.photo_url} name={name} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {name}

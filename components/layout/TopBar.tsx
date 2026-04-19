@@ -446,7 +446,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
                     Mon profil
                   </motion.button>
                   <motion.button
-                    onClick={() => { setProfileOpen(false); router.push('/parametres') }}
+                    onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                       padding: '9px 12px', border: 'none', background: 'transparent',
