@@ -64,7 +64,82 @@
 ---
 
 ## Version actuelle
-**1.9.44 prod** — 19/04/2026
+**1.9.45 prod** — 19/04/2026
+
+---
+
+## 🔴 RÈGLES MÉTIER ABSOLUES (jamais violer)
+
+Règles consolidées après 2 jours de travail intensif avec João. À appliquer avant toute autre décision technique.
+
+### Import & Matching
+- **JAMAIS** utiliser le nom du fichier pour matcher un candidat (ni pour classifier CV/non-CV)
+- **JAMAIS** matcher sur un seul signal (prénom seul, tel seul, email seul)
+- Toujours : **tous les nom + tous les prénom** d'abord, puis email/tel/DDN pour confirmer
+- **DDN différente = toujours 2 personnes différentes**, sans exception
+- Couples/familles peuvent partager email/tel → **ne jamais fusionner** sur ces signaux seuls
+- **Noms composés portugais/espagnols** (Da Silva, Dos Santos, Fragoso Costa) → ne JAMAIS tronquer, extraire tous les mots du nom
+- **"SA", "Sàrl", "AG", "GmbH", "Ltd"** dans le nom extrait → c'est une entreprise, pas un candidat → rejeter
+- Un certificat/diplôme/lettre ne crée **JAMAIS** un nouveau candidat
+- Un non-CV sans candidat identifié → erreur propre, pas de création
+
+### Normalisation données
+- **Noms/prénoms** : toujours Title Case (Pedro Ferreira, pas PEDRO FERREIRA ni pedro ferreira). Extraire tous les mots trouvés (plusieurs prénoms, nom composé).
+- **Particules** : `de, da, dos, du, van, von, del, di` → minuscule (sauf en 1ère position)
+- **Email** : toujours lowercase + trim. Email vide `""` → `NULL` (jamais chaîne vide)
+- **Téléphone** : toujours avec indicatif pays (+41 79..., +33 6...) si inférable, sinon copier-coller l'extraction du CV
+- **Localisation** : toujours "Ville, Pays" (Monthey, Suisse)
+
+### Déploiement
+- **TOUJOURS** tester en localhost avant `vercel --prod`
+- **JAMAIS** déployer un fix sans avoir testé le scénario exact qui a causé le bug
+- Un fix non testé n'est pas un fix
+- Confirmation explicite "oui déploie" obligatoire avant `vercel --prod`
+- Bump version (`lib/version.ts`) + entrée changelog à chaque déploiement
+- À chaque déploiement validé : mettre à jour CLAUDE.md + MEMORY.md **dans le même commit**, supprimer les règles obsolètes des versions précédentes
+
+### Architecture import
+- **2 routes d'import actives** : `cv/parse` (manuel UI) + `onedrive/sync` (cron auto 10min + manuel)
+  - `cv/parse` → modale de confirmation si match trouvé (UX interactive)
+  - `onedrive/sync` → silencieux, pas de modale (cron)
+- **`cv/bulk` et `sharepoint/import` SUPPRIMÉES en v1.9.23** (854 lignes de code mort, 0 trafic prod vérifié). **Ne pas recréer ces routes**. Toute la logique batch passe par `cv/parse` avec `skip_confirmation=true`.
+- **SHA256 du buffer PDF** = source de vérité pour identifier un fichier identique (`cv_sha256` + `cv_size_bytes` + index partiel). Jamais filename, jamais texte extrait.
+- **`findExistingCandidat`** (`lib/candidat-matching.ts`) = source de vérité pour identifier un candidat existant
+- **`classifyDocument`** (`lib/document-classification.ts`) = source unique CV vs non-CV (patterns contenu + email générique + hasName && !hasExperiences)
+
+### Seuils matching (ne pas modifier sans simulation sur 6000+ candidats)
+- Score ≥ 16 → match certain → update automatique
+- Score 11-15 → match standard → update (onedrive/sync) ou modale (cv/parse)
+- Score 8-10 → zone uncertain → pending_validation dans `/integrations`
+- Score < 8 → nouveau candidat
+- **strictExact (nom identique) → seuil 8 minimum** (v1.9.27, pas 5 qui fusionnait les homonymes)
+- **Simulation obligatoire** avant tout changement de seuil (script `scripts/sim-*.mjs`)
+
+### UX & Interface
+- **Badges** : per-user strict via `candidats_vus + auth.users.candidats_viewed_all_at`, jamais global
+- **DB source de vérité** pour `candidats_vus` (pas d'UNION avec localStorage client)
+- **Modale confirmation** : score + diff côte à côte + 3 boutons (Update / Créer / Voir fiche)
+- **`/integrations`** = supervision imports + anomalies + pending validation
+- **`/parametres/doublons`** = fusion candidats existants (4 catégories SQL v1.9.45 + fallback client)
+- **Jamais d'action irréversible** sans confirmation explicite
+- **Invalidation React Query explicite** après toute action user qui modifie candidats (`['candidats']` + `['candidat']`)
+
+### Vision produit João
+- Import CVs = cœur du produit, doit être parfait
+- **Zéro contamination** de fiches (un CV ne doit jamais écraser la mauvaise fiche)
+- **Zéro doublon silencieux** (le système doit toujours demander en cas de doute)
+- Normalisation automatique = données propres dès l'entrée
+- Traitement parfait des non-CV, mappés dans la bonne catégorie (`mapDocumentType`)
+- **Ne pas dupliquer un CV dans `documents[]`** si déjà existant : juste changer date d'import + badge (reactivated/updated)
+- ML progressif = le système apprend des décisions humaines (`decisions_matching` JSONB → `/api/ml/insights`)
+
+### Ce qu'on ne fait PAS
+- ❌ Pas de matching sur filename
+- ❌ Pas d'écrasement silencieux sans signal fort
+- ❌ Pas de création de candidat depuis un non-CV
+- ❌ Pas de déploiement sans test
+- ❌ Pas de nouvelle feature avant que les bugs existants soient corrigés
+- ❌ Pas de refactoring massif d'un code qui marche
 
 ---
 
