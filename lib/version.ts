@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.58'
+export const APP_VERSION = '1.9.59'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.59',
+    date: '2026-04-19',
+    label: 'Sentry filter bruit vitals.vercel-insights (Speed Insights non-actionnable)',
+    features: [
+      'SENTRY - Ajout ignoreErrors + denyUrls dans instrumentation-client.ts pour filtrer les erreurs Speed Insights : vitals.vercel-insights.com, va.vercel-scripts.com, _vercel/speed-insights. Avant : chaque POST Speed Insights qui fail (pendant l\'activation Vercel ou réseau instable) remontait comme erreur Sentry → bruit non-actionnable dans l\'inbox email.',
+    ],
+  },
   {
     version: '1.9.58',
     date: '2026-04-19',

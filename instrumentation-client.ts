@@ -7,6 +7,17 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
   replaysSessionSampleRate: 0.0,
   integrations: [Sentry.replayIntegration()],
+  // Ignore les erreurs de télémétrie tierce (Speed Insights, analytics)
+  // → failed fetches vers vitals.vercel-insights.com ne sont pas actionnables par nous
+  ignoreErrors: [
+    /vitals\.vercel-insights\.com/,
+    /va\.vercel-scripts\.com/,
+  ],
+  denyUrls: [
+    /vitals\.vercel-insights\.com/,
+    /va\.vercel-scripts\.com/,
+    /_vercel\/speed-insights/,
+  ],
 })
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
