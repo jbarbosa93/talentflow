@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.52'
+export const APP_VERSION = '1.9.53'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.53',
+    date: '2026-04-19',
+    label: 'Fix phrase style masquée + rappels strict user.id',
+    features: [
+      'PHRASES - Suppression des phrases contextuelles (qui masquaient le style choisi par le user). Le header affiche toujours une phrase du pool style choisi. Les stats (à traiter, rappels) sont déjà dans les badges.',
+      'RAPPELS - Query strict : si user.id absent → count = 0 immédiat (évite un count depuis session anon/stale). Pas de requête tant que user pas résolu.',
+    ],
+  },
   {
     version: '1.9.52',
     date: '2026-04-19',

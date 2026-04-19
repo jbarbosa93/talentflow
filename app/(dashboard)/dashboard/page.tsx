@@ -90,9 +90,10 @@ export default function DashboardPage() {
     queryKey: ['dashboard-stats', user?.id],
     queryFn: async () => {
       // Filtrage explicite par user_id sur pipeline_rappels (ceinture+bretelles avec RLS v1.9.12).
-      // Avant v1.9.52 : count sans filtre → Seb voyait les rappels de João si RLS échouait.
-      const rappelsQuery = (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true })
-      if (user?.id) rappelsQuery.eq('user_id', user.id)
+      // v1.9.53 : exige user.id strict — sinon on ne fetch pas les rappels (évite count depuis session anon).
+      const rappelsQuery = user?.id
+        ? (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+        : Promise.resolve({ count: 0 })
       const [candidats, clients, offres, places, aTraiter, rappels] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
         (supabase as any).from('clients').select('id', { count: 'exact', head: true }),

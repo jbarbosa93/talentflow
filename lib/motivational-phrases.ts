@@ -103,17 +103,12 @@ function dailySeed(userId: string): number {
 
 export function getMotivationalPhrase(
   userId: string,
-  stats: Stats = {},
+  _stats: Stats = {},
   style: PhraseStyle = 'aleatoire',
 ): string {
+  // Afficher toujours une phrase du style choisi (les contextuelles masquaient le choix user).
+  // Les stats (à traiter, rappels) sont déjà visibles dans les badges du header.
   const seed = dailySeed(userId)
-
-  // 30% chance d'afficher une contextuelle (si les stats matchent)
-  const contextuelles = PHRASES_CONTEXTUELLES.map(fn => fn(stats)).filter(Boolean) as string[]
-  if (contextuelles.length > 0 && seed % 100 < 30) {
-    return contextuelles[seed % contextuelles.length]
-  }
-
   const pool = poolFor(style)
   return pool[seed % pool.length]
 }
