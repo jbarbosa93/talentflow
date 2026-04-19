@@ -1762,28 +1762,32 @@ export default function CandidatsList() {
             {/* Séparateur */}
             <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
 
-            {/* Vu / Non vu — v1.9.47 : cacher le bouton si tous déjà dans cet état */}
+            {/* Vu / Non vu — v1.9.63 : logique basée sur hasBadge() (viewedSet + viewedAllAt + last_import_at).
+                Règle João : "Marquer vu" apparaît UNIQUEMENT quand au moins un candidat est non-vu (badge rouge).
+                "Non vu" apparaît UNIQUEMENT quand au moins un candidat est vu (pas de badge). */}
             {(() => {
               const selectedArr = Array.from(selectedIds)
-              const allSeen = selectedArr.length > 0 && selectedArr.every(id => viewedSet.has(id))
-              const allUnseen = selectedArr.length > 0 && selectedArr.every(id => !viewedSet.has(id))
+              const byId = new Map(sorted.map(c => [c.id, c]))
+              const selectedCandidats = selectedArr.map(id => byId.get(id)).filter(Boolean) as any[]
+              const anyUnseen = selectedCandidats.some(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
+              const anySeen   = selectedCandidats.some(c => !hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
               return (
                 <>
-                  {!allSeen && (
+                  {anyUnseen && (
                     <button onClick={() => { markTousVus(selectedArr); setSelectedIds(new Set()) }} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
                       padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      background: '#10B981', color: '#fff', border: 'none',
+                      background: 'var(--success)', color: 'var(--destructive-foreground)', border: 'none',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}>
                       <Eye size={12} /> Marquer vu
                     </button>
                   )}
-                  {!allUnseen && (
+                  {anySeen && (
                     <button onClick={() => { selectedArr.forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
                       padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      background: '#64748B', color: '#fff', border: 'none',
+                      background: 'var(--muted-foreground)', color: 'var(--destructive-foreground)', border: 'none',
                       cursor: 'pointer', fontFamily: 'inherit',
                     }}>
                       <Eye size={12} /> Non vu

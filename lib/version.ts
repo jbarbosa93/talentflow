@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.62'
+export const APP_VERSION = '1.9.63'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.63',
+    date: '2026-04-19',
+    label: 'Barre sélection candidats — Marquer vu / Non vu basés sur hasBadge()',
+    features: [
+      'CANDIDATS barre sélection - Affichage conditionnel des boutons basé sur hasBadge() complet (viewedSet + viewedAllAt + last_import_at) au lieu de viewedSet seul. Avant v1.9.63 : les 2 boutons s\'affichaient parfois alors qu\'un seul avait du sens. Maintenant : "Marquer vu" affiché UNIQUEMENT si au moins 1 candidat sélectionné a un badge rouge ; "Non vu" UNIQUEMENT si au moins 1 est sans badge.',
+      'CANDIDATS - Hex #10B981 / #64748B / #fff remplacés par var(--success) / var(--muted-foreground) / var(--destructive-foreground). Dark mode propre.',
+      'NON VU global - Confirmation comportement : clic "Non vu" appelle markCandidatNonVu() → DELETE /api/candidats/vus {all_users:true} → purge candidats_vus de TOUS users + UPDATE last_import_at=NOW() → badge rouge apparaît chez tout le monde jusqu\'à ouverture individuelle de la fiche.',
+    ],
+  },
   {
     version: '1.9.62',
     date: '2026-04-19',
