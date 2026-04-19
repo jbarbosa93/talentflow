@@ -3,10 +3,11 @@ import Image from 'next/image'
 import { formatFullName, formatInitials } from '@/lib/format-candidat'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Bell, X, Search, FileText, Eye, MapPin, Pencil, Trash2,
-  UserPlus, Check, Settings2, GitBranch,
+  UserPlus, Check, Settings2, GitBranch, CheckCircle2, Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
@@ -175,10 +176,10 @@ function NoteModal({ nom, notes, onClose, onSave }: {
   if (typeof window === 'undefined') return null
   return createPortal(
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Notes — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
@@ -240,8 +241,8 @@ function RappelModal({ candidatId, nom, existingRappel, onClose, onSaved }: {
 
   if (typeof window === 'undefined') return null
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 380, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 380, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}><Bell size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />Rappel — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
@@ -300,8 +301,8 @@ function ModifierModal({ candidat, metiers, categories, onClose, onSaved }: {
 
   if (typeof window === 'undefined') return null
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 420, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Modifier — {nom}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
@@ -383,8 +384,8 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
 
   if (typeof window === 'undefined') return null
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 480, maxWidth: '90vw', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, padding: 24, width: 480, maxWidth: '90vw', maxHeight: '90vh', overflow: 'hidden auto', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter au pipeline</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
@@ -576,6 +577,160 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── RappelsPanel — modal liste des rappels (En cours / Terminés) ────────────
+function RappelsPanel({ rappels, onClose, onUpdate }: {
+  rappels: Rappel[]
+  onClose: () => void
+  onUpdate: () => void
+}) {
+  const [tab, setTab] = useState<'cours' | 'passes'>('cours')
+
+  const enCours = useMemo(() =>
+    [...rappels].filter(r => !r.done).sort((a, b) => a.rappel_at.localeCompare(b.rappel_at)),
+    [rappels]
+  )
+  const passes = useMemo(() =>
+    [...rappels].filter(r => r.done).sort((a, b) => b.rappel_at.localeCompare(a.rappel_at)),
+    [rappels]
+  )
+
+  const list = tab === 'cours' ? enCours : passes
+
+  async function markDone(id: string, done: boolean) {
+    await fetch('/api/pipeline/rappels', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, done }),
+    })
+    onUpdate()
+    toast.success(done ? 'Rappel marqué terminé' : 'Rappel réactivé')
+  }
+
+  async function deleteRappel(id: string) {
+    await fetch('/api/pipeline/rappels', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    onUpdate()
+    toast.success('Rappel supprimé')
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+    }} onClick={onClose}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 600, maxHeight: '85vh',
+          background: 'var(--card)', border: '1.5px solid var(--border)',
+          borderRadius: 14, boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Bell size={16} style={{ color: 'var(--primary)' }} />
+            Mes rappels
+          </h2>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={14} style={{ color: 'var(--muted-foreground)' }} />
+          </button>
+        </div>
+
+        {/* Onglets */}
+        <div style={{ display: 'flex', gap: 4, padding: '12px 20px 0', borderBottom: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setTab('cours')}
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: '8px 8px 0 0',
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 700,
+              background: tab === 'cours' ? 'var(--primary-soft)' : 'transparent',
+              color: tab === 'cours' ? 'var(--primary)' : 'var(--muted-foreground)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <Clock size={13} /> En cours ({enCours.length})
+          </button>
+          <button
+            onClick={() => setTab('passes')}
+            style={{
+              flex: 1, padding: '10px 14px', borderRadius: '8px 8px 0 0',
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 13, fontWeight: 700,
+              background: tab === 'passes' ? 'var(--muted)' : 'transparent',
+              color: tab === 'passes' ? 'var(--foreground)' : 'var(--muted-foreground)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <CheckCircle2 size={13} /> Terminés ({passes.length})
+          </button>
+        </div>
+
+        {/* Liste */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+          {list.length === 0 && (
+            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+              {tab === 'cours' ? 'Aucun rappel en cours.' : 'Aucun rappel terminé.'}
+            </div>
+          )}
+          {list.map(r => {
+            const nom = r.candidats ? `${r.candidats.prenom || ''} ${r.candidats.nom}`.trim() : 'Candidat'
+            const when = new Date(r.rappel_at)
+            const wasOverdue = !r.done && when.getTime() <= Date.now()
+            return (
+              <div key={r.id} style={{
+                padding: '12px 14px', marginBottom: 6,
+                background: wasOverdue ? 'var(--destructive-soft)' : 'var(--background)',
+                border: `1px solid ${wasOverdue ? 'var(--destructive)' : 'var(--border)'}`,
+                borderRadius: 10,
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 3 }}>{nom}</div>
+                  {r.note && <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 4, whiteSpace: 'pre-wrap' }}>{r.note}</div>}
+                  <div style={{ fontSize: 11, color: wasOverdue ? 'var(--destructive)' : 'var(--muted)', fontWeight: 600 }}>
+                    {when.toLocaleString('fr-CH', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {wasOverdue && ' · en retard'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {r.candidat_id && (
+                    <a href={`/candidats/${r.candidat_id}?from=pipeline`} title="Voir la fiche" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--muted-foreground)' }}>
+                      <Eye size={13} />
+                    </a>
+                  )}
+                  <button
+                    onClick={() => markDone(r.id, !r.done)}
+                    title={r.done ? 'Réactiver' : 'Marquer terminé'}
+                    style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: r.done ? 'var(--muted-foreground)' : 'var(--success)' }}
+                  >
+                    {r.done ? <Clock size={13} /> : <Check size={13} />}
+                  </button>
+                  <button
+                    onClick={() => deleteRappel(r.id)}
+                    title="Supprimer"
+                    style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--destructive)' }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export default function PipelinePage() {
   const qc = useQueryClient()
   const cvHook = useCvHoverPreview()
@@ -591,6 +746,26 @@ export default function PipelinePage() {
   const [noteModal, setNoteModal] = useState<{ candidat: Candidat } | null>(null)
   const [rappelModal, setRappelModal] = useState<{ candidat: Candidat } | null>(null)
   const [modifierModal, setModifierModal] = useState<{ candidat: Candidat } | null>(null)
+
+  // Panneau rappels — ouvert via ?rappels=1 (depuis badge dashboard)
+  const router = useRouter()
+  const [showRappelsPanel, setShowRappelsPanel] = useState(false)
+  useEffect(() => {
+    const sync = () => {
+      const qs = new URLSearchParams(window.location.search)
+      setShowRappelsPanel(qs.get('rappels') === '1')
+    }
+    sync()
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
+  }, [])
+  const closeRappelsPanel = useCallback(() => {
+    const qs = new URLSearchParams(window.location.search)
+    qs.delete('rappels')
+    const next = `/pipeline${qs.toString() ? '?' + qs.toString() : ''}`
+    router.replace(next, { scroll: false })
+    setShowRappelsPanel(false)
+  }, [router])
 
   // ── Fetch candidats pipeline ──────────────────────────────────────────────
   const { data: candidatsData, isLoading } = useQuery({
@@ -843,6 +1018,7 @@ export default function PipelinePage() {
       {noteModal && <NoteModal nom={`${noteModal.candidat.prenom || ''} ${noteModal.candidat.nom}`.trim()} notes={noteModal.candidat.notes ?? ''} onClose={() => setNoteModal(null)} onSave={notes => handleSaveNote(noteModal.candidat, notes)} />}
       {rappelModal && <RappelModal candidatId={rappelModal.candidat.id} nom={`${rappelModal.candidat.prenom || ''} ${rappelModal.candidat.nom}`.trim()} existingRappel={rappelByCandidatId.get(rappelModal.candidat.id) ?? null} onClose={() => setRappelModal(null)} onSaved={refetchRappels} />}
       {modifierModal && <ModifierModal candidat={modifierModal.candidat} metiers={metiers} categories={categories} onClose={() => setModifierModal(null)} onSaved={() => qc.invalidateQueries({ queryKey: ['pipeline-candidats'] })} />}
+      {showRappelsPanel && <RappelsPanel rappels={rappels} onClose={closeRappelsPanel} onUpdate={refetchRappels} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.53'
+export const APP_VERSION = '1.9.54'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.54',
+    date: '2026-04-19',
+    label: 'Rappels filtrés + panel Mes rappels + fix modals pipeline + tooltip chart',
+    features: [
+      'RAPPELS - Dashboard count filtré strictement : user_id + done=false. Avant v1.9.54 : count incluait les rappels terminés (ex : rappel Costanzo 9 avril done=true → fantôme). Enquête DB : Seb 4 rappels (2 actifs), João 1 rappel done=true avec note "SEB".',
+      'PIPELINE - Nouveau panel "Mes rappels" (modal) avec 2 onglets : En cours (tri date croissante) / Terminés (tri date décroissante). Actions : voir fiche candidat, marquer terminé/réactiver, supprimer. Rappels en retard en rouge (var(--destructive-soft)).',
+      'DASHBOARD - Badge Rappels link → /pipeline?rappels=1 → ouvre directement le panel. Fermeture via X ou backdrop retire le query param (router.replace sans scroll).',
+      'PIPELINE - Fix visual modals (NoteModal, RappelModal, ModifierModal, AddToPipelineModal) : ajout backdropFilter blur(6px) + overflow hidden + boxShadow cohérent. Résout artefacts visuels aux coins arrondis (bug João signalé).',
+      'DASHBOARD - Fix tooltip Recharts en dark mode : ajout itemStyle + color var(--foreground) dans contentStyle. Avant : noir sur noir en dark (itemStyle default recharts = #000).',
+      'BUILD FIX - Remplacé useSearchParams par window.location.search + listener popstate dans /pipeline. useSearchParams bloquait le prerender Next.js 16.',
+    ],
+  },
   {
     version: '1.9.53',
     date: '2026-04-19',

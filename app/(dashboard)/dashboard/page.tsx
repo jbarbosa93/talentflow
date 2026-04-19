@@ -91,8 +91,9 @@ export default function DashboardPage() {
     queryFn: async () => {
       // Filtrage explicite par user_id sur pipeline_rappels (ceinture+bretelles avec RLS v1.9.12).
       // v1.9.53 : exige user.id strict — sinon on ne fetch pas les rappels (évite count depuis session anon).
+      // Rappels actifs = user.id ET done=false (avant v1.9.54 : comptait aussi les rappels terminés)
       const rappelsQuery = user?.id
-        ? (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+        ? (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('done', false)
         : Promise.resolve({ count: 0 })
       const [candidats, clients, offres, places, aTraiter, rappels] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
@@ -264,7 +265,7 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
-            { label: 'Rappels', value: stats?.rappels ?? 0, href: '/pipeline' },
+            { label: 'Rappels', value: stats?.rappels ?? 0, href: '/pipeline?rappels=1' },
           ].map((b, i) => (
             <Link key={i} href={b.href} style={{ textDecoration: 'none', minWidth: 60 }}>
               <div style={{ textAlign: 'center' }}>
@@ -365,8 +366,10 @@ export default function DashboardPage() {
                     background: 'var(--card)', border: '1px solid var(--border)',
                     borderRadius: 10, fontSize: 13, fontWeight: 600,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                    color: 'var(--foreground)',
                   }}
                   labelStyle={{ fontWeight: 700, color: 'var(--foreground)' }}
+                  itemStyle={{ color: 'var(--foreground)' }}
                   formatter={(value: any) => [`${value} candidature${value > 1 ? 's' : ''}`, '']}
                 />
                 <Bar dataKey="candidatures" radius={[8, 8, 0, 0]} maxBarSize={54}>
