@@ -701,7 +701,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                       {!isCvPrincipal && onCvChange && (
                                         <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}
                                           style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--warning)', fontWeight: 600 }}
-                                          onMouseEnter={e => (e.currentTarget.style.background = '#FEF3C7')}
+                                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--warning-soft)')}
                                           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                                         >→ CV principal</button>
                                       )}

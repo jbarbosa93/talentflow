@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.55'
+export const APP_VERSION = '1.9.56'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.56',
+    date: '2026-04-19',
+    label: 'Speed Insights + fix hover dark mode Documents modal',
+    features: [
+      'PERF - Installation @vercel/speed-insights/next + composant <SpeedInsights /> ajouté dans (dashboard)/layout.tsx. Vercel collecte LCP/TTFB/INP/CLS sur prod → dashboard Vercel > Speed Insights montre les métriques après 24h de trafic.',
+      'DOCUMENTS MODAL - Hover dropdown "Déplacer vers..." : #FEF3C7 hardcodé → var(--warning-soft). Invisible en dark mode avant, maintenant adapté.',
+    ],
+  },
   {
     version: '1.9.55',
     date: '2026-04-19',

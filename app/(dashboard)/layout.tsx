@@ -13,6 +13,7 @@ import { UploadProvider } from "@/contexts/UploadContext"
 import DashboardShell from "@/components/layout/DashboardShell"
 import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
 import GlobalUploadPanel from "@/components/GlobalUploadPanel"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -63,6 +64,7 @@ export default function DashboardRootLayout({
                     <GlobalUploadPanel />
                     <SessionTimeoutModal />
                     <Toaster richColors position="top-right" />
+                    <SpeedInsights />
                   </UploadProvider>
                 </DoublonsProvider>
               </PhotosProvider>
