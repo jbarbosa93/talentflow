@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.44'
+export const APP_VERSION = '1.9.45'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.45',
+    date: '2026-04-19',
+    label: 'Détection doublons déterministe — 4 catégories SQL (SHA256, email, DDN+nom, métier+contact)',
+    features: [
+      'Nouvelle RPC find_deterministic_duplicates() : 4 catégories en SQL pur (ultra rapide grâce à index cv_sha256 + pg_trgm similarity sur nom unaccent).',
+      'Cat 1 SHA256 identique (score 100, Certain) → attrape les 7 paires du stock historique détectées après backfill v1.9.43.',
+      'Cat 2 email identique (95) · Cat 3 DDN identique + nom proche similarity >=0.5 (90) · Cat 4 métier identique ET (email OU tel9 identique) (85).',
+      'Route /api/candidats/doublons/deterministic — RPC + filtre historique + enrichissement candidats.',
+      'DoublonsContext : détection SQL serveur + fallback client legacy mergés par priorité score. UI groupée avec badges colorés par catégorie.',
+    ],
+  },
   {
     version: '1.9.44',
     date: '2026-04-19',

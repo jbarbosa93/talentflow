@@ -154,6 +154,25 @@ function scoreColor(score: number) {
   return { text: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', label: 'Possible' }
 }
 
+// v1.9.45 — Catégorie de match (SQL déterministe ou client legacy)
+function categoryBadge(matchType: string): { label: string; emoji: string; color: string; bg: string; border: string } {
+  switch (matchType) {
+    case 'sha256':
+      return { label: 'CV identique', emoji: '📎', color: '#991B1B', bg: '#FEE2E2', border: '#FCA5A5' }
+    case 'email':
+      return { label: 'Email identique', emoji: '✉️', color: '#9A3412', bg: '#FED7AA', border: '#FDBA74' }
+    case 'ddn_nom':
+      return { label: 'DDN + nom proche', emoji: '🎂', color: '#92400E', bg: '#FEF3C7', border: '#FDE68A' }
+    case 'metier_contact':
+      return { label: 'Métier + contact', emoji: '💼', color: '#1E40AF', bg: '#DBEAFE', border: '#93C5FD' }
+    case 'telephone':
+      return { label: 'Téléphone identique', emoji: '📞', color: '#9A3412', bg: '#FED7AA', border: '#FDBA74' }
+    case 'nom_prenom':
+    default:
+      return { label: 'Nom + prénom', emoji: '👤', color: '#475569', bg: '#F1F5F9', border: '#CBD5E1' }
+  }
+}
+
 // Determine best default choice per field (most complete)
 function getFieldDefault(fieldKey: string, a: Record<string, any>, b: Record<string, any>): 'a' | 'b' {
   const field = MERGE_FIELDS.find(f => f.key === fieldKey)
@@ -305,6 +324,12 @@ export default function DoublonsPage() {
   const mergedCount = doublons.filter(p => p.status === 'merged').length
   const totalDismissedPersisted = dismissedHistory.length
 
+  // v1.9.45 — comptage par catégorie
+  const countByCat = pendingDoublons.reduce((acc, p) => {
+    acc[p.match_type] = (acc[p.match_type] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
       {/* Header */}
@@ -351,6 +376,22 @@ export default function DoublonsPage() {
                 : 'Aucun doublon detecte'
               }
             </p>
+          </div>
+        )}
+
+        {/* v1.9.45 — répartition par catégorie */}
+        {phase === 'done' && pendingDoublons.length > 0 && (
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {(['sha256', 'email', 'ddn_nom', 'metier_contact', 'nom_prenom', 'telephone'] as const).map(cat => {
+              const n = countByCat[cat] || 0
+              if (n === 0) return null
+              const b = categoryBadge(cat)
+              return (
+                <div key={cat} style={{ padding: '6px 12px', borderRadius: 10, background: b.bg, border: `1px solid ${b.border}`, fontSize: 12, fontWeight: 700, color: b.color }}>
+                  {b.emoji} {b.label} · <strong>{n}</strong>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -797,6 +838,15 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
           <div style={{ padding: '4px 12px', borderRadius: 99, background: c.bg, border: `1px solid ${c.border}`, flexShrink: 0 }}>
             <span style={{ fontSize: 13, fontWeight: 800, color: c.text }}>{pair.result.score}% {c.label}</span>
           </div>
+          {(() => {
+            // v1.9.45 — badge catégorie de détection
+            const cat = categoryBadge(pair.match_type)
+            return (
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: cat.bg, border: `1px solid ${cat.border}`, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: cat.color }}>{cat.emoji} {cat.label}</span>
+              </div>
+            )
+          })()}
           {pair.result.raisons.map(r => (
             <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{r}</span>
           ))}

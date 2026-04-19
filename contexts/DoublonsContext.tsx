@@ -208,12 +208,33 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
     _onUpdate?.({ phase: 'loading' })
 
     try {
-      // Charger tous les candidats
-      const res = await fetch('/api/candidats?per_page=10000')
-      const data = await res.json()
-      const allCandidats: Candidat[] = data.candidats || []
+      // v1.9.45 — détection SQL déterministe 4 catégories (sha256, email, ddn_nom, metier_contact)
+      // + fallback legacy client (nom+prénom trigram) pour compléter
+      const [detRes, candRes] = await Promise.all([
+        fetch('/api/candidats/doublons/deterministic'),
+        fetch('/api/candidats?per_page=10000'),
+      ])
+      const detData = detRes.ok ? await detRes.json() : { pairs: [] }
+      const candData = candRes.ok ? await candRes.json() : { candidats: [] }
 
-      // Charger l'historique pour exclure les paires déjà traitées
+      // 1. Paires SQL déterministes (serveur) — déjà filtrées par historique DB
+      const serverPairs: DoublonPair[] = (detData.pairs || []).map((p: any) => ({
+        id: pairKey(p.candidat_a.id, p.candidat_b.id),
+        candidat_a: p.candidat_a,
+        candidat_b: p.candidat_b,
+        match_type: p.match_type,
+        result: {
+          is_doublon: true,
+          score: p.score,
+          raisons: p.reasons || [],
+          explication: (p.reasons || []).join(' · '),
+        },
+        status: 'pending',
+      }))
+
+      // 2. Détection client legacy (nom+prénom sans DDN) — fallback pour anciens cas
+      const allCandidats: Candidat[] = candData.candidats || []
+
       let treatedKeys = new Set<string>()
       try {
         const hRes = await fetch('/api/candidats/doublons/history')
@@ -223,13 +244,17 @@ export function DoublonsProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
 
-      // Détecter les doublons (instantané, pas d'IA)
-      const found = findDoublons(allCandidats)
-        .filter(d => !treatedKeys.has(d.id))
+      const clientPairs = findDoublons(allCandidats).filter(d => !treatedKeys.has(d.id))
 
-      _doublons = found
+      // 3. Merge : les paires serveur sont prioritaires (score + raisons plus riches),
+      //    les paires client qui n'existent pas déjà côté serveur sont ajoutées en bas
+      const serverKeys = new Set(serverPairs.map(p => p.id))
+      const onlyClient = clientPairs.filter(p => !serverKeys.has(p.id))
+      const merged = [...serverPairs, ...onlyClient]
+
+      _doublons = merged
       _phase = 'done'
-      _onUpdate?.({ phase: 'done', doublons: found })
+      _onUpdate?.({ phase: 'done', doublons: merged })
     } catch (e) {
       console.error('[DoublonsContext] Error:', e)
       _phase = 'done'
