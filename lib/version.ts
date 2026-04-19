@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.63'
+export const APP_VERSION = '1.9.64'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.64',
+    date: '2026-04-19',
+    label: 'Badge sidebar Candidats quasi-instantané (debounce 500ms → 50ms)',
+    features: [
+      'SIDEBAR - Debounce du listener talentflow:badges-changed : 500ms → 50ms. Le badge sidebar Candidats se synchronise quasi-instantanément avec le header "Non vus (N)" après clic "Marquer vu" / "Non vu" / ouverture fiche. Imports batch toujours coalescés via refetchInterval 60s + focus.',
+    ],
+  },
   {
     version: '1.9.63',
     date: '2026-04-19',

@@ -124,13 +124,12 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
       } catch { /* silencieux */ }
     }
 
-    // v1.9.44 — debounce 3s → 500ms. Le ressenti utilisateur (badge tardif 10-15s)
-    // était dû au cumul debounce 3s + fetch count-new + refetchInterval React Query.
-    // 500ms suffit à coalescer les imports batch sans faire attendre le user après
-    // un sync OneDrive manuel ou un import single.
+    // v1.9.64 — debounce 500ms → 50ms pour les actions user (Marquer vu / Non vu).
+    // 50ms suffit à coalescer sans faire attendre. Les imports batch sont toujours
+    // coalescés via le refetchInterval 60s + computeBadgeCount au focus.
     const debouncedCompute = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(computeBadgeCount, 500)
+      debounceTimer = setTimeout(computeBadgeCount, 50)
     }
 
     // Premier calcul après init DB (viewedAllAt déjà lu depuis localStorage — pas de flash)
