@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.46'
+export const APP_VERSION = '1.9.47'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.47',
+    date: '2026-04-19',
+    label: 'Pack 7 fixes : matching strictExact, message Réactivé, badge instantané, modals portal, sidebar cachable, bulk Non vu',
+    features: [
+      'Fix 1 matching : `lib/candidat-matching.ts` attachmentMode priorité strictExact sur strictSubset. Résout "Daniel Fragoso Costa" vs homonyme "Daniel Costa" (import manuel non-CV + OneDrive sync retry).',
+      'Fix 2 UX : nouveau status `reactivated` distinct dans UploadCV → message "Réactivé — X" (orange) au lieu de "Déjà importé — X" quand `data.reactivated=true`.',
+      'Fix 3 UX : invalidateQueries([\'candidats\']+[\'candidat\']) + dispatchBadgesChanged() après chaque chunk dans handleUpload (pas juste à la fin). Badge visible avant fermeture modal.',
+      'Fix 4 UI : createPortal sur 2 modals position:fixed (integrations syncReport + clients delete confirm) — garantit centrage écran quel que soit le scroll.',
+      'Fix 5 UI : sidebar cachable desktop via `desktopCollapsed` state + localStorage persist. Bouton PanelLeftClose dans TopBar (visible ≥900px).',
+      'Fix 6 Bulk "Non vu" : endpoint DELETE /api/candidats/vus accepte `all_users:true` → purge candidats_vus pour TOUS users + force last_import_at=NOW. Badge réapparaît pour tout le monde (Seb voit le badge si João clique "Non vu").',
+      'Fix 7 UI : boutons "Marquer vu" / "Non vu" conditionnels selon viewedSet (cachés si tous déjà dans cet état).',
+    ],
+  },
   {
     version: '1.9.46',
     date: '2026-04-19',

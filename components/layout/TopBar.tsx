@@ -1,6 +1,6 @@
 'use client'
 import Image from 'next/image'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
@@ -48,7 +48,7 @@ const resultItemVariants = {
   }),
 }
 
-export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onMenuClick?: () => void; onToggleDesktop?: () => void; desktopCollapsed?: boolean }) {
   const pathname = usePathname()
   const router   = useRouter()
   const sync     = useSyncMicrosoft()
@@ -187,6 +187,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         {onMenuClick && (
           <button className="d-topbar-hamburger" onClick={onMenuClick} aria-label="Menu">
             <Menu size={20} />
+          </button>
+        )}
+        {/* v1.9.47 — toggle sidebar desktop (caché en mobile via CSS) */}
+        {onToggleDesktop && (
+          <button className="d-topbar-toggle-sidebar" onClick={onToggleDesktop} aria-label={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'} title={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'}>
+            <PanelLeftClose size={18} style={{ transform: desktopCollapsed ? 'scaleX(-1)' : undefined, transition: 'transform 0.2s' }} />
           </button>
         )}
         <div style={{ flex: 1 }} />

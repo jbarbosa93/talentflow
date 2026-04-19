@@ -1758,23 +1758,36 @@ export default function CandidatsList() {
             {/* Séparateur */}
             <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
 
-            {/* Vu / Non vu */}
-            <button onClick={() => { markTousVus(Array.from(selectedIds)); setSelectedIds(new Set()) }} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: '#10B981', color: '#fff', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <Eye size={12} /> Marquer vu
-            </button>
-            <button onClick={() => { Array.from(selectedIds).forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: '#64748B', color: '#fff', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <Eye size={12} /> Non vu
-            </button>
+            {/* Vu / Non vu — v1.9.47 : cacher le bouton si tous déjà dans cet état */}
+            {(() => {
+              const selectedArr = Array.from(selectedIds)
+              const allSeen = selectedArr.length > 0 && selectedArr.every(id => viewedSet.has(id))
+              const allUnseen = selectedArr.length > 0 && selectedArr.every(id => !viewedSet.has(id))
+              return (
+                <>
+                  {!allSeen && (
+                    <button onClick={() => { markTousVus(selectedArr); setSelectedIds(new Set()) }} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                      background: '#10B981', color: '#fff', border: 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      <Eye size={12} /> Marquer vu
+                    </button>
+                  )}
+                  {!allUnseen && (
+                    <button onClick={() => { selectedArr.forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                      background: '#64748B', color: '#fff', border: 'none',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}>
+                      <Eye size={12} /> Non vu
+                    </button>
+                  )}
+                </>
+              )
+            })()}
           </div>
 
           {/* Ligne 2 : actions contextuelles + actions globales */}

@@ -92,6 +92,34 @@ body {
   top: 0;
   flex-shrink: 0;
   border-right: 1px solid var(--sidebar-border);
+  transition: width 0.22s ease, border-right-width 0.22s ease;
+}
+/* v1.9.47 — sidebar cachable desktop */
+.d-sidebar.is-collapsed {
+  width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+.d-topbar-toggle-sidebar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-right: 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+.d-topbar-toggle-sidebar:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+@media (min-width: 900px) {
+  .d-topbar-toggle-sidebar { display: inline-flex; }
 }
 .d-sidebar-logo {
   padding: 22px 20px;

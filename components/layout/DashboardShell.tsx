@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,6 +10,22 @@ import { ReminderPopup } from '@/components/ReminderPopup'
 
 function Shell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false)
+  // v1.9.47 — persist sidebar collapsed state
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem('talentflow_sidebar_collapsed')
+    if (saved === '1') setDesktopCollapsed(true)
+  }, [])
+  const toggleDesktop = () => {
+    setDesktopCollapsed(v => {
+      const next = !v
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('talentflow_sidebar_collapsed', next ? '1' : '0')
+      }
+      return next
+    })
+  }
   const pathname = usePathname()
 
   const isOnCandidats = pathname === '/candidats' || pathname.startsWith('/candidats/')
@@ -31,10 +47,10 @@ function Shell({ children }: { children: React.ReactNode }) {
           )}
         </AnimatePresence>
 
-        <Sidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} desktopCollapsed={desktopCollapsed} />
 
         <div className="d-main">
-          <TopBar onMenuClick={() => setSidebarOpen(true)} />
+          <TopBar onMenuClick={() => setSidebarOpen(true)} onToggleDesktop={toggleDesktop} desktopCollapsed={desktopCollapsed} />
           <main className="d-content">
             <AnimatePresence mode="wait">
               <motion.div

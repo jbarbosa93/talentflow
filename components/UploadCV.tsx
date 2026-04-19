@@ -21,7 +21,7 @@ interface UploadCVProps {
   onClose?: () => void
 }
 
-type FileStatus = 'pending' | 'uploading' | 'parsing' | 'awaiting_confirmation' | 'success' | 'doublon_updated' | 'already_imported' | 'doc_added' | 'multiple_matches' | 'error'
+type FileStatus = 'pending' | 'uploading' | 'parsing' | 'awaiting_confirmation' | 'success' | 'doublon_updated' | 'already_imported' | 'reactivated' | 'doc_added' | 'multiple_matches' | 'error'
 
 interface FileItem {
   file: File
@@ -227,9 +227,13 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       // 4b. Doublon détecté (un seul match)
       if (data.isDuplicate && data.candidatExistant?.id) {
         if (data.sameFile) {
-          // Exactement le même fichier déjà en base → rien à faire
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
-          updateFile(idx, { status: 'already_imported', candidatNom: nom })
+          // v1.9.47 — distinguer Cas 2 (reactivated : date mise à jour + badge) du Cas 1 (skipped total)
+          if (data.reactivated) {
+            updateFile(idx, { status: 'reactivated', candidatNom: nom })
+          } else {
+            updateFile(idx, { status: 'already_imported', candidatNom: nom })
+          }
           return { success: true, candidat: data.candidatExistant }
         }
         if (data.updated) {
@@ -417,6 +421,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       for (const result of results) {
         if (result.candidat) lastSuccessCandidat = result.candidat
       }
+      // v1.9.47 — invalider après chaque chunk pour que la liste derrière le modal
+      // soit déjà rafraîchie quand l'user voit "Terminé" et ferme. Évite l'attente
+      // de 30s du refetchInterval React Query.
+      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+      queryClient.invalidateQueries({ queryKey: ['candidat'] })
+      dispatchBadgesChanged()
     }
 
     // ── Pass 2 : retry les documents non-CV qui n'avaient pas trouvé de candidat ──
@@ -491,6 +501,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         return <AlertCircle size={14} style={{ color: '#D97706', flexShrink: 0 }} />
       case 'already_imported':
         return <CheckCircle size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+      case 'reactivated':
+        return <RefreshCw size={14} style={{ color: '#D97706', flexShrink: 0 }} />
       case 'success':
         return <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
       case 'doc_added':
@@ -566,6 +578,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'awaiting_confirmation': return `Confirmation requise — ${item.candidatNom || 'match détecté'}`
       case 'success': return `Importé — ${item.candidatNom}`
       case 'already_imported': return `Déjà importé — ${item.candidatNom}`
+      case 'reactivated': return `Réactivé — ${item.candidatNom}`
       case 'doc_added': return `Document ajouté — ${item.candidatNom}`
       case 'doublon_updated': return `CV actualisé — ${item.candidatNom}`
       case 'multiple_matches': return item.multipleMatches?.length === 1
@@ -583,6 +596,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'awaiting_confirmation': return '#D97706'
       case 'success': return '#16A34A'
       case 'already_imported': return '#9CA3AF'
+      case 'reactivated': return '#D97706'
       case 'doc_added': return '#3B82F6'
       case 'doublon_updated': return '#F59E0B'
       case 'multiple_matches': return '#8B5CF6'
@@ -595,6 +609,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'success': return '#F0FDF4'
       case 'awaiting_confirmation': return '#FEF3C7'
       case 'already_imported': return '#F9FAFB'
+      case 'reactivated': return '#FFFBEB'
       case 'doc_added': return '#EFF6FF'
       case 'doublon_updated': return '#FFFBEB'
       case 'multiple_matches': return '#F5F3FF'
@@ -609,6 +624,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       case 'awaiting_confirmation': return '#FCD34D'
       case 'doc_added': return '#BFDBFE'
       case 'doublon_updated': return '#FDE68A'
+      case 'reactivated': return '#FDE68A'
       case 'multiple_matches': return '#C4B5FD'
       case 'error': return '#FECACA'
       default: return 'var(--border)'

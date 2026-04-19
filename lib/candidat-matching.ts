@@ -329,11 +329,19 @@ export async function findExistingCandidat(
   // lieu de "Fragoso Costa"), les certificats extraient le nom complet et n'ont
   // pas d'autres signaux (DDN/tel/email absents). Accepte strictExact|strictSubset
   // à score ≥ 3 MAIS exige qu'un SEUL candidat passe le filtre (pas d'ambiguïté).
+  // v1.9.47 — priorité strictExact sur strictSubset : si au moins un candidat match
+  // par strictExact (nom+prenom identiques exactement), les strictSubset sont ignorés.
+  // Résout le cas "Daniel Fragoso Costa" (strictExact) vs homonyme "Daniel Costa"
+  // (strictSubset) où kept.length=2 bloquait le rattachement à tort.
   const threshold = opts?.attachmentMode
     ? (d: ScoreDetail) => (d.strictExact || d.strictSubset) && d.score >= 3
     : passesThreshold
-  const kept = scored.filter(threshold)
+  let kept = scored.filter(threshold)
   if (kept.length === 0) return { kind: 'none' }
+  if (opts?.attachmentMode) {
+    const exactOnly = kept.filter(d => d.strictExact)
+    if (exactOnly.length > 0) kept = exactOnly
+  }
   if (opts?.attachmentMode && kept.length > 1) return { kind: 'none' }
 
   // ── Étape 5 : meilleur match après tiebreak ──

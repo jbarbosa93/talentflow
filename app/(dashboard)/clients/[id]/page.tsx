@@ -1,6 +1,7 @@
 'use client'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
@@ -448,8 +449,8 @@ export default function ClientDetailPage() {
         })}
       </div>
 
-      {/* Delete confirmation dialog */}
-      {showDeleteConfirm && (
+      {/* Delete confirmation dialog — v1.9.47 portal pour garantir position:fixed centré */}
+      {showDeleteConfirm && typeof window !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1000,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -493,7 +494,8 @@ export default function ClientDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {showActivityHistory && client && (

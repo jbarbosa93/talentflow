@@ -66,7 +66,7 @@ const badgeVariants = {
   exit: { opacity: 0, y: -6, scale: 0.95, transition: { duration: 0.18 } },
 }
 
-export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
+export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?: boolean; onClose?: () => void; desktopCollapsed?: boolean }) {
   const pathname = usePathname()
   const importCtx = useImport()
   const matchingCtx = useMatching()
@@ -254,7 +254,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
   const showDoblonsBadge = doublonsCtx.phase === 'loading' && !isDoublonsPage
 
   return (
-    <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}`}>
+    <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}${desktopCollapsed ? ' is-collapsed' : ''}`}>
       {/* Logo */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}

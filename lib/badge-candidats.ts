@@ -150,10 +150,16 @@ export function markCandidatVu(id: string) {
 
 export function markCandidatNonVu(id: string) {
   if (typeof window === 'undefined') return
+  // v1.9.47 — "Non vu" réarme le badge pour TOUS les users (pas juste le courant)
+  // et force last_import_at=NOW côté serveur pour garantir que le badge apparaisse.
   const set = getViewedSet()
   set.delete(id)
   writeViewedSet(set)
-  unsyncFromDB([id])
+  fetch('/api/candidats/vus', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: [id], all_users: true }),
+  }).catch(() => {})
   dispatchBadgesChanged()
 }
 

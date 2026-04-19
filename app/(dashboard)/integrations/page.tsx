@@ -10,6 +10,7 @@ import { dispatchBadgesChanged } from '@/lib/badge-candidats'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, Suspense, useState, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import AlertsBanner from '@/components/AlertsBanner'
 import TestFolderRunner from '@/components/TestFolderRunner'
@@ -939,8 +940,8 @@ function IntegrationsContent() {
         </>
       )}
 
-      {/* ── Sync Report Modal ── */}
-      {syncReport && (
+      {/* ── Sync Report Modal ── v1.9.47 portal pour garantir position:fixed centré */}
+      {syncReport && typeof window !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1102,7 +1103,8 @@ function IntegrationsContent() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>

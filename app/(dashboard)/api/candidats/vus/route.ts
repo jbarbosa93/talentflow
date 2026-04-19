@@ -89,7 +89,7 @@ export async function DELETE(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError
   try {
-    const { ids } = await request.json() as { ids: string[] }
+    const { ids, all_users } = await request.json() as { ids: string[]; all_users?: boolean }
     if (!Array.isArray(ids) || ids.length === 0) return NextResponse.json({ ok: true })
 
     const supabase = await createClient()
@@ -97,11 +97,18 @@ export async function DELETE(request: NextRequest) {
     if (!user) return NextResponse.json({ ok: false }, { status: 401 })
 
     const admin = createAdminClient()
-    await (admin as any)
-      .from('candidats_vus')
-      .delete()
-      .eq('user_id', user.id)
-      .in('candidat_id', ids)
+    if (all_users) {
+      // v1.9.47 — "Non vu" global : purge candidats_vus pour TOUS users + force
+      // last_import_at = NOW() pour que le badge rouge apparaisse chez tout le monde
+      await (admin as any).from('candidats_vus').delete().in('candidat_id', ids)
+      await (admin as any).from('candidats').update({ last_import_at: new Date().toISOString() }).in('id', ids)
+    } else {
+      await (admin as any)
+        .from('candidats_vus')
+        .delete()
+        .eq('user_id', user.id)
+        .in('candidat_id', ids)
+    }
 
     return NextResponse.json({ ok: true })
   } catch {
