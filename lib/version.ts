@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.39'
+export const APP_VERSION = '1.9.40'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.40',
+    date: '2026-04-19',
+    label: 'Fix badge rouge absent après update/réactivation CV',
+    features: [
+      'Bug confirmé : après ré-import CV (OneDrive sync ou import manuel), le serveur DELETE bien candidats_vus, mais le client faisait UNION local+DB → les IDs présents dans localStorage (fiche vue avant) étaient réinjectés → pas de badge.',
+      'Fix lib/badge-candidats.ts : DB source de vérité STRICTE, UNION supprimée. localStorage aligné sur DB à chaque init. Les IDs local-only ignorés (log debug) — la migration one-shot v1.9.9 est terminée depuis longtemps.',
+      'Effet : badge réapparaît correctement sur "Mis à jour" et "Réactivés" comme pour les créations nouvelles.',
+    ],
+  },
   {
     version: '1.9.39',
     date: '2026-04-19',

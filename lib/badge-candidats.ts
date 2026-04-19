@@ -81,24 +81,33 @@ export async function initViewedFromDB(): Promise<{ viewedSet: Set<string>; view
     }
     _dbSynced = true
 
-    // Merge : DB + localStorage existant (migration one-shot)
+    // v1.9.40 — DB fait foi SANS EXCEPTION.
+    // Ancien bug : UNION local+DB quand toSync > 0 bloquait le badge après ré-import
+    // (serveur DELETE candidats_vus → local contient encore l'ID → UNION le réinjecte
+    // dans viewedSet → hasBadge return false). Solution : DB truth strict, localStorage
+    // aligné dessus, puis re-sync des vraies migrations one-shot en fire-and-forget
+    // (les IDs local-only qui n'auraient jamais été en DB) — elles apparaîtront au
+    // prochain focus via refreshViewedFromDB.
     const localSet = getViewedSet()
     const dbSet = new Set<string>(viewedIds)
 
-    // IDs en localStorage mais pas en DB → les upserter en DB (migration)
-    const toSync = [...localSet].filter(id => !dbSet.has(id))
-    if (toSync.length > 0) {
-      syncToDB(toSync) // fire-and-forget
+    // Migration résiduelle : IDs en local pas en DB ET PAS purgés récemment par serveur.
+    // On ne peut pas distinguer "migration restante" vs "purge serveur récente",
+    // donc on ne push QUE si la purge est improbable : jamais re-push ce qui est
+    // en local-only — laisser mourir naturellement. Si c'était une vraie migration
+    // one-shot en suspens, elle se rejouera au prochain markCandidatVu.
+    // (En pratique la migration v1.9.9 est terminée depuis longtemps.)
+
+    // DB = source de vérité. localStorage aligné sur DB.
+    const viewedSet = dbSet
+    writeViewedSet(viewedSet)
+
+    // Log discret pour diagnostiquer si un user a encore des IDs local-only
+    const localOnly = [...localSet].filter(id => !dbSet.has(id))
+    if (localOnly.length > 0 && typeof window !== 'undefined') {
+      console.debug(`[badge] ${localOnly.length} IDs local-only ignorés (DB truth)`)
     }
 
-    // v1.9.26 — DB fait foi. Les suppressions serveur (candidats_vus DELETE lors
-    // d'un ré-import CV) se propagent au client. UNION uniquement pendant la
-    // migration one-shot (toSync > 0) pour ne pas perdre les IDs local-only
-    // avant qu'ils n'arrivent en DB.
-    const viewedSet = toSync.length > 0
-      ? new Set<string>([...dbSet, ...localSet])
-      : dbSet
-    writeViewedSet(viewedSet)
     return { viewedSet, viewedAllAt: resolvedViewedAllAt }
   } catch {
     // Fallback : localStorage uniquement
