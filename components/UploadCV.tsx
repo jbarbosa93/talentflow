@@ -459,6 +459,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
     setUploading(false)
     setDone(true)
+    // v1.9.44 — invalider les queries pour refresh instantané badge + liste candidats + sidebar
+    // (sans ça, le refetchInterval React Query fait attendre 30s avant MAJ du badge rouge)
+    queryClient.invalidateQueries({ queryKey: ['candidats'] })
+    queryClient.invalidateQueries({ queryKey: ['candidat'] })
     dispatchBadgesChanged()
     if (lastSuccessCandidat) onSuccess?.(lastSuccessCandidat)
   }

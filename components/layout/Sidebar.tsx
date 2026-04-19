@@ -124,11 +124,13 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
       } catch { /* silencieux */ }
     }
 
-    // Debounce : pendant un import de 2000 CVs l'event se déclenche souvent
-    // On attend 3s d'inactivité avant de refetch
+    // v1.9.44 — debounce 3s → 500ms. Le ressenti utilisateur (badge tardif 10-15s)
+    // était dû au cumul debounce 3s + fetch count-new + refetchInterval React Query.
+    // 500ms suffit à coalescer les imports batch sans faire attendre le user après
+    // un sync OneDrive manuel ou un import single.
     const debouncedCompute = () => {
       if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(computeBadgeCount, 3000)
+      debounceTimer = setTimeout(computeBadgeCount, 500)
     }
 
     // Premier calcul après init DB (viewedAllAt déjà lu depuis localStorage — pas de flash)

@@ -762,7 +762,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
           await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
           await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'meme_contenu_date_differente' } })
-          return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
+          return NextResponse.json({ isDuplicate: true, sameFile: true, reactivated: true, candidatExistant, candidat: candidatExistant, analyse, message: `Réactivé — ${candidatExistant.prenom} ${candidatExistant.nom}` })
         }
       }
 

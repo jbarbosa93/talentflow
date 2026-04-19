@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.43'
+export const APP_VERSION = '1.9.44'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.44',
+    date: '2026-04-19',
+    label: 'Fix message "Réactivé" + badge instantané après import manuel',
+    features: [
+      'Message CV réactivé : "Déjà importé — X" → "Réactivé — X" dans cv/parse quand hash match + date différente (v1.9.42 Cas 2).',
+      'Invalidation React Query après import manuel UploadCV : queryClient.invalidateQueries([\'candidats\']) + [\'candidat\'] dans handleUpload.setDone(true). Liste candidats refresh instantané.',
+      'Sidebar badge debounce 3s → 500ms : le cumul debounce + fetch count-new faisait attendre 10-15s l\'apparition du badge rouge. 500ms suffit à coalescer les imports batch sans pénaliser le single.',
+    ],
+  },
   {
     version: '1.9.43',
     date: '2026-04-19',
