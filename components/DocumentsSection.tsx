@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
   FolderOpen, Eye, Printer, Download, Trash2, Pencil, Upload, X,
@@ -65,7 +65,18 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
   const [showUpload, setShowUpload] = useState(false)
   const [pendingFile, setPendingFile] = useState<{ file: globalThis.File; name: string } | null>(null)
   const [editingNameIdx, setEditingNameIdx] = useState<number | null>(null)
-  const [openMoveMenu, setOpenMoveMenu] = useState<string | null>(null)
+  const [openMoveMenu, setOpenMoveMenu] = useState<{ key: string; rect: DOMRect } | null>(null)
+  // Ferme le menu au scroll ou resize (sinon il reste flottant au mauvais endroit)
+  useEffect(() => {
+    if (!openMoveMenu) return
+    const close = () => setOpenMoveMenu(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [openMoveMenu])
   const [editNameValue, setEditNameValue] = useState('')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
@@ -294,9 +305,9 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
   }
 
   // ── Action button helper ──
-  const actionBtn = (onClick: () => void, icon: React.ReactNode, title: string, color: string, disabled?: boolean) => (
+  const actionBtn = (onClick: (e?: React.MouseEvent<HTMLButtonElement>) => void, icon: React.ReactNode, title: string, color: string, disabled?: boolean) => (
     <button
-      onClick={onClick}
+      onClick={e => onClick(e)}
       disabled={disabled}
       title={title}
       style={{
@@ -679,53 +690,71 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               'Télécharger',
                               '#6B7280',
                             )}
-                            {/* Changer catégorie — dropdown custom */}
+                            {/* Changer catégorie — dropdown portal (échappe overflow modal) */}
                             {(() => {
                               const isCvPrincipal = isCvCategory && localIdx === 0 && cvUrl
                               const menuKey = isCvPrincipal ? `cv_${localIdx}` : `doc_${realIdx}`
                               return (
-                                <div style={{ position: 'relative' }}>
+                                <>
                                   {actionBtn(
-                                    () => setOpenMoveMenu(prev => prev === menuKey ? null : menuKey),
+                                    (e?: React.MouseEvent<HTMLButtonElement>) => {
+                                      if (openMoveMenu?.key === menuKey) { setOpenMoveMenu(null); return }
+                                      const rect = (e?.currentTarget as HTMLElement).getBoundingClientRect()
+                                      setOpenMoveMenu({ key: menuKey, rect })
+                                    },
                                     <ChevronDown size={12} style={{ color: 'var(--warning)' }} />,
                                     'Déplacer vers...',
                                     '#D97706',
                                   )}
-                                  {openMoveMenu === menuKey && (
-                                    <div style={{
-                                      position: 'absolute', top: '100%', right: 0, zIndex: 100,
-                                      background: 'var(--card)', border: '1px solid var(--border)',
-                                      borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                                      padding: '4px 0', minWidth: 170, marginTop: 4,
-                                    }}>
-                                      {!isCvPrincipal && onCvChange && (
-                                        <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--warning)', fontWeight: 600 }}
-                                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--warning-soft)')}
-                                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                                        >→ CV principal</button>
-                                      )}
-                                      {UPLOAD_TYPES.map(t => (
-                                        <button key={t.value}
-                                          onClick={() => {
-                                            if (isCvPrincipal && onCvChange) {
-                                              const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
-                                              onUpdate([...documents, movedDoc])
-                                              onCvChange('', '')
-                                              toast.success('Document déplacé')
-                                            } else {
-                                              handleChangeType(realIdx, t.value)
-                                            }
-                                            setOpenMoveMenu(null)
-                                          }}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--foreground)' }}
-                                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
-                                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                                        >→ {t.label}</button>
-                                      ))}
-                                    </div>
+                                  {openMoveMenu?.key === menuKey && typeof window !== 'undefined' && createPortal(
+                                    <>
+                                      {/* Backdrop invisible pour fermer au clic extérieur */}
+                                      <div
+                                        onClick={() => setOpenMoveMenu(null)}
+                                        style={{ position: 'fixed', inset: 0, zIndex: 10000 }}
+                                      />
+                                      <div
+                                        onClick={e => e.stopPropagation()}
+                                        style={{
+                                          position: 'fixed',
+                                          top: openMoveMenu.rect.bottom + 4,
+                                          left: Math.min(openMoveMenu.rect.right - 180, window.innerWidth - 190),
+                                          zIndex: 10001,
+                                          background: 'var(--card)', border: '1px solid var(--border)',
+                                          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                          padding: '4px 0', minWidth: 180,
+                                        }}
+                                      >
+                                        {!isCvPrincipal && onCvChange && (
+                                          <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}
+                                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--warning)', fontWeight: 600 }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--warning-soft)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                                          >→ CV principal</button>
+                                        )}
+                                        {UPLOAD_TYPES.map(t => (
+                                          <button key={t.value}
+                                            onClick={() => {
+                                              if (isCvPrincipal && onCvChange) {
+                                                const movedDoc = { name: cvFileName || 'CV', url: cvUrl, type: t.value as any, uploaded_at: new Date().toISOString() }
+                                                onUpdate([...documents, movedDoc])
+                                                onCvChange('', '')
+                                                toast.success('Document déplacé')
+                                              } else {
+                                                handleChangeType(realIdx, t.value)
+                                              }
+                                              setOpenMoveMenu(null)
+                                            }}
+                                            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--foreground)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                                          >→ {t.label}</button>
+                                        ))}
+                                      </div>
+                                    </>,
+                                    document.body
                                   )}
-                                </div>
+                                </>
                               )
                             })()}
                             {/* Renommer */}

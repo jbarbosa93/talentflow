@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.56'
+export const APP_VERSION = '1.9.57'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.57',
+    date: '2026-04-19',
+    label: 'Dropdown Documents via portal (fix overflow modal)',
+    features: [
+      'DOCUMENTS MODAL - Le dropdown "Déplacer vers..." (→ CV / Certificat / Diplôme / Lettre de motivation) passe par createPortal + position fixed. Avant v1.9.57 : position absolute dans le scroll area → clipping quand le dropdown dépassait le modal. Maintenant : le menu est rendu dans document.body, échappe tous les parents avec overflow. Ferme automatiquement au scroll/resize + backdrop transparent pour clic extérieur.',
+      'DOCUMENTS - actionBtn accepte maintenant (e) => void pour propager l\'événement click et récupérer getBoundingClientRect du trigger.',
+    ],
+  },
   {
     version: '1.9.56',
     date: '2026-04-19',
