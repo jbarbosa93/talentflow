@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.42'
+export const APP_VERSION = '1.9.43'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.43',
+    date: '2026-04-19',
+    label: 'Backfill SHA256 stock historique + cron garde-fou + badge UI instantané',
+    features: [
+      'Script scripts/backfill-cv-sha256.mjs : one-shot ~10min, télécharge cv_url et calcule SHA256+size pour les ~6053 candidats pré-v1.9.42 sans hash. Une fois exécuté, tout re-import identique = reactivated direct (plus jamais updated faux positif).',
+      'Cron hebdomadaire /api/cron/check-sha256-integrity (dimanche 03h UTC) : garde-fou permanent. Compte les orphelins sans hash, backfill batch 100 + alerte logs si trop. Garantit qu\'aucune fiche ne peut rester sans hash.',
+      'Fix badge UI instantané : queryClient.invalidateQueries([\'candidats\']) + [\'onedrive-fichiers\'] après sync manuel OneDrive (avant : refetchInterval 30s). Badge rouge + statut s\'affichent immédiatement.',
+      'Tests scripts/test-sha256-scenarios.mjs : 3/3 passed (PDF natif 2 colonnes, PDF scan, DOCX) — SHA256 garantit déterminisme cryptographique sur tous les types.',
+    ],
+  },
   {
     version: '1.9.42',
     date: '2026-04-19',

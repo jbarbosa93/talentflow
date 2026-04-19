@@ -127,6 +127,10 @@ function IntegrationsContent() {
 
     setOnedriveSyncing(false)
     queryClient.invalidateQueries({ queryKey: ['integrations'] })
+    // v1.9.43 — invalider la liste candidats pour faire apparaître badges/dates instantanément
+    // (sinon le refetchInterval React Query attend 30s avant de refresh)
+    queryClient.invalidateQueries({ queryKey: ['candidats'] })
+    queryClient.invalidateQueries({ queryKey: ['onedrive-fichiers'] })
     dispatchBadgesChanged()
   }, [queryClient])
 
