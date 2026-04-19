@@ -874,6 +874,25 @@ export async function POST(request: Request) {
             const memeDate = !!(dateDernierTraitement && fileDate &&
               Math.abs(new Date(fileDate).getTime() - new Date(dateDernierTraitement).getTime()) < 1000)
 
+            // v1.9.41 — Trace diagnostic pour distinguer reactivated vs updated
+            // Identifie la cause exacte quand contenuIdentique = false alors qu'il devrait être true.
+            console.error('[OneDrive Sync TRACE]', JSON.stringify({
+              filename,
+              cv_nom_fichier_db: candidatExistant.cv_nom_fichier,
+              normFn_filename: normFnOd(filename),
+              normFn_cv_nom: normFnOd(candidatExistant.cv_nom_fichier || ''),
+              memeNomBase,
+              extrait500_len: extrait500.length,
+              stocke500_len: stocke500.length,
+              peutComparer,
+              texte500_match: peutComparer ? extrait500 === stocke500 : null,
+              memeItemLiee,
+              contenuIdentique,
+              fileDate, dateDernierTraitement,
+              memeDate,
+              candidat: `${candidatExistant.prenom || ''} ${candidatExistant.nom}`.trim(),
+            }))
+
             // Cas 1 : contenu identique + date identique → SKIP total (rien à faire)
             if (contenuIdentique && memeDate) {
               await upsertFichier({

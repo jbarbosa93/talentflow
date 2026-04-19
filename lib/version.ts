@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.40'
+export const APP_VERSION = '1.9.41'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.41',
+    date: '2026-04-19',
+    label: 'Log trace diagnostic OneDrive sync (reactivated vs updated)',
+    features: [
+      'Ajout console.error verbeux dans onedrive/sync juste avant la décision de classification (reactivated vs updated). Trace : filename, cv_nom_fichier_db, normFn des deux, memeNomBase, longueurs textes, texte500_match, memeItemLiee, contenuIdentique, dates, memeDate, candidat.',
+      'Permet de diagnostiquer le cas Rama Berat où le serveur classe "updated" alors que le CV est strictement identique (3 causes possibles : nom de fichier modifié, extraction texte non-déterministe, nouveau onedrive_item_id).',
+      'Strictement diagnostique — aucun changement de logique. Lecture des logs Vercel au prochain re-upload.',
+    ],
+  },
   {
     version: '1.9.40',
     date: '2026-04-19',
