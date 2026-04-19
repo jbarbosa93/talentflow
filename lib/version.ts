@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.51'
+export const APP_VERSION = '1.9.52'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.52',
+    date: '2026-04-19',
+    label: 'Dashboard pack 3 — Questionnaire phrases, Activité récente, Top villes, rappels per-user',
+    features: [
+      'PHRASES - Questionnaire au 1er login (components/PhraseStyleQuestionnaire.tsx) : modal 4 styles (🎯 Factuel / 💪 Motivant / 🧘 Sage / 🎲 Aléatoire). Choix persisté dans user_metadata.phrase_style.',
+      'PHRASES - 3 pools distincts de 15 phrases chacun (factuel/motivant/sage) + pool aleatoire = mix des 3. Fonction getMotivationalPhrase(userId, stats, style). Contextuelles 30% si stats matchent.',
+      'DASHBOARD - Section "Candidats par lieu" (carte interactive) remplacée par 2 widgets côte-à-côte : ActiviteRecenteWidget (10 derniers imports avec photo + nom + métier + temps relatif, lien fiche) + TopVillesWidget (barres horizontales Top 10 villes avec count, lien recherche).',
+      'DASHBOARD - Rappels count filtré explicitement par user_id (ceinture+bretelles avec RLS v1.9.12). queryKey inclut user.id → refetch auto si changement user.',
+      'TOPBAR - Label bouton "Importer" → "Importer candidat".',
+    ],
+  },
   {
     version: '1.9.51',
     date: '2026-04-19',

@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2, Bell } from 'lucide-react'
@@ -6,6 +7,8 @@ import { getMotivationalPhrase } from '@/lib/motivational-phrases'
 import { computeEtpSemaine, getISOWeek } from '@/lib/missions-etp'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
 import WavingAvatar from '@/components/WavingAvatar'
+import PhraseStyleQuestionnaire from '@/components/PhraseStyleQuestionnaire'
+import type { PhraseStyle } from '@/lib/motivational-phrases'
 
 function WaIcon({ size = 13 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.612l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.37 0-4.567-.82-6.3-2.188l-.44-.348-2.858.958.958-2.858-.348-.44A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
@@ -68,6 +71,13 @@ export default function DashboardPage() {
     ? [prenom, nom].filter(Boolean).join(' ')
     : 'Consultant'
 
+  // Style de phrase motivationnelle (choisi au 1er login via PhraseStyleQuestionnaire)
+  const [phraseStyle, setPhraseStyle] = useState<PhraseStyle | undefined>(undefined)
+  useEffect(() => {
+    if (user?.user_metadata?.phrase_style) setPhraseStyle(user.user_metadata.phrase_style as PhraseStyle)
+  }, [user?.user_metadata?.phrase_style])
+  const showPhraseQuestionnaire = !!user && !user.user_metadata?.phrase_style && phraseStyle === undefined
+
   const [chartPeriod, setChartPeriod] = useState<'jour' | 'semaine' | 'mois'>('jour')
   const [dateStr, setDateStr] = useState('')
   useEffect(() => {
@@ -77,15 +87,19 @@ export default function DashboardPage() {
   }, [])
 
   const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', user?.id],
     queryFn: async () => {
+      // Filtrage explicite par user_id sur pipeline_rappels (ceinture+bretelles avec RLS v1.9.12).
+      // Avant v1.9.52 : count sans filtre → Seb voyait les rappels de João si RLS échouait.
+      const rappelsQuery = (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true })
+      if (user?.id) rappelsQuery.eq('user_id', user.id)
       const [candidats, clients, offres, places, aTraiter, rappels] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
         (supabase as any).from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active'),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('import_status', 'a_traiter' as any),
-        (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }),
+        rappelsQuery,
       ])
       return {
         totalCandidats: candidats.count ?? 0,
@@ -97,6 +111,7 @@ export default function DashboardPage() {
       }
     },
     staleTime: 30_000,
+    enabled: !!user,
   })
 
   // Chart data — candidatures par jour/semaine/mois
@@ -241,7 +256,7 @@ export default function DashboardPage() {
             </span>
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4 }}>
-            {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }) : '…'}
+            {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }, phraseStyle || 'aleatoire') : '…'}
           </p>
           </div>
         </div>
@@ -369,29 +384,21 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* ── Carte des candidats ── */}
+      {/* ── Activité récente + Top villes (v1.9.52) ── */}
       <motion.div
         custom={3}
         variants={fadeUp}
         initial="hidden"
         animate="show"
-        className="neo-card-soft"
-        style={{ padding: 24, marginTop: 20 }}
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: 20, marginTop: 20 }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 className="neo-section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MapPin style={{ width: 16, height: 16, color: 'var(--primary)' }} />
-            Candidats par lieu
-          </h2>
-          <Link href="/candidats" style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
-            Voir tous <ArrowRight style={{ width: 13, height: 13 }} />
-          </Link>
-        </div>
-        <div style={{ height: 380, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
-          <CandidatsMap />
-        </div>
+        <ActiviteRecenteWidget />
+        <TopVillesWidget />
       </motion.div>
 
+      {showPhraseQuestionnaire && (
+        <PhraseStyleQuestionnaire onDone={(style) => setPhraseStyle(style)} />
+      )}
     </div>
   )
 }
@@ -579,6 +586,157 @@ interface SecStats {
     type: 'permis' | 'accident' | 'docs'
   }[]
   activite_recente: { nom: string; action: string; date: string }[]
+}
+
+// ─── Activité récente (10 derniers candidats importés) ───
+function ActiviteRecenteWidget() {
+  const supabase = createClient()
+  const { data } = useQuery({
+    queryKey: ['dashboard-activite-recente'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('candidats')
+        .select('id, nom, prenom, titre_poste, localisation, photo_url, created_at, statut_pipeline')
+        .order('created_at', { ascending: false })
+        .limit(10)
+      return (data || []) as any[]
+    },
+    staleTime: 60_000,
+  })
+
+  return (
+    <div className="neo-card-soft" style={{ padding: 20, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h2 className="neo-section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Activity style={{ width: 16, height: 16, color: 'var(--primary)' }} />
+          Activité récente
+        </h2>
+        <Link href="/candidats" style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+          Voir tous <ArrowRight style={{ width: 12, height: 12 }} />
+        </Link>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {!data && (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Chargement…</div>
+        )}
+        {data && data.length === 0 && (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Aucun import récent</div>
+        )}
+        {data?.map(c => {
+          const name = `${c.prenom || ''} ${c.nom || ''}`.trim() || 'Candidat'
+          return (
+            <Link key={c.id} href={`/candidats/${c.id}?from=dashboard`} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 8, textDecoration: 'none',
+              transition: 'background 0.12s',
+            }} className="d-act-row">
+              <div style={{
+                width: 34, height: 34, borderRadius: '50%',
+                background: c.photo_url ? 'transparent' : 'var(--primary)',
+                color: 'var(--primary-foreground)',
+                fontSize: 11, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden', flexShrink: 0,
+              }}>
+                {c.photo_url
+                  ? <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : actInitials(name)
+                }
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {c.titre_poste || '—'}{c.localisation ? ` · ${c.localisation}` : ''}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {actTempsRelatif(c.created_at)}
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+      <style>{`
+        .d-act-row:hover { background: var(--primary-soft); }
+      `}</style>
+    </div>
+  )
+}
+
+// ─── Top 10 villes (barres horizontales) ───
+function TopVillesWidget() {
+  const supabase = createClient()
+  const { data } = useQuery({
+    queryKey: ['dashboard-top-villes'],
+    queryFn: async () => {
+      // Fetch toutes les localisations non vides puis agrège côté JS (pas de GROUP BY via PostgREST simplement)
+      const { data } = await supabase
+        .from('candidats')
+        .select('localisation')
+        .not('localisation', 'is', null)
+        .limit(10000)
+      const counts = new Map<string, number>()
+      for (const row of data || []) {
+        const loc = (row as any).localisation?.trim()
+        if (!loc) continue
+        // Extraire juste la ville (avant virgule)
+        const ville = loc.split(',')[0].trim()
+        if (!ville) continue
+        counts.set(ville, (counts.get(ville) || 0) + 1)
+      }
+      const sorted = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+      return sorted.map(([ville, count]) => ({ ville, count }))
+    },
+    staleTime: 5 * 60_000,
+  })
+
+  const maxCount = data?.[0]?.count || 1
+
+  return (
+    <div className="neo-card-soft" style={{ padding: 20, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h2 className="neo-section-title" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <MapPin style={{ width: 16, height: 16, color: 'var(--primary)' }} />
+          Top 10 villes
+        </h2>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {!data && (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Chargement…</div>
+        )}
+        {data && data.length === 0 && (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>Aucune donnée</div>
+        )}
+        {data?.map((row, i) => (
+          <Link key={row.ville} href={`/candidats?search=${encodeURIComponent(row.ville)}`} style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 18, fontSize: 10, fontWeight: 700, color: 'var(--muted)', textAlign: 'right', flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {row.ville}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', flexShrink: 0, marginLeft: 8 }}>{row.count}</span>
+                </div>
+                <div style={{ height: 5, background: 'var(--muted)', borderRadius: 100, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${(row.count / maxCount) * 100}%`,
+                    background: 'var(--primary)',
+                    borderRadius: 100, transition: 'width 0.4s',
+                  }} />
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function tempsRelatifSec(dateStr: string): string {

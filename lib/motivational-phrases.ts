@@ -1,19 +1,20 @@
-// Phrases motivationnelles pour le dashboard
-// Rotation déterministe : seed = date (YYYY-MM-DD) + userId → même phrase toute la journée par user.
-// v1.9.51 : tonalité professionnelle, sans blagues, sans émojis bateau.
+// Phrases motivationnelles pour le dashboard, par STYLE choisi par le consultant.
+// v1.9.52 : 4 styles (factuel / motivant / sage / aleatoire) + contextuelles transverses.
+// Rotation déterministe seed = date + userId → même phrase toute la journée par user.
+
+export type PhraseStyle = 'factuel' | 'motivant' | 'sage' | 'aleatoire'
 
 export interface Stats {
   aTraiter?: number
   rappels?: number
-  alertes?: number
   nouveauxMatches?: number
   scoreMax?: { candidatName: string; score: number } | null
   placesAujourdhui?: number
   candidatsImportesSemaine?: number
 }
 
-// Phrases contextuelles utiles — déclenchées si les stats correspondent.
-// Gardées courtes, factuelles, actionnables.
+// Phrases contextuelles — affichées en priorité si les stats matchent (30% chance).
+// Utilisées pour tous les styles, reformulation neutre.
 const PHRASES_CONTEXTUELLES: ((s: Stats) => string | null)[] = [
   (s) => s.aTraiter && s.aTraiter > 0 ? `${s.aTraiter} candidat${s.aTraiter > 1 ? 's' : ''} à traiter aujourd'hui.` : null,
   (s) => s.rappels && s.rappels >= 3 ? `${s.rappels} rappels à suivre cette semaine.` : null,
@@ -21,43 +22,76 @@ const PHRASES_CONTEXTUELLES: ((s: Stats) => string | null)[] = [
   (s) => s.placesAujourdhui && s.placesAujourdhui > 0 ? `${s.placesAujourdhui} placement${s.placesAujourdhui > 1 ? 's confirmés' : ' confirmé'} aujourd'hui.` : null,
 ]
 
-// Phrases générales — sobres, pro, recrutement-oriented
-const PHRASES_GENERALES = [
-  "Un bon recrutement commence par une bonne écoute.",
-  "La précision bat toujours la précipitation.",
-  "Chaque CV mérite une lecture attentive.",
-  "Le détail fait la différence — prends ton temps.",
-  "Un candidat bien placé, c'est une relation qui dure.",
-  "La qualité du matching dépend de la qualité des données.",
-  "Pose les bonnes questions avant de proposer la bonne personne.",
-  "Un recrutement réussi se prépare, il ne s'improvise pas.",
-  "Le meilleur candidat n'est pas toujours celui qui postule en premier.",
-  "Connais ton client, connais ton candidat.",
-  "Une fiche bien remplie aujourd'hui, c'est un match gagné demain.",
-  "L'instinct se nourrit de l'expérience — fais-lui confiance.",
-  "Un mail bien rédigé vaut dix relances brouillonnes.",
-  "Les soft skills se lisent entre les lignes.",
-  "Le silence d'un candidat dit autant que ses réponses.",
-  "Mieux vaut un non clair qu'un peut-être ambigu.",
-  "La confiance se construit au premier contact.",
-  "Un bon recruteur vend le projet, pas seulement le poste.",
-  "Respecte chaque candidat — ils reviennent toujours plus vite qu'on ne pense.",
-  "Le suivi post-placement est la meilleure publicité.",
-  "Sois curieux, sois rigoureux, sois humain.",
-  "Chaque entretien est une opportunité d'apprendre.",
-  "Le bon recruteur ne place pas, il matche.",
-  "L'écoute active est le premier outil du métier.",
-  "Une base de candidats propre vaut mille placements.",
-  "Prends le temps de comprendre avant de proposer.",
-  "La patience n'est pas une faiblesse — c'est une compétence.",
-  "Les meilleurs candidats ne sont pas toujours les plus bruyants.",
-  "Un recruteur sérieux inspire des candidats sérieux.",
-  "La clarté est le meilleur argument de vente.",
+// 🎯 FACTUEL — ton pro, chiffres, objectifs concrets
+const PHRASES_FACTUEL = [
+  "Chaque CV traité rapproche d'un placement.",
+  "Objectif jour : 5 candidats qualifiés.",
+  "Une base à jour = des matchs pertinents.",
+  "Le suivi post-placement fidélise le client.",
+  "Relance = 40% de retour en moyenne.",
+  "Un candidat par jour, une commande par semaine.",
+  "Les KPIs ne mentent pas — lis-les tous les matins.",
+  "Pipeline propre = prévisions fiables.",
+  "Qualifie d'abord, propose ensuite.",
+  "Un doublon évité aujourd'hui = 10 minutes gagnées demain.",
+  "Meilleur taux de conversion : appel en moins de 24h.",
+  "Les fiches complètes se placent 3x plus vite.",
+  "Chaque entretien passé enrichit ta base de référence.",
+  "Le bon candidat est souvent déjà dans ton pipeline.",
+  "Une commande bien briefée se remplit 2x plus vite.",
 ]
 
-// Seed déterministe : jour + identifiant user
+// 💪 MOTIVANT — énergie, encouragement, élan
+const PHRASES_MOTIVANT = [
+  "Aujourd'hui est une bonne journée pour placer quelqu'un.",
+  "Un bon recruteur change des vies — parfois deux.",
+  "La perle rare existe, continue de chercher.",
+  "Chaque appel est une opportunité.",
+  "Ton énergie du matin donne le ton de la journée.",
+  "Les plus beaux placements commencent par un CV qu'on a failli ignorer.",
+  "Crois au talent que tu proposes.",
+  "Le succès, c'est la somme des petits efforts répétés.",
+  "Un non aujourd'hui, c'est un oui plus tard.",
+  "Tu es plus proche du prochain placement qu'il ne te semble.",
+  "Fais confiance à ton instinct — il s'affine chaque jour.",
+  "Un recruteur qui écoute vaut dix qui vendent.",
+  "La prochaine super candidature est à un clic.",
+  "L'effort constant bat toujours le sprint isolé.",
+  "Chaque journée bien remplie rapproche du mois excellent.",
+]
+
+// 🧘 SAGE — proverbes métier, réflexion, posture
+const PHRASES_SAGE = [
+  "Un bon recrutement commence par une bonne écoute.",
+  "La précision bat toujours la précipitation.",
+  "Le détail fait la différence — prends ton temps.",
+  "Connais ton client avant de proposer.",
+  "Un silence en entretien dit autant que mille mots.",
+  "Les soft skills se lisent entre les lignes.",
+  "Mieux vaut un non clair qu'un peut-être ambigu.",
+  "Le bon candidat n'est pas toujours le plus bruyant.",
+  "La patience est une compétence, pas une faiblesse.",
+  "Sois curieux, sois rigoureux, sois humain.",
+  "Ce que tu sèmes en écoute, tu le récoltes en confiance.",
+  "Un recruteur sérieux inspire des candidats sérieux.",
+  "La clarté est le meilleur argument de vente.",
+  "Respecte chaque candidat — ils reviennent toujours.",
+  "Une relation professionnelle se construit sur la durée.",
+]
+
+function poolFor(style: PhraseStyle): string[] {
+  switch (style) {
+    case 'factuel':   return PHRASES_FACTUEL
+    case 'motivant':  return PHRASES_MOTIVANT
+    case 'sage':      return PHRASES_SAGE
+    case 'aleatoire':
+    default:          return [...PHRASES_FACTUEL, ...PHRASES_MOTIVANT, ...PHRASES_SAGE]
+  }
+}
+
+// Seed déterministe : jour + user
 function dailySeed(userId: string): number {
-  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  const today = new Date().toISOString().slice(0, 10)
   const str = `${today}-${userId}`
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -67,14 +101,19 @@ function dailySeed(userId: string): number {
   return Math.abs(hash)
 }
 
-export function getMotivationalPhrase(userId: string, stats: Stats = {}): string {
+export function getMotivationalPhrase(
+  userId: string,
+  stats: Stats = {},
+  style: PhraseStyle = 'aleatoire',
+): string {
   const seed = dailySeed(userId)
 
-  // 35% chance d'afficher une phrase contextuelle utile (si disponible)
+  // 30% chance d'afficher une contextuelle (si les stats matchent)
   const contextuelles = PHRASES_CONTEXTUELLES.map(fn => fn(stats)).filter(Boolean) as string[]
-  if (contextuelles.length > 0 && seed % 100 < 35) {
+  if (contextuelles.length > 0 && seed % 100 < 30) {
     return contextuelles[seed % contextuelles.length]
   }
 
-  return PHRASES_GENERALES[seed % PHRASES_GENERALES.length]
+  const pool = poolFor(style)
+  return pool[seed % pool.length]
 }

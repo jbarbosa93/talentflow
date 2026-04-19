@@ -347,7 +347,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
           }}
         >
           <Upload size={14} />
-          <span className="d-topbar-import-label">Importer</span>
+          <span className="d-topbar-import-label">Importer candidat</span>
         </motion.button>
 
         {/* Toggle thème */}
