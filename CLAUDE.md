@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.39 prod** — 19/04/2026
+**1.9.42 prod** — 19/04/2026
 
 ---
 
@@ -316,6 +316,20 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Utiliser `classifyDocument({ analyse, texteCV })` partout : import manuel (`cv/parse`), cron OneDrive (`onedrive/sync`), banc DRY-RUN (`onedrive/sync-test`)
 - **JAMAIS de détection par nom de fichier** (ni `file.name`, ni `filename`). Règle dure depuis v1.9.33. Faux positifs trop nombreux ("CV_PASCALI..." classé non-CV, inverse possible aussi). Source unique de vérité : IA `document_type` + contenu texte + signaux structurels (email générique entreprise, absence d'expériences)
 - Toute nouvelle règle de classification doit être ajoutée dans `lib/document-classification.ts`, pas dans un call site spécifique — sinon les 3 routes divergent et le DRY-RUN se met à mentir
+
+**15. Détection "même fichier" CV — SHA256 du buffer (v1.9.42)**
+- Colonnes DB : `candidats.cv_sha256 TEXT` + `candidats.cv_size_bytes INTEGER` + index partiel
+- À chaque import (cv/parse + onedrive/sync) : `createHash('sha256').update(buffer).digest('hex')` stocké en DB
+- Logique `contenuIdentique` (priorité) : `hashMatch || sizeMatch || textMatch || memeItemLiee` — JAMAIS `memeNomBase` (filename interdit)
+- `sizeMatch` et `textMatch` sont des fallbacks pour le stock historique sans hash
+- **Backfill opportuniste** : à chaque réactivation, écrire hash/size si absents → le stock historique se remplit naturellement
+- Texte extrait par Vision IA (scans) est NON-DÉTERMINISTE → ne jamais l'utiliser comme signal primaire de "même fichier"
+
+**16. Badge rouge per-user — DB source de vérité STRICTE (v1.9.40)**
+- `lib/badge-candidats.ts` : `viewedSet = dbSet` (jamais d'UNION avec localStorage)
+- localStorage est aligné sur DB à chaque init (`writeViewedSet(dbSet)`)
+- Les IDs local-only (migration v1.9.9 résiduelle) sont ignorés — la migration est terminée
+- Sans cette règle stricte : le DELETE serveur `candidats_vus` (lors d'un ré-import CV) est annulé par l'UNION client → badge ne réapparaît pas après update/réactivation
 
 ---
 
