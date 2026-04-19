@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.41'
+export const APP_VERSION = '1.9.42'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.42',
+    date: '2026-04-19',
+    label: 'SHA256 du CV — détection "même fichier" déterministe sans filename matching',
+    features: [
+      'Migration DB : ajout cv_sha256 TEXT + cv_size_bytes INTEGER + index partiel sur cv_sha256.',
+      'À chaque import (cv/parse + onedrive/sync) : calcul SHA256 du buffer PDF + taille bytes, stockés en DB. Déterministe (mêmes bytes = même hash, indépendant de l\'extraction texte non-déterministe Vision IA pour les scans).',
+      'Logique contenuIdentique réécrite SANS filename : hierarchie SHA256 > size > texte 500 chars. Plus jamais de comparaison normFn(filename) === normFn(cv_nom_fichier).',
+      'Backfill opportuniste : à chaque réactivation, hash/size sont écrits si absents en DB (stock historique se remplit naturellement).',
+      'Retrait des isSameBaseOlder/isSameBaseOd dans la dédup documents[] (utilisaient aussi normFn filename).',
+      'Résout cas Dehili : PDF scan re-uploadé classé "updated" alors que c\'est strictement le même fichier (cause : cv_nom_fichier en DB contenait le chemin OneDrive avec /, filename = nom aplati avec _).',
+    ],
+  },
   {
     version: '1.9.41',
     date: '2026-04-19',

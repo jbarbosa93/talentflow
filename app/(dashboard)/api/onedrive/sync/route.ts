@@ -13,6 +13,7 @@ import { findExistingCandidat } from '@/lib/candidat-matching'
 import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
 import { classifyDocument } from '@/lib/document-classification'
+import { createHash } from 'crypto'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -758,7 +759,7 @@ export async function POST(request: Request) {
           if (existingCandidat) {
             // Smart update: fetch existing candidate fields needed for update logic
             const { data: candidatExistant } = await supabase.from('candidats')
-              .select('id, nom, prenom, cv_nom_fichier, cv_url, documents, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp, cv_texte_brut, created_at')
+              .select('id, nom, prenom, cv_nom_fichier, cv_url, documents, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, date_naissance, genre, linkedin, annees_exp, cv_texte_brut, created_at, cv_sha256, cv_size_bytes')
               .eq('id', existingCandidat.id).single() as { data: any }
 
             if (!candidatExistant) {
@@ -846,51 +847,51 @@ export async function POST(request: Request) {
               return { status: 'updated', name: `📄 ${docTypeLabel} → ${candidatDisplayName}`, candidatId: existingCandidat.id, filename }
             }
 
-            // ── Décision mise à jour CV ───────────────────────────────────────────────
-            // Comparaison contenu : 500 premiers chars de cv_texte_brut (suffisant pour détecter un vrai diff)
+            // ── v1.9.42 — Décision contenuIdentique SANS filename matching ─────────
+            // Signaux primaires déterministes (par ordre de priorité) :
+            //   1. SHA256 des bytes du fichier (déterministe, fiable, ne dépend pas de l'extraction)
+            //   2. Taille en bytes (fallback pour le stock historique sans hash)
+            //   3. Texte extrait (fallback final, bruité pour les scans Vision IA)
+            //   4. memeItemLiee (same onedrive_item_id — rare car re-upload = nouveau id)
+            const currentSha256 = createHash('sha256').update(buffer).digest('hex')
+            const currentSize   = buffer.length
+
+            const existingSha256 = (candidatExistant.cv_sha256 as string) || null
+            const existingSize   = (candidatExistant.cv_size_bytes as number) || null
+
+            const hashMatch = !!(existingSha256 && currentSha256 === existingSha256)
+            const sizeMatch = !hashMatch && !existingSha256 && !!(existingSize && currentSize === existingSize)
+
+            // Texte : fallback final uniquement si ni hash ni size disponibles en DB
             const extrait500 = texteCV.slice(0, 500).replace(/\s+/g, ' ').trim()
             const stocke500 = (candidatExistant.cv_texte_brut || '').slice(0, 500).replace(/\s+/g, ' ').trim()
             const peutComparer = extrait500.length >= 100 && stocke500.length >= 100
+            const textMatch = !existingSha256 && !existingSize && peutComparer && extrait500 === stocke500
 
             // Comparaison date : lastModifiedDateTime du fichier OneDrive vs last_modified_at en DB
             const rowFichier = (allFichiersUpdated || []).find((f: any) => f.onedrive_item_id === fichier.id)
             const dateDernierTraitement = rowFichier?.last_modified_at || null
-
-            // Fix 1 — fallback images/scans : si fichier déjà lié à ce candidat → traiter comme contenu identique
-            // Évite de réuploader le même scan/image à chaque changement de date OneDrive (OCR non déterministe)
-            // v1.8.23 — élargi pour records legacy (pré-v1.8.21) où candidat_id est null :
-            // si traite=true ET (candidat_id match OU candidat_id null) → même item
             const memeItemLiee = !!(rowFichier?.traite && (
               !rowFichier.candidat_id || rowFichier.candidat_id === existingCandidat.id
             ))
-            // Fix v1.8.28 — normalisation complète : timestamp + espaces/underscores + lowercase
-            const normFnOd = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
-            const memeNomBase = normFnOd(filename) === normFnOd(candidatExistant.cv_nom_fichier || '')
-            const contenuIdentique =
-              memeNomBase ||
-              (peutComparer ? extrait500 === stocke500 : normFnOd(filename) === normFnOd(candidatExistant.cv_nom_fichier || ''))
-              || memeItemLiee
+
+            // ⚠️ Pas de memeNomBase : règle dure "jamais de filename matching" (feedback João)
+            const contenuIdentique = hashMatch || sizeMatch || textMatch || memeItemLiee
+
             // Comparaison via Date objects — les formats diffèrent : OneDrive "...Z" vs DB "...+00:00"
             const memeDate = !!(dateDernierTraitement && fileDate &&
               Math.abs(new Date(fileDate).getTime() - new Date(dateDernierTraitement).getTime()) < 1000)
 
-            // v1.9.41 — Trace diagnostic pour distinguer reactivated vs updated
-            // Identifie la cause exacte quand contenuIdentique = false alors qu'il devrait être true.
+            // v1.9.42 — Trace diagnostic enrichi avec signaux hash/size
             console.error('[OneDrive Sync TRACE]', JSON.stringify({
               filename,
-              cv_nom_fichier_db: candidatExistant.cv_nom_fichier,
-              normFn_filename: normFnOd(filename),
-              normFn_cv_nom: normFnOd(candidatExistant.cv_nom_fichier || ''),
-              memeNomBase,
-              extrait500_len: extrait500.length,
-              stocke500_len: stocke500.length,
-              peutComparer,
-              texte500_match: peutComparer ? extrait500 === stocke500 : null,
+              candidat: `${candidatExistant.prenom || ''} ${candidatExistant.nom}`.trim(),
+              sha256: { current: currentSha256.slice(0, 12), existing: existingSha256 ? existingSha256.slice(0, 12) : null, match: hashMatch },
+              size: { current: currentSize, existing: existingSize, match: sizeMatch },
+              text: { extrait_len: extrait500.length, stocke_len: stocke500.length, peutComparer, match: textMatch },
               memeItemLiee,
               contenuIdentique,
-              fileDate, dateDernierTraitement,
               memeDate,
-              candidat: `${candidatExistant.prenom || ''} ${candidatExistant.nom}`.trim(),
             }))
 
             // Cas 1 : contenu identique + date identique → SKIP total (rien à faire)
@@ -915,6 +916,9 @@ export async function POST(request: Request) {
               const importedIsNewer = !candidatExistant.created_at || new Date(fileDate).getTime() > new Date(candidatExistant.created_at).getTime()
               await (supabase as any).from('candidats').update({
                 ...(importedIsNewer ? { created_at: fileDate } : {}),
+                // v1.9.42 — backfill opportuniste hash/size si absents (stock historique)
+                ...(!existingSha256 ? { cv_sha256: currentSha256 } : {}),
+                ...(!existingSize ? { cv_size_bytes: currentSize } : {}),
                 updated_at: new Date().toISOString(),
                 last_import_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
@@ -990,10 +994,9 @@ export async function POST(request: Request) {
 
               if (importedIsOlder) {
                 // CV plus ancien → archiver dans documents[], ne pas écraser cv_url ni created_at
-                // Fix v1.8.27 — skip si même fichier de base
-                const isSameBaseOlder = normFnOd(candidatExistant.cv_nom_fichier || '') === normFnOd(filename)
+                // v1.9.42 — dédup par URL uniquement (jamais filename matching)
                 const existingDocs = candidatExistant.documents || []
-                if (newCvUrl && !isSameBaseOlder && !existingDocs.some((d: any) => d.url === newCvUrl || d.name === filename)) {
+                if (newCvUrl && !existingDocs.some((d: any) => d.url === newCvUrl || d.name === filename)) {
                   existingDocs.push({ name: `[Archive] ${filename}`, url: newCvUrl, type: 'cv', uploaded_at: new Date().toISOString() })
                 }
                 await (supabase as any).from('candidats').update({
@@ -1022,10 +1025,8 @@ export async function POST(request: Request) {
               // Move old CV to documents array
               const existingDocs = candidatExistant.documents || []
               if (candidatExistant.cv_url) {
-                // ✅ FIX 2b : Déduplication — ne pas pusher l'ancien CV s'il est déjà dans documents[]
-                // Fix v1.8.27 — aussi skip si même fichier de base (timestamp prefix différent)
-                const isSameBaseOd = normFnOd(candidatExistant.cv_nom_fichier || '') === normFnOd(filename)
-                const isOldCvDuplicate = isSameBaseOd || existingDocs.some((d: any) =>
+                // v1.9.42 — Dédup par URL et nom (jamais filename normalization matching)
+                const isOldCvDuplicate = existingDocs.some((d: any) =>
                   d.url === candidatExistant.cv_url ||
                   d.name === (candidatExistant.cv_nom_fichier || 'Ancien CV')
                 )
@@ -1116,6 +1117,8 @@ export async function POST(request: Request) {
                 cv_url: newCvUrl || candidatExistant.cv_url,
                 cv_nom_fichier: filename,
                 cv_texte_brut: texteCV.slice(0, 10000) || candidatExistant.cv_texte_brut,
+                cv_sha256: currentSha256,       // v1.9.42
+                cv_size_bytes: currentSize,      // v1.9.42
                 documents: existingDocs,
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
                 updated_at: new Date().toISOString(),
@@ -1285,6 +1288,8 @@ export async function POST(request: Request) {
               cv_nom_fichier: filename,
               resume_ia: analyse.resume || null,
               cv_texte_brut: texteCV.slice(0, 10000),
+              cv_sha256: createHash('sha256').update(buffer).digest('hex'), // v1.9.42
+              cv_size_bytes: buffer.length,                                   // v1.9.42
               statut_pipeline: null, // JAMAIS d'ajout auto en pipeline
               import_status: 'a_traiter',
               last_import_at: new Date().toISOString(),

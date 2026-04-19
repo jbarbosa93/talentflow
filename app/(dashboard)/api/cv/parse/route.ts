@@ -17,6 +17,7 @@ import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
 import { classifyDocument } from '@/lib/document-classification'
+import { createHash } from 'crypto'
 
 export const runtime = 'nodejs'        // pdf-parse nécessite Node.js runtime (pas Edge)
 export const maxDuration = 300         // 300s max (Vercel Pro)
@@ -706,30 +707,25 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
     // — Si doublon CV : décider si upload nécessaire —
     if (candidatExistant && !isNotCV) {
-      const { data: ef } = await adminClient.from('candidats')
-        .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at, cv_texte_brut')
+      const { data: ef } = await (adminClient as any).from('candidats')
+        .select('id, titre_poste, competences, langues, experiences, formations_details, formation, resume_ia, permis_conduire, linkedin, cv_url, cv_nom_fichier, documents, created_at, cv_texte_brut, cv_sha256, cv_size_bytes')
         .eq('id', candidatExistant.id).single()
       existingFullPre = ef
 
-      // Fix 2 — GARDE PRIMAIRE : comparer le texte OU le nom de fichier de base AVANT hasNewContent
-      // Empêche le re-upload quand l'IA extrait des données légèrement différentes du même CV
-      // Fix v1.8.28 — normalisation : strip timestamp + espaces/underscores + lowercase
-      // Storage encode "BENCHAAR salim.pdf" → "1776xxx_BENCHAAR_salim.pdf" (espaces→underscores)
-      const normFn = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/^(\d+_)+/, '').replace(/[_\s]+/g, '_').toLowerCase()
-      const memeNomBase = !!(ef?.cv_nom_fichier &&
-        normFn(ef.cv_nom_fichier as string) === normFn(file.name))
-      // v1.9.32 — Bug 2 : comparer 2000 chars au lieu de 500. Les 500 premiers chars
-      // capturent souvent juste l'en-tête stable (nom/adresse/tel/email), masquant les
-      // changements d'expériences/compétences. 2000 chars couvre en-tête + au moins les
-      // 1-2 premières expériences → différences détectables → modale s'affiche.
+      // v1.9.42 — Détection "même fichier" SANS filename (règle dure feedback João).
+      // Hiérarchie : SHA256 > size > texte. Le filename n'est jamais utilisé.
+      const currentSha256_p = createHash('sha256').update(buffer).digest('hex')
+      const currentSize_p   = buffer.length
+      const efSha256 = (ef as any)?.cv_sha256 || null
+      const efSize   = (ef as any)?.cv_size_bytes || null
+
+      const hashMatch_p = !!(efSha256 && currentSha256_p === efSha256)
+      const sizeMatch_p = !hashMatch_p && !efSha256 && !!(efSize && currentSize_p === efSize)
       const memeTexte = !!(ef?.cv_texte_brut && texteCV &&
         (ef.cv_texte_brut as string).slice(0, 2000).trim() === texteCV.slice(0, 2000).trim())
-      // v1.9.22 — Exiger un match texte explicite pour les imports manuels (skip_confirmation=false).
-      // Sans ce durcissement, un fichier re-uploadé avec le même nom normalisé mais du contenu
-      // totalement différent était silencieusement avalé → écrasement invisible. Pour les flux auto
-      // (bulk/cron/sharepoint avec skip_confirmation=true), le filename reste un proxy acceptable
-      // (OCR peut varier, batch processing nécessite un shortcut).
-      const memeContenu = memeTexte || (skipConfirmation && memeNomBase)
+      const textMatch_p = !efSha256 && !efSize && memeTexte
+
+      const memeContenu = hashMatch_p || sizeMatch_p || textMatch_p
 
       // v1.9.32 — Bug 2 : forcer la modale si les coordonnées du CV diffèrent de la DB,
       // même si memeTexte=true. Cas : CV re-uploadé avec nouveau email/tel/ville/DDN —
@@ -757,6 +753,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom} (importedIsNewer=${importedIsNewer})`)
           await adminClient.from('candidats').update({
             ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
+            // v1.9.42 — backfill opportuniste hash/size si absents (stock historique)
+            ...(!efSha256 ? { cv_sha256: currentSha256_p } : {}),
+            ...(!efSize ? { cv_size_bytes: currentSize_p } : {}),
             updated_at: new Date().toISOString(),
             last_import_at: new Date().toISOString(),
           } as any).eq('id', candidatExistant.id)
@@ -959,6 +958,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       }
       if (cvUrl) updateData.cv_url = cvUrl
       updateData.cv_nom_fichier = file.name
+      // v1.9.42 — Hash + size du nouveau fichier (sans filename matching)
+      updateData.cv_sha256 = createHash('sha256').update(buffer).digest('hex')
+      updateData.cv_size_bytes = buffer.length
       // Photo : seulement si le candidat n'en a PAS déjà une
       if (photoUrl) {
         const { data: photoCheck } = await adminClient.from('candidats').select('photo_url').eq('id', updateId).single()
@@ -1093,6 +1095,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         linkedin: analyse.linkedin || existingFull.linkedin,
         cv_url: cvUrl || existingFull.cv_url,
         cv_nom_fichier: file.name,
+        cv_sha256: createHash('sha256').update(buffer).digest('hex'), // v1.9.42
+        cv_size_bytes: buffer.length,                                  // v1.9.42
         documents: existingDocs,
         ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
         updated_at: new Date().toISOString(),
@@ -1149,6 +1153,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // Champs hors type CandidatInsert (pas dans types/database.ts auto-généré)
   ;(nouveauCandidat as any).last_import_at = new Date().toISOString()
   ;(nouveauCandidat as any).genre = normaliserGenre((analyse as any).genre)
+  // v1.9.42 — Hash + size pour détecter "même fichier" déterministiquement (sans filename)
+  ;(nouveauCandidat as any).cv_sha256 = createHash('sha256').update(buffer).digest('hex')
+  ;(nouveauCandidat as any).cv_size_bytes = buffer.length
 
   // Date d'ajout : lastModified > date dans le nom de fichier > maintenant
   const insertDate = fileDate || extractDateFromFilename(file.name)
