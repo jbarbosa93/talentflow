@@ -198,7 +198,13 @@ export function hasBadge(
 
   // Priorité 1 : ré-import récent non encore vu par ce user
   if (last_import_at) {
-    if (!viewedAllAt || new Date(last_import_at) > new Date(viewedAllAt)) return true
+    if (!viewedAllAt || new Date(last_import_at) > new Date(viewedAllAt)) {
+      // v1.9.48 — pas de badge sur candidat ancien (created_at > SEUIL_MS = 30j)
+      // même sur ré-import. Évite d'agressiver la liste quand un vieux CV
+      // (ex: PDF daté 2021) est réimporté aujourd'hui.
+      if (created_at && !isRecent(created_at)) return false
+      return true
+    }
   }
   // Priorité 2 : candidat récemment créé non couvert par viewedAllAt
   if (!isRecent(created_at)) return false

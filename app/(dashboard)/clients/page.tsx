@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
@@ -56,7 +57,9 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
 
   if (!open) return null
 
-  return (
+  // v1.9.48 — createPortal pour garantir position:fixed centré (pattern #10 CLAUDE.md)
+  if (typeof window === 'undefined') return null
+  return createPortal(
     <div style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -323,7 +326,8 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
         </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

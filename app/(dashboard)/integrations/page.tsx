@@ -998,19 +998,40 @@ function IntegrationsContent() {
               </div>
             )}
 
-            {/* Updated list */}
-            {syncReport.updatedNames?.length > 0 && (
-              <div style={{ marginBottom: 14 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 6 }}>
-                  CVs mis a jour ({syncReport.updated}) :
-                </p>
-                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                  {syncReport.updatedNames.map((name: string, i: number) => (
-                    <div key={i} style={{ fontSize: 12, color: '#1E40AF', padding: '2px 0' }}>• {name}</div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Updated list — v1.9.48 : séparer les CVs updates des documents (non-CV) rattachés */}
+            {(() => {
+              const allNames: string[] = syncReport.updatedNames || []
+              const docsAttached = allNames.filter((n: string) => n.startsWith('📄'))
+              const realUpdates = allNames.filter((n: string) => !n.startsWith('📄'))
+              return (
+                <>
+                  {realUpdates.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 6 }}>
+                        CVs mis à jour ({realUpdates.length}) :
+                      </p>
+                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                        {realUpdates.map((name: string, i: number) => (
+                          <div key={i} style={{ fontSize: 12, color: '#1E40AF', padding: '2px 0' }}>• {name}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {docsAttached.length > 0 && (
+                    <div style={{ marginBottom: 14 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                        📎 Documents ajoutés ({docsAttached.length}) :
+                      </p>
+                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#F3F4F6', border: '1px solid #D1D5DB' }}>
+                        {docsAttached.map((name: string, i: number) => (
+                          <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0' }}>• {name}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
 
             {/* Reactivated list */}
             {syncReport.reactivatedNames?.length > 0 && (

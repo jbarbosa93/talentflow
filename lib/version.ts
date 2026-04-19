@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.47'
+export const APP_VERSION = '1.9.48'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.48',
+    date: '2026-04-19',
+    label: 'Fix badge CV ancien + modal sync documents + modal nouveau client portal',
+    features: [
+      'hasBadge : pas de badge rouge sur un candidat dont created_at est > 30 jours (SEUIL_MS), même si last_import_at récent. Évite la pollution de la liste quand un vieux CV (ex: 2021) est réimporté aujourd\'hui. Règle produit confirmée par João.',
+      'Modal sync OneDrive : section "Documents ajoutés" séparée (filtrée sur préfixe 📄 dans updatedNames). Avant, les non-CVs rattachés étaient mélangés avec les vrais updates CV.',
+      'Modal "Nouveau client" : createPortal sur document.body (pattern #10 CLAUDE.md). Fin du sticky en haut de page quand user a scrollé.',
+    ],
+  },
   {
     version: '1.9.47',
     date: '2026-04-19',
