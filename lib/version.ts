@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.60'
+export const APP_VERSION = '1.9.61'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.61',
+    date: '2026-04-19',
+    label: 'Alerte doublon renforcée (per-user + 30j + multi-candidats + enrichissement)',
+    features: [
+      'API /api/activites/check-doublon : passé en client authentifié (RLS per-user) → Seb ne déclenche plus l\'alerte doublon sur un envoi de João. Fenêtre temporelle par défaut 30 jours (param ?days=N, max 365).',
+      'CHECK-DOUBLON - 2 requêtes parallèles : candidat_id (simple) + candidat_ids[] (overlap array) pour capturer les envois v1.9.60+ multi-candidats. Dédup sur (candidat, destinataire, campagne_id).',
+      'CHECK-DOUBLON - Enrichissement response : ajout client_nom + campagne_id + sujet. Hydrate candidat_nom via join IN (1 seul fetch).',
+      'UI alerte doublon - Affiche désormais le sujet de l\'envoi précédent + nom client si connu. Hex hardcodés (#FFF7ED/#FED7AA/#E5E7EB/#F9FAFB/#1F2937) remplacés par tokens sémantiques var(--warning-soft)/var(--border)/var(--muted)/var(--foreground) → lisible en dark mode.',
+    ],
+  },
   {
     version: '1.9.60',
     date: '2026-04-19',

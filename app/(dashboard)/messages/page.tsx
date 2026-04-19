@@ -1334,7 +1334,7 @@ function EmailTab() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {doublonAlert.doublons.map((d: any, i: number) => (
                   <div key={i} style={{
-                    background: '#FFF7ED', border: '1.5px solid #FED7AA', borderRadius: 10,
+                    background: 'var(--warning-soft)', border: '1.5px solid var(--warning-soft)', borderRadius: 10,
                     padding: '10px 14px', fontSize: 13,
                   }}>
                     <div style={{ fontWeight: 700, color: 'var(--warning)' }}>
@@ -1344,6 +1344,12 @@ function EmailTab() {
                       Envoyé le {new Date(d.date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} à {new Date(d.date).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}
                       {d.user_name ? ` par ${d.user_name}` : ''}
                     </div>
+                    {(d.sujet || d.client_nom) && (
+                      <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {d.sujet && <span>« {d.sujet} »</span>}
+                        {d.client_nom && <span>· {d.client_nom}</span>}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1351,8 +1357,8 @@ function EmailTab() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', padding: '16px 28px 24px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, flexShrink: 0 }}>
               <button onClick={() => setDoublonAlert(null)} style={{
                 height: 42, padding: '0 20px', borderRadius: 8,
-                border: '1.5px solid #E5E7EB', background: '#F9FAFB',
-                color: '#1F2937', fontSize: 14, fontWeight: 600,
+                border: '1.5px solid var(--border)', background: 'var(--muted)',
+                color: 'var(--foreground)', fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
                 Annuler
