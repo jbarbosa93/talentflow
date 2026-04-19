@@ -891,13 +891,13 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       updateData.resume_ia = analyse.resume || null
       updateData.genre = normaliserGenre((analyse as any).genre)
       if (texteCV) updateData.cv_texte_brut = texteCV.slice(0, 10000)
-      if (cvUrl) updateData.cv_url = cvUrl
-      updateData.cv_nom_fichier = file.name
+      // v1.9.46 — ne PAS toucher cv_url, cv_nom_fichier, cv_sha256, cv_size_bytes
+      // en mode reanalyse (règle métier : la ré-extraction IA ne change pas le fichier source).
       // Photo : ne PAS écraser si existante
       if (photoUrl && !existing?.photo_url) {
         updateData.photo_url = photoUrl
       }
-      dbg(`[CV Parse] Ré-analyse (écrasement) : ${file.name}`)
+      dbg(`[CV Parse] Ré-analyse (écrasement contenu seulement) : ${file.name}`)
     } else {
       // ═══ MODE MERGE (v1.9.32) : logique centralisée via lib/merge-candidat.ts ═══
       // Règles implémentées :
@@ -989,7 +989,11 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     updateData.updated_at = now
     // v1.9.22 — écrire last_import_at pour faire réapparaître le badge rouge + remonter
     // le candidat dans la liste triée. CLAUDE.md rule 7 (v1.9.16).
-    updateData.last_import_at = now
+    // v1.9.46 — SAUF en mode reanalyse (bouton "Ré-analyser IA" ne fait que re-extraire
+    // depuis le CV existant, pas un vrai ré-import → ne doit pas déclencher le badge).
+    if (mode !== 'reanalyse') {
+      updateData.last_import_at = now
+    }
     // Ne jamais toucher created_at en mode update — cela déplacerait le candidat dans la liste
 
     const { data: updated, error: updateError } = await adminClient
@@ -1004,7 +1008,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
-    await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', updateId)
+    // v1.9.46 — SAUF en mode reanalyse (pas de badge pour une ré-extraction IA)
+    if (mode !== 'reanalyse') {
+      await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', updateId)
+    }
     await logActivity({ action: 'cv_actualise', details: { fichier: file.name, candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim() } })
     return NextResponse.json({
       success: true,

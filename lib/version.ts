@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.45'
+export const APP_VERSION = '1.9.46'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.46',
+    date: '2026-04-19',
+    label: 'Fix "Ré-analyser IA" ne déclenche plus le badge rouge',
+    features: [
+      'cv/parse mode reanalyse : `last_import_at` + DELETE `candidats_vus` désormais encapsulés dans `if (mode !== "reanalyse")`. La ré-extraction IA ne doit pas simuler un nouveau import.',
+      'Mode reanalyse ne touche plus : cv_url, cv_nom_fichier, cv_sha256, cv_size_bytes (règle métier : ré-extraction = même fichier source).',
+      'Mode reanalyse touche uniquement : resume_ia, titre_poste, competences, langues, experiences, formations_details, date_naissance, genre, permis_conduire, linkedin, cv_texte_brut, updated_at. Et photo_url si inexistante.',
+    ],
+  },
   {
     version: '1.9.45',
     date: '2026-04-19',
