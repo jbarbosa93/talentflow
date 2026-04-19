@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.42 prod** — 19/04/2026
+**1.9.43 prod** — 19/04/2026
 
 ---
 
@@ -330,6 +330,17 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - localStorage est aligné sur DB à chaque init (`writeViewedSet(dbSet)`)
 - Les IDs local-only (migration v1.9.9 résiduelle) sont ignorés — la migration est terminée
 - Sans cette règle stricte : le DELETE serveur `candidats_vus` (lors d'un ré-import CV) est annulé par l'UNION client → badge ne réapparaît pas après update/réactivation
+
+**17. SHA256 orphelins — garde-fou permanent (v1.9.43)**
+- Cron `/api/cron/check-sha256-integrity` (dimanche 03h UTC) : compte `cv_url IS NOT NULL AND cv_sha256 IS NULL`, backfill batch 100 par exécution, log alerte si > 100
+- Si un nouveau code oublie d'écrire `cv_sha256`+`cv_size_bytes` dans un INSERT/UPDATE, le cron le rattrape la semaine suivante
+- Backfill initial one-shot : `node --env-file=.env.local scripts/backfill-cv-sha256.mjs` (~10min pour 6000 candidats)
+- **Toujours écrire cv_sha256+cv_size_bytes dans tout chemin INSERT/UPDATE sur `candidats` qui touche `cv_url`** — sinon le cron alertera
+
+**18. Invalidation React Query après sync manuel OneDrive (v1.9.43)**
+- Après `setOnedriveSyncing(false)` dans `integrations/page.tsx` : invalider `['candidats']` + `['onedrive-fichiers']` + `['integrations']`
+- Sans ça, le refetchInterval 30s fait attendre le badge rouge et le nouveau statut
+- Pattern à reproduire pour tout futur bouton de sync/refresh manuel
 
 ---
 
