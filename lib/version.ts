@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.61'
+export const APP_VERSION = '1.9.62'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.62',
+    date: '2026-04-19',
+    label: 'Veille offres suspendue (onglet + badge + cron)',
+    features: [
+      'OFFRES /offres - Onglet "Veille offres" retiré de la barre d\'onglets. Les autres onglets (Commandes / Analyser CDC / job-room.ch / France Travail) restent inchangés. Le composant OffresExternesTab est conservé en code, accessible via setActiveTab("externes") en console si besoin de ré-ouvrir temporairement.',
+      'SIDEBAR - Badge compteur "99+" sur Commandes supprimé (alimenté par offres_externes, plus pertinent). Import useOffresATraiterCount retiré.',
+      'CRON - Suspension du cron /api/cron/offres-sync (scraping jobs.ch / jobup.ch / Indeed via Apify, toutes les 6h). Retiré de vercel.json. La table offres_externes ne se remplit plus automatiquement. Les anciennes données restent en DB (pas de DROP).',
+    ],
+  },
   {
     version: '1.9.61',
     date: '2026-04-19',

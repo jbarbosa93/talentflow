@@ -10,10 +10,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/offres-sync",
-      "schedule": "0 */6 * * *"
-    },
-    {
       "path": "/api/cron/check-sha256-integrity",
       "schedule": "0 3 * * 0"
     }

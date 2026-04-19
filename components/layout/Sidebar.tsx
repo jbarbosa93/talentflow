@@ -17,7 +17,7 @@ import { useDoublons } from '@/contexts/DoublonsContext'
 import BetaBadge from '@/components/BetaBadge'
 import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/useNewItemsBadges'
 import { hasBadge, getViewedSet, getViewedAllAt, ensureInit, refreshViewedFromDB } from '@/lib/badge-candidats'
-import { useOffresATraiterCount } from '@/hooks/useOffresExternes'
+// v1.9.62 — useOffresATraiterCount retiré (Veille offres suspendue)
 
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -197,8 +197,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
     placeholderData: 0,
   })
 
-  // Badge offres externes à traiter
-  const { data: offresATraiterCount } = useOffresATraiterCount()
+  // Badge offres externes — supprimé v1.9.62 (Veille offres suspendue)
 
   // Compteur demandes d'accès en attente
   const { data: demandesCount } = useQuery({
@@ -532,17 +531,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                       {rappelsCount > 9 ? '9+' : rappelsCount}
                     </span>
                   )}
-                  {/* Badge offres externes à traiter */}
-                  {item.href === '/offres' && typeof offresATraiterCount === 'number' && offresATraiterCount > 0 && !isSecretaire && (
-                    <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#F97316', color: '#fff',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0,
-                    }}>
-                      {offresATraiterCount > 99 ? '99+' : offresATraiterCount}
-                    </span>
-                  )}
+                  {/* Badge offres externes — désactivé v1.9.62 (Veille offres suspendue). */}
                   {/* Badge notifications secrétariat */}
                   {item.href === '/secretariat' && typeof secNotifCount === 'number' && secNotifCount > 0 && (
                     <span style={{

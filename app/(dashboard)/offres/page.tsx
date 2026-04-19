@@ -109,10 +109,8 @@ export default function OffresPage() {
               <span style={{ fontSize: 13 }}>🇫🇷</span>
               France Travail
             </button>
-            <button style={tabStyle(activeTab === 'externes')} onClick={() => setActiveTab('externes')}>
-              <Globe size={13} />
-              Veille offres
-            </button>
+            {/* v1.9.62 — Onglet Veille offres suspendu en prod (João, usage arrêté).
+                Code conservé, accessible via setActiveTab('externes') en console si besoin de ré-ouvrir. */}
           </div>
           {activeTab === 'offres' && (
             <button onClick={() => setShowCreate(true)} className="neo-btn-yellow">
