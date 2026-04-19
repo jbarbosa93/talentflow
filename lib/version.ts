@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.50'
+export const APP_VERSION = '1.9.51'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.51',
+    date: '2026-04-19',
+    label: 'Dashboard pack 2 — ETP unifié, avatar animé, TopBar nettoyé, /parametres redirect',
+    features: [
+      'DASHBOARD - Avatar animé "Bonjour" (components/WavingAvatar.tsx) : photos réelles João + Seb (public/avatars/joao.jpg, seb.jpg) + main 👋 animée en boucle (rotation motion). Détection par email (j.barbosa@l-agence.ch, s.*). Fallback emoji 👋 seul pour autres users.',
+      'DASHBOARD - Numéro semaine ISO 8601 affiché dans le header ("S17" badge primary-soft à côté de la date) + dans le label ETP Missions ("ETP Missions S17") — via lib/missions-etp.ts helper getISOWeek.',
+      'DASHBOARD - Badge "Alertes" supprimé (dead UI : stats.alertes n\'était jamais calculé, toujours 0). 2 badges restants : À traiter / Rappels.',
+      'DASHBOARD / MISSIONS - ETP Missions unifié via lib/missions-etp.ts (computeEtpSemaine). Avant v1.9.51 : dashboard ignorait weekends + absences/vacances/arrêts → surestimation (36.10 au lieu du vrai chiffre). Maintenant 1 seule source de vérité, les 2 pages affichent exactement la même valeur.',
+      'PHRASES MOTIVATIONNELLES - Réécrites 30 phrases pro (lib/motivational-phrases.ts) : tonalité sérieuse recrutement, sans blagues ni émojis bateau. Catégorie "PHRASES_LEGERES" supprimée (Tinder/apéro/Let\'s match). Phrases contextuelles recalibrées (35% probabilité, formulation sobre).',
+      'TOPBAR - Header unifié : suppression du split isOnCandidats (rendait 2 versions différentes). Maintenant 1 seul header avec barre de recherche + Importer + toggle thème + avatar profil, valable sur TOUTES les pages dashboard (plus juste /candidats).',
+      'TOPBAR - Bouton sync Microsoft (RefreshCw) supprimé — action disponible depuis /integrations, désencombre le header. Imports useSyncMicrosoft/RefreshCw/intData/isMsConnected retirés.',
+      'BOUTONS uniformes - "Nouvelle mission" et "Nouvelle entrée" (secretariat) → className="neo-btn-yellow" (même style que "Ajouter un client" et "Nouvelle commande"). Plus de styles inline dupliqués.',
+      '/PARAMETRES - Redirect server-side vers /parametres/profil (au lieu de landing avec onglet Apparence par défaut). Section Apparence entièrement supprimée (toggle dark/light déjà en TopBar).',
+      '/PARAMETRES/METIERS - Nouvelle sous-page dédiée pour la configuration des métiers/catégories (extraction de l\'ancienne section dans /parametres). Accessible via URL directe.',
+      'OFFRES (job-room.ch) - Sidebar droite supprimée (3 cards "job-room.ch" / "Accès API requis" / "Statuts de publication") car tout est déjà connecté. Grid passé en 1 colonne pleine largeur.',
+      'DARK MODE - Hex inline remplacés dans TopBar (#EF4444 → var(--destructive)), Sidebar (#F5A623/EF4444/818CF8/10B981 → var(--primary)/destructive/info/success), ConfirmMatchModal (#F9FAFB/7C3AED/E5E7EB/FAFAFA/16A34A/3B82F6 → tokens), UploadCV (#8B5CF6/3B82F6/C4B5FD/7C3AED → var tokens).',
+    ],
+  },
   {
     version: '1.9.50',
     date: '2026-04-19',

@@ -273,7 +273,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 28, height: 28, borderRadius: 8,
-                background: '#F5A623', flexShrink: 0, cursor: 'pointer',
+                background: 'var(--primary)', flexShrink: 0, cursor: 'pointer',
               }}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -305,7 +305,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Loader2 size={13} color="#F5A623" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#F5A623' }}>Import en cours</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>Import en cours</span>
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
                     {importCtx.progress}%
                   </span>
@@ -338,9 +338,9 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   {matchingCtx.phase === 'paused'
-                    ? <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8' }}>⏸ Matching en pause</span>
+                    ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--info)' }}>⏸ Matching en pause</span>
                     : <><Loader2 size={13} color="#818CF8" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                       <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8' }}>Matching IA</span></>
+                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--info)' }}>Matching IA</span></>
                   }
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
                     {matchingCtx.progress}%
@@ -380,9 +380,9 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   {photosCtx.phase === 'paused'
-                    ? <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>⏸ Photos en pause</span>
+                    ? <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>⏸ Photos en pause</span>
                     : <><Loader2 size={13} color="#10B981" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                       <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Analyse photos</span></>
+                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>Analyse photos</span></>
                   }
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
                     {photosCtx.progress}%
@@ -416,7 +416,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Loader2 size={13} color="#EF4444" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--destructive)' }}>
                     Recherche doublons...
                   </span>
                 </div>
@@ -500,7 +500,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     <span style={{
                       marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
                       padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: '#FFFFFF',
+                      background: 'var(--destructive)', color: '#FFFFFF',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1,
                     }}>
@@ -516,7 +516,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     return (
                       <span style={{
                         marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%',
-                        background: '#EF4444', flexShrink: 0,
+                        background: 'var(--destructive)', flexShrink: 0,
                         animation: 'pulse 2s infinite',
                       }} />
                     )
@@ -526,7 +526,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     <span style={{
                       marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
                       padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: 'white',
+                      background: 'var(--destructive)', color: 'var(--destructive-foreground)',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                     }}>
                       {rappelsCount > 9 ? '9+' : rappelsCount}
@@ -548,7 +548,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     <span style={{
                       marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
                       padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: '#EF4444', color: '#fff',
+                      background: 'var(--destructive)', color: '#fff',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
                     }}>
                       {secNotifCount}
@@ -617,7 +617,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                       <span style={{
                         marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
                         padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: '#EF4444', color: 'white',
+                        background: 'var(--destructive)', color: 'var(--destructive-foreground)',
                         fontSize: 10, fontWeight: 800, flexShrink: 0,
                       }}>
                         {demandesCount}
@@ -628,7 +628,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                       <span style={{
                         marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
                         padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: '#EF4444', color: 'white',
+                        background: 'var(--destructive)', color: 'var(--destructive-foreground)',
                         fontSize: 10, fontWeight: 800, flexShrink: 0,
                       }}>
                         {pendingValidationCount > 99 ? '99+' : pendingValidationCount}
@@ -637,7 +637,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     {showDot && (
                       <span style={{
                         marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%',
-                        background: '#F5A623', flexShrink: 0,
+                        background: 'var(--primary)', flexShrink: 0,
                         animation: 'pulse 2s infinite',
                       }} />
                     )}
@@ -678,7 +678,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                         <span style={{
                           marginLeft: 'auto', minWidth: 16, height: 16, borderRadius: 99,
                           padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          background: '#EF4444', color: 'white',
+                          background: 'var(--destructive)', color: 'var(--destructive-foreground)',
                           fontSize: 9, fontWeight: 800, flexShrink: 0,
                         }}>
                           {demandesCount}

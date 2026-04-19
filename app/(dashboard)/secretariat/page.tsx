@@ -2520,10 +2520,7 @@ function SecretariatPage() {
           </button>
 
           {/* Bouton nouvelle entrée */}
-          <button
-            onClick={() => { setEditItem(null); setShowForm(true) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-          >
+          <button onClick={() => { setEditItem(null); setShowForm(true) }} className="neo-btn-yellow">
             <Plus size={15} /> Nouvelle entrée
           </button>
         </div>

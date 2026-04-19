@@ -11,6 +11,7 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { getJoursFeries, feriesSet, countFeriesOuvrables, feriesOuvrablesLabels } from '@/lib/jours-feries'
+import { computeEtpSemaine } from '@/lib/missions-etp'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -751,21 +752,7 @@ export default function MissionsPage() {
       return m.date_fin >= '2026-04-01' && m.date_fin <= weekFriday.toISOString().slice(0, 10)
     }).length,
     total_sans_emploi: withEffectif.filter(m => m.statut === 'annulee').length,
-    total_etp: activeEnCours.reduce((s, m) => {
-      const coeff = Number(m.coefficient || 1)
-      const debut = new Date(m.date_debut)
-      const fin = m.date_fin ? new Date(m.date_fin) : weekFriday
-      const effStart = debut > weekMonday ? debut : weekMonday
-      const effEnd = fin < weekFriday ? fin : weekFriday
-      if (effStart > effEnd) return s
-      const effDays = countWorkingDays(effStart, effEnd)
-      const absDays = countAbsenceDays(m.absences || [], effStart, effEnd)
-      const vacDays = countAbsenceDays(m.vacances || [], effStart, effEnd)
-      const arrDays = countAbsenceDays(m.arrets || [], effStart, effEnd)
-      const netDays = Math.max(0, effDays - absDays - vacDays - arrDays)
-      const totalDays = countWorkingDays(weekMonday, weekFriday)
-      return s + coeff * (totalDays > 0 ? netDays / totalDays : 0)
-    }, 0),
+    total_etp: computeEtpSemaine(activeEnCours),
     marge_en_cours: activeEnCours.reduce((s, m) => s + Number(m.marge_brute || 0), 0),
     marge_moyenne: (() => {
       // Missions qui chevauchent avril+ ET déjà commencées
@@ -995,8 +982,8 @@ export default function MissionsPage() {
           </h1>
           <p className="d-page-sub">Suivi des placements</p>
         </div>
-        <button onClick={() => setEditMission(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-          <Plus size={14} />Nouvelle mission
+        <button onClick={() => setEditMission(null)} className="neo-btn-yellow">
+          <Plus size={15} /> Nouvelle mission
         </button>
       </div>
 

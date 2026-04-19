@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2, Bell } from 'lucide-react'
 import { getMotivationalPhrase } from '@/lib/motivational-phrases'
+import { computeEtpSemaine, getISOWeek } from '@/lib/missions-etp'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
+import WavingAvatar from '@/components/WavingAvatar'
 
 function WaIcon({ size = 13 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.612l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.37 0-4.567-.82-6.3-2.188l-.44-.348-2.858.958.958-2.858-.348-.44A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
@@ -170,35 +172,13 @@ export default function DashboardPage() {
     queryFn: async () => {
       const res = await fetch('/api/missions')
       if (!res.ok) return { missions: [] }
-      return res.json() as Promise<{ missions: Array<{ statut: string; date_debut: string; date_fin: string | null; coefficient?: number | null; vacances?: Array<{ debut: string; fin: string }>; arrets?: Array<{ debut: string; fin: string }> }> }>
+      return res.json() as Promise<{ missions: Array<{ statut: string; date_debut: string; date_fin: string | null; coefficient?: number | null; absences?: Array<{ debut: string; fin: string }>; vacances?: Array<{ debut: string; fin: string }>; arrets?: Array<{ debut: string; fin: string }> }> }>
     },
     staleTime: 30_000,
     enabled: isJoao,
   })
 
-  const totalEtp = (() => {
-    if (!missionsRaw?.missions) return 0
-    const now = new Date()
-    const nowDow = now.getDay()
-    const mondayOffset = nowDow === 0 ? -6 : 1 - nowDow
-    const weekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset)
-    const weekFriday = new Date(weekMonday); weekFriday.setDate(weekMonday.getDate() + 4)
-    const todayStr = new Date().toISOString().slice(0, 10)
-
-    const active = missionsRaw.missions.filter(m => m.statut === 'en_cours' && (!m.date_fin || m.date_fin >= todayStr))
-    return active.reduce((s, m) => {
-      const coeff = Number(m.coefficient || 1)
-      const debut = new Date(m.date_debut)
-      const fin = m.date_fin ? new Date(m.date_fin) : weekFriday
-      const effStart = debut > weekMonday ? debut : weekMonday
-      const effEnd = fin < weekFriday ? fin : weekFriday
-      if (effEnd < effStart) return s
-      const msDay = 86400000
-      const daysTotal = Math.max(1, Math.round((weekFriday.getTime() - weekMonday.getTime()) / msDay) + 1)
-      const daysActive = Math.round((effEnd.getTime() - effStart.getTime()) / msDay) + 1
-      return s + (coeff * daysActive / daysTotal)
-    }, 0)
-  })()
+  const totalEtp = computeEtpSemaine(missionsRaw?.missions ?? [])
 
   const kpisBase = [
     { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', kpiClass: 'kpi-yellow',  href: '/candidats' },
@@ -206,7 +186,7 @@ export default function DashboardPage() {
     { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', kpiClass: 'kpi-blue',   href: '/offres' },
   ]
   const kpis = isJoao
-    ? [...kpisBase, { label: 'ETP Missions', value: missionsRaw ? totalEtp.toFixed(2) : '—', emoji: '💼', kpiClass: 'kpi-violet', href: '/missions' }]
+    ? [...kpisBase, { label: `ETP Missions S${getISOWeek(new Date())}`, value: missionsRaw ? totalEtp.toFixed(2) : '—', emoji: '💼', kpiClass: 'kpi-violet', href: '/missions' }]
     : kpisBase
 
   const initiales = (c: any) => {
@@ -241,7 +221,9 @@ export default function DashboardPage() {
           flexWrap: 'wrap',
         }}
       >
-        <div style={{ flex: 1, minWidth: 280 }}>
+        <div style={{ flex: 1, minWidth: 280, display: 'flex', alignItems: 'center', gap: 18 }}>
+          <WavingAvatar email={user?.email} size={60} />
+          <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{
             fontSize: 26, fontWeight: 700, color: 'var(--foreground)',
             lineHeight: 1.2, marginBottom: 6,
@@ -249,16 +231,24 @@ export default function DashboardPage() {
           }}>
             Bonjour <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>{prenom || greeting}</span>
             {dateStr && <> <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>— {dateStr}</span></>}
+            <span style={{
+              marginLeft: 10, fontSize: 12, fontWeight: 700,
+              padding: '3px 10px', borderRadius: 6,
+              background: 'var(--primary-soft)', color: 'var(--primary)',
+              letterSpacing: '0.05em', verticalAlign: 'middle',
+            }}>
+              S{getISOWeek(new Date())}
+            </span>
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4 }}>
             {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }) : '…'}
           </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
             { label: 'Rappels', value: stats?.rappels ?? 0, href: '/pipeline' },
-            { label: 'Alertes', value: (stats as any)?.alertes ?? 0, href: '/integrations' },
           ].map((b, i) => (
             <Link key={i} href={b.href} style={{ textDecoration: 'none', minWidth: 60 }}>
               <div style={{ textAlign: 'center' }}>

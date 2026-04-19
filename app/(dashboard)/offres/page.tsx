@@ -1273,7 +1273,7 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 24, alignItems: 'start' }}>
       <div>
         {/* Auto-fill */}
         {offres.length > 0 && (
@@ -1670,44 +1670,6 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
         </div>
       </div>
 
-      {/* Sidebar info */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 80 }}>
-        <div style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Info size={13} /> job-room.ch
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.6 }}>
-            Portail officiel de la Confédération (SECO). Gratuit. Satisfait l&apos;obligation légale de déclaration des postes.
-          </p>
-          <a href="https://www.job-room.ch" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
-            Voir job-room.ch <ExternalLink size={10} />
-          </a>
-        </div>
-
-        <div style={{ background: 'var(--surface)', border: '1.5px solid rgba(245,167,35,0.35)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', margin: '0 0 8px' }}>⚙️ Accès API requis</p>
-          <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 8px', lineHeight: 1.6 }}>
-            Envoyez un email à :<br/>
-            <strong style={{ color: 'var(--foreground)' }}>jobroom-api@seco.admin.ch</strong><br/>
-            Objet : &quot;Job-Room API access&quot;<br/>
-            Contenu : nom entreprise, adresse, contact technique, volume mensuel estimé.
-          </p>
-          <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>
-            Puis ajoutez dans <code style={{ background: 'var(--background)', padding: '0 4px', borderRadius: 4 }}>.env.local</code> :<br/>
-            <code style={{ fontSize: 10, color: 'var(--primary)' }}>JOBROOM_USERNAME=...</code><br/>
-            <code style={{ fontSize: 10, color: 'var(--primary)' }}>JOBROOM_PASSWORD=...</code>
-          </p>
-        </div>
-
-        <div style={{ background: 'var(--surface)', border: '1.5px solid rgba(99,102,241,0.3)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#818CF8', margin: '0 0 8px' }}>📌 Statuts de publication</p>
-          <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.9 }}>
-            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>INSPECTING</span> — En validation AVAM</div>
-            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>PUBLISHED_RESTRICTED</span> — 5j réservé aux inscrits</div>
-            <div><span style={{ fontWeight: 700, color: '#818CF8' }}>PUBLISHED_PUBLIC</span> — Visible publiquement</div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

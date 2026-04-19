@@ -156,20 +156,20 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
         }}
       >
         {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
             <div>
               <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Candidat potentiellement en doublon</h2>
               <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted-foreground)' }}>
                 {payload.file_name}
-                {queueRemaining > 0 && <span style={{ marginLeft: 8, color: '#7C3AED', fontWeight: 600 }}>· {queueRemaining} autre{queueRemaining > 1 ? 's' : ''} en attente</span>}
+                {queueRemaining > 0 && <span style={{ marginLeft: 8, color: 'var(--info)', fontWeight: 600 }}>· {queueRemaining} autre{queueRemaining > 1 ? 's' : ''} en attente</span>}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: '#F9FAFB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="Fermer (Esc)"
           >
             <X size={14} style={{ color: 'var(--muted-foreground)' }} />
@@ -204,7 +204,7 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           </div>
 
           {/* Candidat existant — entête */}
-          <div style={{ padding: '10px 12px', background: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 10 }}>
+          <div style={{ padding: '10px 12px', background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 10 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{fullName}</p>
             {c.titre_poste && <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--muted-foreground)' }}>{c.titre_poste}</p>}
             {c.created_at && <p style={{ margin: '1px 0 0', fontSize: 10, color: 'var(--muted-foreground)' }}>En base depuis le {new Date(c.created_at).toLocaleDateString('fr-CH')}</p>}
@@ -212,7 +212,7 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
 
           {/* Table comparaison */}
           <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '2px 12px', marginBottom: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 8, paddingTop: 8, paddingBottom: 4, borderBottom: '1px solid #E5E7EB' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 8, paddingTop: 8, paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
               <span />
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Fiche existante</span>
               <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>CV importé</span>
@@ -253,10 +253,10 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
         </div>
 
         {/* Actions */}
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 8, background: '#FAFAFA' }}>
+        <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, background: 'var(--muted)' }}>
           <button
             onClick={() => handleAction('view')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
             title="Ouvrir la fiche existante — stoppe la file d'import"
           >
             <ExternalLink size={13} /> Voir la fiche
@@ -264,14 +264,14 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           <div style={{ flex: 1 }} />
           <button
             onClick={() => handleAction('create')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', color: 'var(--success)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1.5px solid var(--success)', background: 'var(--card)', cursor: 'pointer', color: 'var(--success)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}
             title="Créer un nouveau candidat (pas le même)"
           >
             <UserPlus size={13} /> Créer nouveau
           </button>
           <button
             onClick={() => handleAction('update')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, border: 'none', background: '#3B82F6', cursor: 'pointer', color: 'white', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', boxShadow: '0 2px 4px rgba(59,130,246,0.3)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', borderRadius: 8, border: 'none', background: 'var(--info)', cursor: 'pointer', color: 'var(--card)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', boxShadow: '0 2px 4px rgba(59,130,246,0.3)' }}
             title="Mettre à jour la fiche existante avec ce CV"
           >
             <Check size={13} /> Mettre à jour

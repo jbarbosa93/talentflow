@@ -1,9 +1,8 @@
 'use client'
 import Image from 'next/image'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload } from 'lucide-react'
+import { Search, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload } from 'lucide-react'
 import { useUpload } from '@/contexts/UploadContext'
 import { usePathname, useRouter } from 'next/navigation'
-import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
@@ -52,7 +51,6 @@ const resultItemVariants = {
 export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onMenuClick?: () => void; onToggleDesktop?: () => void; desktopCollapsed?: boolean }) {
   const pathname = usePathname()
   const router   = useRouter()
-  const sync     = useSyncMicrosoft()
   const { theme, toggle, isDark } = useTheme()
   const { openUpload } = useUpload()
 
@@ -71,13 +69,6 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
     .sort((a, b) => b[0].length - a[0].length)
     .find(([key]) => pathname === key || pathname.startsWith(key + '/'))
     ?.[1] ?? 'TalentFlow'
-
-  const { data: intData } = useQuery({
-    queryKey: ['integrations'],
-    queryFn: () => fetch('/api/integrations').then(r => r.json()),
-    staleTime: 30_000,
-  })
-  const isMsConnected = intData?.integrations?.some((i: any) => ['microsoft', 'microsoft_onedrive'].includes(i.type) && i.actif)
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -178,93 +169,6 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
 
   const isOnCandidats = pathname === '/candidats' || pathname.startsWith('/candidats')
 
-  if (isOnCandidats) {
-    return (
-      <motion.header
-        className="d-topbar"
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: 'easeOut' }}
-      >
-        {onMenuClick && (
-          <button className="d-topbar-hamburger" onClick={onMenuClick} aria-label="Menu">
-            <Menu size={20} />
-          </button>
-        )}
-        {/* v1.9.47 — toggle sidebar desktop (caché en mobile via CSS) */}
-        {onToggleDesktop && (
-          <button className="d-topbar-toggle-sidebar" onClick={onToggleDesktop} aria-label={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'} title={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'}>
-            <PanelLeftClose size={18} style={{ transform: desktopCollapsed ? 'scaleX(-1)' : undefined, transition: 'transform 0.2s' }} />
-          </button>
-        )}
-        <div style={{ flex: 1 }} />
-        <div className="d-topbar-actions">
-          <motion.button
-            onClick={openUpload}
-            title="Importer des candidats"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 14px', borderRadius: 10,
-              background: 'var(--primary)', color: 'var(--primary-foreground)',
-              border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
-            }}
-          >
-            <Upload size={14} />
-            <span className="d-topbar-import-label">Importer</span>
-          </motion.button>
-          <motion.button onClick={toggle} className="d-icon-btn" title={isDark ? 'Mode clair' : 'Mode sombre'} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <AnimatePresence mode="wait">
-              {isDark
-                ? <motion.span key="sun" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.2 }}><Sun size={14} /></motion.span>
-                : <motion.span key="moon" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.2 }}><Moon size={14} /></motion.span>
-              }
-            </AnimatePresence>
-          </motion.button>
-          <div ref={profileRef} style={{ position: 'relative' }}>
-            <motion.button
-              onClick={() => setProfileOpen(p => !p)}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, background: profileOpen ? 'var(--background)' : 'transparent', border: `1.5px solid ${profileOpen ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, padding: '6px 12px 6px 6px', cursor: 'pointer', transition: 'all 0.15s' }}
-              whileHover={{ borderColor: 'var(--primary)', background: 'var(--background)' }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: avatarUrl ? 'transparent' : 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#0F172A', overflow: 'hidden' }}>
-                {avatarUrl ? <Image src={avatarUrl} alt="" width={40} height={40} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initiales}
-              </div>
-              <div className="d-topbar-profile-text" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, whiteSpace: 'nowrap' }}>{fullName}</span>
-                {entreprise && <span style={{ fontSize: 11, color: 'var(--primary)', marginTop: 2, fontWeight: 700, whiteSpace: 'nowrap' }}>{entreprise}</span>}
-              </div>
-              <motion.span animate={{ rotate: profileOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                <ChevronDown size={12} style={{ color: 'var(--muted)' }} />
-              </motion.span>
-            </motion.button>
-            <AnimatePresence>
-              {profileOpen && (
-                <motion.div variants={dropdownVariants} initial="hidden" animate="show" exit="exit" style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12, boxShadow: '0 8px 32px rgba(15,23,42,0.12)', zIndex: 999, minWidth: 220, overflow: 'hidden' }}>
-                  <div style={{ padding: '6px' }}>
-                    <motion.button onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'var(--font-body)' }} whileHover={{ background: 'var(--background)' }}>
-                      <User size={14} style={{ color: 'var(--muted)' }} /> Mon profil
-                    </motion.button>
-                    <motion.button onClick={() => { setProfileOpen(false); router.push('/parametres') }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'var(--font-body)' }} whileHover={{ background: 'var(--background)' }}>
-                      <Settings size={14} style={{ color: 'var(--muted)' }} /> Paramètres
-                    </motion.button>
-                  </div>
-                  <div style={{ borderTop: '1px solid var(--border)', padding: '6px' }}>
-                    <motion.button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', border: 'none', background: 'transparent', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#EF4444', fontFamily: 'var(--font-body)' }} whileHover={{ background: '#FEF2F2' }}>
-                      <LogOut size={14} /> Se déconnecter
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </motion.header>
-    )
-  }
-
   return (
     <motion.header
       className="d-topbar"
@@ -279,7 +183,17 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
         </button>
       )}
 
-      {/* ── Barre de recherche ── */}
+      {/* Toggle sidebar desktop (caché en mobile via CSS) */}
+      {onToggleDesktop && (
+        <button className="d-topbar-toggle-sidebar" onClick={onToggleDesktop} aria-label={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'} title={desktopCollapsed ? 'Afficher la sidebar' : 'Cacher la sidebar'}>
+          <PanelLeftClose size={18} style={{ transform: desktopCollapsed ? 'scaleX(-1)' : undefined, transition: 'transform 0.2s' }} />
+        </button>
+      )}
+
+      {isOnCandidats ? (
+        <div style={{ flex: 1 }} />
+      ) : (
+      /* ── Barre de recherche ── */
       <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginRight: 20 }}>
         <motion.div
           style={{
@@ -414,21 +328,27 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* ── Actions droite ── */}
       <div className="d-topbar-actions">
-        {isMsConnected && (
-          <motion.button
-            onClick={() => sync.mutate()}
-            disabled={sync.isPending}
-            className="d-icon-btn"
-            title="Synchroniser Microsoft"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <RefreshCw style={{ width: 14, height: 14 }} className={sync.isPending ? 'animate-spin' : ''} />
-          </motion.button>
-        )}
+        {/* Bouton Importer — visible partout (global) */}
+        <motion.button
+          onClick={openUpload}
+          title="Importer des candidats"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 10,
+            background: 'var(--primary)', color: 'var(--primary-foreground)',
+            border: 'none', cursor: 'pointer',
+            fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+          }}
+        >
+          <Upload size={14} />
+          <span className="d-topbar-import-label">Importer</span>
+        </motion.button>
 
         {/* Toggle thème */}
         <motion.button
@@ -548,10 +468,10 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                       padding: '9px 12px', border: 'none', background: 'transparent',
                       borderRadius: 8, cursor: 'pointer',
-                      fontSize: 13, fontWeight: 600, color: '#EF4444',
+                      fontSize: 13, fontWeight: 600, color: 'var(--destructive)',
                       fontFamily: 'var(--font-body)',
                     }}
-                    whileHover={{ background: '#FEF2F2' }}
+                    whileHover={{ background: 'var(--destructive-soft)' }}
                   >
                     <LogOut size={14} />
                     Se déconnecter
