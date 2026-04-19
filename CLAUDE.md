@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.45 prod** — 19/04/2026
+**1.9.50 prod** — 19/04/2026
 
 ---
 
@@ -422,6 +422,30 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Couplé avec debounce Sidebar `badges-changed` réduit à 500ms (`components/layout/Sidebar.tsx`)
 - Cumul refetchInterval 30s + debounce 3s faisait attendre 10-15s l'apparition du badge après import
 - Règle générale : toute action user qui modifie des candidats doit invalider ces queries explicitement
+
+**20. Dark mode — tokens sémantiques + classList ('dark') (v1.9.50)**
+- `:root` = LIGHT (défaut), `.dark` = DARK — 2 jeux de variables OKLCH distincts dans `app/globals.css`
+- `ThemeContext` pose `document.documentElement.classList.add/remove('dark')` pour activer Tailwind `dark:*`. `data-theme` maintenu en parallèle pour rétrocompat `dashboard.css` (25+ règles `[data-theme="dark"]`)
+- Tokens disponibles : `--foreground`, `--background`, `--card`, `--popover`, `--muted`, `--muted-foreground`, `--border`, `--input`, `--primary`, `--primary-foreground`, `--primary-soft`, `--secondary`, `--accent`, `--ring`, `--destructive`, `--destructive-foreground`, `--success`, `--warning`, `--info` (+ variantes `-foreground` et `-soft` pour backgrounds pastel)
+- Les tokens `-soft` (`--success-soft`, `--warning-soft`, `--info-soft`, `--destructive-soft`) = couleur avec opacité 12-22% selon le mode → pour fonds pastel d'alertes/badges qui s'adaptent light/dark
+- `--destructive-foreground` = blanc constant (pour texte blanc sur bouton rouge, les deux modes)
+- **JAMAIS hardcoder hex couleurs** dans `style={{}}` ou classes Tailwind (`bg-white`, `text-gray-900`, etc.). Toujours utiliser les tokens → assure la lisibilité dans les 2 modes. Exceptions : branding externe (Microsoft `#0078D4`, Google `#4285F4`), WhatsApp `#25D366`, données métier cantons suisses, couleurs sémantiques de statuts missions (arrêts orange, vacances bleu, etc.).
+- `.glass-card` / `.glass` utilisent `var(--card)` + `var(--border)` — pas de couleurs OKLCH hardcodées
+
+**21. Dashboard consultant enrichi (v1.9.50)**
+- Header riche avec gradient `var(--warning-soft) → var(--success-soft)` + phrase motivationnelle via `lib/motivational-phrases.ts` (rotation jour+email, ~40 phrases mixtes).
+- 3 badges cliquables À TRAITER / RAPPELS / ALERTES avec compteurs temps réel.
+- KPIs dynamiques : 3 cards pour tous (Candidats, Clients, Commandes), 4 pour João (avec "ETP Missions" — détection `user?.email === 'j.barbosa@l-agence.ch'`). "En entretien" supprimé.
+- Card "Pipeline par consultant" : barre segmentée par MÉTIER (couleurs via `getColorForMetier()` du hook `useMetierCategories`) pour João + Seb uniquement.
+- Chart "Imports" : `BarChart` avec `LabelList` au-dessus + `Cell` colorées (dernière barre primary plein, autres `var(--primary-soft)`). Toggle Jour/Semaine/Mois.
+- `RecentActivityWidget` active + Tips IA déterministes basés sur stats (À traiter >10, Commandes >20, Rappels en cours).
+
+**22. TopBar — bouton "Importer" global (v1.9.50)**
+- Bouton jaune brand "Importer" (avec icône Upload) à gauche du toggle ☀️/🌙, dans `components/layout/TopBar.tsx`.
+- Utilise `useUpload().openUpload()` depuis `contexts/UploadContext.tsx` → ouvre la modale UploadCV globale (même composant que précédemment sur `/candidats`).
+- Visible sur **toutes** les pages du dashboard (pas seulement `/candidats`).
+- Bouton dupliqué retiré de `components/CandidatsList.tsx`.
+- Mobile : classe `.d-topbar-import-label` cache le texte, icône seule reste visible.
 
 ---
 

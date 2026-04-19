@@ -14,13 +14,13 @@ type LogEntry = {
 }
 
 const ACTION_META: Record<string, { label: string; icon: typeof LogIn; color: string; bg: string }> = {
-  login_success:      { label: 'Connexion réussie',       icon: LogIn,        color: '#16A34A', bg: '#F0FDF4' },
-  login_failed:       { label: 'Tentative échouée',       icon: AlertTriangle, color: '#DC2626', bg: '#FEF2F2' },
+  login_success:      { label: 'Connexion réussie',       icon: LogIn,        color: 'var(--success)', bg: '#F0FDF4' },
+  login_failed:       { label: 'Tentative échouée',       icon: AlertTriangle, color: 'var(--destructive)', bg: '#FEF2F2' },
   login_otp_sent:     { label: 'Code OTP envoyé',         icon: Shield,       color: '#6366F1', bg: '#EEF2FF' },
-  login_otp_verified: { label: 'OTP vérifié',             icon: Shield,       color: '#16A34A', bg: '#F0FDF4' },
-  login_otp_failed:   { label: 'OTP incorrect',           icon: AlertTriangle, color: '#DC2626', bg: '#FEF2F2' },
-  logout:             { label: 'Déconnexion',             icon: LogOut,       color: '#64748B', bg: '#F8FAFC' },
-  session_timeout:    { label: 'Timeout inactivité',      icon: Clock,        color: '#D97706', bg: '#FFFBEB' },
+  login_otp_verified: { label: 'OTP vérifié',             icon: Shield,       color: 'var(--success)', bg: '#F0FDF4' },
+  login_otp_failed:   { label: 'OTP incorrect',           icon: AlertTriangle, color: 'var(--destructive)', bg: '#FEF2F2' },
+  logout:             { label: 'Déconnexion',             icon: LogOut,       color: 'var(--muted-foreground)', bg: '#F8FAFC' },
+  session_timeout:    { label: 'Timeout inactivité',      icon: Clock,        color: 'var(--warning)', bg: '#FFFBEB' },
 }
 
 function formatDate(iso: string) {
@@ -89,8 +89,8 @@ export default function SecuritePage() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Connexions réussies', value: successCount, color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-          { label: 'Tentatives échouées', value: failedCount,  color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+          { label: 'Connexions réussies', value: successCount, color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0' },
+          { label: 'Tentatives échouées', value: failedCount,  color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA' },
           { label: 'Événements total',    value: logs.length,  color: '#6366F1', bg: '#EEF2FF', border: '#C7D2FE' },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, border: `1.5px solid ${s.border}`, borderRadius: 12, padding: '16px 20px' }}>
@@ -131,7 +131,7 @@ export default function SecuritePage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {filtered.map(log => {
-            const meta = ACTION_META[log.action] || { label: log.action, icon: Monitor, color: '#64748B', bg: '#F8FAFC' }
+            const meta = ACTION_META[log.action] || { label: log.action, icon: Monitor, color: 'var(--muted-foreground)', bg: '#F8FAFC' }
             const Icon = meta.icon
             return (
               <div

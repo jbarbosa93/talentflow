@@ -49,26 +49,26 @@ function getStatusBadge(activity: Activity): StatusBadgeConfig | null {
 
   // Import badge
   if (activity.type === 'candidat_importe') {
-    return { label: 'Import\u00e9', bg: 'rgba(34,197,94,0.12)', color: '#16A34A', borderColor: 'rgba(34,197,94,0.3)' }
+    return { label: 'Import\u00e9', bg: 'rgba(34,197,94,0.12)', color: 'var(--success)', borderColor: 'rgba(34,197,94,0.3)' }
   }
 
   // Status change badges
   if (activity.type === 'statut_change' && metadata.change_type) {
     if (metadata.change_type === 'import_status') {
       if (metadata.new_status === 'traite') {
-        return { label: 'Valid\u00e9', bg: 'rgba(59,130,246,0.12)', color: '#2563EB', borderColor: 'rgba(59,130,246,0.3)' }
+        return { label: 'Valid\u00e9', bg: 'rgba(59,130,246,0.12)', color: 'var(--info)', borderColor: 'rgba(59,130,246,0.3)' }
       }
       if (metadata.new_status === 'archive') {
-        return { label: 'Archiv\u00e9', bg: 'rgba(107,114,128,0.12)', color: '#6B7280', borderColor: 'rgba(107,114,128,0.3)' }
+        return { label: 'Archiv\u00e9', bg: 'rgba(107,114,128,0.12)', color: 'var(--muted-foreground)', borderColor: 'rgba(107,114,128,0.3)' }
       }
     }
     if (metadata.change_type === 'statut_pipeline') {
       const pipelineColors: Record<string, StatusBadgeConfig> = {
-        nouveau:   { label: 'Nouveau',   bg: 'rgba(107,114,128,0.12)', color: '#6B7280', borderColor: 'rgba(107,114,128,0.3)' },
-        contacte:  { label: 'Contact\u00e9',  bg: 'rgba(59,130,246,0.12)',  color: '#2563EB', borderColor: 'rgba(59,130,246,0.3)' },
+        nouveau:   { label: 'Nouveau',   bg: 'rgba(107,114,128,0.12)', color: 'var(--muted-foreground)', borderColor: 'rgba(107,114,128,0.3)' },
+        contacte:  { label: 'Contact\u00e9',  bg: 'rgba(59,130,246,0.12)',  color: 'var(--info)', borderColor: 'rgba(59,130,246,0.3)' },
         entretien: { label: 'Entretien', bg: 'rgba(139,92,246,0.12)',  color: '#7C3AED', borderColor: 'rgba(139,92,246,0.3)' },
-        place:     { label: 'Plac\u00e9',     bg: 'rgba(34,197,94,0.12)',   color: '#16A34A', borderColor: 'rgba(34,197,94,0.3)' },
-        refuse:    { label: 'Refus\u00e9',    bg: 'rgba(239,68,68,0.12)',   color: '#DC2626', borderColor: 'rgba(239,68,68,0.3)' },
+        place:     { label: 'Plac\u00e9',     bg: 'rgba(34,197,94,0.12)',   color: 'var(--success)', borderColor: 'rgba(34,197,94,0.3)' },
+        refuse:    { label: 'Refus\u00e9',    bg: 'rgba(239,68,68,0.12)',   color: 'var(--destructive)', borderColor: 'rgba(239,68,68,0.3)' },
       }
       return pipelineColors[metadata.new_status] || null
     }

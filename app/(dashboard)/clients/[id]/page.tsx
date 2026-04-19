@@ -63,7 +63,7 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
         )}
         <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
           <button onClick={() => { onSave(field, draft); setEditing(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid #BBF7D0', background: '#F0FDF4', color: '#166534', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid #BBF7D0', background: 'var(--success-soft)', color: 'var(--success)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             <Check size={12} strokeWidth={3} /> Sauvegarder
           </button>
           <button onClick={() => { setDraft(value || ''); setEditing(false) }}
@@ -466,7 +466,7 @@ export default function ClientDetailPage() {
               background: 'rgba(239,68,68,0.1)', border: '2px solid rgba(239,68,68,0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Trash2 size={22} color="#EF4444" />
+              <Trash2 size={22} color="var(--destructive)" />
             </div>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 8px', textAlign: 'center' }}>
               Supprimer ce client ?

@@ -30,9 +30,9 @@ const CAT_LABELS: Record<string, string> = {
 }
 const CAT_COLORS: Record<string, { bg: string; color: string }> = {
   invitation_entretien: { bg: '#FFF7ED', color: '#F5A623' },
-  relance:              { bg: '#EFF6FF', color: '#3B82F6' },
-  refus:                { bg: '#FEF2F2', color: '#EF4444' },
-  offre:                { bg: '#F0FDF4', color: '#22C55E' },
+  relance:              { bg: '#EFF6FF', color: 'var(--info)' },
+  refus:                { bg: '#FEF2F2', color: 'var(--destructive)' },
+  offre:                { bg: '#F0FDF4', color: 'var(--success)' },
   general:              { bg: 'var(--secondary)', color: 'var(--muted)' },
 }
 
@@ -586,7 +586,7 @@ function ClientPickerModal({
                         {client.secteur && <span>{client.secteur}</span>}
                         {client.ville && <span>{client.ville}</span>}
                         {client.email
-                          ? <span style={{ color: '#3B82F6' }}>{client.email}</span>
+                          ? <span style={{ color: 'var(--info)' }}>{client.email}</span>
                           : <span style={{ fontStyle: 'italic' }}>Pas d'email</span>
                         }
                       </div>
@@ -618,7 +618,7 @@ function ClientPickerModal({
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>{ct.prenom || ''} {ct.nom || ct.name || ''}</span>
                         {ct.poste && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 6 }}>· {ct.poste}</span>}
                         {ct.email
-                          ? <span style={{ fontSize: 11, color: '#3B82F6', marginLeft: 6 }}>{ct.email}</span>
+                          ? <span style={{ fontSize: 11, color: 'var(--info)', marginLeft: 6 }}>{ct.email}</span>
                           : <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 6, fontStyle: 'italic' }}>Pas d'email</span>
                         }
                       </div>
@@ -638,7 +638,7 @@ function ClientPickerModal({
           <button
             onClick={() => onConfirm([...selected])}
             disabled={selected.size === 0}
-            style={{ padding: '9px 22px', border: '2px solid #0F172A', borderRadius: 10, background: '#F5A623', color: '#0F172A', fontSize: 13, fontWeight: 800, cursor: selected.size > 0 ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: selected.size > 0 ? 1 : 0.5 }}
+            style={{ padding: '9px 22px', border: '2px solid #0F172A', borderRadius: 10, background: '#F5A623', color: 'var(--foreground)', fontSize: 13, fontWeight: 800, cursor: selected.size > 0 ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: selected.size > 0 ? 1 : 0.5 }}
           >
             Ajouter {selected.size > 0 ? `${selected.size} email${selected.size > 1 ? 's' : ''}` : ''} en CCI
           </button>
@@ -1004,21 +1004,21 @@ function EmailTab() {
 
       {/* Microsoft Graph API Status */}
       {msConfig?.configured ? (
-        <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: '#F0FDF4', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: 'var(--success-soft)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#166534', margin: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)', margin: 0 }}>
               ✉️ Connecté via Microsoft 365 — {msConfig.email}
             </p>
-            <p style={{ fontSize: 11, color: '#15803D', marginTop: 1 }}>Les emails seront envoyés depuis ce compte via Microsoft Graph</p>
+            <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 1 }}>Les emails seront envoyés depuis ce compte via Microsoft Graph</p>
           </div>
         </div>
       ) : (
-        <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: '#FFFBEB', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <Mail size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
+        <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: 'var(--warning-soft)', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <Mail size={16} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#D97706', margin: 0 }}>Compte Outlook non connecté</p>
-            <p style={{ fontSize: 12, color: '#92400E', marginTop: 2 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)', margin: 0 }}>Compte Outlook non connecté</p>
+            <p style={{ fontSize: 12, color: 'var(--warning)', marginTop: 2 }}>
               Connectez votre compte Outlook dans Paramètres pour envoyer des emails depuis votre adresse.
             </p>
           </div>
@@ -1267,7 +1267,7 @@ function EmailTab() {
               <Mail size={12} />{msConfig?.configured ? `Envoi depuis ${msConfig.email}` : 'Microsoft 365 non connecté'} {destinataires.length > 1 ? `· ${destinataires.length} emails individuels` : ''}
             </p>
             {Object.keys(cvAttached).length > 0 && (
-              <p style={{ fontSize: 11, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>
+              <p style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>
                 <Paperclip size={11} /> {Object.keys(cvAttached).length} CV{Object.keys(cvAttached).length > 1 ? 's' : ''} joint{Object.keys(cvAttached).length > 1 ? 's' : ''} au mail
               </p>
             )}
@@ -1335,10 +1335,10 @@ function EmailTab() {
                     background: '#FFF7ED', border: '1.5px solid #FED7AA', borderRadius: 10,
                     padding: '10px 14px', fontSize: 13,
                   }}>
-                    <div style={{ fontWeight: 700, color: '#92400E' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--warning)' }}>
                       {d.candidat_nom || 'Candidat'} → {d.destinataire}
                     </div>
-                    <div style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
                       Envoyé le {new Date(d.date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })} à {new Date(d.date).toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h')}
                       {d.user_name ? ` par ${d.user_name}` : ''}
                     </div>
@@ -1440,9 +1440,9 @@ function WhatsAppTab() {
   return (
     <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
       {/* Info */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: '#F0FDF4', border: '1.5px solid #86EFAC', borderRadius: 10 }}>
-        <MessageCircle size={16} color="#16A34A" style={{ flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 12, color: '#166534', margin: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: 'var(--success-soft)', border: '1.5px solid #86EFAC', borderRadius: 10 }}>
+        <MessageCircle size={16} color="var(--success)" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 12, color: 'var(--success)', margin: 0 }}>
           Composez votre message ici, puis cliquez sur <strong>Ouvrir WhatsApp</strong> — votre app s&apos;ouvrira directement avec le message pré-rempli.
         </p>
       </div>
@@ -1562,9 +1562,9 @@ function SmsTab() {
   return (
     <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
       {/* Info */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 10 }}>
-        <Smartphone size={16} color="#3B82F6" style={{ flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 12, color: '#1E40AF', margin: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: 'var(--info-soft)', border: '1.5px solid #BFDBFE', borderRadius: 10 }}>
+        <Smartphone size={16} color="var(--info)" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 12, color: 'var(--info)', margin: 0 }}>
           Composez votre message et cliquez <strong>Ouvrir Messages</strong> — votre app SMS / iMessage s&apos;ouvrira avec le message pré-rempli. Fonctionne sur Mac et iPhone.
         </p>
       </div>

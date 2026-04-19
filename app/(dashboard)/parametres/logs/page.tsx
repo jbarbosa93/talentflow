@@ -29,20 +29,20 @@ function parseMeta(raw: Record<string, unknown> | string | null): Record<string,
 }
 
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string; bg: string }> = {
-  cv_importe:        { label: 'CV importé',       icon: FileUp,        color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-  cv_actualise:      { label: 'CV actualisé',      icon: RefreshCw,     color: '#0EA5E9', bg: 'rgba(14,165,233,0.12)' },
-  cv_doublon:        { label: 'Doublon',           icon: Copy,          color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  cv_erreur:         { label: 'Erreur import',     icon: AlertCircle,   color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-  onedrive_sync:     { label: 'Sync OneDrive',     icon: FolderSync,    color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
-  connexion:         { label: 'Connexion',         icon: LogIn,         color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
-  statut_change:     { label: 'Pipeline',          icon: GitBranch,     color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  candidat_importe:  { label: 'Import candidat',   icon: UserPlus,      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  cv_importe:        { label: 'CV importé',       icon: FileUp,        color: 'var(--success)', bg: 'rgba(16,185,129,0.12)' },
+  cv_actualise:      { label: 'CV actualisé',      icon: RefreshCw,     color: 'var(--info)', bg: 'rgba(14,165,233,0.12)' },
+  cv_doublon:        { label: 'Doublon',           icon: Copy,          color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)' },
+  cv_erreur:         { label: 'Erreur import',     icon: AlertCircle,   color: 'var(--destructive)', bg: 'rgba(239,68,68,0.12)' },
+  onedrive_sync:     { label: 'Sync OneDrive',     icon: FolderSync,    color: 'var(--info)', bg: 'rgba(59,130,246,0.12)' },
+  connexion:         { label: 'Connexion',         icon: LogIn,         color: 'var(--muted-foreground)', bg: 'rgba(107,114,128,0.12)' },
+  statut_change:     { label: 'Pipeline',          icon: GitBranch,     color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)' },
+  candidat_importe:  { label: 'Import candidat',   icon: UserPlus,      color: 'var(--success)', bg: 'rgba(16,185,129,0.12)' },
   candidat_modifie:  { label: 'Modification',      icon: UserMinus,     color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
-  candidat_valide:   { label: 'Validé',            icon: UserCheck,     color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  candidat_valide:   { label: 'Validé',            icon: UserCheck,     color: 'var(--success)', bg: 'rgba(16,185,129,0.12)' },
   candidat_fusionne: { label: 'Fusion',            icon: Copy,          color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
-  email_envoye:      { label: 'Email',             icon: Mail,          color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  email_envoye_masse:{ label: 'Email en masse',    icon: Send,          color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  whatsapp_envoye:   { label: 'WhatsApp',          icon: MessageCircle, color: '#22C55E', bg: 'rgba(34,197,94,0.12)' },
+  email_envoye:      { label: 'Email',             icon: Mail,          color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)' },
+  email_envoye_masse:{ label: 'Email en masse',    icon: Send,          color: 'var(--warning)', bg: 'rgba(245,158,11,0.12)' },
+  whatsapp_envoye:   { label: 'WhatsApp',          icon: MessageCircle, color: 'var(--success)', bg: 'rgba(34,197,94,0.12)' },
   metier_assigne:    { label: 'Métier assigné',    icon: Tag,           color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
 }
 
@@ -180,14 +180,14 @@ export default function LogsPage() {
 
       {/* Erreurs banner */}
       {vue === 'erreurs' && totalErreurs > 0 && (
-        <div style={{ background: '#FEF2F2', border: '1.5px solid #FECACA', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
+        <div style={{ background: 'var(--destructive-soft)', border: '1.5px solid #FECACA', borderRadius: 12, padding: '14px 20px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-            <AlertCircle size={20} style={{ color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+            <AlertCircle size={20} style={{ color: 'var(--destructive)', flexShrink: 0, marginTop: 1 }} />
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: '#991B1B', margin: 0 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--destructive)', margin: 0 }}>
                 {totalErreurs} événement{totalErreurs > 1 ? 's' : ''} d&apos;erreur enregistré{totalErreurs > 1 ? 's' : ''}
               </p>
-              <p style={{ fontSize: 12, color: '#B91C1C', margin: '4px 0 0 0', lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, color: 'var(--destructive)', margin: '4px 0 0 0', lineHeight: 1.5 }}>
                 Certains CVs n&apos;ont pas pu être importés. Pour chaque ligne, cliquez sur le candidat pour vérifier s&apos;il a quand même été créé.
                 <br />
                 <span style={{ opacity: 0.8 }}>Note : le compteur inclut les tentatives multiples — le nombre réel de fichiers en erreur est inférieur.</span>
@@ -206,7 +206,7 @@ export default function LogsPage() {
       )}
 
       {hasError && (
-        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '14px 18px', color: '#EF4444', fontSize: 13 }}>
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '14px 18px', color: 'var(--destructive)', fontSize: 13 }}>
           Erreur lors du chargement des logs.
         </div>
       )}
@@ -232,7 +232,7 @@ export default function LogsPage() {
                   </thead>
                   <tbody>
                     {allLogs.map((log, idx) => {
-                      const cfg = TYPE_CONFIG[log.type] || { label: log.type, icon: Activity, color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)' }
+                      const cfg = TYPE_CONFIG[log.type] || { label: log.type, icon: Activity, color: 'var(--muted-foreground)', bg: 'rgba(156,163,175,0.12)' }
                       const Icon = cfg.icon
                       const meta = parseMeta(log.metadata)
                       const detail = log.description || formatMeta(meta)
@@ -339,9 +339,9 @@ function LogGroupedView({ logs }: { logs: ActiviteEntry[] }) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 6, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                {gImported > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>✓ {gImported}</span>}
-                {gErrors   > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>✗ {gErrors}</span>}
-                {gDoublons > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>⚠ {gDoublons}</span>}
+                {gImported > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success-soft)' }}>✓ {gImported}</span>}
+                {gErrors   > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--destructive-soft)', color: 'var(--destructive)', border: '1px solid var(--destructive-soft)' }}>✗ {gErrors}</span>}
+                {gDoublons > 0 && <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', border: '1px solid var(--warning-soft)' }}>⚠ {gDoublons}</span>}
               </div>
               <ChevronDown size={16} color="var(--muted)" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }} />
             </button>
@@ -349,7 +349,7 @@ function LogGroupedView({ logs }: { logs: ActiviteEntry[] }) {
             {isOpen && (
               <div style={{ borderTop: '1px solid var(--border)', maxHeight: 500, overflowY: 'auto' }}>
                 {group.logs.map(log => {
-                  const cfg = TYPE_CONFIG[log.type] || { label: log.type, icon: Activity, color: '#9CA3AF', bg: 'rgba(156,163,175,0.12)' }
+                  const cfg = TYPE_CONFIG[log.type] || { label: log.type, icon: Activity, color: 'var(--muted-foreground)', bg: 'rgba(156,163,175,0.12)' }
                   const Icon = cfg.icon
                   const meta = parseMeta(log.metadata)
                   const fichier  = String(meta.fichier  || '')
@@ -384,15 +384,15 @@ function LogGroupedView({ logs }: { logs: ActiviteEntry[] }) {
                           </div>
                         )}
                         {isError && !!erreur && (
-                          <div style={{ fontSize: 11, color: '#DC2626', marginTop: 2, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                          <div style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 2, lineHeight: 1.4, wordBreak: 'break-word' }}>
                             {erreur}
                           </div>
                         )}
                         {!isError && !isDoublon && !!candidat && fichier && (
-                          <div style={{ fontSize: 11, color: '#16A34A', marginTop: 1 }}>→ {candidat}</div>
+                          <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 1 }}>→ {candidat}</div>
                         )}
                         {isDoublon && (
-                          <div style={{ fontSize: 11, color: '#D97706', marginTop: 1 }}>Doublon détecté</div>
+                          <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 1 }}>Doublon détecté</div>
                         )}
                       </div>
                       <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>

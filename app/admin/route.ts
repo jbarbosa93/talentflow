@@ -26,17 +26,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: linkError?.message || 'Impossible de générer le lien' }, { status: 500 })
   }
 
-  // 2. Vérifier le token côté serveur pour obtenir la session
-  const { data: verifyData, error: verifyError } = await admin.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: 'magiclink',
-  })
-
-  if (verifyError || !verifyData.session) {
-    return NextResponse.json({ error: verifyError?.message || 'Impossible de créer la session' }, { status: 500 })
-  }
-
-  // 3. Setter les cookies de session via createServerClient
+  // 2. Vérifier le token DIRECTEMENT sur le server client (pas l'admin client).
+  // verifyOtp sur le server client déclenche setAll → cookies sb-* persistés dans la response.
+  // Avant : split admin.verifyOtp + supabase.setSession ne persistait pas fiablement les cookies
+  // → API routes renvoyaient 401 alors que les pages passaient.
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,10 +46,14 @@ export async function GET(request: Request) {
     }
   )
 
-  await supabase.auth.setSession({
-    access_token: verifyData.session.access_token,
-    refresh_token: verifyData.session.refresh_token,
+  const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+    token_hash: linkData.properties.hashed_token,
+    type: 'magiclink',
   })
+
+  if (verifyError || !verifyData.session) {
+    return NextResponse.json({ error: verifyError?.message || 'Impossible de créer la session' }, { status: 500 })
+  }
 
   return NextResponse.redirect(`${origin}/parametres/admin`)
 }

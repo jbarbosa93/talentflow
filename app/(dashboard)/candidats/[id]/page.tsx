@@ -925,7 +925,7 @@ export default function CandidatDetailPage() {
                   {isVu ? 'Marquer comme non vu' : 'Marquer comme vu'}
                 </button>
                 <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#DC2626', fontFamily: 'inherit' }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--destructive)', fontFamily: 'inherit' }}>
                   <Trash2 size={14} /> Supprimer
                 </button>
               </div>
@@ -948,7 +948,7 @@ export default function CandidatDetailPage() {
               <div style={{ position: 'relative' }}>
                 {(candidat.photo_url && candidat.photo_url !== 'checked')
                   ? <Image src={candidat.photo_url} width={140} height={140} style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} alt="Photo candidat" unoptimized />
-                  : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: '#F1F5F9', color: '#64748B', boxShadow: 'none', border: 'none', borderRadius: 12 }}>{initiales}</div>
+                  : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: 'var(--muted)', color: 'var(--muted-foreground)', boxShadow: 'none', border: 'none', borderRadius: 12 }}>{initiales}</div>
                 }
                 {photoUploading && (
                   <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -963,7 +963,7 @@ export default function CandidatDetailPage() {
                     className="candidat-photo-btn"
                     style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                   >
-                    <Camera size={11} color="#0F172A" />
+                    <Camera size={11} color="var(--foreground)" />
                   </button>
                   {candidat.cv_url && (
                     <button
@@ -981,17 +981,17 @@ export default function CandidatDetailPage() {
                         onClick={handlePhotoRotate}
                         title="Tourner la photo 90°"
                         className="candidat-photo-btn"
-                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#EFF6FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                       >
-                        <RotateCw size={11} color="#3B82F6" />
+                        <RotateCw size={11} color="var(--info)" />
                       </button>
                       <button
                         onClick={handlePhotoDelete}
                         title="Supprimer la photo"
                         className="candidat-photo-btn"
-                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: '#FEE2E2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid white', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                       >
-                        <X size={11} color="#DC2626" />
+                        <X size={11} color="var(--destructive)" />
                       </button>
                     </>
                   )}
@@ -1305,9 +1305,9 @@ export default function CandidatDetailPage() {
                         // Essayer Outlook web/app, fallback sur mailto natif
                         window.location.href = mailtoUrl
                       }}
-                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#EFF6FF', border: '1px solid #BFDBFE', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--info-soft)', border: '1px solid var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
                     >
-                      <Send size={10} color="#3B82F6" />
+                      <Send size={10} color="var(--info)" />
                     </a>
                   </div>
                 )}
@@ -1318,7 +1318,7 @@ export default function CandidatDetailPage() {
                     <a
                       href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},\n\nJ'espère que vous allez bien.\n\nJe suis à la recherche d'un profil comme vous, n'hésitez pas à me répondre à ce message ou m'appeler.\n\nCordialement,\n${consultantPrenom}\nL-AGENCE SA`)}`}
                       title="Envoyer un message WhatsApp"
-                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: '#F0FDF4', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
+                      style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--success-soft)', border: '1px solid var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', cursor: 'pointer' }}
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                     </a>
@@ -1366,7 +1366,7 @@ export default function CandidatDetailPage() {
                     {candidat.tags.map((tag: string) => (
                       <span key={tag} style={{
                         fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 100,
-                        background: 'rgba(59,130,246,0.1)', color: '#3B82F6',
+                        background: 'rgba(59,130,246,0.1)', color: 'var(--info)',
                       }}>{tag}</span>
                     ))}
                   </div>
@@ -1578,8 +1578,8 @@ export default function CandidatDetailPage() {
             <div className="neo-card-soft">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 7, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <GraduationCap size={13} style={{ color: '#059669' }} />
+                  <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <GraduationCap size={13} style={{ color: 'var(--success)' }} />
                   </div>
                   <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
                     Formations
@@ -1619,15 +1619,15 @@ export default function CandidatDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {candidat.formations_details.map((form: any, i: number) => (
                     <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 7, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <GraduationCap size={14} style={{ color: '#059669' }} />
+                      <div style={{ width: 32, height: 32, borderRadius: 7, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <GraduationCap size={14} style={{ color: 'var(--success)' }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3 }}>{form.diplome}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                           {form.etablissement && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{form.etablissement}</span>}
                           {form.etablissement && form.annee && <span style={{ fontSize: 11, color: 'var(--muted)' }}>·</span>}
-                          {form.annee && <span style={{ fontSize: 11, fontWeight: 600, color: '#059669' }}>{form.annee}</span>}
+                          {form.annee && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--success)' }}>{form.annee}</span>}
                         </div>
                       </div>
                     </div>
@@ -1737,7 +1737,7 @@ export default function CandidatDetailPage() {
 
             {/* Corps du viewer */}
             {!candidat.cv_url ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--muted)' }}>
                 <div style={{ textAlign: 'center', color: 'var(--muted)', padding: 32 }}>
                   <div style={{ fontSize: 48, marginBottom: 12 }}>📄❌</div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', marginBottom: 4 }}>Pas de CV dans les documents</p>
@@ -1747,7 +1747,7 @@ export default function CandidatDetailPage() {
             ) : cvIsImage ? (
               <div ref={imgContainerRef}
                 style={{
-                  flex: 1, overflow: 'auto', background: '#F1F5F9',
+                  flex: 1, overflow: 'auto', background: 'var(--muted)',
                   cursor: cvZoom > 1 ? 'grab' : 'default', userSelect: 'none',
                   padding: 16,
                 }}
@@ -1779,7 +1779,7 @@ export default function CandidatDetailPage() {
             ) : (cvIsPDF || cvIsWord) ? (
               <div ref={cvScrollRef}
                 style={{
-                  flex: 1, overflow: 'auto', background: '#F1F5F9', position: 'relative',
+                  flex: 1, overflow: 'auto', background: 'var(--muted)', position: 'relative',
                   cursor: cvZoom > 1 ? 'grab' : 'default',
                 }}
                 onMouseDown={cvZoom > 1 ? cvDragStart : undefined}
@@ -1824,7 +1824,7 @@ export default function CandidatDetailPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--muted)' }}>
                 <div style={{ textAlign: 'center', padding: 32 }}>
                   <FileText size={36} style={{ color: 'var(--muted)', opacity: 0.4, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
                   <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Aperçu non disponible (.{ext})</p>
@@ -2054,7 +2054,7 @@ export default function CandidatDetailPage() {
                           <button
                             onClick={() => { if (confirm('Supprimer cette note ?')) deleteNote.mutate({ note_id: n.id, candidat_id: id }) }}
                             title="Supprimer"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: '#EF4444', display: 'flex', alignItems: 'center' }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--destructive)', display: 'flex', alignItems: 'center' }}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -2175,7 +2175,7 @@ export default function CandidatDetailPage() {
             maxWidth: 400, width: '90%', textAlign: 'center',
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#DC2626', marginBottom: 8 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--destructive)', marginBottom: 8 }}>
               Supprimer ce candidat ?
             </h3>
             <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.5 }}>
@@ -2299,7 +2299,7 @@ export default function CandidatDetailPage() {
             <div style={{ padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
               <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 4px', color: 'var(--foreground)' }}>Fusionner avec un autre candidat</h3>
               <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px' }}>Recherchez le candidat doublon pour fusionner les fiches</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#F8FAFC', border: '1.5px solid var(--border)', borderRadius: 10, padding: '8px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--muted)', border: '1.5px solid var(--border)', borderRadius: 10, padding: '8px 12px' }}>
                 <Search size={14} color="var(--muted)" />
                 <input
                   autoFocus

@@ -496,23 +496,23 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         return <Clock size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
       case 'uploading':
       case 'parsing':
-        return <Loader2 size={14} style={{ color: '#3B82F6', flexShrink: 0, animation: 'spin 1s linear infinite' }} />
+        return <Loader2 size={14} style={{ color: 'var(--info)', flexShrink: 0, animation: 'spin 1s linear infinite' }} />
       case 'awaiting_confirmation':
-        return <AlertCircle size={14} style={{ color: '#D97706', flexShrink: 0 }} />
+        return <AlertCircle size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
       case 'already_imported':
-        return <CheckCircle size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+        return <CheckCircle size={14} style={{ color: 'var(--muted-foreground)', flexShrink: 0 }} />
       case 'reactivated':
-        return <RefreshCw size={14} style={{ color: '#D97706', flexShrink: 0 }} />
+        return <RefreshCw size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
       case 'success':
-        return <CheckCircle size={14} style={{ color: '#16A34A', flexShrink: 0 }} />
+        return <CheckCircle size={14} style={{ color: 'var(--success)', flexShrink: 0 }} />
       case 'doc_added':
-        return <CheckCircle size={14} style={{ color: '#3B82F6', flexShrink: 0 }} />
+        return <CheckCircle size={14} style={{ color: 'var(--info)', flexShrink: 0 }} />
       case 'doublon_updated':
-        return <RefreshCw size={14} style={{ color: '#F59E0B', flexShrink: 0 }} />
+        return <RefreshCw size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
       case 'multiple_matches':
         return <AlertCircle size={14} style={{ color: '#8B5CF6', flexShrink: 0 }} />
       case 'error':
-        return <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0 }} />
+        return <AlertCircle size={14} style={{ color: 'var(--destructive)', flexShrink: 0 }} />
     }
   }
 
@@ -654,9 +654,9 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         minWidth: 280,
       }} onClick={() => setMinimized(false)}>
         {uploading ? (
-          <Loader2 size={16} style={{ color: '#3B82F6', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+          <Loader2 size={16} style={{ color: 'var(--info)', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
         ) : (
-          <CheckCircle size={16} style={{ color: '#16A34A', flexShrink: 0 }} />
+          <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
         )}
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
@@ -668,7 +668,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
             </div>
           )}
         </div>
-        <span style={{ fontSize: 11, color: '#3B82F6', fontWeight: 600, flexShrink: 0 }}>Ouvrir</span>
+        <span style={{ fontSize: 11, color: 'var(--info)', fontWeight: 600, flexShrink: 0 }}>Ouvrir</span>
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
       </div>
     )
@@ -747,7 +747,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)', margin: '0 0 4px' }}>
             Glissez vos fichiers ici ou cliquez pour sélectionner
           </p>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0 }}>
             PDF, Word, JPG, PNG
           </p>
         </div>
@@ -787,37 +787,37 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           {succeeded > 0 && (
             <div style={{
               flex: 1, padding: '10px 12px', borderRadius: 8,
-              background: '#F0FDF4', border: '1px solid #BBF7D0', textAlign: 'center',
+              background: 'var(--success-soft)', border: '1px solid var(--success-soft)', textAlign: 'center',
             }}>
-              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#16A34A' }}>{succeeded}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#16A34A', fontWeight: 500 }}>importé{succeeded > 1 ? 's' : ''}</p>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--success)' }}>{succeeded}</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--success)', fontWeight: 500 }}>importé{succeeded > 1 ? 's' : ''}</p>
             </div>
           )}
           {docsAdded > 0 && (
             <div style={{
               flex: 1, padding: '10px 12px', borderRadius: 8,
-              background: '#EFF6FF', border: '1px solid #BFDBFE', textAlign: 'center',
+              background: 'var(--info-soft)', border: '1px solid var(--info-soft)', textAlign: 'center',
             }}>
-              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#3B82F6' }}>{docsAdded}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#2563EB', fontWeight: 500 }}>doc{docsAdded > 1 ? 's' : ''} ajouté{docsAdded > 1 ? 's' : ''}</p>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--info)' }}>{docsAdded}</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--info)', fontWeight: 500 }}>doc{docsAdded > 1 ? 's' : ''} ajouté{docsAdded > 1 ? 's' : ''}</p>
             </div>
           )}
           {doublonsUpdated > 0 && (
             <div style={{
               flex: 1, padding: '10px 12px', borderRadius: 8,
-              background: '#FFFBEB', border: '1px solid #FDE68A', textAlign: 'center',
+              background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', textAlign: 'center',
             }}>
-              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#F59E0B' }}>{doublonsUpdated}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#D97706', fontWeight: 500 }}>CV{doublonsUpdated > 1 ? 's' : ''} actualisé{doublonsUpdated > 1 ? 's' : ''}</p>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--warning)' }}>{doublonsUpdated}</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--warning)', fontWeight: 500 }}>CV{doublonsUpdated > 1 ? 's' : ''} actualisé{doublonsUpdated > 1 ? 's' : ''}</p>
             </div>
           )}
           {failed > 0 && (
             <div style={{
               flex: 1, padding: '10px 12px', borderRadius: 8,
-              background: '#FEF2F2', border: '1px solid #FECACA', textAlign: 'center',
+              background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', textAlign: 'center',
             }}>
-              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#DC2626' }}>{failed}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#DC2626', fontWeight: 500 }}>erreur{failed > 1 ? 's' : ''}</p>
+              <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--destructive)' }}>{failed}</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--destructive)', fontWeight: 500 }}>erreur{failed > 1 ? 's' : ''}</p>
             </div>
           )}
         </div>
@@ -862,7 +862,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                     {item.cvUrl && (
                       <button
                         onClick={() => setPreviewUrl(item.cvUrl || null)}
-                        style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#6B7280', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
+                        style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
                         title="Voir le document"
                       >
                         <Eye size={10} /> Voir
@@ -888,15 +888,15 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                     {manualSearchIdx === i ? (
                       <div style={{ marginTop: 2 }}>
                         <div style={{ position: 'relative' }}>
-                          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF' }} />
+                          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)' }} />
                           <input
                             autoFocus
                             placeholder="Rechercher un candidat..."
                             value={manualSearchQuery}
                             onChange={e => handleManualSearch(e.target.value)}
-                            style={{ width: '100%', fontSize: 11, padding: '5px 8px 5px 26px', borderRadius: 6, border: '1px solid #D1D5DB', fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', fontSize: 11, padding: '5px 8px 5px 26px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'inherit', outline: 'none' }}
                           />
-                          {manualSearching && <Loader2 size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', animation: 'spin 1s linear infinite' }} />}
+                          {manualSearching && <Loader2 size={12} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted-foreground)', animation: 'spin 1s linear infinite' }} />}
                         </div>
                         {manualSearchResults.length > 0 && (
                           <div style={{ marginTop: 3, display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 120, overflowY: 'auto' }}>
@@ -904,7 +904,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                               <button
                                 key={c.id}
                                 onClick={() => handleSelectMatch(i, c.id)}
-                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, color: 'var(--foreground)', textAlign: 'left', transition: 'all 0.12s' }}
+                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, color: 'var(--foreground)', textAlign: 'left', transition: 'all 0.12s' }}
                                 onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'white')}
                               >
@@ -913,13 +913,13 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                             ))}
                           </div>
                         )}
-                        <button onClick={() => { setManualSearchIdx(null); setManualSearchQuery(''); setManualSearchResults([]) }} style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, fontFamily: 'inherit' }}>Fermer</button>
+                        <button onClick={() => { setManualSearchIdx(null); setManualSearchQuery(''); setManualSearchResults([]) }} style={{ fontSize: 10, color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 3, fontFamily: 'inherit' }}>Fermer</button>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button
                           onClick={() => handleForceCreate(i)}
-                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#16A34A', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
                         >
                           <UserPlus size={10} /> Nouveau candidat
                         </button>
@@ -931,7 +931,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                         </button>
                         <button
                           onClick={() => updateFile(i, { status: 'error', error: 'Ignoré', multipleMatches: undefined, storagePath: undefined })}
-                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: '#9CA3AF' }}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)' }}
                         >
                           Ignorer
                         </button>
@@ -945,7 +945,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                   onClick={() => removeFile(i)}
                   style={{
                     background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#9CA3AF', padding: 2, flexShrink: 0,
+                    color: 'var(--muted-foreground)', padding: 2, flexShrink: 0,
                     display: 'flex', alignItems: 'center',
                   }}
                 >
@@ -980,8 +980,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '10px 14px', borderRadius: 8,
-                border: '1px solid #E5E7EB', background: '#FFFFFF',
-                cursor: 'pointer', color: '#6B7280',
+                border: '1px solid var(--border)', background: 'var(--card)',
+                cursor: 'pointer', color: 'var(--muted-foreground)',
               }}
             >
               <Plus size={14} />
@@ -994,8 +994,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 8, padding: '10px 0',
             }}>
-              <Loader2 size={15} style={{ color: '#3B82F6', animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#6B7280' }}>
+              <Loader2 size={15} style={{ color: 'var(--info)', animation: 'spin 1s linear infinite' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted-foreground)' }}>
                 Import en cours...
               </span>
             </div>
@@ -1003,8 +1003,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               onClick={handleCancel}
               style={{
                 padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                border: '1px solid #FECACA', background: '#FEF2F2',
-                color: '#DC2626', cursor: 'pointer', fontFamily: 'inherit',
+                border: '1px solid var(--destructive-soft)', background: 'var(--destructive-soft)',
+                color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               Arrêter
@@ -1018,8 +1018,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
               style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 padding: '10px 16px', borderRadius: 8,
-                border: '1px solid #E5E7EB', background: '#FFFFFF',
-                cursor: 'pointer', color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                border: '1px solid var(--border)', background: 'var(--card)',
+                cursor: 'pointer', color: 'var(--muted-foreground)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
               }}
             >
               <Plus size={14} />

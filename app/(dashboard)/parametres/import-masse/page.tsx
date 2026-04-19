@@ -145,7 +145,7 @@ export default function ImportMassePage() {
                 </button>
               )}
               {!running && (
-                <button onClick={reset} className="neo-btn-ghost" style={{ gap: 6, fontSize: 13, color: '#DC2626' }}>
+                <button onClick={reset} className="neo-btn-ghost" style={{ gap: 6, fontSize: 13, color: 'var(--destructive)' }}>
                   <X size={13} /> Vider
                 </button>
               )}
@@ -159,11 +159,11 @@ export default function ImportMassePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 24 }}>
           {[
             { label: 'Total',      value: total,      color: 'var(--foreground)', icon: <FileText size={14} /> },
-            { label: 'En attente', value: pending,     color: '#6B7280',           icon: <Clock size={14} /> },
-            { label: 'En cours',   value: processing,  color: '#3B82F6',           icon: <Loader2 size={14} style={{ animation: processing > 0 ? 'spin 1s linear infinite' : undefined }} /> },
-            { label: 'Importés',   value: succeeded,   color: '#16A34A',           icon: <CheckCircle size={14} /> },
-            { label: 'Doublons',   value: doublons,    color: '#F59E0B',           icon: <Copy size={14} /> },
-            { label: 'Erreurs',    value: failed,      color: '#DC2626',           icon: <XCircle size={14} /> },
+            { label: 'En attente', value: pending,     color: 'var(--muted-foreground)',           icon: <Clock size={14} /> },
+            { label: 'En cours',   value: processing,  color: 'var(--info)',           icon: <Loader2 size={14} style={{ animation: processing > 0 ? 'spin 1s linear infinite' : undefined }} /> },
+            { label: 'Importés',   value: succeeded,   color: 'var(--success)',           icon: <CheckCircle size={14} /> },
+            { label: 'Doublons',   value: doublons,    color: 'var(--warning)',           icon: <Copy size={14} /> },
+            { label: 'Erreurs',    value: failed,      color: 'var(--destructive)',           icon: <XCircle size={14} /> },
           ].map(s => (
             <div key={s.label} style={{
               background: 'var(--card)', border: '1.5px solid var(--border)',
@@ -183,13 +183,13 @@ export default function ImportMassePage() {
 
       {/* Bannière crédit épuisé */}
       {creditExhausted && (
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: '#FEF2F2', border: '2px solid #FECACA', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
-          <XCircle size={22} color="#DC2626" style={{ flexShrink: 0 }} />
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', background: 'var(--destructive-soft)', border: '2px solid var(--destructive-soft)', borderRadius: 14, padding: '16px 20px', marginBottom: 20 }}>
+          <XCircle size={22} color="var(--destructive)" style={{ flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: '#991B1B', marginBottom: 3 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--destructive)', marginBottom: 3 }}>
               ⚠️ Crédit Anthropic épuisé — import mis en pause automatiquement
             </div>
-            <div style={{ fontSize: 12, color: '#B91C1C' }}>
+            <div style={{ fontSize: 12, color: 'var(--destructive)' }}>
               Rechargez votre solde sur <strong>platform.anthropic.com/settings/billing</strong>, puis cliquez sur Reprendre.
             </div>
           </div>
@@ -229,8 +229,8 @@ export default function ImportMassePage() {
                     </span>
                   </div>
                 )}
-                {isPaused && <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 700 }}>⏸ En pause</span>}
-                {done    && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 700 }}>✓ Import terminé</span>}
+                {isPaused && <span style={{ fontSize: 11, color: 'var(--warning)', fontWeight: 700 }}>⏸ En pause</span>}
+                {done    && <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700 }}>✓ Import terminé</span>}
               </div>
             </div>
 
@@ -247,7 +247,7 @@ export default function ImportMassePage() {
                 </button>
               )}
               {running && (
-                <button onClick={stop} className="neo-btn-ghost" style={{ gap: 6, color: '#DC2626' }}>
+                <button onClick={stop} className="neo-btn-ghost" style={{ gap: 6, color: 'var(--destructive)' }}>
                   <X size={14} /> Arrêter
                 </button>
               )}
@@ -288,23 +288,23 @@ export default function ImportMassePage() {
 
           {failed > 0 && (
             <>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <XCircle size={13} />
                 {failed} fichier{failed > 1 ? 's' : ''} non importé{failed > 1 ? 's' : ''}
               </div>
-              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, overflow: 'hidden', marginBottom: doublons > 0 ? 16 : 0 }}>
+              <div style={{ background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 10, overflow: 'hidden', marginBottom: doublons > 0 ? 16 : 0 }}>
                 {jobs.filter(j => j.status === 'error').map(job => (
-                  <div key={job.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #FECACA' }}>
-                    <XCircle size={12} color="#DC2626" style={{ flexShrink: 0 }} />
+                  <div key={job.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--destructive-soft)' }}>
+                    <XCircle size={12} color="var(--destructive)" style={{ flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)' }}>{job.file.name}</span>
-                      <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6 }}>({formatSize(job.file.size)})</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted-foreground)', marginLeft: 6 }}>({formatSize(job.file.size)})</span>
                     </div>
-                    <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 600, flexShrink: 0, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--destructive)', fontWeight: 600, flexShrink: 0, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {job.error || 'Erreur inconnue'}
                     </span>
                     {job.duration && (
-                      <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>{formatDuration(job.duration)}</span>
+                      <span style={{ fontSize: 10, color: 'var(--muted-foreground)', flexShrink: 0 }}>{formatDuration(job.duration)}</span>
                     )}
                   </div>
                 ))}
@@ -313,7 +313,7 @@ export default function ImportMassePage() {
           )}
 
           {doublons > 0 && (
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Copy size={13} />
               {doublons} doublon{doublons > 1 ? 's' : ''} à traiter — utilisez le filtre ci-dessous
             </div>
@@ -403,10 +403,10 @@ export default function ImportMassePage() {
 
       {/* Warning gros volumes */}
       {total > 500 && !running && !done && (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#FEF9EC', border: '1.5px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
-          <AlertTriangle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--warning-soft)', border: '1.5px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
+          <AlertTriangle size={18} color="var(--warning)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)', marginBottom: 4 }}>
               Import de {total.toLocaleString('fr-FR')} fichiers — estimation : {formatETA(total / 3 * 12)}
             </div>
             <div style={{ fontSize: 12, color: '#78350F' }}>
@@ -477,18 +477,18 @@ function ImportLog({ jobs, resolveDoublon }: {
         <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Log d&apos;activité</div>
         {pendingDoublons.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: '#D97706', fontWeight: 700 }}>
+            <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 700 }}>
               {pendingDoublons.length} doublon{pendingDoublons.length > 1 ? 's' : ''} en attente —
             </span>
             <button
               onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'ignorer'))}
-              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Tout ignorer
             </button>
             <button
               onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'remplacer'))}
-              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #3B82F6', background: 'var(--info-soft)', color: 'var(--info)', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Tout remplacer
             </button>
@@ -523,22 +523,22 @@ function ImportLog({ jobs, resolveDoublon }: {
               </div>
               <div style={{ display: 'flex', gap: 8, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
                 {gSucceeded > 0 && (
-                  <span style={{ padding: '2px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success-soft)' }}>
                     ✓ {gSucceeded} importé{gSucceeded > 1 ? 's' : ''}
                   </span>
                 )}
                 {gFailed > 0 && (
-                  <span style={{ padding: '2px 8px', borderRadius: 99, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--destructive-soft)', color: 'var(--destructive)', border: '1px solid var(--destructive-soft)' }}>
                     ✗ {gFailed} erreur{gFailed > 1 ? 's' : ''}
                   </span>
                 )}
                 {gDoublons > 0 && (
-                  <span style={{ padding: '2px 8px', borderRadius: 99, background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', border: '1px solid var(--warning-soft)' }}>
                     ⚠ {gDoublons} doublon{gDoublons > 1 ? 's' : ''}
                   </span>
                 )}
                 {gPending > 0 && (
-                  <span style={{ padding: '2px 8px', borderRadius: 99, background: '#F8FAFC', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                  <span style={{ padding: '2px 8px', borderRadius: 99, background: 'var(--muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
                     ⏳ {gPending} en cours
                   </span>
                 )}
@@ -568,10 +568,10 @@ function ImportLog({ jobs, resolveDoublon }: {
                         <div style={{ flexShrink: 0 }}>
                           {job.status === 'pending' && <FileText size={13} color="var(--muted)" />}
                           {job.status === 'processing' && <Loader2 size={13} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />}
-                          {job.status === 'success' && <CheckCircle size={13} color="#16A34A" />}
-                          {job.status === 'error' && <XCircle size={13} color="#DC2626" />}
+                          {job.status === 'success' && <CheckCircle size={13} color="var(--success)" />}
+                          {job.status === 'error' && <XCircle size={13} color="var(--destructive)" />}
                           {job.status === 'skipped' && <CheckCircle size={13} color="#9CA3AF" />}
-                          {job.status === 'doublon' && <Copy size={13} color="#F59E0B" />}
+                          {job.status === 'doublon' && <Copy size={13} color="var(--warning)" />}
                         </div>
                         {/* Infos fichier */}
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -587,20 +587,20 @@ function ImportLog({ jobs, resolveDoublon }: {
                             </div>
                           )}
                           {job.status === 'success' && job.candidatNom && (
-                            <div style={{ fontSize: 11, color: '#16A34A', marginTop: 1 }}>→ {job.candidatNom}</div>
+                            <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 1 }}>→ {job.candidatNom}</div>
                           )}
                           {job.status === 'error' && (
-                            <div style={{ fontSize: 11, color: '#DC2626', marginTop: 1, lineHeight: 1.4 }}>
+                            <div style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 1, lineHeight: 1.4 }}>
                               {job.error || 'Erreur inconnue'}
                             </div>
                           )}
                           {job.status === 'doublon' && job.candidatExistant && (
-                            <div style={{ fontSize: 11, color: '#D97706', marginTop: 1 }}>
+                            <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 1 }}>
                               Doublon de {job.candidatExistant.prenom} {job.candidatExistant.nom}
                             </div>
                           )}
                           {job.status === 'skipped' && (
-                            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>{job.candidatNom}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginTop: 1 }}>{job.candidatNom}</div>
                           )}
                         </div>
                         {/* Bouton télécharger pour erreurs */}
@@ -614,9 +614,9 @@ function ImportLog({ jobs, resolveDoublon }: {
                               document.body.removeChild(a); URL.revokeObjectURL(url)
                             }}
                             title="Télécharger le fichier"
-                            style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 6, border: '1px solid #FECACA', background: '#FEF2F2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                            style={{ flexShrink: 0, width: 26, height: 26, borderRadius: 6, border: '1px solid var(--destructive-soft)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
                           >
-                            <HardDriveDownload size={12} color="#DC2626" />
+                            <HardDriveDownload size={12} color="var(--destructive)" />
                           </button>
                         )}
                         {job.duration && (
@@ -627,10 +627,10 @@ function ImportLog({ jobs, resolveDoublon }: {
                       {job.status === 'doublon' && job.candidatExistant && (
                         <div style={{ margin: '0 20px 8px', background: 'white', border: '1.5px solid #FDE68A', borderRadius: 8, padding: '10px 12px' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: '#6B7280', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                               Garder l&apos;existant
                             </button>
-                            <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: '#EFF6FF', color: '#1D4ED8', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: 'var(--info-soft)', color: 'var(--info)', cursor: 'pointer', fontFamily: 'inherit' }}>
                               Remplacer
                             </button>
                             <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>

@@ -348,8 +348,8 @@ const CANTONS_CH = [
 ]
 
 const SOURCE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
-  'jobs.ch':    { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' },
-  'jobup.ch':   { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0' },
+  'jobs.ch':    { bg: '#EFF6FF', color: 'var(--info)', border: '#BFDBFE' },
+  'jobup.ch':   { bg: '#F0FDF4', color: 'var(--success)', border: '#BBF7D0' },
   'indeed.ch':  { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA' },
 }
 
@@ -489,7 +489,7 @@ function OffresExternesTab() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
           <AnimatePresence mode="popLayout">
             {offres.map((offre, i) => {
-              const srcColor = SOURCE_COLORS[offre.source] || { bg: '#F1F5F9', color: '#475569', border: '#CBD5E1' }
+              const srcColor = SOURCE_COLORS[offre.source] || { bg: '#F1F5F9', color: 'var(--muted-foreground)', border: '#CBD5E1' }
               const isExpanded = expandedId === offre.id
               return (
                 <motion.div
@@ -677,7 +677,7 @@ function OffresExternesTab() {
                           onClick={e => { e.stopPropagation(); handleStatutChange(offre.id, 'ouverte') }}
                           disabled={updateStatut.isPending}
                           style={{
-                            background: 'none', color: '#10B981', border: '1px solid #BBF7D0', borderRadius: 6,
+                            background: 'none', color: 'var(--success)', border: '1px solid var(--success-soft)', borderRadius: 6,
                             padding: '4px 10px', fontSize: 10, fontWeight: 700,
                             cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
                           }}
@@ -929,7 +929,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
         {file ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={24} color="#10B981" />
+              <FileText size={24} color="var(--success)" />
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>{file.name}</div>
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>{(file.size / 1024).toFixed(0)} KB · Cliquez pour changer</div>
@@ -946,7 +946,7 @@ function AnalyseCDC({ onCommandeCreated }: { onCommandeCreated: () => void }) {
       </div>
 
       {error && (
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, color: '#DC2626', fontSize: 13 }}>
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 10, color: 'var(--destructive)', fontSize: 13 }}>
           <AlertCircle size={16} /> {error}
         </div>
       )}
@@ -1673,13 +1673,13 @@ function JobRoomComposer({ offres }: { offres: Offre[] }) {
       {/* Sidebar info */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 80 }}>
         <div style={{ background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
             <Info size={13} /> job-room.ch
           </p>
           <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.6 }}>
             Portail officiel de la Confédération (SECO). Gratuit. Satisfait l&apos;obligation légale de déclaration des postes.
           </p>
-          <a href="https://www.job-room.ch" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#16A34A', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
+          <a href="https://www.job-room.ch" target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}>
             Voir job-room.ch <ExternalLink size={10} />
           </a>
         </div>

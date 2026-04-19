@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.48'
+export const APP_VERSION = '1.9.50'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.50',
+    date: '2026-04-19',
+    label: 'Dark mode fonctionnel + refonte dashboard + Importer dans TopBar',
+    features: [
+      'DASHBOARD - Header riche : "Bonjour {prénom} — {date}" + phrase motivationnelle aléatoire/jour (lib/motivational-phrases.ts, 40+ phrases mixtes contextuelles/générales/légères, seed=date+email) + 3 badges cliquables À TRAITER / RAPPELS / ALERTES avec compteurs temps réel.',
+      'DASHBOARD - Card "Pipeline par consultant" : barre segmentée par MÉTIER (couleurs catégories via getColorForMetier) pour João + Seb, chiffre par segment + total, légende en dessous. Filtre sur candidats avec statut_pipeline non-null.',
+      'DASHBOARD - Card "ETP Missions" (João uniquement, détection email j.barbosa@l-agence.ch) : total ETP prorata semaine en cours, même calcul que /missions (active × coefficient × jours effectifs / jours totaux).',
+      'DASHBOARD - KPI "En entretien" supprimé. KPIs dynamiques : 3 pour tous, 4 pour João (avec ETP Missions).',
+      'DASHBOARD - Chart imports candidatures : AreaChart → BarChart avec valeurs au-dessus des barres (LabelList), dernière barre en couleur primaire pleine, autres en primary-soft (token ajouté dans globals.css). Toggle Jour/Semaine/Mois conservé.',
+      'DASHBOARD - Card "Activité récente" (RecentActivityWidget) activée dans dashboard consultant + Tips IA déterministes basés sur stats (À traiter > 10, Commandes > 20, Rappels en cours).',
+      'LISTE CANDIDATS - Header refait : "Candidats · {total}" + sous-titre "Base de talents, filtres et actions rapides". Bouton "Importer Candidats" supprimé de la page.',
+      'TOPBAR - Nouveau bouton "Importer" (jaune brand) à gauche du toggle ☀️/🌙, visible sur toutes les pages dashboard (utilise useUpload() de UploadContext, même modale UploadCV). Texte caché en mobile (media query), icône seule.',
+      'THEME - Phase 1 globals.css : :root = LIGHT (fond blanc, texte foncé), .dark = DARK (fond noir, texte clair). Avant v1.9.50, :root et .dark avaient les mêmes variables OKLCH → toggle sans effet visuel.',
+      'THEME - Nouveaux tokens sémantiques : --success / --warning / --info / --destructive-foreground (+ variantes -foreground et -soft pour backgrounds pastel) + --primary-soft 30-40% opacity.',
+      'THEME - ThemeContext : switch de data-theme vers document.documentElement.classList.add/remove(\'dark\') pour activer Tailwind dark:*. data-theme conservé en parallèle pour rétrocompat dashboard.css (25+ règles [data-theme="dark"]).',
+      'THEME - Phase 2 Vague 1+2+3 : ~350 occurrences de hex inline (color/background/border) remplacées par var(--destructive|success|warning|info|muted-foreground|foreground|*-soft) sur 27 fichiers (CandidatsList, missions, secretariat, messages, matching/historique, offres, parametres/*, integrations, clients, pipeline, candidats/[id], composants PendingValidationPanel, AlertsBanner, DocumentsSection, ActivityHistory, ConfirmMatchModal, UploadCV, TestFolderRunner, PhotoCropModal).',
+      'THEME - .glass-card et .glass utilisent var(--card) + var(--border) au lieu de couleurs OKLCH hardcodées sombres.',
+      'FUSION MON PROFIL - Lien "Mon Profil" dans sidebar /parametres pointait sur un formulaire simplifié ≠ page complète /parametres/profil. Le bouton devient un Link vers /parametres/profil (page riche avec avatar + Outlook + signature + mot de passe). Header dropdown "Mon profil" déjà correct. Plus de duplication.',
+    ],
+  },
   {
     version: '1.9.48',
     date: '2026-04-19',

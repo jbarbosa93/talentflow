@@ -312,17 +312,17 @@ function IntegrationsContent() {
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>Analyse IA des CVs — cle configuree via variable d&apos;environnement</div>
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CloudUpload size={16} color="#3B82F6" />
+              <CloudUpload size={16} color="var(--info)" />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Supabase</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)' }}>Base de donnees et stockage de fichiers</div>
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -369,7 +369,7 @@ function IntegrationsContent() {
                     {isOnedriveConnected ? (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
-                        background: '#D1FAE5', color: '#065F46',
+                        background: 'var(--success-soft)', color: 'var(--success)',
                         display: 'flex', alignItems: 'center', gap: 4,
                       }}>
                         <CheckCircle2 size={10} /> Connecte
@@ -387,7 +387,7 @@ function IntegrationsContent() {
                     {isOnedriveConnected && onedriveFolderId && onedriveAutoSync && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
-                        background: '#EFF6FF', color: '#1D4ED8',
+                        background: 'var(--info-soft)', color: 'var(--info)',
                         display: 'flex', alignItems: 'center', gap: 4,
                         border: '1.5px solid #BFDBFE',
                       }}>
@@ -424,7 +424,7 @@ function IntegrationsContent() {
                             body: JSON.stringify({ type: 'microsoft_onedrive', metadata_update: { sync_stop_requested: true } }),
                           })
                         }}
-                        style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid #FECACA', background: '#FEE2E2', color: '#DC2626', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
+                        style={{ fontSize: 12, padding: '7px 14px', borderRadius: 8, border: '2px solid var(--destructive-soft)', background: 'var(--destructive-soft)', color: 'var(--destructive)', cursor: 'pointer', fontWeight: 700, fontFamily: 'var(--font-body)' }}
                       >
                         ⏹ Stop ({onedriveProgress.created} importés / {onedriveProgress.total} traités)
                       </button>
@@ -443,8 +443,8 @@ function IntegrationsContent() {
                       onClick={() => disconnectMutation.mutate(onedriveIntegration.id)}
                       style={{
                         fontSize: 12, fontWeight: 700, padding: '7px 14px',
-                        borderRadius: 8, border: '2px solid #FECACA',
-                        background: 'var(--card)', color: '#DC2626', cursor: 'pointer',
+                        borderRadius: 8, border: '2px solid var(--destructive-soft)',
+                        background: 'var(--card)', color: 'var(--destructive)', cursor: 'pointer',
                         fontFamily: 'var(--font-body)',
                       }}
                     >
@@ -469,7 +469,7 @@ function IntegrationsContent() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <FolderOpen size={16} style={{ color: '#0078D4', flexShrink: 0 }} />
+                      <FolderOpen size={16} style={{ color: 'var(--info)', flexShrink: 0 }} />
                       <div>
                         <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1 }}>
                           Dossier OneDrive surveille
@@ -486,10 +486,10 @@ function IntegrationsContent() {
                           <div style={{
                             display: 'flex', alignItems: 'center', gap: 6,
                             padding: '6px 12px', borderRadius: 8,
-                            background: '#EFF6FF', border: '2px solid #BFDBFE',
+                            background: 'var(--info-soft)', border: '2px solid var(--info-soft)',
                             fontWeight: 700, fontSize: 13, color: 'var(--foreground)',
                           }}>
-                            <FolderOpen size={13} style={{ color: '#0078D4' }} />
+                            <FolderOpen size={13} style={{ color: 'var(--info)' }} />
                             {onedriveFolderName}
                           </div>
                           <button onClick={() => setShowOneDriveFolderPicker(p => !p)} style={{
@@ -552,7 +552,7 @@ function IntegrationsContent() {
                           ))}
                         </div>
                       ) : onedriveFoldersData?.error ? (
-                        <p style={{ fontSize: 12, color: '#DC2626' }}>
+                        <p style={{ fontSize: 12, color: 'var(--destructive)' }}>
                           {onedriveFoldersData.error}
                         </p>
                       ) : (
@@ -619,17 +619,17 @@ function IntegrationsContent() {
                           <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{onedriveSyncing ? todayFiles.length + onedriveProgress.total : todayFiles.length}</p>
                           <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, fontWeight: 600 }}>Fichiers détectés</p>
                         </div>
-                        <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
-                          <p style={{ fontSize: 26, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{onedriveSyncing ? todayImported.length + onedriveProgress.created : todayImported.length}</p>
-                          <p style={{ fontSize: 11, color: '#15803D', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
+                        <div style={{ background: 'var(--success-soft)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BBF7D0' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>{onedriveSyncing ? todayImported.length + onedriveProgress.created : todayImported.length}</p>
+                          <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 4, fontWeight: 600 }}>CVs importés</p>
                         </div>
-                        <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BFDBFE' }}>
-                          <p style={{ fontSize: 26, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>{onedriveSyncing ? todayUpdated.length + onedriveProgress.updated : todayUpdated.length}</p>
-                          <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4, fontWeight: 600 }}>Mis à jour</p>
+                        <div style={{ background: 'var(--info-soft)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #BFDBFE' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--info)', lineHeight: 1 }}>{onedriveSyncing ? todayUpdated.length + onedriveProgress.updated : todayUpdated.length}</p>
+                          <p style={{ fontSize: 11, color: 'var(--info)', marginTop: 4, fontWeight: 600 }}>Mis à jour</p>
                         </div>
-                        <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #FDE68A' }}>
-                          <p style={{ fontSize: 26, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>{onedriveSyncing ? todayReactivated.length + onedriveProgress.reactivated : todayReactivated.length}</p>
-                          <p style={{ fontSize: 11, color: '#92400E', marginTop: 4, fontWeight: 600 }}>Réactivés</p>
+                        <div style={{ background: 'var(--warning-soft)', borderRadius: 10, padding: '12px 16px', border: '1.5px solid #FDE68A' }}>
+                          <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--warning)', lineHeight: 1 }}>{onedriveSyncing ? todayReactivated.length + onedriveProgress.reactivated : todayReactivated.length}</p>
+                          <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4, fontWeight: 600 }}>Réactivés</p>
                         </div>
                       </div>
                     </div>
@@ -638,19 +638,19 @@ function IntegrationsContent() {
 
                 {/* Fichiers en erreur — seront retentés au prochain sync */}
                 {onedriveEnErreur.length > 0 && (
-                  <div style={{ marginTop: 16, borderTop: '2px solid #FECACA', paddingTop: 14 }}>
+                  <div style={{ marginTop: 16, borderTop: '2px solid var(--destructive-soft)', paddingTop: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <h4 style={{ fontSize: 12, fontWeight: 800, color: '#DC2626' }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 800, color: 'var(--destructive)' }}>
                         ⚠️ Fichiers en erreur ({onedriveEnErreur.length}) — seront retentés automatiquement
                       </h4>
                       {!confirmViderErreurs ? (
                         <button onClick={() => setConfirmViderErreurs(true)}
-                          style={{ fontSize: 11, color: '#DC2626', background: 'none', border: '1px solid #FECACA', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
+                          style={{ fontSize: 11, color: 'var(--destructive)', background: 'none', border: '1px solid var(--destructive-soft)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
                           Vider
                         </button>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 11, color: '#991B1B' }}>Supprimer {onedriveEnErreur.length} fichier{onedriveEnErreur.length > 1 ? 's' : ''} ?</span>
+                          <span style={{ fontSize: 11, color: 'var(--destructive)' }}>Supprimer {onedriveEnErreur.length} fichier{onedriveEnErreur.length > 1 ? 's' : ''} ?</span>
                           <button onClick={async () => {
                             await fetch('/api/onedrive/sync?action=clear-errors', { method: 'DELETE' })
                             setConfirmViderErreurs(false)
@@ -659,7 +659,7 @@ function IntegrationsContent() {
                             Confirmer
                           </button>
                           <button onClick={() => setConfirmViderErreurs(false)}
-                            style={{ fontSize: 11, color: '#6B7280', background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
+                            style={{ fontSize: 11, color: 'var(--muted-foreground)', background: 'none', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 8px', cursor: 'pointer' }}>
                             Annuler
                           </button>
                         </div>
@@ -670,17 +670,17 @@ function IntegrationsContent() {
                         <div key={f.id} style={{
                           display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8,
                           padding: '8px 12px', borderRadius: 8,
-                          background: '#FEF2F2', border: '1.5px solid #FECACA',
+                          background: 'var(--destructive-soft)', border: '1.5px solid #FECACA',
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {f.nom_fichier || 'Fichier inconnu'}
                             </p>
                             {f.erreur && (
-                              <p style={{ fontSize: 11, color: '#B91C1C', marginTop: 2 }}>{f.erreur}</p>
+                              <p style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 2 }}>{f.erreur}</p>
                             )}
                           </div>
-                          <p style={{ fontSize: 10, color: '#EF4444', whiteSpace: 'nowrap', marginTop: 2 }}>
+                          <p style={{ fontSize: 10, color: 'var(--destructive)', whiteSpace: 'nowrap', marginTop: 2 }}>
                             {f.created_at ? new Date(f.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                           </p>
                         </div>
@@ -742,11 +742,11 @@ function IntegrationsContent() {
                                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textTransform: 'capitalize' }}>{dateLabel}</span>
                                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>{dayFiles.length} fichier{dayFiles.length > 1 ? 's' : ''}</span>
                                   <div style={{ display: 'flex', gap: 4 }}>
-                                    {created.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#D1FAE5', color: '#065F46' }}>+{created.length} créé{created.length > 1 ? 's' : ''}</span>}
-                                    {updated.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#DBEAFE', color: '#1D4ED8' }}>↑{updated.length} mis à jour</span>}
-                                    {reactivated.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#FEF3C7', color: '#92400E' }}>↺{reactivated.length} réactivé{reactivated.length > 1 ? 's' : ''}</span>}
-                                    {documents.length > 0   && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#F3F4F6', color: '#374151' }}>📎 {documents.length}</span>}
-                                    {errors.length > 0      && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: '#FEE2E2', color: '#991B1B' }}>✕ {errors.length}</span>}
+                                    {created.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--success-soft)', color: 'var(--success)' }}>+{created.length} créé{created.length > 1 ? 's' : ''}</span>}
+                                    {updated.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--info-soft)', color: 'var(--info)' }}>↑{updated.length} mis à jour</span>}
+                                    {reactivated.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--warning-soft)', color: 'var(--warning)' }}>↺{reactivated.length} réactivé{reactivated.length > 1 ? 's' : ''}</span>}
+                                    {documents.length > 0   && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--muted)', color: 'var(--muted-foreground)' }}>📎 {documents.length}</span>}
+                                    {errors.length > 0      && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--destructive-soft)', color: 'var(--destructive)' }}>✕ {errors.length}</span>}
                                   </div>
                                 </div>
                                 {isOpen
@@ -765,12 +765,12 @@ function IntegrationsContent() {
                                     const lim = getCategoryLimit(`${day}-created`); const slice = created.slice(0, lim)
                                     return (
                                       <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#065F46', marginBottom: 5 }}>🟢 Nouveaux candidats ({created.length})</div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', marginBottom: 5 }}>🟢 Nouveaux candidats ({created.length})</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                           {slice.map((f: any) => (
                                             <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
-                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(16,185,129,0.05)', border: '1px solid #A7F3D0', cursor: f.candidat_id ? 'pointer' : 'default' }}>
-                                              <FileText size={11} color="#10B981" style={{ flexShrink: 0 }} />
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(16,185,129,0.05)', border: '1px solid var(--success-soft)', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="var(--success)" style={{ flexShrink: 0 }} />
                                               <div style={{ minWidth: 0, flex: 1 }}>
                                                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
                                                 <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{f.nom_fichier}</span>
@@ -778,7 +778,7 @@ function IntegrationsContent() {
                                               {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
                                             </div>
                                           ))}
-                                          {lim < created.length && <button onClick={() => showMoreCategory(`${day}-created`, created.length)} style={{ fontSize: 11, color: '#065F46', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, created.length - lim)} suivants ({created.length - lim} restants)</button>}
+                                          {lim < created.length && <button onClick={() => showMoreCategory(`${day}-created`, created.length)} style={{ fontSize: 11, color: 'var(--success)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, created.length - lim)} suivants ({created.length - lim} restants)</button>}
                                         </div>
                                       </div>
                                     )
@@ -789,12 +789,12 @@ function IntegrationsContent() {
                                     const lim = getCategoryLimit(`${day}-updated`); const slice = updated.slice(0, lim)
                                     return (
                                       <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#1D4ED8', marginBottom: 5 }}>🔵 CVs mis à jour ({updated.length})</div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--info)', marginBottom: 5 }}>🔵 CVs mis à jour ({updated.length})</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                           {slice.map((f: any) => (
                                             <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
-                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(59,130,246,0.05)', border: '1px solid #BFDBFE', cursor: f.candidat_id ? 'pointer' : 'default' }}>
-                                              <FileText size={11} color="#3B82F6" style={{ flexShrink: 0 }} />
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(59,130,246,0.05)', border: '1px solid var(--info-soft)', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="var(--info)" style={{ flexShrink: 0 }} />
                                               <div style={{ minWidth: 0, flex: 1 }}>
                                                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
                                                 <span style={{ fontSize: 10, color: 'var(--muted)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.ancien_nom_fichier ? `${f.ancien_nom_fichier} → ${f.nom_fichier}` : f.nom_fichier}</span>
@@ -802,7 +802,7 @@ function IntegrationsContent() {
                                               {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
                                             </div>
                                           ))}
-                                          {lim < updated.length && <button onClick={() => showMoreCategory(`${day}-updated`, updated.length)} style={{ fontSize: 11, color: '#1D4ED8', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, updated.length - lim)} suivants ({updated.length - lim} restants)</button>}
+                                          {lim < updated.length && <button onClick={() => showMoreCategory(`${day}-updated`, updated.length)} style={{ fontSize: 11, color: 'var(--info)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, updated.length - lim)} suivants ({updated.length - lim} restants)</button>}
                                         </div>
                                       </div>
                                     )
@@ -813,12 +813,12 @@ function IntegrationsContent() {
                                     const lim = getCategoryLimit(`${day}-reactivated`); const slice = reactivated.slice(0, lim)
                                     return (
                                       <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#92400E', marginBottom: 5 }}>🟡 Réactivés ({reactivated.length})</div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning)', marginBottom: 5 }}>🟡 Réactivés ({reactivated.length})</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                           {slice.map((f: any) => (
                                             <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
-                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(245,158,11,0.05)', border: '1px solid #FDE68A', cursor: f.candidat_id ? 'pointer' : 'default' }}>
-                                              <FileText size={11} color="#D97706" style={{ flexShrink: 0 }} />
+                                              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'rgba(245,158,11,0.05)', border: '1px solid var(--warning-soft)', cursor: f.candidat_id ? 'pointer' : 'default' }}>
+                                              <FileText size={11} color="var(--warning)" style={{ flexShrink: 0 }} />
                                               <div style={{ minWidth: 0, flex: 1 }}>
                                                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--foreground)', display: 'block' }}>{f.candidats ? `${f.candidats.prenom || ''} ${f.candidats.nom || ''}`.trim() : '—'}</span>
                                                 <span style={{ fontSize: 10, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{f.nom_fichier}</span>
@@ -826,7 +826,7 @@ function IntegrationsContent() {
                                               {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
                                             </div>
                                           ))}
-                                          {lim < reactivated.length && <button onClick={() => showMoreCategory(`${day}-reactivated`, reactivated.length)} style={{ fontSize: 11, color: '#92400E', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, reactivated.length - lim)} suivants ({reactivated.length - lim} restants)</button>}
+                                          {lim < reactivated.length && <button onClick={() => showMoreCategory(`${day}-reactivated`, reactivated.length)} style={{ fontSize: 11, color: 'var(--warning)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, reactivated.length - lim)} suivants ({reactivated.length - lim} restants)</button>}
                                         </div>
                                       </div>
                                     )
@@ -837,7 +837,7 @@ function IntegrationsContent() {
                                     const lim = getCategoryLimit(`${day}-documents`); const slice = documents.slice(0, lim)
                                     return (
                                       <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 5 }}>📎 Documents ajoutés ({documents.length})</div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 5 }}>📎 Documents ajoutés ({documents.length})</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                           {slice.map((f: any) => (
                                             <div key={f.id} onClick={() => f.candidat_id && router.push(`/candidats/${f.candidat_id}`)}
@@ -850,7 +850,7 @@ function IntegrationsContent() {
                                               {f.candidat_id && <ExternalLink size={10} color="var(--muted)" style={{ flexShrink: 0 }} />}
                                             </div>
                                           ))}
-                                          {lim < documents.length && <button onClick={() => showMoreCategory(`${day}-documents`, documents.length)} style={{ fontSize: 11, color: '#374151', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, documents.length - lim)} suivants ({documents.length - lim} restants)</button>}
+                                          {lim < documents.length && <button onClick={() => showMoreCategory(`${day}-documents`, documents.length)} style={{ fontSize: 11, color: 'var(--muted-foreground)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, documents.length - lim)} suivants ({documents.length - lim} restants)</button>}
                                         </div>
                                       </div>
                                     )
@@ -861,18 +861,18 @@ function IntegrationsContent() {
                                     const lim = getCategoryLimit(`${day}-errors`); const slice = errors.slice(0, lim)
                                     return (
                                       <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: '#991B1B', marginBottom: 5 }}>❌ Erreurs / Abandonnés ({errors.length})</div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--destructive)', marginBottom: 5 }}>❌ Erreurs / Abandonnés ({errors.length})</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                                           {slice.map((f: any) => (
-                                            <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 10px', borderRadius: 7, background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                                              <FileText size={11} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
+                                            <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 10px', borderRadius: 7, background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)' }}>
+                                              <FileText size={11} color="var(--destructive)" style={{ flexShrink: 0, marginTop: 2 }} />
                                               <div style={{ minWidth: 0 }}>
-                                                <span style={{ fontSize: 12, fontWeight: 600, color: '#991B1B', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nom_fichier}</span>
-                                                {f.erreur && <span style={{ fontSize: 10, color: '#B91C1C', display: 'block', marginTop: 1 }}>{f.erreur.slice(0, 80)}{f.erreur.length > 80 ? '…' : ''}</span>}
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--destructive)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nom_fichier}</span>
+                                                {f.erreur && <span style={{ fontSize: 10, color: 'var(--destructive)', display: 'block', marginTop: 1 }}>{f.erreur.slice(0, 80)}{f.erreur.length > 80 ? '…' : ''}</span>}
                                               </div>
                                             </div>
                                           ))}
-                                          {lim < errors.length && <button onClick={() => showMoreCategory(`${day}-errors`, errors.length)} style={{ fontSize: 11, color: '#991B1B', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, errors.length - lim)} suivants ({errors.length - lim} restants)</button>}
+                                          {lim < errors.length && <button onClick={() => showMoreCategory(`${day}-errors`, errors.length)} style={{ fontSize: 11, color: 'var(--destructive)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: '3px 0' }}>+ Voir les {Math.min(50, errors.length - lim)} suivants ({errors.length - lim} restants)</button>}
                                         </div>
                                       </div>
                                     )
@@ -896,11 +896,11 @@ function IntegrationsContent() {
             {isOnedriveConnected && onedriveFilesData?.migration_needed && (
               <div style={{
                 marginTop: 14, padding: '10px 14px', borderRadius: 8,
-                background: '#FEF3C7', border: '1.5px solid #FDE68A',
+                background: 'var(--warning-soft)', border: '1.5px solid #FDE68A',
                 display: 'flex', alignItems: 'flex-start', gap: 8,
               }}>
-                <AlertCircle size={14} style={{ color: '#D97706', flexShrink: 0, marginTop: 1 }} />
-                <p style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
+                <AlertCircle size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 1 }} />
+                <p style={{ fontSize: 12, color: 'var(--warning)', lineHeight: 1.5 }}>
                   Migration SQL requise — executez <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.08)', padding: '1px 4px', borderRadius: 3 }}>supabase/migrations/20260323_onedrive_fichiers.sql</code> dans votre dashboard Supabase.
                 </p>
               </div>
@@ -966,33 +966,33 @@ function IntegrationsContent() {
                 <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, fontWeight: 600 }}>
                   Fichiers traités
                   {syncReport.rawScanned > 0 && syncReport.rawScanned !== syncReport.totalAnalysed && (
-                    <span style={{ color: '#D97706' }}> ({syncReport.rawScanned} dans OneDrive)</span>
+                    <span style={{ color: 'var(--warning)' }}> ({syncReport.rawScanned} dans OneDrive)</span>
                   )}
                 </p>
               </div>
-              <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BBF7D0' }}>
-                <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', lineHeight: 1 }}>{syncReport.created}</p>
-                <p style={{ fontSize: 11, color: '#15803D', marginTop: 3, fontWeight: 600 }}>CVs importes</p>
+              <div style={{ background: 'var(--success-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BBF7D0' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', lineHeight: 1 }}>{syncReport.created}</p>
+                <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 3, fontWeight: 600 }}>CVs importes</p>
               </div>
-              <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BFDBFE' }}>
-                <p style={{ fontSize: 22, fontWeight: 800, color: '#2563EB', lineHeight: 1 }}>{syncReport.updated || 0}</p>
-                <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 3, fontWeight: 600 }}>CVs mis a jour</p>
+              <div style={{ background: 'var(--info-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #BFDBFE' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--info)', lineHeight: 1 }}>{syncReport.updated || 0}</p>
+                <p style={{ fontSize: 11, color: 'var(--info)', marginTop: 3, fontWeight: 600 }}>CVs mis a jour</p>
               </div>
-              <div style={{ background: '#FFFBEB', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
-                <p style={{ fontSize: 22, fontWeight: 800, color: '#D97706', lineHeight: 1 }}>{syncReport.reactivated || 0}</p>
-                <p style={{ fontSize: 11, color: '#92400E', marginTop: 3, fontWeight: 600 }}>Reactives</p>
+              <div style={{ background: 'var(--warning-soft)', borderRadius: 10, padding: '10px 14px', border: '1.5px solid #FDE68A' }}>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)', lineHeight: 1 }}>{syncReport.reactivated || 0}</p>
+                <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, fontWeight: 600 }}>Reactives</p>
               </div>
             </div>
 
             {/* Created list */}
             {syncReport.createdNames?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', marginBottom: 6 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>
                   Candidats importes ({syncReport.created}) :
                 </p>
-                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--success-soft)', border: '1px solid var(--success-soft)' }}>
                   {syncReport.createdNames.map((name: string, i: number) => (
-                    <div key={i} style={{ fontSize: 12, color: '#065F46', padding: '2px 0' }}>• {name}</div>
+                    <div key={i} style={{ fontSize: 12, color: 'var(--success)', padding: '2px 0' }}>• {name}</div>
                   ))}
                 </div>
               </div>
@@ -1007,24 +1007,24 @@ function IntegrationsContent() {
                 <>
                   {realUpdates.length > 0 && (
                     <div style={{ marginBottom: 14 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', marginBottom: 6 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--info)', marginBottom: 6 }}>
                         CVs mis à jour ({realUpdates.length}) :
                       </p>
-                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--info-soft)', border: '1px solid var(--info-soft)' }}>
                         {realUpdates.map((name: string, i: number) => (
-                          <div key={i} style={{ fontSize: 12, color: '#1E40AF', padding: '2px 0' }}>• {name}</div>
+                          <div key={i} style={{ fontSize: 12, color: 'var(--info)', padding: '2px 0' }}>• {name}</div>
                         ))}
                       </div>
                     </div>
                   )}
                   {docsAttached.length > 0 && (
                     <div style={{ marginBottom: 14 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 6 }}>
                         📎 Documents ajoutés ({docsAttached.length}) :
                       </p>
-                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#F3F4F6', border: '1px solid #D1D5DB' }}>
+                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--muted)', border: '1px solid var(--border)' }}>
                         {docsAttached.map((name: string, i: number) => (
-                          <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0' }}>• {name}</div>
+                          <div key={i} style={{ fontSize: 12, color: 'var(--muted-foreground)', padding: '2px 0' }}>• {name}</div>
                         ))}
                       </div>
                     </div>
@@ -1036,12 +1036,12 @@ function IntegrationsContent() {
             {/* Reactivated list */}
             {syncReport.reactivatedNames?.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--warning)', marginBottom: 6 }}>
                   Candidats reactives ({syncReport.reactivated}) :
                 </p>
-                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)' }}>
                   {syncReport.reactivatedNames.map((name: string, i: number) => (
-                    <div key={i} style={{ fontSize: 12, color: '#92400E', padding: '2px 0' }}>• {name}</div>
+                    <div key={i} style={{ fontSize: 12, color: 'var(--warning)', padding: '2px 0' }}>• {name}</div>
                   ))}
                 </div>
               </div>
@@ -1049,11 +1049,11 @@ function IntegrationsContent() {
 
             {/* Cas : dossier OneDrive vide — 0 fichiers trouvés */}
             {syncReport.rawScanned === 0 && syncReport.totalAnalysed === 0 && (
-              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#FEF3C7', border: '1.5px solid #FDE68A' }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E' }}>
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--warning-soft)', border: '1.5px solid #FDE68A' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--warning)' }}>
                   ⚠️ Aucun fichier CV trouvé dans le dossier OneDrive
                 </p>
-                <p style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>
+                <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>
                   Le dossier surveillé est vide ou ne contient que des fichiers déjà traités. Déposez des CVs (PDF, DOCX, images) dans le dossier configuré.
                 </p>
               </div>
@@ -1061,8 +1061,8 @@ function IntegrationsContent() {
 
             {/* Fichiers skippés — contenu identique (déjà à jour) */}
             {syncReport.skipped > 0 && (
-              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1.5px solid #BBF7D0' }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--success-soft)', border: '1.5px solid #BBF7D0' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)' }}>
                   ✅ {syncReport.skipped} fichier{syncReport.skipped > 1 ? 's' : ''} déjà à jour — contenu identique, aucune action nécessaire
                 </p>
               </div>
@@ -1070,11 +1070,11 @@ function IntegrationsContent() {
 
             {/* Cas : fichiers trouvés mais tous déjà traités (aucune action réelle) */}
             {syncReport.rawScanned > 0 && syncReport.totalAnalysed === 0 && syncReport.skipped === 0 && (
-              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#EFF6FF', border: '1.5px solid #BFDBFE' }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8' }}>
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--info-soft)', border: '1.5px solid #BFDBFE' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--info)' }}>
                   ✓ {syncReport.rawScanned} fichier{syncReport.rawScanned > 1 ? 's' : ''} trouvé{syncReport.rawScanned > 1 ? 's' : ''} dans OneDrive — tous déjà traités
                 </p>
-                <p style={{ fontSize: 11, color: '#1D4ED8', marginTop: 4 }}>
+                <p style={{ fontSize: 11, color: 'var(--info)', marginTop: 4 }}>
                   Tous les CVs du dossier ont déjà été importés et n&apos;ont pas été modifiés depuis.
                 </p>
               </div>
@@ -1082,14 +1082,14 @@ function IntegrationsContent() {
 
             {/* Fichiers en erreur */}
             {syncReport.errors > 0 && (
-              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#FEF2F2', border: '1.5px solid #FECACA' }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', marginBottom: syncReport.errorFiles?.length ? 6 : 0 }}>
+              <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--destructive-soft)', border: '1.5px solid #FECACA' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: syncReport.errorFiles?.length ? 6 : 0 }}>
                   ⚠️ {syncReport.errors} fichier{syncReport.errors > 1 ? 's' : ''} non traité{syncReport.errors > 1 ? 's' : ''} — seront retentés au prochain sync
                 </p>
                 {syncReport.errorFiles?.length > 0 && (
                   <div style={{ maxHeight: 100, overflowY: 'auto' }}>
                     {syncReport.errorFiles.map((f: string, i: number) => (
-                      <div key={i} style={{ fontSize: 11, color: '#B91C1C', padding: '1px 0' }}>• {f}</div>
+                      <div key={i} style={{ fontSize: 11, color: 'var(--destructive)', padding: '1px 0' }}>• {f}</div>
                     ))}
                   </div>
                 )}

@@ -15,9 +15,9 @@ interface Demande {
 
 const STATUT_CONFIG = {
   en_attente: { label: 'En attente', bg: '#FFF3C4', color: '#7A5F00', border: '#F7C948' },
-  approuve:   { label: 'Approuvé',   bg: '#D1FAE5', color: '#065F46', border: '#86EFAC' },
+  approuve:   { label: 'Approuvé',   bg: '#D1FAE5', color: 'var(--success)', border: '#86EFAC' },
   refuse:     { label: 'Refusé',     bg: '#FEE2E2', color: '#7F1D1D', border: '#FECACA' },
-  supprime:   { label: 'Supprimé',   bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' },
+  supprime:   { label: 'Supprimé',   bg: '#F1F5F9', color: 'var(--muted-foreground)', border: '#CBD5E1' },
 }
 
 function formatDate(iso: string) {
@@ -98,7 +98,7 @@ export default function DemandesAccesPage() {
         {[
           { label: 'Total', value: enAttente.length + traitees.length, icon: <Users size={16} />, color: 'var(--foreground)' },
           { label: 'En attente', value: enAttente.length, icon: <Clock size={16} />, color: '#7A5F00' },
-          { label: 'Approuvés', value: demandes.filter(d => d.statut === 'approuve').length, icon: <CheckCircle size={16} />, color: '#059669' },
+          { label: 'Approuvés', value: demandes.filter(d => d.statut === 'approuve').length, icon: <CheckCircle size={16} />, color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} style={{
             background: 'var(--card)', border: '1.5px solid var(--border)',
@@ -280,12 +280,12 @@ function DemandeCard({ demande, updating, onUpdate, onTrash, onDeleteFinal, isCo
             <CheckCircle size={12} /> Approuver
           </button>
           <button onClick={() => onUpdate(demande.id, 'refuse')} disabled={updating}
-            className="neo-btn-ghost" style={{ padding: '6px 12px', fontSize: 12, color: '#DC2626', borderColor: '#FECACA' }}>
+            className="neo-btn-ghost" style={{ padding: '6px 12px', fontSize: 12, color: 'var(--destructive)', borderColor: 'var(--destructive-soft)' }}>
             <XCircle size={12} />
           </button>
           {onTrash && (
             <button onClick={() => onTrash(demande.id)} disabled={updating}
-              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 12, color: '#94A3B8' }} title="Mettre à la corbeille">
+              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 12, color: 'var(--muted-foreground)' }} title="Mettre à la corbeille">
               <Trash2 size={12} />
             </button>
           )}
@@ -301,7 +301,7 @@ function DemandeCard({ demande, updating, onUpdate, onTrash, onDeleteFinal, isCo
           </button>
           {onTrash && (
             <button onClick={() => onTrash(demande.id)} disabled={updating}
-              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 4, color: '#DC2626', borderColor: '#FECACA' }}>
+              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 4, color: 'var(--destructive)', borderColor: 'var(--destructive-soft)' }}>
               <Trash2 size={11} /> Supprimer
             </button>
           )}
@@ -318,7 +318,7 @@ function DemandeCard({ demande, updating, onUpdate, onTrash, onDeleteFinal, isCo
           </button>
           {onDeleteFinal && (
             <button onClick={() => onDeleteFinal(demande.id)} disabled={updating}
-              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 4, color: '#DC2626', borderColor: '#FECACA' }}
+              className="neo-btn-ghost" style={{ padding: '6px 10px', fontSize: 11, gap: 4, color: 'var(--destructive)', borderColor: 'var(--destructive-soft)' }}
               title="Supprimer définitivement">
               <Trash2 size={11} /> Définitif
             </button>

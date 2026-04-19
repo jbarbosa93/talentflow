@@ -1,7 +1,9 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2 } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2, Bell } from 'lucide-react'
+import { getMotivationalPhrase } from '@/lib/motivational-phrases'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 
 function WaIcon({ size = 13 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.612l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.37 0-4.567-.82-6.3-2.188l-.44-.348-2.858.958.958-2.858-.348-.44A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
@@ -11,7 +13,7 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import NumberTicker from '@/components/magicui/number-ticker'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, LabelList, Cell } from 'recharts'
 
 const CandidatsMap = dynamic(() => import('@/components/CandidatsMap'), { ssr: false, loading: () => (
   <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: 13 }}>
@@ -75,19 +77,21 @@ export default function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const [candidats, clients, offres, entretiens, places] = await Promise.all([
+      const [candidats, clients, offres, places, aTraiter, rappels] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
         (supabase as any).from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active'),
-        supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'entretien' as any),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any),
+        supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('import_status', 'a_traiter' as any),
+        (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }),
       ])
       return {
         totalCandidats: candidats.count ?? 0,
         totalClients:   clients.count ?? 0,
         offresActives:  offres.count ?? 0,
-        enEntretien:    entretiens.count ?? 0,
         places:         places.count ?? 0,
+        aTraiter:       aTraiter.count ?? 0,
+        rappels:        rappels.count ?? 0,
       }
     },
     staleTime: 30_000,
@@ -133,12 +137,77 @@ export default function DashboardPage() {
     staleTime: 60_000,
   })
 
-  const kpis = [
+  const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
+  const isJoao = user?.email === ADMIN_EMAIL
+
+  const { getColorForMetier } = useMetierCategories()
+
+  // Pipeline par consultant × métier (João + Seb)
+  const { data: pipelineByConsultant } = useQuery({
+    queryKey: ['dashboard-pipeline-by-consultant'],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('candidats')
+        .select('id, metier, pipeline_consultant')
+        .not('statut_pipeline', 'is', null)
+        .in('pipeline_consultant', ['João', 'Seb'])
+      const result: Record<string, Record<string, number>> = { 'João': {}, 'Seb': {} }
+      ;(data ?? []).forEach((c: any) => {
+        const cons = c.pipeline_consultant
+        const met = c.metier || 'Autre'
+        if (!result[cons]) return
+        result[cons][met] = (result[cons][met] || 0) + 1
+      })
+      return result
+    },
+    staleTime: 30_000,
+  })
+
+  // ETP Missions — visible uniquement pour João (seul utilisateur des missions)
+  // Calcul prorata semaine en cours (lundi-vendredi), même logique que /missions
+  const { data: missionsRaw } = useQuery({
+    queryKey: ['dashboard-missions-etp'],
+    queryFn: async () => {
+      const res = await fetch('/api/missions')
+      if (!res.ok) return { missions: [] }
+      return res.json() as Promise<{ missions: Array<{ statut: string; date_debut: string; date_fin: string | null; coefficient?: number | null; vacances?: Array<{ debut: string; fin: string }>; arrets?: Array<{ debut: string; fin: string }> }> }>
+    },
+    staleTime: 30_000,
+    enabled: isJoao,
+  })
+
+  const totalEtp = (() => {
+    if (!missionsRaw?.missions) return 0
+    const now = new Date()
+    const nowDow = now.getDay()
+    const mondayOffset = nowDow === 0 ? -6 : 1 - nowDow
+    const weekMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset)
+    const weekFriday = new Date(weekMonday); weekFriday.setDate(weekMonday.getDate() + 4)
+    const todayStr = new Date().toISOString().slice(0, 10)
+
+    const active = missionsRaw.missions.filter(m => m.statut === 'en_cours' && (!m.date_fin || m.date_fin >= todayStr))
+    return active.reduce((s, m) => {
+      const coeff = Number(m.coefficient || 1)
+      const debut = new Date(m.date_debut)
+      const fin = m.date_fin ? new Date(m.date_fin) : weekFriday
+      const effStart = debut > weekMonday ? debut : weekMonday
+      const effEnd = fin < weekFriday ? fin : weekFriday
+      if (effEnd < effStart) return s
+      const msDay = 86400000
+      const daysTotal = Math.max(1, Math.round((weekFriday.getTime() - weekMonday.getTime()) / msDay) + 1)
+      const daysActive = Math.round((effEnd.getTime() - effStart.getTime()) / msDay) + 1
+      return s + (coeff * daysActive / daysTotal)
+    }, 0)
+  })()
+
+  const kpisBase = [
     { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', kpiClass: 'kpi-yellow',  href: '/candidats' },
     { label: 'Clients',           value: stats?.totalClients   ?? '—', emoji: '🏢', kpiClass: 'kpi-green',  href: '/clients' },
     { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', kpiClass: 'kpi-blue',   href: '/offres' },
-    { label: 'En entretien',      value: stats?.enEntretien    ?? '—', emoji: '🗣️', kpiClass: 'kpi-violet', href: '/candidats?statut=entretien' },
   ]
+  const kpis = isJoao
+    ? [...kpisBase, { label: 'ETP Missions', value: missionsRaw ? totalEtp.toFixed(2) : '—', emoji: '💼', kpiClass: 'kpi-violet', href: '/missions' }]
+    : kpisBase
 
   const initiales = (c: any) => {
     const n = (c.nom || '').trim(); const p = (c.prenom || '').trim()
@@ -153,22 +222,60 @@ export default function DashboardPage() {
   return (
     <div className="d-page">
 
-      {/* ── Header ── */}
+      {/* ── Header riche avec phrase motivationnelle + badges ── */}
       <motion.div
-        className="d-page-header"
         custom={0}
         variants={fadeUp}
         initial="hidden"
         animate="show"
+        style={{
+          background: 'linear-gradient(135deg, var(--warning-soft) 0%, var(--success-soft) 100%)',
+          border: '1px solid var(--border)',
+          borderRadius: 16,
+          padding: '22px 26px',
+          marginBottom: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 24,
+          flexWrap: 'wrap',
+        }}
       >
-        <div>
-          <h1 className="d-page-title">Bonjour, {greeting} 👋</h1>
-          {dateStr && <p className="d-page-sub" style={{ textTransform: 'capitalize' }}>{dateStr}</p>}
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <h1 style={{
+            fontSize: 26, fontWeight: 700, color: 'var(--foreground)',
+            lineHeight: 1.2, marginBottom: 6,
+            fontFamily: 'var(--font-serif, Georgia, serif)',
+          }}>
+            Bonjour <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>{prenom || greeting}</span>
+            {dateStr && <> <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>— {dateStr}</span></>}
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4 }}>
+            {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }) : '…'}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
+          {[
+            { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
+            { label: 'Rappels', value: stats?.rappels ?? 0, href: '/pipeline' },
+            { label: 'Alertes', value: (stats as any)?.alertes ?? 0, href: '/integrations' },
+          ].map((b, i) => (
+            <Link key={i} href={b.href} style={{ textDecoration: 'none', minWidth: 60 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, fontFamily: 'var(--font-serif, Georgia, serif)' }}>
+                  {b.value}
+                </div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
+                  {b.label}
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       </motion.div>
 
       {/* ── KPI row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${kpis.length}, 1fr)`, gap: 16, marginBottom: 32 }}>
         {kpis.map((kpi, i) => (
           <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
             <Link href={kpi.href} style={{ textDecoration: 'none', display: 'block' }}>
@@ -197,46 +304,13 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Two column: quick actions + recent candidates ── */}
+      {/* ── Graphique candidatures (full width) ── */}
       <motion.div
         custom={1}
         variants={fadeUp}
         initial="hidden"
         animate="show"
-        style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20 }}
       >
-        {/* Quick actions */}
-        <div className="neo-card-soft" style={{ padding: 24 }}>
-          <h2 className="neo-section-title">Actions rapides</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { href: '/candidats/a-traiter', label: 'Importer Candidat/s', icon: Upload },
-              { href: '/clients',             label: 'Ajouter un client',   icon: Building2 },
-              { href: '/offres',              label: 'Nouvelle commande',   icon: Plus },
-              { href: '/matching',            label: 'Matching IA',         icon: Sparkles },
-            ].map((a, i) => {
-              const Icon = a.icon
-              return (
-                <motion.div
-                  key={a.href}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.07, type: 'spring', stiffness: 300, damping: 24 }}
-                >
-                  <Link href={a.href} className="neo-candidate-card" style={{ padding: '12px 16px', borderRadius: 10, justifyContent: 'space-between' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Icon style={{ width: 15, height: 15, color: 'var(--muted)' }} />
-                      {a.label}
-                    </span>
-                    <ArrowRight style={{ width: 13, height: 13, color: 'var(--muted)' }} />
-                  </Link>
-                </motion.div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Graphique candidatures */}
         <div className="neo-card-soft" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h2 className="neo-section-title" style={{ marginBottom: 0 }}>Candidatures reçues</h2>
@@ -263,47 +337,39 @@ export default function DashboardPage() {
             </div>
           </div>
           {chartData && chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorCandidatures" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F7C948" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#F7C948" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData} margin={{ top: 24, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                   axisLine={{ stroke: 'var(--border)' }}
                   tickLine={false}
                   interval={chartPeriod === 'jour' ? 4 : 0}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--muted)' }}
+                  tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                   axisLine={false}
                   tickLine={false}
                   allowDecimals={false}
                 />
                 <Tooltip
+                  cursor={{ fill: 'var(--accent)' }}
                   contentStyle={{
-                    background: 'var(--card)', border: '2px solid var(--border)',
+                    background: 'var(--card)', border: '1px solid var(--border)',
                     borderRadius: 10, fontSize: 13, fontWeight: 600,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
                   }}
                   labelStyle={{ fontWeight: 700, color: 'var(--foreground)' }}
                   formatter={(value: any) => [`${value} candidature${value > 1 ? 's' : ''}`, '']}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="candidatures"
-                  stroke="#F7C948"
-                  strokeWidth={2.5}
-                  fill="url(#colorCandidatures)"
-                  dot={{ r: 3, fill: '#F7C948', stroke: '#fff', strokeWidth: 2 }}
-                  activeDot={{ r: 5, fill: '#F7C948', stroke: '#fff', strokeWidth: 2 }}
-                />
-              </AreaChart>
+                <Bar dataKey="candidatures" radius={[8, 8, 0, 0]} maxBarSize={54}>
+                  {chartData.map((_d, i) => (
+                    <Cell key={i} fill={i === chartData.length - 1 ? 'var(--primary)' : 'var(--primary-soft, rgba(247,201,72,0.55))'} />
+                  ))}
+                  <LabelList dataKey="candidatures" position="top" style={{ fill: 'var(--foreground)', fontSize: 12, fontWeight: 700 }} />
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           ) : (
             <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 13 }}>
@@ -375,7 +441,7 @@ function actInitials(name: string): string {
   return (name[0] || '?').toUpperCase()
 }
 
-function RecentActivityWidget() {
+function RecentActivityWidget({ stats }: { stats?: any }) {
   const { data, isLoading } = useQuery({
     queryKey: ['activites', { per_page: 8, page: 1 }],
     queryFn: async () => {
@@ -388,6 +454,18 @@ function RecentActivityWidget() {
   })
 
   const activites = data?.activites || []
+
+  // Tips IA déterministes basés sur les stats globales
+  const tips: { icon: string; text: string; color: string }[] = []
+  if (stats?.aTraiter && stats.aTraiter > 10) {
+    tips.push({ icon: '📥', text: `${stats.aTraiter} candidats en attente de tri. Objectif jour : 5/jour.`, color: 'var(--warning)' })
+  }
+  if (stats?.offresActives && stats.totalCandidats && stats.offresActives > 20) {
+    tips.push({ icon: '🎯', text: `${stats.offresActives} commandes ouvertes — lance un matching IA pour identifier les profils.`, color: 'var(--info)' })
+  }
+  if (stats?.rappels && stats.rappels > 0) {
+    tips.push({ icon: '⏰', text: `${stats.rappels} rappel${stats.rappels > 1 ? 's' : ''} pipeline cette semaine, ne les oublie pas.`, color: 'var(--warning)' })
+  }
 
   return (
     <motion.div
@@ -464,6 +542,25 @@ function RecentActivityWidget() {
               </motion.div>
             )
           })}
+        </div>
+      )}
+
+      {/* ── Tips IA ── */}
+      {tips.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>
+            💡 Tips IA
+          </div>
+          {tips.map((t, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 12px', borderRadius: 8,
+              background: 'var(--muted)', fontSize: 12, color: 'var(--foreground)',
+            }}>
+              <span style={{ fontSize: 16 }}>{t.icon}</span>
+              <span style={{ flex: 1 }}>{t.text}</span>
+            </div>
+          ))}
         </div>
       )}
     </motion.div>

@@ -284,7 +284,7 @@ export default function AlertsBanner() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '6px 12px', fontSize: 11, fontWeight: 700,
-              background: 'rgba(34,197,94,0.1)', color: '#16A34A',
+              background: 'rgba(34,197,94,0.1)', color: 'var(--success)',
               border: '1px solid rgba(34,197,94,0.4)', borderRadius: 6, cursor: 'pointer',
             }}
             title="Marquer toutes les anomalies de cette section comme faux positif (confirmation requise)"

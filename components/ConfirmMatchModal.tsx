@@ -64,10 +64,10 @@ interface Props {
 const SCORE_MAX = 34
 
 function scoreLabel(score: number): { text: string; color: string; bg: string } {
-  if (score >= 20) return { text: 'Très élevé', color: '#16A34A', bg: '#DCFCE7' }
-  if (score >= 13) return { text: 'Élevé', color: '#F59E0B', bg: '#FEF3C7' }
-  if (score >= 8) return { text: 'Modéré', color: '#D97706', bg: '#FEF3C7' }
-  return { text: 'Faible', color: '#DC2626', bg: '#FEE2E2' }
+  if (score >= 20) return { text: 'Très élevé', color: 'var(--success)', bg: '#DCFCE7' }
+  if (score >= 13) return { text: 'Élevé', color: 'var(--warning)', bg: '#FEF3C7' }
+  if (score >= 8) return { text: 'Modéré', color: 'var(--warning)', bg: '#FEF3C7' }
+  return { text: 'Faible', color: 'var(--destructive)', bg: '#FEE2E2' }
 }
 
 function signalBadges(score: ConfirmMatchPayload['score']): Array<{ label: string; ok: boolean }> {
@@ -93,7 +93,7 @@ function Row({ label, before, after, diff }: { label: string; before: string | n
   const showDiff = diff && before && after && before !== after
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #F3F4F6' }}>
-      <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>{label}</span>
+      <span style={{ fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600 }}>{label}</span>
       <span style={{ fontSize: 12, color: showDiff ? '#DC2626' : '#374151', textDecoration: showDiff ? 'line-through' : 'none' }}>
         {before || '—'}
       </span>
@@ -158,10 +158,10 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <AlertCircle size={20} style={{ color: '#F59E0B' }} />
+            <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
             <div>
-              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827' }}>Candidat potentiellement en doublon</h2>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6B7280' }}>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>Candidat potentiellement en doublon</h2>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted-foreground)' }}>
                 {payload.file_name}
                 {queueRemaining > 0 && <span style={{ marginLeft: 8, color: '#7C3AED', fontWeight: 600 }}>· {queueRemaining} autre{queueRemaining > 1 ? 's' : ''} en attente</span>}
               </p>
@@ -169,10 +169,10 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           </div>
           <button
             onClick={onClose}
-            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #E5E7EB', background: '#F9FAFB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: '#F9FAFB', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="Fermer (Esc)"
           >
-            <X size={14} style={{ color: '#6B7280' }} />
+            <X size={14} style={{ color: 'var(--muted-foreground)' }} />
           </button>
         </div>
 
@@ -180,42 +180,42 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           {/* Score */}
           <div style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>Score de correspondance</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{score}<span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 500 }}> / {SCORE_MAX}</span></span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Score de correspondance</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)' }}>{score}<span style={{ fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 500 }}> / {SCORE_MAX}</span></span>
               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: label.bg, color: label.color }}>
                 {label.text}
               </span>
             </div>
-            <div style={{ height: 6, background: '#F3F4F6', borderRadius: 100, overflow: 'hidden' }}>
+            <div style={{ height: 6, background: 'var(--muted)', borderRadius: 100, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${Math.min(100, (score / SCORE_MAX) * 100)}%`, background: `linear-gradient(90deg, ${label.color}, ${label.color}dd)`, borderRadius: 100, transition: 'width 0.3s' }} />
             </div>
             {badges.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                 {badges.map(b => (
-                  <span key={b.label} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#DCFCE7', color: '#166534', fontWeight: 600 }}>
+                  <span key={b.label} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>
                     ✓ {b.label}
                   </span>
                 ))}
               </div>
             )}
             {payload.reason && (
-              <p style={{ margin: '6px 0 0', fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' }}>Raison : {payload.reason}</p>
+              <p style={{ margin: '6px 0 0', fontSize: 10, color: 'var(--muted-foreground)', fontStyle: 'italic' }}>Raison : {payload.reason}</p>
             )}
           </div>
 
           {/* Candidat existant — entête */}
-          <div style={{ padding: '10px 12px', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, marginBottom: 10 }}>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111827' }}>{fullName}</p>
-            {c.titre_poste && <p style={{ margin: '1px 0 0', fontSize: 11, color: '#6B7280' }}>{c.titre_poste}</p>}
-            {c.created_at && <p style={{ margin: '1px 0 0', fontSize: 10, color: '#9CA3AF' }}>En base depuis le {new Date(c.created_at).toLocaleDateString('fr-CH')}</p>}
+          <div style={{ padding: '10px 12px', background: '#F9FAFB', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 10 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{fullName}</p>
+            {c.titre_poste && <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--muted-foreground)' }}>{c.titre_poste}</p>}
+            {c.created_at && <p style={{ margin: '1px 0 0', fontSize: 10, color: 'var(--muted-foreground)' }}>En base depuis le {new Date(c.created_at).toLocaleDateString('fr-CH')}</p>}
           </div>
 
           {/* Table comparaison */}
-          <div style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: '2px 12px', marginBottom: 12 }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '2px 12px', marginBottom: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 8, paddingTop: 8, paddingBottom: 4, borderBottom: '1px solid #E5E7EB' }}>
               <span />
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>Fiche existante</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase' }}>CV importé</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Fiche existante</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>CV importé</span>
             </div>
             <Row label="Nom" before={c.nom} after={a.nom} />
             <Row label="Prénom" before={c.prenom} after={a.prenom} />
@@ -228,9 +228,9 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
 
           {/* Warning DDN */}
           {ddnDifferent && (
-            <div style={{ padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <AlertCircle size={14} style={{ color: '#DC2626', flexShrink: 0, marginTop: 1 }} />
-              <p style={{ margin: 0, fontSize: 11, color: '#991B1B', lineHeight: 1.4 }}>
+            <div style={{ padding: '8px 12px', background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 6, marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <AlertCircle size={14} style={{ color: 'var(--destructive)', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--destructive)', lineHeight: 1.4 }}>
                 <strong>Date de naissance différente</strong> — si c'est bien la même personne, modifiez la DDN manuellement après l'update. Sinon créez un nouveau candidat.
               </p>
             </div>
@@ -238,14 +238,14 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
 
           {/* Checkbox apply-all */}
           {queueRemaining > 0 && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 10px', background: '#F3F4F6', borderRadius: 6, marginBottom: 6, userSelect: 'none' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 10px', background: 'var(--muted)', borderRadius: 6, marginBottom: 6, userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={applyToAll}
                 onChange={e => setApplyToAll(e.target.checked)}
                 style={{ cursor: 'pointer' }}
               />
-              <span style={{ fontSize: 12, color: '#374151' }}>
+              <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
                 Appliquer cette action aux <strong>{queueRemaining}</strong> autre{queueRemaining > 1 ? 's' : ''} confirmation{queueRemaining > 1 ? 's' : ''} en attente
               </span>
             </label>
@@ -256,7 +256,7 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
         <div style={{ padding: '12px 20px', borderTop: '1px solid #E5E7EB', display: 'flex', gap: 8, background: '#FAFAFA' }}>
           <button
             onClick={() => handleAction('view')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid #E5E7EB', background: 'white', cursor: 'pointer', color: '#374151', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
             title="Ouvrir la fiche existante — stoppe la file d'import"
           >
             <ExternalLink size={13} /> Voir la fiche
@@ -264,7 +264,7 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
           <div style={{ flex: 1 }} />
           <button
             onClick={() => handleAction('create')}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', color: '#16A34A', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: 8, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', color: 'var(--success)', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' }}
             title="Créer un nouveau candidat (pas le même)"
           >
             <UserPlus size={13} /> Créer nouveau

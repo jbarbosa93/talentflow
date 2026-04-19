@@ -193,11 +193,11 @@ export default function PhotoCropModal({ cvUrl, onConfirm, onClose }: Props) {
           {loading && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 12 }}>
               <Loader2 size={28} color="#F5A723" style={{ animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 13, color: '#64748B' }}>Chargement du CV…</span>
+              <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>Chargement du CV…</span>
             </div>
           )}
           {error && (
-            <div style={{ padding: 40, color: '#EF4444', textAlign: 'center', fontSize: 13, maxWidth: 400 }}>{error}</div>
+            <div style={{ padding: 40, color: 'var(--destructive)', textAlign: 'center', fontSize: 13, maxWidth: 400 }}>{error}</div>
           )}
           <div style={{ position: 'relative', display: loading ? 'none' : 'inline-block' }}>
             <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />

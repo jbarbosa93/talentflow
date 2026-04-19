@@ -450,7 +450,7 @@ export default function ProfilPage() {
             width: 88, height: 88, borderRadius: 14,
             background: avatarPreview ? 'transparent' : 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 30, fontWeight: 800, color: '#0F172A',
+            fontSize: 30, fontWeight: 800, color: 'var(--foreground)',
             overflow: 'hidden', border: '3px solid var(--border)',
           }}>
             {avatarPreview
@@ -496,7 +496,7 @@ export default function ProfilPage() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
             borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
-            fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+            fontSize: 12, fontWeight: 700, color: 'var(--destructive)', cursor: 'pointer',
             flexShrink: 0, fontFamily: 'var(--font-body)',
           }}
         >
@@ -673,10 +673,10 @@ export default function ProfilPage() {
 
       {/* ── Changer l'email ── */}
       <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
-        <p style={sectionTitle}><Mail size={15} style={{ color: '#3B82F6' }} /> Changer l&apos;adresse email</p>
-        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-          <AlertCircle size={14} style={{ color: '#3B82F6', flexShrink: 0, marginTop: 1 }} />
-          <p style={{ fontSize: 12, color: '#1E40AF', lineHeight: 1.5 }}>
+        <p style={sectionTitle}><Mail size={15} style={{ color: 'var(--info)' }} /> Changer l&apos;adresse email</p>
+        <div style={{ background: 'var(--info-soft)', border: '1px solid var(--info-soft)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <AlertCircle size={14} style={{ color: 'var(--info)', flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 12, color: 'var(--info)', lineHeight: 1.5 }}>
             Un email de confirmation sera envoyé à la nouvelle adresse. L&apos;ancienne adresse reste active jusqu&apos;à confirmation.
           </p>
         </div>
@@ -713,12 +713,12 @@ export default function ProfilPage() {
 
       {/* ── Compte Outlook personnel ── */}
       <div className="neo-card" style={{ padding: 24, marginBottom: 16 }}>
-        <p style={sectionTitle}><Plug size={15} style={{ color: '#0078D4' }} /> Compte Outlook (envoi d&apos;emails)</p>
+        <p style={sectionTitle}><Plug size={15} style={{ color: 'var(--info)' }} /> Compte Outlook (envoi d&apos;emails)</p>
         {outlookIntegration ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,120,212,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Mail size={16} style={{ color: '#0078D4' }} />
+                <Mail size={16} style={{ color: 'var(--info)' }} />
               </div>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{outlookIntegration.nom_compte}</p>
@@ -726,7 +726,7 @@ export default function ProfilPage() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Connecté</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>Connecté</span>
               </div>
             </div>
             <button
@@ -735,7 +735,7 @@ export default function ProfilPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
                 borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
-                fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, color: 'var(--destructive)', cursor: 'pointer',
                 fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1,
               }}
             >
@@ -818,7 +818,7 @@ export default function ProfilPage() {
         )}
 
         {pwdForm.nouveau && pwdForm.confirm && pwdForm.nouveau !== pwdForm.confirm && (
-          <p style={{ fontSize: 11, color: '#EF4444', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <p style={{ fontSize: 11, color: 'var(--destructive)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
             <AlertCircle size={11} /> Les mots de passe ne correspondent pas
           </p>
         )}
@@ -964,10 +964,10 @@ function TwoFactorSection() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ShieldCheck size={18} style={{ color: '#10B981' }} />
+              <ShieldCheck size={18} style={{ color: 'var(--success)' }} />
             </div>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#10B981', margin: 0 }}>2FA activé</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)', margin: 0 }}>2FA activé</p>
               <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0 }}>Votre compte est protégé par l&apos;authentification à deux facteurs.</p>
             </div>
           </div>
@@ -976,7 +976,7 @@ function TwoFactorSection() {
             style={{
               display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px',
               borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
-              fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, color: 'var(--destructive)', cursor: 'pointer',
               fontFamily: 'var(--font-body)',
             }}
           >
@@ -988,7 +988,7 @@ function TwoFactorSection() {
       {!isLoading && is2FAActive && confirmDisable && (
         <div>
           <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
-            <p style={{ fontSize: 13, color: '#EF4444', fontWeight: 600, margin: 0 }}>
+            <p style={{ fontSize: 13, color: 'var(--destructive)', fontWeight: 600, margin: 0 }}>
               Confirmer la désactivation du 2FA ?
             </p>
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 0' }}>

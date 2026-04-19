@@ -158,18 +158,18 @@ function scoreColor(score: number) {
 function categoryBadge(matchType: string): { label: string; emoji: string; color: string; bg: string; border: string } {
   switch (matchType) {
     case 'sha256':
-      return { label: 'CV identique', emoji: '📎', color: '#991B1B', bg: '#FEE2E2', border: '#FCA5A5' }
+      return { label: 'CV identique', emoji: '📎', color: 'var(--destructive)', bg: '#FEE2E2', border: '#FCA5A5' }
     case 'email':
       return { label: 'Email identique', emoji: '✉️', color: '#9A3412', bg: '#FED7AA', border: '#FDBA74' }
     case 'ddn_nom':
-      return { label: 'DDN + nom proche', emoji: '🎂', color: '#92400E', bg: '#FEF3C7', border: '#FDE68A' }
+      return { label: 'DDN + nom proche', emoji: '🎂', color: 'var(--warning)', bg: '#FEF3C7', border: '#FDE68A' }
     case 'metier_contact':
-      return { label: 'Métier + contact', emoji: '💼', color: '#1E40AF', bg: '#DBEAFE', border: '#93C5FD' }
+      return { label: 'Métier + contact', emoji: '💼', color: 'var(--info)', bg: '#DBEAFE', border: '#93C5FD' }
     case 'telephone':
       return { label: 'Téléphone identique', emoji: '📞', color: '#9A3412', bg: '#FED7AA', border: '#FDBA74' }
     case 'nom_prenom':
     default:
-      return { label: 'Nom + prénom', emoji: '👤', color: '#475569', bg: '#F1F5F9', border: '#CBD5E1' }
+      return { label: 'Nom + prénom', emoji: '👤', color: 'var(--muted-foreground)', bg: '#F1F5F9', border: '#CBD5E1' }
   }
 }
 
@@ -450,12 +450,12 @@ export default function DoublonsPage() {
               }
 
               return (
-                <div key={`cluster-${ci}`} style={{ background: 'var(--card)', border: '2px solid #FDE68A', borderRadius: 14, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 18px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: '#92400E' }}>
+                <div key={`cluster-${ci}`} style={{ background: 'var(--card)', border: '2px solid var(--warning-soft)', borderRadius: 14, overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 18px', background: 'var(--warning-soft)', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--warning)' }}>
                       {uniqueCandidats.length} profils identiques detectes
                     </span>
-                    <span style={{ fontSize: 11, color: '#B45309' }}>
+                    <span style={{ fontSize: 11, color: 'var(--warning)' }}>
                       Score max : {maxScore}%
                     </span>
                   </div>
@@ -485,8 +485,8 @@ export default function DoublonsPage() {
           >
             <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
             Cette session ({ignoredDoublons.length + mergedCount})
-            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{ignoredDoublons.length} ignore{ignoredDoublons.length > 1 ? 's' : ''}</span>}
-            {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', fontWeight: 600 }}>{mergedCount} fusionne{mergedCount > 1 ? 's' : ''}</span>}
+            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{ignoredDoublons.length} ignore{ignoredDoublons.length > 1 ? 's' : ''}</span>}
+            {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>{mergedCount} fusionne{mergedCount > 1 ? 's' : ''}</span>}
           </button>
 
           {showHistory && (
@@ -515,15 +515,15 @@ export default function DoublonsPage() {
                 </div>
               ))}
               {doublons.filter(p => p.status === 'merged').map(pair => (
-                <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 10, opacity: 0.8 }}>
-                  <CheckCircle size={14} color="#16A34A" />
+                <div key={pair.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: 'var(--success-soft)', border: '1.5px solid #BBF7D0', borderRadius: 10, opacity: 0.8 }}>
+                  <CheckCircle size={14} color="var(--success)" />
                   <div style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_a.prenom} {pair.candidat_a.nom}</strong>
                     <span style={{ margin: '0 6px' }}>·</span>
                     <strong style={{ color: 'var(--foreground)' }}>{pair.candidat_b.prenom} {pair.candidat_b.nom}</strong>
-                    <span style={{ marginLeft: 8, fontSize: 11, color: '#16A34A', fontWeight: 600 }}>— Fusionne</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>— Fusionne</span>
                   </div>
-                  <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, whiteSpace: 'nowrap' }}>Irreversible</span>
+                  <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>Irreversible</span>
                 </div>
               ))}
             </div>
@@ -553,26 +553,26 @@ export default function DoublonsPage() {
             <div style={{ borderTop: '1px solid var(--border)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
               {mergedHistory.map(item => (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
-                  <CheckCircle size={13} color="#16A34A" style={{ flexShrink: 0 }} />
+                  <CheckCircle size={13} color="var(--success)" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, fontSize: 12, color: 'var(--muted)' }}>
                     <strong style={{ color: 'var(--foreground)' }}>{item.candidat_a_nom}</strong>
                     <span style={{ margin: '0 5px' }}>·</span>
                     <strong style={{ color: 'var(--foreground)' }}>{item.candidat_b_nom}</strong>
                   </div>
                   {item.score && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>{item.score}%</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: 'var(--info-soft)', color: 'var(--info)', border: '1px solid var(--info-soft)' }}>{item.score}%</span>
                   )}
                   <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
                     {new Date(item.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', whiteSpace: 'nowrap' }}>Fusionne</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success-soft)', whiteSpace: 'nowrap' }}>Fusionne</span>
                 </div>
               ))}
 
               {/* Dismissed pairs — personnes differentes with individual Reanalyser */}
               {dismissedHistory.length > 0 && (
                 <div style={{ marginTop: 6 }}>
-                  <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: '#F8FAFC', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: 'var(--muted)', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>
                       <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedHistory.length} paire{dismissedHistory.length > 1 ? 's' : ''} — personnes differentes</span>
                       {' '}— ne reapparaitront plus
@@ -590,14 +590,14 @@ export default function DoublonsPage() {
                           {item.candidat_b_nom}
                         </span>
                         {item.score && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>{item.score}%</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: 'var(--info-soft)', color: 'var(--info)', border: '1px solid var(--info-soft)' }}>{item.score}%</span>
                         )}
                         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', flexShrink: 0 }}>
                           {new Date(item.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </span>
                         <button
                           onClick={() => handleReanalyser(item)}
-                          style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', color: '#2563EB', whiteSpace: 'nowrap' }}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--info)', whiteSpace: 'nowrap' }}
                         >
                           <RefreshCw size={10} style={{ display: 'inline', marginRight: 3, verticalAlign: 'middle' }} />Reanalyser
                         </button>
@@ -668,7 +668,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
     }} onClick={onCancel}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--card)', borderRadius: 16, padding: '24px', maxWidth: 960, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <Merge size={22} color="#16A34A" />
+          <Merge size={22} color="var(--success)" />
           <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>Fusionner les candidats</h3>
         </div>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
@@ -707,7 +707,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                   {candidat.email && <span style={{ fontSize: 10, color: 'var(--muted)' }}>{candidat.email}</span>}
                   {isBest && (
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: '#DBEAFE', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 7px', borderRadius: 99, background: 'var(--info-soft)', color: 'var(--info)', border: '1px solid var(--info-soft)' }}>
                       {best.reason}
                     </span>
                   )}
@@ -719,7 +719,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
 
         {/* Field-by-field selection */}
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 40px 1fr', background: '#F8FAFC', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 40px 1fr', background: 'var(--muted)', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             <span>Champ</span>
             <span>Candidat A</span>
             <span />
@@ -740,7 +740,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
               }}>
                 <span style={{ fontWeight: 700, color: isDiff ? '#9A3412' : 'var(--foreground)', paddingTop: isLong ? 4 : 0 }}>
                   {field.label}
-                  {isDiff && <span style={{ fontSize: 9, marginLeft: 4, color: '#D97706' }}>!</span>}
+                  {isDiff && <span style={{ fontSize: 9, marginLeft: 4, color: 'var(--warning)' }}>!</span>}
                 </span>
                 <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
                   <input
@@ -770,7 +770,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
           })}
         </div>
 
-        <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
+        <p style={{ fontSize: 12, color: 'var(--warning)', background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', marginBottom: 20 }}>
           Cette action est <strong>irreversible</strong> — le profil non selectionne sera definitivement supprime. Les competences, experiences et formations seront fusionnees automatiquement.
         </p>
 
@@ -848,10 +848,10 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
             )
           })()}
           {pair.result.raisons.map(r => (
-            <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: '#F1F5F9', color: '#64748B', fontWeight: 600 }}>{r}</span>
+            <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{r}</span>
           ))}
         </div>
-        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
+        {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'stretch', marginBottom: 16 }}>
@@ -861,7 +861,7 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
       </div>
 
       {pair.result.explication && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', marginBottom: 14 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--muted)', border: '1px solid var(--border)', marginBottom: 14 }}>
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
             <strong style={{ color: 'var(--foreground)' }}>Analyse IA :</strong> {pair.result.explication}
           </p>
@@ -871,11 +871,11 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
       {!isMerged && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button onClick={() => window.open(`/candidats/${pair.candidat_a.id}`, '_blank')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: 'var(--info-soft)', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--info)', fontFamily: 'inherit' }}>
             <Eye size={12} />Profil A
           </button>
           <button onClick={() => window.open(`/candidats/${pair.candidat_b.id}`, '_blank')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: '#EFF6FF', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#2563EB', fontFamily: 'inherit' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1.5px solid #BFDBFE', background: 'var(--info-soft)', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--info)', fontFamily: 'inherit' }}>
             <Eye size={12} />Profil B
           </button>
           <div style={{ flex: 1 }} />
@@ -909,7 +909,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
         {c.photo_url && !imgError ? (
           <img src={c.photo_url} alt="" onError={() => setImgError(true)} style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
         ) : (
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#0F172A', flexShrink: 0 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: 'var(--foreground)', flexShrink: 0 }}>
             {initials}
           </div>
         )}
@@ -936,7 +936,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
 
       {/* Dernière expérience */}
       {lastExp && (
-        <div style={{ padding: '6px 8px', borderRadius: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', marginBottom: 6 }}>
+        <div style={{ padding: '6px 8px', borderRadius: 6, background: 'var(--muted)', border: '1px solid #E2E8F0', marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {lastExp.poste}
           </div>
@@ -954,12 +954,12 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
           </span>
         )}
         {formCount > 0 && (
-          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#D1FAE5', color: '#059669', fontWeight: 600 }}>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>
             {formCount} form.
           </span>
         )}
         {c.source && (
-          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: '#F1F5F9', color: '#64748B', fontWeight: 500 }}>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 500 }}>
             {c.source}
           </span>
         )}
@@ -969,7 +969,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
       {comps.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
           {comps.map(comp => (
-            <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: '#F1F5F9', color: '#475569', fontWeight: 500 }}>{comp}</span>
+            <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 500 }}>{comp}</span>
           ))}
           {(c.competences || []).length > 5 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{(c.competences || []).length - 5}</span>}
         </div>
@@ -977,7 +977,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
 
       {/* CV */}
       {c.cv_nom_fichier && (
-        <div style={{ fontSize: 10, color: '#2563EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 10, color: 'var(--info)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           📄 {c.cv_nom_fichier}
         </div>
       )}

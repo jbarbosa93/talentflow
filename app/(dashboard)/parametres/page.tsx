@@ -14,7 +14,6 @@ const labelStyle: React.CSSProperties = {
 }
 
 const SECTIONS = [
-  { id: 'profil',        label: 'Mon Profil',    icon: UserCircle },
   { id: 'apparence',     label: 'Apparence',     icon: Palette },
   { id: 'metiers',       label: 'Métiers',       icon: Briefcase },
 ]
@@ -36,7 +35,7 @@ const TOOLS_SECTIONS = [
 ]
 
 export default function ParametresPage() {
-  const [section, setSection] = useState('profil')
+  const [section, setSection] = useState('apparence')
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
@@ -49,6 +48,15 @@ export default function ParametresPage() {
         {/* Sidebar nav */}
         <nav style={{ width: 172, flexShrink: 0 }}>
           <NavGroup label="Configuration">
+            <Link href="/parametres/profil" style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+              padding: '9px 12px', borderRadius: 8, fontSize: 13,
+              color: 'var(--muted)', textDecoration: 'none', fontWeight: 500,
+              transition: 'all 0.15s',
+            }}>
+              <UserCircle size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+              Mon Profil
+            </Link>
             {SECTIONS.map(s => {
               const Icon = s.icon
               const active = section === s.id
@@ -79,7 +87,6 @@ export default function ParametresPage() {
 
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {section === 'profil'        && <ProfilSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'apparence'     && <ApparenceSection />}
           {section === 'metiers'        && <MetiersSection />}
@@ -279,7 +286,7 @@ function ProfilSection() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,120,212,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Mail size={16} style={{ color: '#0078D4' }} />
+                <Mail size={16} style={{ color: 'var(--info)' }} />
               </div>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{outlookIntegration.nom_compte}</p>
@@ -287,10 +294,10 @@ function ProfilSection() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#10B981' }}>Connecté</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>Connecté</span>
               </div>
             </div>
-            <button onClick={disconnectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)', fontSize: 12, fontWeight: 700, color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1 }}>
+            <button onClick={disconnectOutlook} disabled={outlookLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)', fontSize: 12, fontWeight: 700, color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: outlookLoading ? 0.6 : 1 }}>
               <XCircle size={13} /> Déconnecter
             </button>
           </div>
@@ -360,7 +367,7 @@ function ApiSection() {
           </div>
         </div>
 
-        <div style={{ borderRadius: 8, background: '#F8FAFC', border: '1px solid var(--border)', padding: 14 }}>
+        <div style={{ borderRadius: 8, background: 'var(--muted)', border: '1px solid var(--border)', padding: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <Database size={15} style={{ color: 'var(--muted)' }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>Supabase</span>
@@ -484,7 +491,7 @@ function NotificationsSection() {
             <div style={{ width: 36, height: 20, borderRadius: 99, position: 'relative', transition: 'background 0.2s',
               background: prefs[item.key] ? 'var(--primary)' : '#CBD5E1' }}>
               <div style={{ position: 'absolute', top: 2, left: prefs[item.key] ? 18 : 2, width: 16, height: 16,
-                borderRadius: '50%', background: '#FFFFFF', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                borderRadius: '50%', background: 'var(--card)', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </div>
           </label>
         </div>
@@ -525,7 +532,7 @@ function ApparenceSection() {
       onSave={handleSave} saving={saving} saved={saved}>
       <div>
         <label style={labelStyle}>Thème</label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: '#F8FAFC', border: '1px solid var(--border)', borderRadius: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 6, background: '#0F172A', border: '2px solid var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--primary)' }} />
           </div>
@@ -683,26 +690,26 @@ function PhotosSection() {
     <SectionCard title="Photos des candidats" description="Gérez l'extraction automatique des photos de visage depuis les CVs">
       {stats && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 8 }}>
-          <div style={{ padding: 14, borderRadius: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', textAlign: 'center' }}>
-            <p style={{ fontSize: 22, fontWeight: 800, color: '#16A34A', margin: 0 }}>{stats.withPhoto}</p>
-            <p style={{ fontSize: 11, color: '#15803D', margin: 0, fontWeight: 600 }}>Avec photo</p>
+          <div style={{ padding: 14, borderRadius: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--success)', margin: 0 }}>{stats.withPhoto}</p>
+            <p style={{ fontSize: 11, color: 'var(--success)', margin: 0, fontWeight: 600 }}>Avec photo</p>
           </div>
-          <div style={{ padding: 14, borderRadius: 10, background: '#FEF9C3', border: '1px solid #FDE68A', textAlign: 'center' }}>
-            <p style={{ fontSize: 22, fontWeight: 800, color: '#CA8A04', margin: 0 }}>{stats.withoutPhoto}</p>
-            <p style={{ fontSize: 11, color: '#A16207', margin: 0, fontWeight: 600 }}>Sans photo</p>
+          <div style={{ padding: 14, borderRadius: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)', margin: 0 }}>{stats.withoutPhoto}</p>
+            <p style={{ fontSize: 11, color: 'var(--warning)', margin: 0, fontWeight: 600 }}>Sans photo</p>
           </div>
-          <div style={{ padding: 14, borderRadius: 10, background: '#F1F5F9', border: '1px solid #CBD5E1', textAlign: 'center' }}>
-            <p style={{ fontSize: 22, fontWeight: 800, color: '#475569', margin: 0 }}>{stats.total}</p>
-            <p style={{ fontSize: 11, color: '#64748B', margin: 0, fontWeight: 600 }}>Total CVs</p>
+          <div style={{ padding: 14, borderRadius: 10, background: 'var(--muted)', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+            <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--muted-foreground)', margin: 0 }}>{stats.total}</p>
+            <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0, fontWeight: 600 }}>Total CVs</p>
           </div>
         </div>
       )}
 
-      <div style={{ padding: 16, borderRadius: 10, background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#92400E', margin: '0 0 8px 0' }}>
+      <div style={{ padding: 16, borderRadius: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning)', margin: '0 0 8px 0' }}>
           Corriger photos candidats
         </p>
-        <p style={{ fontSize: 12, color: '#A16207', margin: '0 0 14px 0' }}>
+        <p style={{ fontSize: 12, color: 'var(--warning)', margin: '0 0 14px 0' }}>
           Re-analyse TOUS les CVs avec les filtres stricts pour ne garder que les vraies photos de visage.
           Les logos, images décoratives et mauvaises extractions seront supprimés et remplacés.
         </p>
@@ -1069,7 +1076,7 @@ function CategoriesMetiersSection({ metiers, onRenameMetier }: { metiers: string
                       <button
                         onClick={() => removeCategory(cat.name)}
                         title="Supprimer"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#EF4444' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: 'var(--destructive)' }}
                       >
                         <X size={14} />
                       </button>

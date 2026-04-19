@@ -46,13 +46,13 @@ type DryRunResult = {
 }
 
 const DECISION_META: Record<string, { color: string; label: string; Icon: any }> = {
-  create:         { color: '#10B981', label: 'Créerait un nouveau candidat',      Icon: CheckCircle2 },
-  update:         { color: '#3B82F6', label: 'Mettrait à jour un candidat',       Icon: CheckCircle2 },
+  create:         { color: 'var(--success)', label: 'Créerait un nouveau candidat',      Icon: CheckCircle2 },
+  update:         { color: 'var(--info)', label: 'Mettrait à jour un candidat',       Icon: CheckCircle2 },
   ambiguous:      { color: '#F5A623', label: 'Homonymes non résolus',             Icon: AlertTriangle },
-  insufficient:   { color: '#6B7280', label: 'Identité insuffisante',             Icon: HelpCircle },
-  skip_doublon:   { color: '#6B7280', label: 'Skip (doublon total)',              Icon: HelpCircle },
-  reject:         { color: '#EF4444', label: 'Rejeté (illisible)',                Icon: XCircle },
-  reject_diplome: { color: '#EF4444', label: 'Rejeté (diplôme, pas un CV)',       Icon: XCircle },
+  insufficient:   { color: 'var(--muted-foreground)', label: 'Identité insuffisante',             Icon: HelpCircle },
+  skip_doublon:   { color: 'var(--muted-foreground)', label: 'Skip (doublon total)',              Icon: HelpCircle },
+  reject:         { color: 'var(--destructive)', label: 'Rejeté (illisible)',                Icon: XCircle },
+  reject_diplome: { color: 'var(--destructive)', label: 'Rejeté (diplôme, pas un CV)',       Icon: XCircle },
 }
 
 export default function TestFolderRunner() {
@@ -158,7 +158,7 @@ export default function TestFolderRunner() {
             <div style={{
               padding: '10px 12px', marginBottom: 10,
               background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 8, fontSize: 12, color: '#EF4444',
+              borderRadius: 8, fontSize: 12, color: 'var(--destructive)',
             }}>
               ⚠ Intégration OneDrive incomplète — <code>sharepoint_drive_id</code> manquant dans <code>integrations.metadata</code>. Le banc de test est désactivé.
             </div>
@@ -218,7 +218,7 @@ export default function TestFolderRunner() {
             <div style={{
               padding: '8px 12px', marginBottom: 10,
               background: 'rgba(245,166,35,0.08)', border: '1px solid rgba(245,166,35,0.3)',
-              borderRadius: 8, fontSize: 11, color: '#B45309',
+              borderRadius: 8, fontSize: 11, color: 'var(--warning)',
             }}>
               ⚠ {listError}
             </div>
@@ -276,7 +276,7 @@ export default function TestFolderRunner() {
                             <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)', fontWeight: 500 }}>{r.duration_ms ?? 0} ms</span>
                           </div>
                         ) : r.error ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: 'var(--destructive)', marginBottom: 6 }}>
                             <XCircle size={13} /> Erreur
                           </div>
                         ) : null}
@@ -300,7 +300,7 @@ export default function TestFolderRunner() {
                             <strong>Homonymes :</strong> {r.match.candidates.map((c: any) => `${c.prenom} ${c.nom}`).join(' · ')}
                           </div>
                         )}
-                        {r.error && <div style={{ color: '#EF4444', marginTop: 4 }}>⚠ {r.error}</div>}
+                        {r.error && <div style={{ color: 'var(--destructive)', marginTop: 4 }}>⚠ {r.error}</div>}
                         {!r.error && <div style={{ marginTop: 4, fontSize: 10, color: 'var(--muted)' }}>✓ Aucune écriture DB/Storage</div>}
                       </div>
                     )}

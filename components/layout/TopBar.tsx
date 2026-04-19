@@ -1,6 +1,7 @@
 'use client'
 import Image from 'next/image'
-import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose } from 'lucide-react'
+import { Search, RefreshCw, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload } from 'lucide-react'
+import { useUpload } from '@/contexts/UploadContext'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { useQuery } from '@tanstack/react-query'
@@ -53,6 +54,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
   const router   = useRouter()
   const sync     = useSyncMicrosoft()
   const { theme, toggle, isDark } = useTheme()
+  const { openUpload } = useUpload()
 
   const [query, setQuery]             = useState('')
   const [open, setOpen]               = useState(false)
@@ -197,6 +199,22 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
         )}
         <div style={{ flex: 1 }} />
         <div className="d-topbar-actions">
+          <motion.button
+            onClick={openUpload}
+            title="Importer des candidats"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 14px', borderRadius: 10,
+              background: 'var(--primary)', color: 'var(--primary-foreground)',
+              border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+            }}
+          >
+            <Upload size={14} />
+            <span className="d-topbar-import-label">Importer</span>
+          </motion.button>
           <motion.button onClick={toggle} className="d-icon-btn" title={isDark ? 'Mode clair' : 'Mode sombre'} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <AnimatePresence mode="wait">
               {isDark

@@ -25,29 +25,29 @@ interface DocumentsPanelProps {
 type CategoryKey = 'cv' | DocumentType
 
 const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: string; border: string; icon: typeof FileText }[] = [
-  { key: 'cv',                label: 'CV',                    color: '#0F172A', bg: '#F8FAFC', border: '#E2E8F0', icon: FileText },
-  { key: 'certificat',        label: 'Certificats',           color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE', icon: Award },
-  { key: 'diplome',           label: 'Dipl\u00f4mes',        color: '#059669', bg: '#F0FDF4', border: '#BBF7D0', icon: GraduationCap },
+  { key: 'cv',                label: 'CV',                    color: 'var(--foreground)', bg: '#F8FAFC', border: '#E2E8F0', icon: FileText },
+  { key: 'certificat',        label: 'Certificats',           color: 'var(--info)', bg: '#EFF6FF', border: '#BFDBFE', icon: Award },
+  { key: 'diplome',           label: 'Dipl\u00f4mes',        color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0', icon: GraduationCap },
   { key: 'lettre_motivation', label: 'Lettres de motivation', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: Heart },
-  { key: 'formation',         label: 'Formations',            color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: BookOpen },
-  { key: 'permis',            label: 'Permis',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA', icon: Car },
+  { key: 'formation',         label: 'Formations',            color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A', icon: BookOpen },
+  { key: 'permis',            label: 'Permis',                color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA', icon: Car },
   { key: 'reference',         label: 'Références',            color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', icon: Star },
   { key: 'contrat',           label: 'Contrats',              color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE', icon: FileSignature },
-  { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: '#B45309', bg: '#FFFBEB', border: '#FDE68A', icon: Wallet },
-  { key: 'autre',             label: 'Autre',                 color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB', icon: File },
+  { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A', icon: Wallet },
+  { key: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: '#F9FAFB', border: '#E5E7EB', icon: File },
 ]
 
 const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; bg: string; border: string }[] = [
-  { value: 'cv' as any,         label: 'CV',                    color: '#0F172A', bg: '#F8FAFC', border: '#E2E8F0' },
-  { value: 'certificat',        label: 'Certificat',            color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: 'diplome',           label: 'Dipl\u00f4me',         color: '#059669', bg: '#F0FDF4', border: '#BBF7D0' },
+  { value: 'cv' as any,         label: 'CV',                    color: 'var(--foreground)', bg: '#F8FAFC', border: '#E2E8F0' },
+  { value: 'certificat',        label: 'Certificat',            color: 'var(--info)', bg: '#EFF6FF', border: '#BFDBFE' },
+  { value: 'diplome',           label: 'Dipl\u00f4me',         color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0' },
   { value: 'lettre_motivation', label: 'Lettre de motivation',  color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { value: 'formation',         label: 'Formation',             color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
-  { value: 'permis',            label: 'Permis',                color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+  { value: 'formation',         label: 'Formation',             color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A' },
+  { value: 'permis',            label: 'Permis',                color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA' },
   { value: 'reference',         label: 'Référence',             color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
   { value: 'contrat',           label: 'Contrat',               color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
-  { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: '#B45309', bg: '#FFFBEB', border: '#FDE68A' },
-  { value: 'autre',             label: 'Autre',                 color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
+  { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A' },
+  { value: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: '#F9FAFB', border: '#E5E7EB' },
 ]
 
 const ACCEPTED_FORMATS = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt'
@@ -610,10 +610,10 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                   }}
                                 />
                                 <button onClick={() => handleRenameDoc(realIdx, editNameValue)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-                                  <Check size={13} style={{ color: '#059669' }} />
+                                  <Check size={13} style={{ color: 'var(--success)' }} />
                                 </button>
                                 <button onClick={() => setEditingNameIdx(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2 }}>
-                                  <X size={13} style={{ color: '#DC2626' }} />
+                                  <X size={13} style={{ color: 'var(--destructive)' }} />
                                 </button>
                               </div>
                             ) : (
@@ -663,7 +663,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                           <div style={{ display: 'flex', gap: 3, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                             {actionBtn(
                               () => handleViewDoc(doc),
-                              <Eye size={12} style={{ color: '#3B82F6' }} />,
+                              <Eye size={12} style={{ color: 'var(--info)' }} />,
                               'Visualiser',
                               '#3B82F6',
                             )}
@@ -687,7 +687,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 <div style={{ position: 'relative' }}>
                                   {actionBtn(
                                     () => setOpenMoveMenu(prev => prev === menuKey ? null : menuKey),
-                                    <ChevronDown size={12} style={{ color: '#D97706' }} />,
+                                    <ChevronDown size={12} style={{ color: 'var(--warning)' }} />,
                                     'Déplacer vers...',
                                     '#D97706',
                                   )}
@@ -700,7 +700,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                     }}>
                                       {!isCvPrincipal && onCvChange && (
                                         <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}
-                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: '#D97706', fontWeight: 600 }}
+                                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit', color: 'var(--warning)', fontWeight: 600 }}
                                           onMouseEnter={e => (e.currentTarget.style.background = '#FEF3C7')}
                                           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                                         >→ CV principal</button>
@@ -753,7 +753,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                               ) : (
                                 actionBtn(
                                   () => setConfirmDeleteCv(true),
-                                  <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                  <Trash2 size={12} style={{ color: 'var(--destructive)' }} />,
                                   'Supprimer le CV',
                                   '#DC2626',
                                 )
@@ -788,7 +788,7 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                 ) : (
                                   actionBtn(
                                     () => setConfirmDeleteIdx(realIdx),
-                                    <Trash2 size={12} style={{ color: '#DC2626' }} />,
+                                    <Trash2 size={12} style={{ color: 'var(--destructive)' }} />,
                                     'Supprimer',
                                     '#DC2626',
                                   )

@@ -185,10 +185,10 @@ export default function CorrigerPhotosPage() {
           </button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
-          <StatCard label="Avec photo" value={stats.withPhoto} color="#10B981" icon="📸" />
+          <StatCard label="Avec photo" value={stats.withPhoto} color="var(--success)" icon="📸" />
           <StatCard label="Sans portrait" value={stats.checked} color="#94A3B8" icon="🔍" />
-          <StatCard label="À analyser" value={stats.withoutPhoto} color="#F59E0B" icon="📄" />
-          <StatCard label="Total CVs" value={stats.total} color="#64748B" icon="📁" />
+          <StatCard label="À analyser" value={stats.withoutPhoto} color="var(--warning)" icon="📄" />
+          <StatCard label="Total CVs" value={stats.total} color="var(--muted-foreground)" icon="📁" />
           <StatCard label="Historique" value={history.length} color="#6366F1" icon="📋" />
         </div>
         </div>
@@ -208,12 +208,12 @@ export default function CorrigerPhotosPage() {
                 }
               </span>
               <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--muted)' }}>
-                <span style={{ color: '#10B981', fontWeight: 700 }}>📸 {photos.found} trouvé{photos.found > 1 ? 's' : ''}</span>
-                {approved > 0 && <span style={{ color: '#16A34A', fontWeight: 700 }}>✓ {approved} validé{approved > 1 ? 's' : ''}</span>}
-                {rejected > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>✗ {rejected} rejeté{rejected > 1 ? 's' : ''}</span>}
+                <span style={{ color: 'var(--success)', fontWeight: 700 }}>📸 {photos.found} trouvé{photos.found > 1 ? 's' : ''}</span>
+                {approved > 0 && <span style={{ color: 'var(--success)', fontWeight: 700 }}>✓ {approved} validé{approved > 1 ? 's' : ''}</span>}
+                {rejected > 0 && <span style={{ color: 'var(--destructive)', fontWeight: 700 }}>✗ {rejected} rejeté{rejected > 1 ? 's' : ''}</span>}
               </div>
             </div>
-            <div style={{ height: 8, background: '#F1F5F9', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ height: 8, background: 'var(--muted)', borderRadius: 99, overflow: 'hidden' }}>
               <div style={{
                 height: '100%', width: `${photos.progress}%`, borderRadius: 99,
                 background: photos.phase === 'done'
@@ -230,7 +230,7 @@ export default function CorrigerPhotosPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {photos.phase === 'running' ? (
             <>
-              <button onClick={photos.pause} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: '#FFFBEB', color: '#D97706', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={photos.pause} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: '1.5px solid #F59E0B', background: 'var(--warning-soft)', color: 'var(--warning)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 <Pause size={14} fill="#D97706" /> Pause
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--muted)' }}>
@@ -246,7 +246,7 @@ export default function CorrigerPhotosPage() {
               <button onClick={photos.resume} className="neo-btn-yellow">
                 <Play size={14} fill="#0F172A" /> Continuer
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#D97706', fontWeight: 600 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--warning)', fontWeight: 600 }}>
                 ⏸ En pause
               </div>
               <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
@@ -278,7 +278,7 @@ export default function CorrigerPhotosPage() {
                   title="Valider manuellement les photos en attente"
                 >
                   <Camera size={14} /> Valider les photos
-                  <span style={{ background: 'var(--primary)', color: '#0F172A', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{pendingCount}</span>
+                  <span style={{ background: 'var(--primary)', color: 'var(--foreground)', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>{pendingCount}</span>
                 </button>
               )}
 
@@ -286,7 +286,7 @@ export default function CorrigerPhotosPage() {
 
               {/* Messages état */}
               {photos.phase === 'done' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#10B981', fontWeight: 700 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--success)', fontWeight: 700 }}>
                   <CheckCircle size={15} /> {photos.found > 0 ? `${photos.found} photo${photos.found > 1 ? 's' : ''} trouvée${photos.found > 1 ? 's' : ''}` : 'Analyse terminée'}
                 </div>
               )}
@@ -356,14 +356,14 @@ export default function CorrigerPhotosPage() {
                     <button
                       onClick={handleApprove}
                       disabled={validating}
-                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 10, border: '2px solid #16A34A', background: '#F0FDF4', color: '#16A34A', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 10, border: '2px solid #16A34A', background: 'var(--success-soft)', color: 'var(--success)', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
                       <ThumbsUp size={16} /> Oui, c&apos;est correct
                     </button>
                     <button
                       onClick={handleReject}
                       disabled={validating}
-                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 10, border: '2px solid #DC2626', background: '#FEF2F2', color: '#DC2626', fontSize: 14, fontWeight: 800, cursor: validating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: validating ? 0.7 : 1 }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', borderRadius: 10, border: '2px solid #DC2626', background: 'var(--destructive-soft)', color: 'var(--destructive)', fontSize: 14, fontWeight: 800, cursor: validating ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: validating ? 0.7 : 1 }}
                     >
                       {validating ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <ThumbsDown size={16} />}
                       Non, mauvaise photo
@@ -386,9 +386,9 @@ export default function CorrigerPhotosPage() {
 
       {/* Done, all validated */}
       {!photos.autoMode && photos.phase !== 'idle' && photos.phase !== 'running' && pendingCount === 0 && (approved + rejected) > 0 && (
-        <div style={{ marginBottom: 20, padding: '20px 24px', borderRadius: 12, background: '#F0FDF4', border: '1.5px solid #BBF7D0' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#16A34A', marginBottom: 4 }}>✅ Validation terminée</div>
-          <div style={{ fontSize: 13, color: '#166534' }}>
+        <div style={{ marginBottom: 20, padding: '20px 24px', borderRadius: 12, background: 'var(--success-soft)', border: '1.5px solid #BBF7D0' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--success)', marginBottom: 4 }}>✅ Validation terminée</div>
+          <div style={{ fontSize: 13, color: 'var(--success)' }}>
             {approved} photo{approved > 1 ? 's' : ''} validée{approved > 1 ? 's' : ''}
             {rejected > 0 && ` · ${rejected} rejetée${rejected > 1 ? 's' : ''} (retirées)`}
           </div>
@@ -487,9 +487,9 @@ export default function CorrigerPhotosPage() {
 
 function StatusBadge({ status }: { status: HistoryItem['status'] }) {
   const cfg = {
-    approved:  { label: '✓ Photo ok',    color: '#16A34A', bg: '#F0FDF4', border: '#BBF7D0' },
-    rejected:  { label: '✗ Rejetée',     color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-    no_photo:  { label: '— Sans photo',  color: '#64748B', bg: '#F8FAFC', border: '#E2E8F0' },
+    approved:  { label: '✓ Photo ok',    color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0' },
+    rejected:  { label: '✗ Rejetée',     color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA' },
+    no_photo:  { label: '— Sans photo',  color: 'var(--muted-foreground)', bg: '#F8FAFC', border: '#E2E8F0' },
   }[status]
   return (
     <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color, flexShrink: 0, whiteSpace: 'nowrap' }}>

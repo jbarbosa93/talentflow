@@ -38,9 +38,9 @@ function getInitiales(prenom: string, nom: string, email: string) {
 
 function RoleBadge({ role }: { role: string }) {
   const cfg =
-    role === 'Admin'      ? { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A', label: 'Administrateur' } :
-    role === 'Secrétaire' ? { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0', label: 'Secrétaire' } :
-                            { bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE', label: 'Consultant' }
+    role === 'Admin'      ? { bg: '#FEF3C7', color: 'var(--warning)', border: '#FDE68A', label: 'Administrateur' } :
+    role === 'Secrétaire' ? { bg: '#F0FDF4', color: 'var(--success)', border: '#BBF7D0', label: 'Secrétaire' } :
+                            { bg: '#EFF6FF', color: 'var(--info)', border: '#BFDBFE', label: 'Consultant' }
   return (
     <span style={{
       fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 100,
@@ -190,7 +190,7 @@ export default function AdminPage() {
     return (
       <div style={{ padding: '32px 40px', maxWidth: 900, margin: '0 auto' }}>
         <div style={{
-          background: '#FEF2F2',
+          background: 'var(--destructive-soft)',
           border: '1.5px solid #FECACA',
           borderRadius: 12,
           padding: '24px 28px',
@@ -198,10 +198,10 @@ export default function AdminPage() {
           alignItems: 'center',
           gap: 16,
         }}>
-          <AlertTriangle size={20} style={{ color: '#DC2626', flexShrink: 0 }} />
+          <AlertTriangle size={20} style={{ color: 'var(--destructive)', flexShrink: 0 }} />
           <div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', margin: 0 }}>Erreur d&apos;accès</p>
-            <p style={{ fontSize: 13, color: '#991B1B', marginTop: 4 }}>
+            <p style={{ fontSize: 13, color: 'var(--destructive)', marginTop: 4 }}>
               {error instanceof Error ? error.message : 'Erreur lors du chargement des utilisateurs.'}
             </p>
           </div>
@@ -225,7 +225,7 @@ export default function AdminPage() {
             </h1>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 100,
-              background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A',
+              background: 'var(--warning-soft)', color: 'var(--warning)', border: '1px solid var(--warning-soft)',
             }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Shield size={10} />
@@ -283,7 +283,7 @@ export default function AdminPage() {
                       padding: '10px 16px', textAlign: 'left',
                       fontSize: 11, fontWeight: 700, color: 'var(--muted)',
                       textTransform: 'uppercase', letterSpacing: '0.4px',
-                      background: '#F8FAFC',
+                      background: 'var(--muted)',
                     }}>
                       {h}
                     </th>
@@ -321,7 +321,7 @@ export default function AdminPage() {
                               {!user.email_confirmed_at && (
                                 <span style={{
                                   fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 100,
-                                  background: '#FFF3C4', color: '#7A5F00', border: '1px solid #F7C948',
+                                  background: 'var(--warning-soft)', color: '#7A5F00', border: '1px solid #F7C948',
                                   flexShrink: 0,
                                 }}>
                                   Non confirmé
@@ -401,7 +401,7 @@ export default function AdminPage() {
                       <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                         {confirmDelete === user.id ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                            <span style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>Confirmer ?</span>
+                            <span style={{ fontSize: 12, color: 'var(--destructive)', fontWeight: 600 }}>Confirmer ?</span>
                             <button
                               onClick={() => deleteMutation.mutate(user.id)}
                               disabled={deleteMutation.isPending}
@@ -571,11 +571,11 @@ export default function AdminPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: '#FEF3C7', border: '1.5px solid #FDE68A',
+              background: 'var(--warning-soft)', border: '1.5px solid #FDE68A',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
             }}>
-              <UserPlus size={16} style={{ color: '#92400E' }} />
+              <UserPlus size={16} style={{ color: 'var(--warning)' }} />
             </div>
             <div>
               <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
@@ -664,12 +664,12 @@ export default function AdminPage() {
 
             {inviteError && (
               <div style={{
-                background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8,
+                background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 8,
                 padding: '10px 14px', marginBottom: 16,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <AlertTriangle size={14} style={{ color: '#DC2626', flexShrink: 0 }} />
-                <span style={{ fontSize: 13, color: '#DC2626' }}>{inviteError}</span>
+                <AlertTriangle size={14} style={{ color: 'var(--destructive)', flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: 'var(--destructive)' }}>{inviteError}</span>
               </div>
             )}
 

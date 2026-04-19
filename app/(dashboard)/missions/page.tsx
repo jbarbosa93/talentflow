@@ -88,9 +88,9 @@ const S = {
 // ─── Status config ────────────────────────────────────────────────────────────
 
 const STATUT_CONFIG = {
-  en_cours:    { label: 'En Mission',    bg: 'rgba(34,197,94,0.12)',   color: '#22C55E', icon: Clock },
-  fin_mission: { label: 'Fin de Mission',bg: 'rgba(239,68,68,0.12)',   color: '#EF4444', icon: XCircle },
-  annulee:     { label: 'Sans Emploi',   bg: 'rgba(100,116,139,0.12)', color: '#64748B', icon: XCircle },
+  en_cours:    { label: 'En Mission',    bg: 'rgba(34,197,94,0.12)',   color: 'var(--success)', icon: Clock },
+  fin_mission: { label: 'Fin de Mission',bg: 'rgba(239,68,68,0.12)',   color: 'var(--destructive)', icon: XCircle },
+  annulee:     { label: 'Sans Emploi',   bg: 'rgba(100,116,139,0.12)', color: 'var(--muted-foreground)', icon: XCircle },
   terminee:    { label: 'Terminée',      bg: 'rgba(99,102,241,0.12)',  color: '#818CF8', icon: CheckCircle2 },
 } as const
 
@@ -136,14 +136,14 @@ function getMissionBadge(m: Mission & { _expired?: boolean }): { label: string; 
   }
   // Priorité 4 : Fin de mission (rouge)
   if (m._expired) {
-    return { label: 'Fin de Mission', bg: 'rgba(239,68,68,0.12)', color: '#EF4444' }
+    return { label: 'Fin de Mission', bg: 'rgba(239,68,68,0.12)', color: 'var(--destructive)' }
   }
   // Priorité 5 : Actif (vert)
   if (m.statut === 'en_cours') {
-    return { label: 'En mission', bg: 'rgba(34,197,94,0.12)', color: '#22C55E' }
+    return { label: 'En mission', bg: 'rgba(34,197,94,0.12)', color: 'var(--success)' }
   }
   // Sans emploi
-  return { label: 'Sans Emploi', bg: 'rgba(100,116,139,0.12)', color: '#64748B' }
+  return { label: 'Sans Emploi', bg: 'rgba(100,116,139,0.12)', color: 'var(--muted-foreground)' }
 }
 
 function StatutBadge({ statut }: { statut: string }) {
@@ -303,12 +303,12 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
             <div>
               <label style={S.label}>Candidat</label>
               <Autocomplete value={form.candidat_nom} onChange={(nom, id) => setForm(f => ({ ...f, candidat_nom: nom, candidat_id: id }))} placeholder="Rechercher…" searchFn={searchCandidats} />
-              {form.candidat_id && <div style={{ fontSize: 10, color: '#22C55E', marginTop: 2 }}>✓ Lié</div>}
+              {form.candidat_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié</div>}
             </div>
             <div>
               <label style={S.label}>Client</label>
               <Autocomplete value={form.client_nom} onChange={(nom, id) => setForm(f => ({ ...f, client_nom: nom, client_id: id }))} placeholder="Rechercher…" searchFn={searchClients} />
-              {form.client_id && <div style={{ fontSize: 10, color: '#22C55E', marginTop: 2 }}>✓ Lié</div>}
+              {form.client_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié</div>}
             </div>
           </div>
 
@@ -387,7 +387,7 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
                 </div>
                 <div style={{ paddingTop: i === 0 ? 18 : 0 }}>
                   <button type="button" onClick={() => setForm(f => ({ ...f, absences: f.absences.filter((_, j) => j !== i) }))}
-                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                     <X size={12} />
                   </button>
                 </div>
@@ -432,7 +432,7 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
                 </div>
                 <div style={{ paddingTop: i === 0 ? 18 : 0 }}>
                   <button type="button" onClick={() => setForm(f => ({ ...f, vacances: f.vacances.filter((_, j) => j !== i) }))}
-                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                     <X size={12} />
                   </button>
                 </div>
@@ -477,7 +477,7 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
                 </div>
                 <div style={{ paddingTop: i === 0 ? 18 : 0 }}>
                   <button type="button" onClick={() => setForm(f => ({ ...f, arrets: f.arrets.filter((_, j) => j !== i) }))}
-                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    style={{ padding: '6px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                     <X size={12} />
                   </button>
                 </div>
@@ -555,7 +555,7 @@ function DeleteModal({ mission, onConfirm, onClose }: { mission: Mission; onConf
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.3)', padding: 24, width: '100%', maxWidth: 380 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#EF4444' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: 'var(--destructive)' }}>
           <AlertTriangle size={18} />
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Supprimer</h3>
         </div>
@@ -564,7 +564,7 @@ function DeleteModal({ mission, onConfirm, onClose }: { mission: Mission; onConf
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 8, background: '#EF4444', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Supprimer</button>
+          <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--destructive)', border: 'none', color: 'var(--destructive-foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Supprimer</button>
         </div>
       </div>
     </div>,
@@ -661,13 +661,13 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
           const diffDays = Math.round((finMs - todayMs) / 86400000)
           if (diffDays < 0 || diffDays > 5) return null
           const label = diffDays === 0 ? 'Fin aujourd\'hui' : `Fin dans ${diffDays}j`
-          return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10, fontWeight: 800, color: '#EF4444', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>{label}</span>
+          return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10, fontWeight: 800, color: 'var(--destructive)', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>{label}</span>
         })()}
       </div>
 
       {/* Marge + LPP */}
       <div style={{ flex: '0 0 90px', textAlign: 'right' }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#22C55E' }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--success)' }}>
           {formatCHF(Number(mission.marge_brute))}
         </div>
         {lppActive && (
@@ -687,7 +687,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
           </button>
         )}
         <button onClick={() => onEdit(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier"><Pencil size={12} /></button>
-        <button onClick={() => onDelete(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer"><Trash2 size={12} /></button>
+        <button onClick={() => onDelete(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer"><Trash2 size={12} /></button>
       </div>
     </div>
   )
@@ -1008,7 +1008,7 @@ export default function MissionsPage() {
           <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>{stats.total_en_cours}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
             {stats.total_fin_mission > 0
-              ? <span style={{ color: '#EF4444', fontWeight: 700 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
+              ? <span style={{ color: 'var(--destructive)', fontWeight: 700 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
               : <span>Toutes actives</span>}
           </div>
         </div>
@@ -1023,7 +1023,7 @@ export default function MissionsPage() {
         {/* Marge moyenne */}
         <div style={{ ...S.card, padding: '14px 18px', flex: 1 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Marge moy. / candidat</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#22C55E', lineHeight: 1 }}>{stats._marge_moyenne_count > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{stats._marge_moyenne_count > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{stats._marge_moyenne_count > 0 ? `Sur ${stats._marge_moyenne_count} mission${stats._marge_moyenne_count !== 1 ? 's' : ''} (dès avril)` : 'Aucune mission depuis avril'}</div>
         </div>
       </div>
@@ -1045,7 +1045,7 @@ export default function MissionsPage() {
           >
             {tab.label}
             {tab.count != null && tab.count > 0 && (
-              <span style={{ minWidth: 18, height: 18, borderRadius: 99, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 800 }}>
+              <span style={{ minWidth: 18, height: 18, borderRadius: 99, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontSize: 10, fontWeight: 800 }}>
                 {tab.count}
               </span>
             )}
@@ -1218,8 +1218,8 @@ export default function MissionsPage() {
       {rawMissions.length > 0 && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
           {([
-            { key: 'en_cours',    label: 'Actifs',           count: rawMissions.filter(m => !m._expired).length,  color: '#22C55E' },
-            { key: 'fin_mission', label: 'Fin de Mission',  count: rawMissions.filter(m => m._expired).length,   color: '#EF4444' },
+            { key: 'en_cours',    label: 'Actifs',           count: rawMissions.filter(m => !m._expired).length,  color: 'var(--success)' },
+            { key: 'fin_mission', label: 'Fin de Mission',  count: rawMissions.filter(m => m._expired).length,   color: 'var(--destructive)' },
           ] as { key: typeof filtreStatut; label: string; count: number; color?: string }[]).map(tab => (
             <button key={tab.key} onClick={() => setFiltreStatut(tab.key)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: `1.5px solid ${filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)'}`, background: filtreStatut === tab.key ? (tab.color ? `${tab.color}18` : 'var(--primary-soft)') : 'var(--secondary)', color: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>

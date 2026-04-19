@@ -1076,7 +1076,7 @@ export default function CandidatsList() {
             cursor: 'pointer', transition: 'all 0.15s',
           }}
         >
-          {selected && <Check size={11} color="#0F172A" strokeWidth={3} />}
+          {selected && <Check size={11} color="var(--foreground)" strokeWidth={3} />}
         </div>
 
         {/* Avatar */}
@@ -1128,10 +1128,10 @@ export default function CandidatsList() {
                 )}
                 {/* Badges CFC + Engagée (hors à-traiter) — uniquement basé sur le champ DB */}
                 {c.cfc === true && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>CFC</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', letterSpacing: '0.03em' }}>CFC</span>
                 )}
                 {c.deja_engage === true && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: '#DCFCE7', color: '#15803D', letterSpacing: '0.03em' }}>Engagé</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', letterSpacing: '0.03em' }}>Engagé</span>
                 )}
               </>
             )}
@@ -1624,9 +1624,16 @@ export default function CandidatsList() {
       {/* Header */}
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Users size={22} color="var(--primary)" />Candidats</h1>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            Candidats
+            {!isLoading && (
+              <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--muted-foreground)' }}>
+                &middot; {totalCandidats}
+              </span>
+            )}
+          </h1>
           <p className="d-page-sub">
-            {isLoading ? '...' : `${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''}`}
+            Base de talents, filtres et actions rapides
             {aiResults !== null && (
               <span style={{ color: 'var(--primary)', fontWeight: 700 }}>
                 {' '}&middot; Résultats IA
@@ -1708,9 +1715,6 @@ export default function CandidatsList() {
               Tout marquer vu
             </button>
           )}
-          <button onClick={() => openUpload()} className="neo-btn-yellow">
-            <Upload size={15} /> Importer Candidat/s
-          </button>
         </div>
       </div>
 
@@ -1741,7 +1745,7 @@ export default function CandidatsList() {
             <button onClick={selectAll} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: 'var(--primary)', color: '#0F172A', border: 'none',
+              background: 'var(--primary)', color: 'var(--foreground)', border: 'none',
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
               <CheckCircle size={12} /> Tout ({sorted.length})
@@ -1936,20 +1940,20 @@ export default function CandidatsList() {
                   Utilisez des opérateurs pour affiner votre recherche :
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginBottom: 2 }}>ET / AND</div>
+                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 2 }}>ET / AND</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)' }}>Les deux termes doivent être présents</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Électricien ET Genève</code>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Électricien ET Genève</code>
                   </div>
-                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#3B82F6', marginBottom: 2 }}>OU / OR</div>
+                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--info)', marginBottom: 2 }}>OU / OR</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)' }}>L&apos;un ou l&apos;autre terme</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Soudeur OU Tuyauteur</code>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Soudeur OU Tuyauteur</code>
                   </div>
-                  <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>SAUF / NOT</div>
+                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: 2 }}>SAUF / NOT</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)' }}>Exclure un terme</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: '#E2E8F0', padding: '2px 6px', borderRadius: 4 }}>Maçon SAUF intérimaire</code>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Maçon SAUF intérimaire</code>
                   </div>
                 </div>
                 <button
@@ -2360,7 +2364,7 @@ export default function CandidatsList() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                     }}
                   >
-                    {allSel && <Check size={10} color="#0F172A" strokeWidth={3} />}
+                    {allSel && <Check size={10} color="var(--foreground)" strokeWidth={3} />}
                     {someSel && !allSel && <div style={{ width: 8, height: 2, background: 'var(--primary)', borderRadius: 2 }} />}
                   </div>
 
@@ -2505,7 +2509,7 @@ export default function CandidatsList() {
           {/* Content */}
           <div
             ref={previewScrollRef}
-            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: '#F1F5F9', cursor: 'grab' }}
+            style={{ width: '100%', height: 'calc(100% - 41px)', overflow: 'auto', background: 'var(--muted)', cursor: 'grab' }}
             onMouseEnter={() => { if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current) }}
             onMouseDown={e => {
               const el = previewScrollRef.current; if (!el) return
@@ -2715,13 +2719,13 @@ export default function CandidatsList() {
                     {avecTel.map((c: any) => {
                       const { number, countryCode, country } = detectAndFormat(c.telephone)
                       return (
-                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
+                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)', borderRadius: 8, padding: '8px 12px' }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0 }}>
                             {formatInitials(c.prenom, c.nom)}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--success)' }}>
                               <Phone size={10} /> {number}
                             </div>
                           </div>
@@ -2735,13 +2739,13 @@ export default function CandidatsList() {
                       )
                     })}
                     {sansTel.length > 0 && sansTel.map((c: any) => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
+                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
                         <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
                           {formatInitials(c.prenom, c.nom)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{formatFullName(c.prenom, c.nom)}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--warning)' }}>
                             <AlertTriangle size={10} /> Pas de numéro — sera ignoré
                           </div>
                         </div>
@@ -2822,7 +2826,7 @@ export default function CandidatsList() {
                                 display: 'block', width: '100%', textAlign: 'left',
                                 padding: '6px 10px', borderRadius: 6, border: 'none',
                                 background: 'transparent', cursor: 'pointer',
-                                fontSize: 11, fontWeight: 600, color: '#DC2626',
+                                fontSize: 11, fontWeight: 600, color: 'var(--destructive)',
                                 fontFamily: 'inherit', marginTop: 4, borderTop: '1px solid var(--border)',
                               }}
                             >
@@ -2889,7 +2893,7 @@ export default function CandidatsList() {
               {/* Footer sticky — boutons toujours visibles */}
               <div style={{ padding: '14px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
                 {avecTel.length === 0 && (
-                  <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>
+                  <p style={{ fontSize: 12, color: 'var(--warning)', textAlign: 'center', margin: 0 }}>
                     Aucun candidat sélectionné n&apos;a de numéro de téléphone.
                   </p>
                 )}

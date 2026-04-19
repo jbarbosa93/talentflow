@@ -50,7 +50,7 @@ function Avatar({ candidat }: { candidat: MatchHistoryItem['results'][0]['candid
       width: 34, height: 34, borderRadius: 8, flexShrink: 0,
       background: show ? 'transparent' : 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 12, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+      fontSize: 12, fontWeight: 800, color: 'var(--foreground)', overflow: 'hidden',
     }}>
       {show
         ? <img src={candidat.photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setErr(true)} />
@@ -70,7 +70,7 @@ function ModalAvatar({ prenom, nom, photo_url }: { prenom: string | null; nom: s
       width: 40, height: 40, borderRadius: 10, flexShrink: 0,
       background: show ? 'transparent' : 'var(--primary)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 13, fontWeight: 800, color: '#0F172A', overflow: 'hidden',
+      fontSize: 13, fontWeight: 800, color: 'var(--foreground)', overflow: 'hidden',
     }}>
       {show
         ? <img src={photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setErr(true)} />
@@ -199,9 +199,9 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
                     {c.telephone && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{c.telephone}</p>}
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <ContactBtn href={hasPhone ? `tel:${phone}` : undefined} icon={Phone} label="Appeler" color="#16A34A" bg="rgba(22,163,74,0.1)" disabled={!hasPhone} />
-                    <ContactBtn href={hasPhone ? `sms:${phone}?body=${greet}` : undefined} icon={Smartphone} label="SMS" color="#3B82F6" bg="rgba(59,130,246,0.1)" disabled={!hasPhone} />
-                    <ContactBtn href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined} icon={MessageCircle} label="WhatsApp" color="#22C55E" bg="rgba(34,197,94,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasPhone ? `tel:${phone}` : undefined} icon={Phone} label="Appeler" color="var(--success)" bg="rgba(22,163,74,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasPhone ? `sms:${phone}?body=${greet}` : undefined} icon={Smartphone} label="SMS" color="var(--info)" bg="rgba(59,130,246,0.1)" disabled={!hasPhone} />
+                    <ContactBtn href={hasPhone ? `whatsapp://send?phone=${waPhone}&text=${greet}` : undefined} icon={MessageCircle} label="WhatsApp" color="var(--success)" bg="rgba(34,197,94,0.1)" disabled={!hasPhone} />
                     <ContactBtn href={hasEmail ? `mailto:${c.email}?subject=${encodeURIComponent(`Opportunité pour ${c.prenom || 'vous'}`)}&body=${greet}` : undefined} icon={Mail} label="E-mail" color="#6366F1" bg="rgba(99,102,241,0.1)" disabled={!hasEmail} />
                   </div>
                 </div>
@@ -234,26 +234,26 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
                 {avecTel.map(c => {
                   const { number, countryCode, country } = detectAndFormat(c.telephone!)
                   return (
-                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 12px' }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 6, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#64748B', flexShrink: 0 }}>
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)', borderRadius: 8, padding: '8px 12px' }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0 }}>
                         {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{c.prenom} {c.nom}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#059669' }}><Phone size={10} /> {number}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--success)' }}><Phone size={10} /> {number}</div>
                       </div>
                       {countryCode && <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}><span className={`fi fi-${countryCode}`} style={{ width: 18, height: 13, display: 'inline-block', backgroundSize: 'contain', borderRadius: 2 }} />{country}</span>}
                     </div>
                   )
                 })}
                 {sansTel.map(c => (
-                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#FEF9EC', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
                     <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
                       {((c.prenom||'')[0]||'') + ((c.nom||'')[0]||'')}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{c.prenom} {c.nom}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#D97706' }}><AlertTriangle size={10} /> Pas de numéro — sera ignoré</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--warning)' }}><AlertTriangle size={10} /> Pas de numéro — sera ignoré</div>
                     </div>
                   </div>
                 ))}
@@ -277,7 +277,7 @@ function ContactModal({ candidats, onClose }: { candidats: HistoryCandidат[]; 
                 <MessageSquare size={14} />Ouvrir Messages
               </button>
             </div>
-            {avecTel.length === 0 && <p style={{ fontSize: 12, color: '#D97706', textAlign: 'center', margin: 0 }}>Aucun candidat sélectionné n&apos;a de numéro de téléphone.</p>}
+            {avecTel.length === 0 && <p style={{ fontSize: 12, color: 'var(--warning)', textAlign: 'center', margin: 0 }}>Aucun candidat sélectionné n&apos;a de numéro de téléphone.</p>}
           </div>
         )}
 
@@ -366,7 +366,7 @@ export default function MatchingHistoriquePage() {
         {history.length > 0 && (
           <button
             onClick={clearAll}
-            style={{ fontSize: 13, fontWeight: 600, color: '#DC2626', background: 'transparent', border: '1.5px solid #FECACA', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ fontSize: 13, fontWeight: 600, color: 'var(--destructive)', background: 'transparent', border: '1.5px solid #FECACA', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Trash2 size={14} />Vider l&apos;historique
           </button>
@@ -429,7 +429,7 @@ export default function MatchingHistoriquePage() {
                 </button>
                 <button
                   onClick={(e) => deleteItem(item.id, e)}
-                  style={{ padding: '6px 10px', borderRadius: 7, border: '1.5px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.06)', color: '#DC2626', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 700 }}
+                  style={{ padding: '6px 10px', borderRadius: 7, border: '1.5px solid rgba(220,38,38,0.2)', background: 'rgba(220,38,38,0.06)', color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 700 }}
                 >
                   <Trash2 size={13} />Supprimer
                 </button>
@@ -537,7 +537,7 @@ export default function MatchingHistoriquePage() {
             onClick={() => setShowContact(true)}
             style={{
               padding: '8px 18px', borderRadius: 10,
-              background: 'var(--primary)', color: '#0F172A',
+              background: 'var(--primary)', color: 'var(--foreground)',
               border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 800, fontFamily: 'var(--font-body)',
               display: 'flex', alignItems: 'center', gap: 6,

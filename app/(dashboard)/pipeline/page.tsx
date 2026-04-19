@@ -98,7 +98,7 @@ function MetierPicker({ metiers, categories, value, onChange }: {
       if (ms.length) { result.push({ ...cat, metiers: ms }); ms.forEach(m => assigned.add(m)) }
     }
     const others = filtered.filter(m => !assigned.has(m))
-    if (others.length) result.push({ name: 'Autres', color: '#94A3B8', metiers: others })
+    if (others.length) result.push({ name: 'Autres', color: 'var(--muted-foreground)', metiers: others })
     return result
   }, [filtered, categories, q])
 
@@ -259,7 +259,7 @@ function RappelModal({ candidatId, nom, existingRappel, onClose, onSaved }: {
         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
           <div>
             {existingRappel && (
-              <button onClick={handleDelete} style={{ background: 'none', border: '1.5px solid #EF4444', color: '#EF4444', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+              <button onClick={handleDelete} style={{ background: 'none', border: '1.5px solid #EF4444', color: 'var(--destructive)', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -415,7 +415,7 @@ function AddToPipelineModal({ metiers, categories, onClose, onAdded }: {
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
                     {c.titre_poste && <div style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>{c.titre_poste}</div>}
-                    {c.localisation && <div style={{ fontSize: 11, color: '#94A3B8' }}>{c.localisation}</div>}
+                    {c.localisation && <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{c.localisation}</div>}
                   </div>
                   {c.pipeline_consultant && (
                     <span style={{ marginLeft: 'auto', fontSize: 10, background: '#F5A62322', color: '#c07a00', border: '1px solid #F5A62344', borderRadius: 4, padding: '2px 6px', fontWeight: 700 }}>
@@ -504,7 +504,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
           <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
             {candidat.localisation && (
-              <span style={{ fontSize: 11, color: '#EF4444', display: 'flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 11, color: 'var(--destructive)', display: 'flex', alignItems: 'center', gap: 2 }}>
                 <MapPin size={10} />{candidat.localisation}
               </span>
             )}
@@ -567,7 +567,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
         </button>
 
         <button onClick={onRetirer} title="Retirer du pipeline"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: '#EF4444', cursor: 'pointer', marginLeft: 'auto' }}>
+          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--destructive)', cursor: 'pointer', marginLeft: 'auto' }}>
           <Trash2 size={13} />
         </button>
       </div>

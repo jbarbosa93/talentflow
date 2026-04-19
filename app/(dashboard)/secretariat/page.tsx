@@ -515,7 +515,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
                 prenom: candidat?.prenom || f.prenom,
               }))}
             />
-            {form.candidat_id && <div style={{ fontSize: 10, color: '#22C55E', marginTop: 2 }}>✓ Lié au candidat</div>}
+            {form.candidat_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié au candidat</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -638,7 +638,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
           </button>
         </div>
@@ -841,7 +841,7 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
           </button>
         </div>
@@ -969,7 +969,7 @@ function LoyerModal({ item, onClose, onSaved }: { item?: SecretariatLoyer | null
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
           </button>
         </div>
@@ -1141,7 +1141,7 @@ function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; 
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
           </button>
         </div>
@@ -1294,7 +1294,7 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
           </button>
         </div>
@@ -1315,13 +1315,13 @@ function DeleteModal({ label, onConfirm, onClose }: { label: string; onConfirm: 
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 380 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <AlertTriangle size={20} color="#EF4444" />
+          <AlertTriangle size={20} color="var(--destructive)" />
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--foreground)' }}>Confirmer la suppression</h2>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>Supprimer <strong style={{ color: 'var(--foreground)' }}>{label}</strong> ? Cette action est irréversible.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleConfirm} disabled={deleting} style={{ padding: '8px 16px', borderRadius: 8, background: '#EF4444', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleConfirm} disabled={deleting} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--destructive)', border: 'none', color: 'var(--destructive-foreground)', fontSize: 13, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {deleting && <Loader2 size={13} />}Supprimer
           </button>
         </div>
@@ -1367,9 +1367,9 @@ function PermisBadge({ genre, dateEcheance }: { genre: string | null; dateEchean
 
 function StatutIndicateur({ statut }: { statut: 'ok' | 'warning' | 'urgent' }) {
   const map = {
-    ok: { color: '#22C55E', label: 'OK' },
-    warning: { color: '#CA8A04', label: '!' },
-    urgent: { color: '#EF4444', label: '!!' },
+    ok: { color: 'var(--success)', label: 'OK' },
+    warning: { color: 'var(--warning)', label: '!' },
+    urgent: { color: 'var(--destructive)', label: '!!' },
   }
   const c = map[statut]
   return (
@@ -1465,7 +1465,7 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                 <td style={{ padding: '10px 10px' }}><span style={{ color: c.numero_quadrigis ? 'var(--foreground)' : 'var(--muted)', fontSize: 12, fontWeight: c.numero_quadrigis ? 600 : 400 }}>{c.numero_quadrigis || '—'}</span></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                    {c.suisse && <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap' }}>🇨🇭 CH</span>}
+                    {c.suisse && <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: 'var(--destructive)', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap' }}>🇨🇭 CH</span>}
                     <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
                   </div>
                 </td>
@@ -1483,13 +1483,13 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                   {c.remarques ? <div title={c.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{c.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
                 <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(c.mission_terminee)}</span></td>
-                <td style={{ padding: '10px 10px', textAlign: 'center' }}>{c.docs_manquants ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span> : <span style={{ color: '#22C55E', fontSize: 14 }}>✓</span>}</td>
+                <td style={{ padding: '10px 10px', textAlign: 'center' }}>{c.docs_manquants ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span> : <span style={{ color: 'var(--success)', fontSize: 14 }}>✓</span>}</td>
                 <td style={{ padding: '10px 10px', textAlign: 'center' }}><StatutIndicateur statut={statut} /></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={c.couleur || null} onChange={color => onColorChange(c.id, color)} />
                     <button onClick={() => onEdit(c)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-                    <button onClick={() => onDelete(c)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                    <button onClick={() => onDelete(c)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
                 </td>
               </tr>
@@ -1543,7 +1543,7 @@ function AccidentCard({ accident, onEdit, onDelete, onColorChange, onArchive }: 
               )}
               <ColorPicker currentColor={accident.couleur || null} onChange={onColorChange} />
               <button onClick={onEdit} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-              <button onClick={onDelete} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+              <button onClick={onDelete} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
             </div>
           </div>
           {(accident.raison || accident.numero_sinistre || accident.decision || accident.note || accident.remarque) && (
@@ -1701,7 +1701,7 @@ function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: Secr
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={l.couleur || null} onChange={color => onColorChange(l.id, color)} />
                     <button onClick={() => onEdit(l)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-                    <button onClick={() => onDelete(l)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                    <button onClick={() => onDelete(l)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
                 </td>
               </tr>
@@ -1794,7 +1794,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.consimo || '—'}</span></td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
                 {a.termine
-                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
+                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
                   : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
                 }
               </td>
@@ -1809,7 +1809,7 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
                 <div style={{ display: 'flex', gap: 3 }}>
                   <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
                   <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={12} /></button>
-                  <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={12} /></button>
+                  <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={12} /></button>
                 </div>
               </td>
             </tr>
@@ -1891,8 +1891,8 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                   </div>
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
-                <td style={tdStyle}>{a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: '#3B82F6' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
-                <td style={tdStyle}>{a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                <td style={tdStyle}>{a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: 'var(--info)' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                <td style={tdStyle}>{a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: 'var(--success)' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                 <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.annee_periode || '—'}</span></td>
                 <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
                 <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
@@ -1902,7 +1902,7 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'center' }}>
                   {a.statut_termine
-                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
+                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
                     : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
                   }
                 </td>
@@ -1910,7 +1910,7 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={a.couleur || null} onChange={color => onColorChange(a.id, color)} />
                     <button onClick={() => onEdit(a)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-                    <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                    <button onClick={() => onDelete(a)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
                 </td>
               </tr>
@@ -2045,7 +2045,7 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
           <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
             {saving && <Loader2 size={13} />} Créer l'alerte
           </button>
         </div>
@@ -2513,7 +2513,7 @@ function SecretariatPage() {
           >
             <Bell size={16} />
             {notifsNonLues > 0 && (
-              <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#EF4444', color: '#fff', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {notifsNonLues}
               </span>
             )}
@@ -2522,7 +2522,7 @@ function SecretariatPage() {
           {/* Bouton nouvelle entrée */}
           <button
             onClick={() => { setEditItem(null); setShowForm(true) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
           >
             <Plus size={15} /> Nouvelle entrée
           </button>
@@ -2538,9 +2538,9 @@ function SecretariatPage() {
         const msgNonLues = messageNotifs.filter(n => !n.lue).length
 
         const ICON_MAP: Record<string, React.ReactNode> = {
-          permis_urgent: <AlertTriangle size={13} color="#EF4444" />,
+          permis_urgent: <AlertTriangle size={13} color="var(--destructive)" />,
           permis_surveillance: <AlertTriangle size={13} color="#CA8A04" />,
-          doc_manquant: <FileText size={13} color="#3B82F6" />,
+          doc_manquant: <FileText size={13} color="var(--info)" />,
           sinistre_suivi: <AlertCircle size={13} color="#8B5CF6" />,
           message: <Mail size={13} color="var(--primary)" />,
           autre: <AlertTriangle size={13} color="var(--muted)" />,
@@ -2587,7 +2587,7 @@ function SecretariatPage() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', marginBottom: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
                 {notif.titre}
-                {notif.urgence === 'urgente' && !notif.lue && <span style={{ padding: '0 5px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.12)', color: '#EF4444' }}>URGENT</span>}
+                {notif.urgence === 'urgente' && !notif.lue && <span style={{ padding: '0 5px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: 'rgba(239,68,68,0.12)', color: 'var(--destructive)' }}>URGENT</span>}
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>{notif.message}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
@@ -2614,10 +2614,10 @@ function SecretariatPage() {
               <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Bell size={15} color="var(--primary)" />
                 Notifications
-                {notifsNonLues > 0 && <span style={{ padding: '1px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 11, fontWeight: 700 }}>{notifsNonLues} non lues</span>}
+                {notifsNonLues > 0 && <span style={{ padding: '1px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: 'var(--destructive)', fontSize: 11, fontWeight: 700 }}>{notifsNonLues} non lues</span>}
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button onClick={() => setShowAlertModal(true)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--primary)', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button onClick={() => setShowAlertModal(true)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
                   <Plus size={11} /> Ajouter une alerte
                 </button>
                 {notifsNonLues > 0 && (
@@ -2638,7 +2638,7 @@ function SecretariatPage() {
                   <>
                     <div style={{ padding: '8px 16px', background: 'rgba(245,166,35,0.06)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
                       💬 Messages
-                      {msgNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 10, fontWeight: 800 }}>{msgNonLues}</span>}
+                      {msgNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: 'var(--destructive)', fontSize: 10, fontWeight: 800 }}>{msgNonLues}</span>}
                     </div>
                     {messageNotifs.slice(0, 20).map(renderNotif)}
                   </>
@@ -2649,7 +2649,7 @@ function SecretariatPage() {
                   <>
                     <div style={{ padding: '8px 16px', background: 'rgba(99,102,241,0.05)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 800, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
                       ⚡ Alertes automatiques
-                      {autoNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: '#EF4444', fontSize: 10, fontWeight: 800 }}>{autoNonLues}</span>}
+                      {autoNonLues > 0 && <span style={{ padding: '0 5px', borderRadius: 99, background: 'rgba(239,68,68,0.12)', color: 'var(--destructive)', fontSize: 10, fontWeight: 800 }}>{autoNonLues}</span>}
                     </div>
                     {autoNotifs.filter(n => !n.lue).slice(0, 30).map(renderNotif)}
                     {autoNotifs.filter(n => n.lue).length > 0 && (

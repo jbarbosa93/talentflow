@@ -1019,6 +1019,11 @@ body {
     display: none;
   }
 
+  /* Topbar bouton Importer — texte caché en mobile, icône seule */
+  .d-topbar-actions .d-topbar-import-label {
+    display: none;
+  }
+
   /* Page structure */
   .d-page { padding: 16px; }
   .d-page-title { font-size: 20px; }

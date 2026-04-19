@@ -112,7 +112,7 @@ export default function PendingValidationPanel() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertTriangle size={20} color="#F59E0B" />
+          <AlertTriangle size={20} color="var(--warning)" />
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
             Fichiers en attente de confirmation ({fichiers.length})
           </h3>
@@ -170,7 +170,7 @@ function PendingFichierCard({
         <div style={{ color: 'var(--foreground)' }}>{dbDisplay}</div>
         <div style={{ color: isDifferent ? '#DC2626' : 'var(--foreground)', fontWeight: isDifferent ? 600 : 400 }}>
           {cvDisplay}
-          {isDifferent && <span style={{ marginLeft: 4, fontSize: 10, color: '#DC2626' }}>⚠️</span>}
+          {isDifferent && <span style={{ marginLeft: 4, fontSize: 10, color: 'var(--destructive)' }}>⚠️</span>}
         </div>
       </div>
     )
@@ -188,7 +188,7 @@ function PendingFichierCard({
             📄 {fichier.nom_fichier}
           </div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-            Score de confiance : <strong style={{ color: '#F59E0B' }}>{fichier.match_suspect_score}/16</strong> ·{' '}
+            Score de confiance : <strong style={{ color: 'var(--warning)' }}>{fichier.match_suspect_score}/16</strong> ·{' '}
             {fichier.traite_le ? new Date(fichier.traite_le).toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' }) : ''}
           </div>
         </div>
@@ -242,7 +242,7 @@ function PendingFichierCard({
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-            border: '1.5px solid #22C55E', background: '#DCFCE7', color: '#166534',
+            border: '1.5px solid #22C55E', background: 'var(--success-soft)', color: 'var(--success)',
             cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
           }}
         >
@@ -255,7 +255,7 @@ function PendingFichierCard({
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '8px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-            border: '1.5px solid #F59E0B', background: '#FEF3C7', color: '#92400E',
+            border: '1.5px solid #F59E0B', background: 'var(--warning-soft)', color: 'var(--warning)',
             cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
           }}
         >
