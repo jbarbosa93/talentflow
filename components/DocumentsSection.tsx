@@ -25,29 +25,29 @@ interface DocumentsPanelProps {
 type CategoryKey = 'cv' | DocumentType
 
 const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: string; border: string; icon: typeof FileText }[] = [
-  { key: 'cv',                label: 'CV',                    color: 'var(--foreground)', bg: '#F8FAFC', border: '#E2E8F0', icon: FileText },
-  { key: 'certificat',        label: 'Certificats',           color: 'var(--info)', bg: '#EFF6FF', border: '#BFDBFE', icon: Award },
-  { key: 'diplome',           label: 'Dipl\u00f4mes',        color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0', icon: GraduationCap },
-  { key: 'lettre_motivation', label: 'Lettres de motivation', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: Heart },
-  { key: 'formation',         label: 'Formations',            color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A', icon: BookOpen },
-  { key: 'permis',            label: 'Permis',                color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA', icon: Car },
-  { key: 'reference',         label: 'Références',            color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC', icon: Star },
-  { key: 'contrat',           label: 'Contrats',              color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE', icon: FileSignature },
-  { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A', icon: Wallet },
-  { key: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: '#F9FAFB', border: '#E5E7EB', icon: File },
+  { key: 'cv',                label: 'CV',                    color: 'var(--foreground)', bg: 'var(--muted)',           border: 'var(--border)', icon: FileText },
+  { key: 'certificat',        label: 'Certificats',           color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Award },
+  { key: 'diplome',           label: 'Dipl\u00f4mes',         color: 'var(--success)',    bg: 'var(--success-soft)',    border: 'var(--success-soft)', icon: GraduationCap },
+  { key: 'lettre_motivation', label: 'Lettres de motivation', color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Heart },
+  { key: 'formation',         label: 'Formations',            color: 'var(--warning)',    bg: 'var(--warning-soft)',    border: 'var(--warning-soft)', icon: BookOpen },
+  { key: 'permis',            label: 'Permis',                color: 'var(--destructive)',bg: 'var(--destructive-soft)',border: 'var(--destructive-soft)', icon: Car },
+  { key: 'reference',         label: 'Références',            color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Star },
+  { key: 'contrat',           label: 'Contrats',              color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: FileSignature },
+  { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: 'var(--warning)',    bg: 'var(--warning-soft)',    border: 'var(--warning-soft)', icon: Wallet },
+  { key: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--muted)',     border: 'var(--border)', icon: File },
 ]
 
 const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; bg: string; border: string }[] = [
-  { value: 'cv' as any,         label: 'CV',                    color: 'var(--foreground)', bg: '#F8FAFC', border: '#E2E8F0' },
-  { value: 'certificat',        label: 'Certificat',            color: 'var(--info)', bg: '#EFF6FF', border: '#BFDBFE' },
-  { value: 'diplome',           label: 'Dipl\u00f4me',         color: 'var(--success)', bg: '#F0FDF4', border: '#BBF7D0' },
-  { value: 'lettre_motivation', label: 'Lettre de motivation',  color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  { value: 'formation',         label: 'Formation',             color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A' },
-  { value: 'permis',            label: 'Permis',                color: 'var(--destructive)', bg: '#FEF2F2', border: '#FECACA' },
-  { value: 'reference',         label: 'Référence',             color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC' },
-  { value: 'contrat',           label: 'Contrat',               color: '#4338CA', bg: '#EEF2FF', border: '#C7D2FE' },
-  { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: 'var(--warning)', bg: '#FFFBEB', border: '#FDE68A' },
-  { value: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: '#F9FAFB', border: '#E5E7EB' },
+  { value: 'cv' as any,         label: 'CV',                    color: 'var(--foreground)', bg: 'var(--muted)',            border: 'var(--border)' },
+  { value: 'certificat',        label: 'Certificat',            color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
+  { value: 'diplome',           label: 'Dipl\u00f4me',          color: 'var(--success)',    bg: 'var(--success-soft)',     border: 'var(--success-soft)' },
+  { value: 'lettre_motivation', label: 'Lettre de motivation',  color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
+  { value: 'formation',         label: 'Formation',             color: 'var(--warning)',    bg: 'var(--warning-soft)',     border: 'var(--warning-soft)' },
+  { value: 'permis',            label: 'Permis',                color: 'var(--destructive)',bg: 'var(--destructive-soft)', border: 'var(--destructive-soft)' },
+  { value: 'reference',         label: 'Référence',             color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
+  { value: 'contrat',           label: 'Contrat',               color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
+  { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: 'var(--warning)',    bg: 'var(--warning-soft)',     border: 'var(--warning-soft)' },
+  { value: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--muted)',       border: 'var(--border)' },
 ]
 
 const ACCEPTED_FORMATS = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt'

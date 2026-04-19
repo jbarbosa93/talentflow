@@ -1,7 +1,7 @@
 // TalentFlow Version Configuration
 // Convention: MAJOR.MINOR.PATCH (semver)
 
-export const APP_VERSION = '1.9.57'
+export const APP_VERSION = '1.9.58'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -13,6 +13,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.58',
+    date: '2026-04-19',
+    label: 'Fix blanc sur blanc modal Documents dark mode + Speed Insights partout',
+    features: [
+      'DOCUMENTS - DOC_CATEGORIES et UPLOAD_TYPES : bg/border hex hardcodés (#EFF6FF/#F0FDF4/#FEF2F2/etc.) remplacés par tokens var(--info-soft)/var(--success-soft)/var(--warning-soft)/var(--destructive-soft)/var(--muted). Avant : fonds blancs clairs rendaient le texte (foreground clair en dark) illisible "blanc sur blanc".',
+      'SPEED INSIGHTS - <SpeedInsights /> ajouté aussi dans (landing)/layout.tsx et (auth)/layout.tsx (avant v1.9.58 : seulement dashboard). Couverture 100% de l\'app.',
+    ],
+  },
   {
     version: '1.9.57',
     date: '2026-04-19',
