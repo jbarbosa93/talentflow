@@ -10,6 +10,7 @@ export type MatchResult = {
     id: string; nom: string; prenom: string | null; titre_poste: string | null
     localisation: string | null; photo_url: string | null; annees_exp: number
     telephone: string | null; email: string | null
+    cv_url: string | null; cv_nom_fichier: string | null
   }
   score: number
   score_competences: number
@@ -36,7 +37,7 @@ export type MatchHistoryItem = {
   totalAnalyzed: number
   keywords: string[]
   results: Array<{
-    candidat: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string | null; telephone: string | null; email: string | null }
+    candidat: { id: string; nom: string; prenom: string | null; titre_poste: string | null; photo_url: string | null; telephone: string | null; email: string | null; cv_url?: string | null; cv_nom_fichier?: string | null }
     score: number
     recommandation: string
   }>
@@ -204,6 +205,7 @@ async function runAnalysisLoop(offreId: string, isExterne = false) {
                 titre_poste: c.titre_poste, localisation: c.localisation,
                 photo_url: c.photo_url, annees_exp: c.annees_exp,
                 telephone: c.telephone ?? null, email: c.email ?? null,
+                cv_url: c.cv_url ?? null, cv_nom_fichier: c.cv_nom_fichier ?? null,
               },
               ...data.score,
             }
@@ -296,7 +298,7 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
         totalAnalyzed: state.total,
         keywords: state.keywords,
         results: state.results.slice(0, MAX_RESULTS_IN_HISTORY).map(r => ({
-          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url, telephone: r.candidat.telephone ?? null, email: r.candidat.email ?? null },
+          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url, telephone: r.candidat.telephone ?? null, email: r.candidat.email ?? null, cv_url: r.candidat.cv_url ?? null, cv_nom_fichier: r.candidat.cv_nom_fichier ?? null },
           score: r.score,
           recommandation: r.recommandation,
         })),
@@ -358,7 +360,7 @@ export function MatchingProvider({ children }: { children: React.ReactNode }) {
         totalAnalyzed: _doneCount,
         keywords: _keywords,
         results: _results.slice(0, MAX_RESULTS_IN_HISTORY).map(r => ({
-          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url, telephone: r.candidat.telephone ?? null, email: r.candidat.email ?? null },
+          candidat: { id: r.candidat.id, nom: r.candidat.nom, prenom: r.candidat.prenom, titre_poste: r.candidat.titre_poste, photo_url: r.candidat.photo_url, telephone: r.candidat.telephone ?? null, email: r.candidat.email ?? null, cv_url: r.candidat.cv_url ?? null, cv_nom_fichier: r.candidat.cv_nom_fichier ?? null },
           score: r.score,
           recommandation: r.recommandation,
         })),

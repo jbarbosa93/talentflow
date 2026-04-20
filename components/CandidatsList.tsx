@@ -93,39 +93,83 @@ const calculerAge = (dateNaissance: string | null): number | null => {
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
-// ─── Recherche booléenne (ET/AND, OU/OR, SAUF/NOT) ───
+// ─── Recherche booléenne (ET/AND, OU/OR, SAUF/NOT, parenthèses) ───
+// Parser à descente récursive. Priorité : OU < ET/SAUF. Parenthèses pour grouper.
+// `a b` sans opérateur explicite = AND implicite.
+type BoolTok = { type: 'lparen' | 'rparen' | 'or' | 'and' | 'sauf' | 'word'; value?: string }
+
+function tokenizeBoolean(q: string): BoolTok[] {
+  const spaced = q.replace(/\(/g, ' ( ').replace(/\)/g, ' ) ')
+  return spaced.split(/\s+/).filter(Boolean).map<BoolTok>(t => {
+    if (t === '(') return { type: 'lparen' }
+    if (t === ')') return { type: 'rparen' }
+    const u = t.toUpperCase()
+    if (u === 'OU' || u === 'OR') return { type: 'or' }
+    if (u === 'ET' || u === 'AND') return { type: 'and' }
+    if (u === 'SAUF' || u === 'NOT') return { type: 'sauf' }
+    return { type: 'word', value: t }
+  })
+}
+
 function parseBooleanSearch(query: string): ((text: string) => boolean) | null {
   const trimmed = query.trim()
   if (!trimmed) return null
 
-  // Détecter si la requête contient des opérateurs booléens
-  const hasBooleanOps = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(trimmed)
+  const hasBooleanOps = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(trimmed) || /[()]/.test(trimmed)
   if (!hasBooleanOps) return null
 
-  // Séparer par OU/OR d'abord (priorité la plus basse)
-  const orParts = trimmed.split(/\b(?:OU|OR)\b/i).map(s => s.trim()).filter(Boolean)
+  const tokens = tokenizeBoolean(trimmed)
+  if (tokens.length === 0) return null
+  let pos = 0
+  const peek = () => tokens[pos]
+  const eat = () => tokens[pos++]
+  type Matcher = (nt: string) => boolean
 
-  return (text: string) => {
-    const normalizedText = normalize(text)
-    // Au moins un des groupes OU doit matcher
-    return orParts.some(orPart => {
-      // Dans chaque groupe OU, séparer par SAUF/NOT
-      const saufParts = orPart.split(/\b(?:SAUF|NOT)\b/i).map(s => s.trim()).filter(Boolean)
-      const mustInclude = saufParts[0] || ''
-      const mustExclude = saufParts.slice(1)
-
-      // Séparer les termes "must include" par ET/AND
-      const andTerms = mustInclude.split(/\b(?:ET|AND)\b/i).map(s => s.trim()).filter(Boolean)
-
-      // Tous les termes ET doivent être présents
-      const allAndMatch = andTerms.every(term => normalizedText.includes(normalize(term)))
-
-      // Aucun terme SAUF ne doit être présent
-      const noExcluded = mustExclude.every(term => !normalizedText.includes(normalize(term)))
-
-      return allAndMatch && noExcluded
-    })
+  function parseOr(): Matcher {
+    let left = parseAnd()
+    while (peek()?.type === 'or') {
+      eat()
+      const right = parseAnd()
+      const L = left, R = right
+      left = nt => L(nt) || R(nt)
+    }
+    return left
   }
+  function parseAnd(): Matcher {
+    let left: Matcher = parseFactor() ?? (() => true)
+    while (peek() && peek()!.type !== 'or' && peek()!.type !== 'rparen') {
+      const tk = peek()!
+      let negate = false
+      if (tk.type === 'sauf') { eat(); negate = true }
+      else if (tk.type === 'and') { eat() }
+      const next = parseFactor()
+      if (!next) break
+      const L = left, R = next
+      left = negate ? nt => L(nt) && !R(nt) : nt => L(nt) && R(nt)
+    }
+    return left
+  }
+  function parseFactor(): Matcher | null {
+    const tk = peek()
+    if (!tk) return null
+    if (tk.type === 'lparen') {
+      eat()
+      const expr = parseOr()
+      if (peek()?.type === 'rparen') eat()
+      return expr
+    }
+    if (tk.type === 'word') {
+      eat()
+      const w = normalize(tk.value!)
+      return nt => nt.includes(w)
+    }
+    // opérateur isolé : on saute
+    eat()
+    return parseFactor()
+  }
+
+  const matcher = parseOr()
+  return (text: string) => matcher(normalize(text))
 }
 
 const IMPORT_STATUS_OPTS = [
@@ -536,6 +580,7 @@ export default function CandidatsList() {
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
   const [hoveredNoteRect, setHoveredNoteRect] = useState<{ top: number; left: number; right: number } | null>(null)
   const [notePopoverId, setNotePopoverId] = useState<string | null>(null)
+  const [notePopoverRect, setNotePopoverRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
   const [noteText, setNoteText] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -585,11 +630,11 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('page', page) }, [page])
   useEffect(() => { ssSet('perPage', perPage) }, [perPage])
   // Détecter la recherche booléenne
-  const hasBooleanSearch = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(debouncedSearch)
+  const hasBooleanSearch = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(debouncedSearch) || /[()]/.test(debouncedSearch)
   // Fix 5 — pour les requêtes booléennes ET/AND uniquement : extraire les mots et envoyer
   // au serveur comme pré-filtre (la nouvelle RPC fait AND entre mots → résultat identique).
-  // Pour OU/OR/SAUF/NOT : fetch tout côté client (OR serveur n'est pas supporté).
-  const booleanHasOr = /\b(OU|OR|SAUF|NOT)\b/i.test(debouncedSearch)
+  // Pour OU/OR/SAUF/NOT ou parenthèses : fetch tout côté client.
+  const booleanHasOr = /\b(OU|OR|SAUF|NOT)\b/i.test(debouncedSearch) || /[()]/.test(debouncedSearch)
   const booleanServerTerms = hasBooleanSearch && !booleanHasOr
     ? debouncedSearch.replace(/\b(ET|AND)\b/gi, ' ').replace(/\s+/g, ' ').trim()
     : null
@@ -1260,59 +1305,46 @@ export default function CandidatsList() {
           </div>
         </div>
 
-        {/* Étoiles : interactives en à-traiter, lecture seule sinon */}
-        {importStatusFilter === 'a_traiter' ? (
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'flex', gap: 2, flexShrink: 0 }}
-          >
-            {[1, 2, 3, 4, 5].map(star => (
-              <button
-                key={star}
-                onClick={async e => {
-                  e.stopPropagation()
-                  const newRating = c.rating === star ? null : star
-                  queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
-                    old?.candidats
-                      ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, rating: newRating } : x) }
-                      : old
-                  )
-                  queryClient.setQueryData(['candidat', c.id], (old: any) => old ? { ...old, rating: newRating } : old)
-                  try {
-                    await fetch(`/api/candidats/${c.id}`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ rating: newRating }),
-                    })
-                  } catch {
-                    queryClient.invalidateQueries({ queryKey: ['candidats'] })
-                    queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
-                  }
-                }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, flexShrink: 0 }}
-                title={`${star} étoile${star > 1 ? 's' : ''}`}
-              >
-                <Star size={15} color="#EAB308" fill={star <= (c.rating || 0) ? '#EAB308' : 'none'} />
-              </button>
-            ))}
-          </div>
-        ) : (
-          <>
-            {/* Star rating lecture seule */}
-            {c.rating > 0 && (
-              <div className="clist-stars" style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <Star key={star} size={13} color="#EAB308" fill={star <= c.rating ? '#EAB308' : 'none'} />
-                ))}
-              </div>
-            )}
-            {/* Âge (calculé depuis date_naissance) */}
-            {age !== null && (
-              <span className="clist-age" style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
-                {age} ans
-              </span>
-            )}
-          </>
+        {/* Étoiles interactives (tous onglets) */}
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ display: 'flex', gap: 2, flexShrink: 0 }}
+        >
+          {[1, 2, 3, 4, 5].map(star => (
+            <button
+              key={star}
+              onClick={async e => {
+                e.stopPropagation()
+                const newRating = c.rating === star ? null : star
+                queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+                  old?.candidats
+                    ? { ...old, candidats: old.candidats.map((x: any) => x.id === c.id ? { ...x, rating: newRating } : x) }
+                    : old
+                )
+                queryClient.setQueryData(['candidat', c.id], (old: any) => old ? { ...old, rating: newRating } : old)
+                try {
+                  await fetch(`/api/candidats/${c.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating: newRating }),
+                  })
+                } catch {
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                  queryClient.invalidateQueries({ queryKey: ['candidat', c.id] })
+                }
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, flexShrink: 0 }}
+              title={`${star} étoile${star > 1 ? 's' : ''}`}
+            >
+              <Star size={15} color="#EAB308" fill={star <= (c.rating || 0) ? '#EAB308' : 'none'} />
+            </button>
+          ))}
+        </div>
+        {/* Âge (calculé depuis date_naissance) — visible hors a_traiter */}
+        {importStatusFilter !== 'a_traiter' && age !== null && (
+          <span className="clist-age" style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
+            {age} ans
+          </span>
         )}
 
         {/* Bouton CV hover preview */}
@@ -1361,14 +1393,17 @@ export default function CandidatsList() {
           </div>
         )}
 
-        {/* Bouton ajouter note (à-traiter uniquement) */}
-        {importStatusFilter === 'a_traiter' && (
-          <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+        {/* Bouton ajouter note (tous onglets) */}
+        <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <button
               onClick={e => {
                 e.stopPropagation()
-                if (notePopoverId === c.id) { setNotePopoverId(null); setNoteText('') }
-                else { setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50) }
+                if (notePopoverId === c.id) { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null) }
+                else {
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setNotePopoverRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
+                  setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50)
+                }
               }}
               title="Ajouter une note"
               style={{
@@ -1382,17 +1417,28 @@ export default function CandidatsList() {
             >
               <MessageSquare size={13} />
             </button>
-            {notePopoverId === c.id && (() => {
+            {notePopoverId === c.id && notePopoverRect && typeof document !== 'undefined' && (() => {
               const sortedNotes = [...(c.notes_candidat || [])].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              return (
+              const PANEL_W = 268
+              const PANEL_MAX_H = 420
+              const MARGIN = 12
+              const screenW = window.innerWidth
+              const screenH = window.innerHeight
+              const spaceAbove = notePopoverRect.top - MARGIN
+              const spaceBelow = screenH - notePopoverRect.bottom - MARGIN
+              const openUp = spaceAbove >= 220 || spaceAbove > spaceBelow
+              const maxH = Math.min(PANEL_MAX_H, Math.max(180, openUp ? spaceAbove : spaceBelow))
+              const top = openUp ? Math.max(MARGIN, notePopoverRect.top - maxH - 6) : Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
+              const left = Math.max(MARGIN, Math.min(screenW - PANEL_W - MARGIN, notePopoverRect.right - PANEL_W))
+              return createPortal(
               <div
                 onClick={e => e.stopPropagation()}
                 style={{
-                  position: 'absolute', bottom: '100%', right: 0, marginBottom: 6,
+                  position: 'fixed', top, left,
                   background: 'var(--card)', border: '1.5px solid #6366F1',
-                  borderRadius: 10, padding: 10, width: 268, zIndex: 200,
+                  borderRadius: 10, padding: 10, width: PANEL_W, zIndex: 10000,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                  maxHeight: 420, overflowY: 'auto',
+                  maxHeight: maxH, overflowY: 'auto',
                 }}
               >
                 {/* Notes existantes */}
@@ -1475,7 +1521,7 @@ export default function CandidatsList() {
                 />
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 6 }}>
                   <button
-                    onClick={() => { setNotePopoverId(null); setNoteText(''); setEditNoteId(null) }}
+                    onClick={() => { setNotePopoverId(null); setNoteText(''); setEditNoteId(null); setNotePopoverRect(null) }}
                     style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}
                   >Fermer</button>
                   <button
@@ -1489,11 +1535,11 @@ export default function CandidatsList() {
                     }}
                   >{noteSaving ? '…' : 'Ajouter'}</button>
                 </div>
-              </div>
+              </div>,
+              document.body
               )
             })()}
           </div>
-        )}
 
         {/* Badge note avec tooltip hover — jusqu'à 3 notes */}
         {c.notes_candidat && c.notes_candidat.length > 0 && (() => {
@@ -2062,32 +2108,37 @@ export default function CandidatsList() {
                 <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
                   Recherche avancée
                 </div>
-                <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 12px', lineHeight: 1.6 }}>
+                <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>
                   Utilisez des opérateurs pour affiner votre recherche :
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 2 }}>ET / AND</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Les deux termes doivent être présents</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Électricien ET Genève</code>
+                  <div style={{ background: 'var(--success-soft)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--success-soft)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', marginBottom: 3 }}>ET / AND</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginBottom: 5 }}>Les deux termes doivent être présents</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--card)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)' }}>Électricien ET Genève</code>
                   </div>
-                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--info)', marginBottom: 2 }}>OU / OR</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>L&apos;un ou l&apos;autre terme</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Soudeur OU Tuyauteur</code>
+                  <div style={{ background: 'var(--info-soft)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--info-soft)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--info)', marginBottom: 3 }}>OU / OR</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginBottom: 5 }}>L&apos;un ou l&apos;autre terme</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--card)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)' }}>Soudeur OU Tuyauteur</code>
                   </div>
-                  <div style={{ background: 'var(--muted)', borderRadius: 8, padding: '8px 12px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: 2 }}>SAUF / NOT</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)' }}>Exclure un terme</div>
-                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--muted)', padding: '2px 6px', borderRadius: 4 }}>Maçon SAUF intérimaire</code>
+                  <div style={{ background: 'var(--destructive-soft)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--destructive-soft)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--destructive)', marginBottom: 3 }}>SAUF / NOT</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginBottom: 5 }}>Exclure un terme</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--card)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)' }}>Maçon SAUF intérimaire</code>
+                  </div>
+                  <div style={{ background: 'var(--primary-soft)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--primary-soft)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 3 }}>( ) Parenthèses</div>
+                    <div style={{ fontSize: 11, color: 'var(--muted-foreground)', marginBottom: 5 }}>Grouper des termes pour combiner les opérateurs</div>
+                    <code style={{ fontSize: 11, color: 'var(--foreground)', background: 'var(--card)', padding: '3px 7px', borderRadius: 4, border: '1px solid var(--border)' }}>(magasinier OU logisticien) ET bâtiment</code>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowBooleanHelp(false)}
                   style={{
-                    marginTop: 12, width: '100%', padding: '6px', borderRadius: 8,
-                    border: '1px solid var(--border)', background: 'var(--bg)',
-                    fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted)',
+                    marginTop: 12, width: '100%', padding: '7px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--secondary)',
+                    fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: 'var(--foreground)', fontWeight: 600,
                   }}
                 >
                   Fermer

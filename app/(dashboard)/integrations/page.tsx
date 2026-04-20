@@ -745,7 +745,7 @@ function IntegrationsContent() {
                                     {created.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--success-soft)', color: 'var(--success)' }}>+{created.length} créé{created.length > 1 ? 's' : ''}</span>}
                                     {updated.length > 0     && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--info-soft)', color: 'var(--info)' }}>↑{updated.length} mis à jour</span>}
                                     {reactivated.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--warning-soft)', color: 'var(--warning)' }}>↺{reactivated.length} réactivé{reactivated.length > 1 ? 's' : ''}</span>}
-                                    {documents.length > 0   && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--muted)', color: 'var(--muted-foreground)' }}>📎 {documents.length}</span>}
+                                    {documents.length > 0   && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--secondary)', color: 'var(--foreground)', border: '1px solid var(--border)' }}>📎 {documents.length}</span>}
                                     {errors.length > 0      && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 100, background: 'var(--destructive-soft)', color: 'var(--destructive)' }}>✕ {errors.length}</span>}
                                   </div>
                                 </div>
@@ -1022,9 +1022,9 @@ function IntegrationsContent() {
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 6 }}>
                         📎 Documents ajoutés ({docsAttached.length}) :
                       </p>
-                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--muted)', border: '1px solid var(--border)' }}>
+                      <div style={{ maxHeight: 120, overflowY: 'auto', padding: '8px 10px', borderRadius: 8, background: 'var(--secondary)', border: '1px solid var(--border)' }}>
                         {docsAttached.map((name: string, i: number) => (
-                          <div key={i} style={{ fontSize: 12, color: 'var(--muted-foreground)', padding: '2px 0' }}>• {name}</div>
+                          <div key={i} style={{ fontSize: 12, color: 'var(--foreground)', padding: '2px 0' }}>• {name}</div>
                         ))}
                       </div>
                     </div>

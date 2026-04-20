@@ -1,12 +1,13 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown, Globe, ArrowLeft } from 'lucide-react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown, Globe, ArrowLeft, Eye } from 'lucide-react'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useCvHoverPreview, CvHoverPanel, CvHoverTrigger } from '@/components/CvHoverPreview'
 
 // ─── Couleurs par score ───────────────────────────────────────────────────────
 
@@ -104,14 +105,17 @@ function MatchingPageInner() {
 
   const offre = offres?.find(o => o.id === selectedOffre)
 
-  // À l'arrivée sur la page : toujours repartir en mode nouvelle recherche,
-  // SAUF si une analyse est déjà en cours (running/paused) ou si on arrive en mode externe
+  // Hover CV preview (même pattern que CandidatsList / Pipeline)
+  const cvHoverHook = useCvHoverPreview()
+
+  // À l'arrivée sur la page : préserver les résultats terminés (retour depuis fiche candidat).
+  // Restaure l'offre sélectionnée si on arrive avec une analyse 'done'.
   const didInit = useRef(false)
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
-    if (!externeId && matching.phase !== 'running' && matching.phase !== 'paused') {
-      matching.reset()
+    if (!externeId && matching.phase === 'done' && matching.offreId && !matching.isExterne) {
+      setSelectedOffre(matching.offreId)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -477,6 +481,7 @@ function MatchingPageInner() {
               rank={idx + 1}
               selected={selectedIds.has(r.candidat.id)}
               onToggle={() => toggleSelect(r.candidat.id)}
+              cvHoverHook={cvHoverHook}
             />
           ))}
         </div>
@@ -510,15 +515,19 @@ function MatchingPageInner() {
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
       `}</style>
+
+      {/* Hover CV panel portalisé */}
+      <CvHoverPanel hook={cvHoverHook} />
     </div>
   )
 }
 
 // ─── Carte candidat ───────────────────────────────────────────────────────────
 
-function CandidatMatchCard({ result, rank, selected, onToggle }: { result: MatchResult; rank: number; selected: boolean; onToggle: () => void }) {
+function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { result: MatchResult; rank: number; selected: boolean; onToggle: () => void; cvHoverHook: ReturnType<typeof useCvHoverPreview> }) {
   const [photoError, setPhotoError] = useState(false)
   const { candidat, score, score_competences, score_experience, competences_matchees, competences_manquantes, explication } = result
+  const hasCv = !!candidat.cv_url
   const c = scoreColor(score)
   const initiales = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
 
@@ -633,6 +642,28 @@ function CandidatMatchCard({ result, rank, selected, onToggle }: { result: Match
             <span style={{ fontSize: 10, color: c.text, fontWeight: 700 }}>{c.label}</span>
           </div>
 
+          {hasCv && (
+            <CvHoverTrigger
+              cvUrl={candidat.cv_url!}
+              cvNomFichier={candidat.cv_nom_fichier}
+              candidatId={candidat.id}
+              hook={cvHoverHook}
+            >
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '6px 12px', borderRadius: 7,
+                  border: '1px solid rgba(245,167,35,0.35)',
+                  background: 'var(--primary-soft)',
+                  cursor: 'default', fontSize: 12, fontWeight: 700,
+                  color: 'var(--primary)', whiteSpace: 'nowrap',
+                }}
+                title="Survoler pour prévisualiser le CV"
+              >
+                <Eye size={11} /> CV
+              </div>
+            </CvHoverTrigger>
+          )}
           <Link
             href={`/candidats/${candidat.id}?from=matching`}
             onClick={e => e.stopPropagation()}

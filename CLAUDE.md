@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.66 prod** — 20/04/2026
+**1.9.66 prod (pack UX #2)** — 20/04/2026
 
 ---
 
@@ -463,6 +463,26 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Affichage : `CandidatsList.tsx` badge pill top-right position absolute, lit `getRecentlyUpdatedEntry(c.id)` d'abord puis fallback sur `c.onedrive_change_type`. Tooltip "il y a Xmin" (manuel) vs "(OneDrive)" (persistant).
 - **Indépendant du badge rouge per-user** : les 2 peuvent coexister. Badge rouge disparaît quand user ouvre la fiche (`markCandidatVu` upsert candidats_vus). Badge coloré manuel expire après 10 min (TTL), badge coloré OneDrive disparaît quand n'importe quel user ouvre la fiche (clear côté serveur).
 - `api/candidats/route.ts` LIST_COLUMNS inclut `onedrive_change_type` + `onedrive_change_at`.
+
+**24. Recherche booléenne candidats — parser recursive descent (v1.9.66 pack UX #2)**
+- Fichier : `components/CandidatsList.tsx` → `parseBooleanSearch()` + `tokenizeBoolean()`. Grammaire : `or_expr = and_expr ('OU' and_expr)*` / `and_expr = factor ((ET|SAUF|ε) factor)*` / `factor = '(' expr ')' | word`.
+- Supporte : `ET`/`AND`, `OU`/`OR`, `SAUF`/`NOT`, parenthèses `( )`, AND implicite entre mots adjacents. Insensible à la casse + unaccent via `normalize()`.
+- **Trigger** : `hasBooleanSearch = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(q) || /[()]/.test(q)`. Les parenthèses seules déclenchent le mode booléen (même sans opérateur nommé).
+- **OR/SAUF/parenthèses** → `booleanHasOr=true` → `per_page=0` (fetch tout, max 10k) + filtrage JS. **ET seul** → envoyé à la RPC serveur après strip des `ET`/`AND` (la RPC v3 fait AND entre mots → résultat identique).
+- **Champs scannés en booléen client** : `prenom, nom, titre_poste, email, localisation, formation, notes, resume_ia, competences[], tags[]`. **PAS `cv_texte_brut`** (trop lourd pour 10k candidats en mémoire). La recherche classique (sans opérateur) passe par la RPC SQL qui scanne les 14 champs incluant `cv_texte_brut`.
+- Popover "Recherche avancée" (icône Info ⓘ à côté de la barre) : 4 blocs pastel (`--success-soft` / `--info-soft` / `--destructive-soft` / `--primary-soft`), jamais `var(--muted)` comme fond (piège gris-sur-gris en light mode).
+
+**25. Popover note portalisé — calcul espace dynamique (v1.9.66 pack UX #2)**
+- `notePopoverRect` state stocke `getBoundingClientRect()` du bouton au clic. `createPortal(..., document.body)` + `position: fixed`.
+- Calcul : `spaceAbove = rect.top - 12`, `spaceBelow = screenH - rect.bottom - 12`. `openUp` si `spaceAbove >= 220` OU `spaceAbove > spaceBelow`. `maxHeight` clampé à `Math.min(420, Math.max(180, space))`.
+- **Raison** : popover auparavant `position: absolute; bottom: 100%` → clippé par le scroll container quand la card est proche du haut du viewport. Reproductible sur grands écrans avec peu de cards au-dessus.
+- Reset `notePopoverRect` obligatoire aux 3 points de fermeture (toggle bouton, clic Fermer, save implicite non fait — saveNote garde le popover ouvert pour ajouts multiples).
+
+**26. Persistance matching IA après retour fiche candidat (v1.9.66 pack UX #2)**
+- `app/(dashboard)/matching/page.tsx` useEffect au mount : **ne PLUS appeler `matching.reset()` quand phase === 'done'**. Seuls les boutons "Nouvelle analyse" (L344) et "Vider les résultats" (L432) réinitialisent.
+- Restauration : si `phase === 'done' && offreId && !isExterne` → `setSelectedOffre(matching.offreId)` pour afficher les infos de l'offre analysée.
+- `MatchingContext` : déjà persistant via localStorage (`tf_matching_state`) + module-level state. Le problème était uniquement l'auto-reset au mount.
+- Hover CV pattern (matching + historique) : réutilise `useCvHoverPreview` + `CvHoverPanel` + `CvHoverTrigger` de `components/CvHoverPreview.tsx`. FIELDS preselect + `MatchResult.candidat` + `MatchHistoryItem.results` enrichis avec `cv_url` + `cv_nom_fichier`. Les entrées d'historique créées avant v1.9.66 n'ont pas ces champs → pill "CV" masquée, normal.
 
 ---
 

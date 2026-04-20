@@ -1,11 +1,12 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useEffect } from 'react'
-import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, MessageSquare, AlertTriangle } from 'lucide-react'
+import { History, ChevronDown, ChevronUp, ArrowLeft, Sparkles, Trash2, RotateCcw, ArrowRight, Phone, Smartphone, MessageCircle, Mail, X, Users, MessageSquare, AlertTriangle, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { historyLoad, type MatchHistoryItem } from '@/contexts/MatchingContext'
 import { useMatching } from '@/contexts/MatchingContext'
+import { useCvHoverPreview, CvHoverPanel, CvHoverTrigger } from '@/components/CvHoverPreview'
 
 const LS_HISTORY_KEY = 'tf_matching_history'
 
@@ -300,6 +301,7 @@ export default function MatchingHistoriquePage() {
   const [showContact, setShowContact] = useState(false)
   const matching = useMatching()
   const router = useRouter()
+  const cvHoverHook = useCvHoverPreview()
 
   useEffect(() => {
     setHistory(historyLoad())
@@ -499,6 +501,28 @@ export default function MatchingHistoriquePage() {
                           <span style={{ fontSize: 11, fontWeight: 700, color: c.text, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 99, padding: '2px 8px', flexShrink: 0 }}>
                             {c.label}
                           </span>
+                          {r.candidat.cv_url && (
+                            <CvHoverTrigger
+                              cvUrl={r.candidat.cv_url}
+                              cvNomFichier={r.candidat.cv_nom_fichier}
+                              candidatId={r.candidat.id}
+                              hook={cvHoverHook}
+                            >
+                              <div
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 4,
+                                  padding: '4px 9px', borderRadius: 7,
+                                  border: '1px solid rgba(245,167,35,0.35)',
+                                  background: 'var(--primary-soft)',
+                                  cursor: 'default', fontSize: 11, fontWeight: 700,
+                                  color: 'var(--primary)', flexShrink: 0, whiteSpace: 'nowrap',
+                                }}
+                                title="Survoler pour prévisualiser le CV"
+                              >
+                                <Eye size={11} /> CV
+                              </div>
+                            </CvHoverTrigger>
+                          )}
                           <Link
                             href={`/candidats/${r.candidat.id}?from=matching`}
                             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', borderRadius: 7, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
@@ -561,6 +585,9 @@ export default function MatchingHistoriquePage() {
           onClose={() => setShowContact(false)}
         />
       )}
+
+      {/* Hover CV panel portalisé */}
+      <CvHoverPanel hook={cvHoverHook} />
     </div>
   )
 }
