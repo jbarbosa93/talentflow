@@ -20,6 +20,8 @@ export interface CvPreviewData {
   ext: string
   x: number
   y: number
+  /** Hauteur de la card trigger — permet de centrer le popup précisément dessus */
+  h: number
   rotation: number
   panelW: number
 }
@@ -72,7 +74,7 @@ export function CvHoverTrigger({ cvUrl, cvNomFichier, candidatId, children, hook
           const spaceLeft = rect.right - 24
           const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
           const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
-          setPreviewData({ url: cvUrl, ext, x: rect.right, y: rect.top, rotation, panelW })
+          setPreviewData({ url: cvUrl, ext, x: rect.right, y: rect.top, h: rect.height, rotation, panelW })
           setPreviewZoom(initZoom)
           setPreviewVisible(true)
         }, 120)
@@ -106,13 +108,15 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   const spaceLeft = previewData.x - 24
   const goLeft = spaceRight < panelW && spaceLeft > spaceRight
 
-  // v1.9.65 patch 3 — Popup réduit à ~60vh (540px) + centré verticalement sur la card.
-  // Avant (v1.9.65.1 PANEL=720) : sur 900px le clamp range était [16, 164], popup forcé en haut.
-  // Maintenant : PANEL=540 → range [16, 344], popup peut suivre le centre de la card.
-  // cardMidY : approximation du centre vertical de la card (rect.top + ~90).
+  // v1.9.65 patch 4 — Popup compact 440px + alignement top EXACT sur la card.
+  // Bug reproduit par João : le popup restait "sticky haut" malgré les patchs précédents.
+  // Cause : PANEL_MAX_H trop grand → clamp range très petit → popup toujours en haut du viewport.
+  // Fix : PANEL_MAX_H = min(440, 55vh). Sur 900px → clamp range [16, 444], vrai mouvement.
+  // Utilise rect.height de la card (previewData.h) pour centrage PRÉCIS au lieu d'approximer.
   const MARGIN = 16
-  const PANEL_MAX_H = Math.min(540, Math.round(screenH * 0.65))
-  const cardMidY = previewData.y + 90
+  const PANEL_MAX_H = Math.min(440, Math.round(screenH * 0.55))
+  const cardHeight = previewData.h || 120
+  const cardMidY = previewData.y + cardHeight / 2
   const idealTop = cardMidY - PANEL_MAX_H / 2
   const clampedTop = Math.max(MARGIN, Math.min(screenH - PANEL_MAX_H - MARGIN, idealTop))
 

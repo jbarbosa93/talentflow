@@ -42,14 +42,9 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; colo
 
 const TABS = [
   { key: 'all',        label: 'Tous',       types: '' },
-  { key: 'messages',   label: 'Messages',   types: 'email_envoye,whatsapp_envoye,sms_envoye,cv_envoye,email_envoye_masse' },
   { key: 'candidats',  label: 'Candidats',  types: 'candidat_importe,candidat_modifie,candidat_valide,candidat_fusionne,cv_importe,cv_actualise,cv_doublon,metier_assigne,note_changed' },
   { key: 'imports',    label: 'Imports',    types: 'onedrive_sync,cv_importe,cv_actualise,cv_doublon,cv_erreur,candidat_importe' },
-  { key: 'entretiens', label: 'Entretiens', types: 'entretien_planifie' },
-  { key: 'notes',      label: 'Notes',      types: 'note_ajoutee,note_changed' },
-  { key: 'pipeline',   label: 'Pipeline',   types: 'statut_change' },
   { key: 'clients',    label: 'Clients',    types: 'client_contacte' },
-  { key: 'systeme',    label: 'Système',    types: 'connexion,onedrive_sync' },
 ]
 
 /* ─── Relative time in French ─── */
