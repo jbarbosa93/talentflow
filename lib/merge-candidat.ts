@@ -193,9 +193,31 @@ export function mergeCandidat(
     addedItems: {},
   }
 
-  // ─── 1. Champs IMMUABLES — remplir seulement si vide ─────────────────────────
-  const immutable = ['email', 'telephone', 'date_naissance', 'localisation'] as const
-  for (const field of immutable) {
+  // ─── 1a. Champs IMMUABLES ABSOLUS — jamais écrasés (règle métier) ────────────
+  // date_naissance : DDN différente = 2 personnes différentes (homonymes)
+  // → si DB vide, on remplit. Sinon on garde.
+  {
+    const existingVal = existing.date_naissance
+    const newVal = analyse.date_naissance
+    if (!newVal) {
+      report.ignored.push('date_naissance')
+    } else if (isEmpty(existingVal)) {
+      payload.date_naissance = newVal
+      report.filledEmpty.push('date_naissance')
+    } else if (existingVal !== newVal) {
+      report.kept.push('date_naissance')
+    } else {
+      report.ignored.push('date_naissance')
+    }
+  }
+
+  // ─── 1b. Champs COORDONNÉES — écrasés si nouveau CV fournit une valeur ───────
+  // Fix 20/04/2026 (décision João) : email / telephone / localisation doivent
+  // refléter le nouveau CV. L'ancien comportement "IMMUABLES" empêchait de
+  // capturer les vraies mises à jour (candidat change de mail / déménage).
+  // La modale confirm-match affiche déjà les diffs → l'user valide consciemment.
+  // OneDrive sync : CV plus récent sur OneDrive = données plus récentes, écraser.
+  for (const field of ['email', 'telephone', 'localisation'] as const) {
     const existingVal = existing[field]
     const newVal = analyse[field]
     if (!newVal) { report.ignored.push(field); continue }
@@ -203,7 +225,8 @@ export function mergeCandidat(
       ;(payload as any)[field] = newVal
       report.filledEmpty.push(field)
     } else if (existingVal !== newVal) {
-      report.kept.push(field)  // divergence mais on garde l'existant
+      ;(payload as any)[field] = newVal
+      report.replaced.push(field)
     } else {
       report.ignored.push(field)
     }

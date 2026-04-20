@@ -1121,12 +1121,12 @@ export async function POST(request: Request) {
                     genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
                     linkedin: analyse.linkedin || candidatExistant.linkedin,
                     annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
-                    // v1.9.65 — fillIfEmpty pour coords sensibles (aligné cv/parse v1.9.28).
-                    // N'écrase JAMAIS si déjà rempli (évite de polluer la fiche avec un match faible).
-                    // Règle métier : DDN immuable. Email/tel/localisation enrichis seulement si vides.
-                    email:          candidatExistant.email          || analyse.email          || null,
-                    telephone:      candidatExistant.telephone      || analyse.telephone      || null,
-                    localisation:   candidatExistant.localisation   || analyse.localisation   || null,
+                    // Fix 20/04/2026 (décision João) : email/tel/localisation écrasés si le
+                    // nouveau CV fournit une valeur (candidat peut changer de mail / déménager).
+                    // DDN reste IMMUABLE (règle métier absolue : DDN différente = 2 personnes).
+                    email:          analyse.email          || candidatExistant.email          || null,
+                    telephone:      analyse.telephone      || candidatExistant.telephone      || null,
+                    localisation:   analyse.localisation   || candidatExistant.localisation   || null,
                     date_naissance: candidatExistant.date_naissance || analyse.date_naissance || null,
                   }
 
