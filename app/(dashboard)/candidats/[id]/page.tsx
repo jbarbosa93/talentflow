@@ -286,6 +286,8 @@ export default function CandidatDetailPage() {
     if (!id) return
     markCandidatVu(id) // POST /api/candidats/vus {ids:[id]} → upsert candidats_vus pour CE user
     dispatchBadgesChanged() // refresh sidebar count
+    // NEW3 — effacer le badge coloré OneDrive (nouveau/reactive/mis_a_jour) à l'ouverture
+    fetch(`/api/candidats/${id}/clear-onedrive-badge`, { method: 'POST' }).catch(() => {})
   }, [id])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)

@@ -19,6 +19,7 @@ const LIST_COLUMNS = [
   'langues', 'permis_conduire', 'date_naissance',
   'experiences', 'formations_details', 'import_status', 'rating', 'genre',
   'cfc', 'deja_engage', 'last_import_at',
+  'onedrive_change_type', 'onedrive_change_at',
   'pipeline_consultant', 'pipeline_metier',
   'created_at', 'updated_at',
   'notes_candidat(id, contenu, created_at, auteur)',

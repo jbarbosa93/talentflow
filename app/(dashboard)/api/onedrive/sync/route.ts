@@ -925,6 +925,9 @@ export async function POST(request: Request) {
                 ...(!existingSize ? { cv_size_bytes: currentSize } : {}),
                 updated_at: new Date().toISOString(),
                 last_import_at: new Date().toISOString(),
+                // NEW3 — badge coloré persistant jusqu'à ouverture fiche
+                onedrive_change_type: 'reactive',
+                onedrive_change_at: new Date().toISOString(),
               }).eq('id', candidatExistant.id)
               // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
               try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}
@@ -973,6 +976,8 @@ export async function POST(request: Request) {
                   ...(importedIsNewerSafety ? { created_at: fileDate } : {}),
                   updated_at: new Date().toISOString(),
                   last_import_at: new Date().toISOString(),
+                  onedrive_change_type: 'reactive',
+                  onedrive_change_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
                 try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}
@@ -1136,6 +1141,9 @@ export async function POST(request: Request) {
                 created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
                 updated_at: new Date().toISOString(),
                 last_import_at: new Date().toISOString(),
+                // NEW3 — badge bleu "Actualisé" persistant jusqu'à ouverture
+                onedrive_change_type: 'mis_a_jour',
+                onedrive_change_at: new Date().toISOString(),
                 ...(updatedPhotoUrl ? { photo_url: updatedPhotoUrl } : {}),
               }).eq('id', candidatExistant.id)
               // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
@@ -1309,6 +1317,9 @@ export async function POST(request: Request) {
               source: 'ONEDRIVE',
               tags: [],
               created_at: fileDate, // Date de modification du fichier OneDrive
+              // NEW3 — badge vert "Nouveau" persistant jusqu'à ouverture
+              onedrive_change_type: 'nouveau',
+              onedrive_change_at: new Date().toISOString(),
             } as any)
             .select()
             .single()

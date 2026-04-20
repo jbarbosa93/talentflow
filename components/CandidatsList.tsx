@@ -1075,18 +1075,22 @@ export default function CandidatsList() {
             zIndex: 2,
           }} />
         )}
-        {/* Feature B — badge coloré transient (10 min) après import manuel.
+        {/* Badge coloré "nouveau/actualisé/réactivé" :
+            - Import MANUEL (localStorage 10 min) : feedback transient après action user
+            - Import ONEDRIVE (DB onedrive_change_type, persistant jusqu'à ouverture fiche)
             Types : 'nouveau' (vert), 'mis_a_jour' (bleu), 'reactive' (jaune).
-            Indépendant du badge rouge. Feedback visuel à l'importeur.
-            recentlyUpdatedTick force le re-render à chaque changement + tick 60s. */}
+            Priorité : manuel (plus frais) sur OneDrive. */}
         {(() => {
           void recentlyUpdatedTick
-          const entry = getRecentlyUpdatedEntry(c.id)
-          if (!entry) return null
-          const style = getBadgeStyleForType(entry.type)
+          const manuel = getRecentlyUpdatedEntry(c.id)
+          const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
+          const type = manuel?.type ?? onedriveType ?? null
+          if (!type) return null
+          const style = getBadgeStyleForType(type)
+          const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (
             <span
-              title={`${style.label} — ${relativeMinutes(entry.ts)}`}
+              title={`${style.label}${titleExtra}`}
               style={{
                 position: 'absolute', top: 6, right: 6,
                 display: 'inline-flex', alignItems: 'center', gap: 4,
