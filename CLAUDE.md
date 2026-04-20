@@ -90,6 +90,12 @@ Règles consolidées après 2 jours de travail intensif avec João. À appliquer
 - **Téléphone** : toujours avec indicatif pays (+41 79..., +33 6...) si inférable, sinon copier-coller l'extraction du CV
 - **Localisation** : toujours "Ville, Pays" (Monthey, Suisse)
 
+### Règle UPDATE coords (changement 20/04/2026, décision João)
+- **email / telephone / localisation** → ÉCRASÉS par le nouveau CV si valeur non vide (manuel + OneDrive). Avant : IMMUABLES (remplis seulement si vides). Raison : un candidat change de mail / déménage → la fiche doit refléter. Modale confirm-match affiche déjà les diffs → user valide consciemment.
+- **date_naissance** → **IMMUABLE** (règle métier absolue : DDN différente = 2 personnes différentes — homonymes).
+- **genre** → **IMMUABLE** (Claude se trompe souvent sur le genre, normalisation fragile).
+- Implémenté dans `lib/merge-candidat.ts` (sections 1a DDN immuable / 1b coords replaced) + `onedrive/sync` branche classique.
+
 ### Déploiement
 - **TOUJOURS** tester en localhost avant `vercel --prod`
 - **JAMAIS** déployer un fix sans avoir testé le scénario exact qui a causé le bug
@@ -448,6 +454,15 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Visible sur **toutes** les pages du dashboard (pas seulement `/candidats`).
 - Bouton dupliqué retiré de `components/CandidatsList.tsx`.
 - Mobile : classe `.d-topbar-import-label` cache le texte, icône seule reste visible.
+
+**23. Badges colorés changement CV — manuel + OneDrive (v1.9.65, session 20/04/2026)**
+- 3 types avec couleurs sémantiques : 🟢 **Nouveau** (`var(--success)`) / 🟡 **Réactivé** (`var(--warning)`) / 🔵 **Actualisé** (`var(--info)`)
+- 2 sources de données indépendantes, priorité manuel > OneDrive :
+  - **Manuel** (`lib/recently-updated.ts`) : localStorage `tf_recently_updated = { id: { ts, type } }`, TTL 10 min. Rétrocompat legacy format (number → 'mis_a_jour'). Event custom `talentflow:recently-updated-changed` pour re-render. `markRecentlyUpdated(id, type)` appelé dans 4 paths `UploadCV.tsx` (reactivated → 'reactive', doublon_updated → 'mis_a_jour', confirmMatch update → 'mis_a_jour', confirmMatch create → 'nouveau').
+  - **OneDrive** (DB persistant) : colonnes `candidats.onedrive_change_type` (text CHECK IN 'nouveau'|'reactive'|'mis_a_jour') + `onedrive_change_at` (timestamptz) + index partiel. Écrit par `onedrive/sync` aux 4 points (Cas 2 reactivated + safety, Cas 3 update CV, INSERT nouveau). Effacé par `POST /api/candidats/[id]/clear-onedrive-badge` appelé depuis `candidats/[id]/page.tsx` useEffect d'ouverture — efface pour tous users (per-candidat, pas per-user, cohérent "changement vu").
+- Affichage : `CandidatsList.tsx` badge pill top-right position absolute, lit `getRecentlyUpdatedEntry(c.id)` d'abord puis fallback sur `c.onedrive_change_type`. Tooltip "il y a Xmin" (manuel) vs "(OneDrive)" (persistant).
+- **Indépendant du badge rouge per-user** : les 2 peuvent coexister. Badge rouge disparaît quand user ouvre la fiche (`markCandidatVu` upsert candidats_vus). Badge coloré manuel expire après 10 min (TTL), badge coloré OneDrive disparaît quand n'importe quel user ouvre la fiche (clear côté serveur).
+- `api/candidats/route.ts` LIST_COLUMNS inclut `onedrive_change_type` + `onedrive_change_at`.
 
 ---
 
