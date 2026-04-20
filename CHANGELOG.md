@@ -5,6 +5,28 @@ sont regroupés dans la phase à laquelle ils appartiennent.
 
 ---
 
+## [1.9.66] — 20 avril 2026
+
+### Historique unifié messages (iMessage + WhatsApp + SMS + Email)
+- Migration DB : colonne `emails_envoyes.canal` (`CHECK IN email/imessage/whatsapp/sms`, default `email`). Index sur `canal` + `(user_id, created_at)`. Rows existantes = `email`.
+- Nouveau endpoint `POST /api/messages/log` — fire-and-forget depuis le client avant l'ouverture de l'app native. Statut `tentative` (on ne peut pas confirmer l'envoi réel après ouverture app native).
+- `GET /api/emails/history` accepte `?canal=email|imessage|whatsapp|sms` et retourne le canal dans la response.
+- Clients wired :
+  - Fiche candidat `onClick` WhatsApp → log → whatsapp:// navigation.
+  - `/messages` onglet WhatsApp "Ouvrir WhatsApp" → log → whatsapp:// navigation.
+  - `CandidatsList` bulk "Ouvrir Messages" → log chaque destinataire avec corps du message → `sms://` ouverture.
+- UI `/messages` onglet Historique :
+  - Filtre par canal (tabs : Tous / Email / iMessage / WhatsApp / SMS) avec icônes et compteur coloré.
+  - Badge canal sur chaque card (✉️ Email info-soft, 💬 iMessage primary-soft, 📱 WhatsApp success-soft, 📨 SMS warning-soft).
+  - Badge "Tentative" sur les canaux natifs (statut non confirmable).
+
+### Fix rapport d'heures semaine ISO off-by-one
+- `getCurrentWeek` + `getDatesForWeek` : calcul ISO 8601 correct (lundi = début de semaine, W1 contient le jeudi 4 janvier).
+- Avant : le 20-26 avril 2026 était affiché W16 alors que ISO = W17.
+- Aligné avec `lib/missions-etp.ts` `getISOWeek` (dashboard + missions utilisent déjà la bonne valeur).
+
+---
+
 ## [1.9.65] — 20 avril 2026 (20+ bugs en 8 patchs)
 
 ### Multi-select métiers (liste candidats)

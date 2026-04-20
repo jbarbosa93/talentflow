@@ -1505,7 +1505,21 @@ function WhatsAppTab() {
           href={waPhone && message ? waUrl : '#'}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={e => { if (!waPhone || !message) e.preventDefault() }}
+          onClick={e => {
+            if (!waPhone || !message) { e.preventDefault(); return }
+            // v1.9.66 — log fire-and-forget avant l'ouverture de WhatsApp natif
+            fetch('/api/messages/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                candidat_ids: candidatId ? [candidatId] : [],
+                destinataires: [telephone],
+                canal: 'whatsapp',
+                corps: message,
+              }),
+            }).catch(() => { /* silent */ })
+          }}
           style={{ marginLeft: 'auto' }}
         >
           <button
@@ -1837,17 +1851,29 @@ interface HistoriqueCampagne {
   cv_urls_utilises: string[]
   corps_extract: string
   statut: string
+  canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
+}
+
+// v1.9.66 — canaux unifiés dans l'historique
+const CANAL_META: Record<HistoriqueCampagne['canal'], { label: string; icon: string; color: string; bg: string }> = {
+  email:    { label: 'Email',    icon: '✉️', color: 'var(--info)',     bg: 'var(--info-soft)' },
+  imessage: { label: 'iMessage', icon: '💬', color: 'var(--primary)',  bg: 'var(--primary-soft)' },
+  whatsapp: { label: 'WhatsApp', icon: '📱', color: 'var(--success)',  bg: 'var(--success-soft)' },
+  sms:      { label: 'SMS',      icon: '📨', color: 'var(--warning)',  bg: 'var(--warning-soft)' },
 }
 
 function HistoriqueTab() {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  // v1.9.66 — filtre par canal (email/imessage/whatsapp/sms ou '' = tous)
+  const [canalFilter, setCanalFilter] = useState<'' | HistoriqueCampagne['canal']>('')
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['emails-history', search],
+    queryKey: ['emails-history', search, canalFilter],
     queryFn: async () => {
       const url = new URL('/api/emails/history', window.location.origin)
       if (search) url.searchParams.set('search', search)
+      if (canalFilter) url.searchParams.set('canal', canalFilter)
       url.searchParams.set('limit', '100')
       const res = await fetch(url.toString())
       if (!res.ok) return { campagnes: [] as HistoriqueCampagne[] }
@@ -1892,7 +1918,7 @@ function HistoriqueTab() {
   return (
     <div>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
           <input
@@ -1932,6 +1958,35 @@ function HistoriqueTab() {
             Vider
           </button>
         )}
+      </div>
+
+      {/* v1.9.66 — Filtres canal (tabs) */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {([
+          { k: '',         label: 'Tous',     icon: '🗂️' },
+          { k: 'email',    label: 'Email',    icon: '✉️' },
+          { k: 'imessage', label: 'iMessage', icon: '💬' },
+          { k: 'whatsapp', label: 'WhatsApp', icon: '📱' },
+          { k: 'sms',      label: 'SMS',      icon: '📨' },
+        ] as const).map(t => {
+          const active = canalFilter === t.k
+          return (
+            <button
+              key={t.k}
+              onClick={() => setCanalFilter(t.k as any)}
+              style={{
+                padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+                border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
+                background: active ? 'var(--primary-soft)' : 'var(--card)',
+                color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
+                fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <span>{t.icon}</span>{t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* État chargement / vide */}
@@ -2007,12 +2062,30 @@ function HistoriqueTab() {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}>
-                      {c.sujet}
+                    {(() => {
+                      const meta = CANAL_META[c.canal] || CANAL_META.email
+                      return (
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 4,
+                          background: meta.bg, color: meta.color,
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}>
+                          <span>{meta.icon}</span>{meta.label}
+                        </span>
+                      )
+                    })()}
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '55%' }}>
+                      {c.sujet || (c.canal === 'email' ? '(sans sujet)' : `Message ${CANAL_META[c.canal]?.label || ''}`)}
                     </span>
                     {c.cv_personnalise && (
                       <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4, background: 'var(--info)', color: 'var(--destructive-foreground)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         CV personnalisé
+                      </span>
+                    )}
+                    {c.statut === 'tentative' && c.canal !== 'email' && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'var(--secondary)', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                        Tentative
                       </span>
                     )}
                   </div>

@@ -23,6 +23,7 @@ interface CampagneResume {
   cv_urls_utilises: string[]
   corps_extract: string
   statut: string
+  canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
 }
 
 export async function GET(req: Request) {
@@ -32,15 +33,20 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const limit = Math.min(Number(url.searchParams.get('limit') || 50), 200)
   const search = (url.searchParams.get('search') || '').trim().toLowerCase()
+  const canal = (url.searchParams.get('canal') || '').trim() // '' ou email/imessage/whatsapp/sms
 
   const supabase = await createClient()
 
   // Fetch bruts (RLS gère le filtre per-user)
-  const { data: rows, error } = await supabase
+  let query = supabase
     .from('emails_envoyes')
-    .select('id, user_id, campagne_id, candidat_id, candidat_ids, client_id, client_nom, sujet, corps, destinataire, statut, cv_personnalise, cv_urls_utilises, created_at')
+    .select('id, user_id, campagne_id, candidat_id, candidat_ids, client_id, client_nom, sujet, corps, destinataire, statut, cv_personnalise, cv_urls_utilises, created_at, canal')
     .order('created_at', { ascending: false })
-    .limit(limit * 15) // large pour agréger ensuite
+    .limit(limit * 15)
+  if (canal && ['email','imessage','whatsapp','sms'].includes(canal)) {
+    query = query.eq('canal', canal)
+  }
+  const { data: rows, error } = await query
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -81,6 +87,7 @@ export async function GET(req: Request) {
       cv_urls_utilises: first.cv_urls_utilises ?? [],
       corps_extract: (first.corps ?? '').slice(0, 220),
       statut: first.statut ?? 'envoye',
+      canal: (first.canal ?? 'email') as CampagneResume['canal'],
     })
   }
 

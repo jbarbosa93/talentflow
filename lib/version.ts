@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.65'
+export const APP_VERSION = '1.9.66'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.66',
+    date: '2026-04-20',
+    label: 'Historique unifié messages (email + iMessage + WhatsApp + SMS) + fix semaine ISO',
+    features: [
+      'HISTORIQUE UNIFIÉ — /messages onglet Historique inclut désormais email, iMessage, WhatsApp, SMS. Filtre par canal en haut (tabs). Badge canal + icône sur chaque card.',
+      'MIGRATION DB — colonne emails_envoyes.canal (CHECK IN email/imessage/whatsapp/sms, default email). Index sur canal + (user_id, created_at). Rows existantes = "email".',
+      'API /api/messages/log — endpoint POST pour logger iMessage/WhatsApp/SMS avant ouverture de l\'app native. Fire-and-forget côté client, statut "tentative" (on ne peut pas confirmer l\'envoi réel après ouverture).',
+      'LIEN WhatsApp fiche candidat — onClick log le message dans emails_envoyes avant navigation vers whatsapp://',
+      'BOUTON "Ouvrir WhatsApp" dans /messages onglet WhatsApp — log le message avec candidat + destinataire avant navigation.',
+      'BOUTON "Ouvrir Messages" dans CandidatsList (bulk SMS/iMessage) — log chaque destinataire avec le corps du message avant sms:// ouverture.',
+      'FIX rapport d\'heures — calcul semaine ISO 8601 (avant: off-by-one, W16 pour 20-26.04.2026 alors que ISO = W17). Aligné avec lib/missions-etp.ts getISOWeek.',
+    ],
+  },
   {
     version: '1.9.65',
     date: '2026-04-20',

@@ -38,21 +38,27 @@ const NUMERIC_ROWS = ROWS.filter(r => r.type === 'number').map(r => r.key)
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+// v1.9.66 — alignement sur ISO 8601 (lundi = début de semaine, W1 contient le 1er jeudi
+// de l'année = contient le 4 janvier). Avant : off-by-one → W16 pour 20-26.04.2026 alors
+// que ISO = W17. Partage la même définition que lib/missions-etp.ts getISOWeek.
 function getCurrentWeek(): number {
-  const now = new Date()
-  const startOfYear = new Date(now.getFullYear(), 0, 1)
-  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86400000)
-  return Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7)
+  const d = new Date()
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+  const dayNum = utc.getUTCDay() || 7
+  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
+  return Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
 }
 
+// Retourne les 7 dates (Lun → Dim) correspondant à weekNum ISO pour year.
 function getDatesForWeek(weekNum: number, year: number): Date[] {
-  const jan1 = new Date(year, 0, 1)
-  const dayOfWeek = jan1.getDay() // 0=Sunday
-  const daysToFirstMonday = dayOfWeek <= 1 ? 1 - dayOfWeek : 8 - dayOfWeek
-  const firstMonday = new Date(jan1)
-  firstMonday.setDate(jan1.getDate() + daysToFirstMonday)
-  const targetMonday = new Date(firstMonday)
-  targetMonday.setDate(firstMonday.getDate() + (weekNum - 1) * 7)
+  // Jeudi de W1 = 4 janvier, reculer au lundi
+  const jan4 = new Date(year, 0, 4)
+  const jan4Day = jan4.getDay() || 7 // 1=Mon..7=Sun
+  const mondayW1 = new Date(jan4)
+  mondayW1.setDate(jan4.getDate() - (jan4Day - 1))
+  const targetMonday = new Date(mondayW1)
+  targetMonday.setDate(mondayW1.getDate() + (weekNum - 1) * 7)
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(targetMonday)
     d.setDate(targetMonday.getDate() + i)

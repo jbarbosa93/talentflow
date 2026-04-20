@@ -878,6 +878,24 @@ export default function CandidatsList() {
     if (formatted.length === 0) return
     const body = encodeURIComponent(messageText || '')
 
+    // v1.9.66 — log fire-and-forget AVANT ouverture de l'app native.
+    // L'UI ne bloque pas dessus : si le log échoue, l'envoi continue normalement.
+    const selectedCandidats = sorted.filter((c: any) => selectedIds.has(c.id))
+    const avecTelIds = selectedCandidats.filter((c: any) => c.telephone).map((c: any) => c.id)
+    if (avecTelIds.length > 0 && messageText?.trim()) {
+      fetch('/api/messages/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          candidat_ids: avecTelIds,
+          destinataires: formatted,
+          canal: 'imessage',
+          corps: messageText,
+        }),
+      }).catch(() => { /* silent */ })
+    }
+
     // Copier les numéros dans le presse-papier (un par ligne)
     // L'utilisateur colle dans le champ "À :" de iMessage → ajoute tous les destinataires
     await navigator.clipboard.writeText(formatted.join('\n'))
