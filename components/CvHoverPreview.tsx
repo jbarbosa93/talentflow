@@ -109,13 +109,12 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   const spaceLeft = previewData.x - 24
   const goLeft = spaceRight < panelW && spaceLeft > spaceRight
 
-  // v1.9.65 patch 4 — Popup compact 440px + alignement top EXACT sur la card.
-  // Bug reproduit par João : le popup restait "sticky haut" malgré les patchs précédents.
-  // Cause : PANEL_MAX_H trop grand → clamp range très petit → popup toujours en haut du viewport.
-  // Fix : PANEL_MAX_H = min(440, 55vh). Sur 900px → clamp range [16, 444], vrai mouvement.
-  // Utilise rect.height de la card (previewData.h) pour centrage PRÉCIS au lieu d'approximer.
+  // v1.9.65 patch 6 — Popup agrandi 440 → 620 en hauteur (request João).
+  // Maintenant qu'on passe par createPortal (patch 5), on peut laisser le popup plus
+  // haut sans risque de "sticky top" car le clamp est vraiment appliqué au viewport.
+  // 620 / 70vh garde assez de marge de clamp sur tous les écrans ≥ 780px.
   const MARGIN = 16
-  const PANEL_MAX_H = Math.min(440, Math.round(screenH * 0.55))
+  const PANEL_MAX_H = Math.min(620, Math.round(screenH * 0.7))
   const cardHeight = previewData.h || 120
   const cardMidY = previewData.y + cardHeight / 2
   const idealTop = cardMidY - PANEL_MAX_H / 2
