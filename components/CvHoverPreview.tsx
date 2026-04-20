@@ -3,6 +3,7 @@
 // Utilisé dans CandidatsList et Pipeline
 
 import { useRef, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Eye, RotateCw } from 'lucide-react'
 import { CvPreviewCanvas } from './CvPreviewCanvas'
 
@@ -120,7 +121,12 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   const idealTop = cardMidY - PANEL_MAX_H / 2
   const clampedTop = Math.max(MARGIN, Math.min(screenH - PANEL_MAX_H - MARGIN, idealTop))
 
-  return (
+  // v1.9.65 patch 5 — Portal OBLIGATOIRE (CLAUDE.md règle #10).
+  // Sans portal : un parent avec `transform` / `filter` / `will-change` (Framer Motion)
+  // crée un containing block → position:fixed devient relatif au parent, pas au viewport.
+  // Sur pipeline : la grille motion écrase le clamp et le popup reste "sticky en haut".
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       onMouseEnter={() => {
         if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
@@ -232,6 +238,7 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
