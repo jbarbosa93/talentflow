@@ -470,7 +470,7 @@ body {
   gap: 8px;
   height: 42px;
   background: var(--primary);
-  color: var(--ink, #1C1A14);
+  color: var(--primary-foreground);
   border: 2px solid var(--foreground);
   border-radius: 8px;
   padding: 0 20px;
@@ -484,7 +484,7 @@ body {
 }
 .neo-btn-yellow:hover {
   background: var(--primary-hover);
-  color: var(--ink, #1C1A14);
+  color: var(--primary-foreground);
   transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 var(--foreground);
 }

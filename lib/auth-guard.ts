@@ -14,11 +14,7 @@ export async function requireAuth(): Promise<NextResponse | null> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      // Dev bypass (localhost uniquement) — aligné avec le middleware.
-      // Permet de tester les API sans session quand ALLOW_DEV_BYPASS=true.
-      if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_BYPASS === 'true') {
-        return null
-      }
+      // Dev : utiliser localhost:3001/admin pour poser une vraie session (voir app/admin/route.ts)
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
     return null

@@ -290,6 +290,24 @@ function ClientPickerModal({
     }, 400)
   }
 
+  // LocalStorage cache persistant — évite de re-géocoder entre sessions
+  const GEOCODE_CACHE_KEY = 'tf_geocode_cache_v1'
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(GEOCODE_CACHE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        coordsCacheRef.current = parsed
+        setCityCoords({ ...parsed })
+      }
+    } catch {}
+  }, [])
+  const persistCache = () => {
+    try {
+      localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(coordsCacheRef.current))
+    } catch {}
+  }
+
   const queueGeocode = useCallback(async (cityKeys: string[]) => {
     for (const key of cityKeys) {
       if (coordsCacheRef.current[key] !== undefined || geocodeQueueRef.current.includes(key)) continue
@@ -297,10 +315,8 @@ function ClientPickerModal({
     }
     if (geocodingRef.current) return
     geocodingRef.current = true
-    while (geocodeQueueRef.current.length > 0) {
-      const key = geocodeQueueRef.current.shift()!
-      if (coordsCacheRef.current[key] !== undefined) continue
-      await new Promise(r => setTimeout(r, 300))
+    const fetchOne = async (key: string) => {
+      if (coordsCacheRef.current[key] !== undefined) return
       try {
         const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(key)}&format=json&limit=1`, { headers: { 'User-Agent': 'TalentFlow/1.0' } })
         const data = await r.json()
@@ -308,8 +324,18 @@ function ClientPickerModal({
       } catch {
         coordsCacheRef.current[key] = null
       }
-      setCityCoords({ ...coordsCacheRef.current })
     }
+    // Batches parallèles de 3 (respecte Nominatim ~1 req/s mais 3× plus rapide qu'avant)
+    // + 150ms entre batches au lieu de 300ms entre chaque item
+    while (geocodeQueueRef.current.length > 0) {
+      const batch = geocodeQueueRef.current.splice(0, 3)
+      await Promise.all(batch.map(fetchOne))
+      setCityCoords({ ...coordsCacheRef.current })
+      if (geocodeQueueRef.current.length > 0) {
+        await new Promise(r => setTimeout(r, 150))
+      }
+    }
+    persistCache()
     geocodingRef.current = false
   }, [])
 
@@ -343,12 +369,15 @@ function ClientPickerModal({
     return hay.includes(q)
   })
 
-  // Trigger geocoding of visible clients when ref location is set
+  // Trigger geocoding des seuls clients visibles (search + secteur filtre appliqués)
+  // Avant : geocodait 500+ clients même si filtre "etancheur" ne laissait que 14 visibles
+  // → sessions localhost qui attendaient plusieurs minutes pour rien.
   useEffect(() => {
     if (!refLoc) return
-    const keys = clients.map(getCityKey).filter(Boolean)
+    const keys = filtered.map(getCityKey).filter(Boolean)
     queueGeocode([...new Set(keys)])
-  }, [refLoc, clients, queueGeocode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refLoc, search, secteurFilter])
 
   const hasEmail = (c: Client) => !!(c.email || (c.contacts || []).some((ct: any) => ct.email))
 
@@ -470,12 +499,12 @@ function ClientPickerModal({
           {/* ── Location / distance filter ───────────────────────── */}
           <div style={{ position: 'relative', marginTop: 8 }}>
             <div style={{ position: 'relative' }}>
-              <MapPin size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: refLoc ? '#F5A623' : 'var(--muted)', pointerEvents: 'none' }} />
+              <MapPin size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: refLoc ? 'var(--primary)' : 'var(--muted)', pointerEvents: 'none' }} />
               <input
                 value={refInput}
                 onChange={e => handleRefInput(e.target.value)}
                 placeholder="Distance depuis... (ville, adresse)"
-                style={{ width: '100%', height: 38, paddingLeft: 32, paddingRight: refLoading ? 36 : refLoc ? 32 : 12, border: `2px solid ${refLoc ? '#F5A623' : 'var(--border)'}`, borderRadius: 10, background: refLoc ? '#FFFBEB' : 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', height: 38, paddingLeft: 32, paddingRight: refLoading ? 36 : refLoc ? 32 : 12, border: `2px solid ${refLoc ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, background: refLoc ? 'var(--primary-soft)' : 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
               />
               {refLoading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: 'var(--muted)', lineHeight: 1 }}>⏳</span>}
               {refLoc && !refLoading && (
@@ -895,8 +924,12 @@ function EmailTab() {
   const [showClientPicker, setShowClientPicker] = useState(false)
 
   const doSend = async () => {
-    // UN mail PAR destinataire, personnalisé avec son contexte client
+    // UN mail PAR destinataire, personnalisé avec son contexte client.
+    // v1.9.65 : on partage le même campagne_id entre tous les envois d'une session
+    //            → l'historique affiche 1 seule card par campagne (au lieu de N).
     setSending(true)
+    const sessionCampagneId: string = (globalThis as any).crypto?.randomUUID?.()
+      ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
     try {
       let ok = 0
       let fail = 0
@@ -918,6 +951,7 @@ function EmailTab() {
               corps: perCorps,
               use_bcc: false,
               include_signature: includeSignature,
+              campagne_id: sessionCampagneId,
             }),
           })
           if (!res.ok) {
@@ -1047,70 +1081,39 @@ function EmailTab() {
             onChange={handleCandidatChange}
             placeholder="Rechercher des candidats à joindre..."
           />
-          {/* Boutons Personnaliser CV / Joindre CV original par candidat */}
+          {/* Liste candidats compacte — 1 ligne par candidat */}
           {candidatIds.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              {candidatIds.map(id => {
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 1, marginTop: 8,
+              border: '1.5px solid var(--border)', borderRadius: 10,
+              background: 'var(--background)', overflow: 'hidden',
+            }}>
+              {candidatIds.map((id, idx) => {
                 const c = (candidats as any)?.find((cc: any) => cc.id === id)
                 if (!c) return null
                 const isAttached = !!cvAttached[id]
                 const isOriginal = cvAttached[id]?.original === true
+                const isPerso = isAttached && !isOriginal
                 return (
-                  <span key={id} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 0,
-                    borderRadius: 8, overflow: 'hidden',
-                    background: isAttached ? '#D1FAE5' : 'var(--secondary)',
-                    border: isAttached ? '1.5px solid #10B981' : '1.5px solid var(--border)',
-                    transition: 'all 0.2s',
-                  }}>
-                    <button onClick={() => setCvCandidatId(id)} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '6px 12px', border: 'none', background: 'transparent',
-                      fontSize: 12, fontWeight: 600,
-                      color: isAttached && !isOriginal ? '#065F46' : 'var(--foreground)',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                      {isAttached && !isOriginal ? <Check size={12} /> : <Paperclip size={12} />}
-                      {isAttached && !isOriginal ? `CV perso — ${c.prenom} ${c.nom}` : `Personnaliser CV — ${c.prenom} ${c.nom}`}
-                    </button>
-                    {/* Bouton joindre CV original */}
-                    {c.cv_url && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (isOriginal) {
-                            setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
-                          } else {
-                            setCvAttached(prev => ({ ...prev, [id]: { original: true } }))
-                          }
-                        }}
-                        title={isOriginal ? 'CV original joint' : 'Joindre CV original'}
-                        style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          padding: '4px 8px', border: 'none',
-                          background: isOriginal ? '#D1FAE5' : 'transparent',
-                          cursor: 'pointer', color: isOriginal ? '#065F46' : 'var(--muted)',
-                          borderLeft: '1px solid var(--border)',
-                          fontSize: 10, fontWeight: 700, fontFamily: 'inherit',
-                        }}
-                      >
-                        {isOriginal ? '✓ CV Original' : '📄 CV Original'}
-                      </button>
-                    )}
-                    <button onClick={(e) => {
-                      e.stopPropagation()
+                  <CandidateJoinRow
+                    key={id}
+                    candidat={c}
+                    isPerso={isPerso}
+                    isOriginal={isOriginal}
+                    showBorderTop={idx > 0}
+                    onEdit={() => setCvCandidatId(id)}
+                    onToggleOriginal={() => {
+                      if (isOriginal) {
+                        setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
+                      } else {
+                        setCvAttached(prev => ({ ...prev, [id]: { original: true } }))
+                      }
+                    }}
+                    onRemove={() => {
                       setCandidatIds(prev => prev.filter(i => i !== id))
                       setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
-                    }} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 28, height: '100%', border: 'none', background: 'transparent',
-                      cursor: 'pointer', color: isAttached ? '#065F46' : 'var(--muted)',
-                      borderLeft: isAttached ? '1px solid #10B981' : '1px solid var(--border)',
-                      padding: '4px 0',
-                    }}>
-                      <X size={12} />
-                    </button>
-                  </span>
+                    }}
+                  />
                 )
               })}
             </div>
@@ -1855,6 +1858,37 @@ function HistoriqueTab() {
 
   const campagnes = data?.campagnes ?? []
 
+  const deleteAll = async () => {
+    if (!confirm(`Supprimer tout l'historique de ${campagnes.length} envoi${campagnes.length > 1 ? 's' : ''} ? Action irréversible.`)) return
+    try {
+      const res = await fetch('/api/emails/history', { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('Historique vidé')
+      refetch()
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
+  const deleteOne = async (c: HistoriqueCampagne) => {
+    if (!confirm('Supprimer cet envoi de l\'historique ?')) return
+    try {
+      const body = c.campagne_id.startsWith('legacy-')
+        ? { legacy_id: c.campagne_id }
+        : { campagne_id: c.campagne_id }
+      const res = await fetch('/api/emails/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Envoi supprimé')
+      refetch()
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
   return (
     <div>
       {/* Toolbar */}
@@ -1883,6 +1917,21 @@ function HistoriqueTab() {
         >
           Actualiser
         </button>
+        {campagnes.length > 0 && (
+          <button
+            onClick={deleteAll}
+            title="Supprimer tout l'historique"
+            style={{
+              padding: '9px 14px', borderRadius: 10, cursor: 'pointer',
+              background: 'var(--destructive-soft)', border: '1.5px solid var(--destructive-soft)',
+              color: 'var(--destructive)', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Trash2 size={13} />
+            Vider
+          </button>
+        )}
       </div>
 
       {/* État chargement / vide */}
@@ -1916,13 +1965,39 @@ function HistoriqueTab() {
                 border: '1.5px solid var(--border)', borderRadius: 12,
                 background: 'var(--card)', overflow: 'hidden',
                 transition: 'border-color 0.15s',
+                position: 'relative',
               }}
             >
+              {/* Bouton supprimer — croix top-right */}
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
+                title="Supprimer cet envoi"
+                style={{
+                  position: 'absolute', top: 10, right: 10, zIndex: 2,
+                  width: 28, height: 28, borderRadius: 8,
+                  background: 'transparent', border: '1px solid transparent',
+                  color: 'var(--muted-foreground)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--destructive-soft)'
+                  e.currentTarget.style.color = 'var(--destructive)'
+                  e.currentTarget.style.borderColor = 'var(--destructive-soft)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--muted-foreground)'
+                  e.currentTarget.style.borderColor = 'transparent'
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
               {/* Ligne principale */}
               <button
                 onClick={() => setExpanded(isOpen ? null : c.campagne_id)}
                 style={{
-                  width: '100%', padding: '14px 16px', background: 'transparent',
+                  width: '100%', padding: '14px 48px 14px 16px', background: 'transparent',
                   border: 'none', cursor: 'pointer', textAlign: 'left',
                   display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'inherit',
                 }}
@@ -1936,7 +2011,7 @@ function HistoriqueTab() {
                       {c.sujet}
                     </span>
                     {c.cv_personnalise && (
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: 'var(--info-soft)', color: 'var(--info)' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 4, background: 'var(--info)', color: 'var(--destructive-foreground)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         CV personnalisé
                       </span>
                     )}
@@ -1976,7 +2051,8 @@ function HistoriqueTab() {
                             href={`/candidats/${cand.id}?from=messages`}
                             style={{
                               fontSize: 12, padding: '3px 10px', borderRadius: 99,
-                              background: 'var(--primary-soft)', color: 'var(--primary)',
+                              background: 'var(--secondary)', color: 'var(--foreground)',
+                              border: '1px solid var(--border)',
                               textDecoration: 'none', fontWeight: 600,
                             }}
                           >
@@ -1998,7 +2074,8 @@ function HistoriqueTab() {
                           key={d}
                           style={{
                             fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                            background: 'var(--muted)', color: 'var(--foreground)',
+                            background: 'var(--secondary)', color: 'var(--foreground)',
+                            border: '1px solid var(--border)',
                             fontFamily: 'monospace',
                           }}
                         >
@@ -2030,6 +2107,179 @@ function HistoriqueTab() {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   CandidateJoinRow — ligne compacte pour un candidat dans le mailing.
+   Affiche nom + métier + 3 actions (Éditer / CV Original hover / Retirer).
+   Hover preview du CV original via portal (iframe /api/cv/print).
+   ──────────────────────────────────────────────────────────────────────── */
+function CandidateJoinRow({
+  candidat: c,
+  isPerso, isOriginal, showBorderTop,
+  onEdit, onToggleOriginal, onRemove,
+}: {
+  candidat: any
+  isPerso: boolean
+  isOriginal: boolean
+  showBorderTop: boolean
+  onEdit: () => void
+  onToggleOriginal: () => void
+  onRemove: () => void
+}) {
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  const previewTimer = useRef<number | null>(null)
+  const cvOriginalBtnRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => () => {
+    if (previewTimer.current) window.clearTimeout(previewTimer.current)
+  }, [])
+
+  const handleEnter = () => {
+    if (!c.cv_url) return
+    if (previewTimer.current) window.clearTimeout(previewTimer.current)
+    previewTimer.current = window.setTimeout(() => {
+      const btn = cvOriginalBtnRef.current
+      if (!btn) return
+      const rect = btn.getBoundingClientRect()
+      // Positionner à gauche du bouton, verticalement centré sur la fenêtre si possible
+      const previewW = 420
+      const previewH = 560
+      const x = Math.max(12, rect.left - previewW - 12)
+      const y = Math.min(window.innerHeight - previewH - 12, Math.max(12, rect.top - previewH / 2 + rect.height / 2))
+      setPreviewPos({ x, y })
+    }, 250)
+  }
+  const handleLeave = () => {
+    if (previewTimer.current) window.clearTimeout(previewTimer.current)
+    setPreviewPos(null)
+  }
+
+  const badgeColor = isPerso ? 'var(--success)' : isOriginal ? 'var(--info)' : 'var(--muted-foreground)'
+  const rowBg = isPerso ? 'var(--success-soft)' : isOriginal ? 'var(--info-soft)' : 'transparent'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '8px 12px',
+      borderTop: showBorderTop ? '1px solid var(--border)' : 'none',
+      background: rowBg,
+      transition: 'background 0.15s',
+    }}>
+      {/* Nom + métier */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{
+          width: 6, height: 6, borderRadius: '50%', background: badgeColor, flexShrink: 0,
+        }} />
+        <span style={{
+          fontSize: 13, fontWeight: 700, color: 'var(--foreground)',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {c.prenom} {c.nom}
+        </span>
+        {c.titre_poste && (
+          <span style={{
+            fontSize: 11, color: 'var(--muted-foreground)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            — {c.titre_poste}
+          </span>
+        )}
+        {isPerso && (
+          <span style={{
+            fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6,
+            background: 'var(--success)', color: 'var(--destructive-foreground)',
+            textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0,
+          }}>
+            CV perso
+          </span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        <button
+          type="button"
+          onClick={onEdit}
+          title={isPerso ? 'Modifier le CV personnalisé' : 'Personnaliser le CV'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 10px', borderRadius: 8,
+            background: isPerso ? 'var(--success)' : 'var(--card)',
+            color: isPerso ? 'var(--destructive-foreground)' : 'var(--foreground)',
+            border: `1px solid ${isPerso ? 'var(--success)' : 'var(--border)'}`,
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          {isPerso ? <Check size={12} /> : <FileText size={12} />}
+          {isPerso ? 'Personnalisé' : 'Personnaliser'}
+        </button>
+
+        {c.cv_url && (
+          <button
+            ref={cvOriginalBtnRef}
+            type="button"
+            onClick={onToggleOriginal}
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+            title={isOriginal ? 'CV original joint — cliquer pour retirer' : 'Joindre le CV original (survol pour aperçu)'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', borderRadius: 8,
+              background: isOriginal ? 'var(--info)' : 'var(--card)',
+              color: isOriginal ? 'var(--destructive-foreground)' : 'var(--foreground)',
+              border: `1px solid ${isOriginal ? 'var(--info)' : 'var(--border)'}`,
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <Paperclip size={12} />
+            CV original
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={onRemove}
+          title="Retirer ce candidat"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 8,
+            background: 'transparent', color: 'var(--muted-foreground)',
+            border: '1px solid var(--border)', cursor: 'pointer',
+          }}
+        >
+          <X size={12} />
+        </button>
+      </div>
+
+      {/* Hover preview CV original (portal pour sortir du stacking) */}
+      {previewPos && c.cv_url && typeof document !== 'undefined' && createPortal(
+        <div
+          style={{
+            position: 'fixed', left: previewPos.x, top: previewPos.y,
+            width: 420, height: 560, zIndex: 9999,
+            background: 'var(--card)', border: '1.5px solid var(--border)',
+            borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+            overflow: 'hidden', pointerEvents: 'none',
+          }}
+        >
+          <div style={{
+            padding: '6px 10px', borderBottom: '1px solid var(--border)',
+            background: 'var(--background)', fontSize: 11, fontWeight: 700,
+            color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Paperclip size={10} />
+            CV original — {c.prenom} {c.nom}
+          </div>
+          <iframe
+            src={`/api/cv/print?url=${encodeURIComponent(c.cv_url)}#zoom=page-width`}
+            style={{ width: '100%', height: 'calc(100% - 28px)', border: 'none' }}
+          />
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

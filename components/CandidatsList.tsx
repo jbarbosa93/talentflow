@@ -572,9 +572,11 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('importStatus', importStatusFilter) }, [importStatusFilter])
 
   // Debounced search pour ne pas spammer l'API
+  // v1.9.65 : 300ms → 150ms. Couplé avec placeholderData=(prev)=>prev dans useCandidats,
+  // la liste ne flicker pas entre deux fetchs → feel quasi-instantané.
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    const timer = setTimeout(() => setDebouncedSearch(search), 150)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -622,6 +624,52 @@ export default function CandidatsList() {
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidatsRaw = candidatsData?.total ?? allCandidats.length
+
+  // v1.9.65 — Prefetch de la page suivante dès que la courante est chargée
+  // → clic "page suivante" = instantané (React Query lit le cache).
+  useEffect(() => {
+    if (clientSideFilter) return
+    const totalPagesDyn = candidatsData?.total_pages || 1
+    if (page >= totalPagesDyn) return
+    const nextFilters = {
+      statut: filtreStatut === 'tous' ? undefined : filtreStatut,
+      import_status: importStatusFilter as ImportStatus,
+      search: booleanServerTerms || (hasBooleanSearch ? undefined : (debouncedSearch || undefined)),
+      page: page + 1,
+      per_page: perPage,
+      sort: sortBy,
+      genre: filterGenre || undefined,
+      langue: filterLangue || undefined,
+      permis: filterPermis,
+      lieu: filterLieu || undefined,
+      metier: filterMetier || undefined,
+      cfc: filterCfc === true ? 'true' as const : undefined,
+      engage: filterEngage === true ? 'true' as const : undefined,
+    }
+    queryClient.prefetchQuery({
+      queryKey: ['candidats', nextFilters],
+      queryFn: async () => {
+        const params = new URLSearchParams()
+        Object.entries(nextFilters).forEach(([k, v]) => {
+          if (v === undefined || v === null || v === '') return
+          if (typeof v === 'boolean') params.set(k, v ? 'true' : 'false')
+          else params.set(k, String(v))
+        })
+        const res = await fetch(`/api/candidats?${params}`)
+        if (!res.ok) throw new Error('Erreur chargement candidats')
+        const data = await res.json()
+        return {
+          candidats: data.candidats || [],
+          total: data.total ?? 0,
+          page: data.page || 1,
+          per_page: data.per_page || 20,
+          total_pages: data.total_pages || 1,
+        }
+      },
+      staleTime: 30_000,
+    })
+  }, [page, candidatsData?.total_pages, clientSideFilter, debouncedSearch, filtreStatut, importStatusFilter, perPage, sortBy, filterGenre, filterLangue, filterPermis, filterLieu, filterMetier, filterCfc, filterEngage, hasBooleanSearch, booleanServerTerms, queryClient])
+
   const deleteBulk   = useDeleteCandidatsBulk()
   const updateStatut = useUpdateStatutCandidat()
   const updateImportStatus = useUpdateImportStatusBulk()
@@ -2199,7 +2247,7 @@ export default function CandidatsList() {
         </button>
 
         {/* Filtres avancés button */}
-        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'white':'var(--text)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'var(--primary-foreground)':'var(--foreground)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
           <SlidersHorizontal size={14} />
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}

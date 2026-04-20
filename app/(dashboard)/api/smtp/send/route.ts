@@ -127,7 +127,10 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail(mailOptions)
 
     // Log — v1.9.60 : campagne_id + user_id + multi-candidats + CV perso/original
-    const campagneId = (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // v1.9.65 : accept body.campagne_id depuis l'UI pour grouper les envois per-destinataire.
+    const campagneId = (typeof body.campagne_id === 'string' && body.campagne_id.trim())
+      ? body.campagne_id.trim()
+      : ((globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
     const cvPersonnalise = Object.values(cvOptions).some((o: any) => o?.includedSections || o?.customContent)
     const cvUrlsUtilises: string[] = attachments
       .filter((a: any) => a?.filename)

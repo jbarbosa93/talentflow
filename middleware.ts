@@ -93,13 +93,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/parametres') ||
     pathname.startsWith('/secretariat')
 
-  // Dev bypass — accès direct sans auth sur localhost UNIQUEMENT si ALLOW_DEV_BYPASS=true dans .env.local
-  // Ne jamais activer en production — Vercel définit NODE_ENV='production' par défaut
-  if (process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_BYPASS === 'true' && isProtectedRoute && !user) {
-    return supabaseResponse
-  }
-
   // Si pas authentifié et sur une route protégée → redirection login
+  // (Dev : utiliser localhost:3001/admin pour poser une vraie session — voir app/admin/route.ts)
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

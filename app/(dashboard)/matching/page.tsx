@@ -267,11 +267,13 @@ function MatchingPageInner() {
               disabled={!ready}
               style={{
                 height: 44, padding: '0 28px',
-                background: ready ? 'var(--foreground)' : 'var(--secondary)',
-                color: ready ? 'white' : 'var(--muted)',
-                border: 'none', borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
+                background: ready ? 'var(--primary)' : 'var(--secondary)',
+                color: ready ? 'var(--primary-foreground)' : 'var(--muted)',
+                border: ready ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+                borderRadius: 'var(--radius)', cursor: ready ? 'pointer' : 'not-allowed',
                 fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
                 fontFamily: 'var(--font-body)', transition: 'all 0.15s', whiteSpace: 'nowrap',
+                boxShadow: ready ? '0 2px 6px rgba(0,0,0,0.15)' : 'none',
               }}
             >
               <Sparkles size={16} />Rechercher les meilleurs candidats

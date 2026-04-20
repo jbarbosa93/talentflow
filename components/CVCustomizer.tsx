@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { X, Download, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages, Paperclip, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { X, Download, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages, Paperclip, Plus, Trash2, ChevronUp, ChevronDown, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -21,6 +22,7 @@ interface Candidat {
   experiences?: any[] | null
   formations_details?: any[] | null
   genre?: 'homme' | 'femme' | null
+  cv_url?: string | null
 }
 
 type Civilite = 'Monsieur' | 'Madame' | 'Monsieur/Madame'
@@ -570,12 +572,16 @@ export default function CVCustomizerModal({
             >
               ↻ Réinitialiser
             </button>
+            {/* Aperçu CV original (hover) */}
+            {candidat.cv_url && (
+              <CvOriginalHoverButton cvUrl={candidat.cv_url} label={`${candidat.prenom} ${candidat.nom}`} />
+            )}
             {mode === 'mailing' ? (
               <button onClick={attached ? () => setAttached(false) : handleAttach}
                 className="neo-btn-yellow neo-btn-sm"
                 style={{
-                  background: attached ? '#10B981' : undefined,
-                  color: attached ? '#fff' : undefined,
+                  background: attached ? 'var(--success)' : undefined,
+                  color: attached ? 'var(--destructive-foreground)' : undefined,
                 }}>
                 {attached ? <><Check size={14} /> Joint au mail</> : <><Paperclip size={14} /> Joindre au mail</>}
               </button>
@@ -890,5 +896,87 @@ export default function CVCustomizerModal({
         </div>
       </div>
     </div>
+  )
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   CvOriginalHoverButton — bouton avec aperçu flottant au survol.
+   Affiche une miniature du CV original (iframe /api/cv/print) à côté du
+   bouton quand la souris survole. Cliquer ouvre le CV en plein écran
+   dans un nouvel onglet.
+   ──────────────────────────────────────────────────────────────────────── */
+function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string }) {
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+  const timer = useRef<number | null>(null)
+
+  useEffect(() => () => {
+    if (timer.current) window.clearTimeout(timer.current)
+  }, [])
+
+  const handleEnter = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => {
+      const btn = btnRef.current
+      if (!btn) return
+      const rect = btn.getBoundingClientRect()
+      const previewW = 440
+      const previewH = 600
+      const x = Math.max(12, Math.min(window.innerWidth - previewW - 12, rect.left + rect.width / 2 - previewW / 2))
+      const y = Math.min(window.innerHeight - previewH - 12, rect.bottom + 8)
+      setPreviewPos({ x, y })
+    }, 250)
+  }
+  const handleLeave = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+    setPreviewPos(null)
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => window.open(`/api/cv/print?url=${encodeURIComponent(cvUrl)}`, '_blank')}
+        onMouseEnter={handleEnter}
+        onMouseLeave={handleLeave}
+        title="Voir le CV original (cliquer pour ouvrir)"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          padding: '6px 12px', borderRadius: 8,
+          border: '1.5px solid var(--border)', background: 'var(--card)',
+          color: 'var(--foreground)', fontSize: 12, fontWeight: 700,
+          fontFamily: 'var(--font-body)', cursor: 'pointer',
+        }}
+      >
+        <Eye size={12} />
+        CV original
+      </button>
+      {previewPos && typeof document !== 'undefined' && createPortal(
+        <div
+          style={{
+            position: 'fixed', left: previewPos.x, top: previewPos.y,
+            width: 440, height: 600, zIndex: 99999,
+            background: 'var(--card)', border: '1.5px solid var(--border)',
+            borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
+            overflow: 'hidden', pointerEvents: 'none',
+          }}
+        >
+          <div style={{
+            padding: '6px 10px', borderBottom: '1px solid var(--border)',
+            background: 'var(--background)', fontSize: 11, fontWeight: 700,
+            color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Paperclip size={10} />
+            CV original — {label}
+          </div>
+          <iframe
+            src={`/api/cv/print?url=${encodeURIComponent(cvUrl)}#zoom=page-width`}
+            style={{ width: '100%', height: 'calc(100% - 28px)', border: 'none' }}
+          />
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

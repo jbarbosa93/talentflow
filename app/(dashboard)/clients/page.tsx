@@ -67,7 +67,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 16,
-        padding: 32, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto',
+        padding: 32, width: '100%', maxWidth: 820, maxHeight: '92vh', overflowY: 'auto',
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>

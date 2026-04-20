@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import fs from 'fs'
+import path from 'path'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,16 @@ export async function POST(req: NextRequest) {
     const fB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     const f  = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
+    // Logo L-AGENCE (PNG officiel)
+    let logoPng: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'logo-lagence.png')
+      const logoBytes = fs.readFileSync(logoPath)
+      logoPng = await pdfDoc.embedPng(logoBytes)
+    } catch {
+      logoPng = null
+    }
+
     const K  = rgb(0, 0, 0)          // black
     const W  = rgb(1, 1, 1)          // white
     const DG = rgb(0.35, 0.35, 0.35) // dark gray for sub-labels
@@ -110,20 +122,26 @@ export async function POST(req: NextRequest) {
     const lbX = width - mg - lbW
     const lbY = hTop - hH
     page.drawRectangle({ x: lbX, y: lbY, width: lbW, height: hH, borderColor: K, borderWidth: 1, color: W })
-    page.drawText('L-AGENCE', {
-      x: lbX + 10, y: lbY + 46,
-      size: 16, font: fB, color: K,
-    })
-    page.drawText('Emplois fixes & temporaires', {
-      x: lbX + 10, y: lbY + 33,
-      size: 7, font: f, color: DG,
-    })
+    if (logoPng) {
+      // PNG officiel (inclut "L-AGENCE" + tagline)
+      page.drawImage(logoPng, { x: lbX + 10, y: lbY + 28, width: 120, height: 37 })
+    } else {
+      // Fallback texte si PNG indisponible
+      page.drawText('L-AGENCE', {
+        x: lbX + 10, y: lbY + 46,
+        size: 16, font: fB, color: K,
+      })
+      page.drawText('Emplois fixes & temporaires', {
+        x: lbX + 10, y: lbY + 33,
+        size: 7, font: f, color: DG,
+      })
+    }
     page.drawText('+41 24 552 18 70 \u2014 info@l-agence.ch', {
-      x: lbX + 10, y: lbY + 19,
+      x: lbX + 10, y: lbY + 16,
       size: 7, font: f, color: DG,
     })
     page.drawText('Av. des Alpes 3 \u2013 1870 Monthey', {
-      x: lbX + 10, y: lbY + 8,
+      x: lbX + 10, y: lbY + 5,
       size: 7, font: f, color: DG,
     })
 

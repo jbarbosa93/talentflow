@@ -3,7 +3,7 @@
   "version": "0.25.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001 --webpack",
+    "dev": "NODE_OPTIONS='--max-http-header-size=65536' next dev --port 3001 --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

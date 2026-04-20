@@ -950,7 +950,7 @@ export default function CandidatDetailPage() {
               <div style={{ position: 'relative' }}>
                 {(candidat.photo_url && candidat.photo_url !== 'checked')
                   ? <Image src={candidat.photo_url} width={140} height={140} style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} alt="Photo candidat" unoptimized />
-                  : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: 'var(--muted)', color: 'var(--muted-foreground)', boxShadow: 'none', border: 'none', borderRadius: 12 }}>{initiales}</div>
+                  : <div className="neo-avatar" style={{ width: 140, height: 140, fontSize: 36, flexShrink: 0, background: 'var(--secondary)', color: 'var(--foreground)', boxShadow: 'none', border: '1.5px solid var(--border)', borderRadius: 12 }}>{initiales}</div>
                 }
                 {photoUploading && (
                   <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

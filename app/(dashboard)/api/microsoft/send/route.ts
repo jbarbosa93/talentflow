@@ -168,7 +168,11 @@ export async function POST(request: NextRequest) {
 
     // Log sent emails — un log par destinataire, regroupés par campagne_id
     // v1.9.60 : campagne_id uuid partagé + user_id + candidat_ids[] + client_nom + cv_personnalise + cv_urls_utilises
-    const campagneId = (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // v1.9.65 : accept body.campagne_id pour que l'UI qui boucle destinataire-par-destinataire
+    //            puisse grouper tous les envois d'une même session sous un seul campagne_id.
+    const campagneId = (typeof body.campagne_id === 'string' && body.campagne_id.trim())
+      ? body.campagne_id.trim()
+      : ((globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
     const cvPersonnalise = Object.values(cvOptions).some((o: any) => o?.pdfBase64)
     const cvUrlsUtilises: string[] = []
     if (allCandidatIds.length > 0 && attachCvs) {

@@ -304,7 +304,7 @@ export default function OffresPage() {
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Nouvelle commande</DialogTitle>
           </DialogHeader>
@@ -314,7 +314,7 @@ export default function OffresPage() {
 
       {/* Edit dialog */}
       <Dialog open={!!editOffre} onOpenChange={v => { if (!v) setEditOffre(null) }}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'var(--font-heading)', fontSize: 22 }}>Modifier la commande</DialogTitle>
           </DialogHeader>
@@ -1100,11 +1100,21 @@ function CommandeForm({ initial, onSuccess }: { initial?: Offre; onSuccess: () =
       </div>
       <div>
         <label style={labelStyle}>Description du poste</label>
-        <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={description} onChange={e => setDescription(e.target.value)} placeholder="Description détaillée du poste..." />
+        <textarea
+          style={{ ...inputStyle, minHeight: 160, resize: 'vertical', lineHeight: 1.5 }}
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Description détaillée du poste..."
+        />
       </div>
       <div>
         <label style={labelStyle}><FileText size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: '-1px' }} />Notes internes</label>
-        <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)..." />
+        <textarea
+          style={{ ...inputStyle, minHeight: 120, resize: 'vertical', lineHeight: 1.5 }}
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Notes pour les consultants (tarif horaire, contact client, etc.)..."
+        />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
         <button type="submit" disabled={!titre || isPending} className="neo-btn-yellow">

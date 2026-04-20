@@ -293,7 +293,7 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
   if (typeof window === 'undefined') return null
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+      <div style={{ ...S.card, padding: 28, width: '100%', maxWidth: 900, maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{mission ? 'Modifier' : 'Nouvelle mission'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
@@ -1211,7 +1211,7 @@ export default function MissionsPage() {
             <button key={tab.key} onClick={() => setFiltreStatut(tab.key)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: `1.5px solid ${filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)'}`, background: filtreStatut === tab.key ? (tab.color ? `${tab.color}18` : 'var(--primary-soft)') : 'var(--secondary)', color: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>
               {tab.label}
-              <span style={{ fontSize: 10, fontWeight: 800, background: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)', color: filtreStatut === tab.key ? '#fff' : 'var(--muted)', borderRadius: 99, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{tab.count}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, background: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)', color: filtreStatut === tab.key ? 'var(--primary-foreground)' : 'var(--muted)', borderRadius: 99, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{tab.count}</span>
             </button>
           ))}
         </div>

@@ -276,7 +276,7 @@ function ColumnFilter({ values, selected, onChange }: {
         <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.2)', marginTop: 4, width: 200, maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
           <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
-            <button onClick={() => onChange(null)} style={{ flex: 1, padding: '3px 0', borderRadius: 4, border: 'none', background: allChecked ? 'var(--primary)' : 'var(--secondary)', color: allChecked ? '#fff' : 'var(--muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Tous</button>
+            <button onClick={() => onChange(null)} style={{ flex: 1, padding: '3px 0', borderRadius: 4, border: 'none', background: allChecked ? 'var(--primary)' : 'var(--secondary)', color: allChecked ? 'var(--primary-foreground)' : 'var(--muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Tous</button>
             <button onClick={() => onChange(new Set())} style={{ flex: 1, padding: '3px 0', borderRadius: 4, border: 'none', background: 'var(--secondary)', color: 'var(--muted)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Aucun</button>
           </div>
           <div style={{ overflowY: 'auto', maxHeight: 180, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1607,7 +1607,7 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
   return (
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-        <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? '#fff' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+        <button onClick={() => setSortDir(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')} style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: sortDir ? 'var(--primary)' : 'var(--secondary)', color: sortDir ? 'var(--primary-foreground)' : 'var(--muted)', border: `1.5px solid ${sortDir ? 'var(--primary)' : 'var(--border)'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
           {sortDir === 'asc' ? <ArrowUp size={10} /> : sortDir === 'desc' ? <ArrowDown size={10} /> : <ArrowUpDown size={10} />} Nom
         </button>
         <span style={{ fontSize: 11, color: 'var(--muted)' }}>{displayed.length} cas</span>
@@ -2062,7 +2062,7 @@ function TabBtn({ active, onClick, children, count }: { active: boolean; onClick
     <button onClick={onClick} style={{
       padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
       background: active ? 'var(--primary)' : 'var(--secondary)',
-      color: active ? '#fff' : 'var(--muted)',
+      color: active ? 'var(--primary-foreground)' : 'var(--muted)',
       border: active ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
       transition: 'all 0.15s',
     }}>
@@ -2743,7 +2743,7 @@ function SecretariatPage() {
           <button onClick={() => setAlfaView('suivi')} style={{
             padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
             background: alfaView === 'suivi' ? 'var(--primary)' : 'var(--secondary)',
-            color: alfaView === 'suivi' ? '#fff' : 'var(--muted)',
+            color: alfaView === 'suivi' ? 'var(--primary-foreground)' : 'var(--muted)',
             border: `1.5px solid ${alfaView === 'suivi' ? 'var(--primary)' : 'var(--border)'}`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
@@ -2753,7 +2753,7 @@ function SecretariatPage() {
           <button onClick={() => setAlfaView('apayer')} style={{
             padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
             background: alfaView === 'apayer' ? 'var(--primary)' : 'var(--secondary)',
-            color: alfaView === 'apayer' ? '#fff' : 'var(--muted)',
+            color: alfaView === 'apayer' ? 'var(--primary-foreground)' : 'var(--muted)',
             border: `1.5px solid ${alfaView === 'apayer' ? 'var(--primary)' : 'var(--border)'}`,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
@@ -2787,7 +2787,7 @@ function SecretariatPage() {
               <button key={s} onClick={() => setAccidentStatut(s)} style={{
                 padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 background: accidentStatut === s ? 'var(--primary)' : 'var(--secondary)',
-                color: accidentStatut === s ? '#fff' : 'var(--muted)',
+                color: accidentStatut === s ? 'var(--primary-foreground)' : 'var(--muted)',
                 border: `1.5px solid ${accidentStatut === s ? 'var(--primary)' : 'var(--border)'}`,
               }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
             ))}
@@ -2797,7 +2797,7 @@ function SecretariatPage() {
               <button key={t} onClick={() => setAccidentType(t)} style={{
                 padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 background: accidentType === t ? 'var(--primary)' : 'var(--secondary)',
-                color: accidentType === t ? '#fff' : 'var(--muted)',
+                color: accidentType === t ? 'var(--primary-foreground)' : 'var(--muted)',
                 border: `1.5px solid ${accidentType === t ? 'var(--primary)' : 'var(--border)'}`,
               }}>{t === 'tous' ? 'Tous' : t}</button>
             ))}
@@ -2833,7 +2833,7 @@ function SecretariatPage() {
             <button key={f.key} onClick={() => setCandidatFiltre(f.key)} style={{
               padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
               background: candidatFiltre === f.key ? 'var(--primary)' : 'var(--secondary)',
-              color: candidatFiltre === f.key ? '#fff' : 'var(--muted)',
+              color: candidatFiltre === f.key ? 'var(--primary-foreground)' : 'var(--muted)',
               border: `1.5px solid ${candidatFiltre === f.key ? 'var(--primary)' : 'var(--border)'}`,
             }}>{f.label}</button>
           ))}

@@ -25,7 +25,7 @@ interface DocumentsPanelProps {
 type CategoryKey = 'cv' | DocumentType
 
 const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: string; border: string; icon: typeof FileText }[] = [
-  { key: 'cv',                label: 'CV',                    color: 'var(--foreground)', bg: 'var(--muted)',           border: 'var(--border)', icon: FileText },
+  { key: 'cv',                label: 'CV',                    color: 'var(--primary)',    bg: 'var(--primary-soft)',    border: 'var(--primary-soft)', icon: FileText },
   { key: 'certificat',        label: 'Certificats',           color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Award },
   { key: 'diplome',           label: 'Dipl\u00f4mes',         color: 'var(--success)',    bg: 'var(--success-soft)',    border: 'var(--success-soft)', icon: GraduationCap },
   { key: 'lettre_motivation', label: 'Lettres de motivation', color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Heart },
@@ -34,11 +34,11 @@ const DOC_CATEGORIES: { key: CategoryKey; label: string; color: string; bg: stri
   { key: 'reference',         label: 'Références',            color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: Star },
   { key: 'contrat',           label: 'Contrats',              color: 'var(--info)',       bg: 'var(--info-soft)',       border: 'var(--info-soft)', icon: FileSignature },
   { key: 'bulletin_salaire',  label: 'Bulletins de salaire',  color: 'var(--warning)',    bg: 'var(--warning-soft)',    border: 'var(--warning-soft)', icon: Wallet },
-  { key: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--muted)',     border: 'var(--border)', icon: File },
+  { key: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--secondary)', border: 'var(--border)', icon: File },
 ]
 
 const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; bg: string; border: string }[] = [
-  { value: 'cv' as any,         label: 'CV',                    color: 'var(--foreground)', bg: 'var(--muted)',            border: 'var(--border)' },
+  { value: 'cv' as any,         label: 'CV',                    color: 'var(--primary)',    bg: 'var(--primary-soft)',     border: 'var(--primary-soft)' },
   { value: 'certificat',        label: 'Certificat',            color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
   { value: 'diplome',           label: 'Dipl\u00f4me',          color: 'var(--success)',    bg: 'var(--success-soft)',     border: 'var(--success-soft)' },
   { value: 'lettre_motivation', label: 'Lettre de motivation',  color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
@@ -47,7 +47,7 @@ const UPLOAD_TYPES: { value: DocumentType | 'cv'; label: string; color: string; 
   { value: 'reference',         label: 'Référence',             color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
   { value: 'contrat',           label: 'Contrat',               color: 'var(--info)',       bg: 'var(--info-soft)',        border: 'var(--info-soft)' },
   { value: 'bulletin_salaire',  label: 'Bulletin de salaire',   color: 'var(--warning)',    bg: 'var(--warning-soft)',     border: 'var(--warning-soft)' },
-  { value: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--muted)',       border: 'var(--border)' },
+  { value: 'autre',             label: 'Autre',                 color: 'var(--muted-foreground)', bg: 'var(--secondary)',   border: 'var(--border)' },
 ]
 
 const ACCEPTED_FORMATS = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt'
@@ -713,17 +713,33 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                                         onClick={() => setOpenMoveMenu(null)}
                                         style={{ position: 'fixed', inset: 0, zIndex: 10000 }}
                                       />
+                                      {(() => { return null })()}
                                       <div
                                         onClick={e => e.stopPropagation()}
-                                        style={{
-                                          position: 'fixed',
-                                          top: openMoveMenu.rect.bottom + 4,
-                                          left: Math.min(openMoveMenu.rect.right - 180, window.innerWidth - 190),
-                                          zIndex: 10001,
-                                          background: 'var(--card)', border: '1px solid var(--border)',
-                                          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-                                          padding: '4px 0', minWidth: 180,
-                                        }}
+                                        style={(() => {
+                                          // Flip vers le haut si le dropdown dépasse le bas du viewport.
+                                          // ~40px/item × (1 CV principal + 7 types) + padding ≈ 340px.
+                                          const DROPDOWN_H = 340
+                                          const spaceBelow = window.innerHeight - openMoveMenu.rect.bottom - 12
+                                          const flipUp = spaceBelow < DROPDOWN_H
+                                          const top = flipUp
+                                            ? Math.max(8, openMoveMenu.rect.top - DROPDOWN_H - 4)
+                                            : openMoveMenu.rect.bottom + 4
+                                          const maxHeight = flipUp
+                                            ? Math.max(200, openMoveMenu.rect.top - 12)
+                                            : Math.max(200, window.innerHeight - openMoveMenu.rect.bottom - 16)
+                                          return {
+                                            position: 'fixed' as const,
+                                            top,
+                                            left: Math.min(openMoveMenu.rect.right - 180, window.innerWidth - 190),
+                                            zIndex: 10001,
+                                            background: 'var(--card)', border: '1px solid var(--border)',
+                                            borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                            padding: '4px 0', minWidth: 180,
+                                            maxHeight,
+                                            overflowY: 'auto' as const,
+                                          }
+                                        })()}
                                       >
                                         {!isCvPrincipal && onCvChange && (
                                           <button onClick={() => { handleSetAsCv(realIdx); setOpenMoveMenu(null) }}

@@ -361,7 +361,7 @@ export default function ImportMassePage() {
               <button onClick={() => folderRef.current?.click()} className="neo-btn-yellow" style={{ gap: 6 }}>
                 <FolderOpen size={15} /> Ajouter un dossier
                 {categories.length > 0 && (
-                  <span style={{ background: 'var(--primary)', color: 'white', borderRadius: 100, fontSize: 10, fontWeight: 800, padding: '1px 6px', marginLeft: 2 }}>
+                  <span style={{ background: 'var(--primary)', color: 'var(--primary-foreground)', borderRadius: 100, fontSize: 10, fontWeight: 800, padding: '1px 6px', marginLeft: 2 }}>
                     {categories.length} ajouté{categories.length > 1 ? 's' : ''}
                   </span>
                 )}

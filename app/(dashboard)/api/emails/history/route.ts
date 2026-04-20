@@ -112,3 +112,61 @@ export async function GET(req: Request) {
 
   return NextResponse.json({ campagnes: filtered.slice(0, limit) })
 }
+
+/**
+ * DELETE /api/emails/history
+ *   - Sans body      → purge TOUT l'historique du user courant (RLS per-user).
+ *   - Body { campagne_id } → supprime tous les envois d'une campagne (par user).
+ *   - Body { legacy_id }   → supprime une ligne legacy sans campagne_id.
+ * Retourne { deleted: N }.
+ */
+export async function DELETE(req: Request) {
+  const authError = await requireAuth()
+  if (authError) return authError
+
+  const supabase = await createClient()
+  const { data: userData } = await supabase.auth.getUser()
+  const userId = userData?.user?.id
+  if (!userId) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  let body: any = null
+  try { body = await req.json() } catch { /* no body = delete all */ }
+
+  const campagneId = typeof body?.campagne_id === 'string' ? body.campagne_id.trim() : null
+  const legacyId = typeof body?.legacy_id === 'string' ? body.legacy_id.trim() : null
+
+  // Purge all (user scope)
+  if (!campagneId && !legacyId) {
+    const { error, count } = await supabase
+      .from('emails_envoyes')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ deleted: count ?? 0 })
+  }
+
+  // Delete 1 campagne (all rows with same campagne_id, user scope)
+  if (campagneId) {
+    const { error, count } = await supabase
+      .from('emails_envoyes')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+      .eq('campagne_id', campagneId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ deleted: count ?? 0 })
+  }
+
+  // Delete 1 legacy row (no campagne_id)
+  if (legacyId) {
+    const id = legacyId.replace(/^legacy-/, '')
+    const { error, count } = await supabase
+      .from('emails_envoyes')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+      .eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ deleted: count ?? 0 })
+  }
+
+  return NextResponse.json({ deleted: 0 })
+}

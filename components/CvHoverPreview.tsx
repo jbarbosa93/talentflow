@@ -100,10 +100,21 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   if (!previewData) return null
 
   const screenW = typeof window !== 'undefined' ? window.innerWidth : 1440
+  const screenH = typeof window !== 'undefined' ? window.innerHeight : 900
   const panelW = previewData.panelW ?? 820
   const spaceRight = screenW - previewData.x - 24
   const spaceLeft = previewData.x - 24
   const goLeft = spaceRight < panelW && spaceLeft > spaceRight
+
+  // v1.9.65 — Positionnement vertical aligné sur la card survolée au lieu de top:20/bottom:20.
+  // Avant : le panel couvrait toute la hauteur du viewport et apparaissait toujours en haut
+  // de l'écran, ce qui donnait l'impression d'être "sticky en haut" (bug Pipeline remonté par João).
+  // Maintenant : la hauteur max = 85vh, le top est clampé autour du rect de la card avec un offset
+  // pour garder l'alignement visuel même sur un scroll long.
+  const MARGIN = 20
+  const PANEL_MAX_H = Math.min(860, screenH - MARGIN * 2)
+  const idealTop = previewData.y - 40
+  const clampedTop = Math.max(MARGIN, Math.min(screenH - PANEL_MAX_H - MARGIN, idealTop))
 
   return (
     <div
@@ -117,7 +128,8 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
       }}
       style={{
         position: 'fixed',
-        top: 20, bottom: 20,
+        top: clampedTop,
+        height: PANEL_MAX_H,
         ...(goLeft ? { right: screenW - previewData.x + 12 } : { left: previewData.x + 12 }),
         width: panelW,
         background: 'var(--surface)',
