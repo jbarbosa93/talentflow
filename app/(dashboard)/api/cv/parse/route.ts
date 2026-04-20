@@ -997,7 +997,14 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (mode !== 'reanalyse') {
       updateData.last_import_at = now
     }
-    // Ne jamais toucher created_at en mode update — cela déplacerait le candidat dans la liste
+    // Fix 20/04/2026 — remonter created_at si le CV importé est plus récent que celui en DB.
+    // Aligne avec onedrive/sync L1123 + cv/parse flow INSERT L1170 (règle : created_at = date
+    // de dernière candidature affichée dans la liste). En mode reanalyse on ne touche pas
+    // (re-extraction IA du même CV = pas de nouveau CV).
+    if (mode !== 'reanalyse' && (existing as any)?.created_at && fileDate) {
+      const importedIsNewer = new Date(fileDate).getTime() > new Date((existing as any).created_at as string).getTime()
+      if (importedIsNewer) updateData.created_at = fileDate
+    }
 
     const { data: updated, error: updateError } = await adminClient
       .from('candidats')

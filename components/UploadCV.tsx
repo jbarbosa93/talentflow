@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { dispatchBadgesChanged } from '@/lib/badge-candidats'
+import { markRecentlyUpdated } from '@/lib/recently-updated'
 import ConfirmMatchModal, { type ConfirmMatchPayload, type ConfirmMatchDecision } from './ConfirmMatchModal'
 
 // ---------------------------------------------------------------------------
@@ -241,6 +242,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           if (data.cvUpdated) {
             // CV mis à jour — nouveau principal, ancien archivé
             updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV mis à jour' })
+            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id)
           } else {
             // Document non-CV auto-ajouté
             updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
@@ -262,6 +264,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
           const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
           updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
+          if (data2.candidat?.id) markRecentlyUpdated(data2.candidat.id)
           return { success: true, candidat: data2.candidat }
         }
       }
@@ -328,6 +331,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         queryClient.invalidateQueries({ queryKey: ['candidat', payload.candidat_existant.id] }),
       ])
       dispatchBadgesChanged()
+      // Feature B — badge vert "✓ Actualisé" transient (10 min) pour feedback visuel
+      // à l'importeur, complémentaire au badge rouge per-user qui disparaît s'il ouvre la fiche.
+      if (action === 'update') markRecentlyUpdated(payload.candidat_existant.id)
+      else if (data.candidat?.id) markRecentlyUpdated(data.candidat.id)
       return { success: true, candidat: data.candidat || payload.candidat_existant }
     } catch (err: any) {
       updateFile(idx, { status: 'error', error: err.message || 'Erreur confirmation', confirmPayload: undefined })

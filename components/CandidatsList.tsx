@@ -25,6 +25,7 @@ import type { PipelineEtape, ImportStatus } from '@/types/database'
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
 // Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
 import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, refreshViewedFromDB, hasBadge } from '@/lib/badge-candidats'
+import { isRecentlyUpdated, onRecentlyUpdatedChange, getRecentlyUpdatedMap, relativeMinutes } from '@/lib/recently-updated'
 export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -347,10 +348,19 @@ export default function CandidatsList() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
+  const [recentlyUpdatedTick, setRecentlyUpdatedTick] = useState(0) // re-render badge vert "Actualisé"
   const [isReady, setIsReady]             = useState(false) // masquer non-vus avant ensureInit()
   const [nonVusTotal, setNonVusTotal]     = useState(0) // total non-vus tous pages confondus
   const [nonVusParStatut, setNonVusParStatut] = useState<Record<string, number>>({}) // non-vus par import_status
   const [viewedAllAt, setViewedAllAt]     = useState<string | null>(null) // timestamp "Tout marquer vu"
+
+  // Listener badge vert "✓ Actualisé" — recalcule l'affichage au changement du map
+  // + tick 60s pour auto-expirer visuellement le badge sans reload.
+  useEffect(() => {
+    const unsub = onRecentlyUpdatedChange(() => setRecentlyUpdatedTick(t => t + 1))
+    const interval = setInterval(() => setRecentlyUpdatedTick(t => t + 1), 60_000)
+    return () => { unsub(); clearInterval(interval) }
+  }, [])
 
   // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
   useEffect(() => {
@@ -1065,6 +1075,31 @@ export default function CandidatsList() {
             zIndex: 2,
           }} />
         )}
+        {/* Feature B — badge vert "✓ Actualisé" transient (10 min) après update CV manuel.
+            Indépendant du badge rouge. Sert de feedback visuel à l'importeur.
+            recentlyUpdatedTick force le re-render à chaque changement + tick 60s. */}
+        {(() => {
+          void recentlyUpdatedTick
+          const map = getRecentlyUpdatedMap()
+          const ts = map[c.id]
+          if (!ts) return null
+          return (
+            <span
+              title={`CV actualisé ${relativeMinutes(ts)}`}
+              style={{
+                position: 'absolute', top: 6, right: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 8px', borderRadius: 999,
+                background: 'var(--success-soft)', color: 'var(--success)',
+                fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+                border: '1px solid var(--success)',
+                zIndex: 2, whiteSpace: 'nowrap',
+              }}
+            >
+              ✓ Actualisé
+            </span>
+          )
+        })()}
         {/* Checkbox */}
         <div
           onClick={e => { e.stopPropagation(); toggleSelect(c.id) }}
