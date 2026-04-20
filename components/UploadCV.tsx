@@ -232,6 +232,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           // v1.9.47 — distinguer Cas 2 (reactivated : date mise à jour + badge) du Cas 1 (skipped total)
           if (data.reactivated) {
             updateFile(idx, { status: 'reactivated', candidatNom: nom })
+            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id, 'reactive')
           } else {
             updateFile(idx, { status: 'already_imported', candidatNom: nom })
           }
@@ -242,7 +243,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           if (data.cvUpdated) {
             // CV mis à jour — nouveau principal, ancien archivé
             updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV mis à jour' })
-            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id)
+            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id, 'mis_a_jour')
           } else {
             // Document non-CV auto-ajouté
             updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
@@ -264,7 +265,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
           const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
           updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
-          if (data2.candidat?.id) markRecentlyUpdated(data2.candidat.id)
+          if (data2.candidat?.id) markRecentlyUpdated(data2.candidat.id, 'mis_a_jour')
           return { success: true, candidat: data2.candidat }
         }
       }
@@ -331,10 +332,11 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         queryClient.invalidateQueries({ queryKey: ['candidat', payload.candidat_existant.id] }),
       ])
       dispatchBadgesChanged()
-      // Feature B — badge vert "✓ Actualisé" transient (10 min) pour feedback visuel
-      // à l'importeur, complémentaire au badge rouge per-user qui disparaît s'il ouvre la fiche.
-      if (action === 'update') markRecentlyUpdated(payload.candidat_existant.id)
-      else if (data.candidat?.id) markRecentlyUpdated(data.candidat.id)
+      // Feature B — badge coloré transient (10 min) pour feedback visuel à l'importeur,
+      // complémentaire au badge rouge per-user qui disparaît s'il ouvre la fiche.
+      // Types : 'mis_a_jour' (bleu) pour update, 'nouveau' (vert) pour create.
+      if (action === 'update') markRecentlyUpdated(payload.candidat_existant.id, 'mis_a_jour')
+      else if (data.candidat?.id) markRecentlyUpdated(data.candidat.id, 'nouveau')
       return { success: true, candidat: data.candidat || payload.candidat_existant }
     } catch (err: any) {
       updateFile(idx, { status: 'error', error: err.message || 'Erreur confirmation', confirmPayload: undefined })

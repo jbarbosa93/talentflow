@@ -25,7 +25,7 @@ import type { PipelineEtape, ImportStatus } from '@/types/database'
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
 // Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
 import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, refreshViewedFromDB, hasBadge } from '@/lib/badge-candidats'
-import { isRecentlyUpdated, onRecentlyUpdatedChange, getRecentlyUpdatedMap, relativeMinutes } from '@/lib/recently-updated'
+import { onRecentlyUpdatedChange, getRecentlyUpdatedEntry, relativeMinutes, getBadgeStyleForType } from '@/lib/recently-updated'
 export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -1075,28 +1075,29 @@ export default function CandidatsList() {
             zIndex: 2,
           }} />
         )}
-        {/* Feature B — badge vert "✓ Actualisé" transient (10 min) après update CV manuel.
-            Indépendant du badge rouge. Sert de feedback visuel à l'importeur.
+        {/* Feature B — badge coloré transient (10 min) après import manuel.
+            Types : 'nouveau' (vert), 'mis_a_jour' (bleu), 'reactive' (jaune).
+            Indépendant du badge rouge. Feedback visuel à l'importeur.
             recentlyUpdatedTick force le re-render à chaque changement + tick 60s. */}
         {(() => {
           void recentlyUpdatedTick
-          const map = getRecentlyUpdatedMap()
-          const ts = map[c.id]
-          if (!ts) return null
+          const entry = getRecentlyUpdatedEntry(c.id)
+          if (!entry) return null
+          const style = getBadgeStyleForType(entry.type)
           return (
             <span
-              title={`CV actualisé ${relativeMinutes(ts)}`}
+              title={`${style.label} — ${relativeMinutes(entry.ts)}`}
               style={{
                 position: 'absolute', top: 6, right: 6,
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '2px 8px', borderRadius: 999,
-                background: 'var(--success-soft)', color: 'var(--success)',
+                background: style.bg, color: style.fg,
                 fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
-                border: '1px solid var(--success)',
+                border: `1px solid ${style.border}`,
                 zIndex: 2, whiteSpace: 'nowrap',
               }}
             >
-              ✓ Actualisé
+              {style.label}
             </span>
           )
         })()}

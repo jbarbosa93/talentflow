@@ -867,7 +867,7 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // Récupérer le candidat existant (inclure cv_url pour archivage)
     const { data: existing } = await adminClient
       .from('candidats')
-      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url, documents, cv_url, cv_nom_fichier')
+      .select('nom, prenom, email, telephone, localisation, competences, langues, experiences, formations_details, photo_url, documents, cv_url, cv_nom_fichier, created_at')
       .eq('id', updateId)
       .single()
 
