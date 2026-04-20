@@ -106,13 +106,14 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   const spaceLeft = previewData.x - 24
   const goLeft = spaceRight < panelW && spaceLeft > spaceRight
 
-  // v1.9.65 — Positionnement vertical aligné sur la card survolée au lieu de top:20/bottom:20.
-  // Avant : le panel couvrait quasi toute la hauteur du viewport → top toujours 20 (bug "sticky haut").
-  // v1.9.65.1 — PANEL_MAX_H réduit à 75vh pour laisser une vraie marge de déplacement vertical.
-  // Le popup apparaît juste au-dessus de la card (offset -40px), clampé pour ne pas sortir du viewport.
+  // v1.9.65 patch 3 — Popup réduit à ~60vh (540px) + centré verticalement sur la card.
+  // Avant (v1.9.65.1 PANEL=720) : sur 900px le clamp range était [16, 164], popup forcé en haut.
+  // Maintenant : PANEL=540 → range [16, 344], popup peut suivre le centre de la card.
+  // cardMidY : approximation du centre vertical de la card (rect.top + ~90).
   const MARGIN = 16
-  const PANEL_MAX_H = Math.min(720, Math.round(screenH * 0.75))
-  const idealTop = previewData.y - 40
+  const PANEL_MAX_H = Math.min(540, Math.round(screenH * 0.65))
+  const cardMidY = previewData.y + 90
+  const idealTop = cardMidY - PANEL_MAX_H / 2
   const clampedTop = Math.max(MARGIN, Math.min(screenH - PANEL_MAX_H - MARGIN, idealTop))
 
   return (

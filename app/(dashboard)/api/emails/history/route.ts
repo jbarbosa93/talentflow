@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
 
 export const runtime = 'nodejs'
@@ -135,10 +136,14 @@ export async function DELETE(req: Request) {
   const campagneId = typeof body?.campagne_id === 'string' ? body.campagne_id.trim() : null
   const legacyId = typeof body?.legacy_id === 'string' ? body.legacy_id.trim() : null
 
-  // Purge all — rows du user courant + rows legacy (user_id NULL, visibles à tous en GET)
-  // Sans le OR user_id IS NULL, les vieilles rows pré-v1.9.60 restaient affichées après "Vider".
+  // v1.9.65 patch 3 — Utilise service role pour bypass la RLS DELETE policy qui exige
+  // user_id = auth.uid() STRICT (ne matche pas les legacy NULL). On filtre explicitement
+  // côté requête pour ne jamais toucher les rows d'autres users.
+  const admin = createAdminClient()
+
+  // Purge all — rows du user courant + legacy NULL
   if (!campagneId && !legacyId) {
-    const { error, count } = await supabase
+    const { error, count } = await admin
       .from('emails_envoyes')
       .delete({ count: 'exact' })
       .or(`user_id.eq.${userId},user_id.is.null`)
@@ -148,7 +153,7 @@ export async function DELETE(req: Request) {
 
   // Delete 1 campagne — user courant ou legacy NULL
   if (campagneId) {
-    const { error, count } = await supabase
+    const { error, count } = await admin
       .from('emails_envoyes')
       .delete({ count: 'exact' })
       .eq('campagne_id', campagneId)
@@ -157,10 +162,10 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ deleted: count ?? 0 })
   }
 
-  // Delete 1 legacy row (no campagne_id)
+  // Delete 1 legacy row (id de la row)
   if (legacyId) {
     const id = legacyId.replace(/^legacy-/, '')
-    const { error, count } = await supabase
+    const { error, count } = await admin
       .from('emails_envoyes')
       .delete({ count: 'exact' })
       .eq('id', id)
