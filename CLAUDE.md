@@ -366,6 +366,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **9. "Définir comme CV principal" — nettoyage noms**
 - Lors de la promotion d'un document `[Ancien] X.pdf` ou `[Archive] X.pdf`, strip le préfixe via `replace(/^\[(Ancien|Archive)\]\s*/i, '')`
 - Appliqué sur `cv_nom_fichier` (nom promu) ET `ancienName` (nom archivé)
+- **Archivage [Ancien]** : les 2 routes d'import (`cv/parse` L951 + `onedrive/sync` L1026-1042) doivent préfixer `[Ancien] ${oldName}` lors du push dans `documents[]`. Dédup accepte 3 variantes (URL match, nom brut, nom préfixé) pour éviter les doublons lors de ré-sync.
 
 **10. Modaux / overlays avec `position: fixed`**
 - Tout composant utilisant `position: fixed` (modaux, panels, tooltips, popovers) doit être rendu via `createPortal(jsx, document.body)`
@@ -422,6 +423,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Couplé avec debounce Sidebar `badges-changed` réduit à 500ms (`components/layout/Sidebar.tsx`)
 - Cumul refetchInterval 30s + debounce 3s faisait attendre 10-15s l'apparition du badge après import
 - Règle générale : toute action user qui modifie des candidats doit invalider ces queries explicitement
+- **AWAIT avant dispatch** (fix 20/04/2026) : dans `handleConfirmMatch` de `UploadCV.tsx`, faire `await Promise.all([invalidateQueries(['candidats']), invalidateQueries(['candidat', id])])` AVANT `dispatchBadgesChanged()`. Sans await, le dispatch tire sur l'ancien cache → la sidebar recalcule `hasBadge()` sur stale data → badge rouge invisible malgré DB OK.
 
 **20. Dark mode — tokens sémantiques + classList ('dark') (v1.9.50)**
 - `:root` = LIGHT (défaut), `.dark` = DARK — 2 jeux de variables OKLCH distincts dans `app/globals.css`
