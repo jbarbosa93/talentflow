@@ -109,12 +109,11 @@ export function CvHoverPanel({ hook }: CvHoverPanelProps) {
   const spaceLeft = previewData.x - 24
   const goLeft = spaceRight < panelW && spaceLeft > spaceRight
 
-  // v1.9.65 patch 6 — Popup agrandi 440 → 620 en hauteur (request João).
-  // Maintenant qu'on passe par createPortal (patch 5), on peut laisser le popup plus
-  // haut sans risque de "sticky top" car le clamp est vraiment appliqué au viewport.
-  // 620 / 70vh garde assez de marge de clamp sur tous les écrans ≥ 780px.
+  // v1.9.65 patch 7 — Hauteur 100% dynamique selon l'écran (request João).
+  // Portail actif (patch 5) = clamp réellement appliqué au viewport, plus de sticky.
+  // 80vh avec cap absolu 900px pour écrans ultra-hauts. Min 360px pour écrans très petits.
   const MARGIN = 16
-  const PANEL_MAX_H = Math.min(620, Math.round(screenH * 0.7))
+  const PANEL_MAX_H = Math.max(360, Math.min(900, Math.round(screenH * 0.8)))
   const cardHeight = previewData.h || 120
   const cardMidY = previewData.y + cardHeight / 2
   const idealTop = cardMidY - PANEL_MAX_H / 2

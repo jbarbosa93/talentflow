@@ -2079,10 +2079,32 @@ export default function CandidatsList() {
           </div>
       </div>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Filtre métier — dropdown custom avec couleurs catégorie */}
+        {/* Filtre métier — multi-select checkbox (v1.9.65) */}
         {agenceMetiers.length > 0 && (() => {
           const assigned = new Set(metierCategories.flatMap(c => c.metiers))
           const unassigned = agenceMetiers.filter(m => !assigned.has(m))
+          const selectedMetiers = filtreMetier ? filtreMetier.split(',').map(s => s.trim()).filter(Boolean) : []
+          const metierSet = new Set(selectedMetiers)
+          const toggleMetier = (m: string) => {
+            const next = new Set(metierSet)
+            if (next.has(m)) next.delete(m)
+            else next.add(m)
+            const joined = [...next].join(',')
+            setFiltreMetier(joined)
+            setFilterMetier(joined)
+            setImportStatusFilter('traite')
+          }
+          const clearMetiers = () => {
+            setFiltreMetier(''); setFilterMetier('')
+            setMetierSearch(''); setMetierDropdownOpen(false)
+          }
+          const nSelected = selectedMetiers.length
+          const triggerLabel = nSelected === 0
+            ? 'Tous les métiers'
+            : nSelected === 1
+              ? selectedMetiers[0]
+              : `${nSelected} métiers sélectionnés`
+          const triggerColor = nSelected === 1 ? getColorForMetier(selectedMetiers[0]) : null
           return (
             <div style={{ position: 'relative' }}>
               <button
@@ -2090,16 +2112,16 @@ export default function CandidatsList() {
                 onClick={() => setMetierDropdownOpen(!metierDropdownOpen)}
                 className="neo-input-soft"
                 style={{
-                  height: 38, fontSize: 13, paddingLeft: 10, paddingRight: 28, minWidth: 140,
+                  height: 38, fontSize: 13, paddingLeft: 10, paddingRight: 28, minWidth: 170,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left',
-                  color: filtreMetier ? 'var(--foreground)' : 'var(--muted)', fontWeight: filtreMetier ? 600 : 400,
-                  background: filtreMetier ? getColorForMetier(filtreMetier) + '18' : undefined,
-                  borderColor: filtreMetier ? getColorForMetier(filtreMetier) + '60' : undefined,
+                  color: nSelected > 0 ? 'var(--foreground)' : 'var(--muted)', fontWeight: nSelected > 0 ? 600 : 400,
+                  background: triggerColor ? triggerColor + '18' : (nSelected > 1 ? 'var(--primary-soft)' : undefined),
+                  borderColor: triggerColor ? triggerColor + '60' : (nSelected > 1 ? 'var(--primary)' : undefined),
                 }}
               >
-                {filtreMetier && <span style={{ width: 8, height: 8, borderRadius: '50%', background: getColorForMetier(filtreMetier), flexShrink: 0 }} />}
+                {triggerColor && <span style={{ width: 8, height: 8, borderRadius: '50%', background: triggerColor, flexShrink: 0 }} />}
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {filtreMetier || 'Tous les métiers'}
+                  {triggerLabel}
                 </span>
                 <ChevronDown size={13} style={{ position: 'absolute', right: 8, color: 'var(--muted)' }} />
               </button>
@@ -2109,11 +2131,11 @@ export default function CandidatsList() {
                   style={{
                     position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 100,
                     background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)', width: 280,
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.15)', width: 320,
                   }}
                 >
-                  {/* Barre de recherche */}
-                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                  {/* Barre de recherche + action clear */}
+                  <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 6, alignItems: 'center' }}>
                     <input
                       autoFocus
                       type="text"
@@ -2122,22 +2144,35 @@ export default function CandidatsList() {
                       onChange={e => setMetierSearch(e.target.value)}
                       onClick={e => e.stopPropagation()}
                       style={{
-                        width: '100%', padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)',
+                        flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)',
                         fontSize: 12, background: 'var(--secondary)', color: 'var(--foreground)',
                         outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                       }}
                     />
+                    {nSelected > 0 && (
+                      <button
+                        onClick={clearMetiers}
+                        title="Tout désélectionner"
+                        style={{
+                          padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                          border: '1px solid var(--border)', background: 'var(--card)',
+                          color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                      >
+                        Vider
+                      </button>
+                    )}
                   </div>
-                  <div style={{ maxHeight: 340, overflowY: 'auto', padding: '6px 0' }}>
+                  <div style={{ maxHeight: 400, overflowY: 'auto', padding: '6px 0' }}>
                   <button
-                    onClick={() => { setFiltreMetier(''); setFilterMetier(''); setMetierSearch(''); setMetierDropdownOpen(false) }}
+                    onClick={clearMetiers}
                     style={{
-                      width: '100%', padding: '8px 14px', border: 'none', background: !filtreMetier ? 'var(--surface)' : 'transparent',
-                      cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: !filtreMetier ? 700 : 400,
+                      width: '100%', padding: '8px 14px', border: 'none', background: nSelected === 0 ? 'var(--surface)' : 'transparent',
+                      cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: nSelected === 0 ? 700 : 400,
                       color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6,
                     }}
                   >
-                    {!filtreMetier && <Check size={13} />} Tous les métiers
+                    {nSelected === 0 && <Check size={13} />} Tous les métiers
                   </button>
                   {metierCategories.map(cat => {
                     const catMetiers = cat.metiers.filter(m => agenceMetiers.includes(m) && (metierSearchNorm ? norm(m).includes(metierSearchNorm) : true))
@@ -2148,44 +2183,86 @@ export default function CandidatsList() {
                           <span style={{ width: 7, height: 7, borderRadius: '50%', background: cat.color }} />
                           {cat.name}
                         </div>
-                        {catMetiers.map(m => (
-                          <button
-                            key={m}
-                            onClick={() => { setFiltreMetier(m); setFilterMetier(m); setMetierSearch(''); setImportStatusFilter('traite'); setMetierDropdownOpen(false) }}
-                            style={{
-                              width: '100%', padding: '6px 14px 6px 28px', border: 'none',
-                              background: filtreMetier === m ? cat.color + '15' : 'transparent',
-                              cursor: 'pointer', textAlign: 'left', fontSize: 13,
-                              fontWeight: filtreMetier === m ? 600 : 400,
-                              color: filtreMetier === m ? cat.color : 'var(--foreground)',
-                            }}
-                          >
-                            {m}
-                          </button>
-                        ))}
+                        {catMetiers.map(m => {
+                          const isSelected = metierSet.has(m)
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => toggleMetier(m)}
+                              style={{
+                                width: '100%', padding: '6px 14px 6px 14px', border: 'none',
+                                background: isSelected ? cat.color + '15' : 'transparent',
+                                cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                                fontWeight: isSelected ? 600 : 400,
+                                color: isSelected ? cat.color : 'var(--foreground)',
+                                display: 'flex', alignItems: 'center', gap: 8,
+                              }}
+                            >
+                              <span style={{
+                                width: 15, height: 15, borderRadius: 4, flexShrink: 0,
+                                border: `1.5px solid ${isSelected ? cat.color : 'var(--border)'}`,
+                                background: isSelected ? cat.color : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {isSelected && <Check size={10} color="#fff" strokeWidth={3} />}
+                              </span>
+                              {m}
+                            </button>
+                          )
+                        })}
                       </div>
                     )
                   })}
                   {unassigned.filter(m => metierSearchNorm ? norm(m).includes(metierSearchNorm) : true).length > 0 && (
                     <div>
                       <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Autres</div>
-                      {unassigned.filter(m => metierSearchNorm ? norm(m).includes(metierSearchNorm) : true).map(m => (
-                        <button
-                          key={m}
-                          onClick={() => { setFiltreMetier(m); setFilterMetier(m); setMetierSearch(''); setImportStatusFilter('traite'); setMetierDropdownOpen(false) }}
-                          style={{
-                            width: '100%', padding: '6px 14px 6px 28px', border: 'none',
-                            background: filtreMetier === m ? 'var(--surface)' : 'transparent',
-                            cursor: 'pointer', textAlign: 'left', fontSize: 13,
-                            fontWeight: filtreMetier === m ? 600 : 400, color: 'var(--foreground)',
-                          }}
-                        >
-                          {m}
-                        </button>
-                      ))}
+                      {unassigned.filter(m => metierSearchNorm ? norm(m).includes(metierSearchNorm) : true).map(m => {
+                        const isSelected = metierSet.has(m)
+                        return (
+                          <button
+                            key={m}
+                            onClick={() => toggleMetier(m)}
+                            style={{
+                              width: '100%', padding: '6px 14px 6px 14px', border: 'none',
+                              background: isSelected ? 'var(--primary-soft)' : 'transparent',
+                              cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                              fontWeight: isSelected ? 600 : 400, color: 'var(--foreground)',
+                              display: 'flex', alignItems: 'center', gap: 8,
+                            }}
+                          >
+                            <span style={{
+                              width: 15, height: 15, borderRadius: 4, flexShrink: 0,
+                              border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                              background: isSelected ? 'var(--primary)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {isSelected && <Check size={10} color="var(--primary-foreground)" strokeWidth={3} />}
+                            </span>
+                            {m}
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                   </div>
+                  {/* Footer avec bouton Appliquer / Fermer */}
+                  {nSelected > 0 && (
+                    <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600 }}>
+                        {nSelected} sélectionné{nSelected > 1 ? 's' : ''}
+                      </span>
+                      <button
+                        onClick={() => { setMetierSearch(''); setMetierDropdownOpen(false) }}
+                        style={{
+                          padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                          background: 'var(--primary)', color: 'var(--primary-foreground)',
+                          border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        }}
+                      >
+                        Appliquer
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -46,6 +46,9 @@ export async function GET(request: NextRequest) {
     const permis = searchParams.get('permis') || ''
     const lieu = searchParams.get('lieu') || ''
     const metier = searchParams.get('metier') || ''
+    // v1.9.65 — metier peut être multi (comma-separated) : "sanitaire,aide sanitaire"
+    //           → OR via .overlaps() sur tags. Single value garde .contains() (plus précis).
+    const metierList = metier ? metier.split(',').map(m => m.trim()).filter(Boolean) : []
     const cfc = searchParams.get('cfc') || ''
     const engage = searchParams.get('engage') || ''
     const pipelineOnly = searchParams.get('statut_pipeline') === 'true'
@@ -65,7 +68,8 @@ export async function GET(request: NextRequest) {
     if (permis === 'true') query = query.eq('permis_conduire', true)
     if (permis === 'false') query = query.eq('permis_conduire', false)
     if (lieu) query = query.ilike('localisation', `%${lieu}%` as any)
-    if (metier) query = query.contains('tags', [metier] as any)
+    if (metierList.length === 1) query = query.contains('tags', [metierList[0]] as any)
+    else if (metierList.length > 1) query = query.overlaps('tags', metierList as any)
     if (langue) query = query.contains('langues', [langue] as any)
     if (cfc === 'true') query = query.eq('cfc', true as any)
     if (engage === 'true') query = query.eq('deja_engage', true as any)
@@ -134,7 +138,8 @@ export async function GET(request: NextRequest) {
             if (langue)            bq = (bq as any).contains('langues', [langue])
             if (permis === 'true') bq = (bq as any).eq('permis_conduire', true)
             if (permis === 'false') bq = (bq as any).eq('permis_conduire', false)
-            if (metier)            bq = (bq as any).contains('tags', [metier])
+            if (metierList.length === 1) bq = (bq as any).contains('tags', [metierList[0]])
+            else if (metierList.length > 1) bq = (bq as any).overlaps('tags', metierList)
             if (cfc === 'true')    bq = (bq as any).or('cfc.eq.true,formation.ilike.%CFC%,formation.ilike.%Certificat fédéral de capacité%,formation.ilike.%Certificat federal de capacite%')
             if (engage === 'true') bq = (bq as any).eq('deja_engage', true)
             const { data: batchData } = await bq
