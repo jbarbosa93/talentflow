@@ -910,6 +910,9 @@ function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string 
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const timer = useRef<number | null>(null)
 
+  const PREVIEW_W = 680
+  const PREVIEW_H = 860
+
   useEffect(() => () => {
     if (timer.current) window.clearTimeout(timer.current)
   }, [])
@@ -920,16 +923,28 @@ function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string 
       const btn = btnRef.current
       if (!btn) return
       const rect = btn.getBoundingClientRect()
-      const previewW = 440
-      const previewH = 600
-      const x = Math.max(12, Math.min(window.innerWidth - previewW - 12, rect.left + rect.width / 2 - previewW / 2))
-      const y = Math.min(window.innerHeight - previewH - 12, rect.bottom + 8)
+      // Afficher sous le bouton par défaut, sinon au-dessus si pas la place
+      const spaceBelow = window.innerHeight - rect.bottom - 20
+      const spaceAbove = rect.top - 20
+      const placeAbove = spaceBelow < PREVIEW_H && spaceAbove > spaceBelow
+      const x = Math.max(12, Math.min(window.innerWidth - PREVIEW_W - 12, rect.left + rect.width / 2 - PREVIEW_W / 2))
+      const y = placeAbove
+        ? Math.max(12, rect.top - PREVIEW_H - 8)
+        : Math.max(12, Math.min(window.innerHeight - PREVIEW_H - 12, rect.bottom + 8))
       setPreviewPos({ x, y })
-    }, 250)
+    }, 200)
   }
   const handleLeave = () => {
     if (timer.current) window.clearTimeout(timer.current)
-    setPreviewPos(null)
+    // Délai pour laisser la souris rejoindre le popup
+    timer.current = window.setTimeout(() => setPreviewPos(null), 250)
+  }
+  const handlePreviewEnter = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+  }
+  const handlePreviewLeave = () => {
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setPreviewPos(null), 150)
   }
 
   return (
@@ -954,25 +969,30 @@ function CvOriginalHoverButton({ cvUrl, label }: { cvUrl: string; label: string 
       </button>
       {previewPos && typeof document !== 'undefined' && createPortal(
         <div
+          onMouseEnter={handlePreviewEnter}
+          onMouseLeave={handlePreviewLeave}
           style={{
             position: 'fixed', left: previewPos.x, top: previewPos.y,
-            width: 440, height: 600, zIndex: 99999,
+            width: PREVIEW_W, height: PREVIEW_H, zIndex: 99999,
             background: 'var(--card)', border: '1.5px solid var(--border)',
             borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
-            overflow: 'hidden', pointerEvents: 'none',
+            overflow: 'hidden',
           }}
         >
           <div style={{
-            padding: '6px 10px', borderBottom: '1px solid var(--border)',
-            background: 'var(--background)', fontSize: 11, fontWeight: 700,
-            color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 12px', borderBottom: '1px solid var(--border)',
+            background: 'var(--background)', fontSize: 12, fontWeight: 700,
+            color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Paperclip size={10} />
+            <Paperclip size={12} />
             CV original — {label}
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted-foreground)', fontWeight: 500 }}>
+              Cliquer pour ouvrir en plein écran
+            </span>
           </div>
           <iframe
             src={`/api/cv/print?url=${encodeURIComponent(cvUrl)}#zoom=page-width`}
-            style={{ width: '100%', height: 'calc(100% - 28px)', border: 'none' }}
+            style={{ width: '100%', height: 'calc(100% - 34px)', border: 'none' }}
           />
         </div>,
         document.body

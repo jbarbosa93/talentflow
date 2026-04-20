@@ -723,6 +723,22 @@ export default function CandidatsList() {
     const base = aiResults !== null ? aiResults : (allCandidats || [])
     let filtered: any[] = base as any[]
 
+    // v1.9.65.1 — Instant narrow-down pendant que la recherche serveur est en vol.
+    // Dès que l'user tape une lettre, on filtre la page déjà affichée → aucun lag perçu.
+    // Quand le serveur répond (debounce 150ms + round-trip), il remplace avec le résultat complet.
+    if (search && search !== debouncedSearch && search.trim().length >= 1 && !parseBooleanSearch(search)) {
+      const q = normalize(search.trim())
+      filtered = filtered.filter((c: any) => {
+        const hay = normalize([
+          c.prenom, c.nom, c.titre_poste, c.email, c.telephone,
+          c.localisation, c.formation,
+          ...(c.competences || []),
+          ...(c.tags || []),
+        ].filter(Boolean).join(' '))
+        return hay.includes(q)
+      })
+    }
+
     if (filtreLocalisation.trim()) {
       const loc = normalize(filtreLocalisation)
       filtered = filtered.filter((c: any) => normalize(c.localisation || '').includes(loc))
@@ -2747,7 +2763,7 @@ export default function CandidatsList() {
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
           }}>
-            <div className="neo-card" style={{ maxWidth: 500, width: '92%', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="neo-card" style={{ maxWidth: 720, width: '92%', padding: 0, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2778,7 +2794,7 @@ export default function CandidatsList() {
                         width: '100%', padding: '10px 14px', paddingRight: 90,
                         fontSize: 13, fontFamily: 'monospace', fontWeight: 600,
                         border: '1.5px solid var(--border)', borderRadius: 10,
-                        resize: 'none', background: '#F8F9FA', color: 'var(--foreground)',
+                        resize: 'none', background: 'var(--secondary)', color: 'var(--foreground)',
                         outline: 'none', boxSizing: 'border-box', lineHeight: 1.8,
                       }}
                       onFocus={e => e.target.select()}
@@ -2789,9 +2805,9 @@ export default function CandidatsList() {
                         position: 'absolute', right: 8, top: 8,
                         padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700,
                         border: '1.5px solid',
-                        borderColor: numCopied ? '#16A34A' : 'var(--border)',
-                        background: numCopied ? '#F0FDF4' : 'var(--surface)',
-                        color: numCopied ? '#16A34A' : 'var(--foreground)',
+                        borderColor: numCopied ? 'var(--success)' : 'var(--border)',
+                        background: numCopied ? 'var(--success-soft)' : 'var(--card)',
+                        color: numCopied ? 'var(--success)' : 'var(--foreground)',
                         cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
                       }}
                     >
@@ -2810,10 +2826,15 @@ export default function CandidatsList() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
                     {avecTel.map((c: any) => {
                       const { number, countryCode, country } = detectAndFormat(c.telephone)
+                      const hasPhoto = c.photo_url && c.photo_url !== 'checked'
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)', borderRadius: 8, padding: '8px 12px' }}>
-                          <div style={{ width: 30, height: 30, borderRadius: 6, background: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0 }}>
-                            {formatInitials(c.prenom, c.nom)}
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                            {hasPhoto ? (
+                              <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              formatInitials(c.prenom, c.nom)
+                            )}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
@@ -2822,7 +2843,7 @@ export default function CandidatsList() {
                             </div>
                           </div>
                           {countryCode && (
-                            <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+                            <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600 }}>
                               <span className={`fi fi-${countryCode}`} style={{ width: 18, height: 13, display: 'inline-block', backgroundSize: 'contain', borderRadius: 2 }} />
                               {country}
                             </span>
@@ -2830,19 +2851,26 @@ export default function CandidatsList() {
                         </div>
                       )
                     })}
-                    {sansTel.length > 0 && sansTel.map((c: any) => (
-                      <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.8 }}>
-                        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted)', flexShrink: 0 }}>
-                          {formatInitials(c.prenom, c.nom)}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)' }}>{formatFullName(c.prenom, c.nom)}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--warning)' }}>
-                            <AlertTriangle size={10} /> Pas de numéro — sera ignoré
+                    {sansTel.length > 0 && sansTel.map((c: any) => {
+                      const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                      return (
+                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.85 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                            {hasPhoto ? (
+                              <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              formatInitials(c.prenom, c.nom)
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--warning)' }}>
+                              <AlertTriangle size={10} /> Pas de numéro — sera ignoré
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
 
@@ -2858,8 +2886,8 @@ export default function CandidatsList() {
                         style={{
                           padding: '4px 10px', fontSize: 11, fontWeight: 700,
                           border: '1.5px solid var(--border)', borderRadius: 7,
-                          background: selectedSmsTpl ? '#EEF2FF' : 'var(--surface)',
-                          color: selectedSmsTpl ? '#4F46E5' : 'var(--foreground)',
+                          background: selectedSmsTpl ? 'var(--info-soft)' : 'var(--card)',
+                          color: selectedSmsTpl ? 'var(--info)' : 'var(--foreground)',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
@@ -2940,8 +2968,8 @@ export default function CandidatsList() {
                           placeholder="Métier recherché"
                           style={{
                             flex: 1, padding: '7px 10px', fontSize: 13,
-                            border: '1.5px solid #C7D2FE', borderRadius: 8,
-                            background: '#EEF2FF', color: 'var(--foreground)',
+                            border: '1.5px solid var(--info)', borderRadius: 8,
+                            background: 'var(--info-soft)', color: 'var(--foreground)',
                             outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                           }}
                         />
@@ -2954,8 +2982,8 @@ export default function CandidatsList() {
                           placeholder="Lieu de mission"
                           style={{
                             flex: 1, padding: '7px 10px', fontSize: 13,
-                            border: '1.5px solid #C7D2FE', borderRadius: 8,
-                            background: '#EEF2FF', color: 'var(--foreground)',
+                            border: '1.5px solid var(--info)', borderRadius: 8,
+                            background: 'var(--info-soft)', color: 'var(--foreground)',
                             outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                           }}
                         />

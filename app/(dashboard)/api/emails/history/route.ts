@@ -135,23 +135,24 @@ export async function DELETE(req: Request) {
   const campagneId = typeof body?.campagne_id === 'string' ? body.campagne_id.trim() : null
   const legacyId = typeof body?.legacy_id === 'string' ? body.legacy_id.trim() : null
 
-  // Purge all (user scope)
+  // Purge all — rows du user courant + rows legacy (user_id NULL, visibles à tous en GET)
+  // Sans le OR user_id IS NULL, les vieilles rows pré-v1.9.60 restaient affichées après "Vider".
   if (!campagneId && !legacyId) {
     const { error, count } = await supabase
       .from('emails_envoyes')
       .delete({ count: 'exact' })
-      .eq('user_id', userId)
+      .or(`user_id.eq.${userId},user_id.is.null`)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }
 
-  // Delete 1 campagne (all rows with same campagne_id, user scope)
+  // Delete 1 campagne — user courant ou legacy NULL
   if (campagneId) {
     const { error, count } = await supabase
       .from('emails_envoyes')
       .delete({ count: 'exact' })
-      .eq('user_id', userId)
       .eq('campagne_id', campagneId)
+      .or(`user_id.eq.${userId},user_id.is.null`)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }
@@ -162,8 +163,8 @@ export async function DELETE(req: Request) {
     const { error, count } = await supabase
       .from('emails_envoyes')
       .delete({ count: 'exact' })
-      .eq('user_id', userId)
       .eq('id', id)
+      .or(`user_id.eq.${userId},user_id.is.null`)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }

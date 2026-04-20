@@ -2137,6 +2137,8 @@ function CandidateJoinRow({
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
   }, [])
 
+  const PREVIEW_W = 640
+  const PREVIEW_H = 820
   const handleEnter = () => {
     if (!c.cv_url) return
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -2144,17 +2146,23 @@ function CandidateJoinRow({
       const btn = cvOriginalBtnRef.current
       if (!btn) return
       const rect = btn.getBoundingClientRect()
-      // Positionner à gauche du bouton, verticalement centré sur la fenêtre si possible
-      const previewW = 420
-      const previewH = 560
-      const x = Math.max(12, rect.left - previewW - 12)
-      const y = Math.min(window.innerHeight - previewH - 12, Math.max(12, rect.top - previewH / 2 + rect.height / 2))
+      // Positionner à gauche du bouton, clamp vertical au viewport.
+      const x = Math.max(12, rect.left - PREVIEW_W - 12)
+      const y = Math.min(window.innerHeight - PREVIEW_H - 12, Math.max(12, rect.top - PREVIEW_H / 2 + rect.height / 2))
       setPreviewPos({ x, y })
-    }, 250)
+    }, 200)
   }
   const handleLeave = () => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
-    setPreviewPos(null)
+    // Délai 250ms pour permettre de déplacer la souris du bouton vers le popup
+    previewTimer.current = window.setTimeout(() => setPreviewPos(null), 250)
+  }
+  const handlePreviewEnter = () => {
+    if (previewTimer.current) window.clearTimeout(previewTimer.current)
+  }
+  const handlePreviewLeave = () => {
+    if (previewTimer.current) window.clearTimeout(previewTimer.current)
+    previewTimer.current = window.setTimeout(() => setPreviewPos(null), 150)
   }
 
   const badgeColor = isPerso ? 'var(--success)' : isOriginal ? 'var(--info)' : 'var(--muted-foreground)'
@@ -2257,25 +2265,30 @@ function CandidateJoinRow({
       {/* Hover preview CV original (portal pour sortir du stacking) */}
       {previewPos && c.cv_url && typeof document !== 'undefined' && createPortal(
         <div
+          onMouseEnter={handlePreviewEnter}
+          onMouseLeave={handlePreviewLeave}
           style={{
             position: 'fixed', left: previewPos.x, top: previewPos.y,
-            width: 420, height: 560, zIndex: 9999,
+            width: PREVIEW_W, height: PREVIEW_H, zIndex: 9999,
             background: 'var(--card)', border: '1.5px solid var(--border)',
             borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
-            overflow: 'hidden', pointerEvents: 'none',
+            overflow: 'hidden',
           }}
         >
           <div style={{
-            padding: '6px 10px', borderBottom: '1px solid var(--border)',
-            background: 'var(--background)', fontSize: 11, fontWeight: 700,
-            color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 12px', borderBottom: '1px solid var(--border)',
+            background: 'var(--background)', fontSize: 12, fontWeight: 700,
+            color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Paperclip size={10} />
+            <Paperclip size={12} />
             CV original — {c.prenom} {c.nom}
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted-foreground)', fontWeight: 500 }}>
+              Cliquer pour ouvrir
+            </span>
           </div>
           <iframe
             src={`/api/cv/print?url=${encodeURIComponent(c.cv_url)}#zoom=page-width`}
-            style={{ width: '100%', height: 'calc(100% - 28px)', border: 'none' }}
+            style={{ width: '100%', height: 'calc(100% - 34px)', border: 'none' }}
           />
         </div>,
         document.body
