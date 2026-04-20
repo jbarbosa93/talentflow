@@ -264,10 +264,19 @@ export function mergeCandidat(
     payload.permis_conduire = analyse.permis_conduire
     report.replaced.push('permis_conduire')
   }
-  // genre : remplir si vide, sinon garder (évite l'écrasement d'une valeur humaine validée)
+  // genre : remplir si vide, sinon garder (évite l'écrasement d'une valeur humaine validée).
+  // Fix 20/04 : TOUJOURS normaliser — check constraint DB n'accepte que 'homme'|'femme'|NULL.
+  // Sans normalisation, Claude peut retourner "Homme"/"M"/"male" → INSERT/UPDATE échoue
+  // (new row violates check constraint "candidats_genre_check").
   if (!isEmpty(analyse.genre) && isEmpty(existing.genre)) {
-    payload.genre = analyse.genre!
-    report.filledEmpty.push('genre')
+    const g = String(analyse.genre).trim().toLowerCase()
+    const normalized = (g === 'm' || g === 'male' || g === 'homme') ? 'homme'
+      : (g === 'f' || g === 'female' || g === 'femme') ? 'femme'
+      : null
+    if (normalized) {
+      payload.genre = normalized
+      report.filledEmpty.push('genre')
+    }
   }
   // linkedin : remplir si vide (comportement coord)
   if (!isEmpty(analyse.linkedin) && isEmpty(existing.linkedin)) {

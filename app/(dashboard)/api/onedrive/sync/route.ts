@@ -862,11 +862,15 @@ export async function POST(request: Request) {
             const hashMatch = !!(existingSha256 && currentSha256 === existingSha256)
             const sizeMatch = !hashMatch && !existingSha256 && !!(existingSize && currentSize === existingSize)
 
-            // Texte : fallback final uniquement si ni hash ni size disponibles en DB
+            // Texte : comparaison texte ACTIVÉE même si hash/size présents (fix 20/04/2026).
+            // Cas : même CV ré-encodé/re-téléchargé depuis autre source → hash+size différents
+            // mais texte OCR identique. Ancien guard !existingSha256 && !existingSize rendait
+            // textMatch inatteignable post-backfill v1.9.43 → duplication silencieuse (ex: Luce).
+            // Seuil peutComparer 100 chars minimum garde la sécurité contre faux-positifs.
             const extrait500 = texteCV.slice(0, 500).replace(/\s+/g, ' ').trim()
             const stocke500 = (candidatExistant.cv_texte_brut || '').slice(0, 500).replace(/\s+/g, ' ').trim()
             const peutComparer = extrait500.length >= 100 && stocke500.length >= 100
-            const textMatch = !existingSha256 && !existingSize && peutComparer && extrait500 === stocke500
+            const textMatch = peutComparer && extrait500 === stocke500
 
             // Comparaison date : lastModifiedDateTime du fichier OneDrive vs last_modified_at en DB
             const rowFichier = (allFichiersUpdated || []).find((f: any) => f.onedrive_item_id === fichier.id)

@@ -723,7 +723,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       const sizeMatch_p = !hashMatch_p && !efSha256 && !!(efSize && currentSize_p === efSize)
       const memeTexte = !!(ef?.cv_texte_brut && texteCV &&
         (ef.cv_texte_brut as string).slice(0, 2000).trim() === texteCV.slice(0, 2000).trim())
-      const textMatch_p = !efSha256 && !efSize && memeTexte
+      // Fix 20/04/2026 : textMatch activé même si hash/size présents (cas CV ré-encodé depuis
+      // autre source — hash différent mais texte identique, typiquement re-upload manuel).
+      // Ancien guard !efSha256 && !efSize rendait textMatch dead code post-backfill v1.9.43.
+      const textMatch_p = memeTexte
 
       const memeContenu = hashMatch_p || sizeMatch_p || textMatch_p
 
