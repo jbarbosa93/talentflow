@@ -73,8 +73,10 @@ export function CvHoverTrigger({ cvUrl, cvNomFichier, candidatId, children, hook
           const screenW = window.innerWidth
           const spaceRight = screenW - rect.right - 24
           const spaceLeft = rect.right - 24
-          const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
-          const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
+          // v1.9.65 patch 8 — cap largeur 820 → 1100 pour les grands écrans (même logique que
+          // la hauteur 80vh max 900). Plancher 480, toujours limité à l'espace dispo autour de la card.
+          const panelW = Math.min(1100, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
+          const initZoom = Math.min(1, +(panelW / 900).toFixed(2))
           setPreviewData({ url: cvUrl, ext, x: rect.right, y: rect.top, h: rect.height, rotation, panelW })
           setPreviewZoom(initZoom)
           setPreviewVisible(true)

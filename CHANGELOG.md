@@ -5,7 +5,28 @@ sont regroupés dans la phase à laquelle ils appartiennent.
 
 ---
 
-## [1.9.65] — 20 avril 2026
+## [1.9.65] — 20 avril 2026 (20+ bugs en 8 patchs)
+
+### Multi-select métiers (liste candidats)
+- Dropdown avec checkboxes (avant: radio single). Sélectionner "Sanitaire" + "Aide sanitaire" → filtre OR sur `tags` côté serveur via `.overlaps()`.
+- Footer "N sélectionnés — Appliquer". Bouton "Vider" quand au moins 1 coché. Recherche en haut du dropdown. Couleurs catégorie préservées.
+
+### Hover CV dynamique + portal
+- **Cause racine** : pipeline utilise Framer Motion (transform) → containing block → `position: fixed` relatif au parent au lieu du viewport → "sticky top" malgré les clamps.
+- Fix : `createPortal(..., document.body)` → popup rendu dans `<body>`, échappe tous les stacking contexts.
+- **Hauteur dynamique** : `max(360, min(900, 80vh))`. Largeur : `min(1100, max(480, spaceRight/spaceLeft))`.
+- Centrage PRÉCIS via `rect.height` de la card (champ `h` dans `CvPreviewData`).
+- Timer sur mouse leave + `onMouseEnter` sur popup → tu peux entrer le popup pour scroller/zoomer sans qu'il disparaisse.
+
+### Modal SMS/iMessage (CandidatsList bulk)
+- maxWidth 500→720. Photos des destinataires (`Image src={c.photo_url}` avec fallback initiales).
+- Tokens sémantiques partout (textarea numéros, bouton Copier, dropdown templates, inputs Métier/Lieu). Dark + light lisibles.
+
+### /activites — tabs trimmed
+- Supprimés : Messages, Entretiens, Notes, Pipeline, Système.
+- Conservés : Tous, Candidats, Imports, Clients.
+
+
 
 ### Flow update CV — règle métier + UX
 - **Changement règle métier** : `email`, `téléphone`, `localisation` désormais **écrasés** lors d'un UPDATE (import manuel + OneDrive). Avant : immuables, fiches outdated. `date_naissance` et `genre` restent **immuables**.
