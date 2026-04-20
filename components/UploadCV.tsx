@@ -319,12 +319,14 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       } else {
         updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé', confirmPayload: undefined })
       }
-      // v1.9.22 — invalide le cache React Query + dispatch badge event.
-      // Nécessaire : sans invalidateQueries, la liste candidats garde les vieilles
-      // données (last_import_at=null) → hasBadge() retourne false → badge invisible
-      // même après DB bien mise à jour.
-      queryClient.invalidateQueries({ queryKey: ['candidats'] })
-      queryClient.invalidateQueries({ queryKey: ['candidat', payload.candidat_existant.id] })
+      // v1.9.65 — attendre la résolution des invalidations AVANT dispatchBadgesChanged.
+      // Avant : invalidateQueries (non-awaité) + dispatch tiraient dans le désordre →
+      // la sidebar recalculait sur l'ancien cache → badge rouge invisible.
+      // Maintenant : await refetch → cache à jour → dispatch → sidebar lit la bonne data.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['candidats'] }),
+        queryClient.invalidateQueries({ queryKey: ['candidat', payload.candidat_existant.id] }),
+      ])
       dispatchBadgesChanged()
       return { success: true, candidat: data.candidat || payload.candidat_existant }
     } catch (err: any) {

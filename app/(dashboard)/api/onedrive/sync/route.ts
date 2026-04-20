@@ -1022,17 +1022,20 @@ export async function POST(request: Request) {
                 return { status: 'updated', name: candidatDisplayName, candidatId: existingCandidat.id, filename }
               }
 
-              // Move old CV to documents array
+              // Move old CV to documents array — v1.9.65 préfixe [Ancien] aligné avec cv/parse L951
               const existingDocs = candidatExistant.documents || []
               if (candidatExistant.cv_url) {
-                // v1.9.42 — Dédup par URL et nom (jamais filename normalization matching)
+                const oldBaseName = candidatExistant.cv_nom_fichier || 'Ancien CV'
+                const oldArchiveName = `[Ancien] ${oldBaseName}`
+                // Dédup par URL OU nom brut OU nom préfixé (accepte les 3 variantes)
                 const isOldCvDuplicate = existingDocs.some((d: any) =>
                   d.url === candidatExistant.cv_url ||
-                  d.name === (candidatExistant.cv_nom_fichier || 'Ancien CV')
+                  d.name === oldBaseName ||
+                  d.name === oldArchiveName
                 )
                 if (!isOldCvDuplicate) {
                   existingDocs.push({
-                    name: candidatExistant.cv_nom_fichier || 'Ancien CV',
+                    name: oldArchiveName,
                     url: candidatExistant.cv_url,
                     type: 'cv',
                     uploaded_at: new Date().toISOString(),
@@ -1097,7 +1100,7 @@ export async function POST(request: Request) {
                     return payload as Record<string, any>
                   })()
                 : {
-                    // Comportement classique v1.9.30 (écrasement enrichissement)
+                    // Comportement classique v1.9.30 (écrasement enrichissement bio)
                     titre_poste: analyse.titre_poste || candidatExistant.titre_poste,
                     competences: analyse.competences || candidatExistant.competences,
                     langues: analyse.langues || candidatExistant.langues,
@@ -1106,10 +1109,16 @@ export async function POST(request: Request) {
                     formation: analyse.formation || candidatExistant.formation,
                     resume_ia: analyse.resume || candidatExistant.resume_ia,
                     permis_conduire: analyse.permis_conduire ?? candidatExistant.permis_conduire,
-                    date_naissance: analyse.date_naissance || candidatExistant.date_naissance,
                     genre: normaliserGenre(analyse.genre) ?? candidatExistant.genre ?? null,
                     linkedin: analyse.linkedin || candidatExistant.linkedin,
                     annees_exp: analyse.annees_exp || candidatExistant.annees_exp,
+                    // v1.9.65 — fillIfEmpty pour coords sensibles (aligné cv/parse v1.9.28).
+                    // N'écrase JAMAIS si déjà rempli (évite de polluer la fiche avec un match faible).
+                    // Règle métier : DDN immuable. Email/tel/localisation enrichis seulement si vides.
+                    email:          candidatExistant.email          || analyse.email          || null,
+                    telephone:      candidatExistant.telephone      || analyse.telephone      || null,
+                    localisation:   candidatExistant.localisation   || analyse.localisation   || null,
+                    date_naissance: candidatExistant.date_naissance || analyse.date_naissance || null,
                   }
 
               await (supabase as any).from('candidats').update({
