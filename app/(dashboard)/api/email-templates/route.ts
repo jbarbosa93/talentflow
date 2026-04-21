@@ -8,9 +8,11 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient()
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
-  let query = supabase.from('email_templates').select('*').order('categorie')
-  if (type === 'email' || type === 'sms') {
-    query = query.eq('type', type)
+  let query = supabase.from('email_templates').select('*').order('nom')
+  // v1.9.68 : support du canal 'whatsapp' en plus d'email/sms.
+  // Cast : types Supabase auto-générés ne contiennent pas encore 'whatsapp' (CHECK étendu côté DB).
+  if (type === 'email' || type === 'sms' || type === 'whatsapp') {
+    query = query.eq('type', type as any)
   }
   const { data, error } = await query
   if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

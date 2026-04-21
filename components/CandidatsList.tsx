@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 
 import { toast } from 'sonner'
+import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
+import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk, useCandidatsRealtime } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
@@ -91,86 +93,8 @@ const calculerAge = (dateNaissance: string | null): number | null => {
   return age > 0 && age < 120 ? age : null
 }
 
-const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-
-// ─── Recherche booléenne (ET/AND, OU/OR, SAUF/NOT, parenthèses) ───
-// Parser à descente récursive. Priorité : OU < ET/SAUF. Parenthèses pour grouper.
-// `a b` sans opérateur explicite = AND implicite.
-type BoolTok = { type: 'lparen' | 'rparen' | 'or' | 'and' | 'sauf' | 'word'; value?: string }
-
-function tokenizeBoolean(q: string): BoolTok[] {
-  const spaced = q.replace(/\(/g, ' ( ').replace(/\)/g, ' ) ')
-  return spaced.split(/\s+/).filter(Boolean).map<BoolTok>(t => {
-    if (t === '(') return { type: 'lparen' }
-    if (t === ')') return { type: 'rparen' }
-    const u = t.toUpperCase()
-    if (u === 'OU' || u === 'OR') return { type: 'or' }
-    if (u === 'ET' || u === 'AND') return { type: 'and' }
-    if (u === 'SAUF' || u === 'NOT') return { type: 'sauf' }
-    return { type: 'word', value: t }
-  })
-}
-
-function parseBooleanSearch(query: string): ((text: string) => boolean) | null {
-  const trimmed = query.trim()
-  if (!trimmed) return null
-
-  const hasBooleanOps = /\b(ET|AND|OU|OR|SAUF|NOT)\b/i.test(trimmed) || /[()]/.test(trimmed)
-  if (!hasBooleanOps) return null
-
-  const tokens = tokenizeBoolean(trimmed)
-  if (tokens.length === 0) return null
-  let pos = 0
-  const peek = () => tokens[pos]
-  const eat = () => tokens[pos++]
-  type Matcher = (nt: string) => boolean
-
-  function parseOr(): Matcher {
-    let left = parseAnd()
-    while (peek()?.type === 'or') {
-      eat()
-      const right = parseAnd()
-      const L = left, R = right
-      left = nt => L(nt) || R(nt)
-    }
-    return left
-  }
-  function parseAnd(): Matcher {
-    let left: Matcher = parseFactor() ?? (() => true)
-    while (peek() && peek()!.type !== 'or' && peek()!.type !== 'rparen') {
-      const tk = peek()!
-      let negate = false
-      if (tk.type === 'sauf') { eat(); negate = true }
-      else if (tk.type === 'and') { eat() }
-      const next = parseFactor()
-      if (!next) break
-      const L = left, R = next
-      left = negate ? nt => L(nt) && !R(nt) : nt => L(nt) && R(nt)
-    }
-    return left
-  }
-  function parseFactor(): Matcher | null {
-    const tk = peek()
-    if (!tk) return null
-    if (tk.type === 'lparen') {
-      eat()
-      const expr = parseOr()
-      if (peek()?.type === 'rparen') eat()
-      return expr
-    }
-    if (tk.type === 'word') {
-      eat()
-      const w = normalize(tk.value!)
-      return nt => nt.includes(w)
-    }
-    // opérateur isolé : on saute
-    eat()
-    return parseFactor()
-  }
-
-  const matcher = parseOr()
-  return (text: string) => matcher(normalize(text))
-}
+// v1.9.70 : parser booléen extrait dans lib/boolean-search.ts (partagé avec ClientPicker)
+// (Import + re-export au top du fichier)
 
 const IMPORT_STATUS_OPTS = [
   { value: 'traite',    label: 'Actif' },
@@ -472,6 +396,8 @@ export default function CandidatsList() {
   const [waLogged, setWaLogged]           = useState(false)
   const [messageText, setMessageText]     = useState('')
   const [smsTemplates, setSmsTemplates]   = useState<any[]>([])
+  const [waTemplates, setWaTemplates]     = useState<any[]>([])
+  const [warningDismissed, setWarningDismissed] = useState(false) // v1.9.68
   const [showSmsTplDropdown, setShowSmsTplDropdown] = useState(false)
   const [smsTplId, setSmsTplId]           = useState<string | null>(null)
   const [smsMetier, setSmsMetier]         = useState('')
@@ -479,14 +405,37 @@ export default function CandidatsList() {
   const [showSaveTpl, setShowSaveTpl]     = useState(false)
   const [saveTplName, setSaveTplName]     = useState('')
 
-  // Charger les templates SMS à l'ouverture du modal
+  // Charger les templates SMS à l'ouverture du modal iMessage/SMS
   useEffect(() => {
     if (!showMessage) return
     fetch('/api/email-templates?type=sms')
       .then(r => r.json())
       .then(d => setSmsTemplates(d.templates || []))
       .catch(() => {})
+    setWarningDismissed(false) // v1.9.68 — reset warning à chaque ouverture
   }, [showMessage])
+
+  // v1.9.68 — Charger les templates WhatsApp à l'ouverture du modal WhatsApp bulk
+  useEffect(() => {
+    if (!showWhatsApp) return
+    fetch('/api/email-templates?type=whatsapp')
+      .then(r => r.json())
+      .then(d => setWaTemplates(d.templates || []))
+      .catch(() => {})
+    // Reset template selection + champs quand on rouvre la modal (évite de garder l'état SMS précédent)
+    setSmsTplId(null)
+    setSmsMetier('')
+    setSmsLieu('')
+    setMessageText('')
+    setWarningDismissed(false) // v1.9.68 — reset warning à chaque ouverture
+  }, [showWhatsApp])
+
+  // v1.9.68 — Warning 7 jours : fetch les contacts récents des candidats sélectionnés
+  const selectedIdsArray = Array.from(selectedIds)
+  const { contacts: recentContacts } = useRecentContacts(
+    selectedIdsArray,
+    (showMessage || showWhatsApp) && selectedIdsArray.length > 0
+  )
 
   // Recalcul live du message quand on change métier/lieu avec un template actif
   const selectedSmsTpl = smsTemplates.find(t => t.id === smsTplId) || null
@@ -2950,6 +2899,15 @@ export default function CandidatsList() {
               </div>
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                {/* v1.9.68 — Warning si déjà contacté dans les 7 derniers jours */}
+                {!warningDismissed && (
+                  <RecentContactsWarning
+                    candidats={selected}
+                    contacts={recentContacts}
+                    onContinue={() => setWarningDismissed(true)}
+                    onDismiss={() => setWarningDismissed(true)}
+                  />
+                )}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Numéros à coller dans Messages
@@ -3211,13 +3169,34 @@ export default function CandidatsList() {
         const selected = sorted.filter((c: any) => selectedIds.has(c.id))
         const avecTel  = selected.filter((c: any) => c.telephone)
         const sansTel  = selected.filter((c: any) => !c.telephone)
+        // v1.9.68 — Harmonisation : {prenom} {nom} {metier} {civilite} + rétrocompat {candidat_*} + [MÉTIER]/[LIEU] legacy
         const personalize = (tpl: string, c: any) =>
           (tpl || '')
             .replace(/\{prenom\}/gi, c.prenom || '')
             .replace(/\{nom\}/gi, c.nom || '')
+            .replace(/\{metier\}/gi, c.titre_poste || '')
+            .replace(/\{candidat_prenom\}/gi, c.prenom || '')
+            .replace(/\{candidat_nom\}/gi, c.nom || '')
+            .replace(/\{candidat_metier\}/gi, c.titre_poste || '')
         const nextCandidat = avecTel.find((c: any) => !waOpenedIds.has(c.id))
         const previewCandidat = nextCandidat || avecTel[0]
         const previewMsg = previewCandidat ? personalize(messageText, previewCandidat) : ''
+
+        // v1.9.68 — Templates WhatsApp dédiés (séparés des templates SMS/iMessage)
+        const activeTemplates = waTemplates
+        const selectedTpl = activeTemplates.find(t => t.id === smsTplId) || null
+        const applyTemplate = (id: string) => {
+          const t = activeTemplates.find(x => x.id === id)
+          if (!t) return
+          setSmsTplId(id)
+          setShowSmsTplDropdown(false)
+          const out = (t.corps || '')
+            .replace(/\[MÉTIER\]/g, smsMetier || '[MÉTIER]')
+            .replace(/\[LIEU\]/g, smsLieu || '[LIEU]')
+          setMessageText(out)
+        }
+        const waTplHasMetier = selectedTpl && /\[MÉTIER\]/.test(selectedTpl.corps || '')
+        const waTplHasLieu   = selectedTpl && /\[LIEU\]/.test(selectedTpl.corps || '')
 
         const logCampagneOnce = () => {
           if (waLogged) return
@@ -3276,6 +3255,16 @@ export default function CandidatsList() {
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
 
+                {/* v1.9.68 — Warning si déjà contacté dans les 7 derniers jours */}
+                {!warningDismissed && (
+                  <RecentContactsWarning
+                    candidats={selected}
+                    contacts={recentContacts}
+                    onContinue={() => setWarningDismissed(true)}
+                    onDismiss={() => setWarningDismissed(true)}
+                  />
+                )}
+
                 {/* Barre progression */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>
@@ -3320,50 +3309,38 @@ export default function CandidatsList() {
                         style={{
                           padding: '4px 10px', fontSize: 11, fontWeight: 700,
                           border: '1.5px solid var(--border)', borderRadius: 7,
-                          background: selectedSmsTpl ? 'var(--info-soft)' : 'var(--card)',
-                          color: selectedSmsTpl ? 'var(--info)' : 'var(--foreground)',
+                          background: selectedTpl ? 'var(--success-soft)' : 'var(--card)',
+                          color: selectedTpl ? 'var(--success)' : 'var(--foreground)',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
                         }}
                       >
-                        {selectedSmsTpl ? `📄 ${selectedSmsTpl.nom}` : 'Templates'}
+                        {selectedTpl ? `📱 ${selectedTpl.nom}` : 'Templates WhatsApp'}
                         <ChevronDown size={11} />
                       </button>
-                      {messageText.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => setShowSaveTpl(true)}
-                          title="Sauvegarder le message courant comme template SMS/WhatsApp"
-                          style={{
-                            padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                            border: '1.5px solid var(--border)', borderRadius: 7,
-                            background: 'var(--surface)', color: 'var(--foreground)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Sauvegarder
-                        </button>
-                      )}
                       {showSmsTplDropdown && (
                         <div style={{
                           position: 'absolute', top: '100%', right: 0, marginTop: 4,
                           background: 'var(--surface)', border: '1px solid var(--border)',
                           borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-                          padding: 4, minWidth: 200, maxHeight: 260, overflowY: 'auto', zIndex: 60,
+                          padding: 4, minWidth: 240, maxHeight: 280, overflowY: 'auto', zIndex: 60,
                         }}>
-                          {smsTemplates.length === 0 ? (
-                            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--muted)' }}>
-                              Aucun template SMS
+                          {activeTemplates.length === 0 ? (
+                            <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                              Aucun template WhatsApp.<br />
+                              <span style={{ color: 'var(--muted-foreground)', fontSize: 11 }}>
+                                Créez-en depuis /messages → Templates, ou cliquez « Copier vers WhatsApp » sur un template iMessage.
+                              </span>
                             </div>
                           ) : (
-                            smsTemplates.map(t => (
+                            activeTemplates.map((t: any) => (
                               <button
                                 key={t.id}
                                 type="button"
-                                onClick={() => applySmsTemplate(t.id)}
+                                onClick={() => applyTemplate(t.id)}
                                 style={{
                                   display: 'block', width: '100%', textAlign: 'left',
                                   padding: '6px 10px', borderRadius: 6, border: 'none',
-                                  background: smsTplId === t.id ? 'var(--primary-soft)' : 'transparent',
+                                  background: smsTplId === t.id ? 'var(--success-soft)' : 'transparent',
                                   cursor: 'pointer', fontSize: 12, fontWeight: 600,
                                   color: 'var(--foreground)', fontFamily: 'inherit',
                                 }}
@@ -3372,7 +3349,7 @@ export default function CandidatsList() {
                               </button>
                             ))
                           )}
-                          {selectedSmsTpl && (
+                          {selectedTpl && (
                             <button
                               type="button"
                               onClick={() => { setSmsTplId(null); setShowSmsTplDropdown(false); setSmsMetier(''); setSmsLieu('') }}
@@ -3392,9 +3369,9 @@ export default function CandidatsList() {
                     </div>
                   </div>
 
-                  {(tplHasMetier || tplHasLieu) && (
+                  {(waTplHasMetier || waTplHasLieu) && (
                     <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                      {tplHasMetier && (
+                      {waTplHasMetier && (
                         <input
                           type="text"
                           value={smsMetier}
@@ -3408,7 +3385,7 @@ export default function CandidatsList() {
                           }}
                         />
                       )}
-                      {tplHasLieu && (
+                      {waTplHasLieu && (
                         <input
                           type="text"
                           value={smsLieu}

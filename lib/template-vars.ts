@@ -100,10 +100,17 @@ export function renderTemplate(text: string, ctx: RenderContext): string {
   const civilite = getCivilite(c, ctx.civilite_override ?? null)
 
   const vars: Record<string, string> = {
+    // Notation courte (nouveau standard v1.9.68)
+    '{prenom}':            c.prenom || '',
+    '{nom}':               c.nom || '',
+    '{metier}':            c.titre_poste || '',
+    '{civilite}':          civilite,
+    // Notation longue (legacy email, backward compat)
     '{candidat_prenom}':   c.prenom || '',
     '{candidat_nom}':      c.nom || '',
     '{candidat_metier}':   c.titre_poste || '',
     '{candidat_civilite}': civilite,
+    // Autres
     '{un_e}':              getUnE(c),
     '{resume_ia}':         c.resume_ia || '',
     '{client_prenom}':     contact.prenom,

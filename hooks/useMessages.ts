@@ -1,7 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-export function useEmailTemplates(type?: 'email' | 'sms') {
+export type TemplateType = 'email' | 'sms' | 'whatsapp'
+
+export function useEmailTemplates(type?: TemplateType) {
   return useQuery({
     queryKey: ['email-templates', type || 'all'],
     queryFn: async () => {

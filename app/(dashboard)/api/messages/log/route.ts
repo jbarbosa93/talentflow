@@ -52,8 +52,19 @@ export async function POST(req: Request) {
 
   const supabase = await createClient()
   const { data: userData } = await supabase.auth.getUser()
-  const userId = userData?.user?.id
+  const user = userData?.user
+  const userId = user?.id
   if (!userId) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  // v1.9.68 — nom expéditeur pour affichage historique global team
+  const meta = (user?.user_metadata || {}) as Record<string, any>
+  const userName: string = (
+    meta.prenom ||
+    meta.full_name ||
+    meta.name ||
+    (user?.email ? String(user.email).split('@')[0] : '') ||
+    'Inconnu'
+  )
 
   // Résolution client_nom via lookup candidats si 1 seul candidat (best-effort)
   let clientNom: string | null = null
@@ -78,6 +89,7 @@ export async function POST(req: Request) {
     destinataire: dest,
     statut: 'tentative' as const, // canal natif : on ne peut pas confirmer l'envoi réel
     user_id: userId,
+    user_name: userName,
     campagne_id: campagneId,
     client_id: null,
     client_nom: clientNom,

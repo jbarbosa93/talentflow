@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.67'
+export const APP_VERSION = '1.9.70'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.70',
+    date: '2026-04-21',
+    label: 'Historique d\'envois partagé team + mailing refondu (À/CC, aperçu blanc, auto-complete, perso par destinataire) + signature Seb',
+    features: [
+      'HISTORIQUE TEAM PARTAGÉ — tous les envois email/WhatsApp/iMessage/SMS sont désormais visibles par toute l\'équipe, avec un badge « Vous » ou « Prénom » qui indique qui a envoyé. Chacun peut seulement supprimer ses propres envois.',
+      'AVERTISSEMENT 7 JOURS — avant d\'envoyer un email/WhatsApp/iMessage, TalentFlow vérifie si un candidat sélectionné a déjà été contacté par toi ou un collègue dans les 7 derniers jours. Si oui, un encart orange liste les candidats concernés avec « il y a X jours par Y via Z ». Non bloquant : boutons « Fermer » et « Continuer malgré tout ».',
+      'MODE D\'ENVOI — nouveau toggle dans /messages → Mailing : « Envoi individuel personnalisé » (défaut, 1 mail par destinataire) OU « Envoi groupé À + CC » (1 seul mail avec destinataires visibles + copies CC). Le champ CC n\'apparaît qu\'après avoir ajouté au moins 1 destinataire.',
+      'APERÇU MAIL FOND BLANC — le preview du mail affiche désormais toujours fond blanc + texte noir, même en mode sombre TalentFlow. Plus fidèle à ce que le destinataire voit dans Outlook.',
+      'FLÈCHES ← → + PERSONNALISATION PAR DESTINATAIRE — en mode individuel avec plusieurs destinataires, navigue entre les aperçus avec les flèches. Bouton « Personnaliser ce mail » pour modifier sujet/corps d\'un destinataire spécifique sans toucher aux autres. Badge « ✏️ Personnalisé » visible.',
+      'AUTO-COMPLÉTION EMAILS (type Outlook) — quand tu tapes dans le champ destinataires, un menu propose les emails connus : contacts clients (base TalentFlow), membres de l\'équipe, et destinataires récents (30 derniers jours). Navigation ↑↓ + Entrée, tri par type.',
+      'RECHERCHE CLIENTS MAILING — le « Choisir clients » trouve désormais tous les clients (limite 500 → 2000), supporte la recherche avancée ET/OU/SAUF + parenthèses, insensible aux accents et à la casse. Tooltip ⓘ avec exemples.',
+      'TEMPLATES REFONTE — nouveau modal Nouveau template avec 3 canaux en radio-cards (Email / iMessage / WhatsApp). Sujet uniquement pour email. Variables cliquables (insertion au curseur) groupées par usage (communes 3 canaux / email uniquement). Bouton « Copier vers WhatsApp » ou « Copier vers iMessage » sur chaque template.',
+      'TEMPLATES WHATSAPP — la modal WhatsApp bulk dans /candidats charge désormais les templates dédiés (type=whatsapp), séparés des templates iMessage.',
+      'ACTIVITÉS — badges compteurs sur chaque onglet (Tous / Candidats / Imports / Clients). Les filtres recherche + date sont respectés dans les compteurs.',
+      'NETTOYAGE AUTO 30 JOURS — tous les envois (emails_envoyes) et événements d\'activité (activites) de plus de 30 jours sont supprimés automatiquement chaque nuit à 03:15. Garantit une base légère et pas d\'accumulation.',
+      'SIGNATURE SEB — signature email officielle ajoutée pour Sébastien D\'Agostino (même template que João, photo dédiée, LinkedIn personnel, numéro +41 79 219 16 88). À lui de se déconnecter/reconnecter 1 fois pour l\'activer.',
+      'FIX APERÇU CV — les CV dans la fiche candidat s\'affichaient trop grands à l\'ouverture (zoom 100% pixel). Désormais calés sur la largeur de la page par défaut (zoom page-width).',
+    ],
+  },
   {
     version: '1.9.67',
     date: '2026-04-21',

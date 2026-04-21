@@ -1820,9 +1820,9 @@ export default function CandidatDetailPage() {
                     key={`cv-iframe-${cvRotation}-${cvZoom}`}
                     src={
                       cvIsPDF && cvRotation !== 0
-                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
                         : cvIsPDF
-                          ? `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=${Math.round(cvZoom * 100)}`
+                          ? `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
                           : docViewerUrl
                     }
                     style={{

@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useActivites, useUpdateActiviteNotes, useDeleteActivite } from '@/hooks/useActivites'
 import type { Activite } from '@/hooks/useActivites'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 /* ─── Config ─── */
@@ -517,6 +517,21 @@ export default function ActivitesPage() {
     date_to: dateTo ? dateTo + 'T23:59:59' : undefined,
   })
 
+  // v1.9.68 — Compteurs par onglet (respecte les filtres search + date)
+  const { data: tabCounts } = useQuery({
+    queryKey: ['activites-counts', debouncedSearch, dateFrom, dateTo],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      if (dateFrom) params.set('date_from', dateFrom + 'T00:00:00')
+      if (dateTo) params.set('date_to', dateTo + 'T23:59:59')
+      const res = await fetch(`/api/activites/counts${params.toString() ? '?' + params.toString() : ''}`)
+      if (!res.ok) return { all: 0, candidats: 0, imports: 0, clients: 0 }
+      return res.json() as Promise<{ all: number; candidats: number; imports: number; clients: number }>
+    },
+    staleTime: 30_000,
+  })
+
   const activites = data?.activites || []
   const total = data?.total || 0
   const totalPages = data?.total_pages || 1
@@ -744,25 +759,41 @@ export default function ActivitesPage() {
           overflow: 'hidden',
           flexWrap: 'wrap',
         }}>
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setPage(1) }}
-              style={{
-                padding: '10px 16px',
-                border: 'none',
-                borderRight: '1px solid var(--border)',
-                background: activeTab === tab.key ? 'var(--primary)' : 'transparent',
-                color: activeTab === tab.key ? 'var(--ink, #1C1A14)' : 'var(--muted)',
-                fontSize: 12, fontWeight: activeTab === tab.key ? 800 : 600,
-                cursor: 'pointer', fontFamily: 'var(--font-body)',
-                transition: 'all 0.15s',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {TABS.map(tab => {
+            const tabCount = tabCounts?.[tab.key as 'all' | 'candidats' | 'imports' | 'clients']
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setPage(1) }}
+                style={{
+                  padding: '10px 16px',
+                  border: 'none',
+                  borderRight: '1px solid var(--border)',
+                  background: isActive ? 'var(--primary)' : 'transparent',
+                  color: isActive ? 'var(--ink, #1C1A14)' : 'var(--muted)',
+                  fontSize: 12, fontWeight: isActive ? 800 : 600,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  transition: 'all 0.15s',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                {tab.label}
+                {typeof tabCount === 'number' && tabCount > 0 && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 800,
+                    padding: '1px 7px', borderRadius: 99,
+                    background: isActive ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
+                    color: isActive ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+                    minWidth: 20, textAlign: 'center',
+                  }}>
+                    {tabCount > 9999 ? '9999+' : tabCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
 
         {/* Search + Date filters */}

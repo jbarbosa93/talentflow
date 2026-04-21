@@ -19,6 +19,8 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { renderTemplate, hasContexteIA, TEMPLATE_VARS, type Civilite } from '@/lib/template-vars'
+import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
+import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { createClient as createSupaClient } from '@/lib/supabase/client'
 
 const CAT_LABELS: Record<string, string> = {
@@ -345,14 +347,16 @@ function ClientPickerModal({
     return haversineKm(refLoc.lat, refLoc.lng, coords.lat, coords.lng)
   }, [refLoc, cityCoords])
 
-  const { data } = useClients({ per_page: 500 })
+  // v1.9.70 : per_page 500 → 2000 (la base a 1200+ clients, 500 était trop bas → résultats manquants)
+  const { data } = useClients({ per_page: 2000 })
   const clients: Client[] = data?.clients || []
 
   // Unique secteurs
   const secteurs = Array.from(new Set(clients.map(c => c.secteur).filter(Boolean))).sort((a, b) => a!.localeCompare(b!, 'fr')) as string[]
 
-  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   const q = normalize(search)
+  // v1.9.70 : recherche booléenne (ET/OU/SAUF + parenthèses) — même parser que liste candidats
+  const booleanMatcher = parseBooleanSearch(search)
 
   const filtered = clients.filter(c => {
     if (secteurFilter && c.secteur !== secteurFilter) return false
@@ -360,9 +364,10 @@ function ClientPickerModal({
       const dist = getDistance(c)
       if (dist === null || dist > maxKm) return false
     }
-    if (!q) return true
-    const hay = normalize(`${c.nom_entreprise} ${c.secteur || ''} ${c.adresse || ''} ${c.npa || ''} ${c.ville || ''} ${c.canton || ''} ${c.telephone || ''} ${c.email || ''} ${c.site_web || ''} ${c.notes || ''} ${(c.contacts || []).map((ct: any) => `${ct.prenom || ''} ${ct.nom || ''} ${ct.name || ''} ${ct.email || ''} ${ct.telephone || ''} ${ct.poste || ''}`).join(' ')}`)
-    return hay.includes(q)
+    if (!search.trim()) return true
+    const hay = `${c.nom_entreprise || ''} ${c.secteur || ''} ${c.adresse || ''} ${c.npa || ''} ${c.ville || ''} ${c.canton || ''} ${c.telephone || ''} ${c.email || ''} ${c.site_web || ''} ${c.notes || ''} ${(c.contacts || []).map((ct: any) => `${ct.prenom || ''} ${ct.nom || ''} ${ct.name || ''} ${ct.email || ''} ${ct.telephone || ''} ${ct.poste || ''}`).join(' ')}`
+    if (booleanMatcher) return booleanMatcher(hay)
+    return normalize(hay).includes(q)
   })
 
   // Trigger geocoding des seuls clients visibles (search + secteur filtre appliqués)
@@ -458,17 +463,33 @@ function ClientPickerModal({
               <X size={14} />
             </button>
           </div>
-          {/* Search + filters */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: secteurs.length > 0 ? 10 : 0 }}>
+          {/* Search + filters (v1.9.70 : recherche booléenne ET/OU/SAUF + parenthèses) */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: secteurs.length > 0 ? 10 : 0, alignItems: 'center' }}>
             <div style={{ flex: 1, position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
               <input
                 autoFocus
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Rechercher par nom, secteur, ville, email..."
+                placeholder="Rechercher : nom, secteur, ville, contact, email, notes… ou ET/OU/SAUF"
                 style={{ width: '100%', height: 38, paddingLeft: 32, paddingRight: 12, border: '2px solid var(--border)', borderRadius: 10, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
               />
+            </div>
+            <div
+              title={`Recherche avancée :
+• magasinier ET bâtiment → les deux mots
+• magasinier OU logisticien → l'un ou l'autre
+• maçon SAUF intérimaire → exclure un mot
+• (magasinier OU logisticien) ET bâtiment → groupement`}
+              style={{
+                width: 32, height: 38, borderRadius: 10,
+                border: '1.5px solid var(--border)', background: 'var(--card)',
+                color: 'var(--muted-foreground)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'help', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+              }}
+            >
+              ⓘ
             </div>
           </div>
           {/* Secteur filter — dropdown */}
@@ -698,11 +719,17 @@ function EmailTab() {
   const [cvAttached, setCvAttached] = useState<Record<string, any>>({})
   const [templateId, setTemplateId] = useState(initial.templateId || '')
   const [destinataires, setDestinataires] = useState<string[]>(initial.destinataires || [])
+  const [ccEmails, setCcEmails] = useState<string[]>([]) // v1.9.70
+  const [sendMode, setSendMode] = useState<'individual' | 'grouped'>('individual') // v1.9.70
+  // v1.9.70 : overrides par destinataire (mode individual) — permet de personnaliser sujet/corps pour 1 seul destinataire
+  const [overrides, setOverrides] = useState<Record<string, { sujet?: string; corps?: string }>>({})
+  const [previewIdx, setPreviewIdx] = useState(0) // index du destinataire en aperçu (mode individual)
   const [sujet, setSujet] = useState(initial.sujet || '')
   const [corps, setCorps] = useState(initial.corps || '')
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
   const [msConfig, setMsConfig] = useState<{ configured: boolean; email?: string; nom?: string } | null>(null)
+  const [warningDismissed, setWarningDismissed] = useState(false) // v1.9.68
 
   // Variables
   const [consultantPrenom, setConsultantPrenom] = useState<string>('')
@@ -714,6 +741,26 @@ function EmailTab() {
   const { data: _candidatsData } = useCandidats({ per_page: 500 })
   const candidats = (_candidatsData?.candidats || []).filter((c: any) => c.import_status !== 'archive')
   const { data: templates } = useEmailTemplates('email')
+
+  // v1.9.68 — Warning 7 jours (contacts récents par n'importe quel user)
+  const { contacts: recentContacts } = useRecentContacts(candidatIds, candidatIds.length > 0)
+  useEffect(() => { setWarningDismissed(false) }, [candidatIds.join(',')])
+
+  // v1.9.70 — Reset preview index si la liste des destinataires rétrécit + clean overrides orphelins
+  useEffect(() => {
+    if (previewIdx >= destinataires.length && destinataires.length > 0) {
+      setPreviewIdx(0)
+    }
+    // Supprimer les overrides pour les destinataires qui ont été retirés
+    setOverrides(prev => {
+      const valid = new Set(destinataires)
+      const next: typeof prev = {}
+      for (const [k, v] of Object.entries(prev)) {
+        if (valid.has(k)) next[k] = v
+      }
+      return next
+    })
+  }, [destinataires.join(','), previewIdx])
   const { data: _clientsData } = useClients({ per_page: 2000, statut: 'actif' })
   const clients = _clientsData?.clients || []
 
@@ -852,13 +899,25 @@ function EmailTab() {
     }
   }
 
-  // Preview : premier destinataire (fallback sans client)
-  const previewDest = destinataires[0] || null
+  // Preview : destinataire courant (flèches ← → permettent de naviguer en mode individual)
+  // v1.9.70 : previewIdx + overrides per-destinataire
+  const safeIdx = Math.min(previewIdx, Math.max(0, destinataires.length - 1))
+  const previewDest = destinataires[safeIdx] || null
   const previewCtx = buildRenderCtx(previewDest)
   const previewResolved = previewDest ? resolveClientByEmail(previewDest) : { client: null, contact: null }
-  const renderedSujet = renderTemplate(sujet, previewCtx)
-  const renderedCorps = renderTemplate(corps, previewCtx)
+  const currentOverride = previewDest ? (overrides[previewDest] || {}) : {}
+  const effectiveSujet = currentOverride.sujet ?? sujet
+  const effectiveCorps = currentOverride.corps ?? corps
+  const renderedSujet = renderTemplate(effectiveSujet, previewCtx)
+  const renderedCorps = renderTemplate(effectiveCorps, previewCtx)
   const templateHasContexteIA = hasContexteIA(corps) || hasContexteIA(sujet)
+  const hasCurrentOverride = !!(currentOverride.sujet != null || currentOverride.corps != null)
+  const updateOverride = (email: string, patch: { sujet?: string; corps?: string }) => {
+    setOverrides(prev => ({ ...prev, [email]: { ...(prev[email] || {}), ...patch } }))
+  }
+  const clearOverride = (email: string) => {
+    setOverrides(prev => { const next = { ...prev }; delete next[email]; return next })
+  }
 
   const handleGenerateContexteIA = async () => {
     if (!firstCandidat) {
@@ -920,17 +979,21 @@ function EmailTab() {
   const [showClientPicker, setShowClientPicker] = useState(false)
 
   const doSend = async () => {
-    // UN mail PAR destinataire, personnalisé avec son contexte client.
-    // v1.9.65 : on partage le même campagne_id entre tous les envois d'une session
-    //            → l'historique affiche 1 seule card par campagne (au lieu de N).
+    // v1.9.70 : 2 modes d'envoi
+    // - individual : 1 mail par destinataire, personnalisé (comportement historique)
+    // - grouped    : 1 seul mail avec tous les destinataires en À + CC en copie
     setSending(true)
     const sessionCampagneId: string = (globalThis as any).crypto?.randomUUID?.()
       ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
     try {
       let ok = 0
       let fail = 0
-      for (const email of destinataires) {
-        const ctx = buildRenderCtx(email)
+
+      if (sendMode === 'grouped') {
+        // 1 seul appel : toRecipients = destinataires, ccRecipients = ccEmails
+        // Variables {client_*} : prennent le 1er destinataire (affiché dans l'aperçu)
+        const firstEmail = destinataires[0]
+        const ctx = buildRenderCtx(firstEmail || null)
         const perSujet = renderTemplate(sujet, ctx)
         const perCorps = renderTemplate(corps, ctx)
         try {
@@ -942,10 +1005,12 @@ function EmailTab() {
               candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
               attach_cvs: Object.keys(cvAttached).length > 0,
               cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
-              destinataires: [email],
+              destinataires,
+              cc: ccEmails.length > 0 ? ccEmails : undefined,
               sujet: perSujet,
               corps: perCorps,
               use_bcc: false,
+              send_mode: 'grouped',
               include_signature: includeSignature,
               campagne_id: sessionCampagneId,
             }),
@@ -954,10 +1019,44 @@ function EmailTab() {
             const data = await res.json().catch(() => ({}))
             throw new Error(data?.error || 'Erreur envoi')
           }
-          ok++
+          ok = destinataires.length + ccEmails.length
         } catch (e: any) {
-          fail++
-          console.warn('[mailing per-recipient]', email, e?.message)
+          fail = destinataires.length + ccEmails.length
+          console.warn('[mailing grouped]', e?.message)
+        }
+      } else {
+        // Mode individual : 1 mail par destinataire, personnalisé
+        for (const email of destinataires) {
+          const ctx = buildRenderCtx(email)
+          const base = overrides[email] || {}
+          const perSujet = renderTemplate(base.sujet ?? sujet, ctx)
+          const perCorps = renderTemplate(base.corps ?? corps, ctx)
+          try {
+            const res = await fetch('/api/microsoft/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
+                attach_cvs: Object.keys(cvAttached).length > 0,
+                cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
+                destinataires: [email],
+                sujet: perSujet,
+                corps: perCorps,
+                use_bcc: false,
+                include_signature: includeSignature,
+                campagne_id: sessionCampagneId,
+              }),
+            })
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}))
+              throw new Error(data?.error || 'Erreur envoi')
+            }
+            ok++
+          } catch (e: any) {
+            fail++
+            console.warn('[mailing per-recipient]', email, e?.message)
+          }
         }
       }
 
@@ -1114,6 +1213,20 @@ function EmailTab() {
               })}
             </div>
           )}
+          {/* v1.9.68 — Warning 7 jours : candidats déjà contactés */}
+          {!warningDismissed && candidatIds.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <RecentContactsWarning
+                candidats={candidatIds
+                  .map((id) => (candidats as any)?.find((cc: any) => cc.id === id))
+                  .filter(Boolean)
+                  .map((c: any) => ({ id: c.id, prenom: c.prenom, nom: c.nom }))}
+                contacts={recentContacts}
+                onContinue={() => setWarningDismissed(true)}
+                onDismiss={() => setWarningDismissed(true)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Template */}
@@ -1137,14 +1250,43 @@ function EmailTab() {
           </select>
         </div>
 
-        {/* Destinataires multi-email */}
+        {/* Destinataires multi-email (v1.9.70 : mode À/CC ou individuel) */}
         <div>
+          {/* Mode radio */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            {([
+              { k: 'individual' as const, label: 'Envoi individuel personnalisé', hint: '1 mail par destinataire · personnalisé' },
+              { k: 'grouped' as const,    label: 'Envoi groupé À + CC',          hint: '1 seul mail avec destinataires visibles' },
+            ]).map(m => {
+              const active = sendMode === m.k
+              return (
+                <button
+                  key={m.k}
+                  type="button"
+                  onClick={() => setSendMode(m.k)}
+                  style={{
+                    flex: 1, padding: '8px 10px',
+                    border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
+                    background: active ? 'var(--primary-soft)' : 'var(--card)',
+                    color: active ? 'var(--primary)' : 'var(--muted-foreground)',
+                    borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                    textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 2,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 800 }}>{m.label}</span>
+                  <span style={{ fontSize: 10, opacity: 0.8 }}>{m.hint}</span>
+                </button>
+              )
+            })}
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <label style={{ ...labelStyle, marginBottom: 0 }}>
-              Destinataires clients *
+              {sendMode === 'grouped' ? 'À (destinataires visibles) *' : 'Destinataires clients *'}
               {destinataires.length > 0 && (
                 <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--primary-soft)', padding: '1px 6px', borderRadius: 100 }}>
-                  {destinataires.length} email{destinataires.length > 1 ? 's' : ''} — envoi individuel personnalisé
+                  {destinataires.length} email{destinataires.length > 1 ? 's' : ''}
+                  {sendMode === 'individual' ? ` — ${destinataires.length} mail${destinataires.length > 1 ? 's' : ''} séparé${destinataires.length > 1 ? 's' : ''}` : ''}
                 </span>
               )}
             </label>
@@ -1170,6 +1312,32 @@ function EmailTab() {
             onChange={setDestinataires}
             placeholder="Ajouter un email manuellement (appuyez Entrée)..."
           />
+
+          {/* CC : affiché seulement en mode groupé ET si ≥1 destinataire À */}
+          {sendMode === 'grouped' && destinataires.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <label style={{ ...labelStyle, marginBottom: 6 }}>
+                CC (copie visible)
+                {ccEmails.length > 0 && (
+                  <span style={{ fontWeight: 500, textTransform: 'none', marginLeft: 8, fontSize: 10, color: 'var(--foreground)', background: 'var(--info-soft)', padding: '1px 6px', borderRadius: 100 }}>
+                    {ccEmails.length}
+                  </span>
+                )}
+              </label>
+              <EmailChipInput
+                value={ccEmails}
+                onChange={setCcEmails}
+                placeholder="Ajouter en copie (appuyez Entrée)..."
+              />
+            </div>
+          )}
+
+          {sendMode === 'grouped' && (
+            <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>
+              ℹ️ 1 seul email est envoyé : tous les destinataires À se voient, les CC aussi.
+              Les variables <code>{'{client_prenom}'}</code>, <code>{'{client_nom}'}</code> prennent le 1<sup>er</sup> destinataire.
+            </p>
+          )}
         </div>
 
         <div>
@@ -1230,34 +1398,166 @@ function EmailTab() {
           </div>
 
           {/* Preview — rendu avec les variables remplacées */}
+          {/* v1.9.70 : fond blanc forcé + flèches ←→ + éditeur per-destinataire en mode individual */}
           {(sujet || corps) && (
             <div style={{
-              marginTop: 12, padding: '12px 14px',
+              marginTop: 12, padding: '4px',
               background: 'var(--secondary)', border: '1.5px dashed var(--border)',
               borderRadius: 10,
             }}>
               <div style={{
                 fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6,
+                letterSpacing: '0.06em', color: 'var(--muted)',
+                padding: '8px 10px 6px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
               }}>
-                Aperçu {firstCandidat ? `— ${firstCandidat.prenom} ${firstCandidat.nom}` : ''}
-                {previewDest ? ` → ${previewResolved.client?.nom_entreprise || previewDest}` : ''}
-                {destinataires.length > 1 ? ` (1/${destinataires.length})` : ''}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  {/* Flèches : seulement en mode individual ET si >1 destinataire */}
+                  {sendMode === 'individual' && destinataires.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewIdx(i => (i - 1 + destinataires.length) % destinataires.length)}
+                        title="Destinataire précédent"
+                        style={{
+                          width: 22, height: 22, borderRadius: 6,
+                          border: '1px solid var(--border)', background: 'var(--card)',
+                          color: 'var(--foreground)', cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontFamily: 'inherit',
+                        }}
+                      >
+                        ←
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewIdx(i => (i + 1) % destinataires.length)}
+                        title="Destinataire suivant"
+                        style={{
+                          width: 22, height: 22, borderRadius: 6,
+                          border: '1px solid var(--border)', background: 'var(--card)',
+                          color: 'var(--foreground)', cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontFamily: 'inherit',
+                        }}
+                      >
+                        →
+                      </button>
+                    </>
+                  )}
+                  <span>
+                    Aperçu {firstCandidat ? `— ${firstCandidat.prenom} ${firstCandidat.nom}` : ''}
+                    {previewDest ? ` → ${previewResolved.client?.nom_entreprise || previewDest}` : ''}
+                    {sendMode === 'individual' && destinataires.length > 1 ? ` (${safeIdx + 1}/${destinataires.length})` : ''}
+                    {hasCurrentOverride && (
+                      <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', fontWeight: 800 }}>
+                        ✏️ Personnalisé
+                      </span>
+                    )}
+                  </span>
+                </span>
+                {sendMode === 'individual' && previewDest && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {hasCurrentOverride && (
+                      <button
+                        type="button"
+                        onClick={() => clearOverride(previewDest)}
+                        title="Réinitialiser ce mail (revenir au template global)"
+                        style={{
+                          padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          border: '1px solid var(--destructive)', background: 'var(--destructive-soft)',
+                          color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit',
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                        }}
+                      >
+                        Réinitialiser
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Ouvrir l'éditeur : pré-remplir avec le sujet/corps courant (effectif)
+                        if (!hasCurrentOverride) {
+                          updateOverride(previewDest, { sujet: effectiveSujet, corps: effectiveCorps })
+                        } else {
+                          clearOverride(previewDest)
+                        }
+                      }}
+                      style={{
+                        padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                        border: `1px solid ${hasCurrentOverride ? 'var(--primary)' : 'var(--border)'}`,
+                        background: hasCurrentOverride ? 'var(--primary-soft)' : 'var(--card)',
+                        color: hasCurrentOverride ? 'var(--primary)' : 'var(--foreground)',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                      }}
+                    >
+                      {hasCurrentOverride ? '✏️ Éditer' : 'Personnaliser ce mail'}
+                    </button>
+                  </span>
+                )}
               </div>
-              {renderedSujet && (
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6 }}>
-                  {renderedSujet}
+
+              {/* Éditeur per-destinataire — visible seulement si override actif */}
+              {sendMode === 'individual' && previewDest && hasCurrentOverride && (
+                <div style={{
+                  padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--warning-soft)', border: '1px solid var(--warning)',
+                  margin: '0 4px 8px', display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning)' }}>
+                    Mail spécifique pour {previewResolved.client?.nom_entreprise || previewDest}
+                  </div>
+                  <input
+                    value={currentOverride.sujet ?? sujet}
+                    onChange={e => updateOverride(previewDest, { sujet: e.target.value })}
+                    placeholder="Sujet pour ce destinataire"
+                    style={{
+                      width: '100%', height: 34, padding: '0 10px',
+                      border: '1.5px solid var(--border)', borderRadius: 7,
+                      background: 'var(--card)', color: 'var(--foreground)',
+                      fontSize: 12, fontFamily: 'var(--font-body)', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <textarea
+                    value={currentOverride.corps ?? corps}
+                    onChange={e => updateOverride(previewDest, { corps: e.target.value })}
+                    rows={6}
+                    placeholder="Corps pour ce destinataire (variables supportées)"
+                    style={{
+                      width: '100%', padding: '8px 10px',
+                      border: '1.5px solid var(--border)', borderRadius: 7,
+                      background: 'var(--card)', color: 'var(--foreground)',
+                      fontSize: 12, fontFamily: 'monospace', resize: 'vertical', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
                 </div>
               )}
-              <div style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
-                {renderedCorps}
+
+              <div style={{
+                background: '#ffffff',
+                color: '#000000',
+                borderRadius: 7,
+                padding: '14px 16px',
+                minHeight: 120,
+              }}>
+                {renderedSujet && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#000000', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid #e5e7eb' }}>
+                    {renderedSujet}
+                  </div>
+                )}
+                <div style={{ fontSize: 13, color: '#000000', whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>
+                  {renderedCorps}
+                </div>
+                {includeSignature && signatureHtml && (
+                  <div
+                    style={{ marginTop: 14 }}
+                    dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                  />
+                )}
               </div>
-              {includeSignature && signatureHtml && (
-                <div
-                  style={{ marginTop: 16, paddingTop: 12, borderTop: '1px dashed var(--border)' }}
-                  dangerouslySetInnerHTML={{ __html: signatureHtml }}
-                />
-              )}
             </div>
           )}
         </div>
@@ -1396,9 +1696,35 @@ function EmailTab() {
 
 // ─── Templates Tab ────────────────────────────────────────────────────────────
 
+// v1.9.68 — Métadonnées canaux templates (unifiées avec CANAL_META historique).
+const TEMPLATE_CANAL_META: Record<'email' | 'sms' | 'whatsapp', { label: string; icon: string; color: string; bg: string; description: string }> = {
+  email:    { label: 'Email',     icon: '✉️', color: 'var(--info)',    bg: 'var(--info-soft)',    description: 'Envoi depuis /messages → Mailing' },
+  sms:      { label: 'iMessage',  icon: '💬', color: 'var(--primary)', bg: 'var(--primary-soft)', description: 'Envoi bulk iMessage depuis /candidats' },
+  whatsapp: { label: 'WhatsApp',  icon: '📱', color: 'var(--success)', bg: 'var(--success-soft)', description: 'Envoi bulk WhatsApp depuis /candidats' },
+}
+
+// Variables exposées dans le builder : courtes + email-only
+const VAR_GROUPS = {
+  common: [
+    { key: '{prenom}',   label: 'Prénom candidat',     example: 'Pedro' },
+    { key: '{nom}',      label: 'Nom candidat',        example: 'Silva' },
+    { key: '{metier}',   label: 'Métier / titre poste', example: 'Maçon' },
+    { key: '{civilite}', label: 'Civilité',            example: 'Monsieur' },
+  ],
+  emailOnly: [
+    { key: '{client_prenom}',     label: 'Prénom contact client' },
+    { key: '{client_nom}',        label: 'Nom contact client' },
+    { key: '{client_entreprise}', label: 'Nom entreprise cliente' },
+    { key: '{consultant_prenom}', label: 'Votre prénom (signature)' },
+    { key: '{resume_ia}',         label: 'Résumé IA du candidat' },
+    { key: '{contexte_ia}',       label: 'Paragraphe IA contextualisé' },
+    { key: '{un_e}',              label: 'Article accordé (un/une)' },
+  ],
+}
+
 function TemplatesTab() {
   const [showCreate, setShowCreate] = useState(false)
-  const { data: templates, isLoading } = useEmailTemplates('email')
+  const { data: templates, isLoading, refetch } = useEmailTemplates() // tous canaux
   const queryClient = useQueryClient()
 
   const deleteTemplate = useMutation({
@@ -1412,11 +1738,36 @@ function TemplatesTab() {
     },
   })
 
-  const grouped = (templates || []).reduce((acc: Record<string, any[]>, t: any) => {
-    if (!acc[t.categorie]) acc[t.categorie] = []
-    acc[t.categorie].push(t)
-    return acc
-  }, {})
+  // Copier template SMS → nouveau WhatsApp (ou inverse)
+  const copyToCanal = async (t: any, targetCanal: 'email' | 'sms' | 'whatsapp') => {
+    const meta = TEMPLATE_CANAL_META[targetCanal]
+    const newName = t.nom.includes(`→ ${meta.label}`) ? t.nom : `${t.nom} → ${meta.label}`
+    try {
+      const res = await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom: newName,
+          sujet: targetCanal === 'email' ? (t.sujet || '') : null,
+          corps: t.corps,
+          type: targetCanal,
+          categorie: 'general',
+        }),
+      })
+      if (!res.ok) throw new Error()
+      queryClient.invalidateQueries({ queryKey: ['email-templates'] })
+      toast.success(`Copié vers ${meta.label}`)
+    } catch {
+      toast.error('Erreur lors de la copie')
+    }
+  }
+
+  // Group by canal (type) au lieu de catégorie
+  const byCanal: Record<'email' | 'sms' | 'whatsapp', any[]> = { email: [], sms: [], whatsapp: [] }
+  for (const t of (templates || [])) {
+    const canal = ((t as any).type || 'email') as 'email' | 'sms' | 'whatsapp'
+    if (byCanal[canal]) byCanal[canal].push(t)
+  }
 
   return (
     <div>
@@ -1433,7 +1784,7 @@ function TemplatesTab() {
             <div key={i} style={{ height: 96, background: 'var(--secondary)', borderRadius: 12, animation: 'pulse 2s infinite' }} />
           ))}
         </div>
-      ) : Object.keys(grouped).length === 0 ? (
+      ) : (templates || []).length === 0 ? (
         <div style={{ textAlign: 'center', padding: '64px 0' }}>
           <FileText size={40} color="var(--border)" style={{ margin: '0 auto 12px' }} />
           <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)', margin: 0 }}>Aucun template</p>
@@ -1441,49 +1792,95 @@ function TemplatesTab() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {Object.entries(grouped).map(([cat, items]) => (
-            <div key={cat}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{CAT_LABELS[cat] || cat}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(items as any[]).map((t: any) => {
-                  const catColor = CAT_COLORS[t.categorie] || CAT_COLORS.general
-                  return (
+          {(['email', 'sms', 'whatsapp'] as const).map(canal => {
+            const items = byCanal[canal]
+            if (items.length === 0) return null
+            const meta = TEMPLATE_CANAL_META[canal]
+            return (
+              <div key={canal}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 99,
+                    background: meta.bg, color: meta.color,
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>
+                    <span>{meta.icon}</span> {meta.label}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                    {items.length} template{items.length > 1 ? 's' : ''} · {meta.description}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {items.map((t: any) => (
                     <div key={t.id} style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: 'var(--card-shadow)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{t.nom}</h3>
-                            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 99, background: catColor.bg, color: catColor.color }}>
-                              {CAT_LABELS[t.categorie] || t.categorie}
-                            </span>
-                          </div>
-                          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{t.sujet}</p>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8, gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>{t.nom}</h3>
+                          {canal === 'email' && t.sujet && (
+                            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4, marginBottom: 0 }}>Sujet : {t.sujet}</p>
+                          )}
                         </div>
-                        <button
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--muted)' }}
-                          onClick={() => deleteTemplate.mutate(t.id)}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
-                          onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          {canal !== 'whatsapp' && (
+                            <button
+                              onClick={() => copyToCanal(t, 'whatsapp')}
+                              title="Copier vers WhatsApp"
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                background: 'var(--success-soft)', border: '1px solid var(--success-soft)',
+                                color: 'var(--success)', cursor: 'pointer',
+                                padding: '4px 9px', borderRadius: 7,
+                                fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                              }}
+                            >
+                              📱 Copier vers WhatsApp
+                            </button>
+                          )}
+                          {canal !== 'sms' && canal !== 'whatsapp' && (
+                            <button
+                              onClick={() => copyToCanal(t, 'sms')}
+                              title="Copier vers iMessage"
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                background: 'var(--primary-soft)', border: '1px solid var(--primary-soft)',
+                                color: 'var(--primary)', cursor: 'pointer',
+                                padding: '4px 9px', borderRadius: 7,
+                                fontSize: 11, fontWeight: 700, fontFamily: 'inherit',
+                              }}
+                            >
+                              💬 Copier vers iMessage
+                            </button>
+                          )}
+                          <button
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--muted)' }}
+                            onClick={() => deleteTemplate.mutate(t.id)}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+                            title="Supprimer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
-                      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, fontFamily: 'monospace', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{t.corps}</p>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, fontFamily: 'monospace', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, margin: 0 }}>
+                        {t.corps}
+                      </p>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Nouveau template</DialogTitle>
           </DialogHeader>
-          <CreateTemplateForm onSuccess={() => setShowCreate(false)} />
+          <CreateTemplateForm onSuccess={() => { setShowCreate(false); refetch() }} />
         </DialogContent>
       </Dialog>
     </div>
@@ -1492,68 +1889,159 @@ function TemplatesTab() {
 
 function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
   const [nom, setNom] = useState('')
+  const [canal, setCanal] = useState<'email' | 'sms' | 'whatsapp'>('email')
   const [sujet, setSujet] = useState('')
   const [corps, setCorps] = useState('')
-  const [categorie, setCategorie] = useState('general')
+  const corpsRef = useRef<HTMLTextAreaElement>(null)
   const createTemplate = useCreateTemplate()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createTemplate.mutate({ nom, sujet, corps, categorie }, { onSuccess })
+    createTemplate.mutate(
+      {
+        nom,
+        sujet: canal === 'email' ? (sujet || null) : null,
+        corps,
+        type: canal,
+        categorie: 'general', // valeur par défaut (plus exposé à l'UI)
+      },
+      { onSuccess }
+    )
+  }
+
+  const insertVar = (varKey: string) => {
+    const el = corpsRef.current
+    if (!el) { setCorps(c => c + varKey); return }
+    const start = el.selectionStart ?? corps.length
+    const end = el.selectionEnd ?? corps.length
+    const next = corps.slice(0, start) + varKey + corps.slice(end)
+    setCorps(next)
+    // Positionner le curseur après la variable insérée
+    requestAnimationFrame(() => {
+      el.focus()
+      const pos = start + varKey.length
+      el.setSelectionRange(pos, pos)
+    })
   }
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nom du template *</label>
-          <input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required style={{
-            width: '100%', height: 42, padding: '0 14px', background: 'var(--card)', border: '2px solid var(--border)',
-            borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
-          }} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Catégorie</label>
-          <select
-            value={categorie}
-            onChange={e => setCategorie(e.target.value)}
-            style={{
-              width: '100%', height: 42, padding: '0 14px',
-              background: 'var(--card)', border: '2px solid var(--border)',
-              borderRadius: 8, color: 'var(--foreground)',
-              fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)',
-              cursor: 'pointer',
-            }}
-          >
-            {Object.entries(CAT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </div>
-      </div>
       <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet (email)</label>
-        <input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email..." style={{
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Nom du template *</label>
+        <input value={nom} onChange={e => setNom(e.target.value)} placeholder="ex: Invitation entretien" required style={{
           width: '100%', height: 42, padding: '0 14px', background: 'var(--card)', border: '2px solid var(--border)',
           borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
         }} />
       </div>
+
       <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Corps du message *</label>
-        <textarea value={corps} onChange={e => setCorps(e.target.value)} placeholder="Bonjour {candidat_prenom},..." rows={6} required style={{
-          width: '100%', padding: '12px 14px', background: 'var(--card)', border: '2px solid var(--border)',
-          borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'monospace', outline: 'none', resize: 'none',
-        }} />
-        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.55 }}>
-          <strong>Variables disponibles :</strong>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            {TEMPLATE_VARS.map(v => (
-              <code key={v.key} title={v.label} style={{
-                fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                background: 'var(--secondary)', color: 'var(--foreground)',
-              }}>{v.key}</code>
-            ))}
-          </div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          Canal d&apos;envoi *
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          {(['email', 'sms', 'whatsapp'] as const).map(k => {
+            const meta = TEMPLATE_CANAL_META[k]
+            const active = canal === k
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setCanal(k)}
+                style={{
+                  padding: '10px 12px', borderRadius: 10,
+                  border: `1.5px solid ${active ? meta.color : 'var(--border)'}`,
+                  background: active ? meta.bg : 'var(--card)',
+                  color: active ? meta.color : 'var(--muted-foreground)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                <span style={{ fontSize: 12, fontWeight: 800 }}>{meta.label}</span>
+                <span style={{ fontSize: 10, color: active ? meta.color : 'var(--muted)', textAlign: 'center', lineHeight: 1.3, marginTop: 2 }}>
+                  {meta.description}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
+
+      {canal === 'email' && (
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Sujet</label>
+          <input value={sujet} onChange={e => setSujet(e.target.value)} placeholder="Objet de l'email…" style={{
+            width: '100%', height: 42, padding: '0 14px', background: 'var(--card)', border: '2px solid var(--border)',
+            borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none',
+          }} />
+        </div>
+      )}
+
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Corps du message *</label>
+        <textarea
+          ref={corpsRef}
+          value={corps}
+          onChange={e => setCorps(e.target.value)}
+          placeholder="Bonjour {prenom}, nous avons une opportunité..."
+          rows={6}
+          required
+          style={{
+            width: '100%', padding: '12px 14px', background: 'var(--card)', border: '2px solid var(--border)',
+            borderRadius: 8, color: 'var(--foreground)', fontSize: 13, fontFamily: 'monospace', outline: 'none', resize: 'vertical',
+          }}
+        />
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.55 }}>
+          <div style={{ fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 4 }}>
+            Variables (cliquer pour insérer) — disponibles sur les 3 canaux :
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 10 }}>
+            {VAR_GROUPS.common.map(v => (
+              <button
+                key={v.key}
+                type="button"
+                onClick={() => insertVar(v.key)}
+                title={`${v.label} — ex: ${v.example}`}
+                style={{
+                  fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                  background: 'var(--primary-soft)', color: 'var(--primary)',
+                  border: '1px solid var(--primary-soft)', cursor: 'pointer',
+                  fontFamily: 'monospace', fontWeight: 700,
+                }}
+              >
+                {v.key}
+              </button>
+            ))}
+          </div>
+          {canal === 'email' && (
+            <>
+              <div style={{ fontWeight: 700, color: 'var(--muted-foreground)', marginBottom: 4 }}>
+                Variables Email uniquement :
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {VAR_GROUPS.emailOnly.map(v => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    onClick={() => insertVar(v.key)}
+                    title={v.label}
+                    style={{
+                      fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                      background: 'var(--info-soft)', color: 'var(--info)',
+                      border: '1px solid var(--info-soft)', cursor: 'pointer',
+                      fontFamily: 'monospace', fontWeight: 700,
+                    }}
+                  >
+                    {v.key}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button
           type="submit"
@@ -1569,8 +2057,8 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
 }
 
 // ─── Historique Tab (v1.9.60) ─────────────────────────────────────────────────
-// Liste les campagnes email envoyées par l'utilisateur courant.
-// Groupement par campagne_id : 1 ligne = 1 envoi (multi-candidats × multi-destinataires).
+// v1.9.68 : Historique global team — tous les envois du team sont visibles avec
+// "envoyé par X". Le bouton supprimer n'apparaît que sur les envois du user courant.
 
 interface HistoriqueCampagne {
   campagne_id: string
@@ -1587,6 +2075,9 @@ interface HistoriqueCampagne {
   corps_extract: string
   statut: string
   canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
+  user_id: string | null
+  user_name: string | null
+  is_own: boolean
 }
 
 // v1.9.66 — canaux unifiés dans l'historique
@@ -1758,31 +2249,33 @@ function HistoriqueTab() {
                 position: 'relative',
               }}
             >
-              {/* Bouton supprimer — croix top-right */}
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
-                title="Supprimer cet envoi"
-                style={{
-                  position: 'absolute', top: 10, right: 10, zIndex: 2,
-                  width: 28, height: 28, borderRadius: 8,
-                  background: 'transparent', border: '1px solid transparent',
-                  color: 'var(--muted-foreground)', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--destructive-soft)'
-                  e.currentTarget.style.color = 'var(--destructive)'
-                  e.currentTarget.style.borderColor = 'var(--destructive-soft)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.color = 'var(--muted-foreground)'
-                  e.currentTarget.style.borderColor = 'transparent'
-                }}
-              >
-                <Trash2 size={13} />
-              </button>
+              {/* Bouton supprimer — croix top-right (v1.9.68 : uniquement si l'envoi m'appartient) */}
+              {c.is_own && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
+                  title="Supprimer cet envoi"
+                  style={{
+                    position: 'absolute', top: 10, right: 10, zIndex: 2,
+                    width: 28, height: 28, borderRadius: 8,
+                    background: 'transparent', border: '1px solid transparent',
+                    color: 'var(--muted-foreground)', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--destructive-soft)'
+                    e.currentTarget.style.color = 'var(--destructive)'
+                    e.currentTarget.style.borderColor = 'var(--destructive-soft)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--muted-foreground)'
+                    e.currentTarget.style.borderColor = 'transparent'
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
               {/* Ligne principale */}
               <button
                 onClick={() => setExpanded(isOpen ? null : c.campagne_id)}
@@ -1828,6 +2321,20 @@ function HistoriqueTab() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Calendar size={11} /> {dateStr} · {timeStr}
                     </span>
+                    {c.user_name && (
+                      <span
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '1px 8px', borderRadius: 99,
+                          background: c.is_own ? 'var(--primary-soft)' : 'var(--secondary)',
+                          color: c.is_own ? 'var(--primary)' : 'var(--muted-foreground)',
+                          fontWeight: 700, fontSize: 10, letterSpacing: '0.02em',
+                        }}
+                        title={c.is_own ? 'Envoyé par vous' : `Envoyé par ${c.user_name}`}
+                      >
+                        👤 {c.is_own ? 'Vous' : c.user_name}
+                      </span>
+                    )}
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <Users size={11} /> {c.nb_candidats} candidat{c.nb_candidats > 1 ? 's' : ''}
                     </span>

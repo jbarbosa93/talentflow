@@ -1,6 +1,6 @@
-// /api/emails/history — Historique des envois email, groupé par campagne_id.
-// Per-user strict : RLS filtre user_id = auth.uid() (voir migration v1.9.60).
-// Les rows sans user_id (anciens envois pré-v1.9.60) sont visibles à tous en backward compat.
+// /api/emails/history — Historique des envois (email + iMessage + WhatsApp + SMS), groupé par campagne_id.
+// v1.9.68 : RLS SELECT global team → tous les users voient tous les envois, avec « envoyé par X ».
+// (INSERT/UPDATE/DELETE restent per-user → on ne peut supprimer que ses propres envois.)
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -24,6 +24,9 @@ interface CampagneResume {
   corps_extract: string
   statut: string
   canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
+  user_id: string | null          // v1.9.68 — expéditeur (pour historique global team)
+  user_name: string | null        // v1.9.68 — prénom ou nom affiché
+  is_own: boolean                 // v1.9.68 — true si l'envoi appartient au user courant (pour UI bouton supprimer)
 }
 
 export async function GET(req: Request) {
@@ -36,11 +39,13 @@ export async function GET(req: Request) {
   const canal = (url.searchParams.get('canal') || '').trim() // '' ou email/imessage/whatsapp/sms
 
   const supabase = await createClient()
+  const { data: userData } = await supabase.auth.getUser()
+  const currentUserId = userData?.user?.id ?? null
 
-  // Fetch bruts (RLS gère le filtre per-user)
+  // Fetch bruts (RLS SELECT = USING true depuis v1.9.68 → historique global team)
   let query = supabase
     .from('emails_envoyes')
-    .select('id, user_id, campagne_id, candidat_id, candidat_ids, client_id, client_nom, sujet, corps, destinataire, statut, cv_personnalise, cv_urls_utilises, created_at, canal')
+    .select('id, user_id, user_name, campagne_id, candidat_id, candidat_ids, client_id, client_nom, sujet, corps, destinataire, statut, cv_personnalise, cv_urls_utilises, created_at, canal')
     .order('created_at', { ascending: false })
     .limit(limit * 15)
   if (canal && ['email','imessage','whatsapp','sms'].includes(canal)) {
@@ -88,6 +93,9 @@ export async function GET(req: Request) {
       corps_extract: (first.corps ?? '').slice(0, 220),
       statut: first.statut ?? 'envoye',
       canal: (first.canal ?? 'email') as CampagneResume['canal'],
+      user_id: first.user_id ?? null,
+      user_name: first.user_name ?? null,
+      is_own: !!currentUserId && first.user_id === currentUserId,
     })
   }
 

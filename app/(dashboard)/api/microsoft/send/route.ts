@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
         ? [body.destinataire]
         : []
     const { candidat_ids, sujet, corps, use_bcc = false, include_signature = true } = body
+    const send_mode = body.send_mode === 'grouped' ? 'grouped' : 'individual' // v1.9.70
+    const cc: string[] = Array.isArray(body.cc) ? body.cc.filter((e: any) => typeof e === 'string' && e.trim()) : []
     const candidat_id = body.candidat_id || (candidat_ids?.[0]) || null
 
     if (destinataires.length === 0 || !sujet || !corps) {
@@ -85,8 +87,10 @@ export async function POST(request: NextRequest) {
       emailAddress: { address: email },
     }))
 
-    // Build message — BCC si plusieurs destinataires ou demandé explicitement
-    const useBcc = use_bcc || destinataires.length > 1
+    // Build message — v1.9.70 : 3 modes
+    // - send_mode='grouped' : toRecipients = destinataires, ccRecipients = cc (1 seul email visible)
+    // - use_bcc=true        : bccRecipients (copie cachée, mode "rare")
+    // - default (individual) : toRecipients (appelé 1x par destinataire côté client)
     const message: any = {
       subject: sujet,
       body: {
@@ -98,7 +102,12 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    if (useBcc) {
+    if (send_mode === 'grouped') {
+      message.toRecipients = recipients
+      if (cc.length > 0) {
+        message.ccRecipients = cc.map((email: string) => ({ emailAddress: { address: email } }))
+      }
+    } else if (use_bcc) {
       message.bccRecipients = recipients
     } else {
       message.toRecipients = recipients

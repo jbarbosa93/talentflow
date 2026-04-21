@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.67 prod (WhatsApp bulk + cleanup /messages)** — 21/04/2026
+**1.9.70 prod (Historique team + mailing refondu + signature Seb)** — 21/04/2026
 
 ---
 
@@ -498,6 +498,49 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - TabId type : `'email' | 'templates' | 'historique'` (avant : aussi 'whatsapp' et 'sms'). Fonctions `WhatsAppTab()` + `SmsTab()` **supprimées** (254 lignes dead code). Imports `MessageCircle`, `Smartphone`, `toWaPhone` nettoyés.
 - Raison : depuis v1.9.67, tout le bulk WhatsApp + SMS se fait depuis `/candidats` (barre d'actions bulk après sélection). L'onglet individuel `/messages → WhatsApp` faisait doublon et n'était plus utilisé en pratique. L'historique conserve tous les canaux (filtre par canal existant v1.9.66 inchangé).
 - **Ne pas recréer** ces onglets. Si besoin de WhatsApp individuel : fiche candidat (bouton à côté du numéro de tel).
+
+**29. Historique team partagé + warning 7 jours (v1.9.70)**
+- **RLS SELECT emails_envoyes** : `USING true` depuis v1.9.70 → lecture globale team. INSERT/UPDATE/DELETE restent per-user (chacun ne supprime que ses propres envois).
+- Colonne `emails_envoyes.user_name` remplie à l'insert par `/api/messages/log` (prénom depuis `user_metadata.prenom` ou fallback email local-part). Affichée dans l'historique via badge `👤 Vous` (primary-soft) ou `👤 Prénom` (secondary).
+- `CampagneResume.is_own = (current_user_id === user_id)` → bouton supprimer conditionnel sur les cards historique.
+- **`/api/messages/recent-contacts`** : endpoint GET `?candidat_ids=a,b,c` → pour chaque candidat, retourne le dernier contact (email/imessage/whatsapp/sms) par n'importe quel user dans les 7 derniers jours. Optimisé : 2 fetches parallèles (candidat_id direct + candidat_ids[] via `.overlaps`), merge côté serveur. Indexes partiels ajoutés (candidat_id + created_at, candidat_ids GIN).
+- **Composant `RecentContactsWarning`** (`components/RecentContactsWarning.tsx`) : hook `useRecentContacts(ids, enabled)` + encart informatif `--warning-soft` avec liste "il y a X jours par Y via Z". Boutons "Fermer" + "Continuer malgré tout" — non bloquant. Intégré dans 3 modals : EmailTab, iMessage bulk, WhatsApp bulk.
+
+**30. Mailing refondu — À/CC + perso per-destinataire + aperçu blanc + auto-complete (v1.9.70)**
+- **Mode d'envoi** radio-cards `individual` / `grouped` :
+  - `individual` (défaut) : boucle client `for (const email of destinataires)` → N emails séparés, personnalisés via `renderTemplate()` + contexte client résolu par email. Comportement historique préservé.
+  - `grouped` : 1 seul POST `/api/microsoft/send` avec `send_mode:'grouped'`, `destinataires` → `toRecipients`, `cc` → `ccRecipients`. Variables `{client_*}` prennent le 1er destinataire. Champ CC n'apparaît que si `destinataires.length > 0`.
+- **`/api/microsoft/send`** accepte désormais `cc: string[]` + `send_mode: 'grouped'`. Le `use_bcc` reste pour les cas "copie cachée massive" (rarement utilisé).
+- **Overrides per-destinataire** (mode individual) : state `overrides: Record<email, { sujet?: string; corps?: string }>` + `previewIdx: number`. Flèches ←→ dans le header d'aperçu pour naviguer entre destinataires. Bouton "Personnaliser ce mail" crée l'override à partir du template effectif. Bouton "Réinitialiser" supprime l'override. `doSend()` lit `overrides[email]` avant fallback sur `sujet`/`corps` globaux. Cleanup auto des orphelins dans useEffect quand la liste change.
+- **Aperçu fond blanc** : le container interne du preview (sujet + corps + signature) a `background: #ffffff; color: #000000` en dur (Outlook affiche toujours fond blanc, indépendant du thème destinataire). Le wrapper extérieur garde `var(--secondary)` + bordure dashed `var(--border)` pour l'intégration TalentFlow.
+- **Recherche clients mailing (`ClientPickerModal`)** :
+  - `useClients({ per_page: 2000 })` (avant: 500 → ratait les clients au-delà de la 500ème ligne)
+  - `parseBooleanSearch()` extrait dans `lib/boolean-search.ts` (partagé avec CandidatsList). Si requête contient ET/OU/SAUF/parenthèses → utilise le matcher booléen. Sinon fallback sur `.includes()` unaccent.
+  - Tooltip ⓘ à côté du search avec exemples.
+- **Auto-complétion emails (`EmailChipInput`)** :
+  - Nouveau endpoint `/api/emails/suggest` : agrège contacts clients (actifs, `clients.contacts[].email` + `client.email`) + team (`auth.users`) + destinataires récents (`emails_envoyes.destinataire` 30 jours, canal='email'). Dédup + priorité `client > team > recent`. Cap 5000.
+  - Cache module-level `CACHED_SUGGESTIONS` (1 fetch au premier mount, partagé entre instances). Dropdown sous le champ dès 2 caractères. Match sur email + label (unaccent). Navigation clavier ↑↓ + Entrée + Esc. Pills colorées `Client`/`Team`/`Récent`.
+  - Prop `disableAutocomplete` pour désactiver si besoin.
+
+**31. Templates refonte 3 canaux + variables harmonisées + "copier vers" (v1.9.68-v1.9.70)**
+- Table `email_templates.type` CHECK étend à `'email' | 'sms' | 'whatsapp'` (migration v1.9.68).
+- `TemplatesTab` (`app/(dashboard)/messages/page.tsx`) groupe par canal (plus par catégorie). Header coloré (bg pastel + icône ✉️/💬/📱).
+- `CreateTemplateForm` : radio-cards 3 canaux, sujet conditionnel (canal==='email' uniquement), variables cliquables en 2 groupes (communs 3 canaux vs email-only), insertion au curseur via `textareaRef.selectionStart/End`. Catégorie supprimée de l'UI (défaut 'general' en DB, non exposé).
+- **Copier vers** : bouton sur chaque template Email/iMessage → POST nouveau template avec même corps + type changé + suffixe "→ WhatsApp" / "→ iMessage" dans le nom.
+- **Variables harmonisées** (`lib/template-vars.ts`) : notation courte `{prenom}` / `{nom}` / `{metier}` / `{civilite}` ajoutée en plus de la legacy longue `{candidat_prenom}` / etc. Les 2 notations marchent sur les 3 canaux. `[MÉTIER]` / `[LIEU]` SMS legacy continuent à fonctionner (rétrocompat des 22 templates SMS existants).
+- `CandidatsList.personalize()` (WhatsApp bulk) étendu : substitue `{prenom}`, `{nom}`, `{metier}` + aliases `{candidat_*}`.
+- `waTemplates` state dans CandidatsList chargé à l'ouverture de `showWhatsApp` via `?type=whatsapp` — séparé de `smsTemplates` (iMessage).
+
+**32. Activités compteurs + cron cleanup 30j (v1.9.70)**
+- Endpoint `/api/activites/counts` : 4 count queries en parallèle (all + candidats + imports + clients), respecte filtres search + date_from/to (sinon compteurs trompeurs). Cast `supabase as any` car table `activites` absente des types Supabase auto-générés.
+- Badges pill dans chaque onglet de `/activites`, cap à `9999+`, fond adapté actif/inactif.
+- **Cron `/api/cron/cleanup-old-data`** : Vercel cron quotidien à `15 3 * * *` (03:15 UTC). Rétention glissante 30 jours — DELETE sur `emails_envoyes.created_at < now() - '30 days'` + même sur `activites`. Protection `CRON_SECRET`. Log consolidé.
+
+**33. Signature email per-user (`user_metadata.signature_html`) (v1.9.70 setup Seb)**
+- Signatures stockées dans `auth.users.raw_user_meta_data.signature_html` (cf. CLAUDE.md pattern historique mailing).
+- Script `scripts/setup-seb-signature.mjs` idempotent : upload photo locale → Supabase Storage `public-assets/photos/sebastien.jpg`, génère HTML (clone de João avec photo/LinkedIn/natel adaptés), update user_metadata via `supabase.auth.admin.updateUserById`.
+- Template HTML : table 2 colonnes (photo 117px | info + icônes sociaux), bannière L-AGENCE en bas. Bureau + Facebook + Instagram partagés avec João. LinkedIn + photo + mobile personnels.
+- **Les users doivent se reconnecter** pour que le session cookie récupère la nouvelle meta.
 
 ---
 
