@@ -48,8 +48,9 @@ export default function OffresPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [cdcViewer, setCdcViewer] = useState<{ url: string; titre: string } | null>(null)
   const [candidatsOffre, setCandidatsOffre] = useState<{ id: string; titre: string } | null>(null) // v1.9.71
-  // v1.9.72 : cache global candidats liés par offre → affichage aperçu sur chaque card
-  const [offreLinks, setOffreLinks] = useState<Record<string, Array<{ id: string; candidat: { id: string; prenom: string | null; nom: string | null; titre_poste: string | null; photo_url: string | null } }>>>({})
+  // v1.9.72/73 : cache global candidats liés par offre → affichage aperçu sur chaque card
+  // (la propriété jointe Supabase est `candidats` — pluriel, nom table)
+  const [offreLinks, setOffreLinks] = useState<Record<string, any[]>>({})
   const [offreLinksLoaded, setOffreLinksLoaded] = useState(false)
   const { data: offres, isLoading } = useOffres(true)
 
@@ -348,8 +349,9 @@ export default function OffresPage() {
                           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             Candidats liés ({links.length})
                           </div>
-                          {toShow.map(l => {
-                            const c = l.candidat
+                          {toShow.map((l: any) => {
+                            // v1.9.73 : Supabase retourne la table jointe sous son nom pluriel `candidats`, pas `candidat`
+                            const c = l.candidats || l.candidat
                             if (!c) return null
                             const hasPhoto = c.photo_url && c.photo_url !== 'checked'
                             const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'

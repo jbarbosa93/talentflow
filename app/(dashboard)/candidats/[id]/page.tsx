@@ -937,16 +937,40 @@ export default function CandidatDetailPage() {
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
-            {/* v1.9.71 — Date d'ajout au-dessus de la photo */}
-            {candidat.created_at && (
-              <div style={{
-                textAlign: 'center', marginBottom: 10,
-                fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600,
-                textTransform: 'uppercase', letterSpacing: '0.05em',
-              }}>
-                Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </div>
-            )}
+            {/* v1.9.71/73 — Date d'ajout/réactivation/actualisation au-dessus de la photo */}
+            {candidat.created_at && (() => {
+              const fmt = (iso: string) => new Date(iso).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
+              const changeType = (candidat as any).onedrive_change_type as string | null | undefined
+              const changeAt = (candidat as any).onedrive_change_at as string | null | undefined
+              const lastImport = (candidat as any).last_import_at as string | null | undefined
+              const createdAt = candidat.created_at
+              // Priorité : onedrive_change_type (dernier changement explicite)
+              let label = `Ajouté le ${fmt(createdAt)}`
+              let color: string = 'var(--muted-foreground)'
+              if (changeType === 'reactive' && changeAt) {
+                label = `Réactivé le ${fmt(changeAt)}`
+                color = 'var(--warning)'
+              } else if (changeType === 'mis_a_jour' && changeAt) {
+                label = `Actualisé le ${fmt(changeAt)}`
+                color = 'var(--info)'
+              } else if (changeType === 'nouveau') {
+                label = `Ajouté le ${fmt(createdAt)}`
+                color = 'var(--success)'
+              } else if (lastImport && new Date(lastImport).getTime() - new Date(createdAt).getTime() > 60_000) {
+                // Fallback : last_import_at > created_at de plus d'1 min → actualisé (après que le change_type soit effacé)
+                label = `Actualisé le ${fmt(lastImport)}`
+                color = 'var(--info)'
+              }
+              return (
+                <div style={{
+                  textAlign: 'center', marginBottom: 10,
+                  fontSize: 11, color, fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                }}>
+                  {label}
+                </div>
+              )
+            })()}
             {/* Photo + Nom */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               {/* Photo avec boutons upload/delete */}

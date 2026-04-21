@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.72'
+export const APP_VERSION = '1.9.73'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.73',
+    date: '2026-04-22',
+    label: 'Corrections 5 bugs v1.9.72 : note popover, date fiche avec variantes, commandes candidats visibles, âge en pill, MetierPicker partagé',
+    features: [
+      'NOTES POPOVER — correction plus agressive : s\'ouvre maintenant TOUJOURS sous le bouton, sauf si vraiment moins de 150px en bas. Hauteur limitée à l\'espace disponible pour ne jamais déborder.',
+      'DATE FICHE CANDIDAT — selon l\'historique du dernier import :\n• Nouveau candidat → "Ajouté le X" (vert)\n• Ré-importé même CV → "Réactivé le Y" (orange)\n• CV actualisé → "Actualisé le Y" (bleu)',
+      'COMMANDES — bug de propriété corrigé : Supabase retourne le candidat joint sous `candidats` (nom de la table), pas `candidat`. Les photos, noms et métiers s\'affichent maintenant correctement sur chaque card commande.',
+      'ÂGE LISTE CANDIDATS — affiché maintenant dans une pill orange soft avec bordure, bien visible (remplace le gris terne précédent).',
+      'AJOUTER AU PIPELINE (depuis liste candidats) — utilise désormais le même MetierPicker que la page Pipeline : barre de recherche + liste groupée par catégories (Manutentionnaire / Gros Oeuvre / etc.) avec headers colorés. Plus cohérent.',
+    ],
+  },
   {
     version: '1.9.72',
     date: '2026-04-22',

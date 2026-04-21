@@ -69,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.72 prod (fixes 1.9.71 : popover notes, persistance filtres, commandes, aperçu candidats)** — 22/04/2026
+**1.9.73 prod (5 bugs v1.9.72 : popover, date fiche variantes, commandes candidats, âge pill, MetierPicker)** — 22/04/2026
 
 ---
 

@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner'
 import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
 import LinkOffreModal from '@/components/LinkOffreModal'
+import MetierPicker from '@/components/MetierPicker'
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk, useCandidatsRealtime } from '@/hooks/useCandidats'
@@ -1265,9 +1266,16 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
-                {/* v1.9.71 — Âge inline après localisation (cohérent avec onglet à-traiter) */}
+                {/* v1.9.71/73 — Âge en petit carré pill, visible */}
                 {age !== null && (
-                  <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800,
+                    padding: '2px 8px', borderRadius: 6,
+                    background: 'var(--primary-soft)',
+                    color: 'var(--primary)',
+                    border: '1px solid rgba(245,167,35,0.35)',
+                    whiteSpace: 'nowrap',
+                  }}>
                     {age} ans
                   </span>
                 )}
@@ -1399,10 +1407,14 @@ export default function CandidatsList() {
               const screenH = window.innerHeight
               const spaceAbove = notePopoverRect.top - MARGIN
               const spaceBelow = screenH - notePopoverRect.bottom - MARGIN
-              // v1.9.72 : préférer ouverture EN BAS par défaut. Ouverture en haut UNIQUEMENT si vraiment pas la place en bas.
-              const openUp = spaceBelow < 220 && spaceAbove >= 220
-              const maxH = Math.min(PANEL_MAX_H, Math.max(180, openUp ? spaceAbove : spaceBelow))
-              const top = openUp ? Math.max(MARGIN, notePopoverRect.top - maxH - 6) : Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
+              // v1.9.73 : fix agressif — ouverture TOUJOURS sous le bouton. En haut SEULEMENT si spaceBelow < 150 (très étroit).
+              // maxH limité à l'espace réel dispo → le popover ne déborde jamais hors du viewport.
+              const openUp = spaceBelow < 150 && spaceAbove > spaceBelow
+              const availableH = openUp ? spaceAbove : spaceBelow
+              const maxH = Math.min(PANEL_MAX_H, Math.max(160, availableH - 10))
+              const top = openUp
+                ? Math.max(MARGIN, notePopoverRect.top - maxH - 6)
+                : Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
               const left = Math.max(MARGIN, Math.min(screenW - PANEL_W - MARGIN, notePopoverRect.right - PANEL_W))
               return createPortal(
               <div
@@ -2826,7 +2838,7 @@ export default function CandidatsList() {
       {showBulkPipelineModal && typeof window !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowBulkPipelineModal(false)}>
-          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 400, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 480, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter {selCount} candidat{selCount > 1 ? 's' : ''} au pipeline</span>
@@ -2848,16 +2860,15 @@ export default function CandidatsList() {
                 ))}
               </div>
               <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier (optionnel)</label>
-              <input
-                value={bulkPipelineMetier}
-                onChange={e => setBulkPipelineMetier(e.target.value)}
-                placeholder="Ex: Électricien, Maçon…"
-                list="bulk-metiers-list"
-                style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', boxSizing: 'border-box' }}
-              />
-              <datalist id="bulk-metiers-list">
-                {agenceMetiers.map(m => <option key={m} value={m} />)}
-              </datalist>
+              {/* v1.9.73 : MetierPicker partagé avec la page Pipeline (UX cohérente) */}
+              <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8 }}>
+                <MetierPicker
+                  metiers={agenceMetiers}
+                  categories={metierCategories}
+                  value={bulkPipelineMetier}
+                  onChange={setBulkPipelineMetier}
+                />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
               <button onClick={() => setShowBulkPipelineModal(false)} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
