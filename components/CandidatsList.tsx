@@ -16,6 +16,7 @@ import {
 
 import { toast } from 'sonner'
 import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
+import LinkOffreModal from '@/components/LinkOffreModal'
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { useUpload } from '@/contexts/UploadContext'
 import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk, useCandidatsRealtime } from '@/hooks/useCandidats'
@@ -314,7 +315,15 @@ export default function CandidatsList() {
   const [groupByMetier, setGroupByMetier] = useState(false)
   const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
-  const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
+  // v1.9.71 : persiste la sélection checkbox dans sessionStorage (même session, réapparait au retour)
+  const [selectedIds, setSelectedIds]     = useState<Set<string>>(() => {
+    try {
+      const raw = sessionStorage.getItem('candidats_selected_ids')
+      if (!raw) return new Set()
+      const arr = JSON.parse(raw)
+      return new Set(Array.isArray(arr) ? arr : [])
+    } catch { return new Set() }
+  })
   const [badgeTick, setBadgeTick]         = useState(0) // forcer re-render quand badges changent
   const [recentlyUpdatedTick, setRecentlyUpdatedTick] = useState(0) // re-render badge vert "Actualisé"
   const [isReady, setIsReady]             = useState(false) // masquer non-vus avant ensureInit()
@@ -391,6 +400,7 @@ export default function CandidatsList() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
   const [showWhatsApp, setShowWhatsApp]   = useState(false)
+  const [showLinkOffre, setShowLinkOffre] = useState(false) // v1.9.71 — modal "Lier à commande"
   const [waOpenedIds, setWaOpenedIds]     = useState<Set<string>>(new Set())
   const [waCampagneId, setWaCampagneId]   = useState<string | null>(null)
   const [waLogged, setWaLogged]           = useState(false)
@@ -510,6 +520,13 @@ export default function CandidatsList() {
   // filtreMetier = dropdown inline sur la liste | filterMetier = filtres avancés → serveur
   useEffect(() => { if (filtreMetier !== filterMetier) setFilterMetier(filtreMetier) }, [filtreMetier]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (filterMetier !== filtreMetier) setFiltreMetier(filterMetier) }, [filterMetier]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v1.9.71 : Persiste la sélection checkbox (sessionStorage = reset au logout/fermeture onglet)
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('candidats_selected_ids', JSON.stringify(Array.from(selectedIds)))
+    } catch {}
+  }, [selectedIds])
 
   // Persister les filtres dans sessionStorage
   useEffect(() => { ssSet('sort', sortBy) }, [sortBy])
@@ -797,6 +814,8 @@ export default function CandidatsList() {
   const resetAllFilters = () => {
     setSearch(''); ssSet('search', '')
     resetFiltersOnly()
+    // v1.9.71 : "Tout effacer" vide aussi la sélection
+    setSelectedIds(new Set())
   }
 
   // Tri côté serveur — seul le tri par distance reste côté client
@@ -1246,6 +1265,12 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
+                {/* v1.9.71 — Âge inline après localisation (cohérent avec onglet à-traiter) */}
+                {age !== null && (
+                  <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                    {age} ans
+                  </span>
+                )}
                 {/* Badges CFC + Engagée (hors à-traiter) — uniquement basé sur le champ DB */}
                 {c.cfc === true && (
                   <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', letterSpacing: '0.03em' }}>CFC</span>
@@ -1293,12 +1318,7 @@ export default function CandidatsList() {
             </button>
           ))}
         </div>
-        {/* Âge (calculé depuis date_naissance) — visible hors a_traiter */}
-        {importStatusFilter !== 'a_traiter' && age !== null && (
-          <span className="clist-age" style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', flexShrink: 0, background: 'var(--secondary)', padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)' }}>
-            {age} ans
-          </span>
-        )}
+        {/* v1.9.71 — Âge déplacé inline après localisation (cohérent avec à-traiter). Badge pill droite supprimé. */}
 
         {/* Bouton CV hover preview */}
         {hasCv && (
@@ -2022,6 +2042,15 @@ export default function CandidatsList() {
               title="Ouvrir WhatsApp pour chaque candidat (séquentiel)"
             >
               <MessageCircle size={12} /> WhatsApp ({selCount})
+            </button>
+            {/* v1.9.71 — Lier à une commande */}
+            <button onClick={() => setShowLinkOffre(true)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }} title="Lier ces candidats à une commande ouverte">
+              <Briefcase size={12} /> Lier à commande ({selCount})
             </button>
             <button onClick={() => setShowDeleteConfirm(true)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -3545,6 +3574,15 @@ export default function CandidatsList() {
           </div>
         )
       })()}
+
+      {/* v1.9.71 — Modal Lier à commande */}
+      {showLinkOffre && (
+        <LinkOffreModal
+          candidatIds={Array.from(selectedIds)}
+          onClose={() => setShowLinkOffre(false)}
+          onSuccess={() => { /* selection reste, user peut re-lier si besoin */ }}
+        />
+      )}
 
       {/* Modal Sauvegarder template SMS */}
       {showSaveTpl && typeof window !== 'undefined' && createPortal(

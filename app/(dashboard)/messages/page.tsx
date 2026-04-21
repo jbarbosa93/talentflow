@@ -746,6 +746,34 @@ function EmailTab() {
   const { contacts: recentContacts } = useRecentContacts(candidatIds, candidatIds.length > 0)
   useEffect(() => { setWarningDismissed(false) }, [candidatIds.join(',')])
 
+  // v1.9.71 — Lecture URL ?candidat_id=X&attach=original|perso (depuis fiche candidat ou CVCustomizer)
+  // Ajoute le candidat à la sélection + attache le CV demandé + nettoie l'URL.
+  const didReadUrlRef = useRef(false)
+  useEffect(() => {
+    if (didReadUrlRef.current) return
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const urlCandidatId = params.get('candidat_id')
+    const urlAttach = params.get('attach') // 'original' | 'perso' | null
+    if (!urlCandidatId) return
+    didReadUrlRef.current = true
+    setCandidatIds(prev => prev.includes(urlCandidatId) ? prev : [...prev, urlCandidatId])
+    if (urlAttach === 'original') {
+      setCvAttached(prev => ({ ...prev, [urlCandidatId]: { original: true } }))
+    }
+    // Note : pour 'perso', l'user clique ensuite "Personnaliser" depuis la ligne candidat (ouvre CVCustomizer mode mailing)
+    // On nettoie l'URL pour que F5 ne re-déclenche pas l'ajout
+    const cleanUrl = window.location.pathname
+    window.history.replaceState({}, '', cleanUrl)
+    if (urlAttach === 'perso') {
+      toast.info('Clique sur "Personnaliser" dans la ligne candidat pour configurer le CV')
+    } else if (urlAttach === 'original') {
+      toast.success('Candidat ajouté avec son CV original')
+    } else {
+      toast.success('Candidat ajouté')
+    }
+  }, [])
+
   // v1.9.70 — Reset preview index si la liste des destinataires rétrécit + clean overrides orphelins
   useEffect(() => {
     if (previewIdx >= destinataires.length && destinataires.length > 0) {

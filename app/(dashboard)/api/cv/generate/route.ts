@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
   try {
     const body = await request.json()
-    const { candidat_id, recruiter_info, included_sections, custom_content, experiences_override } = body
+    const { candidat_id, recruiter_info, included_sections, custom_content, experiences_override, formations_override } = body
 
     if (!candidat_id) {
       return NextResponse.json({ error: 'candidat_id requis' }, { status: 400 })
@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       includedSections: included_sections,
       customContent: custom_content,
       experiencesOverride: Array.isArray(experiences_override) ? experiences_override : undefined,
+      formationsOverride: Array.isArray(formations_override) ? formations_override : undefined,
     })
 
     const fileName = `CV_${(candidat.prenom || '').trim()}_${(candidat.nom || '').trim()}_LAgence.pdf`

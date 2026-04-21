@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, MapPin, Pencil, Trash2, ChevronDown, Check, Send, Sparkles, ExternalLink, Info, Users, Calendar, Clock, Building2, FileText, Briefcase, Upload, Loader2, CheckCircle2, AlertCircle, Languages, Wrench, Search, Globe, Eye, Filter, ArrowUpRight, X, Zap } from 'lucide-react'
+import OffreCandidatsModal from '@/components/OffreCandidatsModal'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useOffres, useCreateOffre, useUpdateOffre } from '@/hooks/useOffres'
@@ -46,6 +47,7 @@ export default function OffresPage() {
   const [editOffre, setEditOffre] = useState<Offre | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [cdcViewer, setCdcViewer] = useState<{ url: string; titre: string } | null>(null)
+  const [candidatsOffre, setCandidatsOffre] = useState<{ id: string; titre: string } | null>(null) // v1.9.71
   const { data: offres, isLoading } = useOffres(true)
   const updateOffre = useUpdateOffre()
   const deleteOffre = useDeleteOffre()
@@ -294,6 +296,23 @@ export default function OffresPage() {
                     </p>
                   </div>
                 )}
+
+                {/* v1.9.71 — Bouton Candidats liés */}
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setCandidatsOffre({ id: offre.id, titre: offre.titre })}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 12px', borderRadius: 8,
+                      border: '1.5px solid var(--border)', background: 'var(--card)',
+                      color: 'var(--foreground)', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                    }}
+                  >
+                    <Users size={13} />
+                    Candidats
+                  </button>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -301,6 +320,15 @@ export default function OffresPage() {
       )}
       </>)}
       {/* end offres tab */}
+
+      {/* v1.9.71 — Modal Candidats liés à une commande */}
+      {candidatsOffre && (
+        <OffreCandidatsModal
+          offreId={candidatsOffre.id}
+          offreTitre={candidatsOffre.titre}
+          onClose={() => setCandidatsOffre(null)}
+        />
+      )}
 
       {/* Create dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

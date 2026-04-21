@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.70 prod (Historique team + mailing refondu + signature Seb)** — 21/04/2026
+**1.9.71 prod (UX liste + envoi CV rapide + lier candidats aux commandes)** — 21/04/2026
 
 ---
 

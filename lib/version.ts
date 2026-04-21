@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.70'
+export const APP_VERSION = '1.9.71'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.71',
+    date: '2026-04-21',
+    label: 'UX liste candidats + fiche + envoi CV rapide + lier candidats aux commandes + fixes CV personnalisé',
+    features: [
+      'LISTE CANDIDATS — l\'âge du candidat s\'affiche désormais aussi dans l\'onglet Actif, juste après la localisation (cohérent avec À traiter). Plus de pill séparée à droite.',
+      'FICHE CANDIDAT — date d\'ajout affichée au-dessus de la photo ("Ajouté le 15 mars 2026") pour voir d\'un coup d\'œil quand le candidat est arrivé.',
+      'BOUTON ENVOYER (fiche candidat) — nouveau bouton "mail" à côté de l\'œil dans le viewer CV : clic → ouvre /messages avec le candidat pré-sélectionné et son CV original attaché. Un seul clic pour envoyer.',
+      'BOUTON ENVOYER (CV personnalisé) — même bouton à côté de Télécharger PDF : redirige vers /messages avec le candidat présélectionné ; clic sur "Personnaliser" dans la ligne pour ré-attacher le CV customisé.',
+      'LIER CANDIDAT À COMMANDE — nouveau bouton "Lier à commande" dans la barre d\'actions bulk de la liste candidats (sélectionne plusieurs candidats → les lier d\'un coup à une commande ouverte).',
+      'PAGE COMMANDES — bouton "Candidats" sur chaque card : ouvre un modal avec les candidats liés et leur statut (À envoyer / Envoyé avec date), plus une recherche flexible (accents/casse insensibles + ET/OU/SAUF) pour en ajouter.',
+      'PERSISTANCE RECHERCHE LISTE CANDIDATS — quand tu changes d\'onglet et reviens sur /candidats, ta recherche, tes filtres, ta pagination et ta sélection sont conservés jusqu\'à "Tout effacer" ou déconnexion. Plus besoin de tout retaper.',
+      'CV PERSONNALISÉ — les formations ont maintenant la même structure que les expériences : titre du diplôme, école, date début, date fin (ou "En cours"), description. Plus facile de modifier, ajouter, supprimer ou réordonner. Rétrocompat complète avec l\'ancien format (année simple).',
+      'CV PERSONNALISÉ — le modal est plus large (1500px au lieu de 1100) pour voir confortablement les champs et l\'aperçu côte à côte.',
+    ],
+  },
   {
     version: '1.9.70',
     date: '2026-04-21',

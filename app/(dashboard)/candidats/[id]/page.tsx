@@ -937,6 +937,16 @@ export default function CandidatDetailPage() {
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
+            {/* v1.9.71 — Date d'ajout au-dessus de la photo */}
+            {candidat.created_at && (
+              <div style={{
+                textAlign: 'center', marginBottom: 10,
+                fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>
+                Ajouté le {new Date(candidat.created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            )}
             {/* Photo + Nom */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               {/* Photo avec boutons upload/delete */}
@@ -1717,6 +1727,15 @@ export default function CandidatDetailPage() {
                     className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}
                     title="Voir en plein écran">
                     <Eye size={13} />
+                  </button>
+                  {/* v1.9.71 — Bouton Envoyer : redirige vers /messages avec candidat présélectionné */}
+                  <button
+                    onClick={() => router.push(`/messages?candidat_id=${id}&attach=original`)}
+                    className="d-icon-btn"
+                    style={{ width: 28, height: 28, borderRadius: 7, color: 'var(--info)' }}
+                    title="Envoyer ce CV par email"
+                  >
+                    <Mail size={13} />
                   </button>
                   <button onClick={downloadCV}
                     className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7 }}

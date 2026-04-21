@@ -18,6 +18,19 @@ export interface ExperienceData {
   description: string
 }
 
+// v1.9.71 — FormationData avec date_debut/date_fin/current/description (comme ExperienceData)
+export interface FormationData {
+  diplome: string
+  etablissement: string
+  // Legacy
+  annee?: string
+  // Nouveau format v1.9.71
+  date_debut?: string
+  date_fin?: string
+  current?: boolean
+  description?: string
+}
+
 interface CandidatData {
   prenom?: string | null
   nom?: string | null
@@ -32,7 +45,7 @@ interface CandidatData {
   langues?: string[] | null
   permis_conduire?: boolean | null
   experiences?: ExperienceData[] | null
-  formations_details?: { diplome: string; etablissement: string; annee: string }[] | null
+  formations_details?: FormationData[] | null
 }
 
 interface RecruiterInfo {
@@ -48,6 +61,7 @@ interface CVOptions {
   includedSections?: string[]
   customContent?: Record<string, string>
   experiencesOverride?: ExperienceData[]  // remplace candidat.experiences si fourni
+  formationsOverride?: FormationData[]    // v1.9.71 — remplace candidat.formations_details si fourni
 }
 
 // Formatte "YYYY-MM" → "septembre 2022" (locale fr). Retourne la valeur brute si non parseable.
@@ -344,14 +358,33 @@ export async function generateBrandedCV(
   }
 
   // ═══════════════════ FORMATIONS ═══════════════════
+  // v1.9.71 — supporte le format enrichi (date_debut/date_fin/current/description) + legacy (annee)
 
-  if (shouldInclude('formations') && candidat.formations_details && candidat.formations_details.length > 0) {
+  const effectiveFormations: FormationData[] = (options.formationsOverride ?? candidat.formations_details) || []
+
+  if (shouldInclude('formations') && effectiveFormations.length > 0) {
     drawSectionTitle('Formations')
-    for (const f of candidat.formations_details) {
-      newPageIfNeeded(30)
-      drawText(`${f.diplome}`, { font: helveticaBold, fontSize: 10 })
-      drawText(`${f.etablissement}  ·  ${f.annee}`, { fontSize: 9, color: GRAY })
-      y -= 8
+    for (const f of effectiveFormations) {
+      newPageIfNeeded(40)
+      drawText(`${f.diplome || ''}`, { font: helveticaBold, fontSize: 10 })
+      // Ligne période : priorité au nouveau format (date_debut/date_fin/current) sinon legacy annee
+      let periodeText = ''
+      if (f.date_debut || f.date_fin || f.current) {
+        const debut = formatMonth(f.date_debut)
+        const fin = f.current ? 'Actuellement' : formatMonth(f.date_fin)
+        if (debut && fin) periodeText = `${debut} - ${fin}`
+        else if (debut) periodeText = debut
+        else if (fin) periodeText = fin
+      } else if (f.annee) {
+        periodeText = f.annee
+      }
+      const etab = f.etablissement || ''
+      const line = [periodeText, etab].filter(Boolean).join('  ·  ')
+      if (line) drawText(line, { fontSize: 9, color: GRAY })
+      if (f.description) {
+        drawText(f.description, { fontSize: 9, color: GRAY, indent: 0 })
+      }
+      y -= 10
     }
   } else if (shouldInclude('formations') && candidat.formation) {
     drawSectionTitle('Formation')

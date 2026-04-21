@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Download, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages, Paperclip, Plus, Trash2, ChevronUp, ChevronDown, Eye } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { X, Download, Loader2, Check, MapPin, Calendar, Car, User, Briefcase, FileText, BookOpen, Languages, Paperclip, Plus, Trash2, ChevronUp, ChevronDown, Eye, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -41,6 +42,17 @@ interface Experience {
   current?: boolean
   description: string
   periode?: string      // legacy fallback si non-parsable
+}
+
+// v1.9.71 — Formations avec structure similaire aux Expériences (user request)
+interface Formation {
+  diplome: string
+  etablissement: string
+  date_debut?: string   // YYYY-MM
+  date_fin?: string     // YYYY-MM — ignoré si current=true
+  current?: boolean
+  description?: string
+  annee?: string        // legacy fallback
 }
 
 const SECTIONS = [
@@ -187,6 +199,45 @@ function sortExperiencesByDateDebut(arr: Experience[]): Experience[] {
   })
 }
 
+// v1.9.71 — normalisation Formation + tri similaire
+function normalizeFormation(f: any): Formation {
+  const base: Formation = {
+    diplome: f.diplome || f.titre || '',
+    etablissement: f.etablissement || f.ecole || f.lieu || '',
+    description: f.description || '',
+  }
+  if (f.date_debut !== undefined || f.date_fin !== undefined || f.current !== undefined) {
+    return {
+      ...base,
+      date_debut: f.date_debut || undefined,
+      date_fin: f.date_fin || undefined,
+      current: !!f.current,
+    }
+  }
+  // Legacy : annee seule (ex "2015" ou "2012-2015")
+  const annee = (f.annee || '').trim()
+  if (!annee) return base
+  const parts = annee.split(/\s*[-–—]\s*/)
+  if (parts.length === 2) {
+    const debut = parseMonthYear(parts[0])
+    const fin = parseMonthYear(parts[1])
+    if (debut && fin) return { ...base, date_debut: debut, date_fin: fin }
+  } else {
+    const single = parseMonthYear(annee)
+    if (single) return { ...base, date_fin: single }
+  }
+  return { ...base, annee }
+}
+
+function sortFormationsByDateDebut(arr: Formation[]): Formation[] {
+  return [...arr].sort((a, b) => {
+    if (a.current !== b.current) return a.current ? -1 : 1
+    const fa = a.date_fin || a.date_debut || a.annee || ''
+    const fb = b.date_fin || b.date_debut || b.annee || ''
+    return fb.localeCompare(fa)
+  })
+}
+
 export default function CVCustomizerModal({
   candidat,
   onClose,
@@ -213,10 +264,13 @@ export default function CVCustomizerModal({
   })
   const [customContent, setCustomContent] = useState<Record<string, string>>({})
   const [experiences, setExperiences] = useState<Experience[]>([])
+  // v1.9.71 — Formations avec même structure que Expériences
+  const [formations, setFormations] = useState<Formation[]>([])
   const [civilite, setCivilite] = useState<Civilite>(defaultCivilite(candidat.genre))
   const [recruiterInfo, setRecruiterInfo] = useState<{ prenom: string; nom: string; email: string; telephone?: string; entreprise?: string } | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const router = useRouter() // v1.9.71 — pour bouton Envoyer
   const [downloading, setDownloading] = useState(false)
   const [customizationLoading, setCustomizationLoading] = useState(true)
   const [attached, setAttached] = useState(false)
@@ -269,6 +323,13 @@ export default function CVCustomizerModal({
           } else {
             setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
           }
+          // v1.9.71 — formations
+          if (Array.isArray(saved.formations)) {
+            setFormations(saved.formations.map(normalizeFormation))
+          } else {
+            const initialFormations = (candidat.formations_details as any[]) || []
+            setFormations(sortFormationsByDateDebut(initialFormations.map(normalizeFormation)))
+          }
         } else {
           // Valeurs initiales depuis la fiche candidat
           setCustomContent({
@@ -280,6 +341,7 @@ export default function CVCustomizerModal({
             competences: candidat.competences?.join(', ') || '',
           })
           setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
+          setFormations(sortFormationsByDateDebut(((candidat.formations_details as any[]) || []).map(normalizeFormation)))
         }
       } catch (e) {
         // Fallback valeurs candidat en cas d'erreur
@@ -292,6 +354,7 @@ export default function CVCustomizerModal({
           competences: candidat.competences?.join(', ') || '',
         })
         setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
+        setFormations(sortFormationsByDateDebut(((candidat.formations_details as any[]) || []).map(normalizeFormation)))
       } finally {
         if (!cancelled) {
           setCustomizationLoading(false)
@@ -319,6 +382,7 @@ export default function CVCustomizerModal({
       competences: customContent.competences || candidat.competences?.join(', ') || '',
     },
     experiences_override: experiences,
+    formations_override: formations, // v1.9.71
   })
 
   // Auto-save + auto-regenerate avec debounce 500ms
@@ -346,6 +410,7 @@ export default function CVCustomizerModal({
             infoFields,
             customContent,
             experiences,
+            formations, // v1.9.71
             civilite,
           },
         }),
@@ -381,7 +446,7 @@ export default function CVCustomizerModal({
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
     }
-  }, [sections, infoFields, customContent, experiences, civilite, customizationLoading])
+  }, [sections, infoFields, customContent, experiences, formations, civilite, customizationLoading])
 
   // Cleanup URL objet au démontage
   useEffect(() => {
@@ -457,6 +522,26 @@ export default function CVCustomizerModal({
       ;[next[idx], next[target]] = [next[target], next[idx]]
       return next
     })
+  }
+
+  // v1.9.71 — Helpers Formation (mêmes patterns que Experience)
+  const updateFormation = (idx: number, patch: Partial<Formation>) => {
+    setFormations(prev => prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)))
+  }
+  const deleteFormation = (idx: number) => {
+    setFormations(prev => prev.filter((_, i) => i !== idx))
+  }
+  const moveFormation = (idx: number, direction: -1 | 1) => {
+    setFormations(prev => {
+      const target = idx + direction
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[target]] = [next[target], next[idx]]
+      return next
+    })
+  }
+  const addFormation = () => {
+    setFormations(prev => [...prev, { diplome: '', etablissement: '', description: '' }])
   }
 
   const handleReset = async () => {
@@ -536,7 +621,7 @@ export default function CVCustomizerModal({
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--card)', borderRadius: 16,
-          width: '95vw', maxWidth: 1100, height: '90vh',
+          width: '97vw', maxWidth: 1500, height: '92vh',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
         }}
@@ -586,11 +671,32 @@ export default function CVCustomizerModal({
                 {attached ? <><Check size={14} /> Joint au mail</> : <><Paperclip size={14} /> Joindre au mail</>}
               </button>
             ) : (
-              <button onClick={handleDownload} disabled={downloading}
-                className="neo-btn-yellow neo-btn-sm">
-                {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
-                Télécharger PDF
-              </button>
+              <>
+                <button onClick={handleDownload} disabled={downloading}
+                  className="neo-btn-yellow neo-btn-sm">
+                  {downloading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
+                  Télécharger PDF
+                </button>
+                {/* v1.9.71 — Bouton Envoyer : redirige vers /messages avec candidat présélectionné */}
+                <button
+                  onClick={() => {
+                    router.push(`/messages?candidat_id=${candidat.id}&attach=perso`)
+                    onClose()
+                  }}
+                  className="neo-btn-sm"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '6px 12px', borderRadius: 7,
+                    background: 'var(--info)', color: 'var(--destructive-foreground)',
+                    border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 13, fontWeight: 700,
+                  }}
+                  title="Envoyer ce CV par email"
+                >
+                  <Mail size={14} />
+                  Envoyer
+                </button>
+              </>
             )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 6 }}>
               <X size={18} />
@@ -602,7 +708,7 @@ export default function CVCustomizerModal({
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* Left : contrôles */}
-          <div style={{ width: 420, flexShrink: 0, overflowY: 'auto', padding: 24, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ width: 520, flexShrink: 0, overflowY: 'auto', padding: 24, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
             {/* Sections toggles */}
             <div>
@@ -717,15 +823,146 @@ export default function CVCustomizerModal({
                   />
                 </div>
               )}
-              {sections.formations && candidat.formation && (
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-                    <BookOpen size={11} /> Formation
-                  </label>
-                  <input value={customContent.formation || ''} onChange={e => setCustomContent(p => ({ ...p, formation: e.target.value }))} style={inputStyle} />
-                </div>
-              )}
             </div>
+
+            {/* v1.9.71 — Formations éditables (array, même structure qu'Expériences) */}
+            {sections.formations && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+                    Formations ({formations.length})
+                  </h3>
+                  <button
+                    onClick={addFormation}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      border: '1.5px solid var(--primary)', borderRadius: 6,
+                      padding: '4px 8px', fontSize: 11, fontWeight: 700,
+                      background: 'transparent', color: 'var(--primary)',
+                      cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    <Plus size={12} /> Ajouter
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {formations.map((f, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        border: '1px solid var(--border)', borderRadius: 10,
+                        padding: 12, background: 'var(--secondary)',
+                        display: 'flex', flexDirection: 'column', gap: 8,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          value={f.diplome || ''}
+                          onChange={e => updateFormation(idx, { diplome: e.target.value })}
+                          placeholder="Diplôme / formation"
+                          style={{ ...inputStyle, fontWeight: 700, fontSize: 12 }}
+                        />
+                        <button
+                          onClick={() => moveFormation(idx, -1)}
+                          disabled={idx === 0}
+                          title="Monter"
+                          style={{
+                            width: 28, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: idx === 0 ? 'var(--border)' : 'var(--foreground)',
+                            cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveFormation(idx, 1)}
+                          disabled={idx === formations.length - 1}
+                          title="Descendre"
+                          style={{
+                            width: 28, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: idx === formations.length - 1 ? 'var(--border)' : 'var(--foreground)',
+                            cursor: idx === formations.length - 1 ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteFormation(idx)}
+                          title="Supprimer cette formation"
+                          style={{
+                            width: 32, height: 32, flexShrink: 0,
+                            border: '1.5px solid var(--border)', borderRadius: 6,
+                            background: 'transparent', color: '#DC2626',
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <input
+                        value={f.etablissement || ''}
+                        onChange={e => updateFormation(idx, { etablissement: e.target.value })}
+                        placeholder="Établissement / école"
+                        style={{ ...inputStyle, fontSize: 12 }}
+                      />
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Début</label>
+                          <input
+                            type="month"
+                            value={f.date_debut || ''}
+                            onChange={e => updateFormation(idx, { date_debut: e.target.value })}
+                            style={{ ...inputStyle, fontSize: 12 }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--muted)', display: 'block', marginBottom: 2 }}>Fin</label>
+                          <input
+                            type="month"
+                            value={f.current ? '' : (f.date_fin || '')}
+                            disabled={!!f.current}
+                            onChange={e => updateFormation(idx, { date_fin: e.target.value })}
+                            style={{
+                              ...inputStyle, fontSize: 12,
+                              opacity: f.current ? 0.5 : 1,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--foreground)', cursor: 'pointer' }}>
+                        <Checkbox
+                          checked={!!f.current}
+                          onClick={() => updateFormation(idx, { current: !f.current, ...(!f.current ? { date_fin: '' } : {}) })}
+                          size={16}
+                        />
+                        <span>En cours</span>
+                      </label>
+                      <textarea
+                        value={f.description || ''}
+                        onChange={e => updateFormation(idx, { description: e.target.value })}
+                        placeholder="Description (optionnel)"
+                        rows={2}
+                        style={{ ...inputStyle, fontSize: 12, resize: 'vertical' }}
+                      />
+                      {f.annee && !f.date_debut && !f.date_fin && (
+                        <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>
+                          Ancienne année (non parseable) : <strong>{f.annee}</strong>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {formations.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '16px 0' }}>
+                      Aucune formation. Cliquez sur <strong>Ajouter</strong> pour en créer une.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Expériences éditables */}
             {sections.experiences && (
