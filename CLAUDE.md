@@ -64,7 +64,7 @@
 ---
 
 ## Version actuelle
-**1.9.66 prod (pack UX #2)** — 20/04/2026
+**1.9.67 prod (WhatsApp bulk + cleanup /messages)** — 21/04/2026
 
 ---
 
@@ -483,6 +483,21 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - Restauration : si `phase === 'done' && offreId && !isExterne` → `setSelectedOffre(matching.offreId)` pour afficher les infos de l'offre analysée.
 - `MatchingContext` : déjà persistant via localStorage (`tf_matching_state`) + module-level state. Le problème était uniquement l'auto-reset au mount.
 - Hover CV pattern (matching + historique) : réutilise `useCvHoverPreview` + `CvHoverPanel` + `CvHoverTrigger` de `components/CvHoverPreview.tsx`. FIELDS preselect + `MatchResult.candidat` + `MatchHistoryItem.results` enrichis avec `cv_url` + `cv_nom_fichier`. Les entrées d'historique créées avant v1.9.66 n'ont pas ces champs → pill "CV" masquée, normal.
+
+**27. WhatsApp bulk depuis liste candidats — séquentiel user-driven (v1.9.67)**
+- WhatsApp ne supporte **PAS** l'envoi à N contacts via une URL unique. Une boucle `window.open()` est bloquée par le popup-blocker du navigateur après le 1er. Pattern retenu : **1 clic = 1 chat ouvert**.
+- Modal dans `components/CandidatsList.tsx` : bouton vert `#25D366` (brand WhatsApp) dans la barre d'actions bulk, à côté du bouton "Message" SMS/iMessage.
+- État : `showWhatsApp`, `waOpenedIds: Set<string>` (candidats déjà ouverts), `waCampagneId` (UUID client pour grouper l'historique), `waLogged` (flag one-shot log).
+- **Personnalisation per-candidat** : `personalize(tpl, c)` remplace `{prenom}` et `{nom}` (insensible à la casse) à l'envoi. Les variables `[MÉTIER]`/`[LIEU]` des templates SMS restent substituées une seule fois (globales, pas per-candidat). Templates SMS partagés avec la modal iMessage via `smsTemplates` / `smsTplId` / `smsMetier` / `smsLieu`.
+- **Aperçu** : encart `--primary-soft` visible uniquement si `{prenom}` ou `{nom}` détectés dans `messageText`. Affiche le message substitué pour le **prochain candidat non-ouvert** (ou le 1er si aucun ouvert).
+- **Ouverture** : `window.open(whatsapp://send?phone=${toWaPhone(tel)}&text=${encodeURIComponent(msg)}, '_blank')`. `toWaPhone()` importé depuis `lib/phone-format.ts` (factorisé v1.9.67 — DRY avec fiche candidat et /messages qui utilisaient la même logique dupliquée).
+- **Log** : `logCampagneOnce()` appelé au 1er `openWhatsApp()`. POST `/api/messages/log` avec `candidat_ids` (tous avec tel), `destinataires` (numéros formatés), `canal:"whatsapp"`, `corps`, `campagne_id`. Fire-and-forget, ne bloque pas l'UI. Apparaît dans `/messages` Historique filtré WhatsApp.
+- **UX** : barre progression verte + bouton "Suivant (Prénom Nom)" qui ouvre le prochain non-ouvert en 1 clic. Chaque ligne destinataire a son bouton "Ouvrir" (cliquable plusieurs fois pour rouvrir). Badge "✓ Ouvert" + fond vert après ouverture. Sans numéro → fond rouge `--destructive-soft`, ignoré.
+
+**28. /messages nettoyé — onglets WhatsApp + SMS/iMessage retirés (v1.9.67)**
+- TabId type : `'email' | 'templates' | 'historique'` (avant : aussi 'whatsapp' et 'sms'). Fonctions `WhatsAppTab()` + `SmsTab()` **supprimées** (254 lignes dead code). Imports `MessageCircle`, `Smartphone`, `toWaPhone` nettoyés.
+- Raison : depuis v1.9.67, tout le bulk WhatsApp + SMS se fait depuis `/candidats` (barre d'actions bulk après sélection). L'onglet individuel `/messages → WhatsApp` faisait doublon et n'était plus utilisé en pratique. L'historique conserve tous les canaux (filtre par canal existant v1.9.66 inchangé).
+- **Ne pas recréer** ces onglets. Si besoin de WhatsApp individuel : fiche candidat (bouton à côté du numéro de tel).
 
 ---
 

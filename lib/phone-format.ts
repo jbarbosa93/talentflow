@@ -33,3 +33,14 @@ export function detectAndFormat(tel: string): PhoneInfo {
 
   return { number: c, countryCode: '', country: '' }
 }
+
+// v1.9.67 — Numéro au format attendu par whatsapp://send?phone=… et wa.me/…
+// (international sans "+" ni espaces). Fallback Suisse (+41) si numéro local "0XX…".
+// Utilisé par : fiche candidat (WhatsApp individuel), /messages, CandidatsList bulk WhatsApp.
+export function toWaPhone(tel: string): string {
+  const clean = tel.replace(/[\s\-.()]/g, '')
+  if (clean.startsWith('+')) return clean.slice(1)
+  if (clean.startsWith('00')) return clean.slice(2)
+  if (clean.startsWith('0')) return '41' + clean.slice(1)
+  return clean
+}

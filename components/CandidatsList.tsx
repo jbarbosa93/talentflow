@@ -1,6 +1,6 @@
 'use client'
 import Image from 'next/image'
-import { detectAndFormat } from '@/lib/phone-format'
+import { detectAndFormat, toWaPhone } from '@/lib/phone-format'
 import { formatFullName, formatInitials, formatEmail, formatCity } from '@/lib/format-candidat'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
   Check, X, SortAsc, Sparkles, Loader2,
-  MessageSquare, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
+  MessageSquare, MessageCircle, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
   CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil, LayoutGrid, Users,
 } from 'lucide-react'
 
@@ -466,6 +466,10 @@ export default function CandidatsList() {
   // showUpload géré par UploadContext global
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showMessage, setShowMessage]     = useState(false)
+  const [showWhatsApp, setShowWhatsApp]   = useState(false)
+  const [waOpenedIds, setWaOpenedIds]     = useState<Set<string>>(new Set())
+  const [waCampagneId, setWaCampagneId]   = useState<string | null>(null)
+  const [waLogged, setWaLogged]           = useState(false)
   const [messageText, setMessageText]     = useState('')
   const [smsTemplates, setSmsTemplates]   = useState<any[]>([])
   const [showSmsTplDropdown, setShowSmsTplDropdown] = useState(false)
@@ -2051,6 +2055,25 @@ export default function CandidatsList() {
             }}>
               <MessageSquare size={12} /> Message ({selCount})
             </button>
+            <button
+              onClick={() => {
+                setShowWhatsApp(true)
+                setWaOpenedIds(new Set())
+                setWaLogged(false)
+                setWaCampagneId(
+                  (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+                )
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: '#25D366', color: '#fff', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+              title="Ouvrir WhatsApp pour chaque candidat (séquentiel)"
+            >
+              <MessageCircle size={12} /> WhatsApp ({selCount})
+            </button>
             <button onClick={() => setShowDeleteConfirm(true)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
@@ -3176,6 +3199,369 @@ export default function CandidatsList() {
                     <MessageSquare size={14} />
                     Ouvrir Messages
                   </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Modal WhatsApp bulk (v1.9.67) — séquentiel user-driven, anti-popup-blocker */}
+      {showWhatsApp && (() => {
+        const selected = sorted.filter((c: any) => selectedIds.has(c.id))
+        const avecTel  = selected.filter((c: any) => c.telephone)
+        const sansTel  = selected.filter((c: any) => !c.telephone)
+        const personalize = (tpl: string, c: any) =>
+          (tpl || '')
+            .replace(/\{prenom\}/gi, c.prenom || '')
+            .replace(/\{nom\}/gi, c.nom || '')
+        const nextCandidat = avecTel.find((c: any) => !waOpenedIds.has(c.id))
+        const previewCandidat = nextCandidat || avecTel[0]
+        const previewMsg = previewCandidat ? personalize(messageText, previewCandidat) : ''
+
+        const logCampagneOnce = () => {
+          if (waLogged) return
+          if (avecTel.length === 0 || !messageText.trim()) return
+          const candidatIds = avecTel.map((c: any) => c.id)
+          const destinataires = avecTel.map((c: any) => toWaPhone(c.telephone))
+          fetch('/api/messages/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              candidat_ids: candidatIds,
+              destinataires,
+              canal: 'whatsapp',
+              corps: messageText,
+              campagne_id: waCampagneId,
+            }),
+          }).catch(() => { /* silent */ })
+          setWaLogged(true)
+        }
+
+        const openWhatsApp = (c: any) => {
+          const msg = personalize(messageText, c)
+          const phone = toWaPhone(c.telephone)
+          const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`
+          logCampagneOnce()
+          window.open(url, '_blank')
+          setWaOpenedIds(prev => new Set(prev).add(c.id))
+        }
+
+        const openNext = () => {
+          if (nextCandidat) openWhatsApp(nextCandidat)
+        }
+
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+          }}>
+            <div className="neo-card" style={{ maxWidth: 720, width: '92%', padding: 0, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+              {/* Header vert WhatsApp */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MessageCircle size={15} color="white" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Envoyer WhatsApp en masse</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ouvre un chat à la fois (anti-blocage navigateur)</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowWhatsApp(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+
+                {/* Barre progression */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)' }}>
+                    {waOpenedIds.size} / {avecTel.length} ouverts
+                  </div>
+                  <div style={{ flex: 1, height: 6, background: 'var(--card)', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${avecTel.length > 0 ? (waOpenedIds.size / avecTel.length) * 100 : 0}%`,
+                      background: '#25D366',
+                      transition: 'width 0.25s ease',
+                    }} />
+                  </div>
+                  <button
+                    onClick={openNext}
+                    disabled={!nextCandidat || !messageText.trim()}
+                    style={{
+                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                      background: nextCandidat && messageText.trim() ? '#25D366' : 'var(--border)',
+                      color: nextCandidat && messageText.trim() ? '#fff' : 'var(--muted)',
+                      border: 'none', cursor: nextCandidat && messageText.trim() ? 'pointer' : 'default',
+                      fontFamily: 'inherit', whiteSpace: 'nowrap',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                    title="Ouvrir WhatsApp pour le prochain candidat non-ouvert"
+                  >
+                    <MessageCircle size={12} />
+                    {nextCandidat ? `Suivant (${nextCandidat.prenom || ''} ${nextCandidat.nom || ''})`.trim() : 'Tout ouvert ✓'}
+                  </button>
+                </div>
+
+                {/* Message / template */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Message
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowSmsTplDropdown(v => !v)}
+                        style={{
+                          padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                          border: '1.5px solid var(--border)', borderRadius: 7,
+                          background: selectedSmsTpl ? 'var(--info-soft)' : 'var(--card)',
+                          color: selectedSmsTpl ? 'var(--info)' : 'var(--foreground)',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        {selectedSmsTpl ? `📄 ${selectedSmsTpl.nom}` : 'Templates'}
+                        <ChevronDown size={11} />
+                      </button>
+                      {messageText.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSaveTpl(true)}
+                          title="Sauvegarder le message courant comme template SMS/WhatsApp"
+                          style={{
+                            padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                            border: '1.5px solid var(--border)', borderRadius: 7,
+                            background: 'var(--surface)', color: 'var(--foreground)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Sauvegarder
+                        </button>
+                      )}
+                      {showSmsTplDropdown && (
+                        <div style={{
+                          position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                          background: 'var(--surface)', border: '1px solid var(--border)',
+                          borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                          padding: 4, minWidth: 200, maxHeight: 260, overflowY: 'auto', zIndex: 60,
+                        }}>
+                          {smsTemplates.length === 0 ? (
+                            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--muted)' }}>
+                              Aucun template SMS
+                            </div>
+                          ) : (
+                            smsTemplates.map(t => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => applySmsTemplate(t.id)}
+                                style={{
+                                  display: 'block', width: '100%', textAlign: 'left',
+                                  padding: '6px 10px', borderRadius: 6, border: 'none',
+                                  background: smsTplId === t.id ? 'var(--primary-soft)' : 'transparent',
+                                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                  color: 'var(--foreground)', fontFamily: 'inherit',
+                                }}
+                              >
+                                {t.nom}
+                              </button>
+                            ))
+                          )}
+                          {selectedSmsTpl && (
+                            <button
+                              type="button"
+                              onClick={() => { setSmsTplId(null); setShowSmsTplDropdown(false); setSmsMetier(''); setSmsLieu('') }}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left',
+                                padding: '6px 10px', borderRadius: 6, border: 'none',
+                                background: 'transparent', cursor: 'pointer',
+                                fontSize: 11, fontWeight: 600, color: 'var(--destructive)',
+                                fontFamily: 'inherit', marginTop: 4, borderTop: '1px solid var(--border)',
+                              }}
+                            >
+                              ✕ Retirer template
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {(tplHasMetier || tplHasLieu) && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      {tplHasMetier && (
+                        <input
+                          type="text"
+                          value={smsMetier}
+                          onChange={e => setSmsMetier(e.target.value)}
+                          placeholder="Métier recherché"
+                          style={{
+                            flex: 1, padding: '7px 10px', fontSize: 13,
+                            border: '1.5px solid var(--info)', borderRadius: 8,
+                            background: 'var(--info-soft)', color: 'var(--foreground)',
+                            outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                          }}
+                        />
+                      )}
+                      {tplHasLieu && (
+                        <input
+                          type="text"
+                          value={smsLieu}
+                          onChange={e => setSmsLieu(e.target.value)}
+                          placeholder="Lieu de mission"
+                          style={{
+                            flex: 1, padding: '7px 10px', fontSize: 13,
+                            border: '1.5px solid var(--info)', borderRadius: 8,
+                            background: 'var(--info-soft)', color: 'var(--foreground)',
+                            outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  <textarea
+                    value={messageText}
+                    onChange={e => setMessageText(e.target.value)}
+                    placeholder="Bonjour {prenom}, nous avons une opportunité..."
+                    rows={selectedSmsTpl ? 6 : 4}
+                    style={{
+                      width: '100%', padding: '10px 14px', fontSize: 14,
+                      border: '1.5px solid var(--border)', borderRadius: 10,
+                      resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)',
+                      background: 'var(--background)', outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <span>{messageText.length} caractères</span>
+                    <span>Variables : <code style={{ background: 'var(--secondary)', padding: '1px 5px', borderRadius: 3 }}>{'{prenom}'}</code> <code style={{ background: 'var(--secondary)', padding: '1px 5px', borderRadius: 3 }}>{'{nom}'}</code></span>
+                  </div>
+                </div>
+
+                {/* Aperçu personnalisé */}
+                {previewCandidat && messageText.trim() && (/\{prenom\}|\{nom\}/i.test(messageText)) && (
+                  <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--primary-soft)', border: '1px solid rgba(245,167,35,0.25)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Aperçu pour {formatFullName(previewCandidat.prenom, previewCandidat.nom)}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                      {previewMsg}
+                    </div>
+                  </div>
+                )}
+
+                {/* Liste destinataires — 1 bouton Ouvrir par candidat */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Destinataires — {avecTel.length} avec numéro{sansTel.length > 0 ? ` · ${sansTel.length} sans` : ''}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                    {avecTel.map((c: any) => {
+                      const opened = waOpenedIds.has(c.id)
+                      const { number, countryCode, country } = detectAndFormat(c.telephone)
+                      const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                      return (
+                        <div
+                          key={c.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            background: opened ? 'var(--success-soft)' : 'var(--secondary)',
+                            border: `1px solid ${opened ? 'var(--success)' : 'var(--border)'}`,
+                            borderRadius: 8, padding: '8px 12px',
+                          }}
+                        >
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                            {hasPhoto ? (
+                              <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              formatInitials(c.prenom, c.nom)
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: opened ? 'var(--success)' : 'var(--muted-foreground)' }}>
+                              <Phone size={10} /> {number}
+                            </div>
+                          </div>
+                          {countryCode && (
+                            <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted-foreground)', fontWeight: 600 }}>
+                              <span className={`fi fi-${countryCode}`} style={{ width: 18, height: 13, display: 'inline-block', backgroundSize: 'contain', borderRadius: 2 }} />
+                              {country}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => openWhatsApp(c)}
+                            disabled={!messageText.trim()}
+                            style={{
+                              padding: '5px 12px', borderRadius: 7, fontSize: 12, fontWeight: 700,
+                              background: opened ? 'var(--card)' : '#25D366',
+                              color: opened ? 'var(--success)' : '#fff',
+                              border: opened ? '1.5px solid var(--success)' : 'none',
+                              cursor: messageText.trim() ? 'pointer' : 'not-allowed',
+                              opacity: messageText.trim() ? 1 : 0.5,
+                              fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                            }}
+                            title={opened ? 'Déjà ouvert — cliquer pour rouvrir' : 'Ouvrir WhatsApp avec ce candidat'}
+                          >
+                            {opened ? '✓ Ouvert' : 'Ouvrir'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {sansTel.length > 0 && sansTel.map((c: any) => {
+                      const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                      return (
+                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.85 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                            {hasPhoto ? (
+                              <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              formatInitials(c.prenom, c.nom)
+                            )}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{formatFullName(c.prenom, c.nom)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--destructive)' }}>
+                              <AlertTriangle size={10} /> Pas de numéro — ignoré
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{ padding: '14px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+                {avecTel.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--warning)', textAlign: 'center', margin: 0 }}>
+                    Aucun candidat sélectionné n&apos;a de numéro de téléphone.
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => setShowWhatsApp(false)}
+                    className="neo-btn-ghost"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                  >
+                    {waOpenedIds.size > 0 ? 'Terminer' : 'Annuler'}
+                  </button>
+                  {waOpenedIds.size > 0 && waOpenedIds.size < avecTel.length && (
+                    <button
+                      onClick={() => setWaOpenedIds(new Set(avecTel.map((c: any) => c.id)))}
+                      className="neo-btn-ghost"
+                      style={{ flex: 1, justifyContent: 'center', fontSize: 12 }}
+                      title="Marquer tous les candidats comme ouverts (sans ouvrir WhatsApp)"
+                    >
+                      Tout marquer ouvert
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

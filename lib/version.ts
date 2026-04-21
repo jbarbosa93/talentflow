@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.66'
+export const APP_VERSION = '1.9.67'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.67',
+    date: '2026-04-21',
+    label: 'WhatsApp bulk depuis liste candidats + cleanup /messages (onglets WhatsApp/SMS retirés)',
+    features: [
+      'NOUVEAU — Bouton "💬 WhatsApp" dans la barre d\'actions bulk de /candidats (à côté du bouton Message). Ouvre un modal dédié vert #25D366.',
+      'MODAL WhatsApp bulk — templates SMS partagés (variables [MÉTIER]/[LIEU] globales + {prenom}/{nom} per-candidat), textarea + aperçu personnalisé pour le 1er candidat, liste des destinataires avec 1 bouton "Ouvrir" par candidat + bouton "Suivant (Nom)" pour passage rapide.',
+      'SÉQUENTIEL user-driven — pas de boucle window.open() (anti-popup-blocker). Chaque clic = 1 chat WhatsApp ouvert. Badge "✓ Ouvert" + compteur X/N avec barre progression verte.',
+      'LOG /api/messages/log canal:"whatsapp" — fire-and-forget au 1er clic uniquement (campagne_id partagé, 1 row par destinataire). Apparaît dans /messages Historique.',
+      'LIB /phone-format.ts — fonction toWaPhone() factorisée (DRY). Imports candidats/[id]/page.tsx + messages/page.tsx nettoyés.',
+      'CLEANUP /messages — onglets "WhatsApp" et "SMS / iMessage" SUPPRIMÉS de la page Envois (dead UI, tout le bulk se fait désormais depuis /candidats). 254 lignes de code mort retirées (WhatsAppTab + SmsTab fonctions).',
+      'TAB /messages désormais : Mailing, Templates, Historique (l\'historique conserve le filtre multi-canal email/iMessage/WhatsApp/SMS).',
+    ],
+  },
   {
     version: '1.9.66',
     date: '2026-04-20',

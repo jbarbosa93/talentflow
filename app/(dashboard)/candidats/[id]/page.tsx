@@ -23,6 +23,7 @@ import { toast } from 'sonner'
 import type { PipelineEtape, CandidatDocument } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { markCandidatVu, markCandidatNonVu, getViewedSet, dispatchBadgesChanged } from '@/lib/badge-candidats'
+import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 
@@ -85,15 +86,7 @@ const METIER_CATEGORIES: { label: string; metiers: string[] }[] = [
 ]
 const CFC_REGEX = /CFC|certificat de capacit|capacit[eé] f[eé]d[eé]rale|apprentissage/i
 
-// Convertit n'importe quel format de téléphone en numéro WhatsApp international
-// +41 79 123 45 67 → 41791234567 | 0041... → 41... | 079... → 41... | +33 6... → 336...
-const toWaPhone = (tel: string) => {
-  const clean = tel.replace(/[\s\-\.\(\)]/g, '')
-  if (clean.startsWith('+')) return clean.slice(1)
-  if (clean.startsWith('00')) return clean.slice(2)
-  if (clean.startsWith('0')) return '41' + clean.slice(1)
-  return clean
-}
+// toWaPhone factorisé dans lib/phone-format.ts (v1.9.67)
 
 const CANDIDAT_SECTIONS_LS_KEY = 'candidat_sections_order'
 

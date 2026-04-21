@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Mail, Plus, Trash2, Send, FileText, MessageCircle, Smartphone, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
@@ -36,12 +36,10 @@ const CAT_COLORS: Record<string, { bg: string; color: string }> = {
   general:              { bg: 'var(--secondary)', color: 'var(--muted)' },
 }
 
-type TabId = 'email' | 'whatsapp' | 'sms' | 'templates' | 'historique'
+type TabId = 'email' | 'templates' | 'historique'
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'email',      label: 'Mailing',         icon: Mail },
-  { id: 'whatsapp',   label: 'WhatsApp',        icon: MessageCircle },
-  { id: 'sms',        label: 'SMS / iMessage',  icon: Smartphone },
   { id: 'templates',  label: 'Templates',       icon: FileText },
   { id: 'historique', label: 'Historique',      icon: History },
 ]
@@ -56,7 +54,7 @@ export default function MessagesPage() {
           <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Send size={22} color="var(--primary)" />Envois
           </h1>
-          <p className="d-page-sub">Contactez vos candidats par email, WhatsApp ou SMS</p>
+          <p className="d-page-sub">Mailing candidats et historique des envois (WhatsApp & SMS depuis la liste candidats)</p>
         </div>
       </div>
 
@@ -87,8 +85,6 @@ export default function MessagesPage() {
       </div>
 
       {tab === 'email'      && <EmailTab />}
-      {tab === 'whatsapp'   && <WhatsAppTab />}
-      {tab === 'sms'        && <SmsTab />}
       {tab === 'templates'  && <TemplatesTab />}
       {tab === 'historique' && <HistoriqueTab />}
     </div>
@@ -1394,267 +1390,6 @@ function EmailTab() {
           </div>
         ) : null
       })()}
-    </div>
-  )
-}
-
-// ─── WhatsApp Tab ─────────────────────────────────────────────────────────────
-
-function WhatsAppTab() {
-  const [candidatId, setCandidatId] = useState('')
-  const [templateId, setTemplateId] = useState('')
-  const [telephone, setTelephone] = useState('')
-  const [message, setMessage] = useState('')
-  const [copied, setCopied] = useState(false)
-
-  const { data: _candidatsData } = useCandidats()
-  const candidats = _candidatsData?.candidats
-  const { data: templates } = useEmailTemplates('email')
-
-  const handleCandidatChange = (id: string) => {
-    setCandidatId(id)
-    const c = candidats?.find(c => c.id === id)
-    if (c?.telephone) setTelephone(c.telephone.replace(/\s/g, ''))
-  }
-
-  const handleTemplateChange = (id: string) => {
-    setTemplateId(id)
-    const t = templates?.find((t: any) => t.id === id)
-    if (t) {
-      const c = candidats?.find(c => c.id === candidatId)
-      setMessage(renderTemplate(t.corps || '', {
-        candidat: c ? {
-          prenom: c.prenom, nom: c.nom, titre_poste: c.titre_poste,
-          genre: (c as any).genre, resume_ia: c.resume_ia,
-        } : null,
-      }))
-    }
-  }
-
-  const toWaPhone = (tel: string) => {
-    const clean = tel.replace(/[\s\-\.\(\)]/g, '')
-    if (clean.startsWith('+')) return clean.slice(1)
-    if (clean.startsWith('00')) return clean.slice(2)
-    if (clean.startsWith('0')) return '41' + clean.slice(1)
-    return clean
-  }
-  const waPhone = toWaPhone(telephone)
-  const waUrl = `whatsapp://send?phone=${waPhone}&text=${encodeURIComponent(message)}`
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    toast.success('Message copié')
-  }
-
-  return (
-    <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
-      {/* Info */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: 'var(--success-soft)', border: '1.5px solid #86EFAC', borderRadius: 10 }}>
-        <MessageCircle size={16} color="var(--success)" style={{ flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 12, color: 'var(--success)', margin: 0 }}>
-          Composez votre message ici, puis cliquez sur <strong>Ouvrir WhatsApp</strong> — votre app s&apos;ouvrira directement avec le message pré-rempli.
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
-          <CandidatSearch candidats={candidats} value={candidatId} onChange={handleCandidatChange} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
-          <Select value={templateId} onValueChange={handleTemplateChange}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-              <SelectValue placeholder="Charger un template..." />
-            </SelectTrigger>
-            <SelectContent>
-              {templates?.map((t: any) => (
-                <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Numéro de téléphone</label>
-        <Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+41 79 000 00 00" />
-        {telephone && (
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Format international détecté : +{waPhone}</p>
-        )}
-      </div>
-
-      <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message</label>
-        <Textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
-          rows={7}
-          style={{ resize: 'none', fontSize: 13 }}
-        />
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 4 }}>
-        <Button variant="outline" size="sm" onClick={handleCopy} disabled={!message}>
-          {copied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Copié</> : <><Copy className="w-3.5 h-3.5 mr-1.5" />Copier</>}
-        </Button>
-        <a
-          href={waPhone && message ? waUrl : '#'}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => {
-            if (!waPhone || !message) { e.preventDefault(); return }
-            // v1.9.66 — log fire-and-forget avant l'ouverture de WhatsApp natif
-            fetch('/api/messages/log', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                candidat_ids: candidatId ? [candidatId] : [],
-                destinataires: [telephone],
-                canal: 'whatsapp',
-                corps: message,
-              }),
-            }).catch(() => { /* silent */ })
-          }}
-          style={{ marginLeft: 'auto' }}
-        >
-          <button
-            disabled={!waPhone || !message}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 8, border: 'none',
-              background: !waPhone || !message ? 'var(--secondary)' : '#25D366',
-              color: !waPhone || !message ? 'var(--muted)' : 'white',
-              fontSize: 13, fontWeight: 700, cursor: !waPhone || !message ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-body)',
-            }}
-          >
-            <MessageCircle size={14} />Ouvrir WhatsApp
-          </button>
-        </a>
-      </div>
-    </div>
-  )
-}
-
-// ─── SMS / iMessage Tab ────────────────────────────────────────────────────────
-
-function SmsTab() {
-  const [candidatId, setCandidatId] = useState('')
-  const [templateId, setTemplateId] = useState('')
-  const [telephone, setTelephone] = useState('')
-  const [message, setMessage] = useState('')
-  const [copied, setCopied] = useState(false)
-
-  const { data: _candidatsData } = useCandidats()
-  const candidats = _candidatsData?.candidats
-  const { data: templates } = useEmailTemplates('email')
-
-  const handleCandidatChange = (id: string) => {
-    setCandidatId(id)
-    const c = candidats?.find(c => c.id === id)
-    if (c?.telephone) setTelephone(c.telephone.replace(/[\s\-\.\(\)]/g, ''))
-  }
-
-  const handleTemplateChange = (id: string) => {
-    setTemplateId(id)
-    const t = templates?.find((t: any) => t.id === id)
-    if (t) {
-      const c = candidats?.find(c => c.id === candidatId)
-      setMessage(renderTemplate(t.corps || '', {
-        candidat: c ? {
-          prenom: c.prenom, nom: c.nom, titre_poste: c.titre_poste,
-          genre: (c as any).genre, resume_ia: c.resume_ia,
-        } : null,
-      }))
-    }
-  }
-
-  const cleanTelephone = telephone.replace(/[\s\-\.\(\)]/g, '')
-  const smsUrl = `sms:${cleanTelephone}${message ? `?body=${encodeURIComponent(message)}` : ''}`
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-    toast.success('Message copié')
-  }
-
-  return (
-    <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16, boxShadow: 'var(--card-shadow)' }}>
-      {/* Info */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', background: 'var(--info-soft)', border: '1.5px solid #BFDBFE', borderRadius: 10 }}>
-        <Smartphone size={16} color="var(--info)" style={{ flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 12, color: 'var(--info)', margin: 0 }}>
-          Composez votre message et cliquez <strong>Ouvrir Messages</strong> — votre app SMS / iMessage s&apos;ouvrira avec le message pré-rempli. Fonctionne sur Mac et iPhone.
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Candidat</label>
-          <CandidatSearch candidats={candidats} value={candidatId} onChange={handleCandidatChange} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Template (optionnel)</label>
-          <Select value={templateId} onValueChange={handleTemplateChange}>
-            <SelectTrigger style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', height: 38 }}>
-              <SelectValue placeholder="Charger un template..." />
-            </SelectTrigger>
-            <SelectContent>
-              {templates?.map((t: any) => (
-                <SelectItem key={t.id} value={t.id}>{t.nom}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Numéro de téléphone</label>
-        <Input value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="+41 79 000 00 00" />
-      </div>
-
-      <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Message</label>
-        <Textarea
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          placeholder="Bonjour, nous avons une opportunité qui pourrait vous intéresser..."
-          rows={7}
-          style={{ resize: 'none', fontSize: 13 }}
-        />
-        <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{message.length} caractères</p>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 4 }}>
-        <Button variant="outline" size="sm" onClick={handleCopy} disabled={!message}>
-          {copied ? <><Check className="w-3.5 h-3.5 mr-1.5" />Copié</> : <><Copy className="w-3.5 h-3.5 mr-1.5" />Copier</>}
-        </Button>
-        <a
-          href={cleanTelephone ? smsUrl : '#'}
-          onClick={e => { if (!cleanTelephone) e.preventDefault() }}
-          style={{ marginLeft: 'auto' }}
-        >
-          <button
-            disabled={!cleanTelephone || !message}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 8, border: 'none',
-              background: !cleanTelephone || !message ? 'var(--secondary)' : '#34C759',
-              color: !cleanTelephone || !message ? 'var(--muted)' : 'white',
-              fontSize: 13, fontWeight: 700, cursor: !cleanTelephone || !message ? 'not-allowed' : 'pointer',
-              fontFamily: 'var(--font-body)',
-            }}
-          >
-            <Smartphone size={14} />Ouvrir Messages
-          </button>
-        </a>
-      </div>
     </div>
   )
 }
