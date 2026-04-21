@@ -37,9 +37,14 @@
 1. `git add -A`
 2. `git commit -m "feat/fix: description + version"`
 3. `git tag vX.X.X`
-4. `git push origin main --tags`
-5. Demander confirmation à João
-6. `vercel --prod`
+4. **DEMANDER CONFIRMATION EXPLICITE À JOÃO AVANT TOUT `git push`** — Vercel est connecté au repo GitHub et déploie automatiquement à chaque push sur `main`. Un push = un deploy. Donc jamais de push sans validation.
+5. `git push origin main --tags` (seulement après le "oui déploie" de João)
+6. Optionnel : `vercel --prod` (normalement plus nécessaire, le push GitHub déclenche le déploiement Vercel)
+
+### ⛔ JAMAIS pusher sur GitHub sans l'accord explicite de João
+- Vercel déploie auto sur chaque push vers `main` → pas de safety net
+- Toujours préparer le commit localement, montrer le récap, attendre "oui déploie" / "push-le", puis seulement `git push`
+- Règle ajoutée le 21/04/2026 suite à un push automatique non-validé (v1.9.71)
 
 ### RÈGLE — Commits
 - Commiter uniquement avant chaque déploiement prod
@@ -64,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.71 prod (UX liste + envoi CV rapide + lier candidats aux commandes)** — 21/04/2026
+**1.9.72 prod (fixes 1.9.71 : popover notes, persistance filtres, commandes, aperçu candidats)** — 22/04/2026
 
 ---
 

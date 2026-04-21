@@ -1399,7 +1399,8 @@ export default function CandidatsList() {
               const screenH = window.innerHeight
               const spaceAbove = notePopoverRect.top - MARGIN
               const spaceBelow = screenH - notePopoverRect.bottom - MARGIN
-              const openUp = spaceAbove >= 220 || spaceAbove > spaceBelow
+              // v1.9.72 : préférer ouverture EN BAS par défaut. Ouverture en haut UNIQUEMENT si vraiment pas la place en bas.
+              const openUp = spaceBelow < 220 && spaceAbove >= 220
               const maxH = Math.min(PANEL_MAX_H, Math.max(180, openUp ? spaceAbove : spaceBelow))
               const top = openUp ? Math.max(MARGIN, notePopoverRect.top - maxH - 6) : Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
               const left = Math.max(MARGIN, Math.min(screenW - PANEL_W - MARGIN, notePopoverRect.right - PANEL_W))

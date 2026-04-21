@@ -479,15 +479,14 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     if (badgeKey) {
                       setTimeout(() => markSeen(badgeKey), 5000)
                     }
+                    // v1.9.72 : on NE purge PLUS les filtres de /candidats au clic sidebar.
+                    // User veut que la recherche + filtres + sélection persistent jusqu'à "Tout effacer" ou logout.
+                    // Les clés legacy isolées (candidats_search/page/import_status) ne sont plus utilisées
+                    // depuis que tout est consolidé dans `candidats_filters` — on les nettoie juste si présent.
                     if (!item.href.startsWith('/candidats')) {
                       sessionStorage.removeItem('candidats_search')
                       sessionStorage.removeItem('candidats_page')
                       sessionStorage.removeItem('candidats_import_status')
-                    } else if (item.href === '/candidats') {
-                      // Clic sidebar = retour état initial, vider tous les filtres persistés
-                      sessionStorage.removeItem('candidats_filters')
-                      sessionStorage.removeItem('candidats_filter_nonvu')
-                      sessionStorage.removeItem('candidats_status_before_nonvu')
                     }
                   }}
                 >
@@ -587,14 +586,11 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     className={`d-nav-link${active ? ' active' : ''}`}
                     style={{ position: 'relative', zIndex: 1, borderRadius: 8, background: active ? 'var(--primary)' : undefined }}
                     onClick={() => {
+                      // v1.9.72 : persistance filtres candidats — voir lien précédent.
                       if (!item.href.startsWith('/candidats')) {
                         sessionStorage.removeItem('candidats_search')
                         sessionStorage.removeItem('candidats_page')
                         sessionStorage.removeItem('candidats_import_status')
-                      } else if (item.href === '/candidats') {
-                        sessionStorage.removeItem('candidats_filters')
-                        sessionStorage.removeItem('candidats_filter_nonvu')
-                        sessionStorage.removeItem('candidats_status_before_nonvu')
                       }
                     }}
                   >

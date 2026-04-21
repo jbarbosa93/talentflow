@@ -1,26 +1,14 @@
 'use client'
-// v1.9.71 — Modal pour lier un ou plusieurs candidats à une commande ouverte.
-// Utilisé depuis la barre d'actions bulk de la liste candidats (et potentiellement ailleurs).
-// - Recherche flexible (insensible accents/casse, booléenne ET/OU/SAUF) sur les commandes ouvertes
+// v1.9.71+v1.9.72 — Modal pour lier un ou plusieurs candidats à une commande active.
+// - Dropdown <select> des commandes actives (simple, pas de barre de recherche — user request v1.9.72)
 // - Sélection d'1 commande → POST /api/offres-candidats { offre_id, candidat_ids }
-// - Si candidat déjà lié à la commande → ignoré (UNIQUE constraint)
 // - Statut par défaut : "à envoyer"
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Briefcase, X, Search, MapPin, Check, Loader2 } from 'lucide-react'
+import { Briefcase, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
-
-interface OffreLight {
-  id: string
-  titre: string
-  client_nom?: string | null
-  localisation?: string | null
-  nb_postes?: number | null
-  statut?: string | null
-  competences?: string[] | null
-}
+import { useOffres } from '@/hooks/useOffres'
 
 interface Props {
   candidatIds: string[]
@@ -29,45 +17,21 @@ interface Props {
 }
 
 export default function LinkOffreModal({ candidatIds, onClose, onSuccess }: Props) {
-  const [offres, setOffres] = useState<OffreLight[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [selectedOffreId, setSelectedOffreId] = useState<string | null>(null)
+  // v1.9.72 : useOffres(false) filtre déjà statut='active' côté Supabase
+  const { data: offres, isLoading } = useOffres(false)
+  const [selectedOffreId, setSelectedOffreId] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      setLoading(true)
-      try {
-        // /api/offres retourne toutes les offres, on filtre par statut 'ouverte' côté client
-        const res = await fetch('/api/offres', { credentials: 'include' })
-        if (!res.ok) throw new Error()
-        const data = await res.json()
-        const all: OffreLight[] = Array.isArray(data?.offres) ? data.offres : []
-        const ouvertes = all.filter(o => (o.statut || '').toLowerCase() === 'ouverte')
-        if (!cancelled) setOffres(ouvertes)
-      } catch {
-        if (!cancelled) toast.error('Erreur chargement commandes')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
-
-  const booleanMatcher = useMemo(() => parseBooleanSearch(search), [search])
-  const q = useMemo(() => normalize(search), [search])
-
-  const filtered = useMemo(() => {
-    if (!search.trim()) return offres
-    return offres.filter(o => {
-      const hay = `${o.titre} ${o.client_nom || ''} ${o.localisation || ''} ${(o.competences || []).join(' ')}`
-      if (booleanMatcher) return booleanMatcher(hay)
-      return normalize(hay).includes(q)
+  const sortedOffres = useMemo(() => {
+    const list = offres || []
+    // Tri par nom_client puis titre (plus lisible dans un <select>)
+    return [...list].sort((a: any, b: any) => {
+      const ca = (a.client_nom || '').toLowerCase()
+      const cb = (b.client_nom || '').toLowerCase()
+      if (ca !== cb) return ca.localeCompare(cb)
+      return (a.titre || '').toLowerCase().localeCompare((b.titre || '').toLowerCase())
     })
-  }, [offres, search, booleanMatcher, q])
+  }, [offres])
 
   const handleConfirm = async () => {
     if (!selectedOffreId) return
@@ -81,7 +45,7 @@ export default function LinkOffreModal({ candidatIds, onClose, onSuccess }: Prop
       })
       if (!res.ok) throw new Error('Erreur serveur')
       const data = await res.json()
-      const offre = offres.find(o => o.id === selectedOffreId)
+      const offre = sortedOffres.find((o: any) => o.id === selectedOffreId)
       const count = data.linked ?? 0
       toast.success(
         count === 0
@@ -112,7 +76,7 @@ export default function LinkOffreModal({ candidatIds, onClose, onSuccess }: Prop
         onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--card)', borderRadius: 16,
-          width: '100%', maxWidth: 640, maxHeight: '85vh',
+          width: '100%', maxWidth: 520,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
           border: '1px solid var(--border)',
@@ -136,82 +100,48 @@ export default function LinkOffreModal({ candidatIds, onClose, onSuccess }: Prop
           </button>
         </div>
 
-        {/* Search */}
-        <div style={{ padding: '14px 22px 8px', flexShrink: 0 }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-            <input
-              autoFocus
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Rechercher : titre, client, ville, compétence… ET/OU/SAUF"
-              style={{
-                width: '100%', height: 38, paddingLeft: 32, paddingRight: 12,
-                border: '1.5px solid var(--border)', borderRadius: 10,
-                background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 13, fontFamily: 'inherit', outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Liste */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 22px 10px', minHeight: 200 }}>
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <Loader2 size={22} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />
+        {/* Dropdown sélection commande (v1.9.72 : remplace barre de recherche) */}
+        <div style={{ padding: '18px 22px' }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Choisir la commande
+          </label>
+          {isLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 12 }}>
+              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--muted)' }} />
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Chargement…</span>
             </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, fontSize: 13, color: 'var(--muted)' }}>
-              {offres.length === 0 ? 'Aucune commande ouverte' : 'Aucune commande ne correspond à la recherche'}
+          ) : sortedOffres.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: 16, background: 'var(--secondary)', borderRadius: 8 }}>
+              Aucune commande active pour le moment
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {filtered.map(o => {
-                const active = selectedOffreId === o.id
+            <select
+              autoFocus
+              value={selectedOffreId}
+              onChange={e => setSelectedOffreId(e.target.value)}
+              style={{
+                width: '100%', height: 42, padding: '0 14px',
+                border: '1.5px solid var(--border)', borderRadius: 10,
+                background: 'var(--card)', color: 'var(--foreground)',
+                fontSize: 13, fontFamily: 'inherit', outline: 'none',
+                cursor: 'pointer', boxSizing: 'border-box',
+                appearance: 'auto',
+              }}
+            >
+              <option value="">— Sélectionner une commande —</option>
+              {sortedOffres.map((o: any) => {
+                const parts = [
+                  o.client_nom ? `${o.client_nom}` : null,
+                  o.titre,
+                  o.localisation ? `· ${o.localisation}` : null,
+                ].filter(Boolean)
                 return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    onClick={() => setSelectedOffreId(o.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                      padding: '12px 14px', borderRadius: 10,
-                      border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
-                      background: active ? 'var(--primary-soft)' : 'var(--card)',
-                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                      transition: 'all 0.12s',
-                    }}
-                  >
-                    <div style={{
-                      width: 20, height: 20, borderRadius: 6,
-                      border: `2px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
-                      background: active ? 'var(--primary)' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      {active && <Check size={12} color="var(--primary-foreground)" strokeWidth={3} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{o.titre}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted-foreground)', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
-                        {o.client_nom && <span>👤 {o.client_nom}</span>}
-                        {o.localisation && <span><MapPin size={10} style={{ display: 'inline', marginRight: 2 }} />{o.localisation}</span>}
-                        {o.nb_postes && o.nb_postes > 1 && <span>👥 {o.nb_postes} postes</span>}
-                      </div>
-                      {o.competences && o.competences.length > 0 && (
-                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginTop: 4 }}>
-                          {o.competences.slice(0, 5).map(c => (
-                            <span key={c} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)' }}>{c}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                  <option key={o.id} value={o.id}>
+                    {parts.join(' — ')}
+                  </option>
                 )
               })}
-            </div>
+            </select>
           )}
         </div>
 

@@ -48,7 +48,46 @@ export default function OffresPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [cdcViewer, setCdcViewer] = useState<{ url: string; titre: string } | null>(null)
   const [candidatsOffre, setCandidatsOffre] = useState<{ id: string; titre: string } | null>(null) // v1.9.71
+  // v1.9.72 : cache global candidats liés par offre → affichage aperçu sur chaque card
+  const [offreLinks, setOffreLinks] = useState<Record<string, Array<{ id: string; candidat: { id: string; prenom: string | null; nom: string | null; titre_poste: string | null; photo_url: string | null } }>>>({})
+  const [offreLinksLoaded, setOffreLinksLoaded] = useState(false)
   const { data: offres, isLoading } = useOffres(true)
+
+  // v1.9.72 : fetch tous les liens candidats pour les offres visibles (1 requête batch)
+  useEffect(() => {
+    if (!offres || offres.length === 0) { setOffreLinksLoaded(true); return }
+    const ids = offres.map(o => o.id).join(',')
+    fetch(`/api/offres-candidats?offre_ids=${ids}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { links: [] })
+      .then(data => {
+        const grouped: Record<string, any[]> = {}
+        for (const l of (data.links || [])) {
+          if (!grouped[l.offre_id]) grouped[l.offre_id] = []
+          grouped[l.offre_id].push(l)
+        }
+        setOffreLinks(grouped)
+        setOffreLinksLoaded(true)
+      })
+      .catch(() => setOffreLinksLoaded(true))
+  }, [offres])
+
+  // Refetch links quand user ferme le modal candidats (a potentiellement ajouté/retiré)
+  useEffect(() => {
+    if (candidatsOffre === null && offreLinksLoaded && offres && offres.length > 0) {
+      const ids = offres.map(o => o.id).join(',')
+      fetch(`/api/offres-candidats?offre_ids=${ids}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { links: [] })
+        .then(data => {
+          const grouped: Record<string, any[]> = {}
+          for (const l of (data.links || [])) {
+            if (!grouped[l.offre_id]) grouped[l.offre_id] = []
+            grouped[l.offre_id].push(l)
+          }
+          setOffreLinks(grouped)
+        })
+        .catch(() => {})
+    }
+  }, [candidatsOffre]) // eslint-disable-line react-hooks/exhaustive-deps
   const updateOffre = useUpdateOffre()
   const deleteOffre = useDeleteOffre()
 
@@ -297,22 +336,86 @@ export default function OffresPage() {
                   </div>
                 )}
 
-                {/* v1.9.71 — Bouton Candidats liés */}
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-                  <button
-                    onClick={() => setCandidatsOffre({ id: offre.id, titre: offre.titre })}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '6px 12px', borderRadius: 8,
-                      border: '1.5px solid var(--border)', background: 'var(--card)',
-                      color: 'var(--foreground)', cursor: 'pointer',
-                      fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                    }}
-                  >
-                    <Users size={13} />
-                    Candidats
-                  </button>
-                </div>
+                {/* v1.9.71+v1.9.72 — Aperçu candidats liés + bouton Gérer */}
+                {(() => {
+                  const links = offreLinks[offre.id] || []
+                  const toShow = links.slice(0, 3)
+                  const rest = Math.max(0, links.length - toShow.length)
+                  return (
+                    <div style={{ marginTop: 12 }}>
+                      {links.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Candidats liés ({links.length})
+                          </div>
+                          {toShow.map(l => {
+                            const c = l.candidat
+                            if (!c) return null
+                            const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                            const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+                            return (
+                              <a
+                                key={l.id}
+                                href={`/candidats/${c.id}?from=offres`}
+                                onClick={e => e.stopPropagation()}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 8,
+                                  padding: '6px 10px', borderRadius: 8,
+                                  background: 'var(--background)', border: '1px solid var(--border)',
+                                  textDecoration: 'none', color: 'inherit',
+                                }}
+                              >
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                                  background: 'var(--secondary)', display: 'flex',
+                                  alignItems: 'center', justifyContent: 'center',
+                                  overflow: 'hidden',
+                                  fontSize: 10, fontWeight: 800, color: 'var(--foreground)',
+                                }}>
+                                  {hasPhoto
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    ? <img src={c.photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : initiales
+                                  }
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {`${c.prenom || ''} ${c.nom || ''}`.trim() || '(sans nom)'}
+                                  </div>
+                                  {c.titre_poste && (
+                                    <div style={{ fontSize: 10, color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {c.titre_poste}
+                                    </div>
+                                  )}
+                                </div>
+                              </a>
+                            )
+                          })}
+                          {rest > 0 && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '2px 0' }}>
+                              + {rest} autre{rest > 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => setCandidatsOffre({ id: offre.id, titre: offre.titre })}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 8,
+                            border: '1.5px solid var(--border)', background: 'var(--card)',
+                            color: 'var(--foreground)', cursor: 'pointer',
+                            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+                          }}
+                        >
+                          <Users size={13} />
+                          {links.length === 0 ? 'Ajouter candidats' : `Gérer (${links.length})`}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </motion.div>
           ))}

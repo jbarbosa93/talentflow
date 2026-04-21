@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.71'
+export const APP_VERSION = '1.9.72'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.72',
+    date: '2026-04-22',
+    label: 'Fixes rapides v1.9.71 : popover notes, persistance filtres, commandes introuvables, candidats liés visibles',
+    features: [
+      'NOTES POPOVER — le modal d\'ajout de note s\'ouvre maintenant sous le bouton par défaut. Il ne remonte en haut que si vraiment pas la place en bas. Fini le bug où le popover s\'affichait près du header.',
+      'PERSISTANCE FILTRES LISTE CANDIDATS — correction du vrai bug : le clic sur "Candidats" dans la sidebar effaçait la recherche + filtres. Désormais ils restent jusqu\'à "Tout effacer" ou déconnexion.',
+      'LIER À COMMANDE (depuis liste candidats) — le modal affichait "Aucune commande ouverte" parce qu\'il interrogeait une API inexistante et filtrait un mauvais statut. Désormais il utilise le hook useOffres et filtre correctement statut=active.',
+      'LIER À COMMANDE — la barre de recherche a été remplacée par une liste déroulante simple (dropdown) avec "Client — Titre — Ville" pour chaque commande. Plus rapide, plus clair.',
+      'PAGE COMMANDES — chaque card affiche désormais les candidats liés (photo + nom + métier, max 3 + "autres"). Le bouton passe de "Candidats" à "Gérer (N)" quand il y a des liens.',
+    ],
+  },
   {
     version: '1.9.71',
     date: '2026-04-21',

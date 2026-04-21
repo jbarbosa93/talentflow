@@ -19,16 +19,26 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url)
   const offreId = (url.searchParams.get('offre_id') || '').trim()
-  if (!offreId) return NextResponse.json({ error: 'offre_id requis' }, { status: 400 })
+  const offreIdsParam = (url.searchParams.get('offre_ids') || '').trim()
+  // v1.9.72 : support batch via ?offre_ids=a,b,c pour éviter N requêtes côté page Commandes
+  const offreIds = offreIdsParam ? offreIdsParam.split(',').map(s => s.trim()).filter(Boolean) : []
+  if (!offreId && offreIds.length === 0) {
+    return NextResponse.json({ error: 'offre_id ou offre_ids requis' }, { status: 400 })
+  }
 
   const admin = createAdminClient() as any
-  // Join candidats pour avoir nom/prénom/email/photo
-  const { data, error } = await admin
+  let query = admin
     .from('offres_candidats')
     .select('id, offre_id, candidat_id, statut, date_envoi, user_id, created_at, updated_at, candidats(id, nom, prenom, titre_poste, email, telephone, photo_url, localisation)')
-    .eq('offre_id', offreId)
     .order('created_at', { ascending: false })
 
+  if (offreIds.length > 0) {
+    query = query.in('offre_id', offreIds)
+  } else {
+    query = query.eq('offre_id', offreId)
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ links: data ?? [] })
 }
