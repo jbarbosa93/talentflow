@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.73'
+export const APP_VERSION = '1.9.74'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.74',
+    date: '2026-04-22',
+    label: 'Corrections 2 bugs v1.9.73 : note popover dernier candidat + "Tout effacer" nettoie vraiment tout',
+    features: [
+      'NOTES POPOVER — correction finale : le popover s\'ouvre maintenant TOUJOURS sous le bouton, même pour le dernier candidat en bas de liste. Fini le saut en haut. Si peu de place, le popover se cale contre le bas du viewport (contenu scrollable).',
+      'TOUT EFFACER — le bouton nettoie désormais TOUT complètement (recherche, filtres, "Non vu", sélection, position scroll). Plus de résidu quand on revient depuis un autre onglet.',
+      'FIX technique : le filtre "Non vu" persistait dans sessionStorage via une clé séparée (candidats_filter_nonvu) non liée à "Tout effacer". Maintenant synchronisé en useEffect + removeItem explicite dans resetAllFilters.',
+    ],
+  },
   {
     version: '1.9.73',
     date: '2026-04-22',

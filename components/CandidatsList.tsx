@@ -531,6 +531,8 @@ export default function CandidatsList() {
 
   // Persister les filtres dans sessionStorage
   useEffect(() => { ssSet('sort', sortBy) }, [sortBy])
+  // v1.9.74 : sync filterNonVu → sessionStorage (évite désalignement state/ss après resetAllFilters)
+  useEffect(() => { sessionStorage.setItem('candidats_filter_nonvu', filterNonVu ? '1' : '0') }, [filterNonVu])
   useEffect(() => { ssSet('showAdv', showAdvancedFilters) }, [showAdvancedFilters])
   useEffect(() => { ssSet('fMetier', filterMetier) }, [filterMetier])
   useEffect(() => { ssSet('fLieu', filterLieu) }, [filterLieu])
@@ -817,6 +819,13 @@ export default function CandidatsList() {
     resetFiltersOnly()
     // v1.9.71 : "Tout effacer" vide aussi la sélection
     setSelectedIds(new Set())
+    // v1.9.74 : nettoyage COMPLET des clés sessionStorage externes à candidats_filters
+    try {
+      sessionStorage.removeItem('candidats_filter_nonvu')
+      sessionStorage.removeItem('candidats_status_before_nonvu')
+      sessionStorage.removeItem('candidats_selected_ids')
+      sessionStorage.removeItem(FILTERS_KEY) // clé consolidée — tout reset d'un coup
+    } catch {}
   }
 
   // Tri côté serveur — seul le tri par distance reste côté client
@@ -1405,16 +1414,12 @@ export default function CandidatsList() {
               const MARGIN = 12
               const screenW = window.innerWidth
               const screenH = window.innerHeight
-              const spaceAbove = notePopoverRect.top - MARGIN
+              // v1.9.74 : popover TOUJOURS sous le bouton (jamais en haut, même pour le dernier candidat).
+              // Si peu de place en bas, le popover se cale contre le bas du viewport via Math.min clamp.
+              // Le textarea et la liste de notes sont scrollables (overflow-y: auto) donc pas de perte de contenu.
               const spaceBelow = screenH - notePopoverRect.bottom - MARGIN
-              // v1.9.73 : fix agressif — ouverture TOUJOURS sous le bouton. En haut SEULEMENT si spaceBelow < 150 (très étroit).
-              // maxH limité à l'espace réel dispo → le popover ne déborde jamais hors du viewport.
-              const openUp = spaceBelow < 150 && spaceAbove > spaceBelow
-              const availableH = openUp ? spaceAbove : spaceBelow
-              const maxH = Math.min(PANEL_MAX_H, Math.max(160, availableH - 10))
-              const top = openUp
-                ? Math.max(MARGIN, notePopoverRect.top - maxH - 6)
-                : Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
+              const maxH = Math.min(PANEL_MAX_H, Math.max(160, spaceBelow - 10))
+              const top = Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
               const left = Math.max(MARGIN, Math.min(screenW - PANEL_W - MARGIN, notePopoverRect.right - PANEL_W))
               return createPortal(
               <div
