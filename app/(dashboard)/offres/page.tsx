@@ -271,11 +271,17 @@ export default function OffresPage() {
                   </div>
                 )}
 
-                {/* Title */}
+                {/* Title + date création (v1.9.83) */}
                 <div style={{ marginBottom: 14, paddingRight: 100 }}>
                   <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
                     {offre.titre}
                   </h3>
+                  {(offre as any).created_at && (
+                    <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Calendar size={10} />
+                      Créée le {new Date((offre as any).created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
                 </div>
 
                 {/* Key info grid */}

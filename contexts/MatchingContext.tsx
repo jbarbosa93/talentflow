@@ -197,8 +197,12 @@ async function runAnalysisLoop(offreId: string, isExterne = false) {
               : { candidat_id: c.id, offre_id: offreId }
             ),
           })
+          // v1.9.83 — check abort APRÈS await fetch : si stop() cliqué mid-flight,
+          // ne pas réinjecter les résultats dans _results déjà vidé.
+          if (_abortFlag) return
           if (r.ok) {
             const data = await r.json()
+            if (_abortFlag) return
             const entry: MatchResult = {
               candidat: {
                 id: c.id, nom: c.nom, prenom: c.prenom,
@@ -214,6 +218,7 @@ async function runAnalysisLoop(offreId: string, isExterne = false) {
           }
         } catch { /* ignore single-candidat errors */ }
 
+        if (_abortFlag) return
         _doneCount++
         _onUpdate?.({ doneCount: _doneCount })
         lsSnap()

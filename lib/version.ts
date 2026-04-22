@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.82'
+export const APP_VERSION = '1.9.83'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.83',
+    date: '2026-04-22',
+    label: '6 fixes : édition templates + matching IA + dark mode tags + date commandes',
+    features: [
+      'TEMPLATES — Tu peux maintenant modifier un template existant (bouton ✏️ crayon à côté de la corbeille). Avant il fallait supprimer et recréer.',
+      'MATCHING IA — Le dropdown de templates n\'affiche plus de doublons ni templates fantômes : il charge uniquement les types réels (iMessage + WhatsApp).',
+      'MATCHING IA — "Vider les résultats" désélectionne automatiquement les candidats qui étaient cochés.',
+      'MATCHING IA — Bug corrigé : quand tu cliquais "Arrêter" pendant une analyse, les candidats réapparaissaient quelques secondes plus tard (promesses en vol). Désormais l\'arrêt est propre et définitif.',
+      'COMMANDES — Les tags de compétences sont maintenant lisibles en dark mode (amber clair au lieu de brun foncé).',
+      'COMMANDES — Chaque card affiche maintenant "Créée le X" sous le titre pour savoir quand la commande a été ajoutée.',
+    ],
+  },
   {
     version: '1.9.82',
     date: '2026-04-22',

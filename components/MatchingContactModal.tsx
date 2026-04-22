@@ -34,11 +34,12 @@ type Template = {
   type?: string // 'sms' | 'imessage' | 'whatsapp'
 }
 
+// v1.9.83 : type DB 'sms' = libellé UI "iMessage" (Messages app Apple). Cohérent avec Templates Tab.
 const CANAL_LABEL: Record<string, string> = {
-  sms: 'SMS', imessage: 'iMessage', whatsapp: 'WhatsApp',
+  sms: 'iMessage', imessage: 'iMessage', whatsapp: 'WhatsApp',
 }
 const CANAL_COLOR: Record<string, string> = {
-  sms: 'var(--info)', imessage: '#007AFF', whatsapp: '#25D366',
+  sms: '#007AFF', imessage: '#007AFF', whatsapp: '#25D366',
 }
 
 function personalize(tpl: string, c: ContactCandidat): string {
@@ -78,11 +79,14 @@ export default function MatchingContactModal({
   const sansTel = useMemo(() => candidats.filter(c => !c.telephone), [candidats])
   const formatted = useMemo(() => avecTel.map(c => detectAndFormat(c.telephone!).number), [avecTel])
 
-  // Charger les 3 types de templates en parallèle
+  // v1.9.83 : charge uniquement les 2 types réellement en DB (sms + whatsapp).
+  // Fix bug : `?type=imessage` n'existe pas dans le CHECK CONSTRAINT → la route
+  // retournait TOUS les templates (sans filtre), créant des doublons dans le dropdown.
+  // Les templates de type 'sms' sont labelés "iMessage" côté UI (convention Messages app Apple).
   useEffect(() => {
     let alive = true
     Promise.all(
-      ['sms', 'imessage', 'whatsapp'].map(type =>
+      ['sms', 'whatsapp'].map(type =>
         fetch(`/api/email-templates?type=${type}`)
           .then(r => r.ok ? r.json() : { templates: [] })
           .catch(() => ({ templates: [] }))
@@ -90,7 +94,7 @@ export default function MatchingContactModal({
     ).then(results => {
       if (!alive) return
       const all: Template[] = []
-      const types = ['sms', 'imessage', 'whatsapp']
+      const types = ['sms', 'whatsapp']
       results.forEach((r, i) => {
         for (const t of (r.templates || [])) all.push({ ...t, type: types[i] })
       })

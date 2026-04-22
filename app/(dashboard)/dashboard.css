@@ -570,6 +570,12 @@ body {
   color: #92400E;
   letter-spacing: 0.03em;
 }
+/* v1.9.83 : variante dark mode — texte amber clair lisible sur gold-soft */
+.dark .neo-tag {
+  color: #FCD34D;
+  background: rgba(245,167,35,0.12);
+  border-color: rgba(245,167,35,0.35);
+}
 
 /* ══════════════════════════════════════
    INPUTS

@@ -427,7 +427,7 @@ function MatchingPageInner() {
               )}
             </p>
             <button
-              onClick={() => matching.reset()}
+              onClick={() => { matching.reset(); setSelectedIds(new Set()) }}
               style={{ fontSize: 12, fontWeight: 700, color: '#DC2626', background: 'transparent', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}
             >
               Vider les résultats

@@ -37,6 +37,37 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// v1.9.83 — PATCH pour édition in-place des templates existants
+export async function PATCH(request: NextRequest) {
+  const authError = await requireAuth()
+  if (authError) return authError
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+  if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
+  try {
+    const body = await request.json()
+    // Whitelist des colonnes modifiables
+    const allowed: Record<string, any> = {}
+    for (const key of ['nom', 'sujet', 'corps', 'type', 'categorie'] as const) {
+      if (key in body) allowed[key] = body[key]
+    }
+    if (Object.keys(allowed).length === 0) {
+      return NextResponse.json({ error: 'Aucun champ à mettre à jour' }, { status: 400 })
+    }
+    const supabase = createAdminClient()
+    const { data, error } = await supabase
+      .from('email_templates')
+      .update(allowed)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ template: data })
+  } catch {
+    return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError

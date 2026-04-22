@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { Mail, Plus, Trash2, Send, FileText, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
+import { Mail, Plus, Trash2, Send, FileText, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
@@ -1834,6 +1834,8 @@ const VAR_GROUPS = {
 
 function TemplatesTab() {
   const [showCreate, setShowCreate] = useState(false)
+  // v1.9.83 — mode édition : stocke le template en cours de modif
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null)
   const { data: templates, isLoading, refetch } = useEmailTemplates() // tous canaux
   const queryClient = useQueryClient()
 
@@ -1962,6 +1964,16 @@ function TemplatesTab() {
                               💬 Copier vers iMessage
                             </button>
                           )}
+                          {/* v1.9.83 — bouton Modifier */}
+                          <button
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--muted)' }}
+                            onClick={() => setEditingTemplate(t)}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
+                            title="Modifier"
+                          >
+                            <Pencil size={14} />
+                          </button>
                           <button
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, color: 'var(--muted)' }}
                             onClick={() => deleteTemplate.mutate(t.id)}
@@ -1993,30 +2005,67 @@ function TemplatesTab() {
           <CreateTemplateForm onSuccess={() => { setShowCreate(false); refetch() }} />
         </DialogContent>
       </Dialog>
+
+      {/* v1.9.83 — Dialog édition (réutilise CreateTemplateForm en mode PATCH) */}
+      <Dialog open={!!editingTemplate} onOpenChange={(open) => { if (!open) setEditingTemplate(null) }}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Modifier le template</DialogTitle>
+          </DialogHeader>
+          {editingTemplate && (
+            <CreateTemplateForm
+              initialTemplate={editingTemplate}
+              onSuccess={() => { setEditingTemplate(null); refetch() }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
-  const [nom, setNom] = useState('')
-  const [canal, setCanal] = useState<'email' | 'sms' | 'whatsapp'>('email')
-  const [sujet, setSujet] = useState('')
-  const [corps, setCorps] = useState('')
+function CreateTemplateForm({ onSuccess, initialTemplate }: { onSuccess: () => void; initialTemplate?: { id: string; nom: string; sujet?: string | null; corps: string; type: 'email' | 'sms' | 'whatsapp' } | null }) {
+  // v1.9.83 — Mode édition si initialTemplate fourni (PATCH au lieu de POST)
+  const isEdit = !!initialTemplate?.id
+  const [nom, setNom] = useState(initialTemplate?.nom || '')
+  const [canal, setCanal] = useState<'email' | 'sms' | 'whatsapp'>(initialTemplate?.type || 'email')
+  const [sujet, setSujet] = useState(initialTemplate?.sujet || '')
+  const [corps, setCorps] = useState(initialTemplate?.corps || '')
   const corpsRef = useRef<HTMLTextAreaElement>(null)
   const createTemplate = useCreateTemplate()
+  const queryClient = useQueryClient()
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    createTemplate.mutate(
-      {
-        nom,
-        sujet: canal === 'email' ? (sujet || null) : null,
-        corps,
-        type: canal,
-        categorie: 'general', // valeur par défaut (plus exposé à l'UI)
-      },
-      { onSuccess }
-    )
+    const payload = {
+      nom,
+      sujet: canal === 'email' ? (sujet || null) : null,
+      corps,
+      type: canal,
+      categorie: 'general',
+    }
+    if (isEdit && initialTemplate) {
+      // PATCH — édition in-place
+      setSaving(true)
+      try {
+        const res = await fetch(`/api/email-templates?id=${initialTemplate.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) throw new Error()
+        queryClient.invalidateQueries({ queryKey: ['email-templates'] })
+        toast.success('Template modifié')
+        onSuccess()
+      } catch {
+        toast.error('Erreur lors de la modification')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+    createTemplate.mutate(payload, { onSuccess })
   }
 
   const insertVar = (varKey: string) => {
@@ -2156,10 +2205,12 @@ function CreateTemplateForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="submit"
           className="neo-btn-yellow"
-          disabled={!nom || !corps || createTemplate.isPending}
-          style={{ opacity: (!nom || !corps || createTemplate.isPending) ? 0.5 : 1 }}
+          disabled={!nom || !corps || createTemplate.isPending || saving}
+          style={{ opacity: (!nom || !corps || createTemplate.isPending || saving) ? 0.5 : 1 }}
         >
-          {createTemplate.isPending ? 'Création...' : 'Créer le template'}
+          {isEdit
+            ? (saving ? 'Enregistrement...' : 'Enregistrer les modifications')
+            : (createTemplate.isPending ? 'Création...' : 'Créer le template')}
         </button>
       </div>
     </form>
