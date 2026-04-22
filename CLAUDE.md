@@ -46,6 +46,26 @@
 - Toujours préparer le commit localement, montrer le récap, attendre "oui déploie" / "push-le", puis seulement `git push`
 - Règle ajoutée le 21/04/2026 suite à un push automatique non-validé (v1.9.71)
 
+### ⛔ RÈGLE — Build local + vérif Vercel après chaque push (v1.9.78)
+Ajoutée le 22/04/2026 après bug build Next.js 16 (useSearchParams sans Suspense sur /messages) qui a laissé prod en état ERROR alors que le changelog s'affichait déjà chez João.
+
+**Avant tout `git push` qui touche :**
+- Hooks de navigation (`useSearchParams`, `useRouter`, `usePathname`) ajoutés dans un nouveau composant top-level
+- Layouts, middleware, `next.config.ts`
+- Nouvelles dépendances npm
+- Routes API nouvelles ou leur runtime config
+- Toute logique SSR/SSG (generateStaticParams, metadata, revalidate)
+
+→ **Obligatoire** : `npm run build` local (pas juste `tsc --noEmit`). `tsc` ne détecte pas les erreurs de prerendering Next.js.
+
+**Après chaque `git push` :**
+1. Récupérer l'ID du deploy via MCP Vercel (`list_deployments`)
+2. Attendre l'état : soit READY (OK), soit ERROR (fetch build logs)
+3. Si ERROR → fix immédiat + re-push + revérif
+4. Ne JAMAIS considérer le push comme "déploiement terminé" tant que Vercel ne dit pas READY
+
+Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version active → impression que les fixes n'ont pas été déployés.
+
 ### RÈGLE — Commits
 - Commiter uniquement avant chaque déploiement prod
 - Pas obligatoire pendant le développement localhost
