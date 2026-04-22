@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { Mail, Plus, Trash2, Send, FileText, AlertCircle, ExternalLink, Copy, Check, Search, X, Users, Paperclip, MapPin, History, Calendar, Briefcase, ChevronDown, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -47,7 +47,17 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'historique', label: 'Historique',      icon: History },
 ]
 
+// v1.9.78 — Next.js impose que tout composant utilisant useSearchParams soit dans un <Suspense>
+// pour supporter le prerendering statique. On wrap donc la vraie page dans un Suspense boundary.
 export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="d-page" style={{ maxWidth: 800, padding: 24 }} />}>
+      <MessagesPageContent />
+    </Suspense>
+  )
+}
+
+function MessagesPageContent() {
   // v1.9.78 — sync tab ↔ URL (?tab=historique) pour que router.back() depuis une fiche candidat
   //           restaure le bon onglet. Compat ancien usage : /messages sans query = onglet 'email'.
   const searchParams = useSearchParams()
