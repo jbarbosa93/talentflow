@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.80'
+export const APP_VERSION = '1.9.81'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.81',
+    date: '2026-04-22',
+    label: 'Mailing : avertissement si aucune PJ + fix historique iMessage/WhatsApp/SMS',
+    features: [
+      'MAILING — Si tu cliques "Envoyer" avec des candidats attachés mais aucune pièce jointe cochée (ni CV ni document), une confirmation t\'avertit : "Aucune pièce jointe sélectionnée. Envoyer quand même ?". Évite les mails "je te propose ce profil" sans le CV joint.',
+      'HISTORIQUE iMessage / WhatsApp / SMS — Les envois en masse depuis la liste candidats n\'étaient pas enregistrés (0 ligne en DB) à cause d\'un champ sujet NOT NULL côté base. Désormais chaque envoi iMessage/WhatsApp/SMS apparaît dans l\'Historique avec un libellé "iMessage" / "WhatsApp" / "SMS".',
+    ],
+  },
   {
     version: '1.9.80',
     date: '2026-04-22',

@@ -80,12 +80,18 @@ export async function POST(req: Request) {
   }
 
   // 1 row par destinataire (cohérent avec le pattern email).
+  // v1.9.81 : emails_envoyes.sujet est NOT NULL — on met un libellé par canal (évite l'INSERT silencieux cassé).
+  const sujetByCanal: Record<string, string> = {
+    imessage: 'iMessage',
+    whatsapp: 'WhatsApp',
+    sms: 'SMS',
+  }
   const rows = destinataires.map(dest => ({
     candidat_id: candidatIds[0] ?? null,
     candidat_ids: candidatIds.length > 0 ? candidatIds : null,
     integration_id: null,
-    sujet: null,
-    corps,
+    sujet: sujetByCanal[canal] || canal,
+    corps: corps || '',
     destinataire: dest,
     statut: 'tentative' as const, // canal natif : on ne peut pas confirmer l'envoi réel
     user_id: userId,

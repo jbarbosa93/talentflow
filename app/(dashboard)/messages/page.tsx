@@ -1164,6 +1164,22 @@ function EmailTab() {
   const handleSend = async () => {
     if (destinataires.length === 0 || !sujet || !corps) return
 
+    // v1.9.81 — Avertissement si des candidats sont attachés mais aucune pièce jointe (CV ou doc).
+    // Cas typique : l'user ajoute le candidat au mailing mais oublie de cocher "CV original" ou "Docs".
+    // On évite ainsi d'envoyer un mail type "propose profil" sans le CV à un client.
+    if (candidatIds.length > 0) {
+      const hasAnyCv = Object.keys(cvAttached).length > 0
+      const hasAnyDoc = Object.values(extraDocs).some(arr => Array.isArray(arr) && arr.length > 0)
+      if (!hasAnyCv && !hasAnyDoc) {
+        const proceed = typeof window !== 'undefined' && window.confirm(
+          'Aucune pièce jointe sélectionnée (ni CV, ni document).\n\n' +
+          'Les candidats sont ajoutés au mail mais aucun fichier ne sera envoyé au destinataire.\n\n' +
+          'Envoyer quand même ?'
+        )
+        if (!proceed) return
+      }
+    }
+
     // Vérifier les doublons si candidats sélectionnés
     if (candidatIds.length > 0 && destinataires.length > 0) {
       try {
