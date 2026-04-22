@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.77'
+export const APP_VERSION = '1.9.78'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.78',
+    date: '2026-04-22',
+    label: 'Mailing docs additionnels + retour intelligent + UX historique et connexion Outlook',
+    features: [
+      'MAILING — Tu peux maintenant joindre à un mail n\'importe quel document non-CV du candidat (certificats, permis, diplômes, lettres, etc.) en plus du CV original ou personnalisé. Bouton "Docs" sur chaque ligne candidat → popover avec cases à cocher.',
+      'MAILING — Limite Microsoft 35 MB respectée : si la somme des pièces jointes dépasse 30 MB, l\'envoi est bloqué côté serveur avec un message clair. Aucun mail ne part si les PJ sont trop lourdes.',
+      'HISTORIQUE ENVOIS — Les docs joints apparaissent comme badges dans chaque envoi (ex. "1 CERTIFICAT", "2 PERMIS") en plus du badge "CV PERSONNALISÉ" existant.',
+      'FICHE CANDIDAT — Bouton "Retour" intelligent : quel que soit l\'endroit d\'où tu arrives (historique, matching, secrétariat, n\'importe quelle page), il te ramène à la page précédente (comme le bouton retour du navigateur).',
+      'HISTORIQUE ENVOIS — Suppression individuelle : la croix ❌ est maintenant visible sur tous tes envois, y compris les anciens (avant la session team share). Avant, seul "Vider tout" fonctionnait sur ces envois legacy.',
+      'ENVOIS — Le bandeau vert "Connecté via Microsoft 365" est supprimé quand tout va bien (bruit visuel). En cas de déconnexion Outlook, le bandeau jaune reste avec un bouton direct "Mon profil →" pour se reconnecter.',
+    ],
+  },
   {
     version: '1.9.77',
     date: '2026-04-22',

@@ -117,50 +117,106 @@ export async function POST(request: NextRequest) {
     const allCandidatIds = candidat_ids || (candidat_id ? [candidat_id] : [])
     const cvOptions = body.cv_options || {}
     const attachCvs = body.attach_cvs || false
+    // v1.9.78 — docs non-CV (certificats, permis, diplômes, etc.) à joindre par candidat
+    // Format : { [candidatId]: string[] }  avec URLs des documents choisis (issues de candidat.documents[].url)
+    const extraDocs: Record<string, string[]> = body.extra_docs && typeof body.extra_docs === 'object' ? body.extra_docs : {}
+    const hasExtraDocs = Object.values(extraDocs).some(arr => Array.isArray(arr) && arr.length > 0)
 
-    if (allCandidatIds.length > 0 && attachCvs) {
+    // Limite Graph API = 35 MB au total pour les pièces jointes d'un mail.
+    // On prend une marge à 30 MB (base64 ≈ +33% de la taille binaire + métadonnées JSON).
+    const MAX_ATTACH_BYTES = 30 * 1024 * 1024
+    const docsJoinedLog: Array<{ url: string; type: string; name: string }> = []
+
+    if (allCandidatIds.length > 0 && (attachCvs || hasExtraDocs)) {
       const { data: candidats } = await supabase
         .from('candidats')
-        .select('id, nom, prenom, cv_url, cv_nom_fichier')
+        .select('id, nom, prenom, cv_url, cv_nom_fichier, documents')
         .in('id', allCandidatIds)
 
       const attachments: any[] = []
+      let totalBase64Bytes = 0
+      const pushAttachment = (att: any, candidateName: string) => {
+        const size = typeof att.contentBytes === 'string' ? att.contentBytes.length : 0
+        if (totalBase64Bytes + size > MAX_ATTACH_BYTES) {
+          const err: any = new Error(
+            `Pièces jointes trop volumineuses (limite 30 MB). Dépassement détecté sur ${candidateName}. ` +
+            `Retirez un ou plusieurs documents et réessayez.`
+          )
+          err.code = 'ATTACHMENTS_TOO_LARGE'
+          throw err
+        }
+        totalBase64Bytes += size
+        attachments.push(att)
+      }
+
       for (const c of (candidats || [])) {
+        const cname = `${c.prenom || ''} ${c.nom || ''}`.trim() || 'candidat'
         const opts = cvOptions[c.id]
 
-        // Si CV personnalisé envoyé en base64 depuis le frontend
-        if (opts?.pdfBase64) {
-          attachments.push({
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name: `CV_${c.prenom || ''}_${c.nom || ''}.pdf`,
-            contentType: 'application/pdf',
-            contentBytes: opts.pdfBase64,
-          })
-          continue
+        // ─── 1. CV (si attachCvs) ──────────────────────────────────────────
+        if (attachCvs) {
+          if (opts?.pdfBase64) {
+            pushAttachment({
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: `CV_${c.prenom || ''}_${c.nom || ''}.pdf`,
+              contentType: 'application/pdf',
+              contentBytes: opts.pdfBase64,
+            }, cname)
+          } else if (!(opts && !opts.original && !opts.pdfBase64) && c.cv_url) {
+            // Joindre le CV original (si opts.original ou pas d'options du tout)
+            try {
+              const cvRes = await fetch(c.cv_url)
+              if (cvRes.ok) {
+                const buffer = Buffer.from(await cvRes.arrayBuffer())
+                const filename = c.cv_nom_fichier || `CV_${c.prenom || ''}_${c.nom || ''}.pdf`
+                const contentType = filename.toLowerCase().endsWith('.docx')
+                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  : 'application/pdf'
+                pushAttachment({
+                  '@odata.type': '#microsoft.graph.fileAttachment',
+                  name: filename,
+                  contentType,
+                  contentBytes: buffer.toString('base64'),
+                }, cname)
+              }
+            } catch (err) {
+              if (err && typeof err === 'object' && (err as any).code === 'ATTACHMENTS_TOO_LARGE') throw err
+              console.error(`[MS Send] Erreur téléchargement CV ${c.nom}:`, err)
+            }
+          }
         }
 
-        // Si options existent mais pas original et pas pdfBase64 → CV personnalisé non généré, skip
-        if (opts && !opts.original && !opts.pdfBase64) continue
-
-        // Joindre le CV original (si opts.original ou pas d'options du tout)
-        if (!c.cv_url) continue
-        try {
-          const cvRes = await fetch(c.cv_url)
-          if (!cvRes.ok) continue
-          const buffer = Buffer.from(await cvRes.arrayBuffer())
-          const filename = c.cv_nom_fichier || `CV_${c.prenom || ''}_${c.nom || ''}.pdf`
-          const contentType = filename.toLowerCase().endsWith('.docx')
-            ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            : 'application/pdf'
-
-          attachments.push({
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name: filename,
-            contentType,
-            contentBytes: buffer.toString('base64'),
-          })
-        } catch (err) {
-          console.error(`[MS Send] Erreur téléchargement CV ${c.nom}:`, err)
+        // ─── 2. Documents additionnels (certificats, permis, etc.) ─────────
+        const wantedUrls: string[] = Array.isArray(extraDocs[c.id]) ? extraDocs[c.id] : []
+        if (wantedUrls.length > 0) {
+          const candidatDocs: Array<{ url: string; name: string; type: string }> = Array.isArray((c as any).documents) ? (c as any).documents : []
+          for (const wantedUrl of wantedUrls) {
+            const doc = candidatDocs.find(d => d?.url === wantedUrl)
+            if (!doc?.url) continue
+            try {
+              const docRes = await fetch(doc.url)
+              if (!docRes.ok) continue
+              const buffer = Buffer.from(await docRes.arrayBuffer())
+              const fname = doc.name || `document.${doc.url.split('.').pop() || 'pdf'}`
+              const ext = (fname.split('.').pop() || '').toLowerCase()
+              const contentType = ext === 'pdf' ? 'application/pdf'
+                : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : ext === 'doc' ? 'application/msword'
+                : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+                : ext === 'png' ? 'image/png'
+                : 'application/octet-stream'
+              pushAttachment({
+                '@odata.type': '#microsoft.graph.fileAttachment',
+                name: fname,
+                contentType,
+                contentBytes: buffer.toString('base64'),
+              }, cname)
+              docsJoinedLog.push({ url: doc.url, type: doc.type || 'autre', name: fname })
+            } catch (err) {
+              if (err && typeof err === 'object' && (err as any).code === 'ATTACHMENTS_TOO_LARGE') throw err
+              console.error(`[MS Send] Erreur téléchargement doc ${doc.name}:`, err)
+            }
+          }
         }
       }
 
@@ -194,6 +250,11 @@ export async function POST(request: NextRequest) {
         if (opts?.pdfBase64) cvUrlsUtilises.push(`custom:${c.id}`)
         else if (c.cv_url) cvUrlsUtilises.push(c.cv_url)
       }
+    }
+    // v1.9.78 — les docs joints sont tracés dans cv_urls_utilises avec préfixe `doc:<type>:<url>`
+    // (plutôt qu'une nouvelle colonne — rétrocompat historique, l'UI parse le préfixe pour afficher "1 certificat", etc.)
+    for (const d of docsJoinedLog) {
+      cvUrlsUtilises.push(`doc:${d.type}:${d.url}`)
     }
 
     // Résolution client_id/nom via destinataires email → clients.email_contact (si unique)
@@ -234,6 +295,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[MS Send] Error:', error)
+    // v1.9.78 — erreur spécifique pièces jointes trop volumineuses → 413 (non-envoi)
+    if (error && typeof error === 'object' && (error as any).code === 'ATTACHMENTS_TOO_LARGE') {
+      return NextResponse.json(
+        { error: (error as Error).message, code: 'ATTACHMENTS_TOO_LARGE' },
+        { status: 413 }
+      )
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Erreur envoi email' },
       { status: 500 }

@@ -156,8 +156,17 @@ export default function CandidatDetailPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const fromPage = searchParams.get('from')
-  const backRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : '/candidats'
-  const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : 'Retour aux candidats'
+  // v1.9.78 — Retour intelligent : router.back() natif (respecte l'historique nav),
+  //           fallback sur ?from= ou /candidats si pas d'historique interne.
+  const fallbackRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : fromPage === 'messages' ? '/messages' : fromPage === 'historique' ? '/messages?tab=historique' : '/candidats'
+  const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : fromPage === 'messages' || fromPage === 'historique' ? 'Retour à l\'historique' : 'Retour'
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push(fallbackRoute)
+    }
+  }
   const queryClient = useQueryClient()
   const [consultantPrenom, setConsultantPrenom] = useState('João')
   useEffect(() => {
@@ -780,7 +789,7 @@ export default function CandidatDetailPage() {
 
       {/* ── Header ── */}
       <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
-        <button onClick={() => router.push(backRoute)} className="neo-btn-ghost neo-btn-sm">
+        <button onClick={() => goBack()} className="neo-btn-ghost neo-btn-sm">
           <ArrowLeft size={14} /> {backLabel}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

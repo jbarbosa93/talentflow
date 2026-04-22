@@ -69,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.77 prod (fix bandeau "Actualisé" sur fiche pour nouveaux imports)** — 22/04/2026
+**1.9.78 prod (mailing docs additionnels + retour intelligent + UX historique + bandeau MS)** — 22/04/2026
 
 ---
 

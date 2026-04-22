@@ -18,6 +18,7 @@ import { useClients, type Client } from '@/hooks/useClients'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { renderTemplate, hasContexteIA, TEMPLATE_VARS, type Civilite } from '@/lib/template-vars'
 import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
@@ -47,7 +48,22 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 ]
 
 export default function MessagesPage() {
-  const [tab, setTab] = useState<TabId>('email')
+  // v1.9.78 — sync tab ↔ URL (?tab=historique) pour que router.back() depuis une fiche candidat
+  //           restaure le bon onglet. Compat ancien usage : /messages sans query = onglet 'email'.
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const initialTab: TabId = (() => {
+    const q = searchParams.get('tab')
+    return q === 'historique' || q === 'templates' || q === 'email' ? q : 'email'
+  })()
+  const [tab, setTab] = useState<TabId>(initialTab)
+  const changeTab = (id: TabId) => {
+    setTab(id)
+    const params = new URLSearchParams(Array.from(searchParams.entries()))
+    if (id === 'email') params.delete('tab'); else params.set('tab', id)
+    const qs = params.toString()
+    router.replace(qs ? `/messages?${qs}` : '/messages', { scroll: false })
+  }
 
   return (
     <div className="d-page" style={{ maxWidth: 800 }}>
@@ -69,7 +85,7 @@ export default function MessagesPage() {
         {TABS.map(t => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => changeTab(t.id)}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -717,6 +733,10 @@ function EmailTab() {
   const [candidatIds, setCandidatIds] = useState<string[]>(initial.candidatIds || [])
   const [cvCandidatId, setCvCandidatId] = useState<string | null>(null)
   const [cvAttached, setCvAttached] = useState<Record<string, any>>({})
+  // v1.9.78 — docs non-CV joints par candidat (URLs des entries dans candidat.documents[])
+  const [extraDocs, setExtraDocs] = useState<Record<string, string[]>>({})
+  // Cache des documents chargés à la demande (le /api/candidats liste ne remonte pas documents[])
+  const [candidatDocsCache, setCandidatDocsCache] = useState<Record<string, Array<{ url: string; name: string; type: string; uploaded_at?: string }>>>({})
   const [templateId, setTemplateId] = useState(initial.templateId || '')
   const [destinataires, setDestinataires] = useState<string[]>(initial.destinataires || [])
   const [ccEmails, setCcEmails] = useState<string[]>([]) // v1.9.70
@@ -819,6 +839,21 @@ function EmailTab() {
 
   const hasMailingData = candidatIds.length > 0 || destinataires.length > 0 || !!templateId || !!sujet || !!corps
 
+  // v1.9.78 — charge documents[] à la demande (le /api/candidats list ne le remonte pas)
+  const loadCandidatDocs = async (id: string) => {
+    if (candidatDocsCache[id]) return candidatDocsCache[id]
+    try {
+      const res = await fetch(`/api/candidats/${id}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      const docs = Array.isArray(data?.documents) ? data.documents : []
+      setCandidatDocsCache(prev => ({ ...prev, [id]: docs }))
+      return docs
+    } catch {
+      return []
+    }
+  }
+
   const resetMailing = () => {
     setCandidatIds([])
     setDestinataires([])
@@ -827,6 +862,7 @@ function EmailTab() {
     setCorps('')
     setContexteIA('')
     setCvAttached({})
+    setExtraDocs({})
     setCiviliteByCandidat({})
     setCustomByCandidat({})
     if (typeof window !== 'undefined') sessionStorage.removeItem(MAILING_KEY)
@@ -1035,6 +1071,7 @@ function EmailTab() {
               candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
               attach_cvs: Object.keys(cvAttached).length > 0,
               cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
+              extra_docs: Object.keys(extraDocs).length > 0 ? extraDocs : undefined,
               destinataires,
               cc: ccEmails.length > 0 ? ccEmails : undefined,
               sujet: perSujet,
@@ -1070,6 +1107,7 @@ function EmailTab() {
                 candidat_ids: candidatIds.length > 0 ? candidatIds : undefined,
                 attach_cvs: Object.keys(cvAttached).length > 0,
                 cv_options: Object.keys(cvAttached).length > 0 ? cvAttached : undefined,
+                extra_docs: Object.keys(extraDocs).length > 0 ? extraDocs : undefined,
                 destinataires: [email],
                 sujet: perSujet,
                 corps: perCorps,
@@ -1163,18 +1201,9 @@ function EmailTab() {
         </div>
       )}
 
-      {/* Microsoft Graph API Status */}
-      {msConfig?.configured ? (
-        <div style={{ borderRadius: 12, border: '1.5px solid #BBF7D0', background: 'var(--success-soft)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)', margin: 0 }}>
-              ✉️ Connecté via Microsoft 365 — {msConfig.email}
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--success)', marginTop: 1 }}>Les emails seront envoyés depuis ce compte via Microsoft Graph</p>
-          </div>
-        </div>
-      ) : (
+      {/* Microsoft Graph API Status — v1.9.78 : bandeau vert supprimé si connecté (bruit visuel).
+          Bandeau jaune conservé si déconnecté + lien direct vers /parametres/profil pour re-connecter. */}
+      {msConfig?.configured ? null : (
         <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: 'var(--warning-soft)', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Mail size={16} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
@@ -1183,10 +1212,10 @@ function EmailTab() {
               Connectez votre compte Outlook dans Paramètres pour envoyer des emails depuis votre adresse.
             </p>
           </div>
-          <a href="/parametres?section=profil"
+          <a href="/parametres/profil"
             className="neo-btn-yellow neo-btn-sm"
             style={{ whiteSpace: 'nowrap', textDecoration: 'none' }}>
-            Paramètres →
+            Mon profil →
           </a>
         </div>
       )}
@@ -1237,6 +1266,19 @@ function EmailTab() {
                     onRemove={() => {
                       setCandidatIds(prev => prev.filter(i => i !== id))
                       setCvAttached(prev => { const n = { ...prev }; delete n[id]; return n })
+                      setExtraDocs(prev => { const n = { ...prev }; delete n[id]; return n })
+                    }}
+                    extraDocsSelected={extraDocs[id] || []}
+                    candidatDocs={candidatDocsCache[id]}
+                    onLoadDocs={() => loadCandidatDocs(id)}
+                    onToggleDoc={(url) => {
+                      setExtraDocs(prev => {
+                        const current = prev[id] || []
+                        const next = current.includes(url) ? current.filter(u => u !== url) : [...current, url]
+                        const n = { ...prev }
+                        if (next.length === 0) delete n[id]; else n[id] = next
+                        return n
+                      })
                     }}
                   />
                 )
@@ -1602,6 +1644,16 @@ function EmailTab() {
                 <Paperclip size={11} /> {Object.keys(cvAttached).length} CV{Object.keys(cvAttached).length > 1 ? 's' : ''} joint{Object.keys(cvAttached).length > 1 ? 's' : ''} au mail
               </p>
             )}
+            {/* v1.9.78 — total docs additionnels joints, toutes cats confondues */}
+            {(() => {
+              const total = Object.values(extraDocs).reduce((acc, arr) => acc + arr.length, 0)
+              if (total === 0) return null
+              return (
+                <p style={{ fontSize: 11, color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 4, margin: 0, fontWeight: 600 }}>
+                  <Paperclip size={11} /> {total} document{total > 1 ? 's' : ''} additionnel{total > 1 ? 's' : ''} joint{total > 1 ? 's' : ''}
+                </p>
+              )
+            })()}
           </div>
           <Button onClick={handleSend} disabled={destinataires.length === 0 || !sujet || !corps || sending || sent}>
             {sent ? (
@@ -2279,8 +2331,11 @@ function HistoriqueTab() {
                 position: 'relative',
               }}
             >
-              {/* Bouton supprimer — croix top-right (v1.9.68 : uniquement si l'envoi m'appartient) */}
-              {c.is_own && (
+              {/* Bouton supprimer — croix top-right
+                  v1.9.68 : uniquement si l'envoi m'appartient (user_id = current).
+                  v1.9.78 : aussi affiché pour les rows legacy (user_id = null) car la route DELETE
+                            sait les supprimer (filtre user_id.eq OR user_id.is.null côté serveur). */}
+              {(c.is_own || !c.user_id) && (
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
                   title="Supprimer cet envoi"
@@ -2341,6 +2396,36 @@ function HistoriqueTab() {
                         CV personnalisé
                       </span>
                     )}
+                    {/* v1.9.78 — Badges "1 certificat / 2 permis" quand des docs non-CV ont été joints.
+                        Les entrées préfixées `doc:<type>:<url>` dans cv_urls_utilises les tracent. */}
+                    {(() => {
+                      const docEntries = (c.cv_urls_utilises || []).filter((u: string) => typeof u === 'string' && u.startsWith('doc:'))
+                      if (docEntries.length === 0) return null
+                      const counts: Record<string, number> = {}
+                      for (const e of docEntries) {
+                        const parts = (e as string).split(':')
+                        const type = parts[1] || 'autre'
+                        counts[type] = (counts[type] || 0) + 1
+                      }
+                      const typeLabel: Record<string, string> = {
+                        certificat: 'certificat', diplome: 'diplôme', lettre_motivation: 'lettre',
+                        formation: 'formation', permis: 'permis', reference: 'référence',
+                        contrat: 'contrat', bulletin_salaire: 'bulletin', autre: 'document',
+                      }
+                      return Object.entries(counts).map(([type, count]) => {
+                        const lbl = typeLabel[type] || 'document'
+                        return (
+                          <span key={type} style={{
+                            fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4,
+                            background: 'var(--info-soft)', color: 'var(--info)',
+                            textTransform: 'uppercase', letterSpacing: '0.04em',
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                          }}>
+                            <Paperclip size={9} /> {count} {lbl}{count > 1 ? 's' : ''}
+                          </span>
+                        )
+                      })
+                    })()}
                     {c.statut === 'tentative' && c.canal !== 'email' && (
                       <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'var(--secondary)', color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Tentative
@@ -2465,6 +2550,10 @@ function CandidateJoinRow({
   candidat: c,
   isPerso, isOriginal, showBorderTop,
   onEdit, onToggleOriginal, onRemove,
+  extraDocsSelected = [],
+  candidatDocs,
+  onLoadDocs,
+  onToggleDoc,
 }: {
   candidat: any
   isPerso: boolean
@@ -2473,10 +2562,35 @@ function CandidateJoinRow({
   onEdit: () => void
   onToggleOriginal: () => void
   onRemove: () => void
+  // v1.9.78 — docs non-CV joints
+  extraDocsSelected?: string[]
+  candidatDocs?: Array<{ url: string; name: string; type: string; uploaded_at?: string }>
+  onLoadDocs?: () => Promise<Array<{ url: string; name: string; type: string; uploaded_at?: string }>>
+  onToggleDoc?: (url: string) => void
 }) {
   const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
   const previewTimer = useRef<number | null>(null)
   const cvOriginalBtnRef = useRef<HTMLButtonElement | null>(null)
+  // v1.9.78 — popover docs
+  const [docsPopoverPos, setDocsPopoverPos] = useState<{ x: number; y: number } | null>(null)
+  const [docsLoading, setDocsLoading] = useState(false)
+  const docsBtnRef = useRef<HTMLButtonElement | null>(null)
+  const docs = candidatDocs ?? []
+
+  const openDocsPopover = async () => {
+    if (docsPopoverPos) { setDocsPopoverPos(null); return }
+    const btn = docsBtnRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    const W = 360, H = 320
+    const x = Math.max(12, Math.min(window.innerWidth - W - 12, rect.right - W))
+    const y = rect.bottom + 8 + H > window.innerHeight ? rect.top - H - 8 : rect.bottom + 8
+    setDocsPopoverPos({ x, y })
+    if (!candidatDocs && onLoadDocs) {
+      setDocsLoading(true)
+      try { await onLoadDocs() } finally { setDocsLoading(false) }
+    }
+  }
 
   useEffect(() => () => {
     if (previewTimer.current) window.clearTimeout(previewTimer.current)
@@ -2592,6 +2706,25 @@ function CandidateJoinRow({
           </button>
         )}
 
+        {/* v1.9.78 — bouton docs additionnels */}
+        <button
+          ref={docsBtnRef}
+          type="button"
+          onClick={openDocsPopover}
+          title="Joindre des documents (certificats, permis, etc.)"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 10px', borderRadius: 8,
+            background: extraDocsSelected.length > 0 ? 'var(--info)' : 'var(--card)',
+            color: extraDocsSelected.length > 0 ? 'var(--destructive-foreground)' : 'var(--foreground)',
+            border: `1px solid ${extraDocsSelected.length > 0 ? 'var(--info)' : 'var(--border)'}`,
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          <Paperclip size={12} />
+          Docs{extraDocsSelected.length > 0 ? ` (${extraDocsSelected.length})` : ''}
+        </button>
+
         <button
           type="button"
           onClick={onRemove}
@@ -2606,6 +2739,100 @@ function CandidateJoinRow({
           <X size={12} />
         </button>
       </div>
+
+      {/* v1.9.78 — Popover docs additionnels (portal) */}
+      {docsPopoverPos && typeof document !== 'undefined' && createPortal(
+        <>
+          {/* Backdrop pour fermer au clic extérieur */}
+          <div
+            onClick={() => setDocsPopoverPos(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'transparent' }}
+          />
+          <div
+            style={{
+              position: 'fixed', left: docsPopoverPos.x, top: docsPopoverPos.y,
+              width: 360, maxHeight: 320, zIndex: 9999,
+              background: 'var(--card)', border: '1.5px solid var(--border)',
+              borderRadius: 12, boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              padding: '10px 14px', borderBottom: '1px solid var(--border)',
+              background: 'var(--background)', display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', gap: 6,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
+                Documents de {c.prenom} {c.nom}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDocsPopoverPos(null)}
+                style={{
+                  width: 22, height: 22, borderRadius: 6, border: 'none',
+                  background: 'transparent', color: 'var(--muted-foreground)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto', padding: 6 }}>
+              {docsLoading && (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--muted-foreground)' }}>
+                  Chargement…
+                </div>
+              )}
+              {!docsLoading && docs.length === 0 && (
+                <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--muted-foreground)' }}>
+                  Aucun document additionnel pour ce candidat.
+                </div>
+              )}
+              {!docsLoading && docs.length > 0 && docs.map((d) => {
+                const checked = extraDocsSelected.includes(d.url)
+                const typeLabel: Record<string, string> = {
+                  certificat: 'Certificat', diplome: 'Diplôme', lettre_motivation: 'Lettre',
+                  formation: 'Formation', permis: 'Permis', reference: 'Référence',
+                  contrat: 'Contrat', bulletin_salaire: 'Bulletin', autre: 'Autre',
+                }
+                return (
+                  <label
+                    key={d.url}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                      background: checked ? 'var(--info-soft)' : 'transparent',
+                      border: `1px solid ${checked ? 'var(--info)' : 'transparent'}`,
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!checked) e.currentTarget.style.background = 'var(--secondary)' }}
+                    onMouseLeave={e => { if (!checked) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => onToggleDoc?.(d.url)}
+                      style={{ cursor: 'pointer', flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 12, fontWeight: 600, color: 'var(--foreground)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {d.name || 'Document'}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--muted-foreground)', marginTop: 1 }}>
+                        {typeLabel[d.type] || d.type || 'Document'}
+                      </div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Hover preview CV original (portal pour sortir du stacking) */}
       {previewPos && c.cv_url && typeof document !== 'undefined' && createPortal(
