@@ -944,23 +944,22 @@ export default function CandidatDetailPage() {
               const changeAt = (candidat as any).onedrive_change_at as string | null | undefined
               const lastImport = (candidat as any).last_import_at as string | null | undefined
               const createdAt = candidat.created_at
+              // v1.9.77 : "Ajouté le X" toujours en vert par défaut (user request)
               // Priorité : onedrive_change_type (dernier changement explicite)
               let label = `Ajouté le ${fmt(createdAt)}`
-              let color: string = 'var(--muted-foreground)'
+              let color: string = 'var(--success)' // vert par défaut
               if (changeType === 'reactive' && changeAt) {
                 label = `Réactivé le ${fmt(changeAt)}`
                 color = 'var(--warning)'
               } else if (changeType === 'mis_a_jour' && changeAt) {
                 label = `Actualisé le ${fmt(changeAt)}`
                 color = 'var(--info)'
-              } else if (changeType === 'nouveau') {
-                label = `Ajouté le ${fmt(createdAt)}`
-                color = 'var(--success)'
               } else if (lastImport && new Date(lastImport).getTime() - new Date(createdAt).getTime() > 60_000) {
                 // Fallback : last_import_at > created_at de plus d'1 min → actualisé (après que le change_type soit effacé)
                 label = `Actualisé le ${fmt(lastImport)}`
                 color = 'var(--info)'
               }
+              // Sinon → "Ajouté le X" en vert (case nouveau ou pas de change_type)
               return (
                 <div style={{
                   textAlign: 'center', marginBottom: 10,

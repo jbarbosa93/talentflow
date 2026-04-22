@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.74'
+export const APP_VERSION = '1.9.75'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.75',
+    date: '2026-04-22',
+    label: 'Session de corrections : OneDrive, recherche mailing, import manuel, ML, 4 bugs UX',
+    features: [
+      'ONEDRIVE — Les fichiers en attente de validation manuelle (match incertain) ne restent plus bloqués en erreur à chaque cycle. Si tu valides ou déplaces un fichier manuellement, la ligne disparaît proprement de la liste des erreurs.',
+      'MESSAGES D\'ERREUR ONEDRIVE — réécrits en français clair (plus de jargon technique). Exemples :\n• "Remis en file — re-sync auto (orphelin détecté)" → "Remis en file — incohérence interne (fichier marqué traité mais sans candidat associé). Nouvelle tentative automatique."\n• "Fichier pré-enregistré mais jamais traité (bloqué par dédup ou abandon silencieux)" → "Fichier reçu mais pas encore traité après 24h (probablement bloqué par une erreur silencieuse ou un doublon)"\n• "Réactivé (safety)" → "Réactivé (même CV que l\'existant)"\n• "Doublon détecté (race)" → "Doublon détecté (import simultané)"',
+      'ONEDRIVE — Prévention automatique : les fichiers "introuvables dans OneDrive" depuis plus de 7 jours sont abandonnés automatiquement. Plus de pollution permanente de la liste des erreurs.',
+      'RECHERCHE MAILING — Quand tu cherches un candidat dans Envois → Mailing, la recherche trouve maintenant tous les candidats de la base. Avant, seuls 500 étaient chargés (sur 6300+), donc un candidat récent ou ancien était invisible. Recherche flexible (nom, prénom, email, métier, téléphone) sans accent ni majuscule.',
+      'IMPORT MANUEL — Le badge coloré 🟢 Nouveau / 🟡 Réactivé / 🔵 Actualisé ne disparaît plus après 10 minutes. Il reste visible jusqu\'à ce que tu ouvres la fiche du candidat (même comportement que l\'import OneDrive).',
+      'IMPORT — Quand tu importes plusieurs fichiers en même temps, si un upload échoue à cause du réseau (Failed to fetch), le système retente automatiquement 3 fois (avec pauses de 0.5s / 1s / 2s). Plus besoin de recharger manuellement.',
+      'IMPORT — Les noms de fichiers étaient invisibles dans la fenêtre d\'import en mode sombre (fond clair fixé en dur, texte clair = blanc sur blanc). Désormais les couleurs s\'adaptent automatiquement au thème.',
+      'FICHE CANDIDAT — Le bandeau "Ajouté le X" s\'affiche maintenant TOUJOURS en vert (avant : gris sur certains candidats sans historique OneDrive). Les variantes "Réactivé" (orange) et "Actualisé" (bleu) gardent leurs couleurs.',
+      'ML — Quand tu valides un match incertain dans /integrations, l\'ID du consultant qui a décidé (toi ou Seb) est maintenant correctement enregistré (avant : toujours "null" à cause d\'un bug technique). Le dataset ML peut maintenant apprendre qui a décidé quoi.',
+    ],
+  },
   {
     version: '1.9.74',
     date: '2026-04-22',

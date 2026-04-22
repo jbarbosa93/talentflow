@@ -89,17 +89,22 @@ export async function POST(request: Request) {
     }
 
     // 3. Charger tous les enregistrements onedrive_fichiers
+    // v1.9.75 : ajout statut_action pour skip défensif pending_validation dans orphan detector
     const { data: allFichiers } = await (supabase as any)
       .from('onedrive_fichiers')
-      .select('id, onedrive_item_id, traite, created_at, erreur, candidat_id')
+      .select('id, onedrive_item_id, traite, created_at, erreur, candidat_id, statut_action')
       .limit(10000)
 
     // Auto-reset des fichiers orphelins : traite:true mais candidat_id IS NULL
     // (marqués "traités" mais aucun candidat créé — ancien bug insert unique)
-    const EXCLUSIONS = ['Abandonné', 'Document', 'Doublon', 'non-CV', 'sans candidat', 'Remis en file']
+    // v1.9.75 : ajout 'À valider' (fichiers en attente de validation manuelle — ne sont PAS orphelins,
+    //          ils ont un candidat suspect et attendent la décision user dans /integrations)
+    //          + skip défensif sur statut_action='pending_validation'
+    const EXCLUSIONS = ['Abandonné', 'Document', 'Doublon', 'non-CV', 'sans candidat', 'Remis en file', 'À valider', 'Ignoré', 'Archivé']
     const orphanIds = (allFichiers || [])
       .filter((f: any) => {
         if (!f.traite || f.candidat_id) return false
+        if (f.statut_action === 'pending_validation') return false
         const err = f.erreur || ''
         return !EXCLUSIONS.some(e => err.startsWith(e) || err.includes(e))
       })
@@ -110,7 +115,8 @@ export async function POST(request: Request) {
         .from('onedrive_fichiers')
         .update({
           traite: false,
-          erreur: 'Remis en file — re-sync auto (orphelin détecté)',
+          // v1.9.75 : message clair pour utilisateur non-dev
+          erreur: 'Remis en file — incohérence interne (fichier marqué traité mais sans candidat associé). Nouvelle tentative automatique.',
           created_at: new Date().toISOString(), // Reset du timer — évite l'abandon immédiat
         })
         .in('id', orphanIds)
@@ -144,17 +150,17 @@ export async function POST(request: Request) {
       )
       .map(f => f.onedrive_item_id)
     if (orphanPendingIds.length > 0) {
+      // v1.9.75 : message clair pour utilisateur non-dev
+      const watchdogMsg = 'Fichier reçu mais pas encore traité après 24h (probablement bloqué par une erreur silencieuse ou un doublon) — nouvelle tentative automatique'
       await (supabase as any)
         .from('onedrive_fichiers')
-        .update({
-          erreur: 'Fichier pré-enregistré mais jamais traité (bloqué par dédup ou abandon silencieux) — sera retenté',
-        })
+        .update({ erreur: watchdogMsg })
         .in('onedrive_item_id', orphanPendingIds)
       dbg(`[OneDrive Sync] Watchdog : ${orphanPendingIds.length} pending orphelin(s) marqué(s) en erreur`)
       // Re-injecter l'erreur dans la collection locale pour ce cycle
       for (const f of (allFichiersUpdated as any[])) {
         if (orphanPendingIds.includes(f.onedrive_item_id)) {
-          f.erreur = 'Fichier pré-enregistré mais jamais traité (bloqué par dédup ou abandon silencieux) — sera retenté'
+          f.erreur = watchdogMsg
         }
       }
     }
@@ -345,6 +351,32 @@ export async function POST(request: Request) {
         .in('id', missingIds)
     }
 
+    // v1.9.75 — Prévention future : fichiers "introuvable dans OneDrive" depuis ≥ MAX_ERROR_DAYS (7j)
+    // → les abandonner définitivement pour ne plus polluer la liste d'erreurs.
+    // Protection : si le fichier réapparait dans OneDrive, un nouveau cycle le recréera avec une nouvelle
+    // ligne DB (car onedrive_item_id reste unique), donc zéro perte.
+    const cutoffAbandonMs = Date.now() - MAX_ERROR_DAYS * 24 * 60 * 60 * 1000
+    const longGoneIds = (allFichiersUpdated || []).filter((f: any) => {
+      if (f.traite !== false) return false
+      const err = f.erreur || ''
+      if (!err.startsWith('Fichier introuvable')) return false
+      if (scannedItemIds.has(f.onedrive_item_id)) return false  // réapparu → ne pas abandonner
+      const lastErrDate = f.created_at ? new Date(f.created_at).getTime() : 0
+      return lastErrDate > 0 && lastErrDate < cutoffAbandonMs
+    })
+    if (longGoneIds.length > 0) {
+      await (supabase as any)
+        .from('onedrive_fichiers')
+        .update({
+          traite: true,
+          statut_action: 'abandoned',
+          erreur: `Abandonné — fichier absent d'OneDrive depuis ${MAX_ERROR_DAYS} jours`,
+          traite_le: new Date().toISOString(),
+        })
+        .in('onedrive_item_id', longGoneIds.map((f: any) => f.onedrive_item_id))
+      dbg(`[OneDrive Sync] ${longGoneIds.length} fichier(s) absent(s) depuis ${MAX_ERROR_DAYS}j → abandonné(s) définitivement`)
+    }
+
     let processed = 0
     let skipped = 0
     let errors = 0
@@ -439,7 +471,7 @@ export async function POST(request: Request) {
             traite_le: new Date().toISOString(),
             last_modified_at: fichier.lastModifiedDateTime || null,
             statut_action: 'abandoned',
-            erreur: `Abandonné — bloqué depuis ${daysSince} jours, vérifier manuellement`,
+            erreur: `Abandonné — bloqué depuis ${daysSince} jours malgré les tentatives. Vérifier le fichier manuellement dans OneDrive.`,
           })
           return { status: 'skipped', filename: fichier.name }
         }
@@ -991,7 +1023,7 @@ export async function POST(request: Request) {
                     last_modified_at: fichier.lastModifiedDateTime || null,
                     statut_action: 'reactivated',
                     candidat_id: existingCandidat.id,
-                    erreur: `Réactivé (safety) — ${candidatDisplayName}`,
+                    erreur: `Réactivé (même CV que l'existant) — ${candidatDisplayName}`,
                   })
                 } catch (err) { console.warn('[OneDrive Sync] upsertFichier (safety guard) échec:', err instanceof Error ? err.message : String(err)) }
                 return { status: 'reactivated', name: candidatDisplayName }
@@ -1235,7 +1267,7 @@ export async function POST(request: Request) {
                 last_modified_at: fichier.lastModifiedDateTime || null,
                 statut_action: 'skipped',
                 candidat_id: lateCandidatEmail.id,
-                erreur: `Doublon détecté (race) — rattaché à ${lateCandidatEmail.prenom || ''} ${lateCandidatEmail.nom}`.trim(),
+                erreur: `Doublon détecté (import simultané) — rattaché à ${lateCandidatEmail.prenom || ''} ${lateCandidatEmail.nom}`.trim(),
               })
               return { status: 'skipped', filename }
             }
@@ -1252,7 +1284,7 @@ export async function POST(request: Request) {
                 last_modified_at: fichier.lastModifiedDateTime || null,
                 statut_action: 'skipped',
                 candidat_id: lateCandidatNom.id,
-                erreur: `Doublon détecté (race) — rattaché à ${lateCandidatNom.prenom || ''} ${lateCandidatNom.nom}`.trim(),
+                erreur: `Doublon détecté (import simultané) — rattaché à ${lateCandidatNom.prenom || ''} ${lateCandidatNom.nom}`.trim(),
               })
               return { status: 'skipped', filename }
             }
@@ -1277,7 +1309,7 @@ export async function POST(request: Request) {
                   last_modified_at: fichier.lastModifiedDateTime || null,
                   statut_action: 'skipped',
                   candidat_id: lateCandidatTel.id,
-                  erreur: `Doublon détecté (race tel) — rattaché à ${lateCandidatTel.prenom || ''} ${lateCandidatTel.nom}`.trim(),
+                  erreur: `Doublon détecté (import simultané, même téléphone) — rattaché à ${lateCandidatTel.prenom || ''} ${lateCandidatTel.nom}`.trim(),
                 })
                 return { status: 'skipped', filename }
               }

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # graphify
 graphify-out/
+
+# claude worktrees (sessions isolées, ne jamais commit)
+.claude/worktrees/

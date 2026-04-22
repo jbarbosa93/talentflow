@@ -738,7 +738,9 @@ function EmailTab() {
   const [civiliteByCandidat, setCiviliteByCandidat] = useState<Record<string, Civilite>>({})
   const [customByCandidat, setCustomByCandidat] = useState<Record<string, { titre_poste?: string; resume_ia?: string; nom_complet?: string }>>({})
 
-  const { data: _candidatsData } = useCandidats({ per_page: 500 })
+  // v1.9.75 : per_page 500 → 10000 — la base a 6300+ candidats, 500 ratait tous ceux au-delà
+  // → recherche flexible trouve tout (nom, prénom, email, métier, tel) sans accent / casse
+  const { data: _candidatsData } = useCandidats({ per_page: 10000 })
   const candidats = (_candidatsData?.candidats || []).filter((c: any) => c.import_status !== 'archive')
   const { data: templates } = useEmailTemplates('email')
 

@@ -761,6 +761,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
             ...(!efSize ? { cv_size_bytes: currentSize_p } : {}),
             updated_at: new Date().toISOString(),
             last_import_at: new Date().toISOString(),
+            // v1.9.77 — badge coloré persistant (Réactivé 🟡)
+            onedrive_change_type: 'reactive',
+            onedrive_change_at: new Date().toISOString(),
           } as any).eq('id', candidatExistant.id)
           // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
           await (adminClient as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id)
@@ -996,6 +999,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     // depuis le CV existant, pas un vrai ré-import → ne doit pas déclencher le badge).
     if (mode !== 'reanalyse') {
       updateData.last_import_at = now
+      // v1.9.77 — badge coloré persistant (Actualisé 🔵)
+      updateData.onedrive_change_type = 'mis_a_jour'
+      updateData.onedrive_change_at = now
     }
     // Fix 20/04/2026 — remonter created_at si le CV importé est plus récent que celui en DB.
     // Aligne avec onedrive/sync L1123 + cv/parse flow INSERT L1170 (règle : created_at = date
@@ -1173,6 +1179,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // v1.9.42 — Hash + size pour détecter "même fichier" déterministiquement (sans filename)
   ;(nouveauCandidat as any).cv_sha256 = createHash('sha256').update(buffer).digest('hex')
   ;(nouveauCandidat as any).cv_size_bytes = buffer.length
+  // v1.9.77 — badge coloré persistant pour import manuel (cohérence avec OneDrive sync)
+  ;(nouveauCandidat as any).onedrive_change_type = 'nouveau'
+  ;(nouveauCandidat as any).onedrive_change_at = new Date().toISOString()
 
   // Date d'ajout : lastModified > date dans le nom de fichier > maintenant
   const insertDate = fileDate || extractDateFromFilename(file.name)

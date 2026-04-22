@@ -146,12 +146,32 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     const timestamp = Date.now()
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `temp_import/${timestamp}_${safeName}`
-    const { data, error } = await supabase.storage.from('cvs').upload(path, file, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: true,
-    })
-    if (error) throw new Error(`Upload storage: ${error.message}`)
-    return data.path
+    // v1.9.77 — retry auto 3× avec backoff (500ms/1s/2s) pour corriger "Failed to fetch"
+    // lors d'uploads concurrents ou glitch réseau Supabase Storage
+    const MAX_ATTEMPTS = 3
+    let lastError: any = null
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const { data, error } = await supabase.storage.from('cvs').upload(path, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: true,
+        })
+        if (error) throw new Error(error.message)
+        return data.path
+      } catch (e: any) {
+        lastError = e
+        const msg = (e?.message || '').toLowerCase()
+        const isRetryable = msg.includes('failed to fetch') || msg.includes('network') || msg.includes('timeout') || msg.includes('econnreset') || msg.includes('aborted')
+        if (attempt < MAX_ATTEMPTS && isRetryable) {
+          const delay = 500 * Math.pow(2, attempt - 1) // 500ms, 1s, 2s
+          console.warn(`[UploadCV] Upload retry ${attempt}/${MAX_ATTEMPTS} après ${delay}ms:`, e?.message)
+          await new Promise(r => setTimeout(r, delay))
+          continue
+        }
+        throw new Error(`Upload storage: ${e?.message || 'échec inconnu'}`)
+      }
+    }
+    throw new Error(`Upload storage: ${lastError?.message || 'échec après retries'}`)
   }
 
   // ------- Process a single file -------
@@ -615,29 +635,30 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
     }
   }
 
+  // v1.9.77 : tokens sémantiques pour support dark mode (hex light-mode en dur = texte invisible)
   const rowBg = (s: FileStatus) => {
     switch (s) {
-      case 'success': return '#F0FDF4'
-      case 'awaiting_confirmation': return '#FEF3C7'
-      case 'already_imported': return '#F9FAFB'
-      case 'reactivated': return '#FFFBEB'
-      case 'doc_added': return '#EFF6FF'
-      case 'doublon_updated': return '#FFFBEB'
-      case 'multiple_matches': return '#F5F3FF'
-      case 'error': return '#FEF2F2'
+      case 'success': return 'var(--success-soft)'
+      case 'awaiting_confirmation': return 'var(--warning-soft)'
+      case 'already_imported': return 'var(--secondary)'
+      case 'reactivated': return 'var(--warning-soft)'
+      case 'doc_added': return 'var(--info-soft)'
+      case 'doublon_updated': return 'var(--warning-soft)'
+      case 'multiple_matches': return 'var(--primary-soft)'
+      case 'error': return 'var(--destructive-soft)'
       default: return 'var(--secondary)'
     }
   }
 
   const rowBorder = (s: FileStatus) => {
     switch (s) {
-      case 'success': return '#BBF7D0'
-      case 'awaiting_confirmation': return '#FCD34D'
-      case 'doc_added': return '#BFDBFE'
-      case 'doublon_updated': return '#FDE68A'
-      case 'reactivated': return '#FDE68A'
-      case 'multiple_matches': return '#C4B5FD'
-      case 'error': return '#FECACA'
+      case 'success': return 'var(--success)'
+      case 'awaiting_confirmation': return 'var(--warning)'
+      case 'doc_added': return 'var(--info)'
+      case 'doublon_updated': return 'var(--warning)'
+      case 'reactivated': return 'var(--warning)'
+      case 'multiple_matches': return 'var(--primary)'
+      case 'error': return 'var(--destructive)'
       default: return 'var(--border)'
     }
   }

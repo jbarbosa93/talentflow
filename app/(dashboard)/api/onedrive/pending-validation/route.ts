@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { normaliserGenre } from '@/lib/normaliser-genre'
 
@@ -99,10 +100,11 @@ export async function POST(req: Request) {
   const suspectId: string | null = fichier.match_suspect_candidat_id || null
   const score: number = fichier.match_suspect_score || 0
 
-  // Récupérer user pour decided_by
+  // v1.9.75 : récupérer user via SERVER client (admin n'a pas de session → decided_by était toujours null)
+  // Bug ML : dataset decisions_matching avait decided_by=null pour toutes les rows → tracking qui-a-décidé perdu
   let decidedBy: string | null = null
   try {
-    const userSupabase = createAdminClient()
+    const userSupabase = await createServerClient()
     const { data: { user } } = await userSupabase.auth.getUser()
     decidedBy = user?.id || null
   } catch {}

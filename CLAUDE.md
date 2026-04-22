@@ -69,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.74 prod (2 bugs v1.9.73 : popover dernier candidat + "Tout effacer" vraiment tout)** — 22/04/2026
+**1.9.75 prod (session corrections : OneDrive + recherche mailing + import manuel + ML + 4 bugs UX)** — 22/04/2026
 
 ---
 
