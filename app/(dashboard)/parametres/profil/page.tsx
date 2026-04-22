@@ -421,6 +421,8 @@ export default function ProfilPage() {
 
   // ── Déconnexion ───────────────────────────────────────────────────────────
   const logout = async () => {
+    // v1.9.76 : vider toutes les données de session (filtres candidats, sélection, etc.)
+    try { sessionStorage.clear() } catch {}
     await supabase.auth.signOut()
     queryClient.clear()
     router.push('/login')

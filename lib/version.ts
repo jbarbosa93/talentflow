@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.75'
+export const APP_VERSION = '1.9.76'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.76',
+    date: '2026-04-22',
+    label: 'Déconnexion = reset session + nettoyage /integrations',
+    features: [
+      'DÉCONNEXION — Quand tu te déconnectes (manuellement ou automatiquement après 2h d\'inactivité), la recherche et les filtres de la liste candidats sont désormais effacés. À la reconnexion, tu repars sur une liste vierge (sauf si tu quittes juste un onglet sans te déconnecter).',
+      'INTÉGRATIONS — Suppression du bloc "Configuration" en bas de la page (Claude AI / Supabase / URL). Info peu utile au quotidien, épure la page.',
+    ],
+  },
   {
     version: '1.9.75',
     date: '2026-04-22',

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Mail, RefreshCw, CheckCircle2, XCircle, AlertCircle,
   Plug, Clock, User, ExternalLink, Loader2, FolderOpen,
-  ChevronDown, ChevronUp, Zap, ZapOff, CloudUpload, FileText,
+  ChevronDown, ChevronUp, Zap, ZapOff, FileText,
 } from 'lucide-react'
 import { useSyncMicrosoft } from '@/hooks/useMessages'
 import { dispatchBadgesChanged } from '@/lib/badge-candidats'
@@ -300,41 +300,7 @@ function IntegrationsContent() {
       {/* Banc de test DRY-RUN OneDrive */}
       <TestFolderRunner />
 
-      {/* Configuration API */}
-      <div style={{ background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginBottom: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 16px' }}>Configuration</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Zap size={16} color="var(--primary)" />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Claude AI (Anthropic)</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>Analyse IA des CVs — cle configuree via variable d&apos;environnement</div>
-              </div>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CloudUpload size={16} color="var(--info)" />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Supabase</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>Base de donnees et stockage de fichiers</div>
-              </div>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', background: 'rgba(16,185,129,0.1)', padding: '3px 10px', borderRadius: 100 }}>Connecte</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <ExternalLink size={16} color="var(--muted)" />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>URL de l&apos;application</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)' }}>https://www.talent-flow.ch</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* v1.9.76 : bloc "Configuration" (Claude AI / Supabase / URL) supprimé — info peu utile */}
 
       {isLoading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>

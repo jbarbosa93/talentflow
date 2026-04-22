@@ -33,6 +33,9 @@ export function useSessionTimeout({ onWarning, onLogout, onActivity, disabled = 
     logoutDone.current = true
     clearAll()
     localStorage.removeItem(LS_KEY)
+    // v1.9.76 : vider toutes les données de session (filtres candidats, sélection, etc.)
+    // avant de signaler l'auto-logout. Comme ça au re-login tout est remis à zéro.
+    try { sessionStorage.clear() } catch {}
     sessionStorage.setItem('auto_logout', 'true')
     // Poser le cookie tf_remember AVANT le signOut (nécessite la session pour lire l'email)
     const supabase = createClient()

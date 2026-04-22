@@ -69,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.75 prod (session corrections : OneDrive + recherche mailing + import manuel + ML + 4 bugs UX)** — 22/04/2026
+**1.9.76 prod (logout = reset sessionStorage + nettoyage /integrations)** — 22/04/2026
 
 ---
 
