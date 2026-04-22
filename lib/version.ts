@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.78'
+export const APP_VERSION = '1.9.79'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.79',
+    date: '2026-04-22',
+    label: '3 fixes post-v1.9.78 : bandeau MS, popover docs, suppression envois équipe',
+    features: [
+      'ENVOIS — Correction du flash du bandeau "Compte Outlook non connecté" qui apparaissait brièvement à chaque ouverture de la page avant de disparaître. Désormais il ne s\'affiche que si tu es vraiment déconnecté.',
+      'MAILING — Le bouton "Docs" sur chaque candidat affichait "Aucun document additionnel" même quand le candidat en avait. Fix : lecture correcte de la réponse serveur.',
+      'HISTORIQUE ENVOIS — Tu peux maintenant supprimer n\'importe quel envoi de l\'équipe (le tien ou celui de Sébastien). Avant, la croix ❌ n\'apparaissait que sur tes propres envois. Cohérent avec le partage team déjà en place pour la lecture.',
+    ],
+  },
   {
     version: '1.9.78',
     date: '2026-04-22',

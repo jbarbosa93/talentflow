@@ -850,13 +850,14 @@ function EmailTab() {
   const hasMailingData = candidatIds.length > 0 || destinataires.length > 0 || !!templateId || !!sujet || !!corps
 
   // v1.9.78 — charge documents[] à la demande (le /api/candidats list ne le remonte pas)
+  // v1.9.79 — fix : /api/candidats/[id] retourne { candidat: {...} }, pas le candidat directement
   const loadCandidatDocs = async (id: string) => {
     if (candidatDocsCache[id]) return candidatDocsCache[id]
     try {
       const res = await fetch(`/api/candidats/${id}`)
       if (!res.ok) return []
       const data = await res.json()
-      const docs = Array.isArray(data?.documents) ? data.documents : []
+      const docs = Array.isArray(data?.candidat?.documents) ? data.candidat.documents : []
       setCandidatDocsCache(prev => ({ ...prev, [id]: docs }))
       return docs
     } catch {
@@ -1212,8 +1213,9 @@ function EmailTab() {
       )}
 
       {/* Microsoft Graph API Status — v1.9.78 : bandeau vert supprimé si connecté (bruit visuel).
-          Bandeau jaune conservé si déconnecté + lien direct vers /parametres/profil pour re-connecter. */}
-      {msConfig?.configured ? null : (
+          Bandeau jaune conservé si déconnecté + lien direct vers /parametres/profil pour re-connecter.
+          v1.9.79 : affiche UNIQUEMENT après chargement (msConfig !== null) pour éviter le flash au mount. */}
+      {msConfig === null || msConfig.configured ? null : (
         <div style={{ borderRadius: 12, border: '1.5px solid #FDE68A', background: 'var(--warning-soft)', padding: '12px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <Mail size={16} color="var(--warning)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ flex: 1 }}>
@@ -2341,36 +2343,32 @@ function HistoriqueTab() {
                 position: 'relative',
               }}
             >
-              {/* Bouton supprimer — croix top-right
-                  v1.9.68 : uniquement si l'envoi m'appartient (user_id = current).
-                  v1.9.78 : aussi affiché pour les rows legacy (user_id = null) car la route DELETE
-                            sait les supprimer (filtre user_id.eq OR user_id.is.null côté serveur). */}
-              {(c.is_own || !c.user_id) && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
-                  title="Supprimer cet envoi"
-                  style={{
-                    position: 'absolute', top: 10, right: 10, zIndex: 2,
-                    width: 28, height: 28, borderRadius: 8,
-                    background: 'transparent', border: '1px solid transparent',
-                    color: 'var(--muted-foreground)', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--destructive-soft)'
-                    e.currentTarget.style.color = 'var(--destructive)'
-                    e.currentTarget.style.borderColor = 'var(--destructive-soft)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color = 'var(--muted-foreground)'
-                    e.currentTarget.style.borderColor = 'transparent'
-                  }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              )}
+              {/* Bouton supprimer — croix top-right.
+                  v1.9.79 : Option A — team share global, chacun peut supprimer n'importe quel envoi (cohérent avec SELECT/team). */}
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteOne(c) }}
+                title="Supprimer cet envoi"
+                style={{
+                  position: 'absolute', top: 10, right: 10, zIndex: 2,
+                  width: 28, height: 28, borderRadius: 8,
+                  background: 'transparent', border: '1px solid transparent',
+                  color: 'var(--muted-foreground)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--destructive-soft)'
+                  e.currentTarget.style.color = 'var(--destructive)'
+                  e.currentTarget.style.borderColor = 'var(--destructive-soft)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = 'var(--muted-foreground)'
+                  e.currentTarget.style.borderColor = 'transparent'
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
               {/* Ligne principale */}
               <button
                 onClick={() => setExpanded(isOpen ? null : c.campagne_id)}

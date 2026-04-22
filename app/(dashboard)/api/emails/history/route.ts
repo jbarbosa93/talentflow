@@ -152,27 +152,28 @@ export async function DELETE(req: Request) {
   const legacyId = typeof body?.legacy_id === 'string' ? body.legacy_id.trim() : null
 
   // v1.9.65 patch 3 — Utilise service role pour bypass la RLS DELETE policy qui exige
-  // user_id = auth.uid() STRICT (ne matche pas les legacy NULL). On filtre explicitement
-  // côté requête pour ne jamais toucher les rows d'autres users.
+  // user_id = auth.uid() STRICT (ne matche pas les legacy NULL).
+  // v1.9.79 — Option A : DELETE global team (chacun peut supprimer n'importe quel envoi, y compris ceux de ses collègues).
+  //            Cohérent avec SELECT global team (v1.9.70). Garde requireAuth pour que seuls les users loggés puissent purger.
   const admin = createAdminClient()
+  void userId // loggé + obtenu pour traçabilité, mais pas utilisé comme filtre
 
-  // Purge all — rows du user courant + legacy NULL
+  // Purge all — toute la table (authenticated)
   if (!campagneId && !legacyId) {
     const { error, count } = await admin
       .from('emails_envoyes')
       .delete({ count: 'exact' })
-      .or(`user_id.eq.${userId},user_id.is.null`)
+      .not('id', 'is', null) // trick : supprime tout (Supabase refuse .delete() sans filtre)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }
 
-  // Delete 1 campagne — user courant ou legacy NULL
+  // Delete 1 campagne — même si elle appartient à un autre user
   if (campagneId) {
     const { error, count } = await admin
       .from('emails_envoyes')
       .delete({ count: 'exact' })
       .eq('campagne_id', campagneId)
-      .or(`user_id.eq.${userId},user_id.is.null`)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }
@@ -184,7 +185,6 @@ export async function DELETE(req: Request) {
       .from('emails_envoyes')
       .delete({ count: 'exact' })
       .eq('id', id)
-      .or(`user_id.eq.${userId},user_id.is.null`)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ deleted: count ?? 0 })
   }
