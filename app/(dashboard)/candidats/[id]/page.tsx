@@ -944,6 +944,7 @@ export default function CandidatDetailPage() {
               const changeAt = (candidat as any).onedrive_change_at as string | null | undefined
               const lastImport = (candidat as any).last_import_at as string | null | undefined
               const createdAt = candidat.created_at
+              const hasArchivedDocs = (((candidat as any).documents as unknown[]) || []).length > 0
               // v1.9.77 : "Ajouté le X" toujours en vert par défaut (user request)
               // Priorité : onedrive_change_type (dernier changement explicite)
               let label = `Ajouté le ${fmt(createdAt)}`
@@ -954,8 +955,12 @@ export default function CandidatDetailPage() {
               } else if (changeType === 'mis_a_jour' && changeAt) {
                 label = `Actualisé le ${fmt(changeAt)}`
                 color = 'var(--info)'
-              } else if (lastImport && new Date(lastImport).getTime() - new Date(createdAt).getTime() > 60_000) {
-                // Fallback : last_import_at > created_at de plus d'1 min → actualisé (après que le change_type soit effacé)
+              } else if (changeType === 'nouveau') {
+                // Nouveau candidat : garder "Ajouté le X" vert (court-circuite le fallback ci-dessous,
+                // qui sinon dirait "Actualisé" car last_import_at=now() > created_at=fileDate de plusieurs mois)
+              } else if (lastImport && hasArchivedDocs && new Date(lastImport).getTime() - new Date(createdAt).getTime() > 60_000) {
+                // Fallback post-clear : last_import_at > created_at + 1min ET preuve d'update passé (documents archivés)
+                // Le garde `hasArchivedDocs` évite que les nouveaux candidats (sans archive) affichent "Actualisé" par erreur.
                 label = `Actualisé le ${fmt(lastImport)}`
                 color = 'var(--info)'
               }

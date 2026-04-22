@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.76'
+export const APP_VERSION = '1.9.77'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.77',
+    date: '2026-04-22',
+    label: 'Fiche candidat — fix bandeau "Actualisé" affiché sur nouveaux imports',
+    features: [
+      'FICHE CANDIDAT — Un nouveau candidat fraîchement importé (manuel ou OneDrive) affichait à tort "Actualisé le X" en bleu sur sa fiche, alors que dans la liste le badge "Nouveau" vert était correct. Désormais la fiche et la liste sont cohérentes : "Ajouté le X" en vert pour un nouveau, "Actualisé le X" en bleu uniquement pour un vrai update (avec CV archivé dans l\'historique de la fiche).',
+    ],
+  },
   {
     version: '1.9.76',
     date: '2026-04-22',

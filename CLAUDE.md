@@ -69,7 +69,7 @@
 ---
 
 ## Version actuelle
-**1.9.76 prod (logout = reset sessionStorage + nettoyage /integrations)** — 22/04/2026
+**1.9.77 prod (fix bandeau "Actualisé" sur fiche pour nouveaux imports)** — 22/04/2026
 
 ---
 
