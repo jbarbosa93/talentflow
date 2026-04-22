@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.81 prod (mailing warning PJ + fix log iMessage/WhatsApp/SMS)** — 22/04/2026
+**1.9.82 prod (matching IA : modal contact unifié + filtre 80km + dark mode)** — 22/04/2026
 
 ---
 

@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useCvHoverPreview, CvHoverPanel, CvHoverTrigger } from '@/components/CvHoverPreview'
+import MatchingContactModal from '@/components/MatchingContactModal'
 
 // ─── Couleurs par score ───────────────────────────────────────────────────────
 
@@ -435,12 +436,12 @@ function MatchingPageInner() {
         )}
       </div>
 
-      {/* Barre sélection flottante */}
+      {/* Barre sélection flottante — v1.9.82 : tokens pour marcher en dark mode */}
       {selectedIds.size > 0 && (
         <div style={{
           position: 'sticky', top: 16, zIndex: 50,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'var(--foreground)', color: 'white',
+          background: 'var(--foreground)', color: 'var(--background)',
           borderRadius: 14, padding: '12px 20px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
           marginBottom: 16, gap: 16,
@@ -457,7 +458,7 @@ function MatchingPageInner() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={() => setSelectedIds(new Set())}
-              style={{ height: 36, padding: '0 14px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)' }}
+              style={{ height: 36, padding: '0 14px', background: 'rgba(255,255,255,0.14)', color: 'var(--background)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)' }}
             >
               Désélectionner
             </button>
@@ -487,9 +488,9 @@ function MatchingPageInner() {
         </div>
       )}
 
-      {/* Modal contact */}
+      {/* Modal contact — v1.9.82 : composant partagé (createPortal + templates + UX /candidats bulk) */}
       {showContactModal && (
-        <ContactModal candidats={selectedCandidats} onClose={() => setShowContactModal(false)} />
+        <MatchingContactModal candidats={selectedCandidats} onClose={() => setShowContactModal(false)} />
       )}
 
       {/* Empty states */}
@@ -531,12 +532,15 @@ function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { 
   const c = scoreColor(score)
   const initiales = `${(candidat.prenom || '')[0] || ''}${(candidat.nom || '')[0] || ''}`.toUpperCase() || '?'
 
+  // v1.9.82 : rgba transparents pour que le fond pastel fonctionne en dark mode
+  //            (les pastels #FFF9C4/#F1F5F9/#FEF3E2 restaient en bright yellow/gris clair,
+  //            rendant le texte gris/blanc illisible sur fond pale)
   const rankStyle = rank === 1
-    ? { bg: '#FFF9C4', border: '#FDE68A', icon: '🥇' }
+    ? { bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.40)', icon: '🥇' }
     : rank === 2
-    ? { bg: '#F1F5F9', border: '#CBD5E1', icon: '🥈' }
+    ? { bg: 'rgba(148,163,184,0.09)', border: 'rgba(148,163,184,0.35)', icon: '🥈' }
     : rank === 3
-    ? { bg: '#FEF3E2', border: '#FDE68A', icon: '🥉' }
+    ? { bg: 'rgba(234,88,12,0.09)', border: 'rgba(234,88,12,0.35)', icon: '🥉' }
     : null
 
   const showPhoto = !!candidat.photo_url && !photoError

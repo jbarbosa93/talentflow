@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { historyLoad, type MatchHistoryItem } from '@/contexts/MatchingContext'
 import { useMatching } from '@/contexts/MatchingContext'
 import { useCvHoverPreview, CvHoverPanel, CvHoverTrigger } from '@/components/CvHoverPreview'
+import MatchingContactModal from '@/components/MatchingContactModal'
 
 const LS_HISTORY_KEY = 'tf_matching_history'
 
@@ -578,9 +579,9 @@ export default function MatchingHistoriquePage() {
         </div>
       )}
 
-      {/* Modal contact */}
+      {/* Modal contact — v1.9.82 : composant partagé */}
       {showContact && (
-        <ContactModal
+        <MatchingContactModal
           candidats={selectedCandidats}
           onClose={() => setShowContact(false)}
         />

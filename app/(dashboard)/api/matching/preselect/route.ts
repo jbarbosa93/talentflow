@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAuth } from '@/lib/auth-guard'
+import { distanceBetweenLocations } from '@/lib/swiss-cities'
 
 export const runtime = 'nodejs'
 export const maxDuration = 30
@@ -95,6 +96,11 @@ function localisationBonus(candLoc: string, offreLoc: string): number {
   if (cc && oc && cc === oc) return 4
   return 0
 }
+
+// v1.9.82 — cutoff distance : exclure les candidats dont la localisation est à > MAX_DISTANCE_KM
+// du lieu de la mission. Fallback safe : si une des 2 villes n'est pas dans la table SWISS_CITIES,
+// on N'EXCLUT PAS (retourne false). Évite les faux négatifs sur communes rares.
+const MAX_DISTANCE_KM = 80
 
 function scoreCandidat(
   candidat: any,
@@ -247,9 +253,21 @@ export async function POST(request: NextRequest) {
 
     const totalBase = allCandidats.length
 
-    // 4. Scorer et filtrer
+    // 4. Filtre distance géo + scorer
+    // v1.9.82 — exclure les candidats à > MAX_DISTANCE_KM du lieu de la mission
+    // quand les 2 villes sont résolues dans SWISS_CITIES. Fallback safe : si une ville
+    // n'est pas reconnue (distance === null), on inclut (pas de cutoff à l'aveugle).
     const offreLocalisation = offre.localisation || ''
+    let excluPourDistance = 0
     const scored = allCandidats
+      .filter(c => {
+        const d = distanceBetweenLocations(c.localisation, offreLocalisation)
+        if (d !== null && d > MAX_DISTANCE_KM) {
+          excluPourDistance++
+          return false
+        }
+        return true
+      })
       .map(c => ({ candidat: c, preScore: scoreCandidat(c, offreKeywords, offreCompetences, offre.exp_requise || 0, offreLocalisation) }))
       .filter(x => x.preScore >= MIN_SCORE)
       .sort((a, b) => b.preScore - a.preScore || a.candidat.id.localeCompare(b.candidat.id))
@@ -261,6 +279,8 @@ export async function POST(request: NextRequest) {
       candidats,
       total_base: totalBase,
       total_preselect: candidats.length,
+      excluded_by_distance: excluPourDistance, // v1.9.82 — info debug
+      max_distance_km: MAX_DISTANCE_KM,
       keywords: offreKeywords,
       competences: offreCompetences,
     })

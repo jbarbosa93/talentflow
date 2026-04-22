@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.81'
+export const APP_VERSION = '1.9.82'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.82',
+    date: '2026-04-22',
+    label: 'Matching IA — nouveau modal de contact + filtre 80km + fix dark mode',
+    features: [
+      'MATCHING IA — Nouveau modal "Contacter" unifié avec choix de template (iMessage / SMS / WhatsApp), substitution automatique {prenom} / {nom} / {metier}, et 3 onglets : "Par candidat" (boutons individuels), "iMessage groupé" (copie des numéros), "WhatsApp groupé" (un chat à la fois, anti-blocage navigateur). Plus de "Bonjour {prenom}" générique : c\'est ton template qui s\'applique.',
+      'MATCHING IA — Le modal "Contacter" ne reste plus bloqué en haut de la page (bug "sticky top"). Il est maintenant rendu en portal donc s\'affiche toujours centré sur l\'écran.',
+      'MATCHING IA — Historique des envois iMessage / WhatsApp depuis ce modal désormais enregistré dans Envois → Historique (comme depuis la liste candidats).',
+      'MATCHING IA — Filtre automatique 80 km : les candidats dont la localisation est à plus de 80 km du lieu de la mission ne sont plus proposés. Si la ville n\'est pas reconnue (petite commune), le candidat est inclus quand même (pas d\'exclusion à l\'aveugle).',
+      'MATCHING IA — Dark mode : les cartes top 3 (🥇🥈🥉) et la barre "N candidats sélectionnés" avaient des fonds pastel clair qui rendaient le texte illisible. Désormais les couleurs s\'adaptent correctement au thème sombre.',
+    ],
+  },
   {
     version: '1.9.81',
     date: '2026-04-22',
