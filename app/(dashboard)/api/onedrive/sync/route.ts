@@ -100,15 +100,27 @@ export async function POST(request: Request) {
     // v1.9.75 : ajout 'À valider' (fichiers en attente de validation manuelle — ne sont PAS orphelins,
     //          ils ont un candidat suspect et attendent la décision user dans /integrations)
     //          + skip défensif sur statut_action='pending_validation'
-    const EXCLUSIONS = ['Abandonné', 'Document', 'Doublon', 'non-CV', 'sans candidat', 'Remis en file', 'À valider', 'Ignoré', 'Archivé']
-    const orphanIds = (allFichiers || [])
-      .filter((f: any) => {
-        if (!f.traite || f.candidat_id) return false
-        if (f.statut_action === 'pending_validation') return false
-        const err = f.erreur || ''
-        return !EXCLUSIONS.some(e => err.startsWith(e) || err.includes(e))
-      })
-      .map((f: any) => f.id)
+    // v1.9.80 : ACTION_EXCLUSIONS — si statut_action indique que le fichier a été traité avec succès
+    //          à un moment (created/updated/reactivated/...), un candidat_id NULL est le résultat de
+    //          la FK `onedrive_fichiers.candidat_id → candidats.id ON DELETE SET NULL` déclenchée
+    //          par une suppression/fusion manuelle du candidat. Ce n'est pas un "vrai orphan silencieux"
+    //          — ces rows NE doivent PAS être remises en file (sinon boucle 404 Graph si fichier déplacé).
+    const EXCLUSIONS = ['Abandonné', 'Document', 'Doublon', 'non-CV', 'sans candidat', 'Remis en file', 'À valider', 'Ignoré', 'Archivé', 'Candidat supprimé']
+    const ACTION_EXCLUSIONS = new Set(['created', 'updated', 'reactivated', 'document', 'skipped', 'abandoned', 'pending_validation', 'error'])
+    const orphanIds: string[] = []
+    const deletedCandidatIds: string[] = []
+    for (const f of (allFichiers || [])) {
+      if (!f.traite || f.candidat_id) continue
+      const err = (f.erreur || '') as string
+      if (EXCLUSIONS.some(e => err.startsWith(e) || err.includes(e))) continue
+      if (f.statut_action && ACTION_EXCLUSIONS.has(f.statut_action)) {
+        // Candidat supprimé/fusionné après import — on n'y touche PLUS (retry inutile).
+        // On annote seulement si erreur vide pour traçabilité dans l'UI.
+        if (!err) deletedCandidatIds.push(f.id)
+        continue
+      }
+      orphanIds.push(f.id)
+    }
 
     if (orphanIds.length > 0) {
       await (supabase as any)
@@ -121,6 +133,15 @@ export async function POST(request: Request) {
         })
         .in('id', orphanIds)
       dbg(`[OneDrive Sync] ${orphanIds.length} fichier(s) orphelin(s) remis en file automatiquement`)
+    }
+
+    if (deletedCandidatIds.length > 0) {
+      // Annotation one-shot : message clair, pas de reset traite (on garde le succès d'origine).
+      await (supabase as any)
+        .from('onedrive_fichiers')
+        .update({ erreur: 'Candidat supprimé ou fusionné après import — aucune action automatique' })
+        .in('id', deletedCandidatIds)
+      dbg(`[OneDrive Sync] ${deletedCandidatIds.length} fichier(s) avec candidat supprimé — annoté(s) sans reset`)
     }
 
     // Map: item_id → date de traitement la plus récente (traite: true uniquement)

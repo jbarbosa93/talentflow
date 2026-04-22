@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.79 prod (3 fixes post-v1.9.78 : bandeau MS flash + popover docs vide + suppression envois équipe)** — 22/04/2026
+**1.9.80 prod (OneDrive cause racine : candidats supprimés ≠ orphelin silencieux)** — 22/04/2026
 
 ---
 

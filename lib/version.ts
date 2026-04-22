@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.79'
+export const APP_VERSION = '1.9.80'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.80',
+    date: '2026-04-22',
+    label: 'OneDrive — fix cause racine "incohérence interne" sur candidats supprimés',
+    features: [
+      'ONEDRIVE — Les fichiers dont le candidat a été supprimé ou fusionné après import n\'apparaissent plus à tort dans la liste des erreurs "incohérence interne". La cause était la clé étrangère qui met candidat_id à NULL quand tu supprimes un candidat, ce qui trompait le détecteur d\'orphelins. Désormais ces fichiers sont annotés "Candidat supprimé ou fusionné après import — aucune action automatique" et ne sont plus retentés en boucle.',
+    ],
+  },
   {
     version: '1.9.79',
     date: '2026-04-22',
