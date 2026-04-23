@@ -967,10 +967,15 @@ export default function CandidatDetailPage() {
               } else if (changeType === 'nouveau') {
                 // Nouveau candidat : garder "Ajouté le X" vert (court-circuite le fallback ci-dessous,
                 // qui sinon dirait "Actualisé" car last_import_at=now() > created_at=fileDate de plusieurs mois)
-              } else if (lastImport && hasArchivedDocs && new Date(lastImport).getTime() - new Date(createdAt).getTime() > 60_000) {
-                // Fallback post-clear : last_import_at > created_at + 1min ET preuve d'update passé (documents archivés)
-                // Le garde `hasArchivedDocs` évite que les nouveaux candidats (sans archive) affichent "Actualisé" par erreur.
-                label = `Actualisé le ${fmt(lastImport)}`
+              } else if (hasArchivedDocs) {
+                // v1.9.89 — Fallback post-clear simplifié : preuve d'update passé = docs archivés dans documents[].
+                // Avant v1.9.89 : test `lastImport - createdAt > 60s` trop fragile.
+                //   Cas Ismael Jarmoun (23/04/2026) : onedrive/sync update → created_at MAJ à fileDate=12:10:15,
+                //   last_import=12:11:04. Diff = 49 sec → fallback ne déclenchait pas → fiche affichait
+                //   "Ajouté le 23 avril" alors que candidat était updaté.
+                // Nouveau test : documents.length > 0 = preuve robuste qu'il y a eu au moins 1 update
+                //   (les 2 routes d'import archivent systématiquement le CV précédent dans documents[]).
+                label = `Actualisé le ${fmt(lastImport || createdAt)}`
                 color = 'var(--info)'
               }
               // Sinon → "Ajouté le X" en vert (case nouveau ou pas de change_type)

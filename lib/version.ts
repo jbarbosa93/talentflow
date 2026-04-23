@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.88'
+export const APP_VERSION = '1.9.89'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.89',
+    date: '2026-04-23',
+    label: 'Fiche candidat — fix bandeau "Ajouté le X" sur candidats actualisés',
+    features: [
+      'FICHE CANDIDAT — Un candidat existant qui vient d\'être actualisé via OneDrive (ou manuellement) pouvait afficher à tort "Ajouté le 23 avril" en vert au lieu de "Actualisé le 23 avril" en bleu. Cause : après ouverture de la fiche, le badge bleu est effacé de la DB, et la détection de remplacement se basait sur un écart temporel trop fragile (< 1 min entre import et création). Nouveau test plus robuste basé sur la présence de documents archivés.',
+    ],
+  },
   {
     version: '1.9.88',
     date: '2026-04-23',
