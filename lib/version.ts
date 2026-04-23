@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.84'
+export const APP_VERSION = '1.9.85'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.85',
+    date: '2026-04-23',
+    label: 'Performance — recherche 39% plus rapide + payload liste allégée',
+    features: [
+      'RECHERCHE CANDIDATS — La barre de recherche est 39% plus rapide : le scan de cv_texte_brut (8 MB) a été retiré de la recherche serveur (déjà couvert par l\'index FTS). Les résultats sont identiques, mais la requête passe de ~1050ms à ~650ms.',
+      'RECHERCHE CANDIDATS — 3 nouveaux index fonctionnels sur nom / prénom / métier (unaccent+trigram). Pour les noms peu fréquents (noms exotiques, métiers spécifiques), PostgreSQL utilise maintenant ces index au lieu d\'un scan complet.',
+      'LISTE CANDIDATS — Les colonnes "expériences" et "formations" ne sont plus chargées dans la liste (elles n\'y étaient jamais affichées). Économie d\'environ 5.8 MB par chargement complet de la liste.',
+      'COMMANDES — Fix : le rechargement des candidats liés (après fermeture du modal) ne se déclenchait pas systématiquement au chargement de la page. Désormais uniquement après ouverture + fermeture réelle du modal.',
+    ],
+  },
   {
     version: '1.9.84',
     date: '2026-04-23',

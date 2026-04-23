@@ -17,7 +17,7 @@ const LIST_COLUMNS = [
   'cv_url', 'cv_nom_fichier', 'photo_url', 'resume_ia',
   'statut_pipeline', 'tags', 'notes', 'source',
   'langues', 'permis_conduire', 'date_naissance',
-  'experiences', 'formations_details', 'import_status', 'rating', 'genre',
+  'import_status', 'rating', 'genre',
   'cfc', 'deja_engage', 'last_import_at',
   'onedrive_change_type', 'onedrive_change_at',
   'pipeline_consultant', 'pipeline_metier',

@@ -52,6 +52,7 @@ export default function OffresPage() {
   // (la propriété jointe Supabase est `candidats` — pluriel, nom table)
   const [offreLinks, setOffreLinks] = useState<Record<string, any[]>>({})
   const [offreLinksLoaded, setOffreLinksLoaded] = useState(false)
+  const prevCandidatsOffreOpen = useRef(false)
   const { data: offres, isLoading } = useOffres(true)
 
   // v1.9.72 : fetch tous les liens candidats pour les offres visibles (1 requête batch)
@@ -73,8 +74,9 @@ export default function OffresPage() {
   }, [offres])
 
   // Refetch links quand user ferme le modal candidats (a potentiellement ajouté/retiré)
+  // Guard useRef : ne refetch QUE lors d'une transition ouvert→fermé, jamais au mount
   useEffect(() => {
-    if (candidatsOffre === null && offreLinksLoaded && offres && offres.length > 0) {
+    if (prevCandidatsOffreOpen.current && candidatsOffre === null && offres && offres.length > 0) {
       const ids = offres.map(o => o.id).join(',')
       fetch(`/api/offres-candidats?offre_ids=${ids}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { links: [] })
@@ -88,6 +90,7 @@ export default function OffresPage() {
         })
         .catch(() => {})
     }
+    prevCandidatsOffreOpen.current = candidatsOffre !== null
   }, [candidatsOffre]) // eslint-disable-line react-hooks/exhaustive-deps
   const updateOffre = useUpdateOffre()
   const deleteOffre = useDeleteOffre()
