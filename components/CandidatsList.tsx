@@ -341,20 +341,23 @@ export default function CandidatsList() {
   }, [])
 
   // Écouter l'événement global de changement de badges (ouverture fiche, marquer vu, etc.)
+  // v1.9.91 — le handler refetch AUSSI le viewedSet depuis DB (avant: juste re-render).
+  //           Sans ça, après un upload manuel ou cron OneDrive, le serveur DELETE candidats_vus
+  //           par candidat_id pour faire réapparaître le badge, mais le viewedSet local garde
+  //           l'ID → hasBadge(viewedSet.has(id)=true) → badge invisible jusqu'au prochain focus.
+  //           Désormais instantané après dispatchBadgesChanged().
   useEffect(() => {
-    const handler = () => setBadgeTick(t => t + 1)
-    window.addEventListener('talentflow:badges-changed', handler)
-    // v1.9.26 — rafraîchir viewedSet depuis DB au retour sur l'onglet (capte candidats_vus DELETE serveur)
-    const onFocus = () => {
+    const refresh = () => {
       refreshViewedFromDB().then(({ viewedAllAt: vaa }) => {
         setViewedAllAt(vaa)
         setBadgeTick(t => t + 1)
       })
     }
-    window.addEventListener('focus', onFocus)
+    window.addEventListener('talentflow:badges-changed', refresh)
+    window.addEventListener('focus', refresh)
     return () => {
-      window.removeEventListener('talentflow:badges-changed', handler)
-      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('talentflow:badges-changed', refresh)
+      window.removeEventListener('focus', refresh)
     }
   }, [])
 

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.90'
+export const APP_VERSION = '1.9.91'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.91',
+    date: '2026-04-23',
+    label: 'Badges rouges instantanés + date modif éditable pré-remplie',
+    features: [
+      'BADGE ROUGE — Apparition instantanée après un import (manuel ou cron OneDrive). Avant le badge mettait jusqu\'à 1 minute à apparaître (apparaissait seulement au prochain focus de la fenêtre). Désormais l\'événement de changement rafraîchit aussi la liste des candidats déjà vus côté serveur.',
+      'FICHE CANDIDAT — En mode édition, le champ "Date modif" est maintenant pré-rempli avec la date actuelle de dernière modification. Avant : champ vide, impossible de savoir quelle date était stockée ou de la supprimer.',
+    ],
+  },
   {
     version: '1.9.90',
     date: '2026-04-23',

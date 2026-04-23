@@ -394,6 +394,8 @@ export default function CandidatDetailPage() {
       date_naissance:  candidat.date_naissance || '',
       genre:           candidat.genre || '',
       created_at:      candidat.created_at ? new Date(candidat.created_at).toISOString().slice(0, 10) : '',
+      // v1.9.91 — init last_import_at pour que le champ "Date modif" soit pré-rempli en édition
+      last_import_at:  (candidat as any).last_import_at ? new Date((candidat as any).last_import_at).toISOString().slice(0, 10) : '',
       resume_ia:       candidat.resume_ia || '',
       experiences:     JSON.parse(JSON.stringify(candidat.experiences || [])),
       formations_details: JSON.parse(JSON.stringify(candidat.formations_details || [])),

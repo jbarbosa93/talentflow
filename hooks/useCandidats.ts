@@ -263,6 +263,11 @@ export function useCandidatsRealtime() {
           if (debounceRef.current) clearTimeout(debounceRef.current)
           debounceRef.current = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['candidats'] })
+            // v1.9.91 — trigger aussi le refresh viewedSet côté CandidatsList (cron OneDrive = pas de event
+            // "badges-changed" côté client, donc on le fire ici pour que le badge rouge apparaisse instantanément).
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('talentflow:badges-changed'))
+            }
           }, 400)
         }
       )
