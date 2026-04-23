@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.91'
+export const APP_VERSION = '1.9.92'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.92',
+    date: '2026-04-23',
+    label: 'Croix Date modif efface totalement + badge réactivé/actualisé vraiment instant',
+    features: [
+      'FICHE CANDIDAT — La croix rouge à côté de "Date modif" efface maintenant totalement la date de modification ET le bandeau "Actualisé/Réactivé le X" disparaît vraiment de la fiche. Avant : le bandeau restait affiché car il lisait un autre signal en parallèle (badge OneDrive).',
+      'BADGE ROUGE — Apparition désormais INSTANT pour les candidats réactivés/actualisés (avant : 200-500ms de retard). Cause : le viewedSet local mettait du temps à se synchroniser avec la DB. Fix : on retire immédiatement l\'ID du candidat du viewedSet local dès que le serveur signale un changement, sans attendre le refresh DB.',
+    ],
+  },
   {
     version: '1.9.91',
     date: '2026-04-23',

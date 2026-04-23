@@ -971,13 +971,14 @@ export default function CandidatDetailPage() {
                 updateLabel = `Actualisé le ${fmt(changeAt)}`
                 updateColor = 'var(--info)'
               } else if (changeType !== 'nouveau' && lastImport) {
-                // Post-clear ou candidat sans change_type : afficher "Actualisé" SI écart > 1 jour
-                // (évite d'afficher "Actualisé" juste après import initial où les dates sont identiques).
-                // Le test `hasArchivedDocs` reste un signal d'update fiable pour les candidats mergés/updatés
-                // avant v1.9.90 (quand created_at et last_import_at sont colés).
+                // v1.9.92 — Post-clear : afficher "Actualisé" SI écart > 1 jour entre created_at
+                // et last_import_at. Fallback `hasArchivedDocs` retiré (trop agressif, empêchait
+                // la croix rouge "Date modif" de faire disparaître le bandeau car documents[]
+                // reste peuplé par les CV archivés — comportement intentionnel de l'historique).
+                void hasArchivedDocs
                 const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
                 const DAY_MS = 24 * 60 * 60 * 1000
-                if (diffMs > DAY_MS || hasArchivedDocs) {
+                if (diffMs > DAY_MS) {
                   updateLabel = `Actualisé le ${fmt(lastImport)}`
                   updateColor = 'var(--info)'
                 }
@@ -1232,10 +1233,14 @@ export default function CandidatDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // Reset : aligner last_import_at sur created_at → plus de "Actualisé le X" affiché
+                      // v1.9.92 — Reset complet : aligne last_import_at sur created_at ET efface
+                      //           onedrive_change_type + onedrive_change_at. Résultat attendu :
+                      //           le bandeau "Actualisé/Réactivé le X" disparaît totalement de la fiche.
                       set('last_import_at', editData.created_at || '')
+                      set('onedrive_change_type', null)
+                      set('onedrive_change_at', null)
                     }}
-                    title="Effacer la date de modification (aligner sur date d'ajout)"
+                    title="Effacer la date de modification (fait disparaître le bandeau Actualisé/Réactivé)"
                     style={{
                       width: 30, height: 30, borderRadius: 6,
                       border: '1.5px solid var(--border)', background: 'var(--card)',

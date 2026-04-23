@@ -45,6 +45,8 @@ const ALLOWED_COLS = new Set([
   'cv_url','cv_nom_fichier','cfc','deja_engage',
   'pipeline_consultant','pipeline_metier',
   'created_at','last_import_at',
+  // v1.9.92 — autoriser la remise à null du badge coloré via croix rouge "Date modif" dans la fiche
+  'onedrive_change_type','onedrive_change_at',
 ])
 
 // Labels français pour le suivi des modifications

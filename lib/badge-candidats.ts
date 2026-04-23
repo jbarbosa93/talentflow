@@ -51,6 +51,23 @@ export function dispatchBadgesChanged() {
   }
 }
 
+/** v1.9.92 — Retire un ID du viewedSet localStorage instantanément (optimiste).
+ *  Utilisé quand le realtime postgres_changes détecte un UPDATE sur un candidat :
+ *  on pre-purge le viewedSet avant que le serveur confirme le DELETE candidats_vus.
+ *  Sans ça, le badge rouge mettait 200-500ms à apparaître après un ré-import pour
+ *  les candidats déjà vus (viewedSet stale jusqu'au refresh DB).
+ */
+export function removeFromViewedSet(id: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const set = getViewedSet()
+    if (set.has(id)) {
+      set.delete(id)
+      writeViewedSet(set)
+    }
+  } catch { /* ignore */ }
+}
+
 // ── Init depuis DB — appelé une fois au montage de CandidatsList ──────────────
 // Merge DB + localStorage (import one-shot du localStorage existant vers DB)
 

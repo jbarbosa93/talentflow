@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useRef } from 'react'
 import type { Candidat, PipelineEtape, ImportStatus } from '@/types/database'
 import { toast } from 'sonner'
+import { removeFromViewedSet } from '@/lib/badge-candidats'
 
 const supabase = createClient()
 
@@ -258,7 +259,20 @@ export function useCandidatsRealtime() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'candidats' },
-        () => {
+        (payload: any) => {
+          // v1.9.92 — Pre-purge viewedSet côté client AVANT refetch pour éviter le délai
+          // d'apparition du badge sur un candidat REACTIVATED/UPDATED. Sur un UPDATE détecté
+          // par realtime, on retire immédiatement l'id du viewedSet local : comme ça quand la
+          // liste refetch, hasBadge(viewedSet.has=false) → badge affiché sans attendre le
+          // refresh DB du viewedSet (qui arrivait ~200-500ms après).
+          // Pour INSERT : id pas dans viewedSet de toute façon, pas besoin.
+          try {
+            const id = payload?.new?.id
+            if (id && payload?.eventType === 'UPDATE') {
+              removeFromViewedSet(id)
+            }
+          } catch { /* ignore */ }
+
           // Debounce 400ms pour regrouper les rafales de changements
           if (debounceRef.current) clearTimeout(debounceRef.current)
           debounceRef.current = setTimeout(() => {
