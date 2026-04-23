@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.97'
+export const APP_VERSION = '1.9.98'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.98',
+    date: '2026-04-23',
+    label: 'Fix badge "Actualisé" sur CV archivé + auto-close UploadCV + croix X + Intégrations allégé',
+    features: [
+      'BADGE ACTUALISÉ — Quand le sync OneDrive trouve un CV plus ancien que celui déjà en base et l\'archive dans l\'historique du candidat, la fiche affiche désormais "Actualisé le X" en bleu (avant : aucun bandeau, le candidat restait marqué "Nouveau" indéfiniment). Cas Imrane Ezzitouni résolu.',
+      'IMPORT — La petite barre "Import terminé" en bas à droite a maintenant une croix ✕ pour la fermer en un clic. Avant : il fallait obligatoirement la dérouler pour pouvoir la fermer.',
+      'IMPORT — Si l\'import est terminé sans rien traiter (0 traités), la barre minimisée se ferme automatiquement après 5 secondes (bruit visuel évité, surtout après une session OneDrive avec 0 nouveau fichier).',
+      'INTÉGRATIONS — Suppression du texte "mis à jour il y a Xs" à côté de "Dernier sync". Information redondante et qui changeait toutes les secondes pour rien.',
+    ],
+  },
   {
     version: '1.9.97',
     date: '2026-04-23',

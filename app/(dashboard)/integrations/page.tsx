@@ -556,11 +556,8 @@ function IntegrationsContent() {
                       <span style={{ fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={11} />
                         Dernier sync : {onedriveLastSync.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        {lastUpdated && (
-                          <span style={{ fontSize: 10, color: 'var(--muted)', opacity: 0.7 }}>
-                            · mis à jour il y a {secondsAgo}s
-                          </span>
-                        )}
+                        {/* v1.9.98 — "mis à jour il y a Xs" retiré (timestamp React Query refetch
+                            redondant avec "Dernier sync" qui dit déjà la même chose côté serveur) */}
                       </span>
                     )}
                   </div>

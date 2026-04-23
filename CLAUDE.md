@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.97 prod (bandeau Réactivé/Actualisé visible dès 1er clic — invalidate fiche individuelle au mount + realtime)** — 23/04/2026
+**1.9.98 prod (auto-close UploadCV minimisé + croix X + Intégrations allégé "mis à jour il y a Xs" retiré)** — 23/04/2026
 
 ---
 

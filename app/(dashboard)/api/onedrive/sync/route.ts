@@ -1061,6 +1061,12 @@ export async function POST(request: Request) {
                   documents: existingDocs,
                   updated_at: new Date().toISOString(),
                   last_import_at: new Date().toISOString(),
+                  // v1.9.98 — fix Imrane Ezzitouni : ce path archivait un CV plus ancien sans
+                  // marquer le badge OneDrive → la fiche restait sur 'nouveau' (créé la veille)
+                  // → bandeau "Réactivé/Actualisé" jamais affiché. Maintenant marqué 'mis_a_jour'
+                  // (sémantiquement : l'historique du candidat a été enrichi par un nouveau doc).
+                  onedrive_change_type: 'mis_a_jour',
+                  onedrive_change_at: new Date().toISOString(),
                 }).eq('id', candidatExistant.id)
                 // Fix 3 — supprimer de candidats_vus pour faire réapparaître le badge
                 try { await (supabase as any).from('candidats_vus').delete().eq('candidat_id', candidatExistant.id) } catch {}

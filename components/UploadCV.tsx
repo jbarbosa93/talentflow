@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Upload, CheckCircle, AlertCircle, Loader2, X,
   Clock, RefreshCw, Plus, Search, Eye, UserPlus,
@@ -689,6 +689,16 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
   // ------- Render -------
 
+  // v1.9.98 — Auto-close de la barre minimisée si import terminé + 0 traités (rien à montrer).
+  // Évite le bruit visuel persistant (la barre suivait l'user à travers les pages dashboard
+  // car le state UploadProvider est conservé au layout level).
+  const traitesTotal = succeeded + doublonsUpdated + docsAdded
+  useEffect(() => {
+    if (!minimized || uploading || !done || traitesTotal !== 0) return
+    const timer = setTimeout(() => { onClose?.() }, 5000)
+    return () => clearTimeout(timer)
+  }, [minimized, uploading, done, traitesTotal, onClose])
+
   // Mode minimisé — petite barre en bas à droite
   if (minimized) {
     return (
@@ -706,7 +716,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
         )}
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>
-            {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${succeeded + doublonsUpdated + docsAdded} traités`}
+            {uploading ? `Import en cours... ${completed}/${files.length}` : `Import terminé — ${traitesTotal} traités`}
           </p>
           {uploading && (
             <div style={{ height: 3, background: 'var(--border)', borderRadius: 10, marginTop: 4 }}>
@@ -715,6 +725,25 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           )}
         </div>
         <span style={{ fontSize: 11, color: 'var(--info)', fontWeight: 600, flexShrink: 0 }}>Ouvrir</span>
+        {/* v1.9.98 — Croix X pour fermer la barre minimisée sans la dérouler.
+            Bloque le clic parent (qui ouvrirait le panel). Désactivée pendant un upload
+            actif (handleClose minimise au lieu de close). */}
+        {!uploading && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); onClose?.() }}
+            title="Fermer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 22, height: 22, borderRadius: 6,
+              border: '1px solid var(--border)', background: 'transparent',
+              color: 'var(--muted-foreground)', cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            <X size={12} />
+          </button>
+        )}
         <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
       </div>
     )
