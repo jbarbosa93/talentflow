@@ -485,7 +485,7 @@ export default function DoublonsPage() {
           >
             <span style={{ fontSize: 16 }}>{showHistory ? '▾' : '▸'}</span>
             Cette session ({ignoredDoublons.length + mergedCount})
-            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{ignoredDoublons.length} ignore{ignoredDoublons.length > 1 ? 's' : ''}</span>}
+            {ignoredDoublons.length > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{ignoredDoublons.length} ignore{ignoredDoublons.length > 1 ? 's' : ''}</span>}
             {mergedCount > 0 && <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 99, background: 'var(--success-soft)', color: 'var(--success)', fontWeight: 600 }}>{mergedCount} fusionne{mergedCount > 1 ? 's' : ''}</span>}
           </button>
 
@@ -572,7 +572,7 @@ export default function DoublonsPage() {
               {/* Dismissed pairs — personnes differentes with individual Reanalyser */}
               {dismissedHistory.length > 0 && (
                 <div style={{ marginTop: 6 }}>
-                  <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: 'var(--muted)', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '8px 12px', borderRadius: '8px 8px 0 0', background: 'var(--secondary)', border: '1px solid var(--border)', borderBottom: 'none', fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>
                       <span style={{ fontWeight: 700, color: 'var(--foreground)' }}>{dismissedHistory.length} paire{dismissedHistory.length > 1 ? 's' : ''} — personnes differentes</span>
                       {' '}— ne reapparaitront plus
@@ -688,7 +688,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
                   border: `2px solid ${isKeep ? '#16A34A' : 'var(--border)'}`,
                   borderRadius: 12, padding: '12px 14px',
                   cursor: merging ? 'default' : 'pointer',
-                  background: isKeep ? '#F0FDF4' : 'var(--secondary)',
+                  background: isKeep ? 'rgba(34,197,94,0.10)' : 'var(--secondary)',
                   transition: 'all 0.15s',
                 }}
               >
@@ -719,7 +719,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
 
         {/* Field-by-field selection */}
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 40px 1fr', background: 'var(--muted)', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 40px 1fr', background: 'var(--secondary)', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             <span>Champ</span>
             <span>Candidat A</span>
             <span />
@@ -736,13 +736,13 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
               <div key={field.key} style={{
                 display: 'grid', gridTemplateColumns: '110px 1fr 30px 1fr', padding: '8px 14px',
                 borderBottom: '1px solid var(--border)', alignItems: isLong ? 'flex-start' : 'center', fontSize: 12,
-                background: isDiff ? '#FFF7ED' : 'transparent',
+                background: isDiff ? 'rgba(234,88,12,0.08)' : 'transparent',
               }}>
                 <span style={{ fontWeight: 700, color: isDiff ? '#9A3412' : 'var(--foreground)', paddingTop: isLong ? 4 : 0 }}>
                   {field.label}
                   {isDiff && <span style={{ fontSize: 9, marginLeft: 4, color: 'var(--warning)' }}>!</span>}
                 </span>
-                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
+                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'a' ? 'rgba(37,99,235,0.12)' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
                     name={`merge-field-${field.key}`}
@@ -754,7 +754,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
                   <span style={{ color: vA === '—' ? 'var(--muted)' : 'var(--foreground)', fontWeight: choice === 'a' ? 700 : 400, lineHeight: 1.4, wordBreak: 'break-word' }}>{vA}</span>
                 </label>
                 <span style={{ textAlign: 'center', fontSize: 10, color: isDiff ? '#D97706' : 'var(--muted)', fontWeight: isDiff ? 700 : 400, paddingTop: isLong ? 4 : 0 }}>{bothSame ? '=' : 'vs'}</span>
-                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'b' ? '#DBEAFE' : 'transparent', transition: 'background 0.15s' }}>
+                <label style={{ display: 'flex', alignItems: isLong ? 'flex-start' : 'center', gap: 6, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, background: choice === 'b' ? 'rgba(37,99,235,0.12)' : 'transparent', transition: 'background 0.15s' }}>
                   <input
                     type="radio"
                     name={`merge-field-${field.key}`}
@@ -848,7 +848,7 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
             )
           })()}
           {pair.result.raisons.map(r => (
-            <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{r}</span>
+            <span key={r} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 600 }}>{r}</span>
           ))}
         </div>
         {isMerged && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><CheckCircle size={14} />Fusionne</span>}
@@ -861,7 +861,7 @@ function DoublonCard({ pair, onDifferents, onFusionner, onVoir, compact }: {
       </div>
 
       {pair.result.explication && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--muted)', border: '1px solid var(--border)', marginBottom: 14 }}>
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--secondary)', border: '1px solid var(--border)', marginBottom: 14 }}>
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
             <strong style={{ color: 'var(--foreground)' }}>Analyse IA :</strong> {pair.result.explication}
           </p>
@@ -936,7 +936,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
 
       {/* Dernière expérience */}
       {lastExp && (
-        <div style={{ padding: '6px 8px', borderRadius: 6, background: 'var(--muted)', border: '1px solid #E2E8F0', marginBottom: 6 }}>
+        <div style={{ padding: '6px 8px', borderRadius: 6, background: 'var(--secondary)', border: '1px solid #E2E8F0', marginBottom: 6 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {lastExp.poste}
           </div>
@@ -959,7 +959,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
           </span>
         )}
         {c.source && (
-          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 500 }}>
+          <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 500 }}>
             {c.source}
           </span>
         )}
@@ -969,7 +969,7 @@ function CandidatMiniProfile({ candidat }: { candidat: DoublonPair['candidat_a']
       {comps.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
           {comps.map(comp => (
-            <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 500 }}>{comp}</span>
+            <span key={comp} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--secondary)', color: 'var(--muted-foreground)', fontWeight: 500 }}>{comp}</span>
           ))}
           {(c.competences || []).length > 5 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>+{(c.competences || []).length - 5}</span>}
         </div>

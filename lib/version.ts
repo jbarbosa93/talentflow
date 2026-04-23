@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.85'
+export const APP_VERSION = '1.9.86'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.86',
+    date: '2026-04-23',
+    label: 'Dark mode — fix lisibilité Doublons + Administration',
+    features: [
+      'DOUBLONS — Plusieurs blocs apparaissaient comme des rectangles gris pleins en dark mode (texte gris sur fond gris) : "Analyse IA", expériences mini-profil, pills compétences, badge "X ignorés". Correction : tous ces fonds passent à var(--secondary) (qui s\'adapte au thème) — texte enfin lisible.',
+      'DOUBLONS — Modal Fusion : la card "Profil principal" (vert clair), le surlignage des champs différents (orange) et la sélection radio (bleu) restaient en pastel vif en dark mode. Désormais en alpha transparent qui fonctionne dans les 2 modes.',
+      'ADMINISTRATION — Le header du tableau utilisateurs (Utilisateur / Rôle / Entreprise / etc.) s\'affichait avec texte gris sur fond gris en dark mode → invisible. Corrigé.',
+    ],
+  },
   {
     version: '1.9.85',
     date: '2026-04-23',

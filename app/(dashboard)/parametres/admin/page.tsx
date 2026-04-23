@@ -281,9 +281,9 @@ export default function AdminPage() {
                   {['Utilisateur', 'Rôle', 'Entreprise', 'Dernière connexion', ''].map(h => (
                     <th key={h} style={{
                       padding: '10px 16px', textAlign: 'left',
-                      fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+                      fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)',
                       textTransform: 'uppercase', letterSpacing: '0.4px',
-                      background: 'var(--muted)',
+                      background: 'var(--secondary)',
                     }}>
                       {h}
                     </th>

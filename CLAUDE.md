@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.84 prod (cloche notifications unifiée TopBar pipeline + entretiens)** — 23/04/2026
+**1.9.86 prod (dark mode fixes Doublons + Administration)** — 23/04/2026
 
 ---
 
