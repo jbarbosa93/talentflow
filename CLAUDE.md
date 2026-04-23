@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.92 prod (croix date modif efface totalement + badge réactivé/actualisé vraiment instant)** — 23/04/2026
+**1.9.93 prod (croix Date modif → NULL en DB + badge instant après import manuel)** — 23/04/2026
 
 ---
 

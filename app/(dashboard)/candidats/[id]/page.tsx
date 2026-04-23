@@ -447,6 +447,14 @@ export default function CandidatDetailPage() {
     if (rest.created_at && rest.created_at !== originalDate) {
       payload.created_at = `${rest.created_at}T12:00:00.000Z`
     }
+    // v1.9.93 — last_import_at + badges OneDrive : passés au PATCH si présents dans editData.
+    //           Croix rouge "Date modif" → set('last_import_at', null) → envoie null en DB
+    //           → tri liste descend le candidat (NULLS LAST) + bandeau "Actualisé" disparaît.
+    if ('last_import_at' in rest) {
+      payload.last_import_at = rest.last_import_at ? `${rest.last_import_at}T12:00:00.000Z` : null
+    }
+    if ('onedrive_change_type' in rest) payload.onedrive_change_type = rest.onedrive_change_type
+    if ('onedrive_change_at'   in rest) payload.onedrive_change_at   = rest.onedrive_change_at
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
   }
 
@@ -1233,10 +1241,10 @@ export default function CandidatDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // v1.9.92 — Reset complet : aligne last_import_at sur created_at ET efface
-                      //           onedrive_change_type + onedrive_change_at. Résultat attendu :
-                      //           le bandeau "Actualisé/Réactivé le X" disparaît totalement de la fiche.
-                      set('last_import_at', editData.created_at || '')
+                      // v1.9.93 — Reset complet : last_import_at = NULL (pas aligné sur created_at).
+                      //           Effet : ligne "Actualisé/Réactivé" disparaît + le candidat
+                      //           descend dans la liste à sa position created_at (tri DESC NULLS LAST).
+                      set('last_import_at', null)
                       set('onedrive_change_type', null)
                       set('onedrive_change_at', null)
                     }}

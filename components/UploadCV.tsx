@@ -8,7 +8,7 @@ import {
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { dispatchBadgesChanged } from '@/lib/badge-candidats'
+import { dispatchBadgesChanged, removeFromViewedSet } from '@/lib/badge-candidats'
 import { markRecentlyUpdated } from '@/lib/recently-updated'
 import ConfirmMatchModal, { type ConfirmMatchPayload, type ConfirmMatchDecision } from './ConfirmMatchModal'
 
@@ -251,8 +251,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
           // v1.9.47 — distinguer Cas 2 (reactivated : date mise à jour + badge) du Cas 1 (skipped total)
           if (data.reactivated) {
+            // v1.9.93 — pre-purge viewedSet AVANT le re-render pour éviter le délai
+            // de 200-500ms. Sans ça, hasBadge(viewedSet.has(id)=true) → badge invisible
+            // jusqu'au refresh DB (qui arrive après le refetch).
+            removeFromViewedSet(data.candidatExistant.id)
             updateFile(idx, { status: 'reactivated', candidatNom: nom })
-            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id, 'reactive')
+            markRecentlyUpdated(data.candidatExistant.id, 'reactive')
           } else {
             updateFile(idx, { status: 'already_imported', candidatNom: nom })
           }
@@ -262,10 +266,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           const nom = `${data.candidatExistant?.prenom || ''} ${data.candidatExistant?.nom || ''}`.trim()
           if (data.cvUpdated) {
             // CV mis à jour — nouveau principal, ancien archivé
+            removeFromViewedSet(data.candidatExistant.id) // v1.9.93 — pre-purge viewedSet
             updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV mis à jour' })
-            if (data.candidatExistant?.id) markRecentlyUpdated(data.candidatExistant.id, 'mis_a_jour')
+            markRecentlyUpdated(data.candidatExistant.id, 'mis_a_jour')
           } else {
             // Document non-CV auto-ajouté
+            removeFromViewedSet(data.candidatExistant.id) // v1.9.93 — pre-purge viewedSet
             updateFile(idx, { status: 'doc_added', candidatNom: nom || 'Document ajouté' })
           }
           return { success: true, candidat: data.candidat || data.candidatExistant }
@@ -284,8 +290,10 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
           if (!res2.ok) throw new Error(data2.error || `Erreur ${res2.status}`)
 
           const nom = `${data2.candidat?.prenom || ''} ${data2.candidat?.nom || ''}`.trim()
+          const updatedId = data2.candidat?.id || data.candidatExistant.id
+          removeFromViewedSet(updatedId) // v1.9.93 — pre-purge viewedSet
           updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé' })
-          if (data2.candidat?.id) markRecentlyUpdated(data2.candidat.id, 'mis_a_jour')
+          markRecentlyUpdated(updatedId, 'mis_a_jour')
           return { success: true, candidat: data2.candidat }
         }
       }
@@ -339,6 +347,8 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       if (action === 'update') {
         // v1.9.22 — action utilisateur explicite "Mettre à jour" → toujours CV actualisé,
         // jamais "doc ajouté" (le docAdded vient du flow auto non-CV, pas d'une décision user).
+        // v1.9.93 — pre-purge viewedSet AVANT le re-render (badge instantané pour reactivés/updated).
+        removeFromViewedSet(payload.candidat_existant.id)
         updateFile(idx, { status: 'doublon_updated', candidatNom: nom || 'CV actualisé', confirmPayload: undefined })
       } else {
         updateFile(idx, { status: 'success', candidatNom: nom || 'Candidat créé', confirmPayload: undefined })
@@ -452,11 +462,13 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
       for (const result of results) {
         if (result.candidat) lastSuccessCandidat = result.candidat
       }
-      // v1.9.47 — invalider après chaque chunk pour que la liste derrière le modal
-      // soit déjà rafraîchie quand l'user voit "Terminé" et ferme. Évite l'attente
-      // de 30s du refetchInterval React Query.
-      queryClient.invalidateQueries({ queryKey: ['candidats'] })
-      queryClient.invalidateQueries({ queryKey: ['candidat'] })
+      // v1.9.93 — await les invalidations AVANT dispatchBadgesChanged. Sans await,
+      // le dispatch tirait sur l'ancien cache → la sidebar/liste recalculait sur stale data
+      // → badge rouge invisible pour les reactivés/updated jusqu'au prochain focus.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['candidats'] }),
+        queryClient.invalidateQueries({ queryKey: ['candidat'] }),
+      ])
       dispatchBadgesChanged()
     }
 
@@ -500,10 +512,12 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
 
     setUploading(false)
     setDone(true)
-    // v1.9.44 — invalider les queries pour refresh instantané badge + liste candidats + sidebar
-    // (sans ça, le refetchInterval React Query fait attendre 30s avant MAJ du badge rouge)
-    queryClient.invalidateQueries({ queryKey: ['candidats'] })
-    queryClient.invalidateQueries({ queryKey: ['candidat'] })
+    // v1.9.93 — await les invalidations AVANT dispatchBadgesChanged.
+    // Garantit que le re-render lit le cache à jour (badge rouge instantané pour reactivés/updated).
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['candidats'] }),
+      queryClient.invalidateQueries({ queryKey: ['candidat'] }),
+    ])
     dispatchBadgesChanged()
     if (lastSuccessCandidat) onSuccess?.(lastSuccessCandidat)
   }

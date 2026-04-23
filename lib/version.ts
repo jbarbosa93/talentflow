@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.92'
+export const APP_VERSION = '1.9.93'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.93',
+    date: '2026-04-23',
+    label: 'Croix Date modif → null en DB + badge instant après import (manuel)',
+    features: [
+      'FICHE CANDIDAT — La croix rouge "Date modif" efface maintenant complètement la date en base (NULL). Effet : le bandeau "Actualisé/Réactivé le X" disparaît, ET le candidat redescend dans la liste à sa vraie position chronologique (basée uniquement sur la date d\'ajout). Avant : la croix alignait juste la date sur celle d\'ajout côté UI, mais ne sauvegardait rien en DB → la liste continuait d\'afficher le candidat en haut.',
+      'BADGE ROUGE — Apparition VRAIMENT instantanée après un import manuel sur les candidats réactivés / actualisés (avant : il fallait un hard refresh ou attendre le focus de la fenêtre). Le viewedSet local est maintenant nettoyé dès que l\'upload se termine, sans attendre le refresh DB ni le canal realtime. Idem pour les imports validés via la modale de confirmation.',
+    ],
+  },
   {
     version: '1.9.92',
     date: '2026-04-23',
