@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.99'
+export const APP_VERSION = '1.9.100'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.100',
+    date: '2026-04-23',
+    label: 'Modal "Doublon import" lisible en dark mode',
+    features: [
+      'IMPORT MANUEL — Le modal "Candidat potentiellement en doublon" qui s\'affichait avec du texte gris-sur-gris illisible en dark mode est maintenant correctement contrasté. Le titre, le nom du candidat existant et la case "Appliquer à tous" sont enfin lisibles dans les 2 thèmes.',
+    ],
+  },
   {
     version: '1.9.99',
     date: '2026-04-23',

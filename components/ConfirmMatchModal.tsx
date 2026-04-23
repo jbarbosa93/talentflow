@@ -147,8 +147,10 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
       {/* Panel */}
       <div
         style={{
+          // v1.9.100 — background 'white' hardcodé remplacé par var(--card) pour le dark mode
+          // (CLAUDE.md pattern #20 trap : texte var(--foreground) blanc sur fond blanc invisible)
           position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 9501, background: 'white', borderRadius: 16,
+          zIndex: 9501, background: 'var(--card)', borderRadius: 16,
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
           width: 560, maxHeight: '90vh', overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
@@ -203,8 +205,8 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
             )}
           </div>
 
-          {/* Candidat existant — entête */}
-          <div style={{ padding: '10px 12px', background: 'var(--muted)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 10 }}>
+          {/* Candidat existant — entête (v1.9.100 — var(--muted) → var(--secondary) pour lisibilité dark, pattern #20) */}
+          <div style={{ padding: '10px 12px', background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 10 }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>{fullName}</p>
             {c.titre_poste && <p style={{ margin: '1px 0 0', fontSize: 11, color: 'var(--muted-foreground)' }}>{c.titre_poste}</p>}
             {c.created_at && <p style={{ margin: '1px 0 0', fontSize: 10, color: 'var(--muted-foreground)' }}>En base depuis le {new Date(c.created_at).toLocaleDateString('fr-CH')}</p>}
@@ -236,16 +238,16 @@ export default function ConfirmMatchModal({ payload, onDecide, onClose, queueRem
             </div>
           )}
 
-          {/* Checkbox apply-all */}
+          {/* Checkbox apply-all (v1.9.100 — bg muted → secondary, texte muted → foreground pour contraste dark) */}
           {queueRemaining > 0 && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 10px', background: 'var(--muted)', borderRadius: 6, marginBottom: 6, userSelect: 'none' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '8px 10px', background: 'var(--secondary)', borderRadius: 6, marginBottom: 6, userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={applyToAll}
                 onChange={e => setApplyToAll(e.target.checked)}
                 style={{ cursor: 'pointer' }}
               />
-              <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
+              <span style={{ fontSize: 12, color: 'var(--foreground)' }}>
                 Appliquer cette action aux <strong>{queueRemaining}</strong> autre{queueRemaining > 1 ? 's' : ''} confirmation{queueRemaining > 1 ? 's' : ''} en attente
               </span>
             </label>

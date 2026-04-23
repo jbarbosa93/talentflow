@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.99 prod (croix Date modif → last_import_at = created_at au lieu de NULL — fini candidat perdu en page 150)** — 23/04/2026
+**1.9.100 prod (modal "Doublon import" lisible dark mode — pattern #20 trap fix)** — 23/04/2026
 
 ---
 
