@@ -262,8 +262,46 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ids requis' }, { status: 400 })
     }
     const supabase = createAdminClient()
+
+    // v1.9.96 — Snapshot AVANT delete pour traçabilité forensique
+    const { data: snapshots } = await supabase
+      .from('candidats')
+      .select('id, nom, prenom, email, telephone, cv_sha256, cv_url, cv_nom_fichier')
+      .in('id', ids)
+
     const { error } = await supabase.from('candidats').delete().in('id', ids)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // v1.9.96 — Log activité APRÈS delete pour chaque candidat supprimé
+    if (snapshots && snapshots.length > 0) {
+      try {
+        const { logActivityServer, getRouteUser } = await import('@/lib/logActivity')
+        const routeUser = await getRouteUser()
+        const nowIso = new Date().toISOString()
+        for (const snap of snapshots as any[]) {
+          const nomComplet = `${snap.prenom || ''} ${snap.nom || ''}`.trim()
+          await logActivityServer({
+            ...routeUser,
+            type: 'candidat_supprime',
+            titre: `Candidat supprimé — ${nomComplet || 'sans nom'}`,
+            description: `Suppression bulk (${snapshots.length} candidat${snapshots.length > 1 ? 's' : ''}). CV: ${snap.cv_nom_fichier || 'aucun'}`,
+            candidat_id: snap.id,
+            candidat_nom: nomComplet,
+            metadata: {
+              source: 'bulk',
+              bulk_size: snapshots.length,
+              email: snap.email,
+              telephone: snap.telephone,
+              cv_sha256: snap.cv_sha256,
+              cv_url: snap.cv_url,
+              cv_nom_fichier: snap.cv_nom_fichier,
+              deleted_at: nowIso,
+            },
+          })
+        }
+      } catch (err) { console.warn('[DELETE bulk] logActivity failed:', (err as Error).message) }
+    }
+
     return NextResponse.json({ success: true, deleted: ids.length })
   } catch (error) {
     return NextResponse.json(

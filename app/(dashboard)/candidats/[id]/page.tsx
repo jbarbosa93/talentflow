@@ -26,6 +26,7 @@ import { markCandidatVu, markCandidatNonVu, getViewedSet, dispatchBadgesChanged 
 import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
+import DeleteConfirmModal from '@/components/DeleteConfirmModal'
 
 // Drapeau emoji pour chaque langue
 const LANG_FLAGS: Record<string, string> = {
@@ -288,8 +289,11 @@ export default function CandidatDetailPage() {
     if (!id) return
     markCandidatVu(id) // POST /api/candidats/vus {ids:[id]} → upsert candidats_vus pour CE user
     dispatchBadgesChanged() // refresh sidebar count
-    // NEW3 — effacer le badge coloré OneDrive (nouveau/reactive/mis_a_jour) à l'ouverture
-    fetch(`/api/candidats/${id}/clear-onedrive-badge`, { method: 'POST' }).catch(() => {})
+    // v1.9.96 — clear-onedrive-badge SUPPRIMÉ (effaçait onedrive_change_type en DB
+    //          → bandeau fiche basculait sur fallback "Actualisé" même pour un vrai
+    //          "Réactivé"). Le badge coloré liste disparaît désormais via viewedSet
+    //          (cohérent avec sémantique per-user v1.9.95). Bandeau fiche lit toujours
+    //          la vraie valeur DB → "Réactivé" / "Actualisé" / "Nouveau" exact.
   }, [id])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
@@ -979,16 +983,23 @@ export default function CandidatDetailPage() {
                 updateLabel = `Actualisé le ${fmt(changeAt)}`
                 updateColor = 'var(--info)'
               } else if (changeType !== 'nouveau' && lastImport) {
-                // v1.9.92 — Post-clear : afficher "Actualisé" SI écart > 1 jour entre created_at
-                // et last_import_at. Fallback `hasArchivedDocs` retiré (trop agressif, empêchait
-                // la croix rouge "Date modif" de faire disparaître le bandeau car documents[]
-                // reste peuplé par les CV archivés — comportement intentionnel de l'historique).
-                void hasArchivedDocs
+                // v1.9.96 — Fallback intelligent quand onedrive_change_type est null
+                // (legacy candidats cleared avant v1.9.96, ou état post-import sans badge OneDrive).
+                // Distingue Réactivé vs Actualisé via la présence de CV archivés dans documents[] :
+                //   - hasArchivedDocs (au moins 1 [Ancien]/[Archive]) → CV vraiment changé → "Actualisé"
+                //   - sinon → même CV re-déposé → "Réactivé"
+                // Croix rouge "Date modif" v1.9.93 met last_import_at=null → ce branch ne s'exécute
+                // pas (early return sur !lastImport) → bandeau disparaît bien comme attendu.
                 const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
                 const DAY_MS = 24 * 60 * 60 * 1000
                 if (diffMs > DAY_MS) {
-                  updateLabel = `Actualisé le ${fmt(lastImport)}`
-                  updateColor = 'var(--info)'
+                  if (hasArchivedDocs) {
+                    updateLabel = `Actualisé le ${fmt(lastImport)}`
+                    updateColor = 'var(--info)'
+                  } else {
+                    updateLabel = `Réactivé le ${fmt(lastImport)}`
+                    updateColor = 'var(--warning)'
+                  }
                 }
               }
 
@@ -2293,39 +2304,21 @@ export default function CandidatDetailPage() {
         </div>
       )}
 
-      {/* ── Modal Suppression candidat ── */}
-      {showDeleteConfirm && (
-        <div onClick={() => setShowDeleteConfirm(false)} style={{
-          position: 'fixed', inset: 0, zIndex: 9000,
-          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          animation: 'fadeIn 0.15s ease',
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: 'var(--card)', borderRadius: 16, padding: '28px 32px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-            maxWidth: 400, width: '90%', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
-            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--destructive)', marginBottom: 8 }}>
-              Supprimer ce candidat ?
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cette action est <strong>irréversible</strong>. Le candidat, son CV et tous ses documents seront définitivement supprimés.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setShowDeleteConfirm(false)}
-                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                Annuler
-              </button>
-              <button onClick={handleDelete} disabled={deleteCandidat.isPending}
-                style={{ padding: '10px 24px', borderRadius: 8, fontSize: 13, fontWeight: 700, border: 'none', background: '#DC2626', color: 'white', cursor: 'pointer', fontFamily: 'inherit', opacity: deleteCandidat.isPending ? 0.5 : 1 }}>
-                {deleteCandidat.isPending ? 'Suppression...' : 'Oui, supprimer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Modal Suppression candidat (v1.9.96 — confirmation forte avec input "SUPPRIMER") ── */}
+      <DeleteConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        isPending={deleteCandidat.isPending}
+        title={`Supprimer ${candidat.prenom || ''} ${candidat.nom || ''}`.trim() + ' ?'}
+        description={
+          <>
+            Cette action supprimera <strong>définitivement</strong> la fiche de{' '}
+            <strong>{`${candidat.prenom || ''} ${candidat.nom || ''}`.trim()}</strong>
+            {' '}ainsi que ses notes, son historique pipeline, ses documents liés et son CV.
+          </>
+        }
+      />
 
       {/* ── Panneau Documents (slide-in) ── */}
       <DocumentsPanel

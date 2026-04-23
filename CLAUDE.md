@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.95 prod (règle absolue badge = changement de CV uniquement, "non vu" per-user strict)** — 23/04/2026
+**1.9.96 prod (confirmation forte SUPPRIMER + traçabilité DELETE + fix bandeau Réactivé/Actualisé)** — 23/04/2026
 
 ---
 

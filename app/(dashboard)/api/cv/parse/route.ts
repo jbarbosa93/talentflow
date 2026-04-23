@@ -858,7 +858,37 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
 
   // 8. Supprimer l'existant si "remplacer"
   if (replaceId) {
+    // v1.9.96 — Snapshot + log forensique avant DELETE
+    const { data: replaceSnap } = await adminClient
+      .from('candidats')
+      .select('id, nom, prenom, email, telephone, cv_sha256, cv_url, cv_nom_fichier')
+      .eq('id', replaceId)
+      .single()
     await adminClient.from('candidats').delete().eq('id', replaceId)
+    if (replaceSnap) {
+      try {
+        const { logActivityServer, getRouteUser } = await import('@/lib/logActivity')
+        const routeUser = await getRouteUser()
+        const nomComplet = `${(replaceSnap as any).prenom || ''} ${(replaceSnap as any).nom || ''}`.trim()
+        await logActivityServer({
+          ...routeUser,
+          type: 'candidat_supprime',
+          titre: `Candidat supprimé (remplacement) — ${nomComplet || 'sans nom'}`,
+          description: `Suppression via cv/parse mode "replace" (nouveau CV importé en remplacement)`,
+          candidat_id: replaceId,
+          candidat_nom: nomComplet,
+          metadata: {
+            source: 'replace',
+            email: (replaceSnap as any).email,
+            telephone: (replaceSnap as any).telephone,
+            cv_sha256: (replaceSnap as any).cv_sha256,
+            cv_url: (replaceSnap as any).cv_url,
+            cv_nom_fichier: (replaceSnap as any).cv_nom_fichier,
+            deleted_at: new Date().toISOString(),
+          },
+        })
+      } catch (err) { console.warn('[cv/parse replace] logActivity failed:', (err as Error).message) }
+    }
   }
 
   // 8a. Actualiser l'existant si "actualiser"
@@ -1241,7 +1271,38 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
     if (duplicateOf) {
       // This candidate was inserted as a duplicate due to race condition — delete it
       dbg(`[CV Parse] Race condition doublon détecté — suppression ${candidat.id}`)
+      // v1.9.96 — Snapshot + log forensique avant DELETE (race condition = candidat néo-créé qu'on retire)
+      const { data: raceSnap } = await adminClient
+        .from('candidats')
+        .select('id, nom, prenom, email, telephone, cv_sha256, cv_url, cv_nom_fichier')
+        .eq('id', candidat.id)
+        .single()
       await adminClient.from('candidats').delete().eq('id', candidat.id)
+      if (raceSnap) {
+        try {
+          const { logActivityServer, getRouteUser } = await import('@/lib/logActivity')
+          const routeUser = await getRouteUser()
+          const nomComplet = `${(raceSnap as any).prenom || ''} ${(raceSnap as any).nom || ''}`.trim()
+          await logActivityServer({
+            ...routeUser,
+            type: 'candidat_supprime',
+            titre: `Candidat supprimé (race) — ${nomComplet || 'sans nom'}`,
+            description: `Race condition lors de l'import : doublon détecté juste après INSERT, candidat néo-créé retiré pour conserver l'existant ${duplicateOf.id}`,
+            candidat_id: candidat.id,
+            candidat_nom: nomComplet,
+            metadata: {
+              source: 'race_condition',
+              kept_candidat_id: duplicateOf.id,
+              email: (raceSnap as any).email,
+              telephone: (raceSnap as any).telephone,
+              cv_sha256: (raceSnap as any).cv_sha256,
+              cv_url: (raceSnap as any).cv_url,
+              cv_nom_fichier: (raceSnap as any).cv_nom_fichier,
+              deleted_at: new Date().toISOString(),
+            },
+          })
+        } catch (err) { console.warn('[cv/parse race] logActivity failed:', (err as Error).message) }
+      }
       await logActivity({ action: 'cv_doublon', details: { fichier: file.name, dossier: categorie || '—', candidat: `${analyse.prenom || ''} ${analyse.nom}`.trim(), raison: 'race_condition' } })
       return NextResponse.json({
         isDuplicate: true,

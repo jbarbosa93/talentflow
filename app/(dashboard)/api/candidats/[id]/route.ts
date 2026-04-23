@@ -239,8 +239,42 @@ export async function DELETE(
     const { id } = await params
     const supabase = createAdminClient()
 
+    // v1.9.96 — Snapshot AVANT delete (sinon FK CASCADE perd les infos pour le log)
+    const { data: snapshot } = await supabase
+      .from('candidats')
+      .select('id, nom, prenom, email, telephone, cv_sha256, cv_url, cv_nom_fichier')
+      .eq('id', id)
+      .single()
+
     const { error } = await supabase.from('candidats').delete().eq('id', id)
     if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+
+    // v1.9.96 — Log activité APRÈS delete (succès garanti). Trace forensique pour
+    // pouvoir retrouver et restaurer un candidat supprimé (cv_url archivé 10 ans Storage).
+    if (snapshot) {
+      try {
+        const routeUser = await getRouteUser()
+        const nomComplet = `${(snapshot as any).prenom || ''} ${(snapshot as any).nom || ''}`.trim()
+        await logActivityServer({
+          ...routeUser,
+          type: 'candidat_supprime',
+          titre: `Candidat supprimé — ${nomComplet || 'sans nom'}`,
+          description: `Suppression via fiche candidat. CV: ${(snapshot as any).cv_nom_fichier || 'aucun'}`,
+          candidat_id: id,
+          candidat_nom: nomComplet,
+          metadata: {
+            source: 'ui_bouton_supprimer',
+            email: (snapshot as any).email,
+            telephone: (snapshot as any).telephone,
+            cv_sha256: (snapshot as any).cv_sha256,
+            cv_url: (snapshot as any).cv_url,
+            cv_nom_fichier: (snapshot as any).cv_nom_fichier,
+            deleted_at: new Date().toISOString(),
+          },
+        })
+      } catch (err) { console.warn('[DELETE candidat] logActivity failed:', (err as Error).message) }
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(

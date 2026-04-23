@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.95'
+export const APP_VERSION = '1.9.96'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.96',
+    date: '2026-04-23',
+    label: 'Traçabilité suppressions + confirmation forte + fix bandeau Réactivé/Actualisé',
+    features: [
+      'SUPPRESSION CANDIDAT — Confirmation forte obligatoire désormais : tu dois taper le mot SUPPRIMER en majuscules pour activer le bouton de suppression définitive. Évite les clics accidentels (cas Mariana Antunes — disparition silencieuse). Vaut pour la fiche individuelle ET la suppression en masse depuis la liste.',
+      'TRAÇABILITÉ — Toute suppression de candidat est désormais enregistrée dans Activités avec le nom, l\'email, le téléphone, le SHA256 du CV, l\'URL du CV et la source (bouton fiche / suppression en masse / remplacement / race condition d\'import). Permet de retracer et restaurer un candidat supprimé par erreur. Avant : suppression en aveugle, aucune trace, aucune possibilité de retrouver le candidat.',
+      'FICHE CANDIDAT — Le bandeau "Réactivé le X" en jaune s\'affiche maintenant correctement après un sync OneDrive (avant : affichait "Actualisé" en bleu à tort à cause du badge OneDrive effacé à l\'ouverture). Le badge OneDrive en DB n\'est plus effacé ; il est masqué côté liste si tu as déjà ouvert la fiche (cohérent avec la sémantique per-user v1.9.95).',
+      'BANDEAU FICHE — Distinction "Réactivé" vs "Actualisé" même quand l\'info OneDrive originale est manquante : si le candidat a au moins 1 CV archivé dans son historique → "Actualisé" (bleu) ; sinon → "Réactivé" (jaune). Corrige rétroactivement l\'affichage des candidats déjà ouverts.',
+    ],
+  },
   {
     version: '1.9.95',
     date: '2026-04-23',

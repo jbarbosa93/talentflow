@@ -6,6 +6,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { CvPreviewCanvas } from './CvPreviewCanvas'
+import DeleteConfirmModal from './DeleteConfirmModal'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Upload, Search, Trash2, ChevronDown, ChevronRight,
@@ -1191,15 +1192,22 @@ export default function CandidatsList() {
         )}
         {/* Badge coloré "nouveau/actualisé/réactivé" :
             - Import MANUEL (localStorage 10 min) : feedback transient après action user
-            - Import ONEDRIVE (DB onedrive_change_type, persistant jusqu'à ouverture fiche)
+            - Import ONEDRIVE (DB onedrive_change_type, persistant)
             Types : 'nouveau' (vert), 'mis_a_jour' (bleu), 'reactive' (jaune).
-            Priorité : manuel (plus frais) sur OneDrive. */}
+            Priorité : manuel (plus frais) sur OneDrive.
+            v1.9.96 — masqué si CE user a déjà vu la fiche (viewedSet contient l'id).
+            Le badge réapparaît automatiquement au prochain sync qui touche le candidat
+            (handler realtime v1.9.95 purge candidats_vus dès que last_import_at change). */}
         {(() => {
           void recentlyUpdatedTick
+          void badgeTick
           const manuel = getRecentlyUpdatedEntry(c.id)
           const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
           const type = manuel?.type ?? onedriveType ?? null
           if (!type) return null
+          // v1.9.96 — masque le badge OneDrive (persistant DB) si user déjà vu.
+          // Garde le badge MANUEL visible (transient 10min, feedback action perso).
+          if (!manuel && viewedSet.has(c.id)) return null
           const style = getBadgeStyleForType(type)
           const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (
@@ -2899,35 +2907,21 @@ export default function CandidatsList() {
         document.body
       )}
 
-      {/* Bulk delete confirmation */}
-      {showDeleteConfirm && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
-        }}>
-          <div className="neo-card" style={{ maxWidth: 420, width: '90%', padding: 28 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--foreground)', marginBottom: 8 }}>
-              Supprimer {selCount} candidat{selCount > 1 ? 's' : ''} ?
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 24 }}>
-              Cette action est irréversible. Les candidats et toutes leurs données associées (notes, pipeline) seront définitivement supprimés.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowDeleteConfirm(false)} className="neo-btn-ghost">
-                Annuler
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                disabled={deleteBulk.isPending}
-                className="neo-btn"
-                style={{ background: '#DC2626', boxShadow: 'none' }}
-              >
-                {deleteBulk.isPending ? 'Suppression...' : `Supprimer (${selCount})`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Bulk delete confirmation (v1.9.96 — confirmation forte avec input "SUPPRIMER") */}
+      <DeleteConfirmModal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleBulkDelete}
+        isPending={deleteBulk.isPending}
+        title={`Supprimer ${selCount} candidat${selCount > 1 ? 's' : ''} ?`}
+        description={
+          <>
+            Cette action supprimera <strong>définitivement</strong> {selCount} candidat{selCount > 1 ? 's' : ''}
+            {' '}ainsi que toutes leurs données associées (notes, pipeline, documents, CV).
+          </>
+        }
+        confirmLabel={`Supprimer (${selCount})`}
+      />
 
       {/* Modal Message */}
       {showMessage && (() => {
