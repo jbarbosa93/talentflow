@@ -244,11 +244,10 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
         })
       }
 
-      // Bug 2 fix — ne jamais écraser created_at par une date plus ancienne
-      const importedIsNewer = importDate > existingDate
-      dbg(`[CV Parse] Fichier déjà importé : ${file.name} → ${importedIsNewer ? 'mise à jour date' : 'date conservée'}`)
+      // v1.9.90 — created_at devient IMMUABLE (vraie date de 1er import).
+      // Le tri liste utilise désormais last_import_at. Voir CLAUDE.md pattern sur created_at.
+      dbg(`[CV Parse] Fichier déjà importé : ${file.name}`)
       await supabase.from('candidats').update({
-        ...(importedIsNewer ? { created_at: dateToUse } : {}),
         updated_at: new Date().toISOString(),
         last_import_at: new Date().toISOString(),
       } as any).eq('id', existingByFile.id)
@@ -750,12 +749,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
           await logActivity({ action: 'cv_doublon', details: { fichier: file.name, candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, raison: 'skip_meme_contenu' } })
           return NextResponse.json({ isDuplicate: true, sameFile: true, skipped: true, candidatExistant, candidat: candidatExistant, analyse, message: `Déjà importé : ${candidatExistant.prenom} ${candidatExistant.nom}` })
         } else {
-          // Même contenu, date différente → update dates + import_status, 0 upload, jamais archiver
-          // Fix 5 — ne rétrograder que si la date importée est plus récente
-          const importedIsNewer = ef ? new Date(resolvedCreatedAt).getTime() > new Date(ef.created_at as string).getTime() : true
-          dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom} (importedIsNewer=${importedIsNewer})`)
+          // v1.9.90 — Même contenu, date différente : MAJ last_import_at uniquement, created_at IMMUABLE.
+          dbg(`[CV Parse] Même contenu, date différente : ${candidatExistant.prenom} ${candidatExistant.nom}`)
           await adminClient.from('candidats').update({
-            ...(importedIsNewer ? { created_at: resolvedCreatedAt } : {}),
             // v1.9.42 — backfill opportuniste hash/size si absents (stock historique)
             ...(!efSha256 ? { cv_sha256: currentSha256_p } : {}),
             ...(!efSize ? { cv_size_bytes: currentSize_p } : {}),
@@ -1003,14 +999,8 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       updateData.onedrive_change_type = 'mis_a_jour'
       updateData.onedrive_change_at = now
     }
-    // Fix 20/04/2026 — remonter created_at si le CV importé est plus récent que celui en DB.
-    // Aligne avec onedrive/sync L1123 + cv/parse flow INSERT L1170 (règle : created_at = date
-    // de dernière candidature affichée dans la liste). En mode reanalyse on ne touche pas
-    // (re-extraction IA du même CV = pas de nouveau CV).
-    if (mode !== 'reanalyse' && (existing as any)?.created_at && fileDate) {
-      const importedIsNewer = new Date(fileDate).getTime() > new Date((existing as any).created_at as string).getTime()
-      if (importedIsNewer) updateData.created_at = fileDate
-    }
+    // v1.9.90 — created_at IMMUABLE : conserve la vraie date de 1er import.
+    // Le tri liste utilise last_import_at (écrit plus haut). Fin du pattern "created_at = date du dernier CV".
 
     const { data: updated, error: updateError } = await adminClient
       .from('candidats')

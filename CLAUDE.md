@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.89 prod (fiche candidat : fix bandeau "Ajouté" sur candidats actualisés)** — 23/04/2026
+**1.9.90 prod (created_at immuable + tri last_import_at + backfill DB 31 candidats)** — 23/04/2026
 
 ---
 

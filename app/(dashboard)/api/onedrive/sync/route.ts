@@ -967,12 +967,10 @@ export async function POST(request: Request) {
               return { status: 'skipped', filename }
             }
 
-            // Cas 2 : contenu identique + date plus récente → RÉACTIVATION (created_at uniquement)
+            // Cas 2 : contenu identique + date plus récente → RÉACTIVATION
+            // v1.9.90 — created_at IMMUABLE, seul last_import_at est mis à jour.
             if (contenuIdentique && !memeDate) {
-              // Fix 5 — ne rétrograder que si la date importée est plus récente
-              const importedIsNewer = !candidatExistant.created_at || new Date(fileDate).getTime() > new Date(candidatExistant.created_at).getTime()
               await (supabase as any).from('candidats').update({
-                ...(importedIsNewer ? { created_at: fileDate } : {}),
                 // v1.9.42 — backfill opportuniste hash/size si absents (stock historique)
                 ...(!existingSha256 ? { cv_sha256: currentSha256 } : {}),
                 ...(!existingSize ? { cv_size_bytes: currentSize } : {}),
@@ -1023,10 +1021,8 @@ export async function POST(request: Request) {
                 if (storageData?.path) {
                   await supabase.storage.from('cvs').remove([storageData.path]).catch(() => {})
                 }
-                // Fix 5 — ne rétrograder que si la date importée est plus récente
-                const importedIsNewerSafety = !candidatExistant.created_at || new Date(fileDate).getTime() > new Date(candidatExistant.created_at).getTime()
+                // v1.9.90 — created_at IMMUABLE, last_import_at suit.
                 await (supabase as any).from('candidats').update({
-                  ...(importedIsNewerSafety ? { created_at: fileDate } : {}),
                   updated_at: new Date().toISOString(),
                   last_import_at: new Date().toISOString(),
                   onedrive_change_type: 'reactive',
@@ -1191,7 +1187,7 @@ export async function POST(request: Request) {
                 cv_sha256: currentSha256,       // v1.9.42
                 cv_size_bytes: currentSize,      // v1.9.42
                 documents: existingDocs,
-                created_at: fileDate, // Date de candidature = date du fichier sur OneDrive (importedIsOlder déjà géré plus haut)
+                // v1.9.90 — created_at IMMUABLE (vraie date de 1er import). Le tri liste utilise last_import_at.
                 updated_at: new Date().toISOString(),
                 last_import_at: new Date().toISOString(),
                 // NEW3 — badge bleu "Actualisé" persistant jusqu'à ouverture

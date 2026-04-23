@@ -120,11 +120,14 @@ export default function DashboardPage() {
   const { data: chartData } = useQuery({
     queryKey: ['dashboard-chart', chartPeriod],
     queryFn: async () => {
-      // Candidatures à partir du 24 mars 2026 (reset — prochains imports uniquement)
+      // v1.9.90 — graphe imports basé sur activites (cv_importe + candidat_importe).
+      // Avant : candidats.created_at pollué par les updates → graphe biaisé.
+      // Maintenant : activites.created_at = date réelle et immuable de chaque import.
       const since = new Date('2026-03-24T00:00:00')
-      const { data } = await supabase
-        .from('candidats')
+      const { data } = await (supabase as any)
+        .from('activites')
         .select('created_at')
+        .in('type', ['cv_importe', 'candidat_importe'])
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: true })
 
@@ -619,10 +622,11 @@ function ActiviteRecenteWidget() {
   const { data } = useQuery({
     queryKey: ['dashboard-activite-recente'],
     queryFn: async () => {
-      const { data } = await supabase
+      // v1.9.90 — activité récente triée par last_import_at (cohérent avec tri liste)
+      const { data } = await (supabase as any)
         .from('candidats')
-        .select('id, nom, prenom, titre_poste, localisation, photo_url, created_at, statut_pipeline')
-        .order('created_at', { ascending: false })
+        .select('id, nom, prenom, titre_poste, localisation, photo_url, created_at, last_import_at, statut_pipeline')
+        .order('last_import_at', { ascending: false, nullsFirst: false })
         .limit(10)
       return (data || []) as any[]
     },
@@ -665,7 +669,7 @@ function ActiviteRecenteWidget() {
                 </div>
               </div>
               <div style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {actTempsRelatif(c.created_at)}
+                {actTempsRelatif(c.last_import_at || c.created_at)}
               </div>
             </Link>
           )

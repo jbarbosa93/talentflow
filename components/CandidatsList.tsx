@@ -1727,9 +1727,17 @@ export default function CandidatsList() {
           )
         })()}
 
-        {/* Date d'ajout — toujours created_at (modifiable manuellement) */}
+        {/* v1.9.90 — Date la plus récente : last_import_at (si plus récent que created_at) sinon created_at.
+            Affiche la date pertinente pour la liste : date du dernier import = dernière activité sur le candidat. */}
         <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
-          {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+          {(() => {
+            const lastImport = (c as any).last_import_at as string | null | undefined
+            const createdAt = c.created_at
+            const displayDate = lastImport && new Date(lastImport).getTime() > new Date(createdAt).getTime()
+              ? lastImport
+              : createdAt
+            return new Date(displayDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+          })()}
         </span>
 
         {/* Quick validate button (a_traiter mode only) — après la date */}

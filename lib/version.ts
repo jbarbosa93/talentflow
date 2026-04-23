@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.89'
+export const APP_VERSION = '1.9.90'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.90',
+    date: '2026-04-23',
+    label: 'created_at immuable + tri liste basé sur last_import_at + date modif éditable',
+    features: [
+      'FICHE CANDIDAT — La date "Ajouté le X" est maintenant la vraie date de 1er import du candidat (immuable). Une seconde ligne "Actualisé le Y" (ou "Réactivé le Y") s\'affiche si le candidat a été mis à jour plus tard. Avant : "Ajouté le X" était écrasé à chaque mise à jour, on perdait la vraie date d\'origine.',
+      'LISTE CANDIDATS — La date affichée à droite de chaque candidat est maintenant la plus récente entre "Ajouté" et "Actualisé/Réactivé". Tri identique pour toi (candidat récemment updaté remonte en haut).',
+      'FICHE CANDIDAT — En mode édition : tu peux maintenant modifier la date de modification aussi, ou cliquer la croix rouge pour la réinitialiser (alors seule la date d\'ajout reste affichée).',
+      'BACKFILL — 31 candidats avaient leur date d\'ajout écrasée par un import récent (ex. Ismael Jarmoun "ajouté 23 avril" alors qu\'il était en base depuis le 26 mars). Corrigés automatiquement vers leur vraie date d\'origine grâce aux documents archivés et à l\'historique des activités.',
+      'MATCHING IA — La pénalité "ancienneté du profil" se base maintenant sur la dernière activité du candidat (dernier import) au lieu de sa date de création. Un candidat réactivé récemment reste pertinent même s\'il est en base depuis longtemps.',
+      'DASHBOARD — Le graphe "Imports par jour" se base désormais sur l\'historique des activités (immuable) plutôt que sur la date de création des candidats (qui pouvait être modifiée). Stats plus fiables.',
+      'BADGE ROUGE — Le garde-fou "pas de badge sur candidat ancien" regarde maintenant la date du dernier import au lieu de la date de création. Un candidat réactivé aujourd\'hui (même s\'il est en base depuis 2 ans) affiche bien son badge rouge.',
+    ],
+  },
   {
     version: '1.9.89',
     date: '2026-04-23',

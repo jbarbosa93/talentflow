@@ -946,7 +946,11 @@ export default function CandidatDetailPage() {
 
           {/* Identité */}
           <div className="neo-card-soft" style={{ padding: 18 }}>
-            {/* v1.9.71/73 — Date d'ajout/réactivation/actualisation au-dessus de la photo */}
+            {/* v1.9.90 — 2 lignes distinctes :
+                Ligne 1 : "Ajouté le X" (created_at IMMUABLE = vraie date de 1er import) en vert
+                Ligne 2 : "Réactivé / Actualisé le Y" si applicable (bleu/jaune selon type)
+                Affichage : la ligne 2 n'apparait QUE si le candidat a vraiment été mis à jour
+                (écart > 1 jour entre created_at et last_import_at OU onedrive_change_type défini) */}
             {candidat.created_at && (() => {
               const fmt = (iso: string) => new Date(iso).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
               const changeType = (candidat as any).onedrive_change_type as string | null | undefined
@@ -954,38 +958,45 @@ export default function CandidatDetailPage() {
               const lastImport = (candidat as any).last_import_at as string | null | undefined
               const createdAt = candidat.created_at
               const hasArchivedDocs = (((candidat as any).documents as unknown[]) || []).length > 0
-              // v1.9.77 : "Ajouté le X" toujours en vert par défaut (user request)
-              // Priorité : onedrive_change_type (dernier changement explicite)
-              let label = `Ajouté le ${fmt(createdAt)}`
-              let color: string = 'var(--success)' // vert par défaut
+
+              // Ligne 2 (conditionnelle)
+              let updateLabel: string | null = null
+              let updateColor = 'var(--info)'
               if (changeType === 'reactive' && changeAt) {
-                label = `Réactivé le ${fmt(changeAt)}`
-                color = 'var(--warning)'
+                updateLabel = `Réactivé le ${fmt(changeAt)}`
+                updateColor = 'var(--warning)'
               } else if (changeType === 'mis_a_jour' && changeAt) {
-                label = `Actualisé le ${fmt(changeAt)}`
-                color = 'var(--info)'
-              } else if (changeType === 'nouveau') {
-                // Nouveau candidat : garder "Ajouté le X" vert (court-circuite le fallback ci-dessous,
-                // qui sinon dirait "Actualisé" car last_import_at=now() > created_at=fileDate de plusieurs mois)
-              } else if (hasArchivedDocs) {
-                // v1.9.89 — Fallback post-clear simplifié : preuve d'update passé = docs archivés dans documents[].
-                // Avant v1.9.89 : test `lastImport - createdAt > 60s` trop fragile.
-                //   Cas Ismael Jarmoun (23/04/2026) : onedrive/sync update → created_at MAJ à fileDate=12:10:15,
-                //   last_import=12:11:04. Diff = 49 sec → fallback ne déclenchait pas → fiche affichait
-                //   "Ajouté le 23 avril" alors que candidat était updaté.
-                // Nouveau test : documents.length > 0 = preuve robuste qu'il y a eu au moins 1 update
-                //   (les 2 routes d'import archivent systématiquement le CV précédent dans documents[]).
-                label = `Actualisé le ${fmt(lastImport || createdAt)}`
-                color = 'var(--info)'
+                updateLabel = `Actualisé le ${fmt(changeAt)}`
+                updateColor = 'var(--info)'
+              } else if (changeType !== 'nouveau' && lastImport) {
+                // Post-clear ou candidat sans change_type : afficher "Actualisé" SI écart > 1 jour
+                // (évite d'afficher "Actualisé" juste après import initial où les dates sont identiques).
+                // Le test `hasArchivedDocs` reste un signal d'update fiable pour les candidats mergés/updatés
+                // avant v1.9.90 (quand created_at et last_import_at sont colés).
+                const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
+                const DAY_MS = 24 * 60 * 60 * 1000
+                if (diffMs > DAY_MS || hasArchivedDocs) {
+                  updateLabel = `Actualisé le ${fmt(lastImport)}`
+                  updateColor = 'var(--info)'
+                }
               }
-              // Sinon → "Ajouté le X" en vert (case nouveau ou pas de change_type)
+
               return (
-                <div style={{
-                  textAlign: 'center', marginBottom: 10,
-                  fontSize: 11, color, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                }}>
-                  {label}
+                <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{
+                    textAlign: 'center', fontSize: 11, color: 'var(--success)', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                  }}>
+                    Ajouté le {fmt(createdAt)}
+                  </div>
+                  {updateLabel && (
+                    <div style={{
+                      textAlign: 'center', fontSize: 11, color: updateColor, fontWeight: 700,
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                    }}>
+                      {updateLabel}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -1195,9 +1206,44 @@ export default function CandidatDetailPage() {
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Email"        value={editData.email}       onChange={e => set('email', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Téléphone"    value={editData.telephone}   onChange={e => set('telephone', e.target.value)} />
                 <input className="neo-input" style={{ height: 30, fontSize: 12 }} placeholder="Âge (ex: 65) ou date (JJ/MM/AAAA)" value={editData.date_naissance} onChange={e => set('date_naissance', e.target.value)} />
+                {/* v1.9.90 — 2 inputs date : Ajout (created_at immuable) + Modification (last_import_at).
+                    Bouton 🗑 à côté de "Modification" → reset last_import_at = created_at (plus de "Actualisé" affiché). */}
                 <div style={{ display: 'flex', gap: 5 }}>
-                  <input className="neo-input" type="date" style={{ height: 30, fontSize: 12, flex: 1 }} value={editData.created_at || ''} onChange={e => set('created_at', e.target.value)} title="Date d'ajout" />
+                  <input
+                    className="neo-input" type="date"
+                    style={{ height: 30, fontSize: 12, flex: 1 }}
+                    value={(editData.created_at || '').slice(0, 10)}
+                    onChange={e => set('created_at', e.target.value)}
+                    title="Date d'ajout (1er import)"
+                  />
                   <span style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Date d&apos;ajout</span>
+                </div>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  <input
+                    className="neo-input" type="date"
+                    style={{ height: 30, fontSize: 12, flex: 1 }}
+                    value={(editData.last_import_at || '').slice(0, 10)}
+                    onChange={e => set('last_import_at', e.target.value)}
+                    title="Date de dernière modification (ré-import ou réactivation)"
+                  />
+                  <span style={{ fontSize: 10, color: 'var(--muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Date modif</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Reset : aligner last_import_at sur created_at → plus de "Actualisé le X" affiché
+                      set('last_import_at', editData.created_at || '')
+                    }}
+                    title="Effacer la date de modification (aligner sur date d'ajout)"
+                    style={{
+                      width: 30, height: 30, borderRadius: 6,
+                      border: '1.5px solid var(--border)', background: 'var(--card)',
+                      color: 'var(--destructive)', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
                 <select className="neo-input" style={{ height: 30, fontSize: 12 }} value={editData.genre} onChange={e => set('genre', e.target.value)}>
                   <option value="">Genre (non précisé)</option>

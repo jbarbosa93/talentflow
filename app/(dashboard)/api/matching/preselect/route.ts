@@ -173,7 +173,9 @@ function scoreCandidat(
   }
 
   // ── Pénalité ancienneté du candidat (fraîcheur du profil) ────────────────
-  score += anciennetePenalite(candidat.created_at)
+  // v1.9.90 — basé sur last_import_at (dernière activité) au lieu de created_at (1er import immuable)
+  // Un candidat récemment ré-importé est plus pertinent qu'un candidat créé il y a longtemps jamais MAJ.
+  score += anciennetePenalite(candidat.last_import_at || candidat.created_at)
 
   return score
 }
@@ -232,7 +234,7 @@ export async function POST(request: NextRequest) {
     const offreKeywords = Array.from(new Set([...offreTitreKeywords, ...offreDescKeywords]))
 
     // 3. Charger TOUS les candidats (avec cv_texte_brut pour pré-sélection enrichie)
-    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url, formation, cv_texte_brut, telephone, email, created_at, cv_url, cv_nom_fichier'
+    const FIELDS = 'id, nom, prenom, titre_poste, competences, tags, annees_exp, localisation, resume_ia, photo_url, formation, cv_texte_brut, telephone, email, created_at, last_import_at, cv_url, cv_nom_fichier'
     const PAGE_SIZE = 1000
     const allCandidats: any[] = []
     let offset = 0
