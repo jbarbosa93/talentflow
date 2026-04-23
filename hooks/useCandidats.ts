@@ -283,9 +283,15 @@ export function useCandidatsRealtime() {
           // Debounce 400ms pour regrouper les rafales de changements.
           // invalidate reste INCONDITIONNEL — utile pour rafraîchir notes/statut/rating affichés
           // dans la liste, même si on ne réarme pas le badge.
+          const updatedId = payload?.new?.id as string | undefined
           if (debounceRef.current) clearTimeout(debounceRef.current)
           debounceRef.current = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['candidats'] })
+            // v1.9.97 — invalider aussi la fiche individuelle. Sans ça, useCandidat
+            // (staleTime 2min) servait le cache stale au prochain ouverture → bandeau
+            // "Réactivé/Actualisé" pas affiché tant qu'on n'avait pas quitté + reouvert
+            // la fenêtre (qui déclenchait refetchOnWindowFocus).
+            if (updatedId) queryClient.invalidateQueries({ queryKey: ['candidat', updatedId] })
             // v1.9.91 — trigger aussi le refresh viewedSet côté CandidatsList (cron OneDrive = pas de event
             // "badges-changed" côté client, donc on le fire ici pour que le badge rouge apparaisse instantanément).
             if (typeof window !== 'undefined') {

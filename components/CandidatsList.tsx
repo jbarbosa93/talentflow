@@ -1192,22 +1192,26 @@ export default function CandidatsList() {
         )}
         {/* Badge coloré "nouveau/actualisé/réactivé" :
             - Import MANUEL (localStorage 10 min) : feedback transient après action user
-            - Import ONEDRIVE (DB onedrive_change_type, persistant)
+            - Import ONEDRIVE (DB onedrive_change_type + onedrive_change_at, TTL 10 min)
             Types : 'nouveau' (vert), 'mis_a_jour' (bleu), 'reactive' (jaune).
             Priorité : manuel (plus frais) sur OneDrive.
-            v1.9.96 — masqué si CE user a déjà vu la fiche (viewedSet contient l'id).
-            Le badge réapparaît automatiquement au prochain sync qui touche le candidat
-            (handler realtime v1.9.95 purge candidats_vus dès que last_import_at change). */}
+            v1.9.97 — Cohérence avec le badge manuel : TTL 10 min basé sur onedrive_change_at.
+            Le badge OneDrive reste visible 10 min même après ouverture fiche (comme le manuel).
+            Après 10 min, masqué automatiquement (re-render via interval 60s du recentlyUpdatedTick). */}
         {(() => {
           void recentlyUpdatedTick
           void badgeTick
           const manuel = getRecentlyUpdatedEntry(c.id)
           const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
+          const onedriveAt = (c as any).onedrive_change_at as string | null | undefined
           const type = manuel?.type ?? onedriveType ?? null
           if (!type) return null
-          // v1.9.96 — masque le badge OneDrive (persistant DB) si user déjà vu.
-          // Garde le badge MANUEL visible (transient 10min, feedback action perso).
-          if (!manuel && viewedSet.has(c.id)) return null
+          // v1.9.97 — Badge OneDrive : TTL 10 min basé sur onedrive_change_at.
+          // Plus de masquage via viewedSet (incohérent avec manuel qui reste 10 min après ouverture).
+          if (!manuel && onedriveAt) {
+            const ageMs = Date.now() - new Date(onedriveAt).getTime()
+            if (ageMs > 10 * 60_000) return null
+          }
           const style = getBadgeStyleForType(type)
           const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (

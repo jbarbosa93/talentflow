@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.96 prod (confirmation forte SUPPRIMER + traçabilité DELETE + fix bandeau Réactivé/Actualisé)** — 23/04/2026
+**1.9.97 prod (bandeau Réactivé/Actualisé visible dès 1er clic — invalidate fiche individuelle au mount + realtime)** — 23/04/2026
 
 ---
 

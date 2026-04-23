@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.96'
+export const APP_VERSION = '1.9.97'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.97',
+    date: '2026-04-23',
+    label: 'Bandeau Réactivé/Actualisé visible dès 1er clic + cohérence badge OneDrive (TTL 10 min)',
+    features: [
+      'FICHE CANDIDAT — Le bandeau "Réactivé / Actualisé le X" s\'affiche désormais immédiatement à la première ouverture de la fiche, sans avoir à sortir et revenir. Avant : la fiche servait un cache (staleTime 2 min) qui ne contenait pas encore la dernière info du sync OneDrive. Désormais le cache est invalidé au mount + un canal realtime invalide aussi la fiche individuelle dès qu\'un sync touche le candidat.',
+      'BADGE OneDrive — Cohérence avec le badge import manuel : reste visible 10 minutes même après ouverture de la fiche (avant : disparaissait dès ouverture, incohérent avec le manuel). Après 10 minutes, masqué automatiquement. Pratique pour repérer dans la liste les candidats touchés par un sync récent même si tu as déjà vérifié la fiche.',
+    ],
+  },
   {
     version: '1.9.96',
     date: '2026-04-23',

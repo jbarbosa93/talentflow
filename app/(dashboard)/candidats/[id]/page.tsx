@@ -294,7 +294,11 @@ export default function CandidatDetailPage() {
     //          "Réactivé"). Le badge coloré liste disparaît désormais via viewedSet
     //          (cohérent avec sémantique per-user v1.9.95). Bandeau fiche lit toujours
     //          la vraie valeur DB → "Réactivé" / "Actualisé" / "Nouveau" exact.
-  }, [id])
+    // v1.9.97 — Force refetch fiche au mount pour avoir last_import_at + onedrive_change_type
+    //          frais (sans ça, staleTime 2min de useCandidat sert le cache stale au 1er ouverture
+    //          après un sync OneDrive → bandeau "Réactivé" invisible jusqu'à window focus).
+    queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+  }, [id, queryClient])
 
   // Auto-allumer CFC si détecté dans le texte formation et jamais encore défini (null uniquement)
   useEffect(() => {
