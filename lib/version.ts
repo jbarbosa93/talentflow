@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.87'
+export const APP_VERSION = '1.9.88'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.88',
+    date: '2026-04-23',
+    label: 'Mailing — email visible aperçu + retirer destinataire + filtre liste',
+    features: [
+      'MAILING — L\'aperçu affiche maintenant l\'email exact du destinataire (✉️ contact@entreprise.ch) en plus du nom de l\'entreprise. Plus aucune ambiguïté quand 2 contacts portent le même prénom.',
+      'MAILING — Bouton 🗑 Retirer dans le bandeau aperçu pour supprimer le destinataire courant en 1 clic (sans avoir à le chercher dans la liste).',
+      'MAILING — Barre de recherche au-dessus de la liste des destinataires (apparaît automatiquement à partir de 8 emails). Tape un mot et seuls les emails matchant restent visibles — pratique pour retirer 1-2 destinataires d\'une campagne de 50.',
+    ],
+  },
   {
     version: '1.9.87',
     date: '2026-04-23',

@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.87 prod (mailing — fix bouton "Éditer" effaçait les personnalisations)** — 23/04/2026
+**1.9.88 prod (mailing UX : email aperçu + retirer destinataire + filtre liste 8+)** — 23/04/2026
 
 ---
 

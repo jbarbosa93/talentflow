@@ -749,6 +749,8 @@ function EmailTab() {
   const [candidatDocsCache, setCandidatDocsCache] = useState<Record<string, Array<{ url: string; name: string; type: string; uploaded_at?: string }>>>({})
   const [templateId, setTemplateId] = useState(initial.templateId || '')
   const [destinataires, setDestinataires] = useState<string[]>(initial.destinataires || [])
+  // v1.9.88 — Filtre recherche dans la liste des destinataires (utile pour grandes campagnes 50+).
+  const [destinatairesFilter, setDestinatairesFilter] = useState('')
   const [ccEmails, setCcEmails] = useState<string[]>([]) // v1.9.70
   const [sendMode, setSendMode] = useState<'individual' | 'grouped'>('individual') // v1.9.70
   // v1.9.70 : overrides par destinataire (mode individual) — permet de personnaliser sujet/corps pour 1 seul destinataire
@@ -1407,9 +1409,43 @@ function EmailTab() {
               Choisir clients
             </button>
           </div>
+          {/* v1.9.88 — Barre de recherche pour filtrer les destinataires (utile sur campagnes 50+) */}
+          {destinataires.length >= 8 && (
+            <div style={{ position: 'relative', marginBottom: 6 }}>
+              <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+              <input
+                value={destinatairesFilter}
+                onChange={e => setDestinatairesFilter(e.target.value)}
+                placeholder={`Filtrer parmi ${destinataires.length} destinataires…`}
+                style={{
+                  width: '100%', height: 32, padding: '0 30px 0 28px',
+                  border: '1.5px solid var(--border)', borderRadius: 8,
+                  background: 'var(--card)', color: 'var(--foreground)',
+                  fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {destinatairesFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDestinatairesFilter('')}
+                  title="Effacer le filtre"
+                  style={{
+                    position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                    width: 22, height: 22, borderRadius: 6, border: 'none', background: 'var(--secondary)',
+                    cursor: 'pointer', color: 'var(--muted-foreground)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          )}
           <EmailChipInput
             value={destinataires}
             onChange={setDestinataires}
+            filterQuery={destinatairesFilter}
             placeholder="Ajouter un email manuellement (appuyez Entrée)..."
           />
 
@@ -1545,13 +1581,21 @@ function EmailTab() {
                       </button>
                     </>
                   )}
-                  <span>
-                    Aperçu {firstCandidat ? `— ${firstCandidat.prenom} ${firstCandidat.nom}` : ''}
-                    {previewDest ? ` → ${previewResolved.client?.nom_entreprise || previewDest}` : ''}
-                    {sendMode === 'individual' && destinataires.length > 1 ? ` (${safeIdx + 1}/${destinataires.length})` : ''}
-                    {hasCurrentOverride && (
-                      <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', fontWeight: 800 }}>
-                        ✏️ Personnalisé
+                  <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2, lineHeight: 1.3 }}>
+                    <span>
+                      Aperçu {firstCandidat ? `— ${firstCandidat.prenom} ${firstCandidat.nom}` : ''}
+                      {previewDest ? ` → ${previewResolved.client?.nom_entreprise || previewDest}` : ''}
+                      {sendMode === 'individual' && destinataires.length > 1 ? ` (${safeIdx + 1}/${destinataires.length})` : ''}
+                      {hasCurrentOverride && (
+                        <span style={{ marginLeft: 6, padding: '1px 6px', borderRadius: 99, background: 'var(--warning-soft)', color: 'var(--warning)', fontWeight: 800 }}>
+                          ✏️ Personnalisé
+                        </span>
+                      )}
+                    </span>
+                    {/* v1.9.88 — Email destinataire visible dans l'aperçu pour identifier sans ambiguïté */}
+                    {previewDest && (
+                      <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--muted-foreground)', textTransform: 'none', letterSpacing: 0 }}>
+                        ✉️ {previewDest}
                       </span>
                     )}
                   </span>
@@ -1610,6 +1654,29 @@ function EmailTab() {
                         Personnaliser ce mail
                       </button>
                     )}
+                    {/* v1.9.88 — Bouton Retirer destinataire directement depuis l'aperçu (rapidité). */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!previewDest) return
+                        const ok = typeof window === 'undefined' || window.confirm(
+                          `Retirer ${previewDest} de la liste des destinataires ?`
+                        )
+                        if (!ok) return
+                        setDestinataires(prev => prev.filter(e => e !== previewDest))
+                        setOverrides(prev => { const n = { ...prev }; delete n[previewDest]; return n })
+                      }}
+                      title="Retirer ce destinataire de l'envoi"
+                      style={{
+                        padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                        border: '1px solid var(--destructive)', background: 'var(--card)',
+                        color: 'var(--destructive)', cursor: 'pointer', fontFamily: 'inherit',
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                      }}
+                    >
+                      🗑 Retirer
+                    </button>
                   </span>
                 )}
               </div>

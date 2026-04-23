@@ -35,9 +35,11 @@ interface EmailChipInputProps {
   placeholder?: string
   /** Désactive l'autocomplete si besoin (par défaut : activé) */
   disableAutocomplete?: boolean
+  /** v1.9.88 — filtre visuel (n'affiche que les chips matchant la query). Casse-insensible + unaccent. */
+  filterQuery?: string
 }
 
-export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter un email...', disableAutocomplete = false }: EmailChipInputProps) {
+export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter un email...', disableAutocomplete = false, filterQuery = '' }: EmailChipInputProps) {
   const [input, setInput] = useState('')
   const [focused, setFocused] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
@@ -169,7 +171,13 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
           background: 'var(--secondary)', cursor: 'text',
         }}
       >
-        {value.map(email => (
+        {value
+          .filter(email => {
+            const q = (filterQuery || '').trim()
+            if (!q) return true
+            return normalize(email).includes(normalize(q))
+          })
+          .map(email => (
           <span key={email} style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
             background: 'var(--primary-soft)', border: '1px solid var(--primary)',
