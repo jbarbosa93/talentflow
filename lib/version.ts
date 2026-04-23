@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.86'
+export const APP_VERSION = '1.9.87'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.87',
+    date: '2026-04-23',
+    label: 'Mailing — fix bouton "Éditer" qui effaçait les personnalisations',
+    features: [
+      'MAILING — Bug : en mode envoi individuel, après avoir personnalisé le mail d\'un destinataire, cliquer à nouveau sur "✏️ Éditer" effaçait toutes les modifications. Désormais le bouton est remplacé par un badge statique "✓ Personnalisé" qui confirme que c\'est enregistré. Pour annuler, utilise le bouton rouge "Réinitialiser" à gauche.',
+      'MAILING — Rappel : tes modifications dans l\'éditeur per-destinataire sont enregistrées en temps réel à chaque frappe (pas besoin de cliquer sur "Enregistrer").',
+    ],
+  },
   {
     version: '1.9.86',
     date: '2026-04-23',

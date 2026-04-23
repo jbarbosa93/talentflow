@@ -1573,27 +1573,43 @@ function EmailTab() {
                         Réinitialiser
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Ouvrir l'éditeur : pré-remplir avec le sujet/corps courant (effectif)
-                        if (!hasCurrentOverride) {
-                          updateOverride(previewDest, { sujet: effectiveSujet, corps: effectiveCorps })
-                        } else {
-                          clearOverride(previewDest)
-                        }
-                      }}
-                      style={{
-                        padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
-                        border: `1px solid ${hasCurrentOverride ? 'var(--primary)' : 'var(--border)'}`,
-                        background: hasCurrentOverride ? 'var(--primary-soft)' : 'var(--card)',
-                        color: hasCurrentOverride ? 'var(--primary)' : 'var(--foreground)',
-                        cursor: 'pointer', fontFamily: 'inherit',
-                        textTransform: 'uppercase', letterSpacing: '0.04em',
-                      }}
-                    >
-                      {hasCurrentOverride ? '✏️ Éditer' : 'Personnaliser ce mail'}
-                    </button>
+                    {/* v1.9.87 — Bug fix : le bouton "✏️ Éditer" appelait clearOverride() en mode édition,
+                        ce qui effaçait les modifications. Désormais :
+                        - Mode "pas encore personnalisé" → bouton "Personnaliser ce mail" (créé l'override + ouvre l'éditeur)
+                        - Mode "personnalisé" → badge statique "✓ Personnalisé" non-cliquable.
+                          Pour annuler, le user clique le bouton rouge "Réinitialiser" à gauche.
+                        Les modifs dans l'éditeur sont enregistrées en temps réel via onChange. */}
+                    {hasCurrentOverride ? (
+                      <span
+                        title="Mail personnalisé pour ce destinataire (modifications enregistrées en temps réel)"
+                        style={{
+                          padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          border: '1px solid var(--primary)',
+                          background: 'var(--primary-soft)',
+                          color: 'var(--primary)',
+                          fontFamily: 'inherit',
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                        }}
+                      >
+                        ✓ Personnalisé
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => updateOverride(previewDest, { sujet: effectiveSujet, corps: effectiveCorps })}
+                        style={{
+                          padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                          border: '1px solid var(--border)',
+                          background: 'var(--card)',
+                          color: 'var(--foreground)',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                        }}
+                      >
+                        Personnaliser ce mail
+                      </button>
+                    )}
                   </span>
                 )}
               </div>
