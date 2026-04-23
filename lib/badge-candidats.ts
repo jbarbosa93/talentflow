@@ -167,15 +167,19 @@ export function markCandidatVu(id: string) {
 
 export function markCandidatNonVu(id: string) {
   if (typeof window === 'undefined') return
-  // v1.9.47 — "Non vu" réarme le badge pour TOUS les users (pas juste le courant)
-  // et force last_import_at=NOW côté serveur pour garantir que le badge apparaisse.
+  // v1.9.95 — RÈGLE ABSOLUE : "Non vu" est strictement per-user.
+  // Avant (v1.9.47) : DELETE candidats_vus pour TOUS users + UPDATE last_import_at = NOW
+  //                   → réarmait le badge globalement (chez Seb aussi).
+  // Maintenant : DELETE uniquement pour l'utilisateur courant. Le badge réapparaît
+  // chez moi seul. Les autres consultants gardent leur état "vu/non-vu" inchangé.
+  // Cohérent avec la règle "badge = changement de CV uniquement".
   const set = getViewedSet()
   set.delete(id)
   writeViewedSet(set)
   fetch('/api/candidats/vus', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids: [id], all_users: true }),
+    body: JSON.stringify({ ids: [id] }),
   }).catch(() => {})
   dispatchBadgesChanged()
 }

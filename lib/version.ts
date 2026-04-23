@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.93'
+export const APP_VERSION = '1.9.95'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.95',
+    date: '2026-04-23',
+    label: 'Règle absolue : badge rouge = changement de CV uniquement (sémantique per-user stricte)',
+    features: [
+      'BADGE ROUGE — Le badge rouge ne réapparaît plus quand un autre consultant modifie une note, un statut, un rating, un tag ou le pipeline d\'un candidat. Avant (v1.9.94) : toute modification déclenchait le réarmement du badge chez tout le monde — fuite des actions privées d\'un consultant à l\'autre. Désormais : le badge réapparaît UNIQUEMENT lorsqu\'un nouveau CV est importé, réactivé ou actualisé (changement de last_import_at).',
+      'NON VU — L\'action "Marquer comme non vu" est désormais strictement personnelle. Avant : ça réarmait le badge chez tout le monde. Désormais : seul ton badge réapparaît, les autres consultants gardent leur état "vu/non-vu" inchangé.',
+      'TECH — REPLICA IDENTITY FULL activé sur la table candidats côté Supabase pour permettre au handler realtime de comparer last_import_at avant/après update. Coût négligeable.',
+    ],
+  },
+  {
+    version: '1.9.94',
+    date: '2026-04-23',
+    label: 'Badge rouge instant aussi pour sync OneDrive (manuel + cron)',
+    features: [
+      'BADGE ROUGE — Apparition VRAIMENT instantanée pour les candidats réactivés / actualisés par OneDrive (sync manuel "Synchroniser tout" depuis Intégrations OU cron auto pendant que TalentFlow est ouvert). Avant : 1-3 secondes de latence. Cause : le pont Supabase realtime n\'était écouté que sur la page Candidats — quand le sync tournait pendant que tu étais sur Intégrations, les changements étaient ignorés et le badge n\'apparaissait qu\'au retour sur la liste.',
+      'BONUS — Les modifications faites par un autre consultant (Sébastien) se reflètent désormais instantanément chez toi sur toutes les pages dashboard (pas juste Candidats).',
+    ],
+  },
   {
     version: '1.9.93',
     date: '2026-04-23',

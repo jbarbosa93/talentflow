@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.93 prod (croix Date modif → NULL en DB + badge instant après import manuel)** — 23/04/2026
+**1.9.95 prod (règle absolue badge = changement de CV uniquement, "non vu" per-user strict)** — 23/04/2026
 
 ---
 
@@ -378,13 +378,19 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - OneDrive sync : même logique, cron 10min = sync manuel
 - `memeContenu` / `contenuIdentique` = gardes anti-doublons (texte 500 chars OU nom normalisé)
 
-**7. Badges per-user (v1.9.16) — last_import_at timestamp**
-- `candidats.last_import_at TIMESTAMPTZ` = timestamp du dernier import CV (remplace has_update bool). Mise à jour par tous les imports (cv/parse, onedrive/sync).
+**7. Badges per-user (v1.9.16, durci v1.9.95) — last_import_at timestamp + sémantique stricte**
+
+🔴 **RÈGLE ABSOLUE v1.9.95** : le badge rouge signale UN CHANGEMENT DE CV uniquement.
+Aucune autre modification (notes, statut, rating, tags, pipeline, vu/non-vu) ne déclenche le réarmement du badge chez les autres consultants. Vu/non-vu est strictement per-user.
+
+- `candidats.last_import_at TIMESTAMPTZ` = timestamp du dernier import CV (remplace has_update bool). Mise à jour par tous les imports (cv/parse, onedrive/sync, pending-validation). **JAMAIS écrit en dehors d'un import CV réel.**
 - **Per-user strict** : chaque consultant a son propre état de lecture via `candidats_vus (user_id, candidat_id, viewed_at)` + `auth.users.raw_user_meta_data.candidats_viewed_all_at`
 - **`hasBadge()`** : badge visible si `last_import_at > max(viewedAllAt du user courant, viewed_at dans candidats_vus)` OU (candidat récent ET pas vu)
 - **Ouverture fiche** : `markCandidatVu(id)` → POST `/api/candidats/vus` (upsert candidats_vus du user courant). **Aucun UPDATE global sur la colonne candidats.**
 - **"Tout marquer vu"** : DELETE candidats_vus du user + UPDATE user_metadata.candidats_viewed_all_at = now(). **JAMAIS de UPDATE global has_update=false** (c'était le bug multi-user réglé en v1.9.16).
+- **"Marquer non vu" (v1.9.95)** : DELETE candidats_vus UNIQUEMENT pour le user courant. **JAMAIS pour tous** (l'ancien hack v1.9.47 forçait UPDATE last_import_at = NOW pour réarmer le badge globalement → polluait la sémantique). Conséquence : si je clique "Non vu", mon badge réapparaît chez moi seul. Seb garde son état "vu" intact.
 - **Ré-import CV** : écrit `last_import_at=now()` + DELETE candidats_vus par candidat_id → badge réapparaît chez TOUS les users (même ceux qui avaient déjà vu la fiche).
+- **Realtime postgres_changes (v1.9.95)** : le handler `useCandidatsRealtime` (monté au layout level via RealtimeBridge v1.9.94) ne purge le viewedSet local que SI `payload.old.last_import_at !== payload.new.last_import_at`. Pour comparer, **REPLICA IDENTITY FULL** est obligatoire sur la table candidats (migration v1.9.95). Avant ce fix, tout UPDATE (même notes/statut) réarmait le badge à tort chez les autres users → régression v1.9.94 corrigée.
 - `has_update` bool reste en DB jusqu'à v1.9.17 pour rétrocompat, mais PLUS LU par le code.
 
 **8. Normalisation noms de fichiers CV**

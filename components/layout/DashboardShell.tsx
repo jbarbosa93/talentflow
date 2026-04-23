@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import RealtimeBridge from '@/components/RealtimeBridge'
 
 function Shell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -31,6 +32,10 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* v1.9.94 — Realtime Supabase candidats actif sur toutes les pages dashboard
+          (pré-purge viewedSet sur UPDATE → badge instantané même quand le sync est
+          déclenché depuis /integrations ou par cron pendant que l'app est ouverte). */}
+      <RealtimeBridge />
       <div className="d-layout">
         {/* Mobile overlay */}
         <AnimatePresence>

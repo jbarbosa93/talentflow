@@ -260,20 +260,29 @@ export function useCandidatsRealtime() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'candidats' },
         (payload: any) => {
-          // v1.9.92 — Pre-purge viewedSet côté client AVANT refetch pour éviter le délai
-          // d'apparition du badge sur un candidat REACTIVATED/UPDATED. Sur un UPDATE détecté
-          // par realtime, on retire immédiatement l'id du viewedSet local : comme ça quand la
-          // liste refetch, hasBadge(viewedSet.has=false) → badge affiché sans attendre le
-          // refresh DB du viewedSet (qui arrivait ~200-500ms après).
-          // Pour INSERT : id pas dans viewedSet de toute façon, pas besoin.
+          // v1.9.95 — RÈGLE ABSOLUE : badge rouge = changement de CV uniquement.
+          // Purger viewedSet UNIQUEMENT si payload.old.last_import_at !== payload.new.last_import_at
+          // (CV importé / réactivé / actualisé). Pour les autres modifs (notes, statut, rating,
+          // tags, pipeline, etc. faites par un autre user), le canal realtime émet aussi un UPDATE
+          // mais on ne doit PAS réarmer le badge — la sémantique "vu/non-vu" reste strictement
+          // per-user. Nécessite REPLICA IDENTITY FULL sur table candidats (migration v1.9.95).
+          //
+          // Avant v1.9.95 : purge sur tout UPDATE → badge réapparaissait à tort quand Seb modifiait
+          // une note ou un statut. Régression introduite par v1.9.94 (RealtimeBridge global).
           try {
             const id = payload?.new?.id
             if (id && payload?.eventType === 'UPDATE') {
-              removeFromViewedSet(id)
+              const oldTs = payload?.old?.last_import_at
+              const newTs = payload?.new?.last_import_at
+              if (oldTs !== newTs) {
+                removeFromViewedSet(id)
+              }
             }
           } catch { /* ignore */ }
 
-          // Debounce 400ms pour regrouper les rafales de changements
+          // Debounce 400ms pour regrouper les rafales de changements.
+          // invalidate reste INCONDITIONNEL — utile pour rafraîchir notes/statut/rating affichés
+          // dans la liste, même si on ne réarme pas le badge.
           if (debounceRef.current) clearTimeout(debounceRef.current)
           debounceRef.current = setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['candidats'] })

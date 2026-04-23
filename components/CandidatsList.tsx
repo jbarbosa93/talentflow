@@ -20,7 +20,7 @@ import LinkOffreModal from '@/components/LinkOffreModal'
 import MetierPicker from '@/components/MetierPicker'
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { useUpload } from '@/contexts/UploadContext'
-import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk, useCandidatsRealtime } from '@/hooks/useCandidats'
+import { useCandidats, useDeleteCandidatsBulk, useUpdateStatutCandidat, useUpdateImportStatusBulk } from '@/hooks/useCandidats'
 import { useQueryClient } from '@tanstack/react-query'
 import { useMetiers } from '@/hooks/useMetiers'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
@@ -265,7 +265,9 @@ export default function CandidatsList() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { openUpload } = useUpload()
-  useCandidatsRealtime() // Sync temps réel — changements d'un autre utilisateur se reflètent automatiquement
+  // v1.9.94 — useCandidatsRealtime() retiré : déplacé dans <RealtimeBridge /> au layout level
+  // pour rester actif sur TOUTES les pages dashboard (pas juste /candidats). Capte ainsi les
+  // UPDATE pendant un sync OneDrive lancé depuis /integrations → badge instantané au retour.
 
   // Helper pour restaurer les filtres depuis sessionStorage (clé unique candidats_filters)
   const FILTERS_KEY = 'candidats_filters'
