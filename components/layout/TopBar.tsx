@@ -1,6 +1,7 @@
 'use client'
 import Image from 'next/image'
 import { Search, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload } from 'lucide-react'
+import { NotificationBell } from '@/components/NotificationBell'
 import { useUpload } from '@/contexts/UploadContext'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
@@ -349,6 +350,9 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
           <Upload size={14} />
           <span className="d-topbar-import-label">Importer candidat</span>
         </motion.button>
+
+        {/* v1.9.84 — Cloche notifications unifiée (pipeline + entretiens) */}
+        <NotificationBell />
 
         {/* Toggle thème */}
         <motion.button

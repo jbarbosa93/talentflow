@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.83'
+export const APP_VERSION = '1.9.84'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.84',
+    date: '2026-04-23',
+    label: 'Cloche notifications unifiée TopBar (pipeline + entretiens)',
+    features: [
+      'NOTIFICATIONS — Nouvelle cloche 🔔 dans la barre du haut (à côté de "Importer candidat") qui rassemble tous tes rappels actifs : pipeline + entretiens. Le badge rouge affiche le nombre d\'alertes en cours.',
+      'NOTIFICATIONS — 2 boutons par alerte : ✓ Valider (clôture définitive, va dans Pipeline → Rappels → Historique) ou ✕ Fermer (cache pour aujourd\'hui, revient automatiquement demain matin).',
+      'NOTIFICATIONS — Plus de double notification : la popup en bas à droite est remplacée par cette cloche centralisée.',
+    ],
+  },
   {
     version: '1.9.83',
     date: '2026-04-22',

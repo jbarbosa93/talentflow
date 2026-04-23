@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { ReminderPopup } from '@/components/ReminderPopup'
 
 function Shell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -68,7 +67,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <ReminderPopup />
+      {/* v1.9.84 — ReminderPopup bottom-right retiré (remplacé par la cloche TopBar unifiée) */}
     </>
   )
 }

@@ -11,14 +11,18 @@ export async function GET() {
   const supabase = createAdminClient()
   const { user_id } = await getRouteUser()
   const today = new Date().toISOString().split('T')[0]
+  const startOfToday = `${today}T00:00:00.000Z`
 
-  const { data, error } = await supabase
+  // v1.9.84 — Daily reminder : exclure les rappels "fermés" aujourd'hui (last_dismissed_at >= startOfToday).
+  // Le rappel revient automatiquement demain. `rappel_vu = true` reste un dismiss définitif (déjà existant).
+  const { data, error } = await (supabase as any)
     .from('entretiens')
-    .select('id, titre, candidat_id, candidat_nom_manuel, entreprise_nom, poste, date_heure, rappel_date, candidats(nom, prenom)')
+    .select('id, titre, candidat_id, candidat_nom_manuel, entreprise_nom, poste, date_heure, rappel_date, last_dismissed_at, candidats(nom, prenom)')
     .eq('user_id', user_id)
     .not('rappel_date', 'is', null)
     .eq('rappel_vu', false)
     .lte('rappel_date', today)
+    .or(`last_dismissed_at.is.null,last_dismissed_at.lt.${startOfToday}`)
     .order('rappel_date', { ascending: true })
 
   if (error) return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -26,7 +30,9 @@ export async function GET() {
 }
 
 // PATCH /api/entretiens/rappels
-// body: { id: string } ou { ids: string[] } — marque comme vu
+// body: { id|ids, action?: 'done' | 'dismiss' }
+//   action 'done'    (défaut, rétrocompat) → rappel_vu = true (terminé définitivement)
+//   action 'dismiss' (v1.9.84)             → last_dismissed_at = now() (caché jusqu'à demain, daily reminder)
 export async function PATCH(request: NextRequest) {
   const authError = await requireAuth()
   if (authError) return authError
@@ -38,9 +44,14 @@ export async function PATCH(request: NextRequest) {
     const ids: string[] = body.ids || (body.id ? [body.id] : [])
     if (!ids.length) return NextResponse.json({ error: 'id(s) requis' }, { status: 400 })
 
-    const { error } = await supabase
+    const action = body.action === 'dismiss' ? 'dismiss' : 'done'
+    const update = action === 'dismiss'
+      ? { last_dismissed_at: new Date().toISOString() }
+      : { rappel_vu: true, updated_at: new Date().toISOString() }
+
+    const { error } = await (supabase as any)
       .from('entretiens')
-      .update({ rappel_vu: true, updated_at: new Date().toISOString() })
+      .update(update)
       .in('id', ids)
       .eq('user_id', user_id)
 

@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const candidatId = searchParams.get('candidat_id')
+    // v1.9.84 — `?notif=1` filtre pour la cloche TopBar : uniquement actifs (done=false)
+    // ET non-fermés aujourd'hui (last_dismissed_at < today). Daily reminder.
+    const notifMode = searchParams.get('notif') === '1'
 
     let query = (supabase as any)
       .from('pipeline_rappels')
@@ -24,6 +27,15 @@ export async function GET(request: NextRequest) {
 
     if (candidatId) {
       query = query.eq('candidat_id', candidatId)
+    }
+
+    if (notifMode) {
+      const today = new Date().toISOString().split('T')[0]
+      const startOfToday = `${today}T00:00:00.000Z`
+      query = query
+        .eq('done', false)
+        .lte('rappel_at', new Date().toISOString())
+        .or(`last_dismissed_at.is.null,last_dismissed_at.lt.${startOfToday}`)
     }
 
     const { data, error } = await query
@@ -71,7 +83,8 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
 
-    const allowed = ['done', 'rappel_at', 'note']
+    // v1.9.84 — `last_dismissed_at` ajoutée aux colonnes modifiables (action "Fermer" du toast cloche).
+    const allowed = ['done', 'rappel_at', 'note', 'last_dismissed_at']
     const filtered: Record<string, any> = {}
     for (const k of allowed) {
       if (k in updates) filtered[k] = updates[k]
