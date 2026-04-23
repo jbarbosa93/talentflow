@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.98'
+export const APP_VERSION = '1.9.99'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.99',
+    date: '2026-04-23',
+    label: 'Croix Date modif → repositionne à la vraie date chronologique (plus de candidat perdu en bas de liste)',
+    features: [
+      'FICHE CANDIDAT — La croix rouge "Date modif" remet maintenant la date de modification à égalité avec la date d\'ajout (au lieu de la mettre à vide). Effet : le bandeau "Actualisé/Réactivé" disparaît ET le candidat reprend sa vraie position chronologique dans la liste (avant : il disparaissait en bas de la dernière page parce que le tri rejetait les valeurs vides en fin de liste — Imrane Ezzitouni perdu en page 150 au lieu de page 2).',
+    ],
+  },
   {
     version: '1.9.98',
     date: '2026-04-23',

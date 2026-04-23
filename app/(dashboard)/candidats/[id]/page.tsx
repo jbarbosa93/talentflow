@@ -455,9 +455,11 @@ export default function CandidatDetailPage() {
     if (rest.created_at && rest.created_at !== originalDate) {
       payload.created_at = `${rest.created_at}T12:00:00.000Z`
     }
-    // v1.9.93 — last_import_at + badges OneDrive : passés au PATCH si présents dans editData.
-    //           Croix rouge "Date modif" → set('last_import_at', null) → envoie null en DB
-    //           → tri liste descend le candidat (NULLS LAST) + bandeau "Actualisé" disparaît.
+    // v1.9.99 — last_import_at + badges OneDrive : passés au PATCH si présents dans editData.
+    //           Croix rouge "Date modif" → set('last_import_at', created_at) → repositionne le
+    //           candidat à sa position chronologique naturelle (au lieu de NULL qui le
+    //           reléguait tout en bas via NULLS LAST). Bandeau "Actualisé" disparaît
+    //           naturellement (diffMs = 0).
     if ('last_import_at' in rest) {
       payload.last_import_at = rest.last_import_at ? `${rest.last_import_at}T12:00:00.000Z` : null
     }
@@ -1256,10 +1258,13 @@ export default function CandidatDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      // v1.9.93 — Reset complet : last_import_at = NULL (pas aligné sur created_at).
-                      //           Effet : ligne "Actualisé/Réactivé" disparaît + le candidat
-                      //           descend dans la liste à sa position created_at (tri DESC NULLS LAST).
-                      set('last_import_at', null)
+                      // v1.9.99 — Reset : last_import_at = created_at (au lieu de NULL).
+                      //           Avant v1.9.99 (v1.9.93-98) : NULL → tri DESC NULLS LAST envoyait
+                      //           le candidat tout en bas de la liste (page 150) au lieu de sa
+                      //           vraie position chronologique. Aligner sur created_at place le
+                      //           candidat à sa position naturelle (= comme un nouveau candidat).
+                      //           Bandeau "Actualisé/Réactivé" disparaît car diffMs = 0 < DAY_MS.
+                      set('last_import_at', editData.created_at || '')
                       set('onedrive_change_type', null)
                       set('onedrive_change_at', null)
                     }}
