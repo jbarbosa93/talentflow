@@ -4,17 +4,17 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import mammoth from 'mammoth'
-import { extractTextFromCV } from '../lib/cv-parser'
-import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '../lib/claude'
-import { classifyDocument } from '../lib/document-classification'
-import { detectNameAmbiguity } from '../lib/cv-extraction-validator'
+import { extractTextFromCV } from '../../lib/cv-parser'
+import { analyserCV, analyserCVDepuisPDF, analyserCVDepuisImage } from '../../lib/claude'
+import { classifyDocument } from '../../lib/document-classification'
+import { detectNameAmbiguity } from '../../lib/cv-extraction-validator'
 
 const TESTS = [
   { file: 'Loïc Arluna cv.docx',                             folder: 'BUG TALENTFLOW',   expected: { cv: true,  reason: 'cv_markers' } },
-  { file: '67oEClkJfvU3-Certificat-Manor.pdf',               folder: 'talentflow-tests', expected: { cv: false, reason: 'ia' } },
-  { file: 'Ouvrière d\'usine à 100%.docx',                    folder: 'talentflow-tests', expected: { cv: false, reason: 'ia' } },
-  { file: 'Scanné 6 janv. 2026 à 114000.pdf',                folder: 'talentflow-tests', expected: { cv: false, reason: 'ia' } },
-  { file: '_CV Mr ZAHMOUL Chaouwki  France (3).pdf',         folder: 'talentflow-tests', expected: { cv: true,  warning: 'name_ambiguity' } },
+  { file: '67oEClkJfvU3-Certificat-Manor.pdf',               folder: 'talentflow-test-fixtures', expected: { cv: false, reason: 'ia' } },
+  { file: 'Ouvrière d\'usine à 100%.docx',                    folder: 'talentflow-test-fixtures', expected: { cv: false, reason: 'ia' } },
+  { file: 'Scanné 6 janv. 2026 à 114000.pdf',                folder: 'talentflow-test-fixtures', expected: { cv: false, reason: 'ia' } },
+  { file: '_CV Mr ZAHMOUL Chaouwki  France (3).pdf',         folder: 'talentflow-test-fixtures', expected: { cv: true,  warning: 'name_ambiguity' } },
 ]
 
 async function runOne(filename: string, folder: string) {

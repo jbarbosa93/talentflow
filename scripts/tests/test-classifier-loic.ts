@@ -3,8 +3,8 @@
 
 import fs from 'node:fs'
 import mammoth from 'mammoth'
-import { analyserCV } from '../lib/claude'
-import { classifyDocument } from '../lib/document-classification'
+import { analyserCV } from '../../lib/claude'
+import { classifyDocument } from '../../lib/document-classification'
 
 const FILE_PATH = '/Users/joaobarbosa/Desktop/BUG TALENTFLOW/Loïc Arluna cv.docx'
 

@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.102 prod (classifier IA-first — fix régression v1.9.101 sur certificats/lettres motivation)** — 24/04/2026
+**1.9.104 prod (Option B matching : protection homonymes sans DDN)** — 24/04/2026
 
 ---
 
@@ -144,7 +144,8 @@ Règles consolidées après 2 jours de travail intensif avec João. À appliquer
 - Score 8-10 → zone uncertain → pending_validation dans `/integrations`
 - Score < 8 → nouveau candidat
 - **strictExact (nom identique) → seuil 8 minimum** (v1.9.27, pas 5 qui fusionnait les homonymes)
-- **Simulation obligatoire** avant tout changement de seuil (script `scripts/sim-*.mjs`)
+- **v1.9.104 — Option B : score ≥ 11 + DDN null des 2 côtés → uncertain** (sauf si email+tel identiques = garde-fou vrai update). Protège les homonymes avec tel/email partagé (couples, familles, indépendants) contre fusion silencieuse en OneDrive sync auto.
+- **Simulation obligatoire** avant tout changement de seuil (scripts `scripts/tests/sim-*.mjs`)
 
 ### UX & Interface
 - **Badges** : per-user strict via `candidats_vus + auth.users.candidats_viewed_all_at`, jamais global

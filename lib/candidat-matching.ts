@@ -223,13 +223,38 @@ const passesThreshold = (d: ScoreDetail): boolean => {
   return d.score >= 16
 }
 
-// v1.9.31 — Zone "uncertain" : strictExact + ville seule (score 8-10) sans contact fort.
-// Cas type Daniel Fragoso Costa / Costa Daniel (2 homonymes, même ville théorique,
-// emails/tels différents). Routé vers pending_validation côté sync OneDrive.
-// Import manuel (cv/parse) traite uncertain comme match → modale de confirmation.
-const isUncertainBand = (d: ScoreDetail): boolean => {
-  if (!d.strictExact) return false
-  return d.score >= 8 && d.score <= 10
+// v1.9.31 — Zone "uncertain" strictExact + ville seule (score 8-10) sans contact fort.
+// v1.9.104 — Option B : score ≥ 11 sans DDN des 2 côtés, sauf garde-fou email+tel
+// (mêmes contacts = même personne, probable vrai update).
+//
+// Cas protégés par Option B :
+//   - Homonymes qui partagent un tel fixe d'entreprise ou familial (couples,
+//     indépendants). Ex: Romain Goetz Genève vs St-Julien, tels identiques,
+//     emails distincts, pas de DDN → éviter la fusion silencieuse.
+//
+// Routage :
+//   - OneDrive sync auto → pending_validation (validation humaine différée)
+//   - cv/parse (import manuel) → traité comme match → modale de confirmation
+const isUncertainBand = (
+  d: ScoreDetail,
+  input: CandidatMatchInput,
+  candidat: any,
+): boolean => {
+  // v1.9.31 — strictExact + score 8-10 (ville seule)
+  if (d.strictExact && d.score >= 8 && d.score <= 10) return true
+
+  // v1.9.104 — score ≥ 11 mais aucune DDN comparable des 2 côtés
+  if (d.score >= 11) {
+    const ddnA = normDdn(input.date_naissance)
+    const ddnB = normDdn(candidat?.date_naissance)
+    if (ddnA == null && ddnB == null) {
+      // Garde-fou : email identique ET tel identique = vrai update, pas uncertain
+      if (d.emailMatch && d.telMatch) return false
+      return true
+    }
+  }
+
+  return false
 }
 
 // Départage ex-aequo : DDN > tel > email > id (déterminisme)
@@ -362,7 +387,7 @@ export async function findExistingCandidat(
   // OneDrive sync route ces matches vers pending_validation (validation manuelle).
   // Import manuel (cv/parse) traite uncertain comme match → passe par la modale existante.
   // Ignoré en attachmentMode (non-CVs retry, logique dédiée inchangée).
-  if (!opts?.attachmentMode && isUncertainBand(winner)) {
+  if (!opts?.attachmentMode && isUncertainBand(winner, input, winner.candidat)) {
     return {
       kind: 'uncertain',
       candidat: winner.candidat,

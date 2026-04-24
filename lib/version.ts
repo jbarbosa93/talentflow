@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.103'
+export const APP_VERSION = '1.9.104'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.104',
+    date: '2026-04-24',
+    label: 'Option B — protection homonymes sans date de naissance',
+    features: [
+      'ONEDRIVE SYNC — Correction d\'un risque de fusion silencieuse détecté pendant les tests workflow. Quand 2 candidats partageaient un nom exact et un même téléphone (ou même email) mais n\'avaient pas de date de naissance des 2 côtés (cas des couples, familles, indépendants partageant un numéro fixe d\'entreprise), le sync auto OneDrive pouvait écraser les données du premier avec celles du second sans demander validation.',
+      'RÈGLE AJOUTÉE — Désormais, un match nom exact + tel ou email partagé sans aucune date de naissance identifiable tombe en "à valider" dans Intégrations (au lieu d\'un écrasement automatique). Le consultant tranche manuellement : soit fusionner (même personne), soit créer une 2e fiche (homonymes distincts).',
+      'GARDE-FOU — Si les 2 candidats ont à la fois le MÊME email ET le MÊME téléphone, c\'est considéré comme un vrai update (même personne) et le match reste silencieux — pas de "à valider" inutile. Protège les mises à jour légitimes.',
+      'IMPACT — Comportement inchangé si une date de naissance est présente au moins d\'un côté (la règle absolue DDN sépare déjà les homonymes). Simulation sur 5825 candidats en base + 30 derniers jours d\'imports : 0 régression observée, volume estimé < 5 "à valider" supplémentaires par jour.',
+      'IMPORT MANUEL — Le même cas passe par la modale de confirmation "Candidat potentiellement en doublon" existante (comportement inchangé côté UI).',
+    ],
+  },
   {
     version: '1.9.103',
     date: '2026-04-24',
