@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.102'
+export const APP_VERSION = '1.9.103'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.103',
+    date: '2026-04-24',
+    label: '"Définir comme CV principal" met maintenant à jour la date + bandeau Actualisé',
+    features: [
+      'FICHE CANDIDAT — Bug corrigé : quand tu promeus un document archivé en "CV principal" depuis la fiche (menu Documents → "→ CV principal"), le candidat ne remontait pas dans la liste et la fiche continuait d\'afficher "Ajouté le X" en vert au lieu de "Actualisé le X" en bleu. Désormais : la promotion d\'un CV met à jour la date de dernière activité, affiche le bandeau bleu "Actualisé", et fait remonter le candidat en tête de la liste triée.',
+      'RÈGLE MÉTIER CONFIRMÉE — L\'attachement d\'un document non-CV (certificat, attestation, lettre de motivation) à un candidat existant NE change PAS la date et NE fait PAS remonter le candidat. C\'est volontaire : seuls les vrais changements de CV bougent la date + le badge rouge. Comportement inchangé.',
+      'BACKFILL — 1 candidat en prod (Jean-Luc Gaussen) dont l\'incohérence avait déclenché la découverte du bug : date de dernière activité alignée, bandeau fiche corrigé.',
+    ],
+  },
   {
     version: '1.9.102',
     date: '2026-04-24',

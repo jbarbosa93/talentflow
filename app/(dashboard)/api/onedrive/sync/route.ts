@@ -881,6 +881,9 @@ export async function POST(request: Request) {
                 documents: existingDocs,
                 // Ne PAS mettre à jour created_at pour un document non-CV — évite de backdater le candidat
                 updated_at: new Date().toISOString(),
+                // v1.9.103 — règle métier João : un document non-CV attaché NE doit PAS
+                // faire remonter le candidat (pas de badge rouge, pas de last_import_at).
+                // Le badge + le tri sont réservés aux vrais imports CV.
               }).eq('id', candidatExistant.id)
 
               try {

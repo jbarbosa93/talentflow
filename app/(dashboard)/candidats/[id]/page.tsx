@@ -2354,6 +2354,16 @@ export default function CandidatDetailPage() {
             cv_url: url || null,
             cv_nom_fichier: cleanFileName,
           }
+          // v1.9.103 — promotion d'un document en CV principal = vrai changement de CV.
+          // Écrit last_import_at + onedrive_change_type='mis_a_jour' pour faire remonter
+          // le candidat dans la liste + afficher "Actualisé le X" (bleu) sur la fiche.
+          // Ne s'applique PAS sur suppression du CV (url vide) ni quand le CV reste identique.
+          if (url && url !== candidat.cv_url) {
+            const nowIso = new Date().toISOString()
+            updatePayload.last_import_at = nowIso
+            updatePayload.onedrive_change_type = 'mis_a_jour'
+            updatePayload.onedrive_change_at = nowIso
+          }
           const currentDocs = (candidat.documents as any[]) || []
           // Bug 6 fix — opération atomique :
           // 1. Retirer le document promu de documents[] (il devient cv_url)

@@ -1075,6 +1075,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
       } else {
         dbg(`[CV Parse] Document déjà présent: ${file.name}, skip`)
       }
+      // v1.9.103 — règle métier João : un document non-CV attaché NE doit PAS
+      // faire remonter le candidat (pas de badge rouge, pas de last_import_at).
+      // Le badge + le tri sont réservés aux vrais imports CV.
       await adminClient.from('candidats').update({ documents: docs, updated_at: new Date().toISOString() }).eq('id', candidatExistant.id)
       dbg(`[CV Parse] Document ${analyse.document_type} ajouté à ${candidatExistant.prenom} ${candidatExistant.nom}`)
       await logActivity({ action: 'cv_importe', details: { fichier: file.name, dossier: categorie || '—', candidat: `${candidatExistant.prenom} ${candidatExistant.nom}`, type: 'document_ajouté' } })
