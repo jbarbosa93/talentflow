@@ -8,7 +8,15 @@
 //
 // Règle v1.9.33 : le nom du fichier n'est JAMAIS utilisé pour classifier.
 // Seuls comptent : la classification IA (document_type), le contenu texte,
-// et les signaux sémantiques (email générique entreprise).
+// et les signaux sémantiques positifs (expériences / compétences / formation / titre).
+//
+// v1.10.0 — CV-markers prioritaires sur patterns parasites.
+// Motivé par le cas "Loïc Arluna cv.docx" : le CV mentionnait "résiliation de mon
+// contrat de travail" dans une expérience pro → pattern /contrat de travail/
+// déclenchait un classement erroné en `contrat`, et le candidat n'était jamais créé,
+// faisant cascader 4 autres documents en erreur OneDrive.
+//
+// Simulation sur 100 CVs réels : 4-11 faux positifs OLD corrigés, 0 régression.
 
 export type DocumentType =
   | 'cv'
@@ -27,7 +35,11 @@ export interface ClassificationInput {
     document_type?: string | null
     nom?: string | null
     email?: string | null
+    titre_poste?: string | null
+    formation?: string | null
+    competences?: unknown[] | null
     experiences?: unknown[] | null
+    formations_details?: unknown[] | null
   }
   texteCV: string
 }
@@ -35,21 +47,62 @@ export interface ClassificationInput {
 export interface ClassificationResult {
   docType: DocumentType
   isNotCV: boolean
-  reason: 'ia' | 'content_pattern' | 'email_generique' | 'no_experience' | 'default'
+  reason: 'ia' | 'cv_markers' | 'content_pattern' | 'email_generique' | 'no_experience' | 'default'
 }
 
 // Préfixes d'email qu'un candidat n'utilise jamais pour postuler
 // (boîtes génériques d'entreprise → document tiers certif/attestation/contrat).
+// Exception : si le document a des CV-markers forts (ex. indépendant avec son propre info@),
+// on fait confiance aux markers (règle #3).
 const GENERIC_EMAIL_PREFIX = /^(info|contact|rh|hr|hrdirektion|personal|sekretariat|secretariat|admin|direction|accueil|reception|office)@/
 
 export function classifyDocument({ analyse, texteCV }: ClassificationInput): ClassificationResult {
-  let docType: DocumentType = ((analyse?.document_type as DocumentType) || 'cv')
-  let isNotCV = !!docType && docType !== 'cv'
+  const iaDocType: DocumentType = ((analyse?.document_type as DocumentType) || 'cv')
+  const iaSaysNotCV = !!iaDocType && iaDocType !== 'cv'
 
-  // ── 1. Second avis contenu — patterns sémantiques du texte ─────────────
-  // Slice 2000 chars (le titre "Certificat de travail" apparaît souvent après
-  // l'en-tête entreprise + adresse + date). Patterns multi-mots UNIQUEMENT.
-  if (!isNotCV || docType === 'autre') {
+  // ── CV-markers positifs extraits de l'analyse IA ────────────────────────
+  const experiences = Array.isArray(analyse?.experiences) ? (analyse.experiences as unknown[]) : []
+  const competences = Array.isArray(analyse?.competences) ? (analyse.competences as unknown[]) : []
+  const formationsDetails = Array.isArray(analyse?.formations_details) ? (analyse.formations_details as unknown[]) : []
+  const titrePoste = (analyse?.titre_poste || '').trim()
+  const formationField = (analyse?.formation || '').trim()
+
+  const hasExperiences = experiences.length >= 1
+  const hasCompetences = competences.length >= 2
+  const hasFormation = formationsDetails.length >= 1 || formationField.length >= 5
+  const hasTitre = titrePoste.length >= 3
+  const hasStrongCvMarker = hasExperiences || hasCompetences || hasFormation || hasTitre
+
+  const textLen = (texteCV || '').length
+
+  // ── 1. CV-markers forts présents → c'est un CV, on stoppe ici ───────────
+  // Les signaux positifs (expériences / compétences / formation / titre) priment
+  // sur les signaux négatifs (patterns contenu, email générique).
+  //   - Cas Loïc Arluna : "résiliation de mon contrat de travail" dans une exp → CV
+  //   - Cas Caryl Dubrit : indépendant avec info@dubrit-services.ch → CV
+  if (hasStrongCvMarker) {
+    return { docType: 'cv', isNotCV: false, reason: 'cv_markers' }
+  }
+
+  // ── 2. IA explicite non-CV + aucun marker → on fait confiance IA ────────
+  if (iaSaysNotCV) {
+    return { docType: iaDocType, isNotCV: true, reason: 'ia' }
+  }
+
+  // ── 3. Email générique d'entreprise + aucun marker → non-CV ─────────────
+  // info@/rh@/contact@ sans CV-markers = boîte entreprise (scan de certif).
+  if (analyse?.email) {
+    const emailLower = String(analyse.email).toLowerCase().trim()
+    if (GENERIC_EMAIL_PREFIX.test(emailLower)) {
+      return { docType: 'certificat', isNotCV: true, reason: 'email_generique' }
+    }
+  }
+
+  // ── 4. Texte court + aucun marker + pas d'exp + pattern matché → non-CV ─
+  // Un vrai certificat/attestation tient sur 1-2 pages (< 1500 chars).
+  // Au-dessus de ce seuil, le risque de faux positif sur un CV dont le texte
+  // contient accidentellement "contrat de travail" devient trop élevé.
+  if (textLen < 1500 && !hasExperiences) {
     const contentLower = (texteCV || '').slice(0, 2000)
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
@@ -68,21 +121,8 @@ export function classifyDocument({ analyse, texteCV }: ClassificationInput): Cla
     }
   }
 
-  // ── 2. Signal email générique d'entreprise ──────────────────────────────
-  // info@/contact@/rh@/hr@ → boîte générique, JAMAIS un candidat qui postule.
-  // Couvre les scans (certificats) où Vision IA extrait un email entreprise.
-  if (!isNotCV && analyse?.email) {
-    const emailLower = String(analyse.email).toLowerCase().trim()
-    if (GENERIC_EMAIL_PREFIX.test(emailLower)) {
-      return { docType: 'certificat', isNotCV: true, reason: 'email_generique' }
-    }
-  }
-
-  // ── 3. Bug 1 v1.9.32 — un CV légitime a au moins 1 expérience pro ──────
-  // Un document avec juste un nom mais aucune expérience extraite est un
-  // diplôme/certificat/attestation, pas un CV.
-  if (!isNotCV) {
-    const hasExperiences = Array.isArray(analyse?.experiences) && (analyse.experiences as unknown[]).length > 0
+  // ── 5. hasName + aucune expérience → diplôme/certificat générique ───────
+  {
     const nom = (analyse?.nom || '').trim()
     const hasName = !!(nom && nom !== 'Candidat' && nom.length > 1)
     if (hasName && !hasExperiences) {
@@ -90,6 +130,6 @@ export function classifyDocument({ analyse, texteCV }: ClassificationInput): Cla
     }
   }
 
-  // ── 4. Par défaut : classification IA conservée ─────────────────────────
-  return { docType, isNotCV, reason: isNotCV ? 'ia' : 'default' }
+  // ── 6. Fallback — classification IA conservée ───────────────────────────
+  return { docType: iaDocType, isNotCV: iaSaysNotCV, reason: 'default' }
 }

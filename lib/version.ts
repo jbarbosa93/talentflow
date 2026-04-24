@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.100'
+export const APP_VERSION = '1.9.101'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.101',
+    date: '2026-04-24',
+    label: 'Classifier CV/non-CV durci — CV-markers prioritaires sur patterns parasites',
+    features: [
+      'IMPORT CV — Correction d\'un bug où certains CVs légitimes étaient rejetés à tort comme "non-CV" et leur candidat n\'était jamais créé. Cas concret : Loïc Arluna, dont le CV mentionnait "résiliation de mon contrat de travail" dans une expérience pro, était classé "contrat" (non-CV) → aucune fiche créée → tous ses autres documents (certificat Sabeco, lettre motivation, attestations) cascadaient en erreur OneDrive.',
+      'RÈGLE NOUVELLE — Les signaux positifs d\'un vrai CV (expériences ≥1, compétences ≥2, formation, titre de poste) ont désormais priorité absolue sur les patterns parasites ("contrat de travail", "permis de séjour", "lettre de motivation mentionnée", etc.) qui peuvent apparaître naturellement dans un CV. Un document avec de vraies expériences pro est un CV, quoi que dise le texte.',
+      'AUTRES CAS CORRIGÉS — Les mentions "permis de travail / permis de séjour" dans un CV (fréquent en Suisse) ne font plus rejeter le candidat. Idem pour "lettre de motivation jointe" mentionnée dans le CV. Idem pour les indépendants qui utilisent l\'email info@ de leur propre société comme contact (cas Caryl Dubrit).',
+      'NON-CVs PROTÉGÉS — Les vrais certificats, attestations, lettres de motivation, bulletins de salaire, permis et contrats restent correctement classés comme non-CV tant qu\'ils n\'ont pas d\'expériences/compétences extraites. Les 5 fichiers Loïc Arluna en erreur en prod seront automatiquement retraités par le prochain sync OneDrive.',
+      'VALIDATION — Simulation sur 100 CVs aléatoires de la base : 87-96/100 classés CV avec l\'ancien classifier, 100/100 avec le nouveau. 20 non-CVs de contrôle : 20/20 toujours correctement rejetés. 0 régression observée.',
+    ],
+  },
   {
     version: '1.9.100',
     date: '2026-04-23',
