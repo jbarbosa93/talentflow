@@ -187,7 +187,7 @@ Les noms propres (nom, prénom, entreprises, écoles) ne doivent PAS être tradu
 
 // ─── Parser JSON robuste ─────────────────────────────────────────────────────
 
-function parseCV(text: string): CVAnalyse {
+function parseCV(text: string, sourceTexteCV: string = ''): CVAnalyse {
   // Nettoyage agressif des backticks markdown (toutes variantes)
   let cleaned = text
     .replace(/^[\s\S]*?```(?:json|JSON)?\s*/m, '')  // Tout avant et incluant ```json
@@ -239,8 +239,9 @@ function parseCV(text: string): CVAnalyse {
   result.document_type = result.document_type || 'cv'
 
   // v1.9.32 — Validation post-extraction : détecte nom=entreprise, champs suspects
+  // v1.9.102 — passe sourceTexteCV pour activer name_ambiguity (tokens MAJUSCULES en-tête)
   try {
-    const warnings = validateAnalyse(result)
+    const warnings = validateAnalyse(result, sourceTexteCV)
     if (warnings.length > 0) {
       const summary = summarizeWarnings(warnings)
       if (summary.hasErrors) {
@@ -498,7 +499,7 @@ export async function analyserCV(texteCV: string, options?: { translateToFrench?
   const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
 
   try {
-    return parseCV(text)
+    return parseCV(text, texteCV)
   } catch {
     throw new Error(`Claude a retourné un JSON invalide : ${text.slice(0, 200)}`)
   }

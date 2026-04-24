@@ -118,17 +118,51 @@ export type ValidationWarning = {
 }
 
 /**
+ * v1.9.102 — Détecte l'ambiguïté nom/prénom quand l'en-tête du CV contient
+ * plusieurs tokens en MAJUSCULES de ≥3 caractères. Cas typique :
+ * "Mr ZAHMOUL Chaouwki" où ZAHMOUL peut être le nom (convention FR) ou
+ * le prénom (l'IA a mis prenom="Zahmoul" nom="Chaouwki" par défaut).
+ *
+ * Heuristique : scan des 200 premiers chars, pattern `\b[A-ZÀ-Ý]{3,}\b`.
+ * 2+ tokens uniques en majuscules → warning non-bloquant pour validation humaine.
+ */
+export function detectNameAmbiguity(texteCV: string): ValidationWarning | null {
+  const head = (texteCV || '').slice(0, 200)
+  const matches = head.match(/\b[A-ZÀ-Ý]{3,}\b/g) || []
+  // Exclut les mots courants non-nom qui pourraient remonter (EXPERIENCES, FORMATION, COMPETENCES)
+  const skip = new Set(['EXPERIENCES', 'EXPERIENCE', 'EXPÉRIENCES', 'EXPÉRIENCE', 'FORMATION', 'FORMATIONS', 'COMPETENCES', 'COMPÉTENCES', 'LANGUES', 'DIPLOMES', 'DIPLÔMES'])
+  const uniq = Array.from(new Set(matches)).filter(m => !skip.has(m))
+  if (uniq.length >= 2) {
+    return {
+      field: 'nom_prenom',
+      severity: 'warning',
+      message: `Nom/prénom à vérifier (plusieurs mots en MAJUSCULES en en-tête : ${uniq.slice(0, 3).join(', ')})`,
+    }
+  }
+  return null
+}
+
+/**
  * Valide une analyse CV extraite par l'IA et retourne les warnings détectés.
  * Ne modifie PAS l'analyse — retourne juste les problèmes.
  *
+ * @param analyse  objet retourné par analyserCV/...DepuisPDF/...DepuisImage
+ * @param texteCV  (optionnel) texte brut extrait — active les validators basés sur le texte
+ *
  * Utilisation type :
- *   const warnings = validateAnalyse(analyse)
+ *   const warnings = validateAnalyse(analyse, texteCV)
  *   if (warnings.some(w => w.severity === 'error')) {
  *     // bloquer l'import ou déclencher une re-analyse
  *   }
  */
-export function validateAnalyse(analyse: Partial<CVAnalyse>): ValidationWarning[] {
+export function validateAnalyse(analyse: Partial<CVAnalyse>, texteCV: string = ''): ValidationWarning[] {
   const warnings: ValidationWarning[] = []
+
+  // v1.9.102 — ambiguïté MAJUSCULES en en-tête (cas Zahmoul)
+  if (texteCV) {
+    const nameAmb = detectNameAmbiguity(texteCV)
+    if (nameAmb) warnings.push(nameAmb)
+  }
 
   // Check nom+prenom = entreprise
   if (analyse.nom || analyse.prenom) {

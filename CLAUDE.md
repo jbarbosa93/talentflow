@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.101 prod (classifier non-CV durci — CV-markers prioritaires, fix cas Loïc Arluna)** — 24/04/2026
+**1.9.102 prod (classifier IA-first — fix régression v1.9.101 sur certificats/lettres motivation)** — 24/04/2026
 
 ---
 
@@ -429,14 +429,16 @@ Aucune autre modification (notes, statut, rating, tags, pipeline, vu/non-vu) ne 
 - Utiliser `classifyDocument({ analyse, texteCV })` partout : import manuel (`cv/parse`), cron OneDrive (`onedrive/sync`), banc DRY-RUN (`onedrive/sync-test`)
 - **JAMAIS de détection par nom de fichier** (ni `file.name`, ni `filename`). Règle dure depuis v1.9.33. Faux positifs trop nombreux ("CV_PASCALI..." classé non-CV, inverse possible aussi). Source unique de vérité : IA `document_type` + contenu texte + signaux structurels (email générique entreprise, absence d'expériences)
 - Toute nouvelle règle de classification doit être ajoutée dans `lib/document-classification.ts`, pas dans un call site spécifique — sinon les 3 routes divergent et le DRY-RUN se met à mentir
-- **v1.9.101 — CV-markers prioritaires (ordre strict)** :
-  1. ≥1 exp OU ≥2 compétences OU formation (array ≥1 OU `formation` string ≥5 chars) OU `titre_poste` ≥3 chars → `cv` (raison `cv_markers`). Les patterns parasites "contrat de travail", "permis de travail", "lettre de motivation" dans un VRAI CV ne font plus déclasser. Cas Loïc Arluna (1681 chars, "résiliation de mon contrat de travail" dans une exp → CV).
-  2. IA `document_type` ≠ 'cv' + aucun marker → non-CV (`ia`)
-  3. Email `info@`/`rh@`/`contact@` + aucun marker → non-CV (`email_generique`). Cas Caryl Dubrit (indépendant avec `info@dubrit-services.ch` + 7 exp) = CV car markers priment (règle 1).
-  4. Texte < 1500 chars + aucun marker + pas d'exp + pattern contenu → non-CV (`content_pattern`). Seuil 1500 : un vrai certif/attestation tient sur 1-2 pages.
-  5. Nom extrait + aucune exp → `diplome` (`no_experience`)
-  6. Fallback IA
-- **Simulation obligatoire** sur 100+ CVs réels avant toute modif des seuils ou de l'ordre — voir `scripts/sim-classifier-hardening.mjs`. Attendu : 100/100 CVs classés CV, 0 régression sur non-CVs de contrôle.
+- **v1.9.102 — IA-first (7 règles)** :
+  1. **IA explicite non-CV** (`certificat` / `attestation` / `lettre_motivation` / `contrat` / `diplome` / `bulletin_salaire` / `permis` / `reference` / `formation`) → non-CV (`ia`). **Priorité maximale, sans condition** — corrige régression v1.9.101 qui override l'IA via markers.
+  2. **Patterns HAUTE CONFIANCE en-tête 0-500 chars** : "certificat de travail" / "arbeitszeugnis" / "je soussigné" / "nous certifions que" / "Bewerbungsschreiben" / "Objet : candidature" → non-CV (`content_pattern`). Filet de sécurité si IA dit `cv` par erreur. "Madame, Monsieur" dans 0-200 chars + texte < 1500 → lettre_motivation.
+  3. **CV-markers DURCIS** : variante A (exp ≥ 2 ET (comp ≥ 3 OU form)) OU variante B (exp ≥ 1 ET comp ≥ 5 ET titre ≥ 3). Variante B protège indépendants avec email info@ de leur société (cas Caryl Dubrit, Nicolas Kilchenmann).
+  4. **Email générique** `info@`/`rh@`/`contact@` + aucun marker → non-CV (`email_generique`).
+  5. **Texte < 1500 chars** + pas d'exp + pattern contenu (bulletin / permis / reference / contrat) → non-CV (`content_pattern`).
+  6. **Nom extrait + aucune exp** → `diplome` (`no_experience`).
+  7. **Fallback IA** : si `document_type` ≠ `'cv'` (ex: `'autre'`) → conserver verdict non-CV.
+- **Warning `name_ambiguity`** (v1.9.102) — `lib/cv-extraction-validator.ts.detectNameAmbiguity()` : si 2+ tokens MAJUSCULES ≥3 chars dans les 200 premiers chars du texte (ex: "Mr ZAHMOUL Chaouwki"), ajoute warning `severity: 'warning'` dans `analyse._extraction_warnings`. Appelé depuis `validateAnalyse(result, sourceTexteCV)` dans `parseCV` de `lib/claude.ts`. **Limitation** : ne fonctionne que sur CVs avec texte natif (DOCX + PDF bien formés). PDFs scan traités par Vision n'ont pas de texteCV → warning inactif. UI badge à câbler en v1.9.103.
+- **Simulation obligatoire** sur 100+ CVs réels avant toute modif des seuils ou de l'ordre — voir `scripts/sim-classifier-hardening.mjs` (5 datasets : 100 CVs DB + 20 non-CVs synthétiques + 5 Loïc Arluna + 3 cas réels Manor/Sandra/Marjorie + cas Zahmoul). Attendu : 100% sur tous datasets, 0 régression.
 
 **15. Détection "même fichier" CV — SHA256 du buffer (v1.9.42)**
 - Colonnes DB : `candidats.cv_sha256 TEXT` + `candidats.cv_size_bytes INTEGER` + index partiel

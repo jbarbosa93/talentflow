@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.101'
+export const APP_VERSION = '1.9.102'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.102',
+    date: '2026-04-24',
+    label: 'Classifier IA-first — fix régression v1.9.101 sur certificats et lettres de motivation',
+    features: [
+      'IMPORT — Correction d\'un sur-classement en CV introduit par la v1.9.101 : les certificats de travail, attestations et lettres de motivation qui mentionnent un poste (l\'IA en faisait "1 expérience") passaient à tort la règle CV-markers et étaient classés comme CVs. Cas réels corrigés : certificat d\'apprentissage Manor, lettre de motivation "Ouvrière d\'usine", certificat de travail COSMOTEC. Désormais respectés comme non-CV.',
+      'RÈGLE NOUVELLE — Quand l\'IA identifie explicitement le document comme certificat / attestation / lettre_motivation / contrat / diplôme / bulletin_salaire / permis / référence / formation, on respecte sans condition (priorité maximale). Les CV-markers ne peuvent plus override cette décision. Si l\'IA hallucine exceptionnellement sur un vrai CV, le consultant peut le re-importer en forçant.',
+      'RÈGLE AFFINÉE — CV-markers durcis en tie-breaker : exige désormais au moins 2 expériences + (3 compétences ou formation), OU 1 seule expérience mais avec 5+ compétences + titre de poste cohérent (cas des indépendants avec email info@ de leur propre société, comme Caryl Dubrit ou Nicolas Kilchenmann).',
+      'RÈGLE AJOUTÉE — Filet de sécurité "patterns en-tête 0-500 chars" : détecte les vrais certificats/attestations/lettres même si l\'IA dit "cv" par erreur (ex. "Certificat de travail" ou "Je soussigné" en début de document).',
+      'WARNING NOUVEAU — Détection "nom/prénom à vérifier" quand l\'en-tête du CV contient plusieurs mots en MAJUSCULES (ex. "Mr ZAHMOUL Chaouwki" — convention FR "Mr NOM Prénom" vs ordre international "Prénom NOM"). Le warning est stocké dans les métadonnées d\'extraction ; l\'affichage visuel sur la fiche candidat arrivera en v1.9.103. Limitation : le warning ne s\'active que pour les CVs avec texte natif (DOCX ou PDF bien formé), pas sur les scans traités par Vision IA.',
+      'VALIDATION — Simulation 100 CVs réels + 20 non-CVs synthétiques + 5 cas Loïc Arluna + 3 nouveaux cas réels (Manor/Sandra/Marjorie) + 1 cas Zahmoul : 100% pass sur 3 runs consécutifs. Test end-to-end sur 5 fichiers réels : 4/5 PASS (Zahmoul partiel à cause de la limitation scan Vision). Aucune régression par rapport au fix v1.9.101 sur Loïc Arluna.',
+    ],
+  },
   {
     version: '1.9.101',
     date: '2026-04-24',
