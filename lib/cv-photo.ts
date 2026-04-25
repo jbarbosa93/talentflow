@@ -109,6 +109,30 @@ export function scoreHeadshot(img: ImageCandidate): number {
 const MIN_HEADSHOT_SCORE = 25
 
 /**
+ * Trace which rules fire when scoring a candidate — used for F5 diagnostic logs.
+ * Mirrors scoreHeadshot logic but only collects rule labels (no scoring math).
+ */
+function explainScore(img: ImageCandidate): string[] {
+  const r: string[] = []
+  if (img.ratio >= 0.9 && img.ratio <= 1.1 && img.width < 80) r.push('VETO:icone_carree_petite')
+  if (img.width > 2000) r.push('VETO:scan_doc_complet(w>2000)')
+  if (img.uniqueColors < 40) r.push('VETO:motif_decoratif(uc<40)')
+  const likelyBW = img.uniqueColors >= 50 && img.uniqueColors <= 100 && img.skinRatio >= 0.04
+  if (likelyBW) r.push('NB:detected')
+  if (img.skinRatio < 0.03 && !likelyBW) r.push('VETO:peu_de_peau(<3%)')
+  if (img.ratio >= 1.2 && img.ratio <= 1.55) r.push('+50:ratio_portrait')
+  else if (img.ratio >= 1.1 && img.ratio <= 1.7) r.push('+25:ratio_proche_portrait')
+  else if (img.ratio >= 0.9 && img.ratio < 1.1) r.push('-20:carre')
+  else if (img.ratio >= 0.75 && img.ratio < 0.9) r.push('-40:paysage')
+  else r.push('-60:ratio_extreme')
+  if (img.skinRatio >= 0.10 && img.skinRatio <= 0.55) r.push('+30:skin_ok')
+  else if (img.skinRatio >= 0.05) r.push('+10:skin_low')
+  else if (img.skinRatio < 0.02) r.push('-15:no_skin')
+  if (img.pageIndex === 0) r.push('+12:page1')
+  return r
+}
+
+/**
  * Count unique colors (binned to 16 levels per channel) in a resized thumbnail.
  */
 export async function countUniqueColors(imageBuffer: Buffer, isRaw?: boolean, rawOpts?: { width: number; height: number; channels: 1 | 3 | 4 }): Promise<number> {
@@ -279,9 +303,10 @@ export async function extractPhotoFromImage(imageBuffer: Buffer): Promise<Buffer
 export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | null> {
   try {
     const candidates: ImageCandidate[] = []
+    const rejectedScans: RejectedFullPageScan[] = []
 
     // --- Strategy 1: Extract raw JPEG/image data from PDF XObjects ---
-    await collectImagesFromPdfRaw(pdfBuffer, candidates)
+    await collectImagesFromPdfRaw(pdfBuffer, candidates, rejectedScans)
 
     // --- Strategy 1b: Vision validation when multiple XObjects compete ---
     // If multiple candidates score > 20, scoreHeadshot alone can't distinguish
@@ -353,12 +378,51 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
 
     // --- Strategy 2: Use pdfjs-dist as fallback ---
     if (candidates.length === 0) {
+      console.log('[F5-S2] trigger reason=no_candidates_from_S1')
       await collectImagesViaPdfjs(pdfBuffer, candidates)
+    } else {
+      console.log(`[F5-S2] skip reason=already_have_candidates count=${candidates.length}`)
+    }
+
+    // --- Strategy 1bis (F1bis, v1.9.105): scans pleine page DCTDecode rejetés → Vision face crop ---
+    // Pattern : Strategy 1 + 2 ont retourné 0 candidat, ET au moins 1 XObject DCTDecode portrait
+    // ≥1500px a été rejeté pour "too_large". On envoie ces scans à Vision Haiku pour
+    // localiser et cropper le visage. Récupère ~19/22 cas du banc test (scans A4 pleine page).
+    if (candidates.length === 0 && rejectedScans.length > 0) {
+      console.log(`[F5-S1bis] trigger rejected_scans=${rejectedScans.length}`)
+      // Limite à 3 pages max (couvre tous les CVs courts) — coût Vision contrôlé.
+      for (const scan of rejectedScans.slice(0, 3)) {
+        console.log(`[F5-S1bis] try src=${scan.source} ${scan.width}x${scan.height} page=${scan.pageIdx + 1}`)
+        const faceCandidate = await tryVisionFaceCrop(scan.rawBytes, scan.source, '[F5-S1bis]')
+        if (faceCandidate) {
+          candidates.push(faceCandidate)
+          console.log(`[F5-S1bis] success page=${scan.pageIdx + 1} → stop`)
+          break
+        }
+      }
+      if (candidates.length === 0) console.log(`[F5-S1bis] done no_face_extracted`)
+    } else if (candidates.length === 0 && rejectedScans.length === 0) {
+      console.log('[F5-S1bis] skip reason=no_rejected_scans_to_try')
+    } else {
+      console.log(`[F5-S1bis] skip reason=already_have_candidates count=${candidates.length}`)
     }
 
     // --- Strategy 3: Scan pleine page → Claude Vision localise le portrait ---
     // Si un seul candidat = scan de page entière (>1000px, ratio page ~1.2-1.6)
     // → envoyer à Claude Haiku Vision pour localiser les coordonnées du portrait
+    const s3CandLen = candidates.length
+    const s3W = candidates[0]?.width ?? 0
+    const s3R = candidates[0]?.ratio ?? 0
+    const s3Eligible = s3CandLen === 1 && s3W > 1000 && s3R >= 1.2 && s3R <= 1.6
+    if (!s3Eligible) {
+      const reasons: string[] = []
+      if (s3CandLen !== 1) reasons.push(`candidates=${s3CandLen}!=1`)
+      if (s3CandLen === 1 && s3W <= 1000) reasons.push(`width=${s3W}<=1000`)
+      if (s3CandLen === 1 && (s3R < 1.2 || s3R > 1.6)) reasons.push(`ratio=${s3R.toFixed(2)}_out_of_[1.2,1.6]`)
+      console.log(`[F5-S3] skip reasons=${reasons.join(',') || 'unknown'}`)
+    } else {
+      console.log(`[F5-S3] trigger candidates=1 width=${s3W} ratio=${s3R.toFixed(2)}`)
+    }
     if (candidates.length === 1 && candidates[0].width > 1000 && candidates[0].ratio >= 1.2 && candidates[0].ratio <= 1.6) {
       try {
         const sharp = (await import('sharp')).default
@@ -420,6 +484,7 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
           if (jsonMatch) {
             const faceData = JSON.parse(jsonMatch[0])
             if (faceData.face && faceData.cx != null && faceData.cy != null && faceData.size != null) {
+              console.log(`[F5-S3] face_detected cx=${faceData.cx} cy=${faceData.cy} size=${faceData.size}`)
               // Convertir pixels Vision → pixels original
               const faceCx = faceData.cx / scale
               const faceCy = faceData.cy / scale
@@ -447,18 +512,36 @@ export async function extractPhotoFromPDF(pdfBuffer: Buffer): Promise<Buffer | n
                   skinRatio: await detectSkinRatio(cropped), pageIndex: 0, source: 'vision-face',
                 })
                 candidates.shift()
+                console.log(`[F5-S3] crop_accepted ${cropW}x${cropH} → 300x400`)
+              } else {
+                console.log(`[F5-S3] crop_rejected reason=size_invalid cropW=${cropW} cropH=${cropH} pageW=${origW} pageH=${origH}`)
               }
+            } else {
+              console.log(`[F5-S3] face_not_detected vision_response=${visionText.slice(0, 100)}`)
             }
+          } else {
+            console.log(`[F5-S3] no_json_in_response response=${visionText.slice(0, 100)}`)
           }
+        } else {
+          console.log('[F5-S3] no_raw_bytes_extracted_from_pdf')
         }
-      } catch (e) { console.warn('[CV Photo] Strategy 3 (Vision crop) failed:', (e as Error).message) }
+      } catch (e) {
+        console.warn('[CV Photo] Strategy 3 (Vision crop) failed:', (e as Error).message)
+        console.log(`[F5-S3] crash error=${(e as Error).message}`)
+      }
     }
 
-    if (candidates.length === 0) return null
-    return pickBestCandidate(candidates)
+    if (candidates.length === 0) {
+      console.log('[F5-Final] result=NULL reason=no_candidates_from_any_strategy')
+      return null
+    }
+    const result = await pickBestCandidate(candidates)
+    console.log(`[F5-Final] result=${result ? 'OK' : 'NULL'} candidates=${candidates.length} bytes=${result?.length ?? 0}`)
+    return result
 
   } catch (e) {
     console.warn('[CV Photo] extraction failed:', (e as Error).message)
+    console.log(`[F5-Final] result=NULL reason=top_level_crash error=${(e as Error).message}`)
     return null
   }
 }
@@ -590,6 +673,7 @@ async function pickBestCandidate(candidates: ImageCandidate[]): Promise<Buffer |
   for (const img of candidates) {
     const s = scoreHeadshot(img)
     console.log(`[CV Photo] Candidate: ${img.source} ${img.width}x${img.height} ratio=${img.ratio.toFixed(2)} compressed=${img.compressedSize}B colors=${img.uniqueColors} skin=${(img.skinRatio * 100).toFixed(0)}% score=${s}`)
+    console.log(`[F5-Score] src=${img.source} score=${s} rules=[${explainScore(img).join('|')}]`)
     if (s > bestScore) {
       bestScore = s
       bestCandidate = img
@@ -598,16 +682,148 @@ async function pickBestCandidate(candidates: ImageCandidate[]): Promise<Buffer |
 
   if (!bestCandidate || bestScore < MIN_HEADSHOT_SCORE) {
     console.log(`[CV Photo] No suitable headshot found. Best score: ${bestScore} (threshold: ${MIN_HEADSHOT_SCORE})`)
+    console.log(`[F5-Score] decision=REJECT best=${bestScore} threshold=${MIN_HEADSHOT_SCORE} candidates=${candidates.length}`)
     return null
   }
 
   console.log(`[CV Photo] Selected: ${bestCandidate.source} ${bestCandidate.width}x${bestCandidate.height} score=${bestScore}`)
+  console.log(`[F5-Score] decision=SELECT src=${bestCandidate.source} score=${bestScore} threshold=${MIN_HEADSHOT_SCORE}`)
   return bestCandidate.buffer
+}
+
+/**
+ * Apply Claude Haiku Vision face detection on a full-page image buffer
+ * (typically a scanned A4 CV) and crop the portrait region.
+ *
+ * Used by:
+ *  - Strategy 3 (when 1 large XObject candidate already extracted)
+ *  - Strategy 1bis / F1bis (when XObjects rejected for too_large — v1.9.105)
+ *
+ * Returns null if Vision finds no face, or if crop would cover too much of the page.
+ * The returned candidate goes through scoreHeadshot which acts as final safety net.
+ */
+async function tryVisionFaceCrop(
+  rawBytes: Buffer,
+  sourceLabel: string,
+  logTag: '[F5-S3]' | '[F5-S1bis]' = '[F5-S1bis]',
+): Promise<ImageCandidate | null> {
+  try {
+    const sharp = (await import('sharp')).default
+    const meta = await sharp(rawBytes).metadata()
+    const origW = meta.width || 1600, origH = meta.height || 2300
+
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) {
+      console.log(`${logTag} skip reason=no_api_key src=${sourceLabel}`)
+      return null
+    }
+
+    const visionWidth = 800
+    const scale = visionWidth / origW
+    const visionHeight = Math.round(origH * scale)
+    const visionBuf = await sharp(rawBytes).resize({ width: visionWidth, fit: 'inside' }).jpeg({ quality: 75 }).toBuffer()
+    const b64 = visionBuf.toString('base64')
+
+    const visionFetch = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+            { type: 'text', text: `This image is ${visionWidth}x${visionHeight} pixels. Is there a passport-style photograph of a real person (showing eyes, nose, mouth)? Not a logo or icon. If YES, give the pixel coordinates of the face center and size. Reply ONLY with JSON: {"face":true,"cx":XXX,"cy":YYY,"size":ZZZ} where cx,cy is the center of the face in pixels and size is the approximate face width in pixels. If no face: {"face":false}` }
+          ]
+        }]
+      }),
+    })
+    if (!visionFetch.ok) {
+      console.log(`${logTag} vision_api_failed src=${sourceLabel} status=${visionFetch.status}`)
+      return null
+    }
+    const visionRes = await visionFetch.json() as any
+    const visionText = ((visionRes.content?.[0]?.text) || '').trim()
+    const jsonMatch = visionText.match(/\{[^}]+\}/)
+
+    if (!jsonMatch) {
+      console.log(`${logTag} no_json src=${sourceLabel} response=${visionText.slice(0, 80)}`)
+      return null
+    }
+
+    const faceData = JSON.parse(jsonMatch[0])
+    if (!faceData.face || faceData.cx == null || faceData.cy == null || faceData.size == null) {
+      console.log(`${logTag} face_not_detected src=${sourceLabel} response=${visionText.slice(0, 80)}`)
+      return null
+    }
+
+    console.log(`${logTag} face_detected src=${sourceLabel} cx=${faceData.cx} cy=${faceData.cy} size=${faceData.size}`)
+
+    const faceCx = faceData.cx / scale
+    const faceCy = faceData.cy / scale
+    const faceSize = faceData.size / scale
+
+    const cropSize = faceSize * 1.8
+    const cropW = Math.min(Math.round(cropSize), origW)
+    const cropH = Math.min(Math.round(cropSize * 1.25), origH)
+    const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
+    const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH))
+
+    if (!(cropW > 50 && cropH > 50 && cropW < origW * 0.4 && cropH < origH * 0.4)) {
+      console.log(`${logTag} crop_rejected src=${sourceLabel} cropW=${cropW} cropH=${cropH} pageW=${origW} pageH=${origH}`)
+      return null
+    }
+
+    const cropped = await sharp(rawBytes)
+      .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })
+      .resize({ width: 300, height: 400, fit: 'cover' })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+
+    const cMeta = await sharp(cropped).metadata()
+    const w = cMeta.width || 300, h = cMeta.height || 400
+    const candidate: ImageCandidate = {
+      buffer: cropped,
+      width: w,
+      height: h,
+      ratio: h / w,
+      area: w * h,
+      compressedSize: cropped.length,
+      uniqueColors: await countUniqueColors(cropped, false),
+      skinRatio: await detectSkinRatio(cropped),
+      pageIndex: 0,
+      source: sourceLabel,
+    }
+    console.log(`${logTag} crop_accepted src=${sourceLabel} ${cropW}x${cropH} colors=${candidate.uniqueColors} skin=${(candidate.skinRatio * 100).toFixed(0)}%`)
+    return candidate
+  } catch (e) {
+    console.warn('[CV Photo] tryVisionFaceCrop failed:', (e as Error).message)
+    console.log(`${logTag} crash src=${sourceLabel} error=${(e as Error).message}`)
+    return null
+  }
 }
 
 // ─── Strategy 1: pdf-lib raw XObjects ────────────────────────────────────────
 
-async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandidate[]): Promise<void> {
+/**
+ * Holds the raw bytes of a full-page DCTDecode XObject that was rejected
+ * for "too_large" but matches the scan-A4 pattern (portrait ratio, ≥1500px).
+ * F1bis (v1.9.105) feeds these to Vision face crop as a last resort.
+ */
+interface RejectedFullPageScan {
+  rawBytes: Buffer
+  width: number
+  height: number
+  pageIdx: number
+  source: string
+}
+
+async function collectImagesFromPdfRaw(
+  pdfBuffer: Buffer,
+  candidates: ImageCandidate[],
+  rejectedScans: RejectedFullPageScan[] = [],
+): Promise<void> {
   try {
     const pdflib = await import('pdf-lib')
     const { PDFDocument, PDFName, PDFRawStream, PDFRef } = pdflib
@@ -615,9 +831,9 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
 
     const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
     const sharp = (await import('sharp')).default
-    // Debug removed
 
     const pagesToCheck = Math.min(3, pdfDoc.getPageCount())
+    console.log(`[F5-S1] start pages_total=${pdfDoc.getPageCount()} pages_checked=${pagesToCheck}`)
 
     for (let pageIdx = 0; pageIdx < pagesToCheck; pageIdx++) {
       const page = pdfDoc.getPage(pageIdx)
@@ -628,21 +844,31 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
       if (rawResources instanceof PDFRef) {
         resources = pdfDoc.context.lookup(rawResources)
       }
-      if (!(resources instanceof PDFDict)) continue
+      if (!(resources instanceof PDFDict)) {
+        console.log(`[F5-S1] page=${pageIdx + 1} skip reason=no_resources_dict`)
+        continue
+      }
 
       const rawXObjects = resources.get(PDFName.of('XObject'))
       let xObjects: any = rawXObjects
       if (rawXObjects instanceof PDFRef) {
         xObjects = pdfDoc.context.lookup(rawXObjects)
       }
-      if (!(xObjects instanceof PDFDict)) continue
+      if (!(xObjects instanceof PDFDict)) {
+        console.log(`[F5-S1] page=${pageIdx + 1} skip reason=no_xobject_dict`)
+        continue
+      }
+
+      const xobjKeys = [...xObjects.keys()].length
+      console.log(`[F5-S1] page=${pageIdx + 1} xobj_keys=${xobjKeys}`)
 
       // Process XObjects — including Form XObjects (recursive)
-      // Debug removed
-      await processXObjects(xObjects, pdfDoc, sharp, pageIdx, candidates, 0)
+      await processXObjects(xObjects, pdfDoc, sharp, pageIdx, candidates, 0, rejectedScans)
     }
+    console.log(`[F5-S1] done candidates_collected=${candidates.length} rejected_full_page_scans=${rejectedScans.length}`)
   } catch (e) {
     console.warn('[CV Photo] pdf-lib strategy failed:', (e as Error).message)
+    console.log(`[F5-S1] crash error=${(e as Error).message}`)
   }
 }
 
@@ -652,12 +878,17 @@ async function collectImagesFromPdfRaw(pdfBuffer: Buffer, candidates: ImageCandi
  */
 async function processXObjects(
   xObjects: any, pdfDoc: any, sharp: any, pageIdx: number,
-  candidates: ImageCandidate[], depth: number
+  candidates: ImageCandidate[], depth: number,
+  rejectedScans: RejectedFullPageScan[] = [],
 ): Promise<void> {
   const { PDFName, PDFRawStream, PDFRef, PDFDict } = await import('pdf-lib')
-  if (depth > 3) return
+  if (depth > 3) {
+    console.log(`[F5-S1] depth_cut depth=${depth}`)
+    return
+  }
 
   for (const key of xObjects.keys()) {
+    const keyStr = key.toString()
     try {
       const rawXObj = xObjects.get(key)
       let xobj: any = rawXObj
@@ -665,14 +896,23 @@ async function processXObjects(
         xobj = pdfDoc.context.lookup(rawXObj)
       }
 
-      if (!(xobj instanceof PDFRawStream)) continue
+      if (!(xobj instanceof PDFRawStream)) {
+        console.log(`[F5-S1] xobj key=${keyStr} skip reason=not_raw_stream`)
+        continue
+      }
 
       const dict = xobj.dict
       const subtype = dict.get(PDFName.of('Subtype'))
-      if (!subtype) continue
+      if (!subtype) {
+        console.log(`[F5-S1] xobj key=${keyStr} skip reason=no_subtype`)
+        continue
+      }
+
+      const subtypeStr = subtype.toString()
 
       // ── Form XObject → recurse into its Resources/XObject ──
-      if (subtype.toString() === '/Form') {
+      if (subtypeStr === '/Form') {
+        console.log(`[F5-S1] xobj key=${keyStr} subtype=Form depth=${depth} → recurse`)
         const formRes = dict.get(PDFName.of('Resources'))
         let formResDict: any = formRes
         if (formRes instanceof PDFRef) formResDict = pdfDoc.context.lookup(formRes)
@@ -681,18 +921,28 @@ async function processXObjects(
           let formXObjDict: any = formXObj
           if (formXObj instanceof PDFRef) formXObjDict = pdfDoc.context.lookup(formXObj)
           if (formXObjDict instanceof PDFDict) {
-            await processXObjects(formXObjDict, pdfDoc, sharp, pageIdx, candidates, depth + 1)
+            await processXObjects(formXObjDict, pdfDoc, sharp, pageIdx, candidates, depth + 1, rejectedScans)
+          } else {
+            console.log(`[F5-S1] form key=${keyStr} skip reason=no_nested_xobject`)
           }
+        } else {
+          console.log(`[F5-S1] form key=${keyStr} skip reason=no_form_resources`)
         }
         continue
       }
 
       // ── Image XObject ──
-      if (subtype.toString() !== '/Image') continue
+      if (subtypeStr !== '/Image') {
+        console.log(`[F5-S1] xobj key=${keyStr} subtype=${subtypeStr} skip reason=not_image`)
+        continue
+      }
 
       let widthObj  = dict.get(PDFName.of('Width'))
       let heightObj = dict.get(PDFName.of('Height'))
-      if (!widthObj || !heightObj) continue
+      if (!widthObj || !heightObj) {
+        console.log(`[F5-S1] image key=${keyStr} skip reason=no_dims`)
+        continue
+      }
       // Résoudre les références PDF (ex: "6 0 R" → valeur réelle)
       if (widthObj instanceof PDFRef) widthObj = pdfDoc.context.lookup(widthObj)
       if (heightObj instanceof PDFRef) heightObj = pdfDoc.context.lookup(heightObj)
@@ -700,17 +950,52 @@ async function processXObjects(
       const width  = Number(widthObj?.toString())
       const height = Number(heightObj?.toString())
 
-      if (isNaN(width) || isNaN(height)) continue
-      if (width < 60 || height < 60) continue
-      if (width > 2000 || height > 2500) continue
-      const ratio = height / width
-      if (ratio < 0.5 || ratio > 3.0) continue
-
       const filterObj  = dict.get(PDFName.of('Filter'))
       const filterName = filterObj ? filterObj.toString() : ''
 
+      if (isNaN(width) || isNaN(height)) {
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=nan_dims`)
+        continue
+      }
+      if (width < 60 || height < 60) {
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_small`)
+        continue
+      }
+      if (width > 2000 || height > 2500) {
+        // F1bis (v1.9.105) — capturer les scans pleine page DCTDecode pour Vision face crop.
+        // Pattern : DCTDecode (JPEG natif), ratio portrait A4-like (1.3-1.55), dimensions ≥ 1500.
+        const ratio = height / width
+        const isFullPageScan = filterName.includes('DCTDecode')
+          && ratio >= 1.3 && ratio <= 1.55
+          && width >= 1500 && height >= 2000
+        if (isFullPageScan) {
+          const rawBytesScan: Uint8Array = xobj.getContents()
+          if (rawBytesScan && rawBytesScan.length >= 1000) {
+            rejectedScans.push({
+              rawBytes: Buffer.from(rawBytesScan),
+              width, height, pageIdx,
+              source: `pdf-lib:${filterName}:p${pageIdx + 1}:${keyStr}:full-page-scan`,
+            })
+            console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large (captured for F1bis Vision crop)`)
+            continue
+          }
+        }
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large`)
+        continue
+      }
+      const ratio = height / width
+      if (ratio < 0.5 || ratio > 3.0) {
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} ratio=${ratio.toFixed(2)} skip reason=ratio_out_of_range`)
+        continue
+      }
+
       const rawBytes: Uint8Array = xobj.getContents()
-      if (!rawBytes || rawBytes.length < 100) continue
+      if (!rawBytes || rawBytes.length < 100) {
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=empty_or_tiny_stream`)
+        continue
+      }
+
+      console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} ratio=${ratio.toFixed(2)} bytes=${rawBytes.length} → decode`)
 
       // ── Check for SMask (alpha mask) and recombine ──
       let smaskBuffer: Buffer | null = null
@@ -763,7 +1048,11 @@ async function processXObjects(
               .jpeg({ quality: 85 })
               .toBuffer()
           }
-        } catch (err) { console.warn(`[CV Photo] DCTDecode resize failed: ${(err as Error).message}`); continue }
+        } catch (err) {
+          console.warn(`[CV Photo] DCTDecode resize failed: ${(err as Error).message}`)
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=dct_resize_failed err=${(err as Error).message}`)
+          continue
+        }
       }
 
       // --- FlateDecode = deflate-compressed raw pixel data ---
@@ -778,7 +1067,10 @@ async function processXObjects(
               }); else resolve(buf)
             })
           })
-        } catch { continue }
+        } catch (err) {
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=flate_inflate_failed err=${(err as Error).message}`)
+          continue
+        }
 
         let colorSpaceObj = dict.get(PDFName.of('ColorSpace'))
         if (colorSpaceObj instanceof PDFRef) colorSpaceObj = pdfDoc.context.lookup(colorSpaceObj)
@@ -786,14 +1078,20 @@ async function processXObjects(
         let bpcObj        = dict.get(PDFName.of('BitsPerComponent'))
         if (bpcObj instanceof PDFRef) bpcObj = pdfDoc.context.lookup(bpcObj)
         const bpc           = bpcObj ? Number(bpcObj.toString()) : 8
-        if (bpc !== 8) continue
+        if (bpc !== 8) {
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=bpc_not_8 bpc=${bpc}`)
+          continue
+        }
 
         let channels: 1 | 3 | 4 = 3
         if (colorSpace.includes('Gray') || colorSpace === '/DeviceGray') channels = 1
         else if (colorSpace.includes('CMYK') || colorSpace === '/DeviceCMYK') channels = 4
 
         const expectedBytes = width * height * channels
-        if (decompressed.length < expectedBytes * 0.7) continue
+        if (decompressed.length < expectedBytes * 0.7) {
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=flate_underflow got=${decompressed.length} expected=${expectedBytes} cs=${colorSpace}`)
+          continue
+        }
 
         try {
           if (smaskBuffer && smaskW === width && smaskH === height && channels >= 3) {
@@ -810,7 +1108,10 @@ async function processXObjects(
               .jpeg({ quality: 85 })
               .toBuffer()
           }
-        } catch { continue }
+        } catch (err) {
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=flate_sharp_failed err=${(err as Error).message}`)
+          continue
+        }
       }
 
       // --- JPXDecode = JPEG 2000 ---
@@ -820,7 +1121,16 @@ async function processXObjects(
             .resize({ width: 300, height: 400, fit: 'inside' })
             .jpeg({ quality: 85 })
             .toBuffer()
-        } catch { continue }
+        } catch (err) {
+          console.log(`[F5-S1] image key=${keyStr} filter=${filterName} skip reason=jpx_decode_failed err=${(err as Error).message}`)
+          continue
+        }
+      }
+
+      // --- Filter NON géré (CCITTFaxDecode, JBIG2Decode, RunLengthDecode, LZWDecode...) ---
+      else {
+        console.log(`[F5-S1] image key=${keyStr} filter=${filterName || 'NONE'} ${width}x${height} skip reason=filter_not_handled`)
+        continue
       }
 
       if (resizedBuffer) {
@@ -838,9 +1148,11 @@ async function processXObjects(
           pageIndex: pageIdx,
           source: `pdf-lib:${filterName}:p${pageIdx + 1}:${key.toString()}${smaskBuffer ? ':smask' : ''}`,
         })
+        console.log(`[F5-S1] accept key=${keyStr} filter=${filterName} ${width}x${height} smask=${!!smaskBuffer} colors=${uc} skin=${(sr * 100).toFixed(0)}%`)
       }
     } catch (err) {
       console.warn(`[CV Photo] XObject ${key.toString()} error:`, (err as Error).message)
+      console.log(`[F5-S1] xobj key=${keyStr} crash error=${(err as Error).message}`)
       continue
     }
   }
@@ -882,6 +1194,7 @@ async function compositeWithMaskRaw(sharp: any, rgbBuffer: Buffer, maskBuffer: B
 // ─── Strategy 2: pdfjs-dist operator list ────────────────────────────────────
 
 async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandidate[]): Promise<void> {
+  console.log('[F5-S2] start')
   try {
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs' as string)
     const lib = (pdfjs as any).default ?? pdfjs
@@ -896,7 +1209,10 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
     const pdf = await loadingTask.promise
     const sharp = (await import('sharp')).default
 
-    for (let pageNum = 1; pageNum <= Math.min(3, pdf.numPages); pageNum++) {
+    const pagesToCheck = Math.min(3, pdf.numPages)
+    console.log(`[F5-S2] pdf_loaded pages_total=${pdf.numPages} pages_checked=${pagesToCheck}`)
+
+    for (let pageNum = 1; pageNum <= pagesToCheck; pageNum++) {
       const page = await pdf.getPage(pageNum)
       const opList = await page.getOperatorList()
 
@@ -906,6 +1222,7 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
           imgNames.push(opList.argsArray[i][0] as string)
         }
       }
+      console.log(`[F5-S2] page=${pageNum} img_ops=${imgNames.length}`)
 
       for (const imgName of imgNames) {
         try {
@@ -923,13 +1240,25 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
           ])
 
-          if (!img || !img.data) continue
+          if (!img || !img.data) {
+            console.log(`[F5-S2] img=${imgName} skip reason=no_data`)
+            continue
+          }
           const { width, height, data, kind } = img
 
-          if (width < 60 || height < 60) continue
-          if (width > 2000 || height > 2500) continue
+          if (width < 60 || height < 60) {
+            console.log(`[F5-S2] img=${imgName} ${width}x${height} skip reason=too_small`)
+            continue
+          }
+          if (width > 2000 || height > 2500) {
+            console.log(`[F5-S2] img=${imgName} ${width}x${height} skip reason=too_large`)
+            continue
+          }
           const ratio = height / width
-          if (ratio < 0.5 || ratio > 3.0) continue
+          if (ratio < 0.5 || ratio > 3.0) {
+            console.log(`[F5-S2] img=${imgName} ${width}x${height} ratio=${ratio.toFixed(2)} skip reason=ratio_out_of_range`)
+            continue
+          }
 
           const channels = kind === 1 ? 1 : kind === 2 ? 3 : 4
 
@@ -955,15 +1284,20 @@ async function collectImagesViaPdfjs(pdfBuffer: Buffer, candidates: ImageCandida
               pageIndex: pageNum - 1,
               source: `pdfjs:p${pageNum}:${imgName}`,
             })
-          } catch {
+            console.log(`[F5-S2] accept img=${imgName} ${width}x${height} ratio=${ratio.toFixed(2)} colors=${uc} skin=${(sr * 100).toFixed(0)}%`)
+          } catch (err) {
+            console.log(`[F5-S2] img=${imgName} skip reason=sharp_failed err=${(err as Error).message}`)
             continue
           }
-        } catch {
+        } catch (err) {
+          console.log(`[F5-S2] img=${imgName} skip reason=objs_get_failed err=${(err as Error).message}`)
           continue
         }
       }
     }
+    console.log(`[F5-S2] done candidates_collected=${candidates.length}`)
   } catch (e) {
     console.warn('[CV Photo] pdfjs strategy failed:', (e as Error).message)
+    console.log(`[F5-S2] crash error=${(e as Error).message}`)
   }
 }

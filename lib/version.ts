@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.104'
+export const APP_VERSION = '1.9.105'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.105',
+    date: '2026-04-25',
+    label: 'Extraction photos pour scans A4 (F1bis Vision crop)',
+    features: [
+      'EXTRACTION PHOTOS — Bug majeur corrigé : 60% des CVs avec photo en prod (badge initiales au lieu du portrait). Cause racine identifiée via logs F5 ajoutés au moteur photo : les CVs scannés au format A4 (1 image JPEG pleine page ~2400×3400) étaient rejetés en silence par le veto "image trop grande" dans Strategy 1, sans jamais arriver à Vision IA. Désormais, ces scans sont capturés et envoyés à Claude Haiku Vision qui localise le portrait et le crop proprement.',
+      'FIX CHIRURGICAL — Helper "tryVisionFaceCrop" extrait pour mutualiser la logique Vision face crop avec Strategy 3 existante (DRY). Nouveau pipeline F1bis activé uniquement quand Strategy 1 + Strategy 2 retournent 0 candidat ET qu\'au moins 1 scan pleine page DCTDecode portrait (ratio 1.3-1.55, ≥1500px) a été détecté. Strategy 3 inchangée (zéro risque sur le path existant).',
+      'LOGS DIAGNOSTIC — Logs structurés "[F5-S1]" / "[F5-S2]" / "[F5-S3]" / "[F5-S1bis]" / "[F5-Score]" / "[F5-Final]" conservés en prod. Permettent de diagnostiquer rapidement tout futur cas d\'échec d\'extraction photo dans les Vercel logs (XObjects rencontrés, filtres PDF, raisons de rejet, étapes activées par strategy).',
+      'VALIDATION — Banc test 22 fixtures connues comme échouant : 2/22 → 19/22 (+17, 86%). Témoin 100 candidats avec photo OK en DB : 40/100 → 58/100 (+18, zéro régression). Validation visuelle 6/6 cas représentatifs (Diana Antunes, Catarina Almeida, Mariana Marques en N&B, David Frey, João Filipe Da Silva Correia, Mihaela Avadani) — toutes les photos extraites sont des vrais visages bien cadrés, sans pollution texte/logo.',
+      'CAS RÉSIDUELS (Session 3) — 3 cas non couverts par F1bis : DOCX (extractPhotoFromDOCX hors scope), FlateDecode (F1bis = DCTDecode uniquement, à étendre Session 3), veto uniqueColors<40 sur photo très peu colorée (cas frontière scoreHeadshot, à assouplir Session 3 pour les sources "vision-face*"). Coût Vision API estimé : +$0.30/mois (négligeable).',
+    ],
+  },
   {
     version: '1.9.104',
     date: '2026-04-24',

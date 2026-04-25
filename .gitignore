@@ -46,3 +46,6 @@ graphify-out/
 
 # claude worktrees (sessions isolées, ne jamais commit)
 .claude/worktrees/
+
+# Backup local Claude Code memory (privé, hors git)
+.claude-memory-backup/

@@ -89,7 +89,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.104 prod (Option B matching : protection homonymes sans DDN)** — 24/04/2026
+**1.9.105 prod (Extraction photos scans A4 — F1bis Vision crop)** — 25/04/2026
 
 ---
 
@@ -583,6 +583,14 @@ Aucune autre modification (notes, statut, rating, tags, pipeline, vu/non-vu) ne 
 - Script `scripts/setup-seb-signature.mjs` idempotent : upload photo locale → Supabase Storage `public-assets/photos/sebastien.jpg`, génère HTML (clone de João avec photo/LinkedIn/natel adaptés), update user_metadata via `supabase.auth.admin.updateUserById`.
 - Template HTML : table 2 colonnes (photo 117px | info + icônes sociaux), bannière L-AGENCE en bas. Bureau + Facebook + Instagram partagés avec João. LinkedIn + photo + mobile personnels.
 - **Les users doivent se reconnecter** pour que le session cookie récupère la nouvelle meta.
+
+**34. Extraction photos — F1bis Vision crop sur scans A4 rejetés (v1.9.105)**
+- **Cause racine** (diagnostic via logs F5) : 60% des CVs avec photo en prod (badge initiales) étaient des scans A4 (1 image JPEG pleine page ~2400×3400) rejetés en silence par le veto `width > 2000 || height > 2500` dans `processXObjects` (`lib/cv-photo.ts`). Strategy 1 retournait 0 candidat → Strategy 2 (pdfjs-dist) crashait sur `GlobalWorkerOptions.workerSrc` → Strategy 3 ne se déclenchait pas (exige `candidates.length === 1` strict) → NULL.
+- **Fix F1bis** : nouvelle interface `RejectedFullPageScan` + collecte dans `processXObjects` (DCTDecode + ratio 1.3-1.55 + ≥1500px) + branche dans `extractPhotoFromPDF` entre Strategy 2 et Strategy 3 : si `candidates.length === 0 && rejectedScans.length > 0`, envoie le 1er scan à Vision Haiku via le helper `tryVisionFaceCrop()` qui localise le visage et crop. Limité aux 3 premières pages (coût Vision contrôlé).
+- **Helper `tryVisionFaceCrop(rawBytes, sourceLabel, logTag)`** : extrait pour mutualiser la logique Vision face crop avec Strategy 3 existante (DRY). Garde-fous existants : `cropW > 50 && cropH > 50` (anti-crop minuscule) + `cropW < origW * 0.4 && cropH < origH * 0.4` (anti faux-positif "visage géant"). `scoreHeadshot` final agit comme filet de sécurité (uniqueColors < 40 = veto motif décoratif, skinRatio < 0.03 sans N&B = veto pas-de-peau).
+- **Logs F5 conservés en prod** : tags structurés `[F5-S1]` / `[F5-S2]` / `[F5-S3]` / `[F5-S1bis]` / `[F5-Score]` / `[F5-Final]` exposent XObjects rencontrés, filtres PDF, dimensions, raisons de rejet, candidats acceptés, branches activées. Permettent diagnostic rapide de tout futur cas d'échec dans Vercel logs.
+- **Bancs de test permanents** : `scripts/tests/test-photo-extraction.ts` (banc 22 fixtures connues comme échouant) + `scripts/tests/sim-photo-extraction.ts` (témoin 100 candidats prod avec photo OK en DB). Datasets dans `~/Desktop/talentflow-test-fixtures/photos-fail/` et `photos-ok/` (gitignored). README détaillé : `scripts/tests/photo-extraction-tests-README.md`. Cible : banc ≥ 19/22 (86%), témoin ≥ 58/100 (58%) — protocole anti-régression Session 3+.
+- **Cas résiduels v1.9.105** (3 sur banc 22, scope Session 3) : DOCX (`extractPhotoFromDOCX` non instrumenté F5), FlateDecode (F1bis = DCTDecode uniquement, pour FlateDecode il faudrait re-décompresser et passer par sharp raw), veto `uniqueColors < 40` qui rejette parfois un crop Vision valide sur photo très peu colorée (assouplir pour `source.startsWith('vision-face')` Session 3).
 
 ---
 
