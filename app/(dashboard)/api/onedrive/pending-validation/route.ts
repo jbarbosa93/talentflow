@@ -177,6 +177,11 @@ export async function POST(req: Request) {
       created_at: fileDate,
       updated_at: new Date().toISOString(),
       last_import_at: new Date().toISOString(),
+      // v1.9.106 — bandeau bleu "Actualisé" + remontée en liste (cohérent avec
+      // les autres chemins UPDATE : cv/parse cvUpdated, onedrive/sync update,
+      // candidats/[id] onCvChange Définir CV principal)
+      onedrive_change_type: 'mis_a_jour',
+      onedrive_change_at: new Date().toISOString(),
     }
     // Email/tel/localisation : si vides en DB, remplir (cohérent avec v1.9.28 cv/parse mode merge)
     const { data: existingCoords } = await supabase

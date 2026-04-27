@@ -1569,7 +1569,14 @@ export async function POST(request: Request) {
             dbg(`[OneDrive Sync] Retry OK: ${fichier.name} → ${match.prenom} ${match.nom}`)
           } else {
             const nameStr = [candidatPrenom, candidatNom].filter(Boolean).join(' ') || 'inconnu'
-            await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: false, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'error', erreur: `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. Importez d'abord le CV de ce candidat, puis ce fichier sera rattaché automatiquement.` })
+            // v1.9.106 — Erreur DÉFINITIVE : candidat introuvable en base.
+            // Le cron seul ne peut pas résoudre (besoin d'une action humaine pour
+            // créer le candidat). On marque traite:true pour stopper le retry
+            // infini à chaque cycle (économise tokens Vision IA + Graph API).
+            // Re-rattachement futur : si le CV du candidat est importé plus tard,
+            // l'utilisateur peut soit ré-importer le non-CV via UploadCV, soit
+            // remettre manuellement traite:false sur la row pour relancer un retry.
+            await upsertFichier({ integration_id: integrationId, onedrive_item_id: fichier.id, nom_fichier: fichier.name, traite: true, traite_le: new Date().toISOString(), last_modified_at: fichier.lastModifiedDateTime || null, statut_action: 'error', erreur: `${docTypeLabel} — candidat "${nameStr}" introuvable dans la base. Importez d'abord le CV de ce candidat puis ré-importez ce fichier (ou remettez traite:false en DB pour relancer).` })
           }
         } catch (err) {
           dbg(`[OneDrive Sync] Retry échec: ${fichier.name} — ${err instanceof Error ? err.message : String(err)}`)

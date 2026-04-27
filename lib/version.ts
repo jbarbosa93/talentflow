@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.105'
+export const APP_VERSION = '1.9.106'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.106',
+    date: '2026-04-25',
+    label: 'Bandeau Actualisé pending-validation + stop retry orphelins OneDrive',
+    features: [
+      'INTÉGRATIONS — Bug corrigé : valider un candidat en attente (bouton "Mettre à jour" sur un fichier en pending_validation depuis Intégrations) n\'écrivait pas le bandeau bleu "Actualisé le X" sur sa fiche, et le candidat ne remontait pas en haut de la liste. 2 colonnes (onedrive_change_type + onedrive_change_at) oubliées dans le payload. Désormais cohérent avec les autres chemins d\'update (import manuel, sync OneDrive auto, "Définir comme CV principal"). Cas backfill : Jessica Micaela Ramos Nunes corrigée en base.',
+      'ONEDRIVE SYNC — Bug corrigé : les non-CVs dont le candidat n\'existe pas en base (diplômes/certificats orphelins comme "Hakan Kisakaya") étaient retentés à chaque création de nouveau candidat. Coût Vision IA + Microsoft Graph gaspillé en boucle quand la résolution dépend d\'une action humaine. Désormais : erreur définitive marquée `traite=true` directement, plus de retry coûteux. Re-rattachement futur : importer le CV du candidat puis ré-importer le non-CV via "Importer candidat" (ou remettre manuellement `traite=false` en base pour relancer un retry).',
+      'RÈGLE PRÉSERVÉE — Les erreurs transitoires (timeout réseau, échec téléchargement OneDrive, exception inconnue) restent `traite=false` et continuent à être retentées au cycle suivant. Seuls les "candidat introuvable" sont marqués définitifs.',
+    ],
+  },
   {
     version: '1.9.105',
     date: '2026-04-25',
