@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.106'
+export const APP_VERSION = '1.9.107'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.107',
+    date: '2026-04-27',
+    label: '3 cas résiduels extraction photos (Session 3) — DOCX + FlateDecode + uc<40 vision-face',
+    features: [
+      'EXTRACTION PHOTOS — Les 3 cas non couverts par v1.9.105 (F1bis Vision crop) sont désormais réglés. (1) DOCX avec photos téléphone haute résolution (4032×3024+) : ces photos étaient skippées en silence pour "trop grandes". Désormais capturées et envoyées à Vision Haiku pour localiser et cropper le visage (cas Soraia Fialho dos Santos). (2) Scans A4 PDF compressés en FlateDecode (raw RGB+zlib) au lieu de DCTDecode (JPEG natif) : F1bis ne capturait que DCTDecode, FlateDecode passait sous le radar (cas Amélie Gorin). Désormais, les scans FlateDecode pleine page sont décompressés, ré-encodés en JPEG via sharp, puis envoyés à Vision. (3) Photos avec très peu de couleurs (uniqueColors 35-39, scan basse qualité) confirmées par Vision Haiku mais rejetées par le veto "motif décoratif" : on assouplit ce veto uniquement quand la source provient de Vision face crop (uc≥35 acceptable, sinon veto maintenu).',
+      'FIX BONUS — Garde-fou "face cover ratio" remplace le check `crop < orig*0.4` (calibré pour scans portrait, faux-rejette les photos paysage). Désormais : si le visage détecté occupe > 50% de la dimension max (paysage ou portrait), reject (probable photo passport déjà cropée, faux positif). Sinon accept. scoreHeadshot reste filet de sécurité final (uniqueColors, skinRatio, ratio).',
+      'NORMALISATION — La source des candidats issus de Vision face crop est désormais préfixée `vision-face:` (ex: `vision-face:pdf-lib:DCTDecode:p1:I0:full-page-scan` ou `vision-face:docx:word/media/image1.jpg`). Permet à scoreHeadshot d\'identifier les crops Vision pour appliquer le veto uc<40 assoupli. Logs F5 mis à jour en conséquence.',
+      'LOGS DIAGNOSTIC — Logs F5-DOCX ajoutés (start, file=X skip reason=Y, accept, done) + F5-DOCX-S1bis (trigger, try, success/done). Permettent de diagnostiquer rapidement les futures fails DOCX dans Vercel logs.',
+      'VALIDATION — Banc test 22 fixtures connues comme échouant : 19/22 → 22/22 (+3, 100%). Témoin 100 candidats avec photo OK en DB : 58/100 → 60/100 (+2, zéro régression). Coût Vision API estimé inchangé (Vision Haiku appels uniquement quand Strategy 1+2 échouent).',
+    ],
+  },
   {
     version: '1.9.106',
     date: '2026-04-25',

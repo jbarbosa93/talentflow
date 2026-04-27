@@ -30,7 +30,16 @@ export function scoreHeadshot(img: ImageCandidate): number {
   // Vraie photo (ex: Ferreira Da Costa) = 151 uniqueColors → large marge.
   // Seuil 40 : rejette toutes les variantes de patterns décoratifs, garde les
   // vraies photos même N&B basse qualité.
-  if (img.uniqueColors < 40) return -100
+  // v1.9.107 — Bypass si source provient de tryVisionFaceCrop (préfixe
+  // 'vision-face:'). Vision Haiku a déjà confirmé visuellement la présence
+  // d'un visage avant le crop, donc le veto motif_decoratif est trop strict
+  // pour les photos très peu colorées (ex: scan A4 José Antonio Ruiz, uc=39).
+  // Seuil assoupli à 35 — en dessous, on conserve le veto même pour Vision
+  // (un crop Vision avec uc<35 est très probablement un faux positif).
+  if (img.uniqueColors < 40) {
+    const visionConfirmed = img.source?.startsWith('vision-face')
+    if (!visionConfirmed || img.uniqueColors < 35) return -100
+  }
 
   let score = 0
 
@@ -116,7 +125,14 @@ function explainScore(img: ImageCandidate): string[] {
   const r: string[] = []
   if (img.ratio >= 0.9 && img.ratio <= 1.1 && img.width < 80) r.push('VETO:icone_carree_petite')
   if (img.width > 2000) r.push('VETO:scan_doc_complet(w>2000)')
-  if (img.uniqueColors < 40) r.push('VETO:motif_decoratif(uc<40)')
+  if (img.uniqueColors < 40) {
+    const visionConfirmed = img.source?.startsWith('vision-face')
+    if (visionConfirmed && img.uniqueColors >= 35) {
+      r.push('BYPASS:vision_face_uc_35-39')
+    } else {
+      r.push('VETO:motif_decoratif(uc<40)')
+    }
+  }
   const likelyBW = img.uniqueColors >= 50 && img.uniqueColors <= 100 && img.skinRatio >= 0.04
   if (likelyBW) r.push('NB:detected')
   if (img.skinRatio < 0.03 && !likelyBW) r.push('VETO:peu_de_peau(<3%)')
@@ -612,25 +628,60 @@ export async function extractPhotoFromDOCX(docxBuffer: Buffer): Promise<Buffer |
     const zip = await JSZip.loadAsync(docxBuffer)
     const sharp = (await import('sharp')).default
 
+    // v1.9.107 — Logs F5 instrumentés pour diagnostic. Liste tous les fichiers
+    // word/media/* (avec ext) puis raison de skip ou accept par fichier.
+    const allMedia = Object.keys(zip.files).filter(f => f.startsWith('word/media/'))
     const candidates: ImageCandidate[] = []
-    const mediaFiles = Object.keys(zip.files).filter(
-      f => f.startsWith('word/media/') && /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f)
+    // Photos rejetées pour too_large mais ratio raisonnable + dimensions ≥ 1500 →
+    // candidates F1bis-DOCX (Vision face crop). Cas Soraia #12 : photos JPG 4032×3024
+    // (probablement prises au téléphone) skipped en silence par le veto >2000px.
+    const oversizedScans: Array<{ buf: Buffer; w: number; h: number; path: string }> = []
+    const mediaFiles = allMedia.filter(
+      f => /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f)
     )
+    console.log(`[F5-DOCX] start media_total=${allMedia.length} media_with_image_ext=${mediaFiles.length}`)
+    if (allMedia.length > 0 && mediaFiles.length === 0) {
+      const exts = [...new Set(allMedia.map(f => (f.match(/\.([^./]+)$/) || [, 'noext'])[1].toLowerCase()))]
+      console.log(`[F5-DOCX] no_ext_match found_exts=${JSON.stringify(exts)}`)
+    }
 
     for (const mediaPath of mediaFiles) {
       try {
         const imgData = await zip.files[mediaPath].async('nodebuffer')
-        if (!imgData || imgData.length < 500) continue // skip tiny icons
+        if (!imgData || imgData.length < 500) {
+          console.log(`[F5-DOCX] file=${mediaPath} skip reason=tiny_or_empty bytes=${imgData?.length || 0}`)
+          continue
+        }
 
         const metadata = await sharp(imgData).metadata()
-        if (!metadata.width || !metadata.height) continue
+        if (!metadata.width || !metadata.height) {
+          console.log(`[F5-DOCX] file=${mediaPath} skip reason=no_dims format=${metadata.format || 'unknown'} bytes=${imgData.length}`)
+          continue
+        }
 
         const w = metadata.width
         const h = metadata.height
-        if (w < 60 || h < 60) continue
-        if (w > 2000 || h > 2500) continue
+        if (w < 60 || h < 60) {
+          console.log(`[F5-DOCX] file=${mediaPath} ${w}x${h} skip reason=too_small`)
+          continue
+        }
+        if (w > 2000 || h > 2500) {
+          // F1bis-DOCX (v1.9.107) : si ratio raisonnable + dimensions ≥1500 → candidat Vision crop.
+          // Cas Soraia : photos téléphone 4032×3024 (paysage, ratio 0.75) ignorées en silence.
+          const ratio = h / w
+          if (ratio >= 0.5 && ratio <= 3.0 && w >= 1500 && h >= 1500) {
+            oversizedScans.push({ buf: imgData, w, h, path: mediaPath })
+            console.log(`[F5-DOCX] file=${mediaPath} ${w}x${h} skip reason=too_large (captured for F1bis-DOCX Vision crop)`)
+          } else {
+            console.log(`[F5-DOCX] file=${mediaPath} ${w}x${h} skip reason=too_large`)
+          }
+          continue
+        }
         const ratio = h / w
-        if (ratio < 0.5 || ratio > 3.0) continue
+        if (ratio < 0.5 || ratio > 3.0) {
+          console.log(`[F5-DOCX] file=${mediaPath} ${w}x${h} ratio=${ratio.toFixed(2)} skip reason=ratio_out_of_range`)
+          continue
+        }
 
         const resizedBuffer = await sharp(imgData)
           .resize({ width: 300, height: 400, fit: 'inside' })
@@ -652,13 +703,35 @@ export async function extractPhotoFromDOCX(docxBuffer: Buffer): Promise<Buffer |
           pageIndex: 0,
           source: `docx:${mediaPath}`,
         })
-      } catch { continue }
+        console.log(`[F5-DOCX] accept file=${mediaPath} ${w}x${h} ratio=${ratio.toFixed(2)} colors=${uc} skin=${(sr * 100).toFixed(0)}%`)
+      } catch (err) {
+        console.log(`[F5-DOCX] file=${mediaPath} skip reason=exception err=${(err as Error).message}`)
+        continue
+      }
     }
 
+    // F1bis-DOCX : si aucun candidat extrait directement mais grandes photos
+    // disponibles, envoyer à Vision Haiku (max 2 photos pour contrôler le coût).
+    if (candidates.length === 0 && oversizedScans.length > 0) {
+      console.log(`[F5-DOCX-S1bis] trigger oversized=${oversizedScans.length}`)
+      for (const oc of oversizedScans.slice(0, 2)) {
+        console.log(`[F5-DOCX-S1bis] try path=${oc.path} ${oc.w}x${oc.h}`)
+        const faceCandidate = await tryVisionFaceCrop(oc.buf, `docx:${oc.path}`, '[F5-DOCX-S1bis]')
+        if (faceCandidate) {
+          candidates.push(faceCandidate)
+          console.log(`[F5-DOCX-S1bis] success path=${oc.path} → stop`)
+          break
+        }
+      }
+      if (candidates.length === 0) console.log(`[F5-DOCX-S1bis] done no_face_extracted`)
+    }
+
+    console.log(`[F5-DOCX] done candidates=${candidates.length}`)
     if (candidates.length === 0) return null
     return pickBestCandidate(candidates)
   } catch (e) {
     console.warn('[CV Photo] DOCX extraction failed:', (e as Error).message)
+    console.log(`[F5-DOCX] crash error=${(e as Error).message}`)
     return null
   }
 }
@@ -705,7 +778,7 @@ async function pickBestCandidate(candidates: ImageCandidate[]): Promise<Buffer |
 async function tryVisionFaceCrop(
   rawBytes: Buffer,
   sourceLabel: string,
-  logTag: '[F5-S3]' | '[F5-S1bis]' = '[F5-S1bis]',
+  logTag: '[F5-S3]' | '[F5-S1bis]' | '[F5-DOCX-S1bis]' = '[F5-S1bis]',
 ): Promise<ImageCandidate | null> {
   try {
     const sharp = (await import('sharp')).default
@@ -770,8 +843,20 @@ async function tryVisionFaceCrop(
     const cropLeft = Math.max(0, Math.min(Math.round(faceCx - cropW / 2), origW - cropW))
     const cropTop = Math.max(0, Math.min(Math.round(faceCy - cropH * 0.38), origH - cropH))
 
-    if (!(cropW > 50 && cropH > 50 && cropW < origW * 0.4 && cropH < origH * 0.4)) {
-      console.log(`${logTag} crop_rejected src=${sourceLabel} cropW=${cropW} cropH=${cropH} pageW=${origW} pageH=${origH}`)
+    if (!(cropW > 50 && cropH > 50)) {
+      console.log(`${logTag} crop_rejected src=${sourceLabel} reason=crop_too_small cropW=${cropW} cropH=${cropH}`)
+      return null
+    }
+    // v1.9.107 — Filet de sécurité face cover ratio (orientation-agnostique).
+    // Avant : cropW/cropH < orig*0.4 — calibré pour scans PORTRAIT, faux-rejette les
+    // photos PAYSAGE car cropH ratio 1.25 explose vs origH < origW (cas Soraia #12 :
+    // photo 4032×3024, face 757px = 18.8% de origW, mais cropH 1701 > 1209=0.4×3024).
+    // Maintenant : si le visage détecté occupe > 50% de la dimension max, c'est probablement
+    // une photo passport déjà cropée (faux positif Vision sur image cible). scoreHeadshot
+    // reste filet final (uniqueColors, skinRatio, ratio).
+    const faceCoverRatio = faceSize / Math.max(origW, origH)
+    if (faceCoverRatio > 0.5) {
+      console.log(`${logTag} crop_rejected src=${sourceLabel} reason=face_covers_too_much faceSize=${faceSize} maxDim=${Math.max(origW, origH)} ratio=${faceCoverRatio.toFixed(2)}`)
       return null
     }
 
@@ -783,6 +868,9 @@ async function tryVisionFaceCrop(
 
     const cMeta = await sharp(cropped).metadata()
     const w = cMeta.width || 300, h = cMeta.height || 400
+    // v1.9.107 — Préfixer source 'vision-face:' pour permettre à scoreHeadshot de
+    // détecter un crop confirmé par Vision (assouplissement veto uc<40).
+    const normalizedSource = sourceLabel.startsWith('vision-face') ? sourceLabel : `vision-face:${sourceLabel}`
     const candidate: ImageCandidate = {
       buffer: cropped,
       width: w,
@@ -793,9 +881,9 @@ async function tryVisionFaceCrop(
       uniqueColors: await countUniqueColors(cropped, false),
       skinRatio: await detectSkinRatio(cropped),
       pageIndex: 0,
-      source: sourceLabel,
+      source: normalizedSource,
     }
-    console.log(`${logTag} crop_accepted src=${sourceLabel} ${cropW}x${cropH} colors=${candidate.uniqueColors} skin=${(candidate.skinRatio * 100).toFixed(0)}%`)
+    console.log(`${logTag} crop_accepted src=${normalizedSource} ${cropW}x${cropH} colors=${candidate.uniqueColors} skin=${(candidate.skinRatio * 100).toFixed(0)}%`)
     return candidate
   } catch (e) {
     console.warn('[CV Photo] tryVisionFaceCrop failed:', (e as Error).message)
@@ -962,22 +1050,74 @@ async function processXObjects(
         continue
       }
       if (width > 2000 || height > 2500) {
-        // F1bis (v1.9.105) — capturer les scans pleine page DCTDecode pour Vision face crop.
-        // Pattern : DCTDecode (JPEG natif), ratio portrait A4-like (1.3-1.55), dimensions ≥ 1500.
+        // F1bis — capturer les scans pleine page pour Vision face crop.
+        // Pattern : ratio portrait A4-like (1.3-1.55), dimensions ≥ 1500×2000.
         const ratio = height / width
-        const isFullPageScan = filterName.includes('DCTDecode')
-          && ratio >= 1.3 && ratio <= 1.55
-          && width >= 1500 && height >= 2000
-        if (isFullPageScan) {
-          const rawBytesScan: Uint8Array = xobj.getContents()
-          if (rawBytesScan && rawBytesScan.length >= 1000) {
-            rejectedScans.push({
-              rawBytes: Buffer.from(rawBytesScan),
-              width, height, pageIdx,
-              source: `pdf-lib:${filterName}:p${pageIdx + 1}:${keyStr}:full-page-scan`,
-            })
-            console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large (captured for F1bis Vision crop)`)
-            continue
+        const isPortraitFullPage = ratio >= 1.3 && ratio <= 1.55 && width >= 1500 && height >= 2000
+        if (isPortraitFullPage) {
+          // F1bis CAS DCTDecode (v1.9.105) — raw bytes = JPEG natif, passable directement à Vision
+          if (filterName.includes('DCTDecode')) {
+            const rawBytesScan: Uint8Array = xobj.getContents()
+            if (rawBytesScan && rawBytesScan.length >= 1000) {
+              rejectedScans.push({
+                rawBytes: Buffer.from(rawBytesScan),
+                width, height, pageIdx,
+                source: `pdf-lib:${filterName}:p${pageIdx + 1}:${keyStr}:full-page-scan`,
+              })
+              console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large (captured for F1bis Vision crop)`)
+              continue
+            }
+          }
+          // F1bis CAS FlateDecode (v1.9.107) — décompresser raw pixels + re-encoder en JPEG.
+          // Cas Amélie Gorin #21 : scan A4 PNG/raw stocké en FlateDecode pleine page, ignoré
+          // par F1bis v1.9.105 (DCTDecode-only). On le décompresse via zlib, on récupère
+          // colorSpace/bpc/channels comme dans le bloc FlateDecode standard, puis on
+          // re-encode en JPEG pour pouvoir l'envoyer à tryVisionFaceCrop (qui attend une
+          // image décodable par sharp).
+          else if (filterName.includes('FlateDecode')) {
+            const rawBytesScan: Uint8Array = xobj.getContents()
+            if (rawBytesScan && rawBytesScan.length >= 1000) {
+              try {
+                const zlib = await import('zlib')
+                const decompressed = await new Promise<Buffer>((resolve, reject) => {
+                  zlib.inflate(Buffer.from(rawBytesScan), (err, buf) => {
+                    if (err) zlib.inflateRaw(Buffer.from(rawBytesScan), (err2, buf2) => {
+                      if (err2) reject(err2); else resolve(buf2)
+                    }); else resolve(buf)
+                  })
+                })
+                let colorSpaceObj = dict.get(PDFName.of('ColorSpace'))
+                if (colorSpaceObj instanceof PDFRef) colorSpaceObj = pdfDoc.context.lookup(colorSpaceObj)
+                const colorSpace = colorSpaceObj ? colorSpaceObj.toString() : ''
+                let bpcObj = dict.get(PDFName.of('BitsPerComponent'))
+                if (bpcObj instanceof PDFRef) bpcObj = pdfDoc.context.lookup(bpcObj)
+                const bpc = bpcObj ? Number(bpcObj.toString()) : 8
+                if (bpc !== 8) {
+                  console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} F1bis_flate_skip reason=bpc_not_8 bpc=${bpc}`)
+                } else {
+                  let channels: 1 | 3 | 4 = 3
+                  if (colorSpace.includes('Gray') || colorSpace === '/DeviceGray') channels = 1
+                  else if (colorSpace.includes('CMYK') || colorSpace === '/DeviceCMYK') channels = 4
+                  const expectedBytes = width * height * channels
+                  if (decompressed.length < expectedBytes * 0.7) {
+                    console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} F1bis_flate_skip reason=underflow got=${decompressed.length} expected=${expectedBytes} cs=${colorSpace}`)
+                  } else {
+                    const jpegBuf = await sharp(decompressed, { raw: { width, height, channels } })
+                      .jpeg({ quality: 85 })
+                      .toBuffer()
+                    rejectedScans.push({
+                      rawBytes: jpegBuf,
+                      width, height, pageIdx,
+                      source: `pdf-lib:${filterName}:p${pageIdx + 1}:${keyStr}:full-page-scan`,
+                    })
+                    console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large (captured for F1bis Vision crop, FlateDecode→JPEG channels=${channels})`)
+                    continue
+                  }
+                }
+              } catch (err) {
+                console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} F1bis_flate_capture_failed err=${(err as Error).message}`)
+              }
+            }
           }
         }
         console.log(`[F5-S1] image key=${keyStr} filter=${filterName} ${width}x${height} skip reason=too_large`)

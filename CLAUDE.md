@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.106 prod (Bandeau Actualisé pending-validation + stop retry orphelins OneDrive)** — 27/04/2026
+**1.9.107 prod (3 cas résiduels extraction photos : DOCX + FlateDecode + uc<40 vision-face)** — 27/04/2026
 
 ---
 
@@ -394,7 +394,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 
 **33. Signature email per-user** (v1.9.70) — `auth.users.raw_user_meta_data.signature_html`. Script `setup-seb-signature.mjs` idempotent. Reconnexion users requise pour récup nouvelle meta.
 
-**34. Extraction photos F1bis Vision crop** (v1.9.105) — Scans A4 (1 image pleine page ratio 1.3-1.55, ≥1500px) rejetés `processXObjects` → collectés `RejectedFullPageScan` → branche Vision Haiku entre Strategy 2 et 3 via helper `tryVisionFaceCrop()`. Logs F5 prod tags structurés. Bancs test `scripts/tests/test-photo-extraction.ts` (cible 19/22) + `sim-photo-extraction.ts` (cible 58/100). Marqueur magique `photo_url='checked'` (tenté+échoué) ≠ NULL (jamais tenté). Batch rétroactif `scripts/batch/retro-photo-extraction.ts` (commit 332d365, 662/2824 photos extraites).
+**34. Extraction photos F1bis Vision crop** (v1.9.105, étendu v1.9.107) — Scans A4 (ratio 1.3-1.55, ≥1500×2000px) rejetés `processXObjects` → collectés `RejectedFullPageScan` → branche Vision Haiku entre Strategy 2 et 3 via helper `tryVisionFaceCrop()`. **v1.9.107** : (a) FlateDecode aussi capturé (décompressé+ré-encodé JPEG, pas seulement DCTDecode), (b) F1bis-DOCX : grandes photos word/media/* (>2000px, ratio 0.5-3.0) → Vision face crop (cas Soraia 4032×3024), (c) source candidats Vision préfixée `vision-face:` → scoreHeadshot assouplit veto `uniqueColors<40` à `uc≥35` pour ces sources (cas José Antonio uc=39), (d) garde-fou face cover ratio (`faceSize/max(origW,origH) > 0.5 → reject`) remplace l'ancien `crop<orig*0.4` faux-restrictif sur photos paysage. Logs F5 prod tags structurés (`[F5-S1]`, `[F5-S2]`, `[F5-S1bis]`, `[F5-DOCX]`, `[F5-DOCX-S1bis]`, `[F5-S3]`, `[F5-Score]`, `[F5-Final]`). Bancs test `scripts/tests/test-photo-extraction.ts` (cible 22/22, atteint v1.9.107) + `sim-photo-extraction.ts` (cible 58/100, atteint 60/100 v1.9.107). Marqueur magique `photo_url='checked'` (tenté+échoué) ≠ NULL (jamais tenté). Batch rétroactif `scripts/batch/retro-photo-extraction.ts` (commit 332d365, 662/2824 photos extraites).
 
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
