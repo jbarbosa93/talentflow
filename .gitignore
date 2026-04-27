@@ -49,3 +49,6 @@ graphify-out/
 
 # Backup local Claude Code memory (privé, hors git)
 .claude-memory-backup/
+
+# Backup CLAUDE.md (avant split, local only)
+CLAUDE.md.bak
