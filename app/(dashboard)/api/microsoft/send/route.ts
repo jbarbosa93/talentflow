@@ -257,22 +257,36 @@ export async function POST(request: NextRequest) {
       cvUrlsUtilises.push(`doc:${d.type}:${d.url}`)
     }
 
-    // Résolution client_id/nom via destinataires email → clients.email_contact (si unique)
+    // Résolution client_id/nom
+    // v1.9.112 — body.client_id (fourni explicitement par la prospection en lot) prend priorité.
+    //            Sinon : best-effort matching legacy (laissé inchangé).
     let clientId: string | null = null
     let clientNom: string | null = null
-    try {
-      const { data: matchedClients } = await (supabase as any)
-        .from('clients')
-        .select('id, nom')
-        .in('email_contact', destinataires)
-        .limit(5)
-      if (matchedClients && matchedClients.length === 1) {
-        clientId = (matchedClients[0] as any).id
-        clientNom = (matchedClients[0] as any).nom
-      } else if (matchedClients && matchedClients.length > 1) {
-        clientNom = matchedClients.map((c: any) => c.nom).join(', ')
-      }
-    } catch { /* colonne absente, ignore */ }
+    if (typeof body.client_id === 'string' && body.client_id.trim()) {
+      clientId = body.client_id.trim()
+      try {
+        const { data: c } = await (supabase as any)
+          .from('clients')
+          .select('nom_entreprise')
+          .eq('id', clientId)
+          .maybeSingle()
+        if (c?.nom_entreprise) clientNom = c.nom_entreprise
+      } catch { /* ignore */ }
+    } else {
+      try {
+        const { data: matchedClients } = await (supabase as any)
+          .from('clients')
+          .select('id, nom')
+          .in('email_contact', destinataires)
+          .limit(5)
+        if (matchedClients && matchedClients.length === 1) {
+          clientId = (matchedClients[0] as any).id
+          clientNom = (matchedClients[0] as any).nom
+        } else if (matchedClients && matchedClients.length > 1) {
+          clientNom = matchedClients.map((c: any) => c.nom).join(', ')
+        }
+      } catch { /* colonne absente, ignore */ }
+    }
 
     const logs = destinataires.map((dest: string) => ({
       candidat_id,

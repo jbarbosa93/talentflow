@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
 import AIClientSearch from '@/components/AIClientSearch'
+import ProspectionModal from '@/components/ProspectionModal'
 
 const LAST_SEEN_KEY = 'talentflow_last_seen'
 function getClientLastSeen(): string | null {
@@ -358,6 +359,7 @@ export default function ClientsPage() {
   })
   const [sortOrder, setSortOrder] = useState<'recent' | 'az' | 'za'>('recent')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showProspectionModal, setShowProspectionModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const clientsLastSeen = getClientLastSeen()
   const [filterSecteur, setFilterSecteur] = useState(() => {
@@ -461,6 +463,19 @@ export default function ClientsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            onClick={() => setShowProspectionModal(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              height: 40, padding: '0 16px', borderRadius: 10,
+              border: '2px solid var(--border)', background: 'var(--card)',
+              color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+            title="Générer des emails de prospection en lot via IA"
+          >
+            <Mail size={15} color="var(--primary)" /> Prospection email
+          </button>
           <button onClick={() => setShowCreateModal(true)} className="neo-btn-yellow">
             <Plus size={15} /> Ajouter un client
           </button>
@@ -881,6 +896,12 @@ export default function ClientsPage() {
         onClose={() => setShowCreateModal(false)}
         onCreate={(data) => createClient.mutate(data as any)}
         onClientAdded={() => createClient.reset()}
+      />
+
+      {/* Prospection email en lot (v1.9.112) */}
+      <ProspectionModal
+        open={showProspectionModal}
+        onClose={() => setShowProspectionModal(false)}
       />
 
       {/* AI Search modal */}

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.111'
+export const APP_VERSION = '1.9.112'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.112',
+    date: '2026-04-28',
+    label: 'Prospection email en lot depuis /clients (génération IA Claude Haiku 4.5 + envoi Outlook)',
+    features: [
+      'NOUVELLE FEATURE — Bouton "✉️ Prospection email" dans le header de /clients ouvre une modale 3 étapes pour générer N emails de prospection personnalisés en une seule opération. Étape 1 : sélection multi-clients (filtre secteur + canton + recherche texte, picker dédié, n\'affiche que les clients avec email) + textarea contexte additionnel (ex: "On a actuellement plusieurs maçons disponibles en Valais"). Étape 2 : génération séquentielle avec barre de progression i/N, statut par client (pending/generating/done/error), bouton "Annuler" qui stoppe proprement via AbortController. Étape 3 : liste des emails générés avec objet et corps éditables, bouton "Copier" individuel, "Tout copier (CSV)" (format `email;objet;corps`) et "Tout envoyer via Outlook" avec confirmation explicite. Limite recommandée 100 clients/batch, warning si dépassée.',
+      'PROMPT IA SPÉCIALISÉ — System prompt dédié L-AGENCE SA / Monthey / bâtiment / second œuvre. Modèle `claude-haiku-4-5-20251001` (rapide + économique : ~$0.0012/email, ~2.3s par appel). Personnalisation par contact connu (`Bonjour {prénom},` si le 1er contact a un prénom, sinon `Madame, Monsieur,`). Contraintes strictes : max 8 lignes, vouvoiement, ne propose QUE les métiers cohérents avec les notes ou le secteur (interdit explicitement de proposer un peintre si notes=maçonnerie), termine par UNE seule question ouverte, jamais de formules génériques. Coût ~$0.12 / 100 emails.',
+      'ROUTE API — `POST /api/clients/prospection/generate` body `{ clientId, contexte? }` retourne `{ objet, corps, destinataire, nom_entreprise }`. Format de réponse strict `OBJET: ...\\n---\\n[corps]` parsé côté serveur. Auth via `requireAuth()`. Appelée en boucle côté client (1 appel par client) avec délai 300ms entre appels pour rate-limiting léger. Erreurs n\'interrompent pas le batch — chaque client échoué est noté avec son message d\'erreur, le suivant continue.',
+      'ENVOI VIA OUTLOOK — Réutilise `/api/microsoft/send` existant (Microsoft Graph par compte user OAuth, signature dynamique auto, log auto dans `emails_envoyes`). Aucun ajout de dépendance Resend. La modale boucle en mode `individual` avec délai 200ms entre envois (anti-throttling Graph). Si l\'utilisateur n\'a pas connecté Outlook : message clair "Outlook non connecté — voir /integrations". Confirmation `window.confirm` obligatoire avant l\'envoi groupé : "Envoyer X emails via votre compte Outlook ?".',
+      'TRACKING DB — `/api/microsoft/send` accepte désormais `body.client_id` (priorité sur le matching legacy). Quand fourni, il est inséré dans `emails_envoyes.client_id` (UUID FK vers `clients`, nullable, ON DELETE SET NULL) avec `client_nom` enrichi automatiquement depuis `clients.nom_entreprise`. Permet de retrouver l\'historique de prospection sur chaque fiche client. Migration `add_client_id_to_emails_envoyes` appliquée (colonne pré-existante détectée + index partiel `idx_emails_envoyes_client_id` créé pour les requêtes par client).',
+    ],
+  },
   {
     version: '1.9.111',
     date: '2026-04-28',
