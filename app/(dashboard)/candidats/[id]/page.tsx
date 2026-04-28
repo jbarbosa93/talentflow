@@ -1626,28 +1626,30 @@ export default function CandidatDetailPage() {
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
         <div className="candidat-col-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-          {/* Résumé IA */}
-          <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', order: sectionsOrder.indexOf('resume') }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Star size={13} style={{ color: 'var(--primary)' }} />
-              </div>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Résumé IA</h2>
-              {isEditing && (
-                <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
-                  <button type="button" onClick={() => moveSection('resume', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
-                  <button type="button" onClick={() => moveSection('resume', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+          {/* v1.9.111 — Résumé IA masqué (données conservées en DB, pipeline d'extraction inchangé) */}
+          {false && (
+            <div className="neo-card-soft" style={{ borderColor: 'rgba(245,167,35,0.25)', order: sectionsOrder.indexOf('resume') }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Star size={13} style={{ color: 'var(--primary)' }} />
                 </div>
+                <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>Résumé IA</h2>
+                {isEditing && (
+                  <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+                    <button type="button" onClick={() => moveSection('resume', -1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronUp size={11} /></button>
+                    <button type="button" onClick={() => moveSection('resume', 1)} style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronDown size={11} /></button>
+                  </div>
+                )}
+              </div>
+              {isEditing ? (
+                <textarea className="neo-input" style={{ height: 'auto', minHeight: 90, padding: '8px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13 }} placeholder="Résumé professionnel..." value={editData.resume_ia} onChange={e => set('resume_ia', e.target.value)} />
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.7, opacity: candidat.resume_ia ? 1 : 0.5 }}>
+                  {candidat.resume_ia || 'Aucun résumé IA disponible'}
+                </p>
               )}
             </div>
-            {isEditing ? (
-              <textarea className="neo-input" style={{ height: 'auto', minHeight: 90, padding: '8px 12px', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13 }} placeholder="Résumé professionnel..." value={editData.resume_ia} onChange={e => set('resume_ia', e.target.value)} />
-            ) : (
-              <p style={{ fontSize: 13, color: 'var(--foreground)', lineHeight: 1.7, opacity: candidat.resume_ia ? 1 : 0.5 }}>
-                {candidat.resume_ia || 'Aucun résumé IA disponible'}
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Expériences professionnelles */}
           <div style={{ order: sectionsOrder.indexOf('experiences') }}>

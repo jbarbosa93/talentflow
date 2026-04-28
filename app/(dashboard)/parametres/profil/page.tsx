@@ -466,15 +466,15 @@ export default function ProfilPage() {
             style={{
               position: 'absolute', bottom: -2, right: -2,
               width: 28, height: 28, borderRadius: 8,
-              background: 'var(--foreground)', border: '2px solid white',
+              background: 'var(--primary)', border: '2px solid var(--card)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: savingAvatar ? 'default' : 'pointer',
               opacity: savingAvatar ? 0.7 : 1,
             }}
           >
             {savingAvatar
-              ? <Loader2 size={12} color="white" style={{ animation: 'spin 1s linear infinite' }} />
-              : <Camera size={12} color="white" />
+              ? <Loader2 size={12} color="var(--primary-foreground)" style={{ animation: 'spin 1s linear infinite' }} />
+              : <Camera size={12} color="var(--primary-foreground)" />
             }
           </button>
           <input ref={avatarRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />

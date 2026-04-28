@@ -55,23 +55,30 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
     return () => { cancelled = true }
   }, [disableAutocomplete])
 
-  // Filtrer selon input
+  // Filtrer selon input — v1.9.111 : on garde les emails déjà ajoutés mais marqués
+  // "(déjà ajouté)", pour que l'utilisateur voit que l'autocomplete fonctionne même
+  // si la seule correspondance est déjà dans les chips.
+  const alreadyInSet = useMemo(() => new Set(value.map(v => v.toLowerCase())), [value])
   const filteredSuggestions = useMemo(() => {
     if (disableAutocomplete) return []
     const q = normalize(input.trim())
     if (q.length < 2) return []
-    const alreadyIn = new Set(value.map(v => v.toLowerCase()))
     const out: Suggestion[] = []
     for (const s of allSuggestions) {
-      if (alreadyIn.has(s.email)) continue
       const hay = normalize(`${s.email} ${s.label}`)
       if (hay.includes(q)) {
         out.push(s)
         if (out.length >= 8) break
       }
     }
+    // Trier : non-ajoutés d'abord, déjà ajoutés à la fin
+    out.sort((a, b) => {
+      const aIn = alreadyInSet.has(a.email) ? 1 : 0
+      const bIn = alreadyInSet.has(b.email) ? 1 : 0
+      return aIn - bIn
+    })
     return out
-  }, [input, value, allSuggestions, disableAutocomplete])
+  }, [input, allSuggestions, alreadyInSet, disableAutocomplete])
 
   useEffect(() => { setActiveIdx(0) }, [filteredSuggestions.length])
 
@@ -235,6 +242,7 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
         >
           {filteredSuggestions.map((s, idx) => {
             const active = idx === activeIdx
+            const isAdded = alreadyInSet.has(s.email)
             const typeMeta = {
               client: { label: 'Client',  bg: 'var(--info-soft)',     color: 'var(--info)' },
               team:   { label: 'Team',    bg: 'var(--primary-soft)',  color: 'var(--primary)' },
@@ -244,14 +252,16 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
               <button
                 key={s.email}
                 type="button"
-                onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s) }}
-                onMouseEnter={() => setActiveIdx(idx)}
+                disabled={isAdded}
+                onMouseDown={(e) => { if (!isAdded) { e.preventDefault(); selectSuggestion(s) } }}
+                onMouseEnter={() => { if (!isAdded) setActiveIdx(idx) }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                   padding: '8px 10px', borderRadius: 7, border: 'none',
-                  background: active ? 'var(--primary-soft)' : 'transparent',
-                  color: 'var(--foreground)', cursor: 'pointer',
+                  background: active && !isAdded ? 'var(--primary-soft)' : 'transparent',
+                  color: 'var(--foreground)', cursor: isAdded ? 'default' : 'pointer',
                   fontFamily: 'inherit', textAlign: 'left',
+                  opacity: isAdded ? 0.5 : 1,
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -264,9 +274,10 @@ export default function EmailChipInput({ value, onChange, placeholder = 'Ajouter
                 </div>
                 <span style={{
                   flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
-                  background: typeMeta.bg, color: typeMeta.color,
+                  background: isAdded ? 'var(--secondary)' : typeMeta.bg,
+                  color: isAdded ? 'var(--muted-foreground)' : typeMeta.color,
                 }}>
-                  {typeMeta.label}
+                  {isAdded ? 'Déjà ajouté' : typeMeta.label}
                 </span>
               </button>
             )

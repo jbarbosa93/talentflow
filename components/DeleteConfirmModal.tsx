@@ -147,13 +147,14 @@ export default function DeleteConfirmModal({
             disabled={!canConfirm}
             style={{
               padding: '10px 20px', borderRadius: 8,
-              border: 'none',
-              background: canConfirm ? 'var(--destructive)' : 'var(--muted)',
-              color: canConfirm ? 'var(--destructive-foreground)' : 'var(--muted-foreground)',
+              border: canConfirm ? 'none' : '1.5px solid var(--destructive)',
+              background: canConfirm ? 'var(--destructive)' : 'var(--destructive-soft)',
+              color: canConfirm ? 'var(--destructive-foreground)' : 'var(--destructive)',
               fontSize: 13, fontWeight: 700,
               cursor: canConfirm ? 'pointer' : 'not-allowed',
               fontFamily: 'inherit',
-              transition: 'background 0.15s',
+              opacity: canConfirm ? 1 : 0.6,
+              transition: 'all 0.15s',
             }}
           >
             {isPending ? loadingLabel : confirmLabel}

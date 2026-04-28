@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.110'
+export const APP_VERSION = '1.9.111'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.111',
+    date: '2026-04-28',
+    label: 'Fix Sentry /api/cv/print + 7 fixes UI/UX (badges, modale supprimer, autocomplete, WhatsApp, profil)',
+    features: [
+      'PERF — `/api/cv/print` ne buffer plus les PDFs en RAM avant de les renvoyer. Le body est désormais streamé directement (`new NextResponse(res.body)`), donc Vercel n\'alloue plus 1-5 MB par requête (CVs scannés A4 pleine page). Effet collatéral : l\'alerte Sentry "Large HTTP payload" qui se déclenchait au seuil ~500 KB sur les gros CVs disparaît. Aucun changement fonctionnel pour le navigateur — exactement les mêmes octets, juste en transfer-encoding chunked.',
+      'UI — Badge distance "12 km" sur les cards candidat utilise désormais les tokens `--info-soft` / `--info` (bleu). Avant : couleur orange (`--primary`) identique au badge âge → confusion visuelle. Maintenant clairement distinct.',
+      'UI — Badge âge harmonisé : dans la liste "À traiter" l\'âge s\'affichait en texte gris (sans pill), alors qu\'en mode "Actif" il était en pill orange. Désormais pill orange partout (cohérence visuelle).',
+      'UI — Section "Résumé IA" masquée dans la fiche candidat. Données conservées en DB, pipeline d\'extraction inchangé. Réactivation triviale (toggle `{false && (…)}`).',
+      'UI — Bandeau "Nouveau / Actualisé / Réactivé" sur les cards reste désormais affiché jusqu\'à ce que l\'utilisateur ouvre la fiche (cohérent avec le badge rouge "non vu", aligné sur `viewedSet`). Avant : disparaissait au bout de 10 min même sans ouverture (TTL incohérent avec le badge non-vu).',
+      'UI — Modale "Supprimer définitivement" : bouton désactivé utilise désormais `--destructive-soft` (rouge pâle) + `--destructive` (texte rouge) au lieu de `--muted` qui rendait un bleu/navy bizarre en light mode. Reste clairement dans la palette destructive même quand inactif.',
+      'UI — Icône appareil photo dans /parametres/profil : passe de `--foreground` (invisible en dark mode car bg blanc + icône blanche) à `--primary` (orange brand) avec bordure `--card`. Visible dans les deux modes.',
+      'UX — Autocomplete email mailing : les emails déjà ajoutés en chips s\'affichent désormais dans la dropdown avec un tag "Déjà ajouté" et opacity 0.5 (au lieu d\'être cachés). Permet de comprendre que l\'autocomplete fonctionne quand le seul match est déjà sélectionné (cas typique : 1 contact unique chez un client).',
+      'UX — Modale "WhatsApp en masse" : les variables `[MÉTIER]` / `[LIEU]` du template se substituent désormais en temps réel quand l\'utilisateur tape dans les inputs Métier/Lieu (avant : seule l\'application initiale du template substituait, les éditions ultérieures restaient figées). Mêmes hooks que SMS désormais — fix par unification du `useEffect` SMS+WhatsApp.',
+    ],
+  },
   {
     version: '1.9.110',
     date: '2026-04-28',

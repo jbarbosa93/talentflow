@@ -454,14 +454,17 @@ export default function CandidatsList() {
   )
 
   // Recalcul live du message quand on change métier/lieu avec un template actif
+  // (couvre SMS ET WhatsApp — un seul smsTplId, on cherche dans les 2 listes)
   const selectedSmsTpl = smsTemplates.find(t => t.id === smsTplId) || null
+  const selectedWaTpl = waTemplates.find(t => t.id === smsTplId) || null
+  const activeTpl = selectedSmsTpl || selectedWaTpl
   useEffect(() => {
-    if (!selectedSmsTpl) return
-    const out = (selectedSmsTpl.corps || '')
+    if (!activeTpl) return
+    const out = (activeTpl.corps || '')
       .replace(/\[MÉTIER\]/g, smsMetier || '[MÉTIER]')
       .replace(/\[LIEU\]/g, smsLieu || '[LIEU]')
     setMessageText(out)
-  }, [selectedSmsTpl, smsMetier, smsLieu])
+  }, [activeTpl, smsMetier, smsLieu])
 
   const applySmsTemplate = (id: string) => {
     const t = smsTemplates.find(x => x.id === id)
@@ -1223,27 +1226,20 @@ export default function CandidatsList() {
           }} />
         )}
         {/* Badge coloré "nouveau/actualisé/réactivé" :
-            - Import MANUEL (localStorage 10 min) : feedback transient après action user
-            - Import ONEDRIVE (DB onedrive_change_type + onedrive_change_at, TTL 10 min)
+            - Import MANUEL (localStorage)  - Import ONEDRIVE (DB onedrive_change_type + onedrive_change_at)
             Types : 'nouveau' (vert), 'mis_a_jour' (bleu), 'reactive' (jaune).
             Priorité : manuel (plus frais) sur OneDrive.
-            v1.9.97 — Cohérence avec le badge manuel : TTL 10 min basé sur onedrive_change_at.
-            Le badge OneDrive reste visible 10 min même après ouverture fiche (comme le manuel).
-            Après 10 min, masqué automatiquement (re-render via interval 60s du recentlyUpdatedTick). */}
+            v1.9.111 — Aligné sur le badge rouge "non vu" : disparaît dès que l'utilisateur
+            a ouvert la fiche (viewedSet). Plus de TTL 10 min — reste visible tant que pas vu. */}
         {(() => {
           void recentlyUpdatedTick
           void badgeTick
+          // v1.9.111 — masquer dès que la fiche est ouverte (cohérent avec badge rouge non-vu)
+          if (viewedSet.has(c.id)) return null
           const manuel = getRecentlyUpdatedEntry(c.id)
           const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
-          const onedriveAt = (c as any).onedrive_change_at as string | null | undefined
           const type = manuel?.type ?? onedriveType ?? null
           if (!type) return null
-          // v1.9.97 — Badge OneDrive : TTL 10 min basé sur onedrive_change_at.
-          // Plus de masquage via viewedSet (incohérent avec manuel qui reste 10 min après ouverture).
-          if (!manuel && onedriveAt) {
-            const ageMs = Date.now() - new Date(onedriveAt).getTime()
-            if (ageMs > 10 * 60_000) return null
-          }
           const style = getBadgeStyleForType(type)
           const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (
@@ -1311,14 +1307,22 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
-                {/* v1.9.110 — distance vs ville filtrée */}
+                {/* v1.9.110 — distance vs ville filtrée (info bleu, distinct de l'âge orange) */}
                 {villeRayon && typeof (c as any).distance_km === 'number' && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--info-soft)', color: 'var(--info)' }}>
                     {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
                   </span>
                 )}
+                {/* v1.9.111 — âge en pill orange (cohérent avec mode Actif) */}
                 {age !== null && (
-                  <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800,
+                    padding: '2px 8px', borderRadius: 6,
+                    background: 'var(--primary-soft)',
+                    color: 'var(--primary)',
+                    border: '1px solid rgba(245,167,35,0.35)',
+                    whiteSpace: 'nowrap',
+                  }}>
                     {age} ans
                   </span>
                 )}
@@ -1330,9 +1334,9 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
-                {/* v1.9.110 — distance vs ville filtrée */}
+                {/* v1.9.110 — distance vs ville filtrée (info bleu, distinct de l'âge orange) */}
                 {villeRayon && typeof (c as any).distance_km === 'number' && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--primary-soft)', color: 'var(--primary)', border: '1px solid rgba(245,167,35,0.35)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--info-soft)', color: 'var(--info)', border: '1px solid var(--info-soft)' }}>
                     {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
                   </span>
                 )}

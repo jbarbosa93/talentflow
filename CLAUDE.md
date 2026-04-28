@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.110 prod (géolocalisation par rayon — filtre ville + slider km, 5556 candidats géocodés)** — 28/04/2026
+**1.9.111 prod (fix Sentry /api/cv/print streaming + badges UI pastel)** — 28/04/2026
 
 ---
 
