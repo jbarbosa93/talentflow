@@ -2,6 +2,8 @@
 // Normalisation des données candidats AVANT écriture en DB (imports CV et OneDrive).
 // Différent de format-candidat.ts (affichage UI) — ici on nettoie les données stockées.
 
+import { normalizeLocalisation as normalizeLocalisationCanonical } from './normalize-localisation'
+
 const PARTICLES = new Set([
   'de', 'da', 'das', 'do', 'dos', 'du',
   'van', 'von', 'ver', 'der', 'den',
@@ -9,32 +11,6 @@ const PARTICLES = new Set([
   'des', 'le', 'la', 'las', 'los', 'el',
   'y', 'e', 'bin', 'binti', 'al',
 ])
-
-const SWISS_CANTONS = new Set([
-  'AG', 'AI', 'AR', 'BE', 'BL', 'BS', 'FR', 'GE', 'GL', 'GR',
-  'JU', 'LU', 'NE', 'NW', 'OW', 'SG', 'SH', 'SO', 'SZ', 'TG',
-  'TI', 'UR', 'VD', 'VS', 'ZG', 'ZH',
-])
-
-const COUNTRY_MAP: Record<string, string> = {
-  CH: 'Suisse', FR: 'France', PT: 'Portugal', IT: 'Italie',
-  ES: 'Espagne', BE: 'Belgique', DE: 'Allemagne', MA: 'Maroc',
-  DZ: 'Algérie', TN: 'Tunisie', TR: 'Turquie', RS: 'Serbie',
-  RO: 'Roumanie', PL: 'Pologne', BR: 'Brésil', CO: 'Colombie',
-  MX: 'Mexique', HR: 'Croatie', SI: 'Slovénie',
-}
-
-const COUNTRY_SYNONYMS: Record<string, string> = {
-  switzerland: 'Suisse', schweiz: 'Suisse', svizzera: 'Suisse', svizra: 'Suisse',
-  germany: 'Allemagne', deutschland: 'Allemagne', allemagne: 'Allemagne',
-  italy: 'Italie', italia: 'Italie',
-  spain: 'Espagne', españa: 'Espagne',
-  belgium: 'Belgique', belgien: 'Belgique',
-  morocco: 'Maroc',
-  france: 'France',
-  portugal: 'Portugal',
-  suisse: 'Suisse',
-}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -171,69 +147,21 @@ export function normalizeTelephone(tel: string, paysDefaut = 'Suisse'): string |
 }
 
 /**
- * Localisation : nettoyer codes postaux, normaliser cantons/pays, format "Ville, Pays".
- * Garde la valeur originale si extraction impossible (pas de throw).
- * - "1870 Monthey, Suisse"    → "Monthey, Suisse"
- * - "Monthey, VS, Suisse"     → "Monthey, Suisse"
- * - "74500 Évian-les-Bains"   → "Évian-les-Bains, France"
- * - "Sion, VS"                → "Sion, Suisse"
+ * Localisation : format strict "CP Ville, Pays" (CH/FR) ou "Ville, Pays" (autres).
+ * Délègue à `lib/normalize-localisation.ts` (lookup CP via datasets geonames officiels).
+ * Garde la valeur originale si normalisation impossible (pas de perte de données).
+ *
+ * Exemples (v1.9.108) :
+ * - "Monthey, Suisse"          → "1870 Monthey, Suisse"
+ * - "1870 Monthey, Suisse"     → inchangé (idempotent)
+ * - "Sion, VS"                 → "1950 Sion, Suisse"
+ * - "Rue X 12, 1873 Val d'Illiez" → "1873 Val-d'Illiez, Suisse"
+ * - "74500 Évian-les-Bains"    → "74500 Évian-les-Bains, France"
  */
 export function normalizeLocalisation(lieu: string): string {
   if (!lieu) return lieu
-
-  let s = lieu.trim()
-  let paysInfere: string | null = null
-
-  // Code postal 5 chiffres en début → France
-  const m5 = s.match(/^(\d{5})\s+(.+)$/)
-  if (m5) {
-    s = m5[2].trim()
-    paysInfere = 'France'
-  } else {
-    // Code postal 4 chiffres en début → Suisse
-    const m4 = s.match(/^(\d{4})\s+(.+)$/)
-    if (m4) {
-      s = m4[2].trim()
-      paysInfere = 'Suisse'
-    }
-  }
-
-  // Supprimer code postal 4-5 chiffres en fin ou milieu
-  s = s.replace(/\s*\b\d{4,5}\b\s*/g, ' ').replace(/\s+/g, ' ').trim()
-  // Nettoyer virgules orphelines laissées par la suppression du code postal
-  s = s.replace(/,\s*$/, '').replace(/^,\s*/, '').trim()
-
-  // Normaliser séparateurs → ", "
-  s = s.replace(/\s*[,;]\s*/g, ', ').trim()
-
-  // Parser les parties séparées par ", "
-  const parts = s.split(', ').map(p => p.trim()).filter(Boolean)
-  let pays: string | null = null
-  const cleanParts: string[] = []
-
-  for (const part of parts) {
-    const upper = part.toUpperCase()
-    const lower = part.toLowerCase()
-
-    // Code ISO pays (2-3 lettres)
-    if (COUNTRY_MAP[upper]) { pays = COUNTRY_MAP[upper]; continue }
-    // Canton suisse (2 lettres)
-    if (SWISS_CANTONS.has(upper)) { pays = 'Suisse'; continue }
-    // Synonyme pays
-    if (COUNTRY_SYNONYMS[lower]) { pays = COUNTRY_SYNONYMS[lower]; continue }
-
-    cleanParts.push(part)
-  }
-
-  if (!pays && paysInfere) pays = paysInfere
-
-  if (!cleanParts.length) return pays ?? lieu
-  const ville = cleanParts.join(', ')
-
-  // Déduplication "Suisse, Suisse" etc.
-  if (pays && ville.toLowerCase() === pays.toLowerCase()) return pays
-
-  return pays ? `${ville}, ${pays}` : ville
+  const result = normalizeLocalisationCanonical(lieu)
+  return result ?? lieu
 }
 
 // ─── WRAPPER D'INTÉGRATION ────────────────────────────────────────────────────

@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.107 prod (3 cas résiduels extraction photos : DOCX + FlateDecode + uc<40 vision-face)** — 27/04/2026
+**1.9.109 prod (normalisation localisations passe 2 — cp_overrides.json + saint↔st + recherche web)** — 28/04/2026
 
 ---
 
@@ -411,6 +411,7 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 - **Zefix API** : l'API REST (ZefixREST + ZefixPublicREST) exige des credentials HTTP Basic — utiliser Claude `web_search_20250305` comme source principale pour la recherche d'entreprises suisses
 - **ADMIN_EMAIL** : variable d'env obligatoire sur Vercel, pas de fallback hardcodé
 - **Types Supabase** : colonnes ajoutées en migration ne sont pas dans `types/database.ts` auto-généré → utiliser `(data as any).colonne` ou régénérer les types
+- **Migration onedrive_fichiers v1.9.31** : colonnes `match_suspect_candidat_id`, `match_suspect_score`, `cv_url_temp`, `analyse_json` appliquées via Supabase Studio sans fichier .sql versionné. À formaliser si on retouche `pending_validation`.
 
 ---
 

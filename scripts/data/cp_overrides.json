@@ -1,0 +1,57 @@
+{
+  "_meta": {
+    "description": "Overrides manuels pour hameaux/villages absents des datasets geonames officiels. Source de vérité unique partagée par lib/normalize-localisation.ts (pipeline import) et scripts/batch/* (batches rétroactifs).",
+    "format": "{ key_normalisé: [CP, label_canonique, pays] }",
+    "key_normalisation": "stripAccents → lowercase → spaces/apostrophes → tirets → dédupe tirets",
+    "updated": "2026-04-28"
+  },
+  "_overrides": {
+    "aproz": ["1994", "Aproz", "Suisse"],
+    "avanchets": ["1220", "Les Avanchets", "Suisse"],
+    "les-avanchets": ["1220", "Les Avanchets", "Suisse"],
+    "sales": ["1625", "Sâles", "Suisse"],
+    "sales-fr": ["1625", "Sâles", "Suisse"],
+    "vilette": ["1096", "Vilette", "Suisse"],
+    "lavey-les-bains": ["1892", "Lavey-les-Bains", "Suisse"],
+    "les-evouettes": ["1897", "Les Evouettes", "Suisse"],
+    "evouettes": ["1897", "Les Evouettes", "Suisse"],
+    "villars-sous-mont": ["1666", "Villars-sous-Mont", "Suisse"],
+    "collombey-muraz": ["1868", "Collombey-Muraz", "Suisse"],
+
+    "le-mont-de-corsier": ["1808", "Les Monts-de-Corsier", "Suisse"],
+    "mont-de-corsier": ["1808", "Les Monts-de-Corsier", "Suisse"],
+    "oriseres": ["1937", "Orsières", "Suisse"],
+    "orsiere": ["1937", "Orsières", "Suisse"],
+
+    "les-valettes": ["1932", "Les Valettes", "Suisse"],
+    "saxonne": ["1966", "Saxonne", "Suisse"],
+
+    "martigny-bourg": ["1920", "Martigny", "Suisse"],
+    "martigny-combe": ["1921", "Martigny-Combe", "Suisse"],
+    "monthye": ["1870", "Monthey", "Suisse"],
+    "zurique": ["8001", "Zürich", "Suisse"],
+    "chessel": ["1846", "Chessel", "Suisse"],
+    "bourgues-lavaux": ["1071", "Bourg-en-Lavaux", "Suisse"],
+    "bourg-en-lavaux": ["1071", "Bourg-en-Lavaux", "Suisse"],
+
+    "cheseaux": ["1033", "Cheseaux-sur-Lausanne", "Suisse"],
+
+    "le-rosex": ["1864", "Ormont-Dessus", "Suisse"],
+    "rosex": ["1864", "Ormont-Dessus", "Suisse"],
+    "les-ecots": ["1853", "Yvorne", "Suisse"],
+    "ecots": ["1853", "Yvorne", "Suisse"],
+    "les-verines": ["1964", "Chamoson", "Suisse"],
+    "verines": ["1964", "Chamoson", "Suisse"],
+    "mayens-de-la-zour": ["1965", "Savièse", "Suisse"],
+    "muraz": ["1893", "Muraz", "Suisse"],
+    "muraz-collombey": ["1893", "Muraz", "Suisse"],
+
+    "amphion-les-bains": ["74500", "Amphion-les-Bains", "France"],
+    "cergy-pontoise": ["95000", "Cergy", "France"],
+    "malo-les-bains": ["59240", "Dunkerque", "France"],
+    "filliere": ["74570", "Fillière", "France"],
+
+    "saint-gingolph": ["74500", "Saint-Gingolph", "France"],
+    "valpacos": ["", "Valpaços", "Portugal"]
+  }
+}

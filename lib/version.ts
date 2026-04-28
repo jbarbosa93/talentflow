@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.107'
+export const APP_VERSION = '1.9.109'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,30 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.109',
+    date: '2026-04-28',
+    label: 'Normalisation localisations — passe 2 (overrides hameaux + saint↔st + recherche web)',
+    features: [
+      'PASSE 2 SUR 423 FICHES NON-NORMALISÉES — Sur les 423 fiches restées sans CP après v1.9.108, 285 corrections supplémentaires appliquées (67%). Méthodes combinées : 209 via script auto enrichi (saint↔st bidirectionnel partout dans la clé, ste↔sainte, segment fallback non-générique, R1bis fuzzy crosscheck FR↔CH, fuzzy d=2 avec garde-fou préfixe-3 chars) + 76 via recherche Nominatim/OSM batch. 138 fiches restent intentionnellement intactes (adresses voirie pures, cantons/régions, pays seul, abréviations sans ville exploitable).',
+      'OVERRIDES PERSISTANTS — Nouveau fichier `scripts/data/cp_overrides.json` (44 hameaux/villages absents geonames officiels : Aproz, Avanchets, Vilette, Lavey-les-Bains, Les Évouettes, Villars-sous-Mont, Collombey-Muraz, Les Monts-de-Corsier, Orsières, Les Valettes, Saxonne, Martigny-Combe, Bourg-en-Lavaux, Cheseaux-sur-Lausanne, Le Rosex, Les Écots, Les Vérines, Mayens-de-la-Zour, Muraz, Cergy, Malo-les-Bains/Dunkerque, Fillière, Saint-Gingolph, Valpaços…). Source unique partagée par `lib/normalize-localisation.ts` (pipeline import) et `scripts/batch/*` (batches rétroactifs). Toute future correction validée par João s\'ajoute ici une seule fois et bénéficie automatiquement aux 3 routes d\'import.',
+      'PIPELINE IMPORT BÉNÉFICIE AUTO — `lib/normalize-localisation.ts` lit désormais `cp_overrides.json` à l\'init. Tout nouveau CV mentionnant "Châtel-Saint-Denis" (au lieu de "Châtel-St-Denis"), "Conflans-Ste-Honorine", "Le Rosex", "Mayens de la Zour", "Saxonne", "Bourg-en-Lavaux"… est désormais reconnu et enrichi du bon CP sans intervention manuelle. Substitutions saint↔st, ste↔sainte, suffixes canton (VS/VD/GE…) toutes effectuées en cascade dans `lookupCP`.',
+      'GARDE-FOUS ANTI-FP — Plusieurs faux positifs identifiés et bloqués lors de la recherche : (a) inclusion via tirets restreinte aux variantes bilingues `/` (Bienne/Biel uniquement, plus de Ravoire→La-Ravoire FR), (b) fuzzy d=2 exige préfixe 3 chars identiques (élimine Malo→Vals, Illarsaz→Villariaz, Rosemont→Rougemont, Morginis→Mougins), (c) VILLE_BLACKLIST étendue (cantons CH, régions FR, pays seul → jamais matchés comme villes), (d) segment fallback exclut mots de voirie (rue, chemin, avenue), villes-pivot (Sion, Lausanne) et noms génériques (Champs, Gare, Pont).',
+      'BATCH RÉTROACTIF — Script `scripts/batch/apply-corrections-finales.ts` exécuté en 8s pour 285 UPDATE WHERE id=X AND localisation=ancienne (idempotence garantie). 0 erreur, 0 skip. CSVs intermédiaires conservés sur Desktop pour audit (localisation-corrections-completes.csv = 423 cas, localisation-117-web.csv = recherche Nominatim, localisation-corrections-finales.csv = 285 appliqués). État final DB : ~5040 / 5777 fiches au format strict CH/FR (~87% du total).',
+    ],
+  },
+  {
+    version: '1.9.108',
+    date: '2026-04-27',
+    label: 'Normalisation localisations — format strict "CP Ville, Pays" via datasets officiels',
+    features: [
+      'NORMALISATION GLOBALE — 4942 fiches candidats normalisées d\'un seul coup (85% du total). Format cible strict : "1870 Monthey, Suisse" / "74500 Évian-les-Bains, France" / "Lisbonne, Portugal". Avant : 76% des fiches au format "Monthey, Suisse" (sans CP), 200+ avec rue, 60+ avec sigles canton (VS/VD), 250 sans virgule. Désormais homogène pour les filtres, le matching géographique et les futures features de géolocalisation/distance.',
+      'PIPELINE IMPORT CÂBLÉ — La fonction `normalizeLocalisation` de `lib/normalize-candidat.ts` (appelée par `cv/parse` et `onedrive/sync` via `normalizeCandidat`) délègue désormais à `lib/normalize-localisation.ts`. Tout nouveau CV importé est automatiquement enrichi du CP officiel sans appel IA. Idempotent : "1870 Monthey, Suisse" reste inchangé en re-passe.',
+      'ZÉRO HALLUCINATION — Sources CP officielles : geonames-postal-code (4228 villes Suisse, 34270 villes France), datasets versionnés dans le repo (`scripts/data/cp_suisse.json`, `cp_france.json`). Si la ville est absente du dataset → format "Ville, Pays" sans CP (pas d\'invention). Si parsing impossible → valeur originale conservée (zéro perte de données).',
+      'FIXES PARSER — Bug regex `\\b` JS sur lettres accentuées corrigé (matchait "ch" dans "Châtel" via lookaround Unicode `\\p{L}`). Suffix canton dans label canonique strippé ("Ollon VD" → "Ollon"). Extraction CP+ville depuis segments voirie ("Rue du Léman 29A 1907 Saxon" → "1907 Saxon, Suisse"). Strip parenthèses ("Erde (Conthey)" → "1976 Erde"). Alias "Française" reconnu comme France.',
+      'BATCH ONE-SHOT — Script `scripts/batch/normalize-localisation.ts` exécuté en 0.7s pour 5777 fiches (zero IA, zero coût API). Garde-fou UPDATE conditionnel `WHERE id=... AND localisation = <ancienne>` empêche d\'écraser une fiche modifiée entre fetch et update. Rapport JSON détaillé sauvegardé.',
+    ],
+  },
   {
     version: '1.9.107',
     date: '2026-04-27',

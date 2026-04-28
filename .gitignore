@@ -52,3 +52,8 @@ graphify-out/
 
 # Backup CLAUDE.md (avant split, local only)
 CLAUDE.md.bak
+
+# Rapports batch run (local only, peuvent être volumineux)
+/normalize-localisation-*.json
+/retro-localisation-*.json
+/retro-photo-extraction-*.json
