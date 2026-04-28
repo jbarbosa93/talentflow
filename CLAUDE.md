@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.109 prod (normalisation localisations passe 2 — cp_overrides.json + saint↔st + recherche web)** — 28/04/2026
+**1.9.110 prod (géolocalisation par rayon — filtre ville + slider km, 5556 candidats géocodés)** — 28/04/2026
 
 ---
 
@@ -399,6 +399,8 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
 **36. Bandeau "Actualisé" pending-validation** (v1.9.106) — `pending-validation/route.ts` L161-180 ajoute `onedrive_change_type:'mis_a_jour'` + `onedrive_change_at` au payload. Cohérent cv/parse cvUpdated, onedrive/sync update, candidats/[id] onCvChange.
+
+**37. Géolocalisation par rayon** (v1.9.110) — Colonnes `candidats.latitude/longitude` FLOAT + index partiel `idx_candidats_geo`. RPC PostgreSQL `haversine_km` IMMUTABLE + `candidats_dans_rayon(p_lat, p_lng, p_rayon_km, p_ids[])` STABLE retourne `(id, distance_km)` ASC NULLS LAST. Pipeline import géocode auto via `lib/geocode-localisation.ts` (lookup local CP `scripts/data/cp_geo.json` 23780 entrées CH+FR ~95% des cas, fallback Nominatim async timeout 3s). UPDATE coords dans `merge-candidat.ts` recalcule lat/lng dès que localisation change. API `/api/candidats?lat=...&lng=...&rayon_km=...` branche RPC après pré-filtre (search + colonnes). Endpoint `/api/villes/suggestions?q=...` autocomplete instantané (pas de DB, pas de réseau). UI : champ VILLE & RAYON dans filtres avancés + presets 10/25/50/100 km + valeur libre 1-500. Badge orange "12 km" sur card si filtre actif. Validation Europe (35-72°N, -10 à +40°E) rejette FP géographiques. Candidats sans coords toujours affichés en queue.
 
 ---
 

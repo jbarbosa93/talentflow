@@ -317,7 +317,6 @@ export default function CandidatsList() {
 
   const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az'>(() => ssGet('sort', 'date_desc'))
   const [groupByMetier, setGroupByMetier] = useState(false)
-  const [groupByLieu, setGroupByLieu]     = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   // v1.9.71 : persiste la sélection checkbox dans sessionStorage (même session, réapparait au retour)
   const [selectedIds, setSelectedIds]     = useState<Set<string>>(() => {
@@ -513,6 +512,13 @@ export default function CandidatsList() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(() => ssGet('showAdv', false))
   const [filterMetier, setFilterMetier] = useState(() => ssGet('fMetier', ''))
   const [filterLieu, setFilterLieu] = useState(() => ssGet('fLieu', ''))
+  // v1.9.110 — Filtre rayon (autocomplete ville + slider km)
+  const [villeRayon, setVilleRayon] = useState<{ lat: number; lng: number; label: string; pays?: 'Suisse' | 'France' } | null>(() => ssGet('fVilleRayon', null))
+  const [rayonKm, setRayonKm] = useState<number>(() => ssGet('fRayonKm', 25))
+  const [villeQuery, setVilleQuery] = useState('')
+  const [villeSuggestions, setVilleSuggestions] = useState<Array<{ label: string; cp: string; ville: string; pays: 'Suisse' | 'France'; lat: number; lng: number }>>([])
+  const [showVilleDropdown, setShowVilleDropdown] = useState(false)
+  const villeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [filterAgeMin, setFilterAgeMin] = useState<number | ''>(() => ssGet('fAgeMin', ''))
   const [filterAgeMax, setFilterAgeMax] = useState<number | ''>(() => ssGet('fAgeMax', ''))
   const [filterLangue, setFilterLangue] = useState(() => ssGet('fLangue', ''))
@@ -542,6 +548,24 @@ export default function CandidatsList() {
   useEffect(() => { ssSet('showAdv', showAdvancedFilters) }, [showAdvancedFilters])
   useEffect(() => { ssSet('fMetier', filterMetier) }, [filterMetier])
   useEffect(() => { ssSet('fLieu', filterLieu) }, [filterLieu])
+  // v1.9.110 — persist rayon filter
+  useEffect(() => { ssSet('fVilleRayon', villeRayon) }, [villeRayon])
+  useEffect(() => { ssSet('fRayonKm', rayonKm) }, [rayonKm])
+  // v1.9.110 — debounce autocomplete ville (200ms)
+  useEffect(() => {
+    if (villeDebounceRef.current) clearTimeout(villeDebounceRef.current)
+    if (villeQuery.trim().length < 2) { setVilleSuggestions([]); return }
+    villeDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/villes/suggestions?q=${encodeURIComponent(villeQuery.trim())}`)
+        if (res.ok) {
+          const data = await res.json()
+          setVilleSuggestions(Array.isArray(data) ? data : [])
+        }
+      } catch {}
+    }, 200)
+    return () => { if (villeDebounceRef.current) clearTimeout(villeDebounceRef.current) }
+  }, [villeQuery])
   useEffect(() => { ssSet('fAgeMin', filterAgeMin) }, [filterAgeMin])
   useEffect(() => { ssSet('fAgeMax', filterAgeMax) }, [filterAgeMax])
   useEffect(() => { ssSet('fLangue', filterLangue) }, [filterLangue])
@@ -624,7 +648,7 @@ export default function CandidatsList() {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     setPage(1)
     setSelectedIds(new Set())
-  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu, filterCfc, filterEngage])
+  }, [debouncedSearch, filtreStatut, importStatusFilter, sortBy, perPage, filterGenre, filterAgeMin, filterAgeMax, filterLangue, filterPermis, filterLieu, filterMetier, filterNonVu, filterCfc, filterEngage, villeRayon, rayonKm])
 
   // Si filtre âge ou OU/SAUF booléen → fetch tout (client-side)
   // ET booléen → envoyé au serveur (la RPC fait AND entre mots)
@@ -645,6 +669,10 @@ export default function CandidatsList() {
     metier: filterMetier || undefined,
     cfc: filterCfc === true ? 'true' : undefined,
     engage: filterEngage === true ? 'true' : undefined,
+    // v1.9.110 — filtre rayon
+    lat: villeRayon?.lat,
+    lng: villeRayon?.lng,
+    rayon_km: villeRayon ? rayonKm : undefined,
   })
   const allCandidats = candidatsData?.candidats || []
   const totalCandidatsRaw = candidatsData?.total ?? allCandidats.length
@@ -669,6 +697,10 @@ export default function CandidatsList() {
       metier: filterMetier || undefined,
       cfc: filterCfc === true ? 'true' as const : undefined,
       engage: filterEngage === true ? 'true' as const : undefined,
+      // v1.9.110
+      lat: villeRayon?.lat,
+      lng: villeRayon?.lng,
+      rayon_km: villeRayon ? rayonKm : undefined,
     }
     queryClient.prefetchQuery({
       queryKey: ['candidats', nextFilters],
@@ -808,6 +840,7 @@ export default function CandidatsList() {
     filterCfc !== null,
     filterEngage !== null,
     filtreLocalisation !== '',
+    villeRayon !== null,
   ].filter(Boolean).length
 
   const resetFiltersOnly = () => {
@@ -818,6 +851,8 @@ export default function CandidatsList() {
     setFilterCfc(null); setFilterEngage(null)
     setFiltreMetier(''); setFiltreLocalisation('')
     setFilterNonVu(false)
+    // v1.9.110 — reset rayon filter
+    setVilleRayon(null); setRayonKm(25); setVilleQuery(''); setVilleSuggestions([])
   }
 
   const resetAllFilters = () => {
@@ -859,24 +894,21 @@ export default function CandidatsList() {
     : (candidatsData?.total_pages || 1)
   const hasMore = page < totalPages
 
-  // Group by métier ou lieu
+  // Group by métier
   const grouped = useMemo(() => {
-    if (!groupByMetier && !groupByLieu) return null
+    if (!groupByMetier) return null
     const groups: Record<string, any[]> = {}
     for (const c of sorted) {
-      const key = groupByMetier
-        ? (c.titre_poste?.trim() || 'Sans métier')
-        : (c.localisation?.trim() || 'Sans lieu')
+      const key = c.titre_poste?.trim() || 'Sans métier'
       if (!groups[key]) groups[key] = []
       groups[key].push(c)
     }
-    const noVal = groupByMetier ? 'Sans métier' : 'Sans lieu'
     return Object.entries(groups).sort(([a], [b]) => {
-      if (a === noVal) return 1
-      if (b === noVal) return -1
+      if (a === 'Sans métier') return 1
+      if (b === 'Sans métier') return -1
       return a.localeCompare(b, 'fr')
     })
-  }, [sorted, groupByMetier, groupByLieu])
+  }, [sorted, groupByMetier])
 
   // Selection helpers
   const toggleSelect = useCallback((id: string) => {
@@ -1279,6 +1311,12 @@ export default function CandidatsList() {
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
                   </span>
                 )}
+                {/* v1.9.110 — distance vs ville filtrée */}
+                {villeRayon && typeof (c as any).distance_km === 'number' && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                    {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
+                  </span>
+                )}
                 {age !== null && (
                   <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
                     {age} ans
@@ -1290,6 +1328,12 @@ export default function CandidatsList() {
                 {c.localisation && (
                   <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     {'\uD83D\uDCCD'} {formatCity(c.localisation)}
+                  </span>
+                )}
+                {/* v1.9.110 — distance vs ville filtrée */}
+                {villeRayon && typeof (c as any).distance_km === 'number' && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--primary-soft)', color: 'var(--primary)', border: '1px solid rgba(245,167,35,0.35)' }}>
+                    {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
                   </span>
                 )}
                 {/* v1.9.71/73 — Âge en petit carré pill, visible */}
@@ -2438,20 +2482,6 @@ export default function CandidatsList() {
           </select>
         </div>
 
-        {/* Group by lieu */}
-        <button
-          onClick={() => {
-            const newVal = !groupByLieu
-            setGroupByLieu(newVal)
-            if (newVal) setGroupByMetier(false)
-            setCollapsedGroups(new Set())
-          }}
-          className={groupByLieu ? 'neo-btn neo-btn-sm' : 'neo-btn-ghost neo-btn-sm'}
-          style={groupByLieu ? { background: 'var(--primary)', color: 'var(--ink, #1C1A14)' } : {}}
-        >
-          <MapPin size={13} /> Par lieu
-        </button>
-
         {/* Filtres avancés button */}
         <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'var(--primary-foreground)':'var(--foreground)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
           <SlidersHorizontal size={14} />
@@ -2491,9 +2521,115 @@ export default function CandidatsList() {
       {/* Advanced filters panel */}
       {showAdvancedFilters && (
         <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12}}>
-          <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>LIEU</label>
-            <input value={filterLieu} onChange={e=>setFilterLieu(e.target.value)} placeholder="Ex: Genève, Lausanne..." style={{width:'100%',padding:'6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}} />
+          {/* v1.9.110 — Filtre rayon : autocomplete ville + slider km */}
+          <div style={{gridColumn:'span 2',position:'relative'}}>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>
+              VILLE & RAYON
+              {villeRayon && (
+                <span style={{marginLeft:8,fontWeight:700,color:'var(--text)'}}>
+                  {villeRayon.pays === 'France' ? '🇫🇷' : villeRayon.pays === 'Suisse' ? '🇨🇭' : ''} {villeRayon.label} · {rayonKm} km
+                  <button
+                    onClick={() => { setVilleRayon(null); setVilleQuery(''); setVilleSuggestions([]) }}
+                    title="Effacer la ville"
+                    style={{marginLeft:6,background:'transparent',border:'none',color:'#EF4444',cursor:'pointer',fontSize:13,fontWeight:700}}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </label>
+            {!villeRayon && (
+              <div style={{position:'relative'}}>
+                <input
+                  value={villeQuery}
+                  onChange={e => { setVilleQuery(e.target.value); setShowVilleDropdown(true) }}
+                  onFocus={() => setShowVilleDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowVilleDropdown(false), 150)}
+                  placeholder="Tape une ville ou un CP (ex: Genève, 1870)"
+                  style={{width:'100%',padding:'6px 30px 6px 10px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:13,color:'var(--text)'}}
+                />
+                {villeQuery.length > 0 && (
+                  <button
+                    onMouseDown={(e) => { e.preventDefault() }}
+                    onClick={() => { setVilleQuery(''); setVilleSuggestions([]); setShowVilleDropdown(false) }}
+                    title="Effacer la recherche"
+                    style={{
+                      position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',
+                      width:18,height:18,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
+                      background:'var(--muted-soft, rgba(0,0,0,0.08))',border:'none',color:'var(--muted)',
+                      cursor:'pointer',fontSize:12,lineHeight:1,padding:0,
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+                {showVilleDropdown && villeSuggestions.length > 0 && (
+                  <div style={{
+                    position:'absolute',top:'100%',left:0,right:0,zIndex:50,marginTop:4,
+                    background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:8,
+                    boxShadow:'0 6px 20px rgba(0,0,0,0.12)',maxHeight:240,overflowY:'auto',
+                  }}>
+                    {villeSuggestions.map((s, i) => {
+                      const isNum = /^\d+$/.test(villeQuery.trim())
+                      const display = isNum ? `${s.cp} ${s.ville}` : s.ville
+                      const flag = s.pays === 'France' ? '🇫🇷' : '🇨🇭'
+                      return (
+                        <button
+                          key={`${s.pays}-${s.cp}-${s.ville}-${i}`}
+                          onMouseDown={(e) => { e.preventDefault() }}
+                          onClick={() => {
+                            setVilleRayon({ lat: s.lat, lng: s.lng, label: display, pays: s.pays })
+                            setVilleQuery('')
+                            setVilleSuggestions([])
+                            setShowVilleDropdown(false)
+                          }}
+                          style={{
+                            display:'flex',alignItems:'center',gap:8,width:'100%',padding:'8px 12px',
+                            background:'transparent',border:'none',borderBottom:i<villeSuggestions.length-1?'1px solid var(--border)':'none',
+                            textAlign:'left',cursor:'pointer',fontSize:13,color:'var(--text)',fontFamily:'inherit',
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        >
+                          <MapPin size={12} style={{color:'var(--muted)',flexShrink:0}} />
+                          <span style={{fontWeight:600}}>{display}</span>
+                          <span style={{color:'var(--muted)',fontSize:11,marginLeft:'auto',display:'inline-flex',alignItems:'center',gap:4}}>
+                            <span aria-hidden="true">{flag}</span> {s.pays}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+            {villeRayon && (
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+                {[10, 25, 50, 100].map(km => (
+                  <button
+                    key={km}
+                    onClick={() => setRayonKm(km)}
+                    style={{
+                      padding:'4px 10px',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',
+                      border:`1.5px solid ${rayonKm===km ? 'var(--primary)' : 'var(--border)'}`,
+                      background: rayonKm===km ? 'var(--primary-soft)' : 'var(--bg)',
+                      color: rayonKm===km ? 'var(--text)' : 'var(--muted)',
+                    }}
+                  >
+                    {km} km
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={rayonKm}
+                  onChange={(e) => { const v = Number(e.target.value); if (Number.isFinite(v) && v > 0) setRayonKm(Math.min(500, v)) }}
+                  style={{width:60,padding:'4px 8px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:12,color:'var(--text)'}}
+                  title="Rayon personnalisé (km)"
+                />
+              </div>
+            )}
           </div>
 
           {/* ÂGE — dual-handle range slider */}

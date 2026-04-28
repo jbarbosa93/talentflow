@@ -37,6 +37,8 @@ type CVFormation = {
   annee: string
 }
 
+import { geocodeLocalisationSync } from './geocode-localisation'
+
 export type CandidatExisting = {
   email?: string | null
   telephone?: string | null
@@ -149,6 +151,9 @@ export type MergePayload = {
   telephone?: string
   date_naissance?: string
   localisation?: string
+  // Coordonnées dérivées (auto-recalculées si localisation change)
+  latitude?: number | null
+  longitude?: number | null
   // Merge (arrays)
   competences?: string[]
   langues?: string[]
@@ -224,9 +229,21 @@ export function mergeCandidat(
     if (isEmpty(existingVal)) {
       ;(payload as any)[field] = newVal
       report.filledEmpty.push(field)
+      // v1.9.110 — recalculer lat/lng si localisation change
+      if (field === 'localisation') {
+        const geo = geocodeLocalisationSync(newVal)
+        payload.latitude = geo?.latitude ?? null
+        payload.longitude = geo?.longitude ?? null
+      }
     } else if (existingVal !== newVal) {
       ;(payload as any)[field] = newVal
       report.replaced.push(field)
+      // v1.9.110 — recalculer lat/lng si localisation change
+      if (field === 'localisation') {
+        const geo = geocodeLocalisationSync(newVal)
+        payload.latitude = geo?.latitude ?? null
+        payload.longitude = geo?.longitude ?? null
+      }
     } else {
       report.ignored.push(field)
     }

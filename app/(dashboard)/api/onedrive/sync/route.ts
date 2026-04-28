@@ -12,6 +12,7 @@ import { normaliserGenre } from '@/lib/normaliser-genre'
 import { findExistingCandidat } from '@/lib/candidat-matching'
 import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
+import { geocodeLocalisationSync } from '@/lib/geocode-localisation'
 import { classifyDocument } from '@/lib/document-classification'
 import { createHash } from 'crypto'
 
@@ -1343,6 +1344,8 @@ export async function POST(request: Request) {
           }
 
           // h. Crée le candidat
+          // v1.9.110 — géocodage auto depuis localisation strict (lookup local CP CH/FR)
+          const geo = geocodeLocalisationSync(analyse.localisation)
           const { data: candidat, error: dbError } = await supabase
             .from('candidats')
             .insert({
@@ -1351,6 +1354,7 @@ export async function POST(request: Request) {
               email: candidatEmail,
               telephone: analyse.telephone || null,
               localisation: analyse.localisation || null,
+              ...(geo ? { latitude: geo.latitude, longitude: geo.longitude } : {}),
               titre_poste: analyse.titre_poste || null,
               annees_exp: analyse.annees_exp || 0,
               competences: analyse.competences || [],

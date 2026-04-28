@@ -53,6 +53,125 @@ export async function GET(request: NextRequest) {
     const engage = searchParams.get('engage') || ''
     const pipelineOnly = searchParams.get('statut_pipeline') === 'true'
 
+    // v1.9.110 — Filtre rayon (lat/lng/rayon_km) → RPC candidats_dans_rayon
+    const latParam = searchParams.get('lat')
+    const lngParam = searchParams.get('lng')
+    const rayonParam = searchParams.get('rayon_km')
+    const lat = latParam ? Number(latParam) : null
+    const lng = lngParam ? Number(lngParam) : null
+    const rayonKm = rayonParam ? Number(rayonParam) : null
+    const rayonActive = lat !== null && lng !== null && rayonKm !== null
+      && Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(rayonKm)
+      && rayonKm > 0
+
+    if (rayonActive) {
+      // 1) Récupérer les IDs candidats matchant les filtres existants (search + colonnes)
+      let candidateIds: string[] = []
+
+      if (search) {
+        // Search RPC → IDs
+        const rpcSearch = await (supabase.rpc as any)('search_candidats_filtered', {
+          search_query: search,
+          filter_import_status: (importStatus && importStatus !== 'all') ? importStatus : null,
+          filter_statut: (statut && statut !== 'all') ? statut : null,
+          result_limit: 10000,
+          result_offset: 0,
+        })
+        const rows = rpcSearch.data as { id: string; total_count: number }[] | null
+        candidateIds = rows ? rows.map(r => r.id) : []
+
+        // Affiner par filtres colonne (batches de 200) si présents
+        const hasColFilters = !!(lieu || genre || langue || permis || metierList.length || cfc || engage)
+        if (hasColFilters && candidateIds.length > 0) {
+          const BATCH = 200
+          const filtered: string[] = []
+          for (let i = 0; i < candidateIds.length; i += BATCH) {
+            const batch = candidateIds.slice(i, i + BATCH)
+            let bq = supabase.from('candidats').select('id').in('id', batch)
+            if (lieu) bq = (bq as any).ilike('localisation', `%${lieu}%`)
+            if (genre) bq = (bq as any).eq('genre', genre)
+            if (langue) bq = (bq as any).contains('langues', [langue])
+            if (permis === 'true') bq = (bq as any).eq('permis_conduire', true)
+            if (permis === 'false') bq = (bq as any).eq('permis_conduire', false)
+            if (metierList.length === 1) bq = (bq as any).contains('tags', [metierList[0]])
+            else if (metierList.length > 1) bq = (bq as any).overlaps('tags', metierList)
+            if (cfc === 'true') bq = (bq as any).eq('cfc', true)
+            if (engage === 'true') bq = (bq as any).eq('deja_engage', true)
+            const { data: batchData } = await bq
+            if (batchData) filtered.push(...(batchData as { id: string }[]).map(r => r.id))
+          }
+          candidateIds = filtered
+        }
+      } else {
+        // Pas de search → query directe avec filtres colonne
+        let idQuery: any = supabase.from('candidats').select('id').limit(10000)
+        const effImportStatus = importStatus && importStatus !== 'all' ? importStatus : ''
+        const effStatut = statut && statut !== 'all' ? statut : ''
+        if (pipelineOnly) idQuery = idQuery.not('statut_pipeline', 'is', null)
+        else if (effStatut) idQuery = idQuery.eq('statut_pipeline', effStatut)
+        if (effImportStatus) idQuery = idQuery.eq('import_status', effImportStatus)
+        if (genre) idQuery = idQuery.eq('genre', genre)
+        if (permis === 'true') idQuery = idQuery.eq('permis_conduire', true)
+        if (permis === 'false') idQuery = idQuery.eq('permis_conduire', false)
+        if (lieu) idQuery = idQuery.ilike('localisation', `%${lieu}%`)
+        if (metierList.length === 1) idQuery = idQuery.contains('tags', [metierList[0]])
+        else if (metierList.length > 1) idQuery = idQuery.overlaps('tags', metierList)
+        if (langue) idQuery = idQuery.contains('langues', [langue])
+        if (cfc === 'true') idQuery = idQuery.eq('cfc', true)
+        if (engage === 'true') idQuery = idQuery.eq('deja_engage', true)
+        const { data: idRows } = await idQuery
+        candidateIds = (idRows || []).map((r: any) => r.id)
+      }
+
+      // 2) RPC rayon (sans coords inclus, NULLS LAST, tri distance ASC)
+      const rpcRayon = await (supabase.rpc as any)('candidats_dans_rayon', {
+        p_lat: lat,
+        p_lng: lng,
+        p_rayon_km: rayonKm,
+        p_ids: candidateIds.length > 0 ? candidateIds : null,
+      })
+      if (rpcRayon.error) {
+        return NextResponse.json({ error: rpcRayon.error.message }, { status: 500 })
+      }
+      const rayonRows = (rpcRayon.data as { id: string; distance_km: number | null }[] | null) || []
+
+      // 3) Pagination + fetch des rows complètes
+      const totalFound = rayonRows.length
+      const totalPages = Math.max(1, Math.ceil(totalFound / perPage))
+      const from = (page - 1) * perPage
+      const pageRows = rayonRows.slice(from, from + perPage)
+      const pageIds = pageRows.map(r => r.id)
+      const distanceMap = new Map(pageRows.map(r => [r.id, r.distance_km]))
+
+      if (pageIds.length === 0) {
+        return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })
+      }
+
+      const { data: rows, error: fetchErr } = await supabase
+        .from('candidats')
+        .select(LIST_COLUMNS)
+        .in('id', pageIds)
+      if (fetchErr) throw fetchErr
+
+      // 4) Réordonner selon ordre RPC + attacher distance_km
+      const rowMap = new Map((rows || []).map((c: any) => [c.id, c]))
+      const ordered = pageIds
+        .map(id => {
+          const c = rowMap.get(id)
+          if (!c) return null
+          return { ...c, distance_km: distanceMap.get(id) ?? null }
+        })
+        .filter(Boolean)
+
+      return NextResponse.json({
+        candidats: ordered,
+        total: totalFound,
+        page,
+        per_page: perPage,
+        total_pages: totalPages,
+      })
+    }
+
     // Construire la requête de base
     let query = supabase
       .from('candidats')

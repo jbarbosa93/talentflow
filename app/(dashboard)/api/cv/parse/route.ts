@@ -16,6 +16,7 @@ import { findExistingCandidat } from '@/lib/candidat-matching'
 import { mergeCandidat, mergeReportToText } from '@/lib/merge-candidat'
 import { getCachedAnalyse, setCachedAnalyse, invalidateCachedAnalyse } from '@/lib/analyse-cache'
 import { normalizeCandidat } from '@/lib/normalize-candidat'
+import { geocodeLocalisationSync } from '@/lib/geocode-localisation'
 import { classifyDocument } from '@/lib/document-classification'
 import { createHash } from 'crypto'
 
@@ -1168,6 +1169,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // 9. Créer le candidat en base (CV uniquement)
   dbg('[CV Parse] Insertion en base...')
 
+  // v1.9.110 — géocodage auto depuis localisation strict (lookup local CP CH/FR)
+  const geo = geocodeLocalisationSync(analyse.localisation)
+
   const nouveauCandidat: CandidatInsert = {
     nom: analyse.nom || 'Candidat',
     prenom: analyse.prenom || null,
@@ -1205,6 +1209,9 @@ async function handlePOST(request: NextRequest): Promise<NextResponse> {
   // v1.9.77 — badge coloré persistant pour import manuel (cohérence avec OneDrive sync)
   ;(nouveauCandidat as any).onedrive_change_type = 'nouveau'
   ;(nouveauCandidat as any).onedrive_change_at = new Date().toISOString()
+  // v1.9.110 — coordonnées géocodées (null si CP absent du dataset local)
+  ;(nouveauCandidat as any).latitude = geo?.latitude ?? null
+  ;(nouveauCandidat as any).longitude = geo?.longitude ?? null
 
   // Date d'ajout : lastModified > date dans le nom de fichier > maintenant
   const insertDate = fileDate || extractDateFromFilename(file.name)

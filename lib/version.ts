@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.109'
+export const APP_VERSION = '1.9.110'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.110',
+    date: '2026-04-28',
+    label: 'Géolocalisation par rayon — filtre ville + slider km (autocomplete CH/FR)',
+    features: [
+      'NOUVEAU FILTRE — Dans les filtres avancés de la liste candidats : champ "VILLE & RAYON" avec autocomplete sur 23780 villes officielles (3362 CH + 20418 FR via geonames-postal-code). Tape "1870" ou "Mon..." → suggestions live (top 10, CH avant FR, exact match prioritaire). Sélectionne une ville → choix du rayon (10/25/50/100 km presets ou valeur libre 1-500 km, défaut 25 km). Liste filtrée et triée par distance ASC, avec badge orange "12 km" sur chaque card.',
+      'GÉOCODAGE BATCH — 5556 / 5828 candidats existants géocodés (95.3% de la base) en un seul batch idempotent : 5248 via dataset local CP→lat/lng (90.9%, 0 appel réseau), 315 via Nominatim OSM (5.5%, fallback villes étrangères/ambiguës), 7 rejetés hors Europe (faux positifs Nominatim US/CA), 208 non géocodables (formats trop dégradés), 0 erreur SQL. Garde-fou `WHERE latitude IS NULL` rend le script ré-exécutable sans risque.',
+      'PIPELINE IMPORT AUTO — Tout nouveau CV (cv/parse manuel + onedrive/sync cron) est désormais géocodé instantanément à l\'INSERT via `lib/geocode-localisation.ts` (lookup local CP → 0 appel réseau pour 95% des cas, fallback Nominatim async timeout 3s sinon). UPDATE coords `lib/merge-candidat.ts` recalcule lat/lng dès qu\'une localisation change (replaced ou filledEmpty). Validation Europe (35-72°N, -10 à +40°E) rejette les FP géographiques.',
+      'INFRASTRUCTURE DB — Migration `candidats` ADD COLUMN latitude/longitude FLOAT + index partiel `idx_candidats_geo` (WHERE latitude IS NOT NULL AND longitude IS NOT NULL). Fonctions PostgreSQL `haversine_km(lat1,lng1,lat2,lng2)` IMMUTABLE PARALLEL SAFE + `candidats_dans_rayon(p_lat, p_lng, p_rayon_km, p_ids[])` STABLE PARALLEL SAFE retournant `(id, distance_km)` triés ASC NULLS LAST. Candidats sans coords toujours affichés en queue (jamais exclus).',
+      'API — Nouveau endpoint `GET /api/villes/suggestions?q=...` (autocomplete instantané, pas de DB, pas de réseau, ~1ms). Route `/api/candidats` étendue : params `lat`, `lng`, `rayon_km` → branche RPC `candidats_dans_rayon` avec pré-filtrage par IDs respectant tous les filtres existants (search, métier, langue, genre, permis, CFC, déjà engagé, statut, import_status). Réponse enrichie avec `distance_km` par candidat. Compatible boolean search (ET) + pagination + tri stable.',
+    ],
+  },
   {
     version: '1.9.109',
     date: '2026-04-28',

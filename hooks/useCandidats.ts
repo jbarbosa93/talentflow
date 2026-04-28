@@ -22,6 +22,10 @@ export function useCandidats(filters?: {
   metier?: string
   cfc?: 'true' | undefined
   engage?: 'true' | undefined
+  // v1.9.110 — filtre rayon (autocomplete ville + slider km)
+  lat?: number
+  lng?: number
+  rayon_km?: number
 }) {
   return useQuery({
     queryKey: ['candidats', filters],
@@ -40,6 +44,9 @@ export function useCandidats(filters?: {
       if (filters?.metier) params.set('metier', filters.metier)
       if (filters?.cfc) params.set('cfc', filters.cfc)
       if (filters?.engage) params.set('engage', filters.engage)
+      if (filters?.lat !== undefined) params.set('lat', String(filters.lat))
+      if (filters?.lng !== undefined) params.set('lng', String(filters.lng))
+      if (filters?.rayon_km !== undefined) params.set('rayon_km', String(filters.rayon_km))
       const res = await fetch(`/api/candidats?${params}`)
       if (!res.ok) throw new Error('Erreur chargement candidats')
       const data = await res.json()

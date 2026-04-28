@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
+import { geocodeLocalisation } from '@/lib/geocode-localisation'
 
 export const runtime = 'nodejs'
 
@@ -133,6 +134,19 @@ export async function PATCH(
       .select('*')
       .eq('id', id)
       .single()
+
+    // v1.9.110 — Géocodage auto si la localisation change
+    if (body.localisation !== undefined && oldData && body.localisation !== (oldData as any).localisation) {
+      const newLoc = (body.localisation || '').toString().trim()
+      if (newLoc) {
+        const coords = await geocodeLocalisation(newLoc)
+        ;(body as any).latitude = coords?.latitude ?? null
+        ;(body as any).longitude = coords?.longitude ?? null
+      } else {
+        ;(body as any).latitude = null
+        ;(body as any).longitude = null
+      }
+    }
 
     const { data, error } = await supabase
       .from('candidats')
