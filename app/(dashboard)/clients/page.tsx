@@ -6,12 +6,14 @@ import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
   Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw, Sparkles,
+  ShieldCheck, ExternalLink, Check, AlertCircle,
 } from 'lucide-react'
 import { useClients, useCreateClient, useSecteursStats, type Client } from '@/hooks/useClients'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
 import AIClientSearch from '@/components/AIClientSearch'
 import ProspectionModal from '@/components/ProspectionModal'
 import ClientLogo from '@/components/ClientLogo'
+import ZefixSearchPanel, { type ZefixItem } from '@/components/ZefixSearchPanel'
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
@@ -88,7 +90,8 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
     secteurs_activite: [],
     contacts: [],
   })
-  const [activeTab, setActiveTab] = useState<'ia' | 'manual'>('ia')
+  const [activeTab, setActiveTab] = useState<'ia' | 'manual' | 'zefix'>('zefix')
+  const router = useRouter()
 
   if (!open) return null
 
@@ -124,6 +127,21 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
           background: 'var(--secondary)',
         }}>
           <button
+            onClick={() => setActiveTab('zefix')}
+            style={{
+              flex: 1, height: 40, border: 'none',
+              background: activeTab === 'zefix' ? '#F7C948' : 'transparent',
+              color: activeTab === 'zefix' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              fontSize: 13, fontWeight: activeTab === 'zefix' ? 700 : 500,
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              borderRight: '1px solid var(--border)',
+            }}
+            title="Recherche au registre du commerce suisse — gratuit, instantané, officiel"
+          >
+            <ShieldCheck size={14} /> Zefix RC
+          </button>
+          <button
             onClick={() => setActiveTab('ia')}
             style={{
               flex: 1, height: 40, border: 'none',
@@ -134,6 +152,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               borderRight: '1px solid var(--border)',
             }}
+            title="Recherche IA + web search (récupère adresse complète, téléphone, site web)"
           >
             <Sparkles size={14} /> Recherche IA
           </button>
@@ -156,6 +175,33 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
           <AIClientSearch
             compact
             onClientAdded={() => { onClientAdded?.(); onClose() }}
+          />
+        ) : activeTab === 'zefix' ? (
+          <ZefixSearchPanel
+            onImport={async (item: ZefixItem) => {
+              try {
+                const res = await fetch('/api/clients', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    nom_entreprise: item.name,
+                    ville: item.legalSeat,
+                    statut: 'actif',
+                    zefix_uid: item.uid,
+                    zefix_status: item.status,
+                    zefix_name: item.name,
+                    zefix_verified_at: new Date().toISOString(),
+                  }),
+                })
+                const json = await res.json()
+                if (!res.ok) throw new Error(json?.error || 'Erreur création')
+                onClientAdded?.()
+                onClose()
+                router.push(`/clients/${json.client.id}`)
+              } catch (e: any) {
+                alert(e?.message || 'Erreur lors de l\'import')
+              }
+            }}
           />
         ) : (
           <div>
@@ -1278,7 +1324,6 @@ export default function ClientsPage() {
         onClose={() => setShowProspectionModal(false)}
       />
 
-      {/* AI Search modal */}
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )

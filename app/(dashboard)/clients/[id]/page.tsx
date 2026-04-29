@@ -6,8 +6,10 @@ import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
   Briefcase, MessageSquare, Users, Smartphone, User, Activity, Plus,
+  ShieldCheck, ExternalLink, AlertTriangle,
 } from 'lucide-react'
 import { useClient, useUpdateClient, useDeleteClient, type Client } from '@/hooks/useClients'
+import { useQueryClient } from '@tanstack/react-query'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
 import { toast } from 'sonner'
 import ActivityHistory from '@/components/ActivityHistory'
@@ -401,9 +403,40 @@ export default function ClientDetailPage() {
   const [showActivityHistory, setShowActivityHistory] = useState(false)
   // v1.9.116 — Modal édition card (Contact / Adresse)
   const [editingCard, setEditingCard] = useState<'contact' | 'adresse' | 'notes' | null>(null)
+  // v1.9.117 — Vérification Zefix
+  const queryClient = useQueryClient()
+  const [verifyingZefix, setVerifyingZefix] = useState(false)
+  const [zefixVerifyResult, setZefixVerifyResult] = useState<{ found: boolean; bestMatch: any; candidates?: any[] } | null>(null)
 
   const handleSave = (field: string, value: string) => {
     updateClient.mutate({ id, data: { [field]: value } as any })
+  }
+
+  // v1.9.117 — Vérification Zefix : POST /api/clients/zefix/verify et refresh la fiche
+  const handleVerifyZefix = async () => {
+    setVerifyingZefix(true)
+    setZefixVerifyResult(null)
+    try {
+      const res = await fetch('/api/clients/zefix/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.error || 'Erreur vérification')
+      setZefixVerifyResult(json)
+      // Invalide la fiche pour récupérer les zefix_* à jour
+      queryClient.invalidateQueries({ queryKey: ['client', id] })
+      if (json.found) {
+        toast.success(`Vérifié au RC : ${json.bestMatch.name} (${json.bestMatch.statusLabel})`)
+      } else {
+        toast.warning('Aucune correspondance trouvée au registre du commerce')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Erreur de vérification')
+    } finally {
+      setVerifyingZefix(false)
+    }
   }
 
   const handleDelete = () => {
@@ -452,22 +485,20 @@ export default function ClientDetailPage() {
 
   return (
     <div style={{ padding: '28px 32px', maxWidth: 900, margin: '0 auto' }}>
-      {/* Back button */}
+      {/* v1.9.117 — Bouton retour aligné sur /candidats/[id] : router.back() natif
+          (respecte l'historique nav et donc page+filtres+scroll), fallback /clients */}
       <button
-        onClick={() => router.push('/clients')}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'var(--secondary)', border: '1.5px solid var(--border)',
-          borderRadius: 100, padding: '8px 18px',
-          color: 'var(--muted)', fontSize: 13, fontWeight: 600,
-          cursor: 'pointer', fontFamily: 'var(--font-body)',
-          marginBottom: 20, transition: 'all 0.15s',
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) {
+            router.back()
+          } else {
+            router.push('/clients')
+          }
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--ink, #1C1A14)' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
+        className="neo-btn-ghost neo-btn-sm"
+        style={{ marginBottom: 16 }}
       >
-        <ArrowLeft size={14} />
-        Retour aux clients
+        <ArrowLeft size={14} /> Retour
       </button>
 
       {/* Header card */}
@@ -779,6 +810,172 @@ export default function ClientDetailPage() {
           })}
         </div>
       </div>
+
+      {/* v1.9.117 — Registre du commerce suisse (Zefix) */}
+      {(() => {
+        const status = (client as any).zefix_status as string | null | undefined
+        const isDissolved = status === 'GELOESCHT'
+        const isLiquidating = status === 'AUFGELOEST'
+        const isActive = status === 'EXISTIEREND'
+        const sBg = isDissolved ? 'rgba(220,38,38,0.08)'
+          : isLiquidating ? 'rgba(234,88,12,0.08)'
+          : isActive ? 'rgba(22,163,74,0.08)' : 'var(--secondary)'
+        const sFg = isDissolved ? '#dc2626'
+          : isLiquidating ? '#ea580c'
+          : isActive ? '#16a34a' : 'var(--muted)'
+        const sLabel = isDissolved ? 'Radiée'
+          : isLiquidating ? 'En liquidation'
+          : isActive ? 'Actif au RC'
+          : (status || 'Non vérifié')
+
+        const verifiedAt = (client as any).zefix_verified_at
+        const cantonalUrl = zefixVerifyResult?.bestMatch?.cantonalExcerptUrl
+
+        return (
+          <div style={{
+            background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
+            padding: '20px 22px', marginBottom: 20,
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+              gap: 12, marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <ShieldCheck size={18} color="var(--primary)" />
+                <div>
+                  <h3 style={{
+                    fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0,
+                    textTransform: 'uppercase', letterSpacing: 0.5,
+                  }}>
+                    Registre du commerce
+                  </h3>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: '2px 0 0' }}>
+                    Source : Zefix.ch — registre officiel suisse
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleVerifyZefix}
+                disabled={verifyingZefix}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '7px 12px', borderRadius: 8,
+                  background: 'var(--primary)', color: 'var(--ink)',
+                  border: 'none', fontSize: 12, fontWeight: 700,
+                  cursor: verifyingZefix ? 'wait' : 'pointer',
+                  opacity: verifyingZefix ? 0.6 : 1,
+                  fontFamily: 'var(--font-body)',
+                }}
+              >
+                {verifyingZefix ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                {verifyingZefix ? 'Vérification…' : (status ? 'Re-vérifier' : 'Vérifier sur Zefix')}
+              </button>
+            </div>
+
+            {status ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* Bandeau alerte si radiée ou en liquidation */}
+                {isDissolved && (
+                  <div style={{
+                    padding: 12, borderRadius: 10,
+                    background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)',
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#dc2626',
+                  }}>
+                    <AlertTriangle size={16} />
+                    <strong>Entreprise radiée au RC.</strong> Tu peux désactiver ce client si elle n'existe plus.
+                  </div>
+                )}
+                {isLiquidating && (
+                  <div style={{
+                    padding: 12, borderRadius: 10,
+                    background: 'rgba(234,88,12,0.08)', border: '1px solid rgba(234,88,12,0.3)',
+                    display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#ea580c',
+                  }}>
+                    <AlertTriangle size={16} />
+                    <strong>Entreprise en liquidation.</strong> Vérifie avant nouveau placement.
+                  </div>
+                )}
+
+                {/* Données RC */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 3 }}>
+                      Statut
+                    </div>
+                    <span style={{
+                      display: 'inline-block', padding: '4px 10px', borderRadius: 999,
+                      fontSize: 12, fontWeight: 700, background: sBg, color: sFg,
+                    }}>
+                      {sLabel}
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 3 }}>
+                      IDE
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-mono, monospace)' }}>
+                      {(client as any).zefix_uid || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 3 }}>
+                      Raison sociale RC
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+                      {(client as any).zefix_name || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 3 }}>
+                      Vérifié le
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--foreground)' }}>
+                      {verifiedAt ? new Date(verifiedAt).toLocaleDateString('fr-CH', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      }) : '—'}
+                    </div>
+                  </div>
+                </div>
+
+                {cantonalUrl && (
+                  <a
+                    href={cantonalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+                      padding: '6px 12px', borderRadius: 8,
+                      background: 'var(--secondary)', color: 'var(--foreground)',
+                      border: '1px solid var(--border)',
+                      fontSize: 12, fontWeight: 600, textDecoration: 'none',
+                    }}
+                  >
+                    <ExternalLink size={12} /> Voir l'extrait du registre cantonal
+                  </a>
+                )}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                Cette fiche n'a pas encore été vérifiée au registre du commerce. Clique sur "Vérifier sur Zefix" pour récupérer l'IDE officiel et le statut.
+              </p>
+            )}
+
+            {/* Si vérif n'a pas trouvé, montrer les candidats proposés */}
+            {zefixVerifyResult && !zefixVerifyResult.found && (zefixVerifyResult.candidates?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'var(--secondary)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6 }}>
+                  Candidats RC (aucun match auto, similarité &lt; 75%) :
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--muted)' }}>
+                  {zefixVerifyResult.candidates!.slice(0, 5).map((c: any, i: number) => (
+                    <li key={i}>{c.name} <code>{c.uid}</code> — {c.legalSeat} ({c.similarity}%)</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Meta info */}
       <div style={{

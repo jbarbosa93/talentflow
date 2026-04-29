@@ -42,6 +42,7 @@ const ALLOWED_COLS = new Set([
   'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
   'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut', 'contacts',
   'secteurs_activite', // v1.9.114 — édition manuelle multi-tag taxonomie fermée
+  'zefix_uid', // v1.9.117 — saisie manuelle CHE-XXX.XXX.XXX
 ])
 
 // Labels français pour le suivi des modifications client
@@ -51,6 +52,7 @@ const CLIENT_FIELD_LABELS: Record<string, string> = {
   email: 'Email', secteur: 'Secteur', site_web: 'Site web',
   notes: 'Notes', statut: 'Statut', contacts: 'Contacts',
   secteurs_activite: 'Secteurs d\'activité',
+  zefix_uid: 'IDE / Zefix UID',
 }
 
 /** Compare old and new values, returns array of changes */

@@ -32,6 +32,11 @@ export interface Client {
   contacts: any[] | null
   secteurs_activite: string[] | null
   created_at: string
+  // v1.9.117 — registre du commerce suisse (Zefix)
+  zefix_uid?: string | null
+  zefix_status?: string | null  // EXISTIEREND | AUFGELOEST | GELOESCHT
+  zefix_name?: string | null
+  zefix_verified_at?: string | null
 }
 
 export function useClients(filters?: {

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.116'
+export const APP_VERSION = '1.9.117'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.117',
+    date: '2026-04-29',
+    label: 'Intégration Zefix RC suisse (vérification entreprises + import direct + audit batch 1221)',
+    features: [
+      'NOUVEAU — Recherche Zefix intégrée dans la modale "Ajouter un client". 3 onglets dans l\'ordre : `Zefix RC` (par défaut, gratuit, instantané, données officielles RC suisse) → `Recherche IA` (Claude + web_search, plus lent mais récupère adresse/tel/site web) → `Saisie manuelle`. Les deux sources sont complémentaires : Zefix fournit la vérité juridique (IDE officiel + statut actif/liquidation/radié + nom RC), l\'IA complète avec les coordonnées de contact.',
+      'API — Découverte de l\'endpoint `POST https://www.zefix.admin.ch/ZefixREST/api/v1/firm/search.json` qui fonctionne SANS authentification (utilisé par le site public zefix.ch). Le `ZefixPublicREST` documenté dans Swagger demande HTTP Basic, lui ; on évite donc l\'inscription / délai d\'attente / secret en env vars. Endpoint `/legalForm` aussi public.',
+      'FIX recherche Zefix — Retry intelligent automatique : si le nom complet ("Gerhard et Molliat SA") renvoie 404, on retente sans suffixes commerciaux (`SA / S.A. / Sàrl / S.à.r.l. / AG / GmbH / Ltd / SAS / EURL / SARL / SNC`). Zefix ne match pas "SA" ↔ "S.A." en string search. Sur le banc DRY-RUN 50 clients : taux de match passe de 64% (32/50) à 80% (40/50) grâce à ce retry.',
+      'DB MIGRATION — 4 colonnes ajoutées à `clients` : `zefix_uid TEXT` (CHE-XXX.XXX.XXX), `zefix_status TEXT` (EXISTIEREND/AUFGELOEST/GELOESCHT), `zefix_name TEXT` (raison sociale officielle RC), `zefix_verified_at TIMESTAMPTZ`. Index unique partiel `idx_clients_zefix_uid WHERE zefix_uid IS NOT NULL` pour empêcher les doublons d\'IDE. Migration additive, 0 réécriture des 1221 lignes existantes.',
+      'ROUTES API — `POST /api/clients/zefix/search` (proxy ZefixREST + flag `already_in_talentflow` calculé par fuzzy match nom ≥88% ou match exact UID dans les 1221 clients en DB) et `POST /api/clients/zefix/verify` (cherche, choisit best fuzzy ≥75% + bonus ville, persiste les 4 colonnes `zefix_*`, log activité `client_modifie`). Le statut client (`statut: actif/desactive`) n\'est JAMAIS modifié par ces routes — l\'utilisateur décide.',
+      'FICHE CLIENT — Nouvelle section "Registre du commerce" sur `/clients/[id]` avant Meta info. Affiche IDE, raison sociale RC, statut (badge coloré : vert actif / orange liquidation / rouge radié), date de vérification. Bouton "Vérifier sur Zefix" (ou "Re-vérifier"). Bandeau d\'alerte rouge si `GELOESCHT` ("Entreprise radiée — désactiver ?"), orange si `AUFGELOEST` ("En liquidation"). Lien "Voir l\'extrait du registre cantonal" via `cantonalExcerptWeb`. Si pas de match auto (similarity <75%), affiche les 5 candidats trouvés pour diagnostic.',
+      'AUDIT BATCH 1221 — Script `scripts/batch/zefix-audit-clients.ts` (DRY-RUN par défaut, `--apply` pour persister). Rate limiting 300ms entre requêtes (respectueux API publique), durée ~6 min sur 1221 clients. Skip auto si déjà vérifié dans les 30 derniers jours. UPDATE DB seulement les 4 champs `zefix_*` jamais le statut client. CSV `~/Desktop/zefix-audit-clients.csv` avec 6 actions : ✅ OK_ACTIF / ⚠️ EN_LIQUIDATION / ❌ RADIE / 🔄 NOM_DIFFERENT / ❓ NOT_FOUND / ⏭ ALREADY_VERIFIED. João examine ensuite manuellement les radiations détectées.',
+      'LIB ZEFIX — `lib/zefix.ts` source unique : `searchZefix()` avec retry, `nameSimilarity()` (Levenshtein + bonus containment + normalisation suffixes), `interpretStatus()` (mapping EXISTIEREND/AUFGELOEST/GELOESCHT → label/booléens FR), `toSearchItem()` adapter API. Réutilisée par 2 routes API + 1 script batch. Aucune dépendance externe (pas de package fuzzy, pas d\'auth client).',
+    ],
+  },
   {
     version: '1.9.116',
     date: '2026-04-29',

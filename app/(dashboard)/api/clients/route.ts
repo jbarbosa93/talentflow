@@ -16,6 +16,8 @@ const LIST_COLUMNS = [
   'id', 'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
   'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut',
   'contacts', 'secteurs_activite', 'created_at',
+  // v1.9.117 — Zefix (registre du commerce)
+  'zefix_uid', 'zefix_status', 'zefix_name', 'zefix_verified_at',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
@@ -143,6 +145,8 @@ export async function POST(request: NextRequest) {
       'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
       'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut',
       'secteurs_activite', 'contacts',
+      // v1.9.117 — import depuis Zefix (les 4 colonnes du registre du commerce)
+      'zefix_uid', 'zefix_status', 'zefix_name', 'zefix_verified_at',
     ])
     const filtered: Record<string, any> = {}
     for (const [k, v] of Object.entries(body)) {
