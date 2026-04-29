@@ -7,9 +7,33 @@ import {
   ChevronLeft, ChevronRight, Loader2, X, Filter,
   Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw, Sparkles,
 } from 'lucide-react'
-import { useClients, useCreateClient, type Client } from '@/hooks/useClients'
+import { useClients, useCreateClient, useSecteursStats, type Client } from '@/hooks/useClients'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 import AIClientSearch from '@/components/AIClientSearch'
 import ProspectionModal from '@/components/ProspectionModal'
+import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
+
+// v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
+// dans /parametres/metiers (mapping secteur → métier représentatif → catégorie).
+function makeSecteurColors(getColorForMetier: (m: string) => string | undefined) {
+  return (secteur: string) => {
+    const metier = SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
+    const hex = metier ? getColorForMetier(metier) : undefined
+    if (!hex) {
+      return {
+        bg: 'var(--primary-soft)',
+        border: 'var(--primary)',
+        text: 'var(--primary)',
+      }
+    }
+    // hex+'1A' = alpha 10% (lisible en light + dark mode)
+    return {
+      bg: `${hex}1A`,
+      border: hex,
+      text: hex,
+    }
+  }
+}
 
 const LAST_SEEN_KEY = 'talentflow_last_seen'
 function getClientLastSeen(): string | null {
@@ -50,9 +74,18 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
   onCreate: (data: Partial<Client>) => void
   onClientAdded?: () => void
 }) {
-  const [form, setForm] = useState({
+  const { getColorForMetier } = useMetierCategories()
+  const getSecteurColor = makeSecteurColors(getColorForMetier)
+  const [form, setForm] = useState<{
+    nom_entreprise: string; adresse: string; npa: string; ville: string; canton: string;
+    telephone: string; email: string; secteur: string; site_web: string; notes: string;
+    secteurs_activite: string[];
+    contacts: Array<{ prenom: string; nom: string; fonction: string; email: string; telephone: string }>;
+  }>({
     nom_entreprise: '', adresse: '', npa: '', ville: '', canton: '',
     telephone: '', email: '', secteur: '', site_web: '', notes: '',
+    secteurs_activite: [],
+    contacts: [],
   })
   const [activeTab, setActiveTab] = useState<'ia' | 'manual'>('ia')
 
@@ -294,6 +327,150 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
               }}
             />
           </div>
+
+          {/* v1.9.114 — Secteurs d'activité (multi-select optionnel à la création) */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', marginBottom: 6, display: 'block' }}>
+              Secteurs d&apos;activité <span style={{ fontWeight: 500, color: 'var(--muted-foreground)' }}>(facultatif — auto-extrait depuis les notes sinon)</span>
+            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {SECTEURS_ACTIVITE.map(s => {
+                const active = form.secteurs_activite.includes(s)
+                const c = getSecteurColor(s)
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      secteurs_activite: active
+                        ? f.secteurs_activite.filter(x => x !== s)
+                        : [...f.secteurs_activite, s],
+                    }))}
+                    style={{
+                      padding: '4px 10px', borderRadius: 6,
+                      border: `1.5px solid ${active ? c.border : 'var(--border)'}`,
+                      background: active ? c.bg : 'var(--card)',
+                      color: active ? c.text : 'var(--muted-foreground)',
+                      fontSize: 12, fontWeight: active ? 700 : 500,
+                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    {s}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* v1.9.114 — Contacts (optionnel à la création) */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', display: 'block' }}>
+                Personnes de contact <span style={{ fontWeight: 500, color: 'var(--muted-foreground)' }}>(facultatif)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({
+                  ...f,
+                  contacts: [...f.contacts, { prenom: '', nom: '', fonction: '', email: '', telephone: '' }],
+                }))}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  height: 26, padding: '0 10px', borderRadius: 6,
+                  border: '1.5px solid var(--primary)', background: 'var(--primary-soft)',
+                  color: 'var(--primary)', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                }}
+              >
+                <Plus size={11} /> Ajouter
+              </button>
+            </div>
+            {form.contacts.length === 0 ? (
+              <p style={{ fontSize: 11, color: 'var(--muted-foreground)', margin: 0, fontStyle: 'italic' }}>
+                Aucun contact — clique sur « Ajouter » pour en créer un.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {form.contacts.map((c, idx) => (
+                  <div key={idx} style={{
+                    background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                    borderRadius: 8, padding: 10, position: 'relative',
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, contacts: f.contacts.filter((_, i) => i !== idx) }))}
+                      title="Supprimer"
+                      style={{
+                        position: 'absolute', top: 6, right: 6,
+                        width: 22, height: 22, borderRadius: 4,
+                        border: 'none', background: 'transparent',
+                        color: 'var(--muted)', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, paddingRight: 24 }}>
+                      <input
+                        type="text" placeholder="Prénom"
+                        value={c.prenom}
+                        onChange={e => setForm(f => {
+                          const next = [...f.contacts]
+                          next[idx] = { ...next[idx], prenom: e.target.value }
+                          return { ...f, contacts: next }
+                        })}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                      <input
+                        type="text" placeholder="Nom"
+                        value={c.nom}
+                        onChange={e => setForm(f => {
+                          const next = [...f.contacts]
+                          next[idx] = { ...next[idx], nom: e.target.value }
+                          return { ...f, contacts: next }
+                        })}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                    <input
+                      type="text" placeholder="Fonction"
+                      value={c.fonction}
+                      onChange={e => setForm(f => {
+                        const next = [...f.contacts]
+                        next[idx] = { ...next[idx], fonction: e.target.value }
+                        return { ...f, contacts: next }
+                      })}
+                      style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      <input
+                        type="email" placeholder="Email"
+                        value={c.email}
+                        onChange={e => setForm(f => {
+                          const next = [...f.contacts]
+                          next[idx] = { ...next[idx], email: e.target.value }
+                          return { ...f, contacts: next }
+                        })}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                      <input
+                        type="tel" placeholder="Téléphone"
+                        value={c.telephone}
+                        onChange={e => setForm(f => {
+                          const next = [...f.contacts]
+                          next[idx] = { ...next[idx], telephone: e.target.value }
+                          return { ...f, contacts: next }
+                        })}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
@@ -309,8 +486,12 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
           <button
             onClick={() => {
               if (!form.nom_entreprise.trim()) return
-              onCreate(form)
-              setForm({ nom_entreprise: '', adresse: '', npa: '', ville: '', canton: '', telephone: '', email: '', secteur: '', site_web: '', notes: '' })
+              // Filtre les contacts vides avant envoi (au moins un champ rempli)
+              const cleanedContacts = form.contacts.filter(c =>
+                c.prenom.trim() || c.nom.trim() || c.email.trim() || c.telephone.trim() || c.fonction.trim()
+              )
+              onCreate({ ...form, contacts: cleanedContacts.length > 0 ? cleanedContacts as any : null })
+              setForm({ nom_entreprise: '', adresse: '', npa: '', ville: '', canton: '', telephone: '', email: '', secteur: '', site_web: '', notes: '', secteurs_activite: [], contacts: [] })
               onClose()
             }}
             disabled={!form.nom_entreprise.trim()}
@@ -362,10 +543,6 @@ export default function ClientsPage() {
   const [showProspectionModal, setShowProspectionModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const clientsLastSeen = getClientLastSeen()
-  const [filterSecteur, setFilterSecteur] = useState(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('clients_secteur') || ''
-    return ''
-  })
   const [filterVille, setFilterVille] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_ville') || ''
     return ''
@@ -374,7 +551,34 @@ export default function ClientsPage() {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_npa') || ''
     return ''
   })
-  const [filterAvecContacts, setFilterAvecContacts] = useState('')
+  const [filterAvecContacts, setFilterAvecContacts] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return sessionStorage.getItem('clients_contacts') || ''
+  })
+  // v1.9.114 — Filtre date d'ajout (range)
+  const [filterCreatedAfter, setFilterCreatedAfter] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return sessionStorage.getItem('clients_created_after') || ''
+  })
+  const [filterCreatedBefore, setFilterCreatedBefore] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return sessionStorage.getItem('clients_created_before') || ''
+  })
+  // v1.9.114 — Dropdown secteurs ouvert/fermé
+  const [secteursDropdownOpen, setSecteursDropdownOpen] = useState(false)
+  // v1.9.114 — perPage configurable (20 / 50 / 100 / 1000 / Tous=0)
+  const [perPage, setPerPage] = useState<number>(() => {
+    if (typeof window === 'undefined') return 20
+    return parseInt(sessionStorage.getItem('clients_per_page') || '20')
+  })
+  // v1.9.114 — Filtre secteurs (multi-select avec persistance sessionStorage)
+  const [filterSecteurs, setFilterSecteurs] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = sessionStorage.getItem('clients_secteurs_filter')
+      return raw ? JSON.parse(raw) : []
+    } catch { return [] }
+  })
 
   // Persist all filters to sessionStorage
   useEffect(() => {
@@ -383,10 +587,14 @@ export default function ClientsPage() {
     sessionStorage.setItem('clients_page', String(page))
     sessionStorage.setItem('clients_view', viewMode)
     sessionStorage.setItem('clients_canton', cantonFilter)
-    sessionStorage.setItem('clients_secteur', filterSecteur)
     sessionStorage.setItem('clients_ville', filterVille)
     sessionStorage.setItem('clients_npa', filterNPA)
-  }, [search, statutFilter, page, viewMode, cantonFilter, filterSecteur, filterVille, filterNPA])
+    sessionStorage.setItem('clients_secteurs_filter', JSON.stringify(filterSecteurs))
+    sessionStorage.setItem('clients_contacts', filterAvecContacts)
+    sessionStorage.setItem('clients_created_after', filterCreatedAfter)
+    sessionStorage.setItem('clients_created_before', filterCreatedBefore)
+    sessionStorage.setItem('clients_per_page', String(perPage))
+  }, [search, statutFilter, page, viewMode, cantonFilter, filterVille, filterNPA, filterSecteurs, filterAvecContacts, filterCreatedAfter, filterCreatedBefore, perPage])
 
   // Debounce search
   useEffect(() => {
@@ -427,24 +635,29 @@ export default function ClientsPage() {
     }
   }, [])
 
-  // Build combined search: merge text search + advanced filters
-  const buildSearch = () => {
-    const parts = [debouncedSearch]
-    if (filterSecteur) parts.push(filterSecteur)
-    if (filterVille) parts.push(filterVille)
-    if (filterNPA) parts.push(filterNPA)
-    return parts.filter(Boolean).join(' ')
-  }
-
   const { data, isLoading, isFetching } = useClients({
-    search: buildSearch(),
+    search: debouncedSearch,
     statut: statutFilter,
     canton: cantonFilter,
+    secteurs: filterSecteurs,
+    ville: filterVille,
+    npa: filterNPA,
+    contacts: filterAvecContacts as 'avec' | 'sans' | '',
+    created_after: filterCreatedAfter,
+    created_before: filterCreatedBefore,
     page,
-    per_page: 20,
+    per_page: perPage,
   })
 
   const createClient = useCreateClient()
+  const { data: secteursStats } = useSecteursStats()
+  const { getColorForMetier } = useMetierCategories()
+  const getSecteurColor = makeSecteurColors(getColorForMetier)
+
+  // v1.9.114 — Ordre canonique (groupé par catégorie métier), pas par fréquence.
+  // Le count en stats reste affiché à côté de chaque entrée du dropdown.
+  const secteursOrdered = [...SECTEURS_ACTIVITE]
+  const secteursCountMap = new Map<string, number>((secteursStats || []).map(s => [s.secteur, s.count]))
 
   const clients = data?.clients || []
   const total = data?.total || 0
@@ -561,9 +774,9 @@ export default function ClientsPage() {
         >
           <SlidersHorizontal size={14} />
           Filtres avancés
-          {(cantonFilter || filterSecteur || filterVille || filterNPA || filterAvecContacts) && (
+          {(cantonFilter || filterVille || filterNPA || filterAvecContacts || filterCreatedAfter || filterCreatedBefore || filterSecteurs.length > 0) && (
             <span style={{ background: '#EF4444', color: 'white', borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700 }}>
-              {[cantonFilter, filterSecteur, filterVille, filterNPA, filterAvecContacts].filter(Boolean).length}
+              {[cantonFilter, filterVille, filterNPA, filterAvecContacts, filterCreatedAfter, filterCreatedBefore].filter(Boolean).length + (filterSecteurs.length > 0 ? 1 : 0)}
             </span>
           )}
         </button>
@@ -584,10 +797,39 @@ export default function ClientsPage() {
           <option value="za">Z → A</option>
         </select>
 
+        {/* v1.9.114 — Pagination header : perPage + total + numéros pages */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
+          fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)',
+        }}>
+          <select
+            value={perPage}
+            onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+            style={{
+              fontSize: 13, padding: '8px 10px', borderRadius: 8,
+              border: '2px solid var(--border)', background: 'var(--card)',
+              color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+              fontWeight: 600,
+            }}
+          >
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={1000}>1000</option>
+            <option value={0}>Tous</option>
+          </select>
+          <span style={{ fontWeight: 500 }}>/ {total.toLocaleString('fr-CH')}</span>
+          {totalPages > 1 && (
+            <span style={{ fontWeight: 600, marginLeft: 6, color: 'var(--foreground)' }}>
+              · Page {page} / {totalPages}
+            </span>
+          )}
+        </div>
+
         {/* View toggle */}
         <div style={{
           display: 'flex', gap: 0, border: '2px solid var(--border)',
-          borderRadius: 10, overflow: 'hidden', background: 'var(--card)', marginLeft: 'auto',
+          borderRadius: 10, overflow: 'hidden', background: 'var(--card)',
         }}>
           <button onClick={() => setViewMode('grid')} style={{
             width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -616,12 +858,105 @@ export default function ClientsPage() {
           padding: 16, marginBottom: 16,
           display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12,
         }}>
-          <div>
+          {/* v1.9.114 — Secteur (multi-select dropdown style /candidats) */}
+          <div style={{ position: 'relative' }}>
             <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Secteur</label>
-            <input value={filterSecteur} onChange={e => { setFilterSecteur(e.target.value); setPage(1) }}
-              placeholder="Ex: Construction, BTP..."
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
-            />
+            <button
+              type="button"
+              onClick={() => setSecteursDropdownOpen(v => !v)}
+              style={{
+                width: '100%', padding: '8px 30px 8px 10px', borderRadius: 8,
+                border: '1.5px solid var(--border)', background: 'var(--secondary)',
+                fontSize: 13, color: filterSecteurs.length > 0 ? 'var(--foreground)' : 'var(--muted)',
+                fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                textAlign: 'left', cursor: 'pointer', position: 'relative',
+                fontWeight: filterSecteurs.length > 0 ? 600 : 500,
+              }}
+            >
+              {filterSecteurs.length === 0
+                ? 'Tous'
+                : filterSecteurs.length === 1
+                  ? filterSecteurs[0]
+                  : `${filterSecteurs.length} secteurs`}
+              <span style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                color: 'var(--muted)', fontSize: 10, pointerEvents: 'none',
+              }}>▼</span>
+            </button>
+            {secteursDropdownOpen && (
+              <>
+                <div
+                  onClick={() => setSecteursDropdownOpen(false)}
+                  style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                />
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+                  background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  maxHeight: 320, overflowY: 'auto', padding: '6px 0',
+                  minWidth: 240,
+                }}>
+                  {filterSecteurs.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setFilterSecteurs([]); setPage(1) }}
+                      style={{
+                        width: '100%', padding: '6px 12px', textAlign: 'left',
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        fontSize: 12, color: 'var(--destructive)', fontWeight: 600,
+                        fontFamily: 'var(--font-body)',
+                        borderBottom: '1px solid var(--border)', marginBottom: 4,
+                      }}
+                    >
+                      ✕ Effacer la sélection ({filterSecteurs.length})
+                    </button>
+                  )}
+                  {secteursOrdered.map(s => {
+                    const active = filterSecteurs.includes(s)
+                    const count = secteursCountMap.get(s) || 0
+                    const c = getSecteurColor(s)
+                    return (
+                      <label
+                        key={s}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '7px 12px', cursor: 'pointer',
+                          fontSize: 13, color: active ? c.text : 'var(--muted-foreground)',
+                          fontWeight: active ? 700 : 500,
+                          fontFamily: 'var(--font-body)',
+                          background: active ? c.bg : 'transparent',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
+                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => {
+                            setFilterSecteurs(prev => active ? prev.filter(x => x !== s) : [...prev, s])
+                            setPage(1)
+                          }}
+                          style={{ accentColor: c.border, cursor: 'pointer' }}
+                        />
+                        {/* Pastille couleur catégorie */}
+                        <span style={{
+                          width: 10, height: 10, borderRadius: '50%',
+                          background: c.border, flexShrink: 0,
+                        }} />
+                        <span style={{ flex: 1 }}>{s}</span>
+                        {count > 0 && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: 'var(--muted)',
+                            background: 'var(--secondary)', padding: '1px 7px', borderRadius: 99,
+                          }}>{count}</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
           <div>
             <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ville</label>
@@ -658,9 +993,28 @@ export default function ClientsPage() {
               <option value="sans">Sans contacts</option>
             </select>
           </div>
+          {/* v1.9.114 — Date d'ajout (range) */}
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ajouté après</label>
+            <input
+              type="date"
+              value={filterCreatedAfter}
+              onChange={e => { setFilterCreatedAfter(e.target.value); setPage(1) }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ajouté avant</label>
+            <input
+              type="date"
+              value={filterCreatedBefore}
+              onChange={e => { setFilterCreatedBefore(e.target.value); setPage(1) }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button onClick={() => {
-              setCantonFilter(''); setFilterSecteur(''); setFilterVille(''); setFilterNPA(''); setFilterAvecContacts(''); setPage(1)
+              setCantonFilter(''); setFilterVille(''); setFilterNPA(''); setFilterAvecContacts(''); setFilterCreatedAfter(''); setFilterCreatedBefore(''); setFilterSecteurs([]); setPage(1)
             }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               height: 38, padding: '0 16px', borderRadius: 8,
@@ -706,6 +1060,9 @@ export default function ClientsPage() {
           {[...clients].sort((a, b) => {
             if (sortOrder === 'az') return (a.nom_entreprise || '').localeCompare(b.nom_entreprise || '', 'fr')
             if (sortOrder === 'za') return (b.nom_entreprise || '').localeCompare(a.nom_entreprise || '', 'fr')
+            // v1.9.114 — Recherche active : on respecte l'ORDER BY relevance du RPC
+            // (sinon le tri 'recent' par created_at écraserait le score → succursales mal ordonnées).
+            if (debouncedSearch && debouncedSearch.trim()) return 0
             return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           }).map(client => {
             const isNew = clientsLastSeen && client.created_at ? new Date(client.created_at) > new Date(clientsLastSeen) : false
@@ -746,7 +1103,7 @@ export default function ClientsPage() {
                 }} />
               )}
               {/* Top: Avatar + Name */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 10 }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 10, flexShrink: 0,
                   background: 'var(--primary)',
@@ -786,30 +1143,48 @@ export default function ClientsPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Status dot */}
-                <div style={{
-                  width: 10, height: 10, borderRadius: '50%', flexShrink: 0, marginTop: 6,
-                  background: client.statut === 'actif' ? '#22C55E' : '#94A3B8',
-                  border: '2px solid var(--card)',
-                  boxShadow: client.statut === 'actif' ? '0 0 6px rgba(34,197,94,0.4)' : 'none',
-                }} title={client.statut === 'actif' ? 'Actif' : 'Desactive'} />
               </div>
 
-              {/* Secteur tag */}
-              {client.secteur && (
-                <div style={{ marginBottom: 12 }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '4px 10px', borderRadius: 6,
-                    background: 'var(--primary-soft)', border: '1px solid var(--primary)',
-                    fontSize: 11, fontWeight: 700, color: 'var(--foreground)',
-                  }}>
-                    <Briefcase size={10} />
-                    {client.secteur}
-                  </span>
-                </div>
-              )}
+              {/* v1.9.114 — Status badge "Actif/Désactivé" + secteurs (max 2 + "+X") — TOUS uniformes */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+                <span style={{
+                  padding: '3px 9px', borderRadius: 6,
+                  background: client.statut === 'actif' ? 'rgba(34,197,94,0.15)' : 'var(--secondary)',
+                  border: `1px solid ${client.statut === 'actif' ? '#22C55E' : 'var(--border)'}`,
+                  fontSize: 11, fontWeight: 700,
+                  color: client.statut === 'actif' ? '#15803D' : 'var(--muted-foreground)',
+                  lineHeight: 1.4,
+                }}>
+                  {client.statut === 'actif' ? 'Actif' : 'Désactivé'}
+                </span>
+                {client.secteurs_activite && client.secteurs_activite.length > 0 && (
+                  <>
+                    {client.secteurs_activite.slice(0, 2).map(s => {
+                      const c = getSecteurColor(s)
+                      return (
+                        <span key={s} style={{
+                          padding: '3px 9px', borderRadius: 6,
+                          background: c.bg, border: `1px solid ${c.border}`,
+                          fontSize: 11, fontWeight: 700, color: c.text,
+                          lineHeight: 1.4,
+                        }}>
+                          {s}
+                        </span>
+                      )
+                    })}
+                    {client.secteurs_activite.length > 2 && (
+                      <span style={{
+                        padding: '3px 9px', borderRadius: 6,
+                        background: 'var(--secondary)', border: '1px solid var(--border)',
+                        fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)',
+                        lineHeight: 1.4,
+                      }}>
+                        +{client.secteurs_activite.length - 2}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Contact info */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

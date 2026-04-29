@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
+import { extractSecteursFromClient, sanitizeSecteurs } from '@/lib/secteurs-extractor'
+import { getVilleFromCp } from '@/lib/cp-to-ville'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -13,7 +15,7 @@ export const maxDuration = 300
 const LIST_COLUMNS = [
   'id', 'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
   'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut',
-  'contacts', 'created_at',
+  'contacts', 'secteurs_activite', 'created_at',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
@@ -26,6 +28,15 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const statut = searchParams.get('statut') || ''
     const canton = searchParams.get('canton') || ''
+    // v1.9.114 — Filtre secteurs : ?secteurs=Sanitaire,Chauffage (CSV) → overlaps OR logique
+    const secteursParam = searchParams.get('secteurs') || ''
+    const secteurs = secteursParam.split(',').map(s => s.trim()).filter(Boolean)
+    // v1.9.114 — Filtres précis (vs search libre)
+    const ville = searchParams.get('ville') || ''
+    const npa = searchParams.get('npa') || ''
+    const contactsFilter = searchParams.get('contacts') || ''  // 'avec' | 'sans' | ''
+    const createdAfter = searchParams.get('created_after') || ''   // ISO date
+    const createdBefore = searchParams.get('created_before') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const rawPerPage = parseInt(searchParams.get('per_page') || '20')
     const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
@@ -53,8 +64,45 @@ export async function GET(request: NextRequest) {
       query = query.ilike('canton', canton)
     }
 
-    // Tri par nom d'entreprise
-    query = query.order('nom_entreprise', { ascending: true })
+    // v1.9.114 — Filtre secteurs : OR logique (overlaps) — un client matche s'il
+    // a au moins un des secteurs demandés. Index GIN idx_clients_secteurs exploité.
+    if (secteurs.length > 0) {
+      query = query.overlaps('secteurs_activite', secteurs)
+    }
+
+    // v1.9.114 — Filtres précis ville / NPA (ILIKE strict, pas via search libre)
+    if (ville && ville.trim()) {
+      query = query.ilike('ville', `%${ville.trim()}%`)
+    }
+    // v1.9.114 — NPA → on lookup la ville pour matcher TOUS les CPs de cette
+    // ville (ex: "1000" Lausanne couvre 1000-1018, y compris "Lausanne 25").
+    // Match préfixe (`Lausanne%`) pour exclure "Romanel-sur-Lausanne",
+    // "Bussigny-près-Lausanne" qui sont d'autres communes. Fallback ILIKE
+    // NPA brut si le CP n'est pas dans les datasets CH/FR.
+    if (npa && npa.trim()) {
+      const cpVille = getVilleFromCp(npa.trim())
+      if (cpVille) {
+        query = query.ilike('ville', `${cpVille}%`)
+      } else {
+        query = query.ilike('npa', `%${npa.trim()}%`)
+      }
+    }
+
+    // v1.9.114 — Filtre contacts (avec / sans). 'avec' = non-null + non-vide.
+    if (contactsFilter === 'avec') {
+      query = query.not('contacts', 'is', null).neq('contacts', '[]')
+    } else if (contactsFilter === 'sans') {
+      query = query.or('contacts.is.null,contacts.eq.[]')
+    }
+
+    // v1.9.114 — Filtre date d'ajout (range optionnel)
+    if (createdAfter) query = query.gte('created_at', createdAfter)
+    if (createdBefore) query = query.lte('created_at', createdBefore)
+
+    // Tri : si recherche → laisser ORDER BY relevance du RPC. Sinon → nom_entreprise ASC.
+    if (!search || !search.trim()) {
+      query = query.order('nom_entreprise', { ascending: true })
+    }
 
     // Pagination
     const from = (page - 1) * perPage
@@ -94,6 +142,7 @@ export async function POST(request: NextRequest) {
     const allowed = new Set([
       'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
       'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut',
+      'secteurs_activite', 'contacts',
     ])
     const filtered: Record<string, any> = {}
     for (const [k, v] of Object.entries(body)) {
@@ -106,6 +155,17 @@ export async function POST(request: NextRequest) {
 
     // Statut par defaut
     if (!filtered.statut) filtered.statut = 'actif'
+
+    // v1.9.114 — Secteurs d'activité : sanitize si fourni explicitement,
+    // sinon auto-extrait depuis notes/secteur (taxonomie standardisée 25 valeurs).
+    if (filtered.secteurs_activite !== undefined) {
+      filtered.secteurs_activite = sanitizeSecteurs(filtered.secteurs_activite)
+    } else if (filtered.notes || filtered.secteur) {
+      const result = extractSecteursFromClient(filtered.notes, filtered.secteur)
+      filtered.secteurs_activite = result.secteurs
+    } else {
+      filtered.secteurs_activite = []
+    }
 
     const { data, error } = await supabase
       .from('clients')

@@ -2,6 +2,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+// v1.9.114 — Stats fréquence secteurs (pour tri du filtre /clients par usage réel)
+export function useSecteursStats() {
+  return useQuery({
+    queryKey: ['clients-secteurs-stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/clients/secteurs-stats')
+      if (!res.ok) throw new Error('Erreur stats secteurs')
+      const data = await res.json()
+      return (data.stats || []) as Array<{ secteur: string; count: number }>
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
 export interface Client {
   id: string
   nom_entreprise: string
@@ -16,6 +30,7 @@ export interface Client {
   site_web: string | null
   statut: 'actif' | 'desactive'
   contacts: any[] | null
+  secteurs_activite: string[] | null
   created_at: string
 }
 
@@ -23,6 +38,12 @@ export function useClients(filters?: {
   search?: string
   statut?: string
   canton?: string
+  secteurs?: string[]
+  ville?: string
+  npa?: string
+  contacts?: 'avec' | 'sans' | ''
+  created_after?: string
+  created_before?: string
   page?: number
   per_page?: number
 }) {
@@ -33,6 +54,14 @@ export function useClients(filters?: {
       if (filters?.search) params.set('search', filters.search)
       if (filters?.statut) params.set('statut', filters.statut)
       if (filters?.canton) params.set('canton', filters.canton)
+      if (filters?.secteurs && filters.secteurs.length > 0) {
+        params.set('secteurs', filters.secteurs.join(','))
+      }
+      if (filters?.ville) params.set('ville', filters.ville)
+      if (filters?.npa) params.set('npa', filters.npa)
+      if (filters?.contacts) params.set('contacts', filters.contacts)
+      if (filters?.created_after) params.set('created_after', filters.created_after)
+      if (filters?.created_before) params.set('created_before', filters.created_before)
       if (filters?.page) params.set('page', String(filters.page))
       if (filters?.per_page !== undefined) params.set('per_page', String(filters.per_page))
       const res = await fetch(`/api/clients?${params}`)
@@ -79,6 +108,7 @@ export function useCreateClient() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['clients-secteurs-stats'] })
       toast.success('Client cree avec succes')
     },
     onError: (error: Error) => { toast.error('Erreur : ' + error.message) },
@@ -101,6 +131,7 @@ export function useUpdateClient() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       queryClient.invalidateQueries({ queryKey: ['client', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['clients-secteurs-stats'] })
       toast.success('Modifications enregistrees')
     },
     onError: (error: Error) => { toast.error('Erreur : ' + error.message) },

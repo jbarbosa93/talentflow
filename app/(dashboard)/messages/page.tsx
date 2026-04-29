@@ -23,6 +23,7 @@ import { renderTemplate, hasContexteIA, TEMPLATE_VARS, type Civilite } from '@/l
 import { RecentContactsWarning, useRecentContacts } from '@/components/RecentContactsWarning'
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { createClient as createSupaClient } from '@/lib/supabase/client'
+import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
 
 const CAT_LABELS: Record<string, string> = {
   invitation_entretien: 'Entretien',
@@ -283,7 +284,9 @@ function ClientPickerModal({
   alreadySelected: string[]
 }) {
   const [search, setSearch] = useState('')
-  const [secteurFilter, setSecteurFilter] = useState('')
+  // v1.9.114 — Multi-select secteurs_activite (taxonomie 25 valeurs) au lieu de l'ancien secteur libre Zefix
+  const [secteursFilter, setSecteursFilter] = useState<Set<string>>(new Set())
+  const [secteursOpen, setSecteursOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set(alreadySelected))
 
   // ── Location / distance ─────────────────────────────────────────────
@@ -377,15 +380,27 @@ function ClientPickerModal({
   const { data } = useClients({ per_page: 2000 })
   const clients: Client[] = data?.clients || []
 
-  // Unique secteurs
-  const secteurs = Array.from(new Set(clients.map(c => c.secteur).filter(Boolean))).sort((a, b) => a!.localeCompare(b!, 'fr')) as string[]
+  // v1.9.114 — Compte des clients par secteur_activite (pour tri du dropdown par fréquence)
+  const secteursCounts = (() => {
+    const m = new Map<string, number>()
+    for (const c of clients) {
+      for (const s of (c.secteurs_activite || [])) m.set(s, (m.get(s) || 0) + 1)
+    }
+    return m
+  })()
+  const secteursList = SECTEURS_ACTIVITE.filter(s => (secteursCounts.get(s) || 0) > 0)
+    .sort((a, b) => (secteursCounts.get(b) || 0) - (secteursCounts.get(a) || 0))
 
   const q = normalize(search)
   // v1.9.70 : recherche booléenne (ET/OU/SAUF + parenthèses) — même parser que liste candidats
   const booleanMatcher = parseBooleanSearch(search)
 
   const filtered = clients.filter(c => {
-    if (secteurFilter && c.secteur !== secteurFilter) return false
+    // v1.9.114 — Filtre multi-select secteurs_activite (OR logique : 1 secteur match suffit)
+    if (secteursFilter.size > 0) {
+      const cs = c.secteurs_activite || []
+      if (!cs.some(s => secteursFilter.has(s))) return false
+    }
     if (maxKm !== null && refLoc) {
       const dist = getDistance(c)
       if (dist === null || dist > maxKm) return false
@@ -399,12 +414,13 @@ function ClientPickerModal({
   // Trigger geocoding des seuls clients visibles (search + secteur filtre appliqués)
   // Avant : geocodait 500+ clients même si filtre "etancheur" ne laissait que 14 visibles
   // → sessions localhost qui attendaient plusieurs minutes pour rien.
+  const secteursFilterKey = [...secteursFilter].sort().join(',')
   useEffect(() => {
     if (!refLoc) return
     const keys = filtered.map(getCityKey).filter(Boolean)
     queueGeocode([...new Set(keys)])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refLoc, search, secteurFilter])
+  }, [refLoc, search, secteursFilterKey])
 
   const hasEmail = (c: Client) => !!(c.email || (c.contacts || []).some((ct: any) => ct.email))
 
@@ -490,7 +506,7 @@ function ClientPickerModal({
             </button>
           </div>
           {/* Search + filters (v1.9.70 : recherche booléenne ET/OU/SAUF + parenthèses) */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: secteurs.length > 0 ? 10 : 0, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: secteursList.length > 0 ? 10 : 0, alignItems: 'center' }}>
             <div style={{ flex: 1, position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
               <input
@@ -518,25 +534,95 @@ function ClientPickerModal({
               ⓘ
             </div>
           </div>
-          {/* Secteur filter — dropdown */}
-          {secteurs.length > 0 && (
-            <select
-              value={secteurFilter}
-              onChange={e => setSecteurFilter(e.target.value)}
-              style={{
-                width: '100%', height: 38, padding: '0 12px',
-                border: '2px solid var(--border)', borderRadius: 10,
-                background: secteurFilter ? 'var(--primary)' : 'var(--secondary)',
-                color: secteurFilter ? '#0F172A' : 'var(--muted)',
-                fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body)',
-                cursor: 'pointer', outline: 'none',
-              }}
-            >
-              <option value="">Tous les secteurs / métiers</option>
-              {secteurs.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+          {/* v1.9.114 — Multi-select secteurs_activite (taxonomie 25 valeurs, tri par fréquence) */}
+          {secteursList.length > 0 && (
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setSecteursOpen(o => !o)}
+                style={{
+                  width: '100%', height: 38, padding: '0 12px',
+                  border: '2px solid var(--border)', borderRadius: 10,
+                  background: secteursFilter.size > 0 ? 'var(--primary)' : 'var(--secondary)',
+                  color: secteursFilter.size > 0 ? '#0F172A' : 'var(--muted)',
+                  fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-body)',
+                  cursor: 'pointer', outline: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}
+              >
+                <span>
+                  {secteursFilter.size === 0
+                    ? 'Tous les secteurs'
+                    : secteursFilter.size === 1
+                      ? [...secteursFilter][0]
+                      : `${secteursFilter.size} secteurs sélectionnés`}
+                </span>
+                <ChevronDown size={14} />
+              </button>
+              {secteursOpen && (
+                <>
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+                    onClick={() => setSecteursOpen(false)}
+                  />
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+                    zIndex: 51, background: 'var(--card)', border: '2px solid var(--border)',
+                    borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    maxHeight: 320, overflowY: 'auto', padding: 6,
+                  }}>
+                    {secteursFilter.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSecteursFilter(new Set())}
+                        style={{
+                          width: '100%', textAlign: 'left',
+                          padding: '6px 10px', fontSize: 11, fontWeight: 700,
+                          color: 'var(--muted)', background: 'transparent',
+                          border: 'none', cursor: 'pointer', borderRadius: 6,
+                          marginBottom: 2,
+                        }}
+                      >
+                        ✕ Effacer la sélection
+                      </button>
+                    )}
+                    {secteursList.map(s => {
+                      const checked = secteursFilter.has(s)
+                      const count = secteursCounts.get(s) || 0
+                      return (
+                        <label
+                          key={s}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                            fontSize: 12, color: 'var(--foreground)',
+                            background: checked ? 'var(--primary-soft)' : 'transparent',
+                            fontWeight: checked ? 700 : 500,
+                          }}
+                          onMouseOver={e => { if (!checked) e.currentTarget.style.background = 'var(--secondary)' }}
+                          onMouseOut={e => { if (!checked) e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setSecteursFilter(prev => {
+                                const next = new Set(prev)
+                                if (next.has(s)) next.delete(s); else next.add(s)
+                                return next
+                              })
+                            }}
+                            style={{ width: 13, height: 13, accentColor: '#F5A623', cursor: 'pointer' }}
+                          />
+                          <span style={{ flex: 1 }}>{s}</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{count}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {/* ── Location / distance filter ───────────────────────── */}

@@ -1,15 +1,27 @@
 'use client'
 import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
-  Briefcase, MessageSquare, Users, Smartphone, User, Activity,
+  Briefcase, MessageSquare, Users, Smartphone, User, Activity, Plus,
 } from 'lucide-react'
 import { useClient, useUpdateClient, useDeleteClient, type Client } from '@/hooks/useClients'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 import { toast } from 'sonner'
 import ActivityHistory from '@/components/ActivityHistory'
+import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
+
+// v1.9.114 — couleurs pills secteurs alignées sur catégories métiers
+function makeSecteurColors(getColorForMetier: (m: string) => string | undefined) {
+  return (secteur: string) => {
+    const metier = SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
+    const hex = metier ? getColorForMetier(metier) : undefined
+    if (!hex) return { bg: 'var(--primary-soft)', border: 'var(--primary)', text: 'var(--primary)' }
+    return { bg: `${hex}1A`, border: hex, text: hex }
+  }
+}
 
 // Editable field component
 function EditableField({ label, value, field, icon, onSave, multiline }: {
@@ -107,12 +119,240 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
   )
 }
 
+// v1.9.114 — Éditeur de contacts JSONB (CRUD inline)
+interface ContactItem {
+  prenom?: string
+  nom?: string
+  fonction?: string
+  email?: string
+  telephone?: string
+  mobile?: string
+  titre?: string
+}
+
+function ContactsEditor({ contacts, onSave, isSaving }: {
+  contacts: ContactItem[]
+  onSave: (next: ContactItem[]) => void
+  isSaving: boolean
+}) {
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [draft, setDraft] = useState<ContactItem>({})
+
+  const startEdit = (idx: number) => {
+    setDraft(contacts[idx] || {})
+    setEditingIdx(idx)
+  }
+
+  const cancelEdit = () => {
+    setEditingIdx(null)
+    setDraft({})
+  }
+
+  const commitEdit = () => {
+    if (editingIdx === null) return
+    const isEmpty = !((draft.prenom || '').trim() || (draft.nom || '').trim() ||
+      (draft.email || '').trim() || (draft.telephone || '').trim() ||
+      (draft.fonction || '').trim())
+    if (isEmpty) {
+      // Edit annulé sur card vide → on retire le placeholder
+      const next = contacts.filter((_, i) => i !== editingIdx)
+      onSave(next)
+    } else {
+      const next = [...contacts]
+      next[editingIdx] = { ...next[editingIdx], ...draft }
+      onSave(next)
+    }
+    setEditingIdx(null)
+    setDraft({})
+  }
+
+  const addContact = () => {
+    const next = [...contacts, { prenom: '', nom: '', fonction: '', email: '', telephone: '' }]
+    onSave(next)
+    setDraft({ prenom: '', nom: '', fonction: '', email: '', telephone: '' })
+    setEditingIdx(next.length - 1)
+  }
+
+  const removeContact = (idx: number) => {
+    const next = contacts.filter((_, i) => i !== idx)
+    onSave(next)
+    if (editingIdx === idx) { setEditingIdx(null); setDraft({}) }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '6px 10px', borderRadius: 6,
+    border: '1.5px solid var(--border)', background: 'var(--card)',
+    color: 'var(--foreground)', fontSize: 13, fontFamily: 'var(--font-body)',
+    outline: 'none', boxSizing: 'border-box',
+  }
+  const iconBtnStyle: React.CSSProperties = {
+    width: 24, height: 24, borderRadius: 6,
+    border: 'none', background: 'transparent',
+    color: 'var(--muted)', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    transition: 'color 0.15s, background 0.15s',
+  }
+
+  return (
+    <div style={{
+      background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
+      padding: '20px 22px', marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <h3 style={{
+          fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0,
+          textTransform: 'uppercase', letterSpacing: 0.5,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <Users size={14} />
+          Personnes de contact{contacts.length > 0 ? ` (${contacts.length})` : ''}
+        </h3>
+        <button
+          type="button"
+          onClick={addContact}
+          disabled={isSaving || editingIdx !== null}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            height: 30, padding: '0 12px', borderRadius: 8,
+            border: '1.5px solid var(--primary)', background: 'var(--primary-soft)',
+            color: 'var(--primary)', fontSize: 12, fontWeight: 700,
+            cursor: isSaving || editingIdx !== null ? 'not-allowed' : 'pointer',
+            fontFamily: 'var(--font-body)',
+            opacity: isSaving || editingIdx !== null ? 0.5 : 1,
+          }}
+        >
+          <Plus size={12} /> Ajouter
+        </button>
+      </div>
+
+      {contacts.length === 0 ? (
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: 0, fontStyle: 'italic' }}>
+          Aucun contact — clique sur « Ajouter » pour en créer un.
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: contacts.length === 1 ? '1fr' : '1fr 1fr', gap: 12 }}>
+          {contacts.map((c, idx) => {
+            const isEditing = editingIdx === idx
+            // ─── Mode édition ───
+            if (isEditing) {
+              return (
+                <div key={idx} style={{
+                  background: 'var(--secondary)', border: '1.5px solid var(--primary)',
+                  borderRadius: 10, padding: '14px 16px',
+                  display: 'flex', flexDirection: 'column', gap: 8, position: 'relative',
+                }}>
+                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                    <button
+                      type="button" onClick={commitEdit} disabled={isSaving}
+                      title="Valider"
+                      style={iconBtnStyle}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--success, #22C55E)'; e.currentTarget.style.background = 'rgba(34,197,94,0.15)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
+                    ><Check size={14} /></button>
+                    <button
+                      type="button" onClick={cancelEdit} disabled={isSaving}
+                      title="Annuler"
+                      style={iconBtnStyle}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.background = 'var(--secondary)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
+                    ><X size={14} /></button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingRight: 56 }}>
+                    <input type="text" value={draft.prenom || ''} placeholder="Prénom"
+                      onChange={e => setDraft(d => ({ ...d, prenom: e.target.value }))}
+                      style={inputStyle} autoFocus />
+                    <input type="text" value={draft.nom || ''} placeholder="Nom"
+                      onChange={e => setDraft(d => ({ ...d, nom: e.target.value }))}
+                      style={inputStyle} />
+                  </div>
+                  <input type="text" value={draft.fonction || ''} placeholder="Fonction (ex: Directeur, RH…)"
+                    onChange={e => setDraft(d => ({ ...d, fonction: e.target.value }))}
+                    style={inputStyle} />
+                  <input type="email" value={draft.email || ''} placeholder="Email"
+                    onChange={e => setDraft(d => ({ ...d, email: e.target.value }))}
+                    style={inputStyle} />
+                  <input type="tel" value={draft.telephone || ''} placeholder="Téléphone"
+                    onChange={e => setDraft(d => ({ ...d, telephone: e.target.value }))}
+                    style={inputStyle} />
+                </div>
+              )
+            }
+            // ─── Mode display (lecture seule + boutons édit / suppr) ───
+            return (
+              <div key={idx} style={{
+                background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                borderRadius: 10, padding: '14px 16px',
+                display: 'flex', flexDirection: 'column', gap: 6, position: 'relative',
+              }}>
+                <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                  <button
+                    type="button" onClick={() => startEdit(idx)} disabled={isSaving || editingIdx !== null}
+                    title="Modifier"
+                    style={{ ...iconBtnStyle, cursor: isSaving || editingIdx !== null ? 'not-allowed' : 'pointer', opacity: editingIdx !== null && editingIdx !== idx ? 0.4 : 1 }}
+                    onMouseEnter={e => { if (!isSaving && editingIdx === null) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-soft)' }}}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
+                  ><Pencil size={13} /></button>
+                  <button
+                    type="button" onClick={() => removeContact(idx)} disabled={isSaving || editingIdx !== null}
+                    title="Supprimer"
+                    style={{ ...iconBtnStyle, cursor: isSaving || editingIdx !== null ? 'not-allowed' : 'pointer', opacity: editingIdx !== null ? 0.4 : 1 }}
+                    onMouseEnter={e => { if (!isSaving && editingIdx === null) { e.currentTarget.style.color = 'var(--destructive)'; e.currentTarget.style.background = 'var(--destructive-soft)' }}}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
+                  ><Trash2 size={13} /></button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 56 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 800, color: 'var(--ink)', flexShrink: 0,
+                  }}>
+                    {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase() || <User size={14} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {[c.titre, c.prenom, c.nom].filter(Boolean).join(' ') || 'Contact sans nom'}
+                    </div>
+                    {c.fonction && (
+                      <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
+                        {c.fonction}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                  {c.telephone && (
+                    <a href={`tel:${c.telephone}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                      <Phone size={12} color="var(--muted)" /> {c.telephone}
+                    </a>
+                  )}
+                  {c.mobile && c.mobile !== c.telephone && (
+                    <a href={`tel:${c.mobile}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                      <Smartphone size={12} color="var(--muted)" /> {c.mobile}
+                    </a>
+                  )}
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: 'var(--primary-dark, #E6B800)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                      <Mail size={12} color="var(--muted)" /> {c.email}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { data: client, isLoading } = useClient(id)
   const updateClient = useUpdateClient()
   const deleteClient = useDeleteClient()
+  const { getColorForMetier } = useMetierCategories()
+  const getSecteurColor = makeSecteurColors(getColorForMetier)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
 
@@ -219,16 +459,31 @@ export default function ClientDetailPage() {
                 {client.npa ? `${client.npa} ` : ''}{client.ville}{client.canton ? `, ${client.canton}` : ''}
               </span>
             )}
-            {client.secteur && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '3px 10px', borderRadius: 6,
-                background: 'var(--primary-soft)', border: '1px solid var(--primary)',
-                fontSize: 11, fontWeight: 700, color: 'var(--foreground)',
-              }}>
-                <Briefcase size={10} />
-                {client.secteur}
-              </span>
+            {/* v1.9.114 — Secteurs d'activité colorés par catégorie métier */}
+            {client.secteurs_activite && client.secteurs_activite.length > 0 && (
+              <>
+                {client.secteurs_activite.slice(0, 3).map(s => {
+                  const c = getSecteurColor(s)
+                  return (
+                    <span key={s} style={{
+                      padding: '3px 10px', borderRadius: 6,
+                      background: c.bg, border: `1px solid ${c.border}`,
+                      fontSize: 11, fontWeight: 700, color: c.text,
+                    }}>
+                      {s}
+                    </span>
+                  )
+                })}
+                {client.secteurs_activite.length > 3 && (
+                  <span style={{
+                    padding: '3px 10px', borderRadius: 6,
+                    background: 'var(--secondary)', border: '1px solid var(--border)',
+                    fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)',
+                  }}>
+                    +{client.secteurs_activite.length - 3}
+                  </span>
+                )}
+              </>
             )}
             {/* Statut toggle */}
             <button
@@ -338,19 +593,12 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Secteur */}
-      <div style={{
-        background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
-        padding: '20px 22px', marginBottom: 20,
-      }}>
-        <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Activite
-        </h3>
-        <EditableField
-          label="Secteur" field="secteur" value={client.secteur}
-          icon={<Briefcase size={14} />} onSave={handleSave}
-        />
-      </div>
+      {/* v1.9.114 — Personnes de contact (juste après les infos entreprise) */}
+      <ContactsEditor
+        contacts={(typeof client.contacts === 'string' ? JSON.parse(client.contacts) : client.contacts) || []}
+        onSave={(next) => updateClient.mutate({ id, data: { contacts: next } as any })}
+        isSaving={updateClient.isPending}
+      />
 
       {/* Notes */}
       <div style={{
@@ -372,72 +620,53 @@ export default function ClientDetailPage() {
         />
       </div>
 
-      {/* Contacts clients */}
-      {(() => {
-        const contacts = typeof client.contacts === 'string' ? JSON.parse(client.contacts) : (client.contacts || [])
-        if (!contacts || contacts.length === 0) return null
-        return (
-          <div style={{
-            background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
-            padding: '20px 22px', marginBottom: 20,
-          }}>
-            <h3 style={{
-              fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 16px',
-              textTransform: 'uppercase', letterSpacing: 0.5,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              <Users size={14} />
-              Personnes de contact ({contacts.length})
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: contacts.length === 1 ? '1fr' : '1fr 1fr', gap: 12 }}>
-              {contacts.map((c: any, i: number) => (
-                <div key={i} style={{
-                  background: 'var(--secondary)', border: '1.5px solid var(--border)',
-                  borderRadius: 10, padding: '14px 16px',
-                  display: 'flex', flexDirection: 'column', gap: 6,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 12, fontWeight: 800, color: 'var(--ink)', flexShrink: 0,
-                    }}>
-                      {((c.prenom?.[0] || '') + (c.nom?.[0] || '')).toUpperCase() || <User size={14} />}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
-                        {[c.titre, c.prenom, c.nom].filter(Boolean).join(' ') || 'Contact'}
-                      </div>
-                      {c.fonction && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                          {c.fonction}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                    {c.telephone && (
-                      <a href={`tel:${c.telephone}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                        <Phone size={12} color="var(--muted)" /> {c.telephone}
-                      </a>
-                    )}
-                    {c.mobile && c.mobile !== c.telephone && (
-                      <a href={`tel:${c.mobile}`} style={{ fontSize: 12, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                        <Smartphone size={12} color="var(--muted)" /> {c.mobile}
-                      </a>
-                    )}
-                    {c.email && (
-                      <a href={`mailto:${c.email}`} style={{ fontSize: 12, color: 'var(--primary-dark, #E6B800)', display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                        <Mail size={12} color="var(--muted)" /> {c.email}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      })()}
+      {/* v1.9.114 — Secteurs d'activité (au fond, après notes) */}
+      <div style={{
+        background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
+        padding: '20px 22px', marginBottom: 20,
+      }}>
+        <h3 style={{
+          fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 6px',
+          textTransform: 'uppercase', letterSpacing: 0.5,
+        }}>
+          Secteurs d&apos;activité
+        </h3>
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '0 0 12px' }}>
+          Tagger les secteurs que ce client recherche habituellement. Utilisé par la prospection email et le matching.
+          {(client.secteurs_activite?.length ?? 0) === 0 && ' (Aucun secteur — clique sur les pills ci-dessous pour ajouter)'}
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SECTEURS_ACTIVITE.map(s => {
+            const current = client.secteurs_activite ?? []
+            const active = current.includes(s)
+            const c = getSecteurColor(s)
+            return (
+              <button
+                key={s}
+                type="button"
+                disabled={updateClient.isPending}
+                onClick={() => {
+                  const next = active ? current.filter(x => x !== s) : [...current, s]
+                  updateClient.mutate({ id, data: { secteurs_activite: next } as any })
+                }}
+                style={{
+                  padding: '5px 11px', borderRadius: 6,
+                  border: `1.5px solid ${active ? c.border : 'var(--border)'}`,
+                  background: active ? c.bg : 'var(--card)',
+                  color: active ? c.text : 'var(--muted-foreground)',
+                  fontSize: 12, fontWeight: active ? 700 : 500,
+                  cursor: updateClient.isPending ? 'wait' : 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  opacity: updateClient.isPending ? 0.6 : 1,
+                  transition: 'all 0.1s',
+                }}
+              >
+                {s}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Meta info */}
       <div style={{

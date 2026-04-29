@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.112'
+export const APP_VERSION = '1.9.114'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,37 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.114',
+    date: '2026-04-29',
+    label: 'Refactor secteurs_activite + pack /clients (recherche, filtres, contacts, NPA, mailing, prospection)',
+    features: [
+      'REFACTOR — La colonne `clients.metiers_recherches` (v1.9.113) est remplacée par `clients.secteurs_activite TEXT[]` avec une taxonomie fermée de 25 secteurs ordonnée par catégorie : Maçonnerie (Gros Œuvre) → Électricité, Peinture, Plâtrerie, Sanitaire, Chauffage, Ventilation, Menuiserie, Charpente, Ferblanterie, Couverture, Étanchéité, Carrelage, Paysagisme (Second Œuvre) → Serrurerie, Soudure, Tuyauterie, Industrie (Technique) → Architecture, Ingénierie → Logistique → Manutention → Nettoyage → Restauration, Autres. Lib unique `lib/secteurs-extractor.ts` (priorité notes, fallback NOGA Zefix). Batch one-shot `scripts/batch/extract-secteurs-clients.ts --apply` enrichit 1174/1221 clients (96.2%). Pipeline auto : `POST/PATCH /api/clients` recalcule `secteurs_activite` à chaque modif des notes (sauf édition manuelle explicite). Index GIN `idx_clients_secteurs`.',
+      'UI /clients — Le secteur libre Zefix et la liste secteurs sont fusionnés en UN seul dropdown multi-select dans les filtres avancés (popover avec checkboxes, pastille couleur par catégorie, tri par fréquence avec count). Pills colorées sur chaque card (max 2 + "+X") et sur la fiche header (max 3 + "+X"). Couleurs dérivées du même mapping que /parametres/metiers via `useMetierCategories` + `SECTEUR_REPRESENTATIVE_METIER` (résolution dynamique secteur→métier représentatif → couleur catégorie). Architecture désormais en bleu clair, Logistique conservée en vert.',
+      'FICHE CLIENT — Réorganisation sections : Header + secteurs colorés → Info cards (Contact + Adresse) → ContactsEditor → Notes → Secteurs d\'activité (au fond, avant meta). Le carré "ACTIVITÉ" qui n\'affichait que le secteur NOGA libre a été supprimé (info redondante avec les pills du header). Bouton historique d\'activité (icône horloge) conservé.',
+      'CONTACTS JSONB — Refonte de l\'éditeur sur la fiche client : mode display par défaut (avatar + nom/prénom + fonction + email/téléphone, bouton crayon pour entrer en édition + corbeille pour supprimer), mode édition par card avec 5 inputs + Check/Cancel. Bouton "+ Ajouter une personne" toujours visible. Persistance via `useUpdateClient` (PATCH `/api/clients/[id]`). La modale "Nouveau client" inclut désormais une mini-section Contacts (add/remove inline) optionnelle.',
+      'BUG NPA — Taper "1000" dans le filtre NPA matche désormais TOUS les CPs de Lausanne (1000-1018), pas seulement la valeur littérale. Lookup CP→ville via les datasets geonames officiels chargés au boot (`lib/cp-to-ville.ts`, fallback ILIKE NPA si CP inconnu). Match préfixe (`Lausanne%`) pour exclure Romanel-sur-Lausanne / Bussigny-près-Lausanne qui sont d\'autres communes. Même comportement pour Genève, Berne, Fribourg, et toutes les villes multi-CPs.',
+      'RECHERCHE — Tiebreaker dans le RPC `search_clients_filtered` pour les succursales (même nom d\'entreprise, lieux différents : Riedo Clima Düdingen vs Le Mont, Echenard Bex vs Monthey, Menétrey 3 sites…). Après le score CASE inchangé (100/50/30/10/1), tri secondaire par `jsonb_array_length(contacts) DESC` puis présence de notes DESC puis nom_entreprise ASC. La fiche la plus renseignée d\'une entreprise multi-sites remonte toujours en 1ère position. Côté front, quand une recherche est active, le tri "récent" par `created_at` est désactivé pour respecter l\'ordre de pertinence du serveur (sinon Karlen & Cie créé récemment passait devant Riedo Clima sur la query "riedo clima").',
+      'FILTRES /clients — Tous les filtres avancés sont désormais branchés à des paramètres API dédiés (avant : ville/NPA bricolés via search libre, contacts uniquement state UI). `?secteurs=A,B,C` (CSV → `.overlaps()` OR), `?ville=`, `?npa=`, `?contacts=avec|sans`, `?created_after=`, `?created_before=`. Header pagination aligné sur le style de /candidats : per_page 20/50/100/1000/Tous + total + Page X/Y. Endpoint `GET /api/clients/secteurs-stats` (agrégat trié desc, cache 5min) alimente le tri par fréquence dans le dropdown.',
+      'MAILING — Le picker clients du mailing (`ClientPickerModal`) remplace son ancien select secteur (libre NOGA) par le même dropdown multi-select secteurs_activite + canton + ville utilisé dans /clients. Filtres combinables, résultats triés par `nom_entreprise` ASC, n\'affiche que les clients avec email. Recherche libre conservée (parser booléen partagé `parseBooleanSearch`).',
+      'PROSPECTION — La modale `ProspectionModal` (`✉️ Prospection email` lancée depuis /clients) utilise désormais le même multi-select secteurs_activite que /clients filtres avancés. Avant : ancien input secteur libre incohérent avec la taxonomie 25 valeurs. Cohérence totale entre filtres /clients, picker mailing et picker prospection.',
+      'NETTOYAGE — Batch one-shot `scripts/batch/clean-notes-metiers-only.ts --apply` vide 980 / 1191 notes contenant uniquement des mots-clés métier (info redondante avec `secteurs_activite`). Garde-fous stricts : conserve si présence de chiffres (téléphone, CHF, %, années), d\'emails (`@`), d\'URL (`http`), de dates ou de mots-clés non-métier (admin, ouvrier, sàrl, plus de N stopwords). Les notes contenant du texte libre informatif restent intactes.',
+      'RAPPORT QUALITÉ — Script `scripts/batch/report-contacts-incomplets.ts` génère `~/Desktop/contacts-incomplets.csv` (181 contacts / 147 clients) ayant un nom mais aucun email NI téléphone NI mobile. Format Excel-friendly (BOM UTF-8, séparateur `;`) avec colonnes Entreprise/Ville/Canton/NPA/Tél entreprise/Email entreprise/Prénom/Nom/Titre/Fonction + URL fiche cliquable.',
+    ],
+  },
+  {
+    version: '1.9.113',
+    date: '2026-04-28',
+    label: 'Métiers recherchés clients — taxonomie standardisée + extraction auto + filtre/pills colorés',
+    features: [
+      'NOUVELLE COLONNE — `clients.metiers_recherches TEXT[]` (index GIN) + taxonomie fermée 28 métiers terrain (Électricien, Peintre, Plâtrier, Carreleur, Menuisier, Sanitaire, Chauffagiste, Ferblantier, Couvreur, Maçon, Charpentier, Serrurier, Soudeur, Métallier, Étancheur, Plaquiste, Paysagiste, Grutier, Manœuvre, Tuyauteur, Sprinkler, Automaticien, Architecte, Ingénieur, Cuisinier, Nettoyage, Logistique, Autres). Source distincte du `secteur` Zefix (NOGA officiel) qui reste intact. Lib `lib/metiers-extractor.ts` = source unique de vérité.',
+      'EXTRACTION AUTO — Batch one-shot `scripts/batch/extract-metiers-clients.ts --apply` enrichit 1165/1221 clients (95.4%) à partir des notes (priorité) ou du secteur Zefix (fallback). Top 10 : Sanitaire 217, Chauffagiste 214, Électricien 164, Peintre 144, Menuisier 142, Maçon 134, Plâtrier 126, Ferblantier 110, Carreleur 104, Couvreur 100. Pipeline auto : `PATCH /api/clients/[id]` recalcule `metiers_recherches` à chaque modif des notes (sauf si l\'utilisateur les a édités manuellement, qui a priorité). `POST /api/clients` aussi : auto-extrait à la création si non fourni.',
+      'UI /clients — Pills colorées par catégorie sous le secteur sur chaque card (max 3 + "+X"). 9 catégories visuelles : électricité (bleu), finition (jaune : peintre/plâtrier/plaquiste/carreleur), gros œuvre (gris : maçon/manœuvre/grutier), bois (brun : menuisier/charpentier), toiture (orange : couvreur/ferblantier/étancheur), fluides (cyan : sanitaire/chauffagiste/tuyauteur/sprinkler), métal (violet : serrurier/métallier/soudeur), bureau (indigo : architecte/ingénieur), paysage (vert), autre (neutre).',
+      'FILTRE MULTI-SELECT — Section "Métiers recherchés" dans les filtres avancés /clients : pills toggleables triées par fréquence d\'usage en DB (les plus utilisés en premier), count visible à droite de chaque pill. OR logique côté API (`.overlaps(metiers_recherches, metiers)`) — un client matche s\'il a au moins un des métiers cochés. Combinable avec tous les autres filtres (canton, secteur, ville…). Persistance sessionStorage `clients_metiers`. Endpoint dédié `GET /api/clients/metiers-stats` (agrégat 1221 clients, cache 5min).',
+      'FICHE CLIENT — Section "Métiers recherchés" entre Secteur et Notes, multi-select éditable (clic pill = toggle, save instantané via `useUpdateClient`). Mêmes couleurs catégorie que les cards. Édition manuelle a priorité sur l\'auto-extraction (l\'API ne re-écrase pas si `metiers_recherches` est fourni explicitement).',
+      'CRÉATION CLIENT — Champ "Métiers recherchés" optionnel dans la modale de saisie manuelle. Si laissé vide, l\'API extrait automatiquement depuis les notes/secteur à la création.',
+    ],
+  },
   {
     version: '1.9.112',
     date: '2026-04-28',

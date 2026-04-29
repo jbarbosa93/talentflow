@@ -6,9 +6,10 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Mail, X, Search, Send, Copy, Check, Loader2, AlertCircle, ChevronLeft, Trash2, Users, Building2 } from 'lucide-react'
+import { Mail, X, Search, Send, Copy, Check, Loader2, AlertCircle, ChevronLeft, ChevronDown, Trash2, Users, Building2 } from 'lucide-react'
 import { useClients, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
+import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
 
 const MAX_BATCH = 100
 
@@ -36,7 +37,8 @@ export default function ProspectionModal({ open, onClose }: Props) {
 
   // ─── Étape 1 : sélection ─────────────────────────────────────────────
   const [search, setSearch] = useState('')
-  const [secteurFilter, setSecteurFilter] = useState('')
+  // v1.9.114 — Multi-select secteurs_activite (taxonomie 25 valeurs) au lieu de l'ancien secteur libre Zefix
+  const [secteursFilter, setSecteursFilter] = useState<Set<string>>(new Set())
   const [cantonFilter, setCantonFilter] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [contexte, setContexte] = useState('')
@@ -46,11 +48,17 @@ export default function ProspectionModal({ open, onClose }: Props) {
   const allClients: Client[] = data?.clients || []
   const clientsWithEmail = useMemo(() => allClients.filter(c => !!c.email?.trim()), [allClients])
 
-  // Listes pour filtres
-  const secteurs = useMemo(
-    () => Array.from(new Set(clientsWithEmail.map(c => c.secteur).filter(Boolean))).sort((a, b) => a!.localeCompare(b!, 'fr')) as string[],
-    [clientsWithEmail]
-  )
+  // v1.9.114 — Compte des clients (avec email) par secteur_activite, tri par fréquence
+  const secteursMeta = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of clientsWithEmail) {
+      for (const s of (c.secteurs_activite || [])) m.set(s, (m.get(s) || 0) + 1)
+    }
+    const list = SECTEURS_ACTIVITE.filter(s => (m.get(s) || 0) > 0)
+      .sort((a, b) => (m.get(b) || 0) - (m.get(a) || 0))
+    return { counts: m, list }
+  }, [clientsWithEmail])
+
   const cantons = useMemo(
     () => Array.from(new Set(clientsWithEmail.map(c => c.canton).filter(Boolean))).sort() as string[],
     [clientsWithEmail]
@@ -60,13 +68,17 @@ export default function ProspectionModal({ open, onClose }: Props) {
   const filtered = useMemo(() => {
     const q = normalize(search.trim())
     return clientsWithEmail.filter(c => {
-      if (secteurFilter && c.secteur !== secteurFilter) return false
+      // v1.9.114 — Multi-select secteurs_activite (OR logique)
+      if (secteursFilter.size > 0) {
+        const cs = c.secteurs_activite || []
+        if (!cs.some(s => secteursFilter.has(s))) return false
+      }
       if (cantonFilter && c.canton !== cantonFilter) return false
       if (!q) return true
-      const hay = `${c.nom_entreprise || ''} ${c.secteur || ''} ${c.ville || ''} ${c.canton || ''} ${c.email || ''} ${c.notes || ''}`
+      const hay = `${c.nom_entreprise || ''} ${(c.secteurs_activite || []).join(' ')} ${c.ville || ''} ${c.canton || ''} ${c.email || ''} ${c.notes || ''}`
       return normalize(hay).includes(q)
     })
-  }, [clientsWithEmail, search, secteurFilter, cantonFilter])
+  }, [clientsWithEmail, search, secteursFilter, cantonFilter])
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(c => selected.has(c.id))
   const toggleAll = () => {
@@ -256,7 +268,7 @@ export default function ProspectionModal({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) {
       setStep('config')
-      setSearch(''); setSecteurFilter(''); setCantonFilter('')
+      setSearch(''); setSecteursFilter(new Set()); setCantonFilter('')
       setSelected(new Set())
       setContexte('')
       setEmails([])
@@ -352,9 +364,9 @@ export default function ProspectionModal({ open, onClose }: Props) {
               clientsWithEmail={clientsWithEmail}
               filtered={filtered}
               search={search} setSearch={setSearch}
-              secteurFilter={secteurFilter} setSecteurFilter={setSecteurFilter}
+              secteursFilter={secteursFilter} setSecteursFilter={setSecteursFilter}
               cantonFilter={cantonFilter} setCantonFilter={setCantonFilter}
-              secteurs={secteurs} cantons={cantons}
+              secteursMeta={secteursMeta} cantons={cantons}
               selected={selected} toggleOne={toggleOne} toggleAll={toggleAll}
               allFilteredSelected={allFilteredSelected}
               contexte={contexte} setContexte={setContexte}
@@ -478,11 +490,12 @@ const btnSecondary: React.CSSProperties = {
 
 function ConfigStep({
   isLoading, clientsWithEmail, filtered,
-  search, setSearch, secteurFilter, setSecteurFilter, cantonFilter, setCantonFilter,
-  secteurs, cantons,
+  search, setSearch, secteursFilter, setSecteursFilter, cantonFilter, setCantonFilter,
+  secteursMeta, cantons,
   selected, toggleOne, toggleAll, allFilteredSelected,
   contexte, setContexte,
 }: any) {
+  const [secteursOpen, setSecteursOpen] = useState(false)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Stats top */}
@@ -523,19 +536,94 @@ function ConfigStep({
             }}><X size={14} /></button>
           )}
         </div>
-        <select
-          value={secteurFilter}
-          onChange={e => setSecteurFilter(e.target.value)}
-          style={{
-            height: 38, padding: '0 10px', borderRadius: 8,
-            border: '1.5px solid var(--border)', background: 'var(--secondary)',
-            color: secteurFilter ? 'var(--foreground)' : 'var(--muted)',
-            fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
-          }}
-        >
-          <option value="">Tous secteurs</option>
-          {secteurs.map((s: string) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        {/* v1.9.114 — Multi-select secteurs_activite (taxonomie 25 valeurs, tri par fréquence) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setSecteursOpen((o: boolean) => !o)}
+            style={{
+              width: '100%', height: 38, padding: '0 10px', borderRadius: 8,
+              border: '1.5px solid var(--border)',
+              background: secteursFilter.size > 0 ? 'var(--primary-soft)' : 'var(--secondary)',
+              color: secteursFilter.size > 0 ? 'var(--foreground)' : 'var(--muted)',
+              fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {secteursFilter.size === 0
+                ? 'Tous secteurs'
+                : secteursFilter.size === 1
+                  ? [...secteursFilter][0]
+                  : `${secteursFilter.size} secteurs`}
+            </span>
+            <ChevronDown size={14} />
+          </button>
+          {secteursOpen && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+                onClick={() => setSecteursOpen(false)}
+              />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0,
+                minWidth: 240, maxWidth: 320, zIndex: 51,
+                background: 'var(--card)', border: '2px solid var(--border)',
+                borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                maxHeight: 320, overflowY: 'auto', padding: 6,
+              }}>
+                {secteursFilter.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSecteursFilter(new Set())}
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      padding: '6px 10px', fontSize: 11, fontWeight: 700,
+                      color: 'var(--muted)', background: 'transparent',
+                      border: 'none', cursor: 'pointer', borderRadius: 6,
+                      marginBottom: 2,
+                    }}
+                  >
+                    ✕ Effacer la sélection
+                  </button>
+                )}
+                {secteursMeta.list.map((s: string) => {
+                  const checked = secteursFilter.has(s)
+                  const count = secteursMeta.counts.get(s) || 0
+                  return (
+                    <label
+                      key={s}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
+                        fontSize: 12, color: 'var(--foreground)',
+                        background: checked ? 'var(--primary-soft)' : 'transparent',
+                        fontWeight: checked ? 700 : 500,
+                      }}
+                      onMouseOver={e => { if (!checked) e.currentTarget.style.background = 'var(--secondary)' }}
+                      onMouseOut={e => { if (!checked) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSecteursFilter((prev: Set<string>) => {
+                            const next = new Set(prev)
+                            if (next.has(s)) next.delete(s); else next.add(s)
+                            return next
+                          })
+                        }}
+                        style={{ width: 13, height: 13, accentColor: '#F5A623', cursor: 'pointer' }}
+                      />
+                      <span style={{ flex: 1 }}>{s}</span>
+                      <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{count}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
         <select
           value={cantonFilter}
           onChange={e => setCantonFilter(e.target.value)}
@@ -610,7 +698,7 @@ function ConfigStep({
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--muted-foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {c.email} · {[c.ville, c.canton].filter(Boolean).join(', ') || '—'}
-                  {c.secteur && ` · ${c.secteur}`}
+                  {c.secteurs_activite && c.secteurs_activite.length > 0 && ` · ${c.secteurs_activite.slice(0, 3).join(', ')}${c.secteurs_activite.length > 3 ? '…' : ''}`}
                 </div>
               </div>
             </label>

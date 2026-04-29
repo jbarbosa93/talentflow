@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
+import { extractSecteursFromClient, sanitizeSecteurs } from '@/lib/secteurs-extractor'
 
 export const runtime = 'nodejs'
 
@@ -40,6 +41,7 @@ export async function GET(
 const ALLOWED_COLS = new Set([
   'nom_entreprise', 'adresse', 'npa', 'ville', 'canton',
   'telephone', 'email', 'secteur', 'notes', 'site_web', 'statut', 'contacts',
+  'secteurs_activite', // v1.9.114 — édition manuelle multi-tag taxonomie fermée
 ])
 
 // Labels français pour le suivi des modifications client
@@ -48,6 +50,7 @@ const CLIENT_FIELD_LABELS: Record<string, string> = {
   ville: 'Ville', canton: 'Canton', telephone: 'Téléphone',
   email: 'Email', secteur: 'Secteur', site_web: 'Site web',
   notes: 'Notes', statut: 'Statut', contacts: 'Contacts',
+  secteurs_activite: 'Secteurs d\'activité',
 }
 
 /** Compare old and new values, returns array of changes */
@@ -100,6 +103,16 @@ export async function PATCH(
       .select('*')
       .eq('id', id)
       .single()
+
+    // v1.9.114 — Gestion secteurs_activite :
+    // 1. Si l'utilisateur fournit secteurs_activite explicitement → sanitize (taxonomie fermée)
+    // 2. Sinon, si notes change → re-extraire automatiquement
+    if (body.secteurs_activite !== undefined) {
+      body.secteurs_activite = sanitizeSecteurs(body.secteurs_activite)
+    } else if (body.notes !== undefined && oldData && body.notes !== oldData.notes) {
+      const result = extractSecteursFromClient(body.notes, oldData.secteur)
+      body.secteurs_activite = result.secteurs
+    }
 
     const { data, error } = await supabase
       .from('clients')
