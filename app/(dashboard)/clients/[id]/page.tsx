@@ -402,7 +402,7 @@ export default function ClientDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
   // v1.9.116 — Modal édition card (Contact / Adresse)
-  const [editingCard, setEditingCard] = useState<'contact' | 'adresse' | 'notes' | null>(null)
+  const [editingCard, setEditingCard] = useState<'header' | 'contact' | 'adresse' | 'notes' | null>(null)
   // v1.9.117 — Vérification Zefix
   const queryClient = useQueryClient()
   const [verifyingZefix, setVerifyingZefix] = useState(false)
@@ -578,6 +578,21 @@ export default function ClientDetailPage() {
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button
+            onClick={() => setEditingCard('header')}
+            style={{
+              width: 40, height: 40, borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--card)',
+              color: 'var(--muted)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            title="Modifier nom entreprise / site web"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
             onClick={() => setShowActivityHistory(true)}
             style={{
               width: 40, height: 40, borderRadius: 10,
@@ -672,6 +687,25 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
+      {/* v1.9.117 — Modal édition header (nom entreprise + site web pour le logo) */}
+      {editingCard === 'header' && (
+        <CardEditModal
+          title="Modifier l'entreprise"
+          fields={[
+            { field: 'nom_entreprise', label: 'Nom de l\'entreprise' },
+            { field: 'site_web', label: 'Site web' },
+          ]}
+          values={{ nom_entreprise: client.nom_entreprise, site_web: client.site_web }}
+          isSaving={updateClient.isPending}
+          onSave={(next) => {
+            updateClient.mutate(
+              { id, data: next as any },
+              { onSuccess: () => setEditingCard(null) }
+            )
+          }}
+          onClose={() => setEditingCard(null)}
+        />
+      )}
       {/* v1.9.116 — Modals édition card (Contact + Adresse) */}
       {editingCard === 'contact' && (
         <CardEditModal

@@ -2,12 +2,13 @@
 // GET  /api/clients?search=xxx&statut=actif&page=1&per_page=20
 // POST /api/clients  body: { nom_entreprise, ... }
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
 import { extractSecteursFromClient, sanitizeSecteurs } from '@/lib/secteurs-extractor'
 import { getVilleFromCp } from '@/lib/cp-to-ville'
+import { geocodeLocalisation, geocodeAddress } from '@/lib/geocode-localisation'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -18,6 +19,8 @@ const LIST_COLUMNS = [
   'contacts', 'secteurs_activite', 'created_at',
   // v1.9.117 — Zefix (registre du commerce)
   'zefix_uid', 'zefix_status', 'zefix_name', 'zefix_verified_at',
+  // v1.9.118 — Géolocalisation pour vue carte
+  'latitude', 'longitude',
 ].join(', ')
 
 export async function GET(request: NextRequest) {
@@ -171,6 +174,21 @@ export async function POST(request: NextRequest) {
       filtered.secteurs_activite = []
     }
 
+    // v1.9.118 — Géocodage instantané NPA centroïde (lookup local ~1ms, sync, non-bloquant en pratique)
+    // pour avoir des coords IMMÉDIATEMENT en DB. Le géocodage adresse précise Nominatim
+    // est différé en after() (cf. ci-dessous) pour ne pas bloquer la response.
+    const latLngForced = filtered.latitude != null && filtered.longitude != null
+    if (!latLngForced && (filtered.npa || filtered.ville)) {
+      try {
+        const loc = `${filtered.npa ? filtered.npa + ' ' : ''}${filtered.ville || ''}, Suisse`.trim()
+        const geo = await geocodeLocalisation(loc)
+        if (geo) {
+          filtered.latitude = geo.latitude
+          filtered.longitude = geo.longitude
+        }
+      } catch (err) { console.warn('[clients POST] geocode centroïde failed:', (err as Error).message) }
+    }
+
     const { data, error } = await supabase
       .from('clients')
       .insert(filtered)
@@ -179,6 +197,24 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    }
+
+    // v1.9.119 — Géocodage adresse précise en BACKGROUND (fire-and-forget).
+    // Nominatim peut prendre 1-3s, ne pas bloquer la response. UPDATE asynchrone
+    // remplace le centroïde NPA par les vraies coords rue+numéro quand prêt.
+    if (!latLngForced && filtered.adresse && (filtered.npa || filtered.ville) && data?.id) {
+      const clientId = data.id
+      after(async () => {
+        try {
+          const geo = await geocodeAddress(filtered.adresse, filtered.npa, filtered.ville, 'Suisse')
+          if (geo && geo.source === 'address') {
+            await supabase
+              .from('clients')
+              .update({ latitude: geo.latitude, longitude: geo.longitude })
+              .eq('id', clientId)
+          }
+        } catch (err) { console.warn('[clients POST after] geocode address failed:', (err as Error).message) }
+      })
     }
 
     // Log activité équipe

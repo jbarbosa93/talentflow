@@ -144,3 +144,56 @@ export function geocodeLocalisationSync(
   if (!isInEurope(local[0], local[1])) return null
   return { latitude: local[0], longitude: local[1] }
 }
+
+/**
+ * v1.9.119 — Géocodage par ADRESSE COMPLÈTE (rue + numéro + NPA + ville + pays).
+ *
+ * Utilisé pour les clients : permet de placer le marker carte sur la vraie rue
+ * au lieu du centroïde NPA. Tous les clients d'une même ville cessent d'être
+ * superposés sur un seul point GPS.
+ *
+ * Cascade :
+ *   1. Si adresse vide → fallback geocodeLocalisation (centroïde NPA)
+ *   2. Sinon → Nominatim avec query complète (timeout 5s, plus large que le 3s
+ *      de geocodeLocalisation car la requête est plus précise et donc plus lente)
+ *   3. Si Nominatim échoue / hors Europe → fallback centroïde NPA
+ *
+ * IMPORTANT : Nominatim limite à 1 req/sec. À utiliser en background (after())
+ * dans les routes API, ou dans des scripts batch avec sleep(1100) entre requêtes.
+ *
+ * @returns { latitude, longitude, source: 'address' | 'centroid' } ou null
+ */
+export async function geocodeAddress(
+  adresse: string | null | undefined,
+  npa: string | null | undefined,
+  ville: string | null | undefined,
+  pays: string = 'Suisse',
+): Promise<{ latitude: number; longitude: number; source: 'address' | 'centroid' } | null> {
+  const adr = (adresse || '').trim()
+  const cp = (npa || '').trim()
+  const v = (ville || '').trim()
+
+  // Pas d'adresse → fallback centroïde
+  if (!adr) {
+    if (!cp && !v) return null
+    const fallback = await geocodeLocalisation(`${cp ? cp + ' ' : ''}${v}, ${pays}`.trim())
+    return fallback ? { ...fallback, source: 'centroid' } : null
+  }
+
+  // Avec adresse → Nominatim direct (query complète)
+  // Format : "Rue X 26, 1870 Monthey, Suisse"
+  const parts: string[] = [adr]
+  if (cp || v) parts.push(`${cp ? cp + ' ' : ''}${v}`.trim())
+  parts.push(pays)
+  const query = parts.filter(Boolean).join(', ')
+
+  const remote = await nominatim(query, 5000)
+  if (remote && isInEurope(remote[0], remote[1])) {
+    return { latitude: remote[0], longitude: remote[1], source: 'address' }
+  }
+
+  // Nominatim échoué → fallback centroïde NPA
+  if (!cp && !v) return null
+  const fallback = await geocodeLocalisation(`${cp ? cp + ' ' : ''}${v}, ${pays}`.trim())
+  return fallback ? { ...fallback, source: 'centroid' } : null
+}

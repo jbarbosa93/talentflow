@@ -2,11 +2,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
   Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw, Sparkles,
-  ShieldCheck, ExternalLink, Check, AlertCircle,
+  ShieldCheck, ExternalLink, Check, AlertCircle, Map as MapIcon, Columns,
 } from 'lucide-react'
 import { useClients, useCreateClient, useSecteursStats, type Client } from '@/hooks/useClients'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
@@ -14,6 +15,20 @@ import AIClientSearch from '@/components/AIClientSearch'
 import ProspectionModal from '@/components/ProspectionModal'
 import ClientLogo from '@/components/ClientLogo'
 import ZefixSearchPanel, { type ZefixItem } from '@/components/ZefixSearchPanel'
+
+// v1.9.118 — Carte Leaflet en lazy load (Leaflet ne supporte pas SSR)
+const ClientsMap = dynamic(() => import('@/components/ClientsMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{
+      height: 600, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 12,
+      color: 'var(--muted)', fontSize: 13,
+    }}>
+      <Loader2 size={20} className="animate-spin" /> &nbsp;Chargement de la carte…
+    </div>
+  ),
+})
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
@@ -577,8 +592,8 @@ export default function ClientsPage() {
     if (typeof window !== 'undefined') return parseInt(sessionStorage.getItem('clients_page') || '1')
     return 1
   })
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    if (typeof window !== 'undefined') return (sessionStorage.getItem('clients_view') as 'grid' | 'list') || 'grid'
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'split'>(() => {
+    if (typeof window !== 'undefined') return (sessionStorage.getItem('clients_view') as any) || 'grid'
     return 'grid'
   })
   const [cantonFilter, setCantonFilter] = useState(() => {
@@ -586,6 +601,8 @@ export default function ClientsPage() {
     return ''
   })
   const [sortOrder, setSortOrder] = useState<'recent' | 'az' | 'za'>('recent')
+  // v1.9.119 — Mode split : id du client mis en focus sur la carte (zoom + popup)
+  const [focusedClientId, setFocusedClientId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showProspectionModal, setShowProspectionModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -701,6 +718,22 @@ export default function ClientsPage() {
     page,
     per_page: perPage,
   })
+
+  // v1.9.118 — Fetch dédié pour la carte (sans pagination, mêmes filtres)
+  const showMap = viewMode === 'map' || viewMode === 'split'
+  const { data: mapData } = useClients({
+    search: debouncedSearch,
+    statut: statutFilter,
+    canton: cantonFilter,
+    secteurs: filterSecteurs,
+    ville: filterVille,
+    npa: filterNPA,
+    contacts: filterAvecContacts as 'avec' | 'sans' | '',
+    created_after: filterCreatedAfter,
+    created_before: filterCreatedBefore,
+    page: 1,
+    per_page: 5000,
+  }, { enabled: showMap })
 
   const createClient = useCreateClient()
   const { data: secteursStats } = useSecteursStats()
@@ -889,13 +922,25 @@ export default function ClientsPage() {
             background: viewMode === 'grid' ? 'var(--primary)' : 'transparent',
             color: viewMode === 'grid' ? 'var(--ink)' : 'var(--muted)',
             cursor: 'pointer', borderRight: '1px solid var(--border)',
-          }}><LayoutGrid size={16} /></button>
+          }} title="Vue grille"><LayoutGrid size={16} /></button>
           <button onClick={() => setViewMode('list')} style={{
             width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
             color: viewMode === 'list' ? 'var(--ink)' : 'var(--muted)',
+            cursor: 'pointer', borderRight: '1px solid var(--border)',
+          }} title="Vue liste"><List size={16} /></button>
+          <button onClick={() => setViewMode('map')} style={{
+            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: viewMode === 'map' ? 'var(--primary)' : 'transparent',
+            color: viewMode === 'map' ? 'var(--ink)' : 'var(--muted)',
+            cursor: 'pointer', borderRight: '1px solid var(--border)',
+          }} title="Vue carte"><MapIcon size={16} /></button>
+          <button onClick={() => setViewMode('split')} style={{
+            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: viewMode === 'split' ? 'var(--primary)' : 'transparent',
+            color: viewMode === 'split' ? 'var(--ink)' : 'var(--muted)',
             cursor: 'pointer',
-          }}><List size={16} /></button>
+          }} title="Vue partagée (liste + carte)"><Columns size={16} /></button>
         </div>
 
         {/* Loading indicator */}
@@ -1081,6 +1126,20 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {/* v1.9.118 — Vue carte / split / liste-grille */}
+      {viewMode === 'map' ? (
+        <ClientsMap
+          clients={(mapData?.clients || []) as any}
+          height="calc(100vh - 280px)"
+        />
+      ) : (
+      <div style={{
+        display: viewMode === 'split' ? 'grid' : 'block',
+        gridTemplateColumns: viewMode === 'split' ? '40% 1fr' : undefined,
+        gap: viewMode === 'split' ? 16 : 0,
+        alignItems: 'start',
+      }}>
+      <div>
       {/* Grid of client cards */}
       {isLoading ? (
         <div style={{
@@ -1107,7 +1166,7 @@ export default function ClientsPage() {
         <div style={{
           display: viewMode === 'grid' ? 'grid' : 'flex',
           gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(340px, 1fr))' : undefined,
-          flexDirection: viewMode === 'list' ? 'column' : undefined,
+          flexDirection: (viewMode === 'list' || viewMode === 'split') ? 'column' : undefined,
           gap: viewMode === 'grid' ? 16 : 8,
         }}>
           {[...clients].sort((a, b) => {
@@ -1122,10 +1181,20 @@ export default function ClientsPage() {
             return (
             <div
               key={client.id}
-              onClick={() => router.push(`/clients/${client.id}`)}
+              onClick={() => {
+                // v1.9.119 — En mode split : click card recentre la carte sur le marker
+                // (au lieu d'ouvrir la fiche). Ouverture fiche via bouton "Voir fiche" dédié.
+                if (viewMode === 'split') {
+                  setFocusedClientId(client.id)
+                } else {
+                  router.push(`/clients/${client.id}`)
+                }
+              }}
               style={{
                 background: 'var(--card)',
-                border: '2px solid var(--border)',
+                border: focusedClientId === client.id && viewMode === 'split'
+                  ? '2px solid var(--primary)'
+                  : '2px solid var(--border)',
                 borderRadius: 14,
                 padding: '20px 22px',
                 cursor: 'pointer',
@@ -1136,12 +1205,16 @@ export default function ClientsPage() {
               onMouseEnter={e => {
                 e.currentTarget.style.transform = 'translateY(-2px)'
                 e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'
-                e.currentTarget.style.borderColor = 'var(--primary)'
+                if (!(focusedClientId === client.id && viewMode === 'split')) {
+                  e.currentTarget.style.borderColor = 'var(--primary)'
+                }
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = 'none'
                 e.currentTarget.style.boxShadow = 'none'
-                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.borderColor = focusedClientId === client.id && viewMode === 'split'
+                  ? 'var(--primary)'
+                  : 'var(--border)'
               }}
             >
               {/* Badge "nouveau" */}
@@ -1264,6 +1337,45 @@ export default function ClientsPage() {
                   </div>
                 )}
               </div>
+
+              {/* v1.9.119 — Bouton "Voir fiche" en mode split (click card recentre la carte) */}
+              {viewMode === 'split' && (
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    router.push(`/clients/${client.id}`)
+                  }}
+                  style={{
+                    marginTop: 12,
+                    width: '100%',
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: '1.5px solid var(--border)',
+                    background: 'var(--secondary)',
+                    color: 'var(--foreground)',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    transition: 'background 0.12s, border-color 0.12s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'var(--primary)'
+                    e.currentTarget.style.color = 'var(--ink)'
+                    e.currentTarget.style.borderColor = 'var(--primary)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'var(--secondary)'
+                    e.currentTarget.style.color = 'var(--foreground)'
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                  }}
+                >
+                  Voir la fiche →
+                </button>
+              )}
             </div>
           )})}
         </div>
@@ -1308,6 +1420,18 @@ export default function ClientsPage() {
             <ChevronRight size={16} />
           </button>
         </div>
+      )}
+      </div>
+      {viewMode === 'split' && (
+        <div style={{ position: 'sticky', top: 16, height: 'calc(100vh - 240px)' }}>
+          <ClientsMap
+            clients={(mapData?.clients || []) as any}
+            height="100%"
+            focusedClientId={focusedClientId}
+          />
+        </div>
+      )}
+      </div>
       )}
 
       {/* Create modal */}

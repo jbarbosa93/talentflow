@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.117'
+export const APP_VERSION = '1.9.119'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,35 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.119',
+    date: '2026-04-29',
+    label: 'Carte clients : géocodage rue précise + fitBounds percentile + click card recentre + fix split view',
+    features: [
+      'GÉOCODAGE RUE PRÉCISE — Avant : tous les clients d\'une même ville étaient superposés sur le centroïde NPA (à Monthey, 65 clients sur le même point GPS exact). Maintenant : Nominatim géocode l\'adresse complète (rue + numéro + NPA + ville) → chaque client se positionne sur sa vraie rue. Nouvelle fonction `geocodeAddress(adresse, npa, ville, pays)` dans `lib/geocode-localisation.ts` (séparée de `geocodeLocalisation` qui reste utilisée par les candidats). Fallback automatique sur centroïde NPA si Nominatim échoue.',
+      'PIPELINE NON-BLOQUANT — `POST /api/clients` et `PATCH /api/clients/[id]` utilisent `after()` de `next/server` pour le fire-and-forget : la response est renvoyée immédiatement avec les coords centroïde NPA (lookup local synchrone ~1ms), puis Nominatim géocode l\'adresse précise en background et UPDATE les coords quand prêt (1-3s). L\'utilisateur ne ressent aucun délai dans la modale "Ajouter un client" ni dans l\'édition fiche. PATCH déclenche le re-géocodage si `adresse` OU `npa` OU `ville` change.',
+      'BATCH RUE PRÉCISE — Nouveau script `scripts/batch/geocode-clients-addresses.ts` (DRY-RUN par défaut, `--apply` pour persister). Run sur 1025 clients avec adresse non vide : **875 / 1025 (85.4%) géocodés à la rue précise** via Nominatim, 150 (14.6%) inchangés (Nominatim KO sur l\'adresse exacte → garde centroïde NPA), **0 régression**. Durée ~19 min à 1 req/sec. Vérification Monthey : 63 clients → 45 coords distinctes maintenant (vs 1 seule avant).',
+      'FITBOUNDS PERCENTILE 5-95 — Avant : 1 seul client en Suisse alémanique (Bekon Koralle AG à Dagmersellen LU) tirait le viewport jusqu\'à Bern/Mulhouse, alors que les 1218 autres clients sont en Suisse romande. Maintenant : `ClusterLayer` calcule lat/lng séparément aux quantiles 5% et 95%, et fait `fitBounds` sur ces percentiles → ignore les outliers géographiques. Tous les markers restent rendus dans le cluster (juste le viewport initial est serré). Si <20 points (filtre serré) → bounds full pour ne pas couper.',
+      'CLICK CARD MODE SPLIT = FOCUS CARTE — Avant : click sur une card en mode split ouvrait directement la fiche client (frustrant pour explorer la carte). Maintenant : en mode split, click card → la carte zoome sur le marker du client (`cluster.zoomToShowLayer` Leaflet markercluster) et ouvre son popup automatiquement. Border jaune sur la card sélectionnée pour signaler le focus actif. Bouton dédié **"Voir la fiche →"** ajouté en bas de chaque card en mode split (uniquement) avec `stopPropagation` pour ouvrir la vraie fiche client. Les modes grid / list / map gardent leur comportement (click card = fiche).',
+      'FIX SPLIT VIEW — Cards de la liste compressées en mode split (11 cards horizontales écrasées dans 40% de largeur, illisibles). `flexDirection: \'column\'` étendu au mode split (était limité à `list`) → cards empilées verticalement et lisibles dans la colonne 40%.',
+      'NOUVELLE PROP `focusedClientId` — `<ClientsMap />` accepte un `focusedClientId?: string | null`. Effet React séparé qui appelle `cluster.zoomToShowLayer(marker, () => marker.openPopup())` quand cet id change. Map<id, Marker> stockée via `useRef` pour lookup O(1).',
+    ],
+  },
+  {
+    version: '1.9.118',
+    date: '2026-04-29',
+    label: 'Vue carte interactive /clients (Leaflet + clustering + split view) + fix édition nom entreprise',
+    features: [
+      'NOUVEAU — Vue carte interactive sur `/clients` avec 4 modes via toggle (📐 Grille / 📋 Liste / 🗺️ Carte / 🔀 Split). Préférence sauvée dans `sessionStorage`. Carte uses Leaflet + OpenStreetMap (gratuit, 0 clé API, attribution OSM). Lazy loaded via `dynamic(() => import("@/components/ClientsMap"), { ssr: false })` — Leaflet ne supporte pas SSR. Mode split = grille 40% liste / 60% carte sticky height calc(100vh - 240px), filtres et pagination conservés à gauche, carte met à jour automatiquement.',
+      'CLUSTERING — `leaflet.markercluster` (ajouté en dépendance) regroupe les markers proches au zoom-out, indispensable pour ~1200 points. Config : `chunkedLoading` (évite blocage UI au mount), `maxClusterRadius:50`, `spiderfyOnMaxZoom`, `removeOutsideVisibleBounds`, `showCoverageOnHover:false`. Auto-fit bounds au load (`map.fitBounds(...)` avec padding 40px et maxZoom 11) → carte se centre automatiquement sur les filtres actifs.',
+      'POPUP MARKER — HTML statique (Leaflet ne render pas du JSX) avec : nom entreprise + badge statut Zefix coloré (Actif RC / Liquidation / Radié) + ville `📍 NPA Ville, Canton` + IDE monospace + 3 pills secteurs maximum + bouton "Voir la fiche →" jaune (lien `<a href>` natif full page reload, suffisant car changement de fiche = changement de page).',
+      'DB MIGRATION — 2 colonnes ajoutées à `clients` : `latitude FLOAT` + `longitude FLOAT` + index partiel `idx_clients_geo WHERE latitude IS NOT NULL` (perf des queries spatiales futures). Migration additive, 0 réécriture des 1219 lignes existantes.',
+      'BATCH GÉOCODAGE — Script `scripts/batch/geocode-clients.ts` (DRY-RUN par défaut, `--apply` pour persister). Utilise `lib/geocode-localisation.ts` existant (lookup local CP CH/FR via `scripts/data/cp_geo.json` 23780 entrées + fallback Nominatim 1 req/s timeout 3s). Run sur 1219 clients actifs : **1219 / 1219 géocodés (100 %), 0 fallback Nominatim, 0 erreur, durée < 5 sec** — tous les NPA suisses étaient dans le lookup local.',
+      'PIPELINE AUTO — `POST /api/clients` géocode automatiquement à la création depuis `npa + ville` (sauf si `latitude/longitude` fournis explicitement). `PATCH /api/clients/[id]` recalcule si `npa` ou `ville` change (et reset à null si nouvelle adresse non géocodable, pour éviter d\'afficher l\'ancienne position au mauvais endroit). Override manuel possible via `latitude/longitude` dans le body PATCH.',
+      'FETCH CARTE OPTIMISÉ — La liste paginée garde son `useClients` existant (page + perPage). Un 2e appel `useClients({ ..., per_page: 5000 }, { enabled: showMap })` charge tous les clients filtrés pour la carte uniquement quand le mode l\'exige (map ou split). Économie : pas de fetch 5000 lignes en mode grille/liste. Hook `useClients` étendu avec param `options.enabled` (défaut true).',
+      'FIX BUG ÉDITION NOM ENTREPRISE — Sur `/clients/[id]`, le header card n\'avait aucun bouton "Modifier" pour `nom_entreprise` ni `site_web`. Oubli de la refonte v1.9.116 (CardEditModal) qui n\'avait migré que Contact / Adresse / Notes. Ajouté bouton ✏️ Pencil dans la barre d\'actions header (à gauche d\'Activity et Trash2) qui ouvre une modale `CardEditModal` éditant les 2 champs ensemble. Type `editingCard` étendu avec `\'header\'`.',
+    ],
+  },
   {
     version: '1.9.117',
     date: '2026-04-29',

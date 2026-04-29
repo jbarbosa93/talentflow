@@ -37,6 +37,9 @@ export interface Client {
   zefix_status?: string | null  // EXISTIEREND | AUFGELOEST | GELOESCHT
   zefix_name?: string | null
   zefix_verified_at?: string | null
+  // v1.9.118 — géolocalisation pour vue carte
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export function useClients(filters?: {
@@ -51,9 +54,10 @@ export function useClients(filters?: {
   created_before?: string
   page?: number
   per_page?: number
-}) {
+}, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['clients', filters],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filters?.search) params.set('search', filters.search)
