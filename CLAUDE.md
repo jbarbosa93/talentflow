@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.115 prod (logos entreprises automatiques — logo.dev + Google Favicons + initiales colorées)** — 29/04/2026
+**1.9.116 prod (refonte UI fiche client — modal édition unique par card, civilité éditable, fix auto-secteurs)** — 29/04/2026
 
 ---
 

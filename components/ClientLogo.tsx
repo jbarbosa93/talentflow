@@ -8,7 +8,7 @@
 // Note : Clearbit Logo API a été sunset par HubSpot en 2024 (DNS dead). logo.dev est
 // l'alternative officielle (free tier 1000 logos/mois, signup 2 min sur logo.dev).
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Building2 } from 'lucide-react'
 
 interface ClientLogoProps {
@@ -90,6 +90,7 @@ function pickInitialStage(domain: string | null): Stage {
 export default function ClientLogo({ nom_entreprise, site_web, size = 'sm', className }: ClientLogoProps) {
   const dim = SIZES[size]
   const domain = useMemo(() => extractDomain(site_web), [site_web])
+  const imgRef = useRef<HTMLImageElement | null>(null)
 
   const [stage, setStage] = useState<Stage>(() => pickInitialStage(domain))
   const [loaded, setLoaded] = useState(false)
@@ -99,6 +100,18 @@ export default function ClientLogo({ nom_entreprise, site_web, size = 'sm', clas
     setStage(pickInitialStage(domain))
     setLoaded(false)
   }, [domain])
+
+  // v1.9.116 — Fix bug "logos disparaissent au retour fiche/back-button" :
+  // si l'image est déjà en cache HTTP, le browser la sert sync au mount → l'event onLoad
+  // peut ne jamais fire (déjà complete avant que React attache le handler). On vérifie
+  // imgRef.current.complete + naturalWidth après chaque render et on force loaded=true.
+  useEffect(() => {
+    if (loaded) return
+    const img = imgRef.current
+    if (img && img.complete && img.naturalWidth > 0) {
+      setLoaded(true)
+    }
+  })
 
   const palette = useMemo(() => {
     const idx = hashCode((nom_entreprise || '').toLowerCase()) % PALETTE.length
@@ -136,60 +149,52 @@ export default function ClientLogo({ nom_entreprise, site_web, size = 'sm', clas
     background: 'var(--card)',
   }
 
-  // Fallback initiales colorées
-  if (stage === 'initials' || !src) {
-    return (
-      <div
-        className={className}
-        style={{
-          ...baseStyle,
-          background: palette.bg,
-          color: palette.fg,
-          fontSize: dim.font,
-          fontWeight: 800,
-          letterSpacing: 0.3,
-          border: `1px solid ${palette.fg}1A`,
-        }}
-        aria-label={`Logo ${nom_entreprise}`}
-        title={nom_entreprise}
-      >
-        {initials === '?' ? <Building2 size={dim.icon} /> : initials}
-      </div>
-    )
-  }
-
+  // v1.9.116 — Initiales colorées TOUJOURS visibles en background, l'image se superpose
+  // dessus quand elle charge. Garantit qu'on n'a JAMAIS d'écran vide même si l'image
+  // est lente/bloquée par un adblock/timeout réseau, sans dépendre de onError.
   return (
-    <div className={className} style={baseStyle} title={nom_entreprise}>
-      {/* Skeleton pendant le chargement */}
-      {!loaded && (
-        <div
+    <div
+      className={className}
+      style={{
+        ...baseStyle,
+        background: palette.bg,
+        color: palette.fg,
+        fontSize: dim.font,
+        fontWeight: 800,
+        letterSpacing: 0.3,
+        border: `1px solid ${palette.fg}1A`,
+      }}
+      aria-label={`Logo ${nom_entreprise}`}
+      title={nom_entreprise}
+    >
+      {/* Initiales/icône en couche de fond toujours présentes */}
+      <span aria-hidden style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {initials === '?' ? <Building2 size={dim.icon} /> : initials}
+      </span>
+      {/* Image (logo.dev / favicon) par-dessus, opacity:1 quand chargée */}
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={imgRef}
+          src={src}
+          alt={`Logo ${nom_entreprise}`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+          onError={handleError}
           style={{
-            position: 'absolute',
-            width: dim.box, height: dim.box,
-            background: 'var(--secondary)',
-            animation: 'pulse 1.5s ease-in-out infinite',
-            borderRadius: dim.radius,
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            objectPosition: 'center',
+            background: '#FFFFFF',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 0.18s ease',
           }}
         />
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={`Logo ${nom_entreprise}`}
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onLoad={() => setLoaded(true)}
-        onError={handleError}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'contain',
-          objectPosition: 'center',
-          background: '#FFFFFF',
-          opacity: loaded ? 1 : 0,
-          transition: 'opacity 0.18s ease',
-        }}
-      />
     </div>
   )
 }

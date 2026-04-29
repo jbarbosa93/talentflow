@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
@@ -597,10 +597,16 @@ export default function ClientsPage() {
     sessionStorage.setItem('clients_per_page', String(perPage))
   }, [search, statutFilter, page, viewMode, cantonFilter, filterVille, filterNPA, filterSecteurs, filterAvecContacts, filterCreatedAfter, filterCreatedBefore, perPage])
 
-  // Debounce search
+  // Debounce search — v1.9.116 : ne reset PAS la page au premier mount,
+  // sinon la page restaurée depuis sessionStorage est écrasée à 1 (perte de paging au retour fiche).
+  const isFirstSearchRun = useRef(true)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search)
+      if (isFirstSearchRun.current) {
+        isFirstSearchRun.current = false
+        return
+      }
       setPage(1)
     }, 300)
     return () => clearTimeout(timer)

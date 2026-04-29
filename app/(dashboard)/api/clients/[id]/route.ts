@@ -106,10 +106,15 @@ export async function PATCH(
 
     // v1.9.114 — Gestion secteurs_activite :
     // 1. Si l'utilisateur fournit secteurs_activite explicitement → sanitize (taxonomie fermée)
-    // 2. Sinon, si notes change → re-extraire automatiquement
+    // 2. Sinon, si notes change ET pas de secteurs déjà en place → extraire auto
+    //    (v1.9.116 fix : ne PAS écraser des secteurs déjà choisis quand l'user édite les notes —
+    //    avant, vider les notes vidait aussi les secteurs, ce qui était surprenant)
     if (body.secteurs_activite !== undefined) {
       body.secteurs_activite = sanitizeSecteurs(body.secteurs_activite)
-    } else if (body.notes !== undefined && oldData && body.notes !== oldData.notes) {
+    } else if (
+      body.notes !== undefined && oldData && body.notes !== oldData.notes
+      && (!oldData.secteurs_activite || oldData.secteurs_activite.length === 0)
+    ) {
       const result = extractSecteursFromClient(body.notes, oldData.secteur)
       body.secteurs_activite = result.secteurs
     }

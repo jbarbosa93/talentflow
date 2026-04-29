@@ -25,79 +25,27 @@ function makeSecteurColors(getColorForMetier: (m: string) => string | undefined)
 }
 
 // Editable field component
-function EditableField({ label, value, field, icon, onSave, multiline }: {
+// v1.9.116 — DisplayField : affichage seul (édition via modal global de la card).
+// Si href fourni (mailto: pour email, https:// pour site), le champ devient cliquable
+// et ouvre le client mail / un nouvel onglet.
+function DisplayField({ label, value, icon, href, multiline }: {
   label: string
   value: string | null
-  field: string
   icon?: React.ReactNode
-  onSave: (field: string, value: string) => void
+  href?: string
   multiline?: boolean
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value || '')
-
-  if (editing) {
-    return (
-      <div style={{ marginBottom: 2 }}>
-        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 4 }}>
-          {label}
-        </label>
-        {multiline ? (
-          <textarea
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            rows={4}
-            autoFocus
-            style={{
-              width: '100%', padding: '8px 12px',
-              border: '2px solid var(--primary)', borderRadius: 8,
-              background: 'var(--secondary)', color: 'var(--foreground)',
-              fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-              resize: 'vertical', boxSizing: 'border-box',
-            }}
-          />
-        ) : (
-          <input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            autoFocus
-            onKeyDown={e => {
-              if (e.key === 'Enter') { onSave(field, draft); setEditing(false) }
-              if (e.key === 'Escape') { setDraft(value || ''); setEditing(false) }
-            }}
-            style={{
-              width: '100%', height: 38, padding: '0 12px',
-              border: '2px solid var(--primary)', borderRadius: 8,
-              background: 'var(--secondary)', color: 'var(--foreground)',
-              fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-              boxSizing: 'border-box',
-            }}
-          />
-        )}
-        <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
-          <button onClick={() => { onSave(field, draft); setEditing(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid #BBF7D0', background: 'var(--success-soft)', color: 'var(--success)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <Check size={12} strokeWidth={3} /> Sauvegarder
-          </button>
-          <button onClick={() => { setDraft(value || ''); setEditing(false) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 7, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <X size={12} /> Annuler
-          </button>
-        </div>
-      </div>
-    )
-  }
-
+  const isLink = !!(href && value)
+  const Wrapper: any = isLink ? 'a' : 'div'
   return (
-    <div
+    <Wrapper
+      href={isLink ? href : undefined}
+      target={isLink && href!.startsWith('http') ? '_blank' : undefined}
+      rel={isLink && href!.startsWith('http') ? 'noopener noreferrer' : undefined}
       style={{
         display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0',
-        cursor: 'pointer', borderRadius: 6,
-        transition: 'background 0.1s',
+        textDecoration: 'none', color: 'inherit',
       }}
-      onClick={() => { setDraft(value || ''); setEditing(true) }}
-      onMouseEnter={e => e.currentTarget.style.background = 'var(--secondary)'}
-      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       <span style={{ color: 'var(--muted)', marginTop: 2, flexShrink: 0, width: 14, display: 'flex', justifyContent: 'center' }}>
         {icon || null}
@@ -107,7 +55,9 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
           {label}
         </div>
         <div style={{
-          fontSize: 14, fontWeight: 500, color: value ? 'var(--foreground)' : 'var(--muted)',
+          fontSize: 14, fontWeight: 500,
+          color: value ? (isLink ? 'var(--info)' : 'var(--foreground)') : 'var(--muted)',
+          textDecoration: isLink ? 'underline' : 'none',
           whiteSpace: multiline ? 'pre-wrap' : 'nowrap',
           overflow: multiline ? undefined : 'hidden',
           textOverflow: multiline ? undefined : 'ellipsis',
@@ -115,8 +65,90 @@ function EditableField({ label, value, field, icon, onSave, multiline }: {
           {value || '---'}
         </div>
       </div>
-      <Pencil size={12} style={{ color: 'var(--muted)', opacity: 0.4, flexShrink: 0, marginTop: 4 }} />
-    </div>
+    </Wrapper>
+  )
+}
+
+// v1.9.116 — Modal d'édition multi-champs pour une card (Contact ou Adresse).
+// Évite les boutons "Modifier" par champ qui rendaient l'UI bruitée.
+interface CardEditField {
+  field: string
+  label: string
+  multiline?: boolean
+}
+
+function CardEditModal({ title, fields, values, onSave, onClose, isSaving }: {
+  title: string
+  fields: CardEditField[]
+  values: Record<string, string | null>
+  onSave: (next: Record<string, string>) => void
+  onClose: () => void
+  isSaving: boolean
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {}
+    for (const f of fields) init[f.field] = values[f.field] || ''
+    return init
+  })
+
+  const handleSubmit = () => {
+    const out: Record<string, string> = {}
+    for (const f of fields) out[f.field] = draft[f.field] || ''
+    onSave(out)
+  }
+
+  if (typeof window === 'undefined') return null
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--card)', borderRadius: 16, width: '100%', maxWidth: 520, boxShadow: '0 24px 80px rgba(0,0,0,0.3)', border: '2px solid var(--border)', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ padding: '18px 22px', borderBottom: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ width: 30, height: 30, border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {fields.map(f => (
+            <div key={f.field}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 5 }}>
+                {f.label}
+              </label>
+              {f.multiline ? (
+                <textarea
+                  value={draft[f.field] || ''}
+                  onChange={e => setDraft(d => ({ ...d, [f.field]: e.target.value }))}
+                  rows={3}
+                  style={{ width: '100%', padding: '8px 12px', border: '2px solid var(--border)', borderRadius: 8, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                />
+              ) : (
+                <input
+                  value={draft[f.field] || ''}
+                  onChange={e => setDraft(d => ({ ...d, [f.field]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
+                  style={{ width: '100%', height: 38, padding: '0 12px', border: '2px solid var(--border)', borderRadius: 8, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1.5px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--secondary)', borderBottomLeftRadius: 14, borderBottomRightRadius: 14 }}>
+          <button onClick={onClose} disabled={isSaving} style={{ padding: '9px 16px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+            Annuler
+          </button>
+          <button onClick={handleSubmit} disabled={isSaving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: isSaving ? 0.6 : 1 }}>
+            <Check size={13} strokeWidth={3} /> {isSaving ? 'Sauvegarde…' : 'Sauvegarder'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
@@ -258,6 +290,17 @@ function ContactsEditor({ contacts, onSave, isSaving }: {
                       onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
                     ><X size={14} /></button>
                   </div>
+                  {/* v1.9.116 — Civilité (Madame / Monsieur / aucune) — éditable car
+                      auto-extraction du parsing CV se trompe souvent (toutes les fiches
+                      affichaient "Monsieur" même pour les femmes). */}
+                  <select value={draft.titre || ''}
+                    onChange={e => setDraft(d => ({ ...d, titre: e.target.value }))}
+                    style={{ ...inputStyle, paddingRight: 28, cursor: 'pointer' }}
+                  >
+                    <option value="">— Civilité (optionnel) —</option>
+                    <option value="Monsieur">Monsieur</option>
+                    <option value="Madame">Madame</option>
+                  </select>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingRight: 56 }}>
                     <input type="text" value={draft.prenom || ''} placeholder="Prénom"
                       onChange={e => setDraft(d => ({ ...d, prenom: e.target.value }))}
@@ -356,6 +399,8 @@ export default function ClientDetailPage() {
   const getSecteurColor = makeSecteurColors(getColorForMetier)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
+  // v1.9.116 — Modal édition card (Contact / Adresse)
+  const [editingCard, setEditingCard] = useState<'contact' | 'adresse' | 'notes' | null>(null)
 
   const handleSave = (field: string, value: string) => {
     updateClient.mutate({ id, data: { [field]: value } as any })
@@ -534,56 +579,108 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Info cards grid */}
+      {/* v1.9.116 — Info cards grid : un seul bouton "Modifier" par card → modal multi-champs.
+          Site web et email sont cliquables (ouvrent navigateur / mailto) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-        {/* Contact info */}
+        {/* Contact */}
         <div style={{
           background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
           padding: '20px 22px',
         }}>
-          <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Contact
-          </h3>
-          <EditableField
-            label="Email" field="email" value={client.email}
-            icon={<Mail size={14} />} onSave={handleSave}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Contact
+            </h3>
+            <button
+              onClick={() => setEditingCard('contact')}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 7, color: 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 0.3 }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              <Pencil size={11} /> Modifier
+            </button>
+          </div>
+          <DisplayField
+            label="Email" value={client.email} icon={<Mail size={14} />}
+            href={client.email ? `mailto:${client.email}` : undefined}
           />
-          <EditableField
-            label="Telephone" field="telephone" value={client.telephone}
-            icon={<Phone size={14} />} onSave={handleSave}
+          <DisplayField
+            label="Telephone" value={client.telephone} icon={<Phone size={14} />}
+            href={client.telephone ? `tel:${client.telephone.replace(/\s+/g, '')}` : undefined}
           />
-          <EditableField
-            label="Site web" field="site_web" value={client.site_web}
-            icon={<Globe size={14} />} onSave={handleSave}
+          <DisplayField
+            label="Site web" value={client.site_web} icon={<Globe size={14} />}
+            href={client.site_web
+              ? (client.site_web.startsWith('http') ? client.site_web : `https://${client.site_web}`)
+              : undefined}
           />
         </div>
 
-        {/* Address */}
+        {/* Adresse */}
         <div style={{
           background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
           padding: '20px 22px',
         }}>
-          <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Adresse
-          </h3>
-          <EditableField
-            label="Adresse" field="adresse" value={client.adresse}
-            icon={<MapPin size={14} />} onSave={handleSave}
-          />
-          <EditableField
-            label="NPA" field="npa" value={client.npa}
-            onSave={handleSave}
-          />
-          <EditableField
-            label="Ville" field="ville" value={client.ville}
-            onSave={handleSave}
-          />
-          <EditableField
-            label="Canton" field="canton" value={client.canton}
-            onSave={handleSave}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Adresse
+            </h3>
+            <button
+              onClick={() => setEditingCard('adresse')}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 7, color: 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 0.3 }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              <Pencil size={11} /> Modifier
+            </button>
+          </div>
+          <DisplayField label="Adresse" value={client.adresse} icon={<MapPin size={14} />} />
+          <DisplayField label="NPA" value={client.npa} />
+          <DisplayField label="Ville" value={client.ville} />
+          <DisplayField label="Canton" value={client.canton} />
         </div>
       </div>
+
+      {/* v1.9.116 — Modals édition card (Contact + Adresse) */}
+      {editingCard === 'contact' && (
+        <CardEditModal
+          title="Modifier les coordonnées"
+          fields={[
+            { field: 'email', label: 'Email' },
+            { field: 'telephone', label: 'Téléphone' },
+            { field: 'site_web', label: 'Site web' },
+          ]}
+          values={{ email: client.email, telephone: client.telephone, site_web: client.site_web }}
+          isSaving={updateClient.isPending}
+          onSave={(next) => {
+            updateClient.mutate(
+              { id, data: next as any },
+              { onSuccess: () => setEditingCard(null) }
+            )
+          }}
+          onClose={() => setEditingCard(null)}
+        />
+      )}
+      {editingCard === 'adresse' && (
+        <CardEditModal
+          title="Modifier l'adresse"
+          fields={[
+            { field: 'adresse', label: 'Adresse' },
+            { field: 'npa', label: 'NPA' },
+            { field: 'ville', label: 'Ville' },
+            { field: 'canton', label: 'Canton' },
+          ]}
+          values={{ adresse: client.adresse, npa: client.npa, ville: client.ville, canton: client.canton }}
+          isSaving={updateClient.isPending}
+          onSave={(next) => {
+            updateClient.mutate(
+              { id, data: next as any },
+              { onSuccess: () => setEditingCard(null) }
+            )
+          }}
+          onClose={() => setEditingCard(null)}
+        />
+      )}
 
       {/* v1.9.114 — Personnes de contact (juste après les infos entreprise) */}
       <ContactsEditor
@@ -592,25 +689,48 @@ export default function ClientDetailPage() {
         isSaving={updateClient.isPending}
       />
 
-      {/* Notes */}
+      {/* v1.9.116 — Notes (bouton "Modifier" → modal multi-champ comme Contact/Adresse) */}
       <div style={{
         background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
         padding: '20px 22px', marginBottom: 20,
       }}>
-        <h3 style={{
-          fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 12px',
-          textTransform: 'uppercase', letterSpacing: 0.5,
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <MessageSquare size={14} />
-          Notes
-        </h3>
-        <EditableField
-          label="Notes" field="notes" value={client.notes}
-          icon={<FileText size={14} />} onSave={handleSave}
-          multiline
-        />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h3 style={{
+            fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0,
+            textTransform: 'uppercase', letterSpacing: 0.5,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <MessageSquare size={14} />
+            Notes
+          </h3>
+          <button
+            onClick={() => setEditingCard('notes')}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 7, color: 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 0.3 }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <Pencil size={11} /> Modifier
+          </button>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 500, color: client.notes ? 'var(--foreground)' : 'var(--muted)', whiteSpace: 'pre-wrap', minHeight: 20 }}>
+          {client.notes || '— Aucune note —'}
+        </div>
       </div>
+      {editingCard === 'notes' && (
+        <CardEditModal
+          title="Modifier les notes"
+          fields={[{ field: 'notes', label: 'Notes', multiline: true }]}
+          values={{ notes: client.notes }}
+          isSaving={updateClient.isPending}
+          onSave={(next) => {
+            updateClient.mutate(
+              { id, data: next as any },
+              { onSuccess: () => setEditingCard(null) }
+            )
+          }}
+          onClose={() => setEditingCard(null)}
+        />
+      )}
 
       {/* v1.9.114 — Secteurs d'activité (au fond, après notes) */}
       <div style={{

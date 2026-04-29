@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.115'
+export const APP_VERSION = '1.9.116'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.116',
+    date: '2026-04-29',
+    label: 'Refonte UI fiche client (modal édition unique par card, civilité éditable, fix auto-secteurs)',
+    features: [
+      'LOGO FICHE — `ClientLogo` rend désormais les initiales colorées en couche de fond TOUJOURS visibles, l\'image (logo.dev / Google Favicons) se superpose dessus quand elle charge. Avant : si l\'image était lente, bloquée par adblock ou en timeout réseau, on restait sur un skeleton vide en attendant `onError`. Maintenant on voit toujours quelque chose (initiales si pas de logo dispo).',
+      'LOGO BACK-BUTTON — Fix bug "logos disparaissent au retour de fiche client" : quand une image est déjà en cache HTTP, le browser la sert synchroniquement au mount → l\'event `onLoad` ne fire pas (image déjà `complete` avant que React attache le handler) → state `loaded` reste à false → opacity 0 → image invisible. Fix avec `imgRef` + check `complete && naturalWidth > 0` dans un `useEffect` post-render qui force `setLoaded(true)` si l\'image est déjà chargée. Comportement attendu : retour à la liste depuis fiche → logos restent visibles.',
+      'FICHE CLIENT — Édition refactorée en modal global par card. Avant : 1 bouton "Modifier" par champ (Email, Téléphone, Site web, Adresse, NPA, Ville, Canton, Notes) → UI bruitée. Après : 1 bouton "Modifier" en haut de chaque card (Contact / Adresse / Notes) ouvre une modale `CardEditModal` qui édite TOUS les champs de la card en une fois, avec un seul "Sauvegarder". Cohérent avec le pattern ContactsEditor.',
+      'FICHE CLIENT — Email / téléphone / site web cliquables directement sur la fiche. Email → `mailto:` ouvre le client mail. Téléphone → `tel:` (mobile). Site web → ouvre l\'URL dans un nouvel onglet (préfixe `https://` auto si schéma manquant). Affichage souligné bleu pour signaler le lien actif.',
+      'CONTACTS — Civilité (Madame / Monsieur / aucune) désormais éditable via dropdown dans le mode édition de chaque contact. Avant : "Monsieur" hardcodé par le parsing CV → toutes les femmes affichées comme "Monsieur". Maintenant choix manuel propre, valeur vide possible (n\'affiche rien dans le rendu).',
+      'BUG FIX SECTEURS — `PATCH /api/clients/[id]` ne re-extrait plus automatiquement `secteurs_activite` depuis les notes si le client a déjà des secteurs en place. Avant : modifier ou vider les notes → secteurs vidés → l\'utilisateur perdait son enrichissement (manuel ou batch). Maintenant : extraction auto seulement quand `secteurs_activite` est vide/null. L\'édition manuelle des secteurs reste prioritaire et persistante.',
+      'BUG FIX PAGING — Page restaurée depuis sessionStorage était écrasée à 1 au mount par le `useEffect [search]` du debounce qui appelait `setPage(1)` même au premier run. Fix avec ref `isFirstSearchRun` qui skip le reset au mount initial. Ouvrir une fiche depuis la page 5 et revenir conserve désormais la page 5 (cohérent avec /candidats). Tous les autres filtres (secteurs, ville, NPA, canton, contacts, dates, perPage, viewMode, search, statut) étaient déjà persistés correctement.',
+    ],
+  },
   {
     version: '1.9.115',
     date: '2026-04-29',
