@@ -11,6 +11,7 @@ import { useClients, useCreateClient, useSecteursStats, type Client } from '@/ho
 import { useMetierCategories } from '@/hooks/useMetierCategories'
 import AIClientSearch from '@/components/AIClientSearch'
 import ProspectionModal from '@/components/ProspectionModal'
+import ClientLogo from '@/components/ClientLogo'
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
@@ -1102,17 +1103,9 @@ export default function ClientsPage() {
                   zIndex: 2,
                 }} />
               )}
-              {/* Top: Avatar + Name */}
+              {/* Top: Logo + Name (v1.9.115 — logo auto via logo.dev/Google Favicons) */}
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 10 }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                  background: 'var(--primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 800, color: 'var(--ink)',
-                  border: '2px solid var(--foreground)',
-                }}>
-                  {(client.nom_entreprise?.[0] || '?').toUpperCase()}
-                </div>
+                <ClientLogo nom_entreprise={client.nom_entreprise} site_web={client.site_web} size="sm" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h3 style={{
                     fontSize: 16, fontWeight: 800, color: 'var(--foreground)',

@@ -11,6 +11,7 @@ import { useClient, useUpdateClient, useDeleteClient, type Client } from '@/hook
 import { useMetierCategories } from '@/hooks/useMetierCategories'
 import { toast } from 'sonner'
 import ActivityHistory from '@/components/ActivityHistory'
+import ClientLogo from '@/components/ClientLogo'
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 
 // v1.9.114 — couleurs pills secteurs alignées sur catégories métiers
@@ -430,17 +431,8 @@ export default function ClientDetailPage() {
         padding: '28px 30px', marginBottom: 20,
         display: 'flex', alignItems: 'center', gap: 20,
       }}>
-        {/* Big avatar */}
-        <div style={{
-          width: 72, height: 72, borderRadius: 16, flexShrink: 0,
-          background: 'var(--primary)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 32, fontWeight: 800, color: 'var(--ink)',
-          border: '3px solid var(--foreground)',
-          boxShadow: '4px 4px 0 var(--foreground)',
-        }}>
-          {(client.nom_entreprise?.[0] || '?').toUpperCase()}
-        </div>
+        {/* v1.9.115 — Logo automatique (Clearbit / Google Favicons / initiales) */}
+        <ClientLogo nom_entreprise={client.nom_entreprise} site_web={client.site_web} size="lg" />
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{

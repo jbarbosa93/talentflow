@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.114'
+export const APP_VERSION = '1.9.115'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.115',
+    date: '2026-04-29',
+    label: 'Logos entreprises automatiques (logo.dev + fallback Google Favicons + initiales colorées)',
+    features: [
+      'NOUVEAU COMPOSANT — `components/ClientLogo.tsx` affiche le logo de chaque client à partir de son `site_web`. Source en cascade avec fallback gracieux : (1) logo.dev (`https://img.logo.dev/{domain}?token=...&size=128`) si la variable `NEXT_PUBLIC_LOGO_DEV_TOKEN` est définie — vrais logos haute qualité, free tier 1000 logos/mois ; (2) Google Favicons (`https://www.google.com/s2/favicons?domain={domain}&sz=128`) sinon ou si logo.dev échoue — gratuit illimité, qualité variable selon le site ; (3) initiales colorées sur palette stable (12 couleurs, hash du nom → index) si pas de site_web ou si tout a échoué. `<img>` natif (pas Next/Image) : lazy loading, skeleton pulse pendant chargement, cascade `onError` automatique. Trois tailles : sm 32px (cards liste), md 48px, lg 64px (header fiche). Helpers internes : `extractDomain` (strip protocol/www/path), `getInitials` (strip suffixes SA/Sàrl/AG/GmbH/Ltd, 2 lettres max), `hashCode` pour palette stable.',
+      'INTÉGRATION — Logo affiché à 4 endroits : (a) cards de la liste `/clients` (taille sm 32px, à gauche du nom + secteurs), (b) header fiche `/clients/[id]` (taille lg 64px, à côté du nom entreprise), (c) `ClientPickerModal` du mailing dans `/messages` (taille sm), (d) `ProspectionModal` du picker prospection (taille sm). Suppression des anciens avatars "première lettre" remplacés par le logo réel. Pas de stockage DB, pas d\'upload, tout côté client (zéro requête serveur).',
+      'CONFIG — Côté Vercel + `.env.local`, ajouter `NEXT_PUBLIC_LOGO_DEV_TOKEN=tok_xxx` (signup gratuit 2 min sur logo.dev) pour activer logo.dev. Sans token, le composant fonctionne immédiatement en mode dégradé Google Favicons. Les anciens stages "clearbit" sont retirés (Clearbit Logo API a été sunset par HubSpot en 2024, DNS dead).',
+    ],
+  },
   {
     version: '1.9.114',
     date: '2026-04-29',

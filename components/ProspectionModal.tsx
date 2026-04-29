@@ -10,6 +10,7 @@ import { Mail, X, Search, Send, Copy, Check, Loader2, AlertCircle, ChevronLeft, 
 import { useClients, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
 import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
+import ClientLogo from './ClientLogo'
 
 const MAX_BATCH = 100
 
@@ -692,6 +693,8 @@ function ConfigStep({
                 onChange={() => toggleOne(c.id)}
                 style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }}
               />
+              {/* v1.9.115 — Logo entreprise */}
+              <ClientLogo nom_entreprise={c.nom_entreprise} site_web={c.site_web} size="sm" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {c.nom_entreprise}

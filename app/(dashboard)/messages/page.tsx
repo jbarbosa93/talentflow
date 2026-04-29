@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: false })
 import EmailChipInput from '@/components/EmailChipInput'
 import MultiCandidatSearch from '@/components/MultiCandidatSearch'
+import ClientLogo from '@/components/ClientLogo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -727,6 +728,8 @@ function ClientPickerModal({
                       onChange={() => client.email && toggleEmail(client.email)}
                       style={{ width: 15, height: 15, cursor: client.email ? 'pointer' : 'default', accentColor: '#F5A623', flexShrink: 0 }}
                     />
+                    {/* v1.9.115 — Logo entreprise */}
+                    <ClientLogo nom_entreprise={client.nom_entreprise} site_web={client.site_web} size="sm" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontWeight: 800, fontSize: 13, color: 'var(--foreground)' }}>{client.nom_entreprise}</span>
