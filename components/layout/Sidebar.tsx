@@ -30,25 +30,28 @@ const NAV_ITEMS = [
   { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireVisible: true },
   { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
   { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true },
-  { href: '/activites',    label: 'Activite',         icon: Activity,        hideForSecretaire: true },
+  // v1.9.124 — Activite déplacé dans FOOTER_ITEMS (section Compte) après Administration
 ]
 
 const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug,      adminOnly: true },
   { href: '/outils',                     label: 'Outils',            icon: Wrench },
   { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
+  // v1.9.124 — Activite ici plutôt que dans le menu principal : utilité = trace ponctuelle, pas action quotidienne
+  { href: '/activites',                  label: 'Activite',          icon: Activity,  hideForSecretaire: true },
   { href: '/parametres/profil',          label: 'Paramètres',        icon: Settings },
 ]
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
 
 // Mapping href → badge section key
+// v1.9.124 — '/activites' retiré : la page sert juste à consulter une trace
+// ponctuellement, pas besoin d'être averti par un badge rouge.
 const BADGE_SECTION_MAP: Record<string, string> = {
   '/candidats': 'candidats',
   '/clients': 'clients',
   '/offres': 'offres',
   '/entretiens': 'entretiens',
-  '/activites': 'activites',
 }
 
 const navItemVariants = {

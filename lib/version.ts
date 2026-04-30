@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.123'
+export const APP_VERSION = '1.9.124'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.124',
+    date: '2026-04-30',
+    label: 'Activité — selectAll multi-pages + retrait badge sidebar + déplacé en section Compte',
+    features: [
+      'FIX SELECTALL MULTI-PAGES — Sur `/activites`, le bouton "Tout sélectionner" cochait uniquement les activités de la **page courante** (typiquement 20). Cliquer "Supprimer" en effaçait donc 20 sur 78. Pour vraiment tout vider, il fallait utiliser le bouton "Vider l\'onglet" (peu visible). Fix : quand `total > activites.length` ET la page entière est cochée, un bandeau Gmail-style apparaît avec un bouton "Sélectionner toutes les X activités". Si activé, le DELETE bascule en mode `{ types }` (server-side, équivalent Vider l\'onglet) et un bandeau orange "Toutes les X activités sont sélectionnées" reste affiché jusqu\'à désélection.',
+      'BADGE SIDEBAR ACTIVITÉ RETIRÉ — `/activites` supprimé de `BADGE_SECTION_MAP` (sidebar.tsx). Plus de pastille rouge. Justification : la page sert à consulter une trace ponctuellement, pas à être averti en temps réel.',
+      'ACTIVITÉ DÉPLACÉ EN SECTION COMPTE — Lien "Activite" retiré de `NAV_ITEMS` (menu principal) et ajouté dans `FOOTER_ITEMS` après "Administration". Logique : ce n\'est pas une action quotidienne, c\'est un outil de contrôle/audit ponctuel, plus à sa place avec Outils/Admin/Paramètres.',
+    ],
+  },
   {
     version: '1.9.123',
     date: '2026-04-30',

@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.123 prod (CVCustomizer fetch fiche complète — experiences/formations_details non dans LIST_COLUMNS)** — 30/04/2026
+**1.9.124 prod (Activité — selectAll multi-pages + retrait badge sidebar + section Compte)** — 30/04/2026
 
 ---
 

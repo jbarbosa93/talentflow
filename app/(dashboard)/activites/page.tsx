@@ -450,6 +450,11 @@ export default function ActivitesPage() {
   const [page, setPage] = useState(1)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // v1.9.124 — quand l'user clique "Tout sélectionner" et que la page ne contient
+  // pas TOUTES les activités, on lui propose d'étendre la sélection à toutes les
+  // pages (filtres courants). Si activé, deleteSelected envoie { types } au lieu
+  // de { ids } pour supprimer côté serveur (équivalent "Vider l'onglet").
+  const [selectAllPages, setSelectAllPages] = useState(false)
   const [showViderConfirm, setShowViderConfirm] = useState(false)
   const [viderLoading, setViderLoading] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
@@ -475,21 +480,33 @@ export default function ActivitesPage() {
     })
   }, [])
 
-  const deselectAll = useCallback(() => setSelectedIds(new Set()), [])
+  const deselectAll = useCallback(() => {
+    setSelectedIds(new Set())
+    setSelectAllPages(false)
+  }, [])
 
   const deleteSelected = useCallback(async () => {
-    if (selectedIds.size === 0) return
-    const ids = Array.from(selectedIds)
+    // v1.9.124 — si selectAllPages actif, suppression server-side par types (toutes pages)
+    const useTypesMode = selectAllPages
+    if (!useTypesMode && selectedIds.size === 0) return
+
+    const body = useTypesMode
+      ? { types: currentTab.types ? currentTab.types.split(',') : Object.keys(TYPE_CONFIG) }
+      : { ids: Array.from(selectedIds) }
+
     const res = await fetch('/api/activites', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify(body),
     })
     if (!res.ok) { toast.error('Erreur suppression'); return }
-    toast.success(`${ids.length} activité${ids.length > 1 ? 's' : ''} supprimée${ids.length > 1 ? 's' : ''}`)
+    const json = await res.json().catch(() => ({}))
+    const n = json?.deleted ?? selectedIds.size
+    toast.success(`${n} activité${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`)
     setSelectedIds(new Set())
+    setSelectAllPages(false)
     queryClient.invalidateQueries({ queryKey: ['activites'] })
-  }, [selectedIds, queryClient])
+  }, [selectedIds, selectAllPages, currentTab, queryClient])
 
   const viderOnglet = useCallback(async () => {
     setViderLoading(true)
@@ -538,6 +555,7 @@ export default function ActivitesPage() {
 
   const selectAll = useCallback(() => {
     setSelectedIds(new Set(activites.map((a: Activite) => a.id)))
+    setSelectAllPages(false)
   }, [activites])
 
   // Group activities by date for section headers
@@ -624,7 +642,7 @@ export default function ActivitesPage() {
                     : <><Square size={14} /> Tout sélectionner</>
                   }
                 </button>
-                {selectedIds.size > 0 && (
+                {(selectedIds.size > 0 || selectAllPages) && (
                   <button
                     onClick={deleteSelected}
                     style={{
@@ -636,7 +654,7 @@ export default function ActivitesPage() {
                       cursor: 'pointer', fontFamily: 'var(--font-body)',
                     }}
                   >
-                    <Trash2 size={13} /> Supprimer ({selectedIds.size})
+                    <Trash2 size={13} /> Supprimer ({selectAllPages ? total : selectedIds.size})
                   </button>
                 )}
               </>
@@ -662,6 +680,58 @@ export default function ActivitesPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* v1.9.124 — Bandeau Gmail-style : la page sélectionnée ne couvre pas le total
+          → proposer d'étendre la sélection à toutes les pages (filtres courants). */}
+      {selectedIds.size > 0
+        && selectedIds.size === activites.length
+        && total > activites.length
+        && !selectAllPages && (
+        <div style={{
+          margin: '0 0 16px 0', padding: '10px 16px', borderRadius: 10,
+          background: 'var(--info-soft, var(--secondary))',
+          border: '1px solid var(--info, var(--border))',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          fontSize: 13, color: 'var(--foreground)',
+        }}>
+          <span>
+            Les <strong>{activites.length}</strong> activités de cette page sont sélectionnées.
+          </span>
+          <button
+            onClick={() => setSelectAllPages(true)}
+            style={{
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+              border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground, #fff)',
+              cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >
+            Sélectionner toutes les {total}
+          </button>
+        </div>
+      )}
+      {selectAllPages && (
+        <div style={{
+          margin: '0 0 16px 0', padding: '10px 16px', borderRadius: 10,
+          background: 'var(--warning-soft, rgba(239,68,68,0.08))',
+          border: '1px solid var(--warning, #EF4444)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          fontSize: 13, color: 'var(--foreground)',
+        }}>
+          <span>
+            <strong>Toutes les {total} activités</strong> sont sélectionnées (toutes les pages).
+          </span>
+          <button
+            onClick={deselectAll}
+            style={{
+              padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              border: '1.5px solid var(--border)', background: 'var(--card)',
+              color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >
+            Désélectionner
+          </button>
+        </div>
+      )}
 
       {/* ── Confirm Vider Modal ── */}
       <AnimatePresence>
