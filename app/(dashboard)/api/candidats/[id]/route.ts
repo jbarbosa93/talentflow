@@ -62,6 +62,8 @@ const FIELD_LABELS: Record<string, string> = {
   photo_url: 'Photo', cv_url: 'CV', cv_nom_fichier: 'Fichier CV',
   formation: 'Formation',
   notes: 'Notes', tags: 'Tags', rating: 'Note',
+  // v1.9.120 — tracer les modifs de dates (édition manuelle via fiche)
+  created_at: 'Date d\'ajout', last_import_at: 'Date de modification',
 }
 
 /** Compare old and new values, returns array of changes */
@@ -88,6 +90,10 @@ function detectChanges(
         // For URL fields, just show a short label
         if (fieldName && (fieldName === 'photo_url' || fieldName === 'cv_url')) {
           return v ? '✓' : ''
+        }
+        // v1.9.120 — formater les dates en jj/mm/aaaa pour lisibilité du journal
+        if (fieldName && (fieldName === 'created_at' || fieldName === 'last_import_at')) {
+          try { return v ? new Date(v).toLocaleDateString('fr-FR') : '' } catch { return String(v) }
         }
         const s = Array.isArray(v) ? v.join(', ') : String(v)
         return s.length > 100 ? s.slice(0, 100) + '…' : s
@@ -134,6 +140,21 @@ export async function PATCH(
       .select('*')
       .eq('id', id)
       .single()
+
+    // v1.9.120 — Garde-fou cohérence dates : la date d'ajout ne peut JAMAIS être
+    // postérieure à la date de modification (impossible logiquement).
+    // Évite que les candidats disparaissent en bas de liste après une édition manuelle.
+    if (body.created_at !== undefined && body.created_at !== null) {
+      const newCreated = new Date(body.created_at).getTime()
+      const refLastImport = body.last_import_at !== undefined
+        ? (body.last_import_at ? new Date(body.last_import_at).getTime() : null)
+        : ((oldData as any)?.last_import_at ? new Date((oldData as any).last_import_at).getTime() : null)
+      if (refLastImport !== null && !isNaN(newCreated) && newCreated > refLastImport) {
+        return NextResponse.json({
+          error: 'La date d\'ajout ne peut pas être plus récente que la date de modification. Vérifie les deux dates avant de sauvegarder.',
+        }, { status: 400 })
+      }
+    }
 
     // v1.9.110 — Géocodage auto si la localisation change
     if (body.localisation !== undefined && oldData && body.localisation !== (oldData as any).localisation) {

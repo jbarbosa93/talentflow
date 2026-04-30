@@ -465,6 +465,20 @@ export default function CandidatDetailPage() {
     }
     if ('onedrive_change_type' in rest) payload.onedrive_change_type = rest.onedrive_change_type
     if ('onedrive_change_at'   in rest) payload.onedrive_change_at   = rest.onedrive_change_at
+
+    // v1.9.120 — Garde-fou cohérence : la date d'ajout ne peut pas être plus récente que la date
+    // de modification. Sinon le candidat se retrouve mal classé dans la liste (tri = MAX des deux).
+    if (payload.created_at) {
+      const newCreated = new Date(payload.created_at).getTime()
+      const refLastImport = payload.last_import_at !== undefined
+        ? (payload.last_import_at ? new Date(payload.last_import_at).getTime() : null)
+        : (candidat.last_import_at ? new Date(candidat.last_import_at).getTime() : null)
+      if (refLastImport !== null && newCreated > refLastImport) {
+        toast.error('La date d\'ajout ne peut pas être plus récente que la date de modification.')
+        return
+      }
+    }
+
     updateCandidat.mutate({ id, data: payload }, { onSuccess: () => setIsEditing(false) })
   }
 

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.119'
+export const APP_VERSION = '1.9.120'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.120',
+    date: '2026-04-30',
+    label: 'Tri liste candidats robuste (GREATEST des 2 dates) + garde-fou édition date d\'ajout',
+    features: [
+      'FIX BUG TRI LISTE — Cause racine : le tri serveur utilisait `last_import_at DESC` strict, mais l\'affichage de la date utilisait `MAX(created_at, last_import_at)`. Si un consultant éditait manuellement la "Date d\'ajout" via le mode édition de la fiche pour la rendre plus récente que `last_import_at`, le candidat affichait la nouvelle date dans la liste mais restait classé à sa position chronologique de l\'ancienne `last_import_at` (souvent au fond de la liste, invisible sauf via le filtre Non vus). Cas reproduit : Mario Correia Rodrigues, fiche éditée hier avec date d\'ajout au 29/04 alors que `last_import_at = 20/01` → affichait "29 avr." mais classé au 20 janvier.',
+      'NOUVELLE COLONNE GÉNÉRÉE — `candidats.derniere_activite TIMESTAMPTZ GENERATED ALWAYS AS (GREATEST(created_at, last_import_at)) STORED` + index `idx_candidats_derniere_activite DESC NULLS LAST`. Recalculée automatiquement par Postgres à chaque INSERT/UPDATE sur les 2 colonnes sources, 0 maintenance applicative. `GREATEST` ignore les NULL (renvoie l\'autre valeur si l\'une est NULL).',
+      'TRI ALIGNÉ AFFICHAGE — `app/(dashboard)/api/candidats/route.ts` : 7 occurrences `.order(\'last_import_at\', ...)` remplacées par `.order(\'derniere_activite\', ...)` dans les 3 branches (search avec filtres, search sans filtre, query sans search, fallback batch). Le tri serveur match désormais l\'affichage UI exactement → plus jamais d\'incohérence quel que soit ce qui touche les 2 dates.',
+      'GARDE-FOU CÔTÉ SERVEUR — `app/(dashboard)/api/candidats/[id]/route.ts` : le PATCH refuse désormais `created_at > last_import_at` (impossible logiquement : un candidat ne peut pas avoir été créé après avoir été modifié). Renvoie 400 avec message `"La date d\'ajout ne peut pas être plus récente que la date de modification. Vérifie les deux dates avant de sauvegarder."`. Garde la cohérence quel que soit l\'appelant (UI, script, postman).',
+      'GARDE-FOU CÔTÉ CLIENT — `app/(dashboard)/candidats/[id]/page.tsx` `saveEdit()` : même validation avant le PATCH, avec toast d\'erreur clair. Évite le roundtrip serveur et donne un feedback immédiat.',
+      'TRAÇABILITÉ MODIFS DATES — `created_at` et `last_import_at` ajoutés à `FIELD_LABELS` du PATCH route → toute modification manuelle de ces 2 dates est désormais loggée dans `activites` (type `candidat_modifie`). Avant : `created_at` était dans `ALLOWED_COLS` mais pas dans `FIELD_LABELS` → modifications silencieuses. Format des dates dans le journal : `jj/mm/aaaa` (helper `truncate` étendu pour formater les dates en FR).',
+      'FIX MARIO RÉTROACTIF — `UPDATE candidats SET last_import_at = created_at WHERE id = \'4851b492-f18b-4fc4-ae13-566756d32c20\'`. Cas isolé (1 / 5828 candidats avait l\'incohérence). Impossible de se reproduire désormais grâce aux 2 garde-fous.',
+    ],
+  },
   {
     version: '1.9.119',
     date: '2026-04-29',
