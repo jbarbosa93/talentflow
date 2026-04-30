@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.120 prod (tri liste GREATEST(created_at, last_import_at) + garde-fou édition date d'ajout)** — 30/04/2026
+**1.9.121 prod (4 fixes UX : dropdown z-index + tri rayon "Plus proche" + boutons contact + Sentry Leaflet zoom)** — 30/04/2026
 
 ---
 

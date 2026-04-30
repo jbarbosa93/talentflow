@@ -128,14 +128,22 @@ function ClusterLayer({ clients, focusedClientId }: { clients: Client[]; focused
   // v1.9.119 — Focus marker quand l'user clique une card en mode split.
   // zoomToShowLayer dézoome jusqu'à ce que le marker sorte de son cluster
   // puis ouvre le popup. Animation native Leaflet.
+  // v1.9.121 — flag cancelled + try/catch pour éviter le crash Sentry
+  // "_leaflet_pos undefined" quand le composant se démonte pendant l'animation
+  // (Leaflet appelle le callback après que le marker ait été retiré du cluster).
   useEffect(() => {
     if (!focusedClientId) return
     const marker = markersRef.current.get(focusedClientId)
     const cluster = clusterRef.current
     if (!marker || !cluster) return
-    cluster.zoomToShowLayer(marker, () => {
-      marker.openPopup()
-    })
+    let cancelled = false
+    try {
+      cluster.zoomToShowLayer(marker, () => {
+        if (cancelled) return
+        try { marker.openPopup() } catch { /* marker déjà détaché */ }
+      })
+    } catch { /* cluster déjà démonté */ }
+    return () => { cancelled = true }
   }, [focusedClientId])
 
   return null

@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
         candidateIds = (idRows || []).map((r: any) => r.id)
       }
 
-      // 2) RPC rayon (sans coords inclus, NULLS LAST, tri distance ASC)
+      // 2) RPC rayon (sans coords inclus, NULLS LAST, tri distance ASC par défaut)
       const rpcRayon = await (supabase.rpc as any)('candidats_dans_rayon', {
         p_lat: lat,
         p_lng: lng,
@@ -134,14 +134,50 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: rpcRayon.error.message }, { status: 500 })
       }
       const rayonRows = (rpcRayon.data as { id: string; distance_km: number | null }[] | null) || []
+      const distanceMap = new Map(rayonRows.map(r => [r.id, r.distance_km]))
+
+      // v1.9.121 — Si l'utilisateur veut un tri autre que distance, re-trier les IDs
+      // filtrés par rayon selon le critère choisi (date / nom / titre). Sinon on garde
+      // l'ordre naturel de la RPC (distance ASC NULLS LAST).
+      let orderedIds: string[] = rayonRows.map(r => r.id)
+      if (sort !== 'distance_asc' && orderedIds.length > 0) {
+        const isDateSort = sort === 'date_desc' || sort === 'date_asc'
+        const isNomSort = sort === 'nom_az'
+        const isTitreSort = sort === 'titre_az'
+        const ascending = sort === 'date_asc' || sort === 'nom_az' || sort === 'titre_az'
+        const sortCols = isDateSort ? 'id, derniere_activite'
+                       : isNomSort ? 'id, prenom, nom'
+                       : isTitreSort ? 'id, titre_poste'
+                       : 'id, derniere_activite'
+        const sortMap = new Map<string, any>()
+        for (let i = 0; i < orderedIds.length; i += 200) {
+          const batch = orderedIds.slice(i, i + 200)
+          const { data } = await supabase.from('candidats').select(sortCols as any).in('id', batch)
+          for (const r of (data as any[] || [])) sortMap.set(r.id, r)
+        }
+        orderedIds = orderedIds.slice().sort((a, b) => {
+          const ra: any = sortMap.get(a)
+          const rb: any = sortMap.get(b)
+          let va: any, vb: any
+          if (isDateSort) { va = ra?.derniere_activite; vb = rb?.derniere_activite }
+          else if (isNomSort) { va = `${ra?.prenom || ''} ${ra?.nom || ''}`.trim(); vb = `${rb?.prenom || ''} ${rb?.nom || ''}`.trim() }
+          else { va = ra?.titre_poste; vb = rb?.titre_poste }
+          // NULLS LAST défensif
+          if (!va && !vb) return 0
+          if (!va) return 1
+          if (!vb) return -1
+          const cmpRaw = isDateSort
+            ? (new Date(va).getTime() - new Date(vb).getTime())
+            : String(va).localeCompare(String(vb))
+          return ascending ? cmpRaw : -cmpRaw
+        })
+      }
 
       // 3) Pagination + fetch des rows complètes
-      const totalFound = rayonRows.length
+      const totalFound = orderedIds.length
       const totalPages = Math.max(1, Math.ceil(totalFound / perPage))
       const from = (page - 1) * perPage
-      const pageRows = rayonRows.slice(from, from + perPage)
-      const pageIds = pageRows.map(r => r.id)
-      const distanceMap = new Map(pageRows.map(r => [r.id, r.distance_km]))
+      const pageIds = orderedIds.slice(from, from + perPage)
 
       if (pageIds.length === 0) {
         return NextResponse.json({ candidats: [], total: totalFound, page, per_page: perPage, total_pages: totalPages })

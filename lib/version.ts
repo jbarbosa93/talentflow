@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.120'
+export const APP_VERSION = '1.9.121'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.121',
+    date: '2026-04-30',
+    label: '4 fixes UX : dropdown secteur z-index + tri rayon "Plus proche" + boutons contact lisibles + Sentry Leaflet zoom',
+    features: [
+      'FIX DROPDOWN SECTEUR — Sur `/clients` en vue carte ou split, le dropdown "Secteur" des filtres avancés s\'affichait derrière la map Leaflet (z-index 50 < panes Leaflet 400-1000). Passé à z-index 9999 (backdrop 9998) pour passer au-dessus.',
+      'TRI LISTE CANDIDATS AVEC RAYON — Avant : quand on filtrait par ville+rayon, le tri "Plus récent" était silencieusement ignoré et la liste forçait un tri par distance ASC. Maintenant : le tri respecte le sélecteur (Plus récent reste le défaut), et une nouvelle option "📍 Plus proche" apparaît dans le sélecteur uniquement quand un filtre rayon est actif. Auto-reset de l\'option si on retire le rayon. API : la branche rayon de `/api/candidats` re-trie les IDs filtrés sur `derniere_activite` / `prenom+nom` / `titre_poste` (par batches de 200) selon le critère choisi avant pagination, en gardant `distance_km` attaché pour l\'affichage du badge orange.',
+      'BOUTONS CONTACT LISIBLES — Sur la fiche client, le mode édition d\'un contact avait des boutons icônes ✓/✕ minuscules (14px) en `position: absolute` top-right avec couleur `--muted` sur fond similaire → quasi-invisibles sur le screenshot Seb. Remplacés par 2 vrais boutons texte en bas de la card : "Annuler" (gris bordure) + "Sauvegarder" (jaune brand). Cohérent avec `CardEditModal` du reste de la fiche.',
+      'FIX SENTRY LEAFLET ZOOM — `TypeError: Cannot read properties of undefined (reading \'_leaflet_pos\')` remonté en prod (Sentry JAVASCRIPT-NEXTJS-8). Cause : `cluster.zoomToShowLayer(marker, callback)` lance une animation ~250ms ; si le composant se démonte avant la fin (changement de mode grid/list, navigation), le marker est retiré du cluster mais Leaflet appelle quand même le callback → crash. Fix : flag `cancelled` dans le cleanup useEffect + try/catch autour de `openPopup()`. Plus de crash silencieux côté user.',
+    ],
+  },
   {
     version: '1.9.120',
     date: '2026-04-30',

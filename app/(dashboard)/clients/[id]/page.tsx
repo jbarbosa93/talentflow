@@ -274,24 +274,8 @@ function ContactsEditor({ contacts, onSave, isSaving }: {
                 <div key={idx} style={{
                   background: 'var(--secondary)', border: '1.5px solid var(--primary)',
                   borderRadius: 10, padding: '14px 16px',
-                  display: 'flex', flexDirection: 'column', gap: 8, position: 'relative',
+                  display: 'flex', flexDirection: 'column', gap: 8,
                 }}>
-                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
-                    <button
-                      type="button" onClick={commitEdit} disabled={isSaving}
-                      title="Valider"
-                      style={iconBtnStyle}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--success, #22C55E)'; e.currentTarget.style.background = 'rgba(34,197,94,0.15)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
-                    ><Check size={14} /></button>
-                    <button
-                      type="button" onClick={cancelEdit} disabled={isSaving}
-                      title="Annuler"
-                      style={iconBtnStyle}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.background = 'var(--secondary)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'transparent' }}
-                    ><X size={14} /></button>
-                  </div>
                   {/* v1.9.116 — Civilité (Madame / Monsieur / aucune) — éditable car
                       auto-extraction du parsing CV se trompe souvent (toutes les fiches
                       affichaient "Monsieur" même pour les femmes). */}
@@ -303,7 +287,7 @@ function ContactsEditor({ contacts, onSave, isSaving }: {
                     <option value="Monsieur">Monsieur</option>
                     <option value="Madame">Madame</option>
                   </select>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingRight: 56 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <input type="text" value={draft.prenom || ''} placeholder="Prénom"
                       onChange={e => setDraft(d => ({ ...d, prenom: e.target.value }))}
                       style={inputStyle} autoFocus />
@@ -320,6 +304,27 @@ function ContactsEditor({ contacts, onSave, isSaving }: {
                   <input type="tel" value={draft.telephone || ''} placeholder="Téléphone"
                     onChange={e => setDraft(d => ({ ...d, telephone: e.target.value }))}
                     style={inputStyle} />
+                  {/* v1.9.121 — boutons texte en bas (les anciens icônes en absolute
+                      étaient minuscules et invisibles sur fond similaire) */}
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                    <button type="button" onClick={cancelEdit} disabled={isSaving}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                        border: '1.5px solid var(--border)', background: 'var(--card)',
+                        color: 'var(--foreground)', cursor: isSaving ? 'not-allowed' : 'pointer',
+                        fontFamily: 'var(--font-body)', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    ><X size={14} /> Annuler</button>
+                    <button type="button" onClick={commitEdit} disabled={isSaving}
+                      style={{
+                        padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+                        border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground, #fff)',
+                        cursor: isSaving ? 'not-allowed' : 'pointer',
+                        fontFamily: 'var(--font-body)', display: 'inline-flex', alignItems: 'center', gap: 6,
+                        opacity: isSaving ? 0.6 : 1,
+                      }}
+                    ><Check size={14} /> {isSaving ? 'Sauvegarde…' : 'Sauvegarder'}</button>
+                  </div>
                 </div>
               )
             }

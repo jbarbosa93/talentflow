@@ -57,6 +57,8 @@ const SORT_OPTS = [
   { value: 'nom_az',     label: 'Nom A \u2192 Z' },
   { value: 'titre_az',   label: 'Métier A \u2192 Z' },
 ]
+// v1.9.121 — option additionnelle visible uniquement quand un filtre rayon (ville+km) est actif
+const SORT_OPT_DISTANCE = { value: 'distance_asc', label: '📍 Plus proche' }
 
 // Calcule ou retourne l'âge depuis date_naissance
 // Accepte : DD/MM/YYYY · DD.MM.YYYY · YYYY-MM-DD · YYYY/MM/DD · "1985" (année) · "65" (âge direct)
@@ -315,7 +317,7 @@ export default function CandidatsList() {
   })
   const [filtreLocalisation, setFiltreLocalisation] = useState(() => ssGet('filtreLocalisation', ''))
 
-  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az'>(() => ssGet('sort', 'date_desc'))
+  const [sortBy, setSortBy]               = useState<'date_desc' | 'date_asc' | 'nom_az' | 'titre_az' | 'distance_asc'>(() => ssGet('sort', 'date_desc'))
   const [groupByMetier, setGroupByMetier] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   // v1.9.71 : persiste la sélection checkbox dans sessionStorage (même session, réapparait au retour)
@@ -554,6 +556,10 @@ export default function CandidatsList() {
   // v1.9.110 — persist rayon filter
   useEffect(() => { ssSet('fVilleRayon', villeRayon) }, [villeRayon])
   useEffect(() => { ssSet('fRayonKm', rayonKm) }, [rayonKm])
+  // v1.9.121 — auto-reset du tri "Plus proche" si l'utilisateur retire le filtre rayon
+  useEffect(() => {
+    if (!villeRayon && sortBy === 'distance_asc') setSortBy('date_desc')
+  }, [villeRayon, sortBy])
   // v1.9.110 — debounce autocomplete ville (200ms)
   useEffect(() => {
     if (villeDebounceRef.current) clearTimeout(villeDebounceRef.current)
@@ -2482,7 +2488,9 @@ export default function CandidatsList() {
             className="neo-input-soft"
             style={{ paddingLeft: 30, width: 'auto', cursor: 'pointer', fontSize: 13, paddingRight: 8 }}
           >
-            {SORT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {/* v1.9.121 — option "Plus proche" injectée seulement si filtre rayon actif */}
+            {(villeRayon ? [...SORT_OPTS, SORT_OPT_DISTANCE] : SORT_OPTS)
+              .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 

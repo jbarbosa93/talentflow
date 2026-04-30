@@ -985,10 +985,10 @@ export default function ClientsPage() {
               <>
                 <div
                   onClick={() => setSecteursDropdownOpen(false)}
-                  style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                  style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
                 />
                 <div style={{
-                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 50,
+                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 9999,
                   background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8,
                   boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                   maxHeight: 320, overflowY: 'auto', padding: '6px 0',
