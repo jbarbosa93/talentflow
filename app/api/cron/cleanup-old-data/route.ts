@@ -49,11 +49,17 @@ export async function GET(request: Request) {
   }
 
   // 2. activites — fil d'activité team
+  // v1.9.125 — Exclure les types cv_importe + candidat_importe du cleanup pour
+  // préserver l'historique des imports (audit + graphique dashboard "Candidatures
+  // reçues" qui se basait sur activites avant v1.9.125 — désormais sourcé sur
+  // candidats.created_at, mais on garde quand même la trace audit longue durée).
+  const PRESERVED_TYPES = ['cv_importe', 'candidat_importe']
   try {
     const { error, count } = await supabase
       .from('activites')
       .delete({ count: 'exact' })
       .lt('created_at', cutoffIso)
+      .not('type', 'in', `(${PRESERVED_TYPES.map(t => `"${t}"`).join(',')})`)
     if (error) {
       results.activites = { deleted: 0, error: error.message }
       console.error('[cron/cleanup-old-data] activites error:', error.message)

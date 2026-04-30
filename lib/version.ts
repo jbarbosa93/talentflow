@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.124'
+export const APP_VERSION = '1.9.125'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.125',
+    date: '2026-04-30',
+    label: 'Dashboard graphique candidatures + cron preserve historique imports',
+    features: [
+      'FIX GRAPHIQUE CANDIDATURES REÇUES — Sur `/dashboard`, le graphique se sourçait sur `activites` (events `cv_importe` / `candidat_importe`). Or le cron `cleanup-old-data` (rétention 30j) supprime ces events au-delà de 30 jours → graphique quasi vide après quelques semaines (cas João : 489 candidats créés en mars + 382 en avril mais graphique affichait juste "1" pour avril). Fix : changement de source vers `candidats.created_at` (immuable depuis v1.9.90, jamais nettoyée). Sémantique : 1 candidat créé = 1 candidature reçue. Fenêtre 12 mois glissants. Limite 20000 lignes (largement au-dessus du volume actuel ~6000).',
+      'CRON CLEANUP PRESERVE HISTORIQUE IMPORTS — `/api/cron/cleanup-old-data` exclut désormais les types `cv_importe` et `candidat_importe` du nettoyage 30j (audit + traçabilité longue durée). Les autres types (statut_change, candidat_modifie, candidat_supprime, etc.) restent à 30 jours pour ne pas saturer la table.',
+    ],
+  },
   {
     version: '1.9.124',
     date: '2026-04-30',

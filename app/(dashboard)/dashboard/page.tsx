@@ -120,16 +120,21 @@ export default function DashboardPage() {
   const { data: chartData } = useQuery({
     queryKey: ['dashboard-chart', chartPeriod],
     queryFn: async () => {
-      // v1.9.90 — graphe imports basé sur activites (cv_importe + candidat_importe).
-      // Avant : candidats.created_at pollué par les updates → graphe biaisé.
-      // Maintenant : activites.created_at = date réelle et immuable de chaque import.
-      const since = new Date('2026-03-24T00:00:00')
+      // v1.9.125 — graphe basé sur candidats.created_at (immuable depuis v1.9.90,
+      // jamais nettoyé). Avant v1.9.125 : sourcé sur activites.cv_importe →
+      // perdu au-delà de 30j à cause du cron cleanup-old-data → graphe quasi vide.
+      // Sémantique : 1 candidat créé = 1 candidature reçue. Ré-imports d'un
+      // même candidat ne créent pas de nouvelle barre (created_at immuable).
+      // Fenêtre = 12 mois glissants (suffisant pour les vues jour/semaine/mois).
+      const since = new Date()
+      since.setMonth(since.getMonth() - 12)
+      since.setHours(0, 0, 0, 0)
       const { data } = await (supabase as any)
-        .from('activites')
+        .from('candidats')
         .select('created_at')
-        .in('type', ['cv_importe', 'candidat_importe'])
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: true })
+        .limit(20000)
 
       const rows = (data || []) as { created_at: string }[]
       const counts: Record<string, number> = {}
