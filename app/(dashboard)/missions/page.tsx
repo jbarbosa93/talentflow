@@ -789,17 +789,27 @@ export default function MissionsPage() {
     if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.vacances || [], todayStr)) return 1
     // 2 = Absence
     if (m.statut === 'en_cours' && !m._expired && isInPeriod(m.absences || [], todayStr)) return 2
-    // 3 = Début bientôt
+    // 3 = Début bientôt (entre demain et dans 7 jours)
     if (m.statut === 'en_cours' && !m._expired) {
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
       const in7 = new Date(); in7.setDate(in7.getDate() + 7)
       const debut = new Date(m.date_debut)
       if (debut >= tomorrow && debut <= in7) return 3
     }
-    // 4 = Actif
-    if (m.statut === 'en_cours' && !m._expired) return 4
-    // 5 = Fin de mission
-    return 5
+    // 4 = Fin bientôt (aujourd'hui à dans 7 jours) — v1.9.126
+    // Demande João : urgence forte, doit apparaître après les débuts bientôt et
+    // avant les missions actives normales. Sub-tri par date_fin ASC ci-dessous
+    // (le plus proche d'abord).
+    if (m.statut === 'en_cours' && !m._expired && m.date_fin) {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const in7End = new Date(today); in7End.setDate(today.getDate() + 7)
+      const fin = new Date(m.date_fin)
+      if (fin >= today && fin <= in7End) return 4
+    }
+    // 5 = Actif normal (fin > 7j)
+    if (m.statut === 'en_cours' && !m._expired) return 5
+    // 6 = Fin de mission terminée (n'apparaît que dans l'onglet "Fin de Mission")
+    return 6
   }
 
   const missions = sortKey
@@ -812,7 +822,11 @@ export default function MissionsPage() {
         const oa = getMissionSortOrder(a)
         const ob = getMissionSortOrder(b)
         if (oa !== ob) return oa - ob
-        // Actifs triés par date_debut desc
+        // v1.9.126 — Priorité 4 (Fin bientôt) : par date_fin ASC (plus proche d'abord)
+        if (oa === 4 && a.date_fin && b.date_fin) {
+          return new Date(a.date_fin).getTime() - new Date(b.date_fin).getTime()
+        }
+        // Autres priorités : par date_debut desc
         return new Date(b.date_debut).getTime() - new Date(a.date_debut).getTime()
       })
 

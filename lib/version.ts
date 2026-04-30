@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.125'
+export const APP_VERSION = '1.9.126'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.126',
+    date: '2026-04-30',
+    label: 'Tri missions actifs : nouvelle priorité "Fin bientôt" (0-7j) entre Début bientôt et Actif',
+    features: [
+      'TRI MISSIONS REVU — Avant : les missions qui finissaient aujourd\'hui ou dans 1-2 jours étaient noyées dans la priorité "Actif normal" et descendaient sous les missions en cours classiques. Cas signalé par João : Ted Coubard et Samuel Chereau finissaient aujourd\'hui mais étaient en bas de la liste, sous Ismael (qui démarre dans 4j). Fix : nouvelle priorité 4 "Fin bientôt" (date_fin entre aujourd\'hui et dans 7 jours) placée APRÈS "Début bientôt" (priorité 3) et AVANT "Actif normal" (priorité 5). Sub-tri spécifique par `date_fin ASC` → fin aujourd\'hui en premier, puis demain, puis 2j... jusqu\'à 7j max. Au-delà de 7j → priorité 5 (Actif normal). Ordre final : Arrêt > Vacances > Absence > Début bientôt > Fin bientôt > Actif normal > (Fin de Mission terminée — uniquement dans l\'onglet dédié).',
+    ],
+  },
   {
     version: '1.9.125',
     date: '2026-04-30',

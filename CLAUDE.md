@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.125 prod (Dashboard graphique candidatures sur created_at + cron preserve cv_importe/candidat_importe)** — 30/04/2026
+**1.9.126 prod (Tri missions Actifs : Fin bientôt 0-7j entre Début bientôt et Actif)** — 30/04/2026
 
 ---
 
