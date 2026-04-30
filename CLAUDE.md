@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**1.9.122 prod (secteurs activité éditables DB + Calorifugeur + fix CVCustomizer + fix Zefix notes + fix sélection multi-pages + fix faux-positif Modifié sur dates + Modifié le=last_import_at)** — 30/04/2026
+**1.9.123 prod (CVCustomizer fetch fiche complète — experiences/formations_details non dans LIST_COLUMNS)** — 30/04/2026
 
 ---
 

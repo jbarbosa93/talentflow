@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.122'
+export const APP_VERSION = '1.9.123'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.123',
+    date: '2026-04-30',
+    label: 'Fix CVCustomizer fetch fiche complète (experiences/formations vides depuis /messages)',
+    features: [
+      'CAUSE RÉELLE — Le fix v1.9.122 (`saved.experiences=[] → fallback candidat.experiences`) ne suffisait pas. Cause profonde : `LIST_COLUMNS` de `/api/candidats` (utilisé par `useCandidats` côté `/messages`) n\'inclut pas `experiences` ni `formations_details` (champs JSON lourds, exclus volontairement de la liste). L\'objet `cvCandidat` passé au `CVCustomizer` arrivait donc avec `experiences = undefined` → fallback `(candidat.experiences || []).map()` retournait `[]` → aperçu sans expériences ni formations même quand la sauvegarde était propre.',
+      'FIX — Au montage de `CVCustomizer`, fetch la fiche complète via `/api/candidats/[id]` (qui retourne tous les champs) et utiliser ces données pour peupler les states. Skip le fetch si le candidat passé contient déjà ces champs (ex: ouverture depuis la fiche). Coût : 1 roundtrip réseau par ouverture, négligeable. Avantage : pas besoin d\'alourdir le payload de la liste candidats avec ces gros champs JSON pour 100-200 candidats fetch en bloc.',
+    ],
+  },
   {
     version: '1.9.122',
     date: '2026-04-30',

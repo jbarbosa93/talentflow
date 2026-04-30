@@ -302,6 +302,29 @@ export default function CVCustomizerModal({
     let cancelled = false
     async function load() {
       try {
+        // v1.9.123 — La liste candidats (/api/candidats LIST_COLUMNS) ne renvoie PAS
+        // experiences ni formations_details (champs JSON lourds, exclus de la liste).
+        // Quand CVCustomizer s'ouvre depuis /messages, le `candidat` reçu n'a donc pas
+        // ces champs. On fetch la fiche complète via /api/candidats/[id] avant de
+        // décider quoi mettre dans les states. Si déjà présents (ouverture depuis la
+        // fiche complète), on skip le fetch.
+        let fullCandidat: any = candidat
+        const hasFullData = Array.isArray((candidat as any).experiences)
+          || Array.isArray((candidat as any).formations_details)
+        if (!hasFullData) {
+          try {
+            const fullRes = await fetch(`/api/candidats/${candidat.id}`, { credentials: 'include' })
+            if (fullRes.ok) {
+              const fullJson = await fullRes.json()
+              const c = fullJson?.candidat ?? fullJson
+              if (c && (c.experiences !== undefined || c.formations_details !== undefined)) {
+                fullCandidat = { ...candidat, ...c }
+              }
+            }
+          } catch { /* fallback sur candidat partiel ci-dessous */ }
+          if (cancelled) return
+        }
+
         const res = await fetch(`/api/cv-customizations?candidat_id=${candidat.id}`, { credentials: 'include' })
         if (cancelled) return
         const json = await res.json()
@@ -315,7 +338,7 @@ export default function CVCustomizerModal({
           if (saved.civilite === 'Monsieur' || saved.civilite === 'Madame' || saved.civilite === 'Monsieur/Madame') {
             setCivilite(saved.civilite)
           } else {
-            setCivilite(defaultCivilite(candidat.genre))
+            setCivilite(defaultCivilite(fullCandidat.genre))
           }
           // v1.9.122 — Si saved.experiences est vide [] mais candidat.experiences en a,
           // on retombe sur les valeurs candidat (cas race condition / corruption ancienne).
@@ -324,27 +347,27 @@ export default function CVCustomizerModal({
             // Respecter l'ordre manuel sauvegardé par le consultant — pas de re-tri
             setExperiences(saved.experiences.map(normalizeExperience))
           } else {
-            setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
+            setExperiences(sortExperiencesByDateDebut((fullCandidat.experiences || []).map(normalizeExperience)))
           }
           // v1.9.71 — formations | v1.9.122 — même garde-fou length > 0
           if (Array.isArray(saved.formations) && saved.formations.length > 0) {
             setFormations(saved.formations.map(normalizeFormation))
           } else {
-            const initialFormations = (candidat.formations_details as any[]) || []
+            const initialFormations = (fullCandidat.formations_details as any[]) || []
             setFormations(sortFormationsByDateDebut(initialFormations.map(normalizeFormation)))
           }
         } else {
           // Valeurs initiales depuis la fiche candidat
           setCustomContent({
-            nom_complet: [candidat.prenom, candidat.nom].filter(Boolean).join(' '),
-            titre_poste: candidat.titre_poste || '',
-            localisation: candidat.localisation || '',
-            resume_ia: candidat.resume_ia || '',
-            formation: candidat.formation || '',
-            competences: candidat.competences?.join(', ') || '',
+            nom_complet: [fullCandidat.prenom, fullCandidat.nom].filter(Boolean).join(' '),
+            titre_poste: fullCandidat.titre_poste || '',
+            localisation: fullCandidat.localisation || '',
+            resume_ia: fullCandidat.resume_ia || '',
+            formation: fullCandidat.formation || '',
+            competences: fullCandidat.competences?.join(', ') || '',
           })
-          setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
-          setFormations(sortFormationsByDateDebut(((candidat.formations_details as any[]) || []).map(normalizeFormation)))
+          setExperiences(sortExperiencesByDateDebut((fullCandidat.experiences || []).map(normalizeExperience)))
+          setFormations(sortFormationsByDateDebut(((fullCandidat.formations_details as any[]) || []).map(normalizeFormation)))
         }
       } catch (e) {
         // Fallback valeurs candidat en cas d'erreur
