@@ -1,6 +1,6 @@
 'use client'
 import { useParams, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
@@ -15,11 +15,17 @@ import { toast } from 'sonner'
 import ActivityHistory from '@/components/ActivityHistory'
 import ClientLogo from '@/components/ClientLogo'
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
+import { useSecteursActiviteConfig } from '@/hooks/useSecteursActiviteConfig'
 
 // v1.9.114 — couleurs pills secteurs alignées sur catégories métiers
-function makeSecteurColors(getColorForMetier: (m: string) => string | undefined) {
+// v1.9.122 — mapping vient désormais de la table DB (fallback constante si pas trouvé)
+function makeSecteurColors(
+  getColorForMetier: (m: string) => string | undefined,
+  secteursMap: Map<string, string | null>,
+) {
   return (secteur: string) => {
-    const metier = SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
+    const metier = secteursMap.get(secteur)
+      ?? SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
     const hex = metier ? getColorForMetier(metier) : undefined
     if (!hex) return { bg: 'var(--primary-soft)', border: 'var(--primary)', text: 'var(--primary)' }
     return { bg: `${hex}1A`, border: hex, text: hex }
@@ -403,7 +409,17 @@ export default function ClientDetailPage() {
   const updateClient = useUpdateClient()
   const deleteClient = useDeleteClient()
   const { getColorForMetier } = useMetierCategories()
-  const getSecteurColor = makeSecteurColors(getColorForMetier)
+  // v1.9.122 — taxonomie secteurs DB
+  const { data: secteursList } = useSecteursActiviteConfig()
+  const secteursMap = useMemo(
+    () => new Map((secteursList || []).map(s => [s.nom, s.metier_representatif])),
+    [secteursList]
+  )
+  const SECTEURS_LIST = useMemo(
+    () => (secteursList && secteursList.length > 0 ? secteursList.map(s => s.nom) : [...SECTEURS_ACTIVITE]),
+    [secteursList]
+  )
+  const getSecteurColor = makeSecteurColors(getColorForMetier, secteursMap)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
   // v1.9.116 — Modal édition card (Contact / Adresse)
@@ -818,7 +834,7 @@ export default function ClientDetailPage() {
           {(client.secteurs_activite?.length ?? 0) === 0 && ' (Aucun secteur — clique sur les pills ci-dessous pour ajouter)'}
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {SECTEURS_ACTIVITE.map(s => {
+          {SECTEURS_LIST.map(s => {
             const current = client.secteurs_activite ?? []
             const active = current.includes(s)
             const c = getSecteurColor(s)

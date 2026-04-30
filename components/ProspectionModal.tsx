@@ -10,6 +10,7 @@ import { Mail, X, Search, Send, Copy, Check, Loader2, AlertCircle, ChevronLeft, 
 import { useClients, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
 import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
+import { useSecteursList } from '@/hooks/useSecteursActiviteConfig'
 import ClientLogo from './ClientLogo'
 
 const MAX_BATCH = 100
@@ -50,15 +51,18 @@ export default function ProspectionModal({ open, onClose }: Props) {
   const clientsWithEmail = useMemo(() => allClients.filter(c => !!c.email?.trim()), [allClients])
 
   // v1.9.114 — Compte des clients (avec email) par secteur_activite, tri par fréquence
+  // v1.9.122 — taxonomie depuis DB (fallback constante si pas chargé)
+  const dynamicSecteurs = useSecteursList()
   const secteursMeta = useMemo(() => {
     const m = new Map<string, number>()
     for (const c of clientsWithEmail) {
       for (const s of (c.secteurs_activite || [])) m.set(s, (m.get(s) || 0) + 1)
     }
-    const list = SECTEURS_ACTIVITE.filter(s => (m.get(s) || 0) > 0)
+    const ref = dynamicSecteurs.length > 0 ? dynamicSecteurs : (SECTEURS_ACTIVITE as readonly string[])
+    const list = ref.filter(s => (m.get(s) || 0) > 0)
       .sort((a, b) => (m.get(b) || 0) - (m.get(a) || 0))
     return { counts: m, list }
-  }, [clientsWithEmail])
+  }, [clientsWithEmail, dynamicSecteurs])
 
   const cantons = useMemo(
     () => Array.from(new Set(clientsWithEmail.map(c => c.canton).filter(Boolean))).sort() as string[],

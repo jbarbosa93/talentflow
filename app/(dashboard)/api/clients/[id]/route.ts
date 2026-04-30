@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
 import { extractSecteursFromClient, sanitizeSecteurs } from '@/lib/secteurs-extractor'
+import { getSecteursConfigList } from '@/lib/secteurs-config-server'
 import { geocodeLocalisation, geocodeAddress } from '@/lib/geocode-localisation'
 
 export const runtime = 'nodejs'
@@ -113,13 +114,15 @@ export async function PATCH(
     // 2. Sinon, si notes change ET pas de secteurs déjà en place → extraire auto
     //    (v1.9.116 fix : ne PAS écraser des secteurs déjà choisis quand l'user édite les notes —
     //    avant, vider les notes vidait aussi les secteurs, ce qui était surprenant)
+    // v1.9.122 — taxonomie depuis DB (cache 60s) avec fallback constante
+    const validSecteurs = await getSecteursConfigList()
     if (body.secteurs_activite !== undefined) {
-      body.secteurs_activite = sanitizeSecteurs(body.secteurs_activite)
+      body.secteurs_activite = sanitizeSecteurs(body.secteurs_activite, validSecteurs)
     } else if (
       body.notes !== undefined && oldData && body.notes !== oldData.notes
       && (!oldData.secteurs_activite || oldData.secteurs_activite.length === 0)
     ) {
-      const result = extractSecteursFromClient(body.notes, oldData.secteur)
+      const result = extractSecteursFromClient(body.notes, oldData.secteur, validSecteurs)
       body.secteurs_activite = result.secteurs
     }
 

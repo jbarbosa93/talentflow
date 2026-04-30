@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
@@ -30,12 +30,19 @@ const ClientsMap = dynamic(() => import('@/components/ClientsMap'), {
   ),
 })
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
+import { useSecteursActiviteConfig } from '@/hooks/useSecteursActiviteConfig'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
 // dans /parametres/metiers (mapping secteur → métier représentatif → catégorie).
-function makeSecteurColors(getColorForMetier: (m: string) => string | undefined) {
+// v1.9.122 — Le mapping vient désormais de la table DB (via useSecteursActiviteConfig),
+// fallback sur la constante SECTEUR_REPRESENTATIVE_METIER si pas trouvé.
+function makeSecteurColors(
+  getColorForMetier: (m: string) => string | undefined,
+  secteursMap: Map<string, string | null>,
+) {
   return (secteur: string) => {
-    const metier = SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
+    const metier = secteursMap.get(secteur)
+      ?? SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
     const hex = metier ? getColorForMetier(metier) : undefined
     if (!hex) {
       return {
@@ -93,7 +100,17 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
   onClientAdded?: () => void
 }) {
   const { getColorForMetier } = useMetierCategories()
-  const getSecteurColor = makeSecteurColors(getColorForMetier)
+  // v1.9.122 — taxonomie secteurs depuis DB (édition libre via /parametres/secteurs-activite)
+  const { data: secteursList } = useSecteursActiviteConfig()
+  const secteursMap = useMemo(
+    () => new Map((secteursList || []).map(s => [s.nom, s.metier_representatif])),
+    [secteursList]
+  )
+  const getSecteurColor = makeSecteurColors(getColorForMetier, secteursMap)
+  const SECTEURS_LIST = useMemo(
+    () => (secteursList && secteursList.length > 0 ? secteursList.map(s => s.nom) : [...SECTEURS_ACTIVITE]),
+    [secteursList]
+  )
   const [form, setForm] = useState<{
     nom_entreprise: string; adresse: string; npa: string; ville: string; canton: string;
     telephone: string; email: string; secteur: string; site_web: string; notes: string;
@@ -396,7 +413,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
               Secteurs d&apos;activité <span style={{ fontWeight: 500, color: 'var(--muted-foreground)' }}>(facultatif — auto-extrait depuis les notes sinon)</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {SECTEURS_ACTIVITE.map(s => {
+              {SECTEURS_LIST.map(s => {
                 const active = form.secteurs_activite.includes(s)
                 const c = getSecteurColor(s)
                 return (
@@ -738,11 +755,21 @@ export default function ClientsPage() {
   const createClient = useCreateClient()
   const { data: secteursStats } = useSecteursStats()
   const { getColorForMetier } = useMetierCategories()
-  const getSecteurColor = makeSecteurColors(getColorForMetier)
+  // v1.9.122 — taxonomie secteurs depuis DB (édition libre via /parametres/secteurs-activite)
+  const { data: secteursList } = useSecteursActiviteConfig()
+  const secteursMap = useMemo(
+    () => new Map((secteursList || []).map(s => [s.nom, s.metier_representatif])),
+    [secteursList]
+  )
+  const getSecteurColor = makeSecteurColors(getColorForMetier, secteursMap)
 
   // v1.9.114 — Ordre canonique (groupé par catégorie métier), pas par fréquence.
   // Le count en stats reste affiché à côté de chaque entrée du dropdown.
-  const secteursOrdered = [...SECTEURS_ACTIVITE]
+  // v1.9.122 — l'ordre vient de la table DB (champ `ordre`).
+  const secteursOrdered = useMemo(
+    () => (secteursList && secteursList.length > 0 ? secteursList.map(s => s.nom) : [...SECTEURS_ACTIVITE]),
+    [secteursList]
+  )
   const secteursCountMap = new Map<string, number>((secteursStats || []).map(s => [s.secteur, s.count]))
 
   const clients = data?.clients || []

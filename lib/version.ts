@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.121'
+export const APP_VERSION = '1.9.122'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.122',
+    date: '2026-04-30',
+    label: 'Secteurs activité éditables (DB) + Calorifugeur + fixes CVCustomizer/Zefix/sélection multi-pages/detectChanges dates',
+    features: [
+      'FIX FAUX-POSITIF "MODIFIÉ" SUR DATES — Cliquer "Modifier" puis "Sauvegarder" sur une fiche candidat sans rien toucher générait quand même une activité `candidat_modifie` qui disait "1 champ(s) modifié(s): Date de modification" avec `old=03/10/2021, new=03/10/2021`. Cause double : (a) le client envoyait systématiquement `last_import_at` dans le PATCH dès que présent dans editData ; (b) le serveur comparait les dates via `String()` au lieu de timestamps → `"2021-10-03 12:00:00+00"` (Postgres) ≠ `"2021-10-03T12:00:00.000Z"` (ISO) bien que représentant la même date. Fix client : `saveEdit()` n\'envoie `last_import_at` que si la date a vraiment changé (comme `created_at`). Fix serveur : `detectChanges` compare `created_at`, `last_import_at`, `date_naissance` par `getTime()` au lieu de string. Conséquence : modifier numéro/email/etc. logge correctement l\'activité mais ne touche plus `last_import_at` ni `updated_at` inutilement. Activité parasite Franco Di Gregorio supprimée en DB.',
+      'PANNEAU INFOS — "MODIFIÉ LE" UTILISE last_import_at — Avant : le panneau Informations à droite affichait `candidat.updated_at`, un timestamp DB système qui bouge à chaque UPDATE de la ligne (cron extract-cv-text, sync OneDrive, batch silencieux), peu importe le champ touché. Cas reproduit : Franco Di Gregorio créé en 2021, jamais re-importé, mais "Modifié le: 30 avril 2026" parce qu\'un cron a touché un champ aujourd\'hui. Fix : afficher `last_import_at` (sens métier = même date que la "Date modif" mode édition + tri liste candidats + cards). Cohérent partout.',
+      'FIX SÉLECTION MULTI-PAGES — Quand on sélectionnait des candidats sur plusieurs pages dans `/candidats` (ex: 18 cochés sur 2-3 pages), le modal "Envoyer un message" / "WhatsApp" / la toolbar bulk Pipeline n\'affichaient que les candidats de la **page courante**. Cause : `sorted.filter(c => selectedIds.has(c.id))` filtrait `sorted` qui contient seulement la page courante (pagination serveur 20/page). Fix : nouveau cache `selectedDataRef` (`useRef<Map<id, Candidat>>`) qui se peuple à chaque cochage avec la donnée complète du candidat. Helper `getAllSelectedCandidats()` lit depuis le cache (fallback sur `sorted` si miss). Modaux Message + WhatsApp + toolbar bulk migrés. Plus de perte de sélection en changeant de page.',
+      'NOUVEAU — Page `/parametres/secteurs-activite` (admin uniquement) pour éditer la taxonomie des secteurs clients : ajout, renommage, suppression, choix du métier représentatif (utilisé pour la couleur de pastille). Avant v1.9.122 : taxonomie fermée hardcodée dans `lib/secteurs-extractor.ts` (25 valeurs). Maintenant : table DB `secteurs_activite_config` (id, nom, ordre, metier_representatif). Fallback gracieux sur la constante hardcodée si table indispo.',
+      'CALORIFUGEUR AJOUTÉ — Nouveau secteur seed dans la migration v1.9.122 (ordre 7, métier représentatif "Chauffagiste" pour la couleur). Demandé par João suite au cas IPSA Isolations.',
+      'PROPAGATION AUTO RENAME — Renommer un secteur depuis `/parametres/secteurs-activite` met à jour automatiquement tous les clients qui l\'utilisent (`UPDATE clients SET secteurs_activite = ARRAY_REPLACE(...)` via RPC `rename_secteur_activite`). Le client reste lié au secteur, seul le nom change. Recherche, filtres, prospection, mailing voient le nouveau nom instantanément. Suppression : confirmation si secteur utilisé, RPC `remove_secteur_from_clients` retire le nom de tous les clients concernés.',
+      'API CRUD — `/api/secteurs-activite` (GET liste authentifié, POST création admin) + `/[id]` (PATCH, DELETE admin avec check usage et `?force=true`). Hook `useSecteursActiviteConfig` (React Query, staleTime 5 min, invalide après mutations).',
+      'PROPAGATION SERVEUR — `lib/secteurs-config-server.ts` cache module-level TTL 60s pour la liste DB côté API. `extractSecteursFromClient` et `sanitizeSecteurs` acceptent désormais une `validList` optionnelle. `/api/clients` POST/PATCH utilisent la liste DB. Auto-extraction depuis notes/NOGA reste basée sur les règles hardcodées (couvrent les 25 secteurs originaux) — les nouveaux secteurs DB se mappent manuellement via l\'UI.',
+      'PROPAGATION CLIENT — `clients/page.tsx`, `clients/[id]/page.tsx`, `ProspectionModal`, `ClientPickerModal` (mailing) consomment désormais le hook au lieu de la constante. Filtres, dropdowns, pills, badges → tous synchronisés.',
+      'FIX CVCUSTOMIZER — Sur `/messages` personnaliser CV : si la sauvegarde précédente avait `experiences: []` ou `formations: []` vides (race condition / corruption ancienne), on retombait dessus au lieu de relire les valeurs candidat → aperçu vide. Fix : exiger `length > 0` pour utiliser la sauvegarde, sinon fallback `candidat.experiences` / `candidat.formations_details`. Si l\'utilisateur veut vraiment 0 exp dans le mailing, il décoche "Inclure expériences" (toggle préservé). Cas reproduit : Anthony Thiery (12/18 customizations DB avaient `formations: []` vides à tort).',
+      'FIX ZEFIX NOTES — Quand on ajoute un client via "Recherche IA Zefix" dans `/clients`, le code écrivait `notes: "UID: CHE-... | Source: zefix+ia"` dans les notes du client → polluait les vraies notes métier. L\'UID était déjà persisté dans la colonne `zefix_uid` (v1.9.117). Fix : retirer la ligne `notes` du POST, envoyer plutôt `zefix_uid + zefix_name + zefix_verified_at` directement aux colonnes dédiées. Backfill DB : 4 clients existants (Expert Isol SA, Rolex SA, Radio Chablais, S.R.D Société Romande de Démontage Sàrl) → notes nettoyées (NULL).',
+    ],
+  },
   {
     version: '1.9.121',
     date: '2026-04-30',

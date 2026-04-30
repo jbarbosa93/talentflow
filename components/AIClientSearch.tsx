@@ -94,7 +94,14 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
           email: result.email || undefined,
           site_web: result.site_web || undefined,
           secteur: result.secteur || undefined,
-          notes: result.uid ? `UID: ${result.uid} | Source: ${result.source}` : `Source: ${result.source}`,
+          // v1.9.122 — l'UID Zefix va dans la colonne dédiée zefix_uid
+          // (avant : pollué dans notes, peu utile). zefix_status sera complété
+          // par le bouton "Vérifier RC" sur la fiche client.
+          ...(result.uid ? {
+            zefix_uid: result.uid,
+            zefix_name: result.nom_entreprise,
+            zefix_verified_at: new Date().toISOString(),
+          } : {}),
         }),
       })
 

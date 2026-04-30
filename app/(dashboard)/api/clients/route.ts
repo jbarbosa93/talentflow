@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { logActivityServer, getRouteUser } from '@/lib/logActivity'
 import { requireAuth } from '@/lib/auth-guard'
 import { extractSecteursFromClient, sanitizeSecteurs } from '@/lib/secteurs-extractor'
+import { getSecteursConfigList } from '@/lib/secteurs-config-server'
 import { getVilleFromCp } from '@/lib/cp-to-ville'
 import { geocodeLocalisation, geocodeAddress } from '@/lib/geocode-localisation'
 
@@ -164,11 +165,14 @@ export async function POST(request: NextRequest) {
     if (!filtered.statut) filtered.statut = 'actif'
 
     // v1.9.114 — Secteurs d'activité : sanitize si fourni explicitement,
-    // sinon auto-extrait depuis notes/secteur (taxonomie standardisée 25 valeurs).
+    // sinon auto-extrait depuis notes/secteur.
+    // v1.9.122 — la taxonomie vient désormais de la table DB (cache 60s côté serveur),
+    // avec fallback sur la constante hardcodée si table indispo / vide.
+    const validSecteurs = await getSecteursConfigList()
     if (filtered.secteurs_activite !== undefined) {
-      filtered.secteurs_activite = sanitizeSecteurs(filtered.secteurs_activite)
+      filtered.secteurs_activite = sanitizeSecteurs(filtered.secteurs_activite, validSecteurs)
     } else if (filtered.notes || filtered.secteur) {
-      const result = extractSecteursFromClient(filtered.notes, filtered.secteur)
+      const result = extractSecteursFromClient(filtered.notes, filtered.secteur, validSecteurs)
       filtered.secteurs_activite = result.secteurs
     } else {
       filtered.secteurs_activite = []

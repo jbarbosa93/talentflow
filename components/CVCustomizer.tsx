@@ -317,14 +317,17 @@ export default function CVCustomizerModal({
           } else {
             setCivilite(defaultCivilite(candidat.genre))
           }
-          if (Array.isArray(saved.experiences)) {
+          // v1.9.122 — Si saved.experiences est vide [] mais candidat.experiences en a,
+          // on retombe sur les valeurs candidat (cas race condition / corruption ancienne).
+          // Si l'utilisateur veut vraiment 0 exp, il décoche "Inclure expériences".
+          if (Array.isArray(saved.experiences) && saved.experiences.length > 0) {
             // Respecter l'ordre manuel sauvegardé par le consultant — pas de re-tri
             setExperiences(saved.experiences.map(normalizeExperience))
           } else {
             setExperiences(sortExperiencesByDateDebut((candidat.experiences || []).map(normalizeExperience)))
           }
-          // v1.9.71 — formations
-          if (Array.isArray(saved.formations)) {
+          // v1.9.71 — formations | v1.9.122 — même garde-fou length > 0
+          if (Array.isArray(saved.formations) && saved.formations.length > 0) {
             setFormations(saved.formations.map(normalizeFormation))
           } else {
             const initialFormations = (candidat.formations_details as any[]) || []

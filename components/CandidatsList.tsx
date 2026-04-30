@@ -920,24 +920,69 @@ export default function CandidatsList() {
   }, [sorted, groupByMetier])
 
   // Selection helpers
-  const toggleSelect = useCallback((id: string) => {
+  // v1.9.122 — Cache des candidats sélectionnés (donnée complète) pour préserver
+  // la sélection lors de changements de page. Avant : `sorted.filter(selectedIds.has(...))`
+  // ne ramenait que la page courante → modal Message/WhatsApp / bulk Pipeline ne voyaient
+  // pas les candidats sélectionnés sur d'autres pages. useRef = lecture au moment du clic
+  // (modaux), pas besoin de re-render.
+  const selectedDataRef = useRef<Map<string, any>>(new Map())
+
+  // Synchronise le cache avec la page courante : à chaque update de `sorted`, on rafraîchit
+  // les entrées des candidats sélectionnés ET visibles (au cas où la donnée en DB a changé).
+  useEffect(() => {
+    for (const c of sorted) {
+      if (selectedIds.has(c.id)) selectedDataRef.current.set(c.id, c)
+    }
+  }, [sorted, selectedIds])
+
+  // Helper : récupère tous les candidats sélectionnés (toutes pages confondues).
+  // Cache en priorité, fallback sur `sorted` (cas de cache manquant après hard refresh).
+  const getAllSelectedCandidats = useCallback((): any[] => {
+    const out: any[] = []
+    for (const id of selectedIds) {
+      const c = selectedDataRef.current.get(id) || sorted.find((s: any) => s.id === id)
+      if (c) out.push(c)
+    }
+    return out
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds, sorted])
+
+  const toggleSelect = useCallback((id: string, candidat?: any) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      if (next.has(id)) {
+        next.delete(id)
+        selectedDataRef.current.delete(id)
+      } else {
+        next.add(id)
+        if (candidat) selectedDataRef.current.set(id, candidat)
+      }
       return next
     })
   }, [])
 
-  const selectAll = () => setSelectedIds(new Set(sorted.map((c: any) => c.id)))
-  const deselectAll = () => setSelectedIds(new Set())
+  const selectAll = () => {
+    for (const c of sorted) selectedDataRef.current.set(c.id, c)
+    setSelectedIds(new Set(sorted.map((c: any) => c.id)))
+  }
+  const deselectAll = () => {
+    selectedDataRef.current.clear()
+    setSelectedIds(new Set())
+  }
 
   const toggleSelectGroup = (ids: string[]) => {
     const allSelected = ids.every(id => selectedIds.has(id))
     setSelectedIds(prev => {
       const next = new Set(prev)
-      if (allSelected) ids.forEach(id => next.delete(id))
-      else ids.forEach(id => next.add(id))
+      if (allSelected) {
+        ids.forEach(id => { next.delete(id); selectedDataRef.current.delete(id) })
+      } else {
+        ids.forEach(id => {
+          next.add(id)
+          const c = sorted.find((s: any) => s.id === id)
+          if (c) selectedDataRef.current.set(id, c)
+        })
+      }
       return next
     })
   }
@@ -954,7 +999,8 @@ export default function CandidatsList() {
 
     // v1.9.66 — log fire-and-forget AVANT ouverture de l'app native.
     // L'UI ne bloque pas dessus : si le log échoue, l'envoi continue normalement.
-    const selectedCandidats = sorted.filter((c: any) => selectedIds.has(c.id))
+    // v1.9.122 — utilise le cache toutes-pages au lieu de sorted (filtrait page courante).
+    const selectedCandidats = getAllSelectedCandidats()
     const avecTelIds = selectedCandidats.filter((c: any) => c.telephone).map((c: any) => c.id)
     if (avecTelIds.length > 0 && messageText?.trim()) {
       fetch('/api/messages/log', {
@@ -1040,8 +1086,8 @@ export default function CandidatsList() {
     })
   }
 
-  const handleCardClick = (id: string) => {
-    if (selectedIds.size > 0) toggleSelect(id)
+  const handleCardClick = (id: string, candidat?: any) => {
+    if (selectedIds.size > 0) toggleSelect(id, candidat)
     else {
       sessionStorage.setItem('candidats_last_list', importStatusFilter === 'a_traiter' ? 'a_traiter' : 'all')
       // Persiste l'état du filtre "non vus" pour le restaurer en revenant
@@ -1206,7 +1252,7 @@ export default function CandidatsList() {
     return (
       <motion.div
         key={c.id}
-        onClick={() => handleCardClick(c.id)}
+        onClick={() => handleCardClick(c.id, c)}
         onMouseEnter={() => handleCardHover(c.id)}
         whileHover={{ y: -3, boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.4), 0 16px 36px rgba(0,0,0,0.35)' : '0 16px 36px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,232,0,0.18)' }}
         whileTap={{ scale: 0.99 }}
@@ -1267,7 +1313,7 @@ export default function CandidatsList() {
         })()}
         {/* Checkbox */}
         <div
-          onClick={e => { e.stopPropagation(); toggleSelect(c.id) }}
+          onClick={e => { e.stopPropagation(); toggleSelect(c.id, c) }}
           style={{
             width: 20, height: 20, borderRadius: 6, flexShrink: 0,
             border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
@@ -2005,8 +2051,8 @@ export default function CandidatsList() {
                 "Non vu" apparaît UNIQUEMENT quand au moins un candidat est vu (pas de badge). */}
             {(() => {
               const selectedArr = Array.from(selectedIds)
-              const byId = new Map(sorted.map(c => [c.id, c]))
-              const selectedCandidats = selectedArr.map(id => byId.get(id)).filter(Boolean) as any[]
+              // v1.9.122 — cache toutes-pages (avant : byId page courante seulement)
+              const selectedCandidats = getAllSelectedCandidats()
               const anyUnseen = selectedCandidats.some(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
               const anySeen   = selectedCandidats.some(c => !hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
               return (
@@ -3077,7 +3123,8 @@ export default function CandidatsList() {
 
       {/* Modal Message */}
       {showMessage && (() => {
-        const selected = sorted.filter((c: any) => selectedIds.has(c.id))
+        // v1.9.122 — cache toutes-pages (avant : page courante seulement = bug Seb 18 sélectionnés / 8 affichés)
+        const selected = getAllSelectedCandidats()
         const avecTel   = selected.filter((c: any) => c.telephone)
         const sansTel   = selected.filter((c: any) => !c.telephone)
         const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
@@ -3371,7 +3418,8 @@ export default function CandidatsList() {
 
       {/* Modal WhatsApp bulk (v1.9.67) — séquentiel user-driven, anti-popup-blocker */}
       {showWhatsApp && (() => {
-        const selected = sorted.filter((c: any) => selectedIds.has(c.id))
+        // v1.9.122 — cache toutes-pages (même fix que modal Message)
+        const selected = getAllSelectedCandidats()
         const avecTel  = selected.filter((c: any) => c.telephone)
         const sansTel  = selected.filter((c: any) => !c.telephone)
         // v1.9.68 — Harmonisation : {prenom} {nom} {metier} {civilite} + rétrocompat {candidat_*} + [MÉTIER]/[LIEU] legacy

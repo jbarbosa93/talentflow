@@ -72,10 +72,21 @@ function detectChanges(
   newData: Record<string, any>,
 ): Array<{ field: string; label: string; old: any; new: any }> {
   const changes: Array<{ field: string; label: string; old: any; new: any }> = []
+  // v1.9.122 — champs date comparés par timestamp (sinon faux positif quand
+  // Postgres "2021-10-03 12:00:00+00" vs ISO "2021-10-03T12:00:00.000Z" : 2 strings
+  // différentes mais même date → log "modif" alors que rien n'a changé).
+  const DATE_FIELDS = new Set(['created_at', 'last_import_at', 'date_naissance'])
+
   for (const [field, newVal] of Object.entries(newData)) {
     const label = FIELD_LABELS[field]
     if (!label) continue // only track labelled fields
     const oldVal = oldData[field]
+    // v1.9.122 — comparaison normalisée pour les champs date
+    if (DATE_FIELDS.has(field)) {
+      const oldT = oldVal ? new Date(oldVal as any).getTime() : null
+      const newT = newVal ? new Date(newVal as any).getTime() : null
+      if ((oldT === null && newT === null) || oldT === newT) continue
+    }
     // Normalize for comparison
     const oldStr = Array.isArray(oldVal) ? JSON.stringify(oldVal) : String(oldVal ?? '')
     const newStr = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal ?? '')

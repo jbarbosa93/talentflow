@@ -25,6 +25,7 @@ import { RecentContactsWarning, useRecentContacts } from '@/components/RecentCon
 import { parseBooleanSearch, normalize } from '@/lib/boolean-search'
 import { createClient as createSupaClient } from '@/lib/supabase/client'
 import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
+import { useSecteursList } from '@/hooks/useSecteursActiviteConfig'
 
 const CAT_LABELS: Record<string, string> = {
   invitation_entretien: 'Entretien',
@@ -286,6 +287,8 @@ function ClientPickerModal({
 }) {
   const [search, setSearch] = useState('')
   // v1.9.114 — Multi-select secteurs_activite (taxonomie 25 valeurs) au lieu de l'ancien secteur libre Zefix
+  // v1.9.122 — taxonomie depuis DB (fallback constante)
+  const dynamicSecteurs = useSecteursList()
   const [secteursFilter, setSecteursFilter] = useState<Set<string>>(new Set())
   const [secteursOpen, setSecteursOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set(alreadySelected))
@@ -389,7 +392,8 @@ function ClientPickerModal({
     }
     return m
   })()
-  const secteursList = SECTEURS_ACTIVITE.filter(s => (secteursCounts.get(s) || 0) > 0)
+  const refSecteurs = dynamicSecteurs.length > 0 ? dynamicSecteurs : (SECTEURS_ACTIVITE as readonly string[])
+  const secteursList = refSecteurs.filter(s => (secteursCounts.get(s) || 0) > 0)
     .sort((a, b) => (secteursCounts.get(b) || 0) - (secteursCounts.get(a) || 0))
 
   const q = normalize(search)

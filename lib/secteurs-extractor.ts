@@ -230,39 +230,67 @@ export interface ExtractResult {
 /**
  * API principale — extraction depuis client (notes prioritaire, fallback NOGA Zefix).
  *
- * @param notes   - clients.notes (texte libre)
- * @param secteur - clients.secteur (libellé NOGA Zefix)
+ * @param notes      - clients.notes (texte libre)
+ * @param secteur    - clients.secteur (libellé NOGA Zefix)
+ * @param validList  - v1.9.122 — liste optionnelle de secteurs valides (depuis DB).
+ *                     Si fournie : on filtre l'extraction pour ne garder que ceux présents.
+ *                     Si absente : fallback sur la constante SECTEURS_ACTIVITE.
+ *                     L'auto-extraction depuis notes/NOGA reste basée sur les règles
+ *                     hardcodées (RULES_NOTES / RULES_NOGA), donc seuls les secteurs
+ *                     historiques sont auto-extraits — les nouveaux secteurs DB sont
+ *                     mappables manuellement via l'UI.
  * @returns { secteurs, source } — array de secteurs standards + source utilisée
  */
 export function extractSecteursFromClient(
   notes: string | null | undefined,
-  secteur: string | null | undefined
+  secteur: string | null | undefined,
+  validList?: readonly string[],
 ): ExtractResult {
+  const validSet = validList && validList.length > 0
+    ? new Set<string>(validList)
+    : null
+
   const fromNotes = extractFromNotes(notes || '')
-  if (fromNotes.length > 0) return { secteurs: fromNotes, source: 'notes' }
+  const filteredNotes = validSet
+    ? fromNotes.filter(s => validSet.has(s))
+    : fromNotes
+  if (filteredNotes.length > 0) return { secteurs: filteredNotes, source: 'notes' }
 
   const fromNoga = extractFromNoga(secteur)
-  if (fromNoga.length > 0) return { secteurs: fromNoga, source: 'noga' }
+  const filteredNoga = validSet
+    ? fromNoga.filter(s => validSet.has(s))
+    : fromNoga
+  if (filteredNoga.length > 0) return { secteurs: filteredNoga, source: 'noga' }
 
   return { secteurs: [], source: 'none' }
 }
 
 /**
- * Validation : retourne uniquement les valeurs présentes dans SECTEURS_ACTIVITE.
- * Utilisé pour filtrer les inputs UI/API avant écriture en DB.
+ * Validation : retourne uniquement les valeurs présentes dans la liste valide.
+ * @param input      - tableau de secteurs en entrée (UI/API)
+ * @param validList  - v1.9.122 — liste optionnelle de secteurs valides (depuis DB).
+ *                     Si absente : fallback sur la constante SECTEURS_ACTIVITE.
+ * Préserve l'ordre donné par validList (ou SECTEURS_ACTIVITE par défaut).
  */
-export function sanitizeSecteurs(input: unknown): SecteurActivite[] {
+export function sanitizeSecteurs(
+  input: unknown,
+  validList?: readonly string[],
+): string[] {
   if (!Array.isArray(input)) return []
-  const set = new Set<string>(SECTEURS_ACTIVITE as readonly string[])
+  const reference: readonly string[] = (validList && validList.length > 0)
+    ? validList
+    : (SECTEURS_ACTIVITE as readonly string[])
+  const referenceSet = new Set<string>(reference)
   const seen = new Set<string>()
-  const out: SecteurActivite[] = []
+  const out: string[] = []
   for (const v of input) {
     if (typeof v !== 'string') continue
     const trimmed = v.trim()
-    if (set.has(trimmed) && !seen.has(trimmed)) {
+    if (referenceSet.has(trimmed) && !seen.has(trimmed)) {
       seen.add(trimmed)
-      out.push(trimmed as SecteurActivite)
+      out.push(trimmed)
     }
   }
-  return SECTEURS_ACTIVITE.filter(s => out.includes(s))
+  // Réordonner selon la liste de référence
+  return reference.filter(s => out.includes(s))
 }

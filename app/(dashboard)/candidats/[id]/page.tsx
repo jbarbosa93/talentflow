@@ -460,8 +460,19 @@ export default function CandidatDetailPage() {
     //           candidat à sa position chronologique naturelle (au lieu de NULL qui le
     //           reléguait tout en bas via NULLS LAST). Bandeau "Actualisé" disparaît
     //           naturellement (diffMs = 0).
+    // v1.9.122 — n'envoyer last_import_at au PATCH que si la valeur a vraiment changé.
+    // Avant : le client envoyait systématiquement last_import_at → le serveur faisait
+    // un UPDATE inutile (trigger updated_at) et detectChanges loggait un faux positif
+    // si le format string Postgres vs ISO différait. Cliquer Modifier+Sauvegarder
+    // sans rien toucher ne doit JAMAIS créer d'activité ni bouger updated_at.
     if ('last_import_at' in rest) {
-      payload.last_import_at = rest.last_import_at ? `${rest.last_import_at}T12:00:00.000Z` : null
+      const originalLastImport = candidat.last_import_at
+        ? new Date(candidat.last_import_at).toISOString().slice(0, 10)
+        : ''
+      const newLastImport = rest.last_import_at || ''
+      if (newLastImport !== originalLastImport) {
+        payload.last_import_at = newLastImport ? `${newLastImport}T12:00:00.000Z` : null
+      }
     }
     if ('onedrive_change_type' in rest) payload.onedrive_change_type = rest.onedrive_change_type
     if ('onedrive_change_at'   in rest) payload.onedrive_change_at   = rest.onedrive_change_at
@@ -2278,7 +2289,11 @@ export default function CandidatDetailPage() {
                 {[
                   { label: 'Source', value: candidat.source || '—' },
                   { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
-                  { label: 'Modifié le', value: new Date(candidat.updated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
+                  // v1.9.122 — last_import_at au lieu de updated_at (sens métier = même date que la liste candidats).
+                  // updated_at est un timestamp système (trigger DB) qui bouge à chaque UPDATE peu importe le champ.
+                  { label: 'Modifié le', value: candidat.last_import_at
+                    ? new Date(candidat.last_import_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '—' },
                   { label: 'Statut pipeline', value: candidat.statut_pipeline },
                   { label: 'Statut import', value: candidat.import_status === 'a_traiter' ? 'À traiter' : candidat.import_status === 'traite' ? 'Traité' : candidat.import_status || '—' },
                   { label: 'CV', value: candidat.cv_nom_fichier || '—' },
