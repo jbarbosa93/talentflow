@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Plus_Jakarta_Sans } from "next/font/google"
+import { DM_Sans } from "next/font/google"
 import "../globals.css"
 import "./dashboard.css"
 import "flag-icons/css/flag-icons.min.css"
@@ -15,7 +15,7 @@ import { SessionTimeoutModal } from "@/components/SessionTimeoutModal"
 import GlobalUploadPanel from "@/components/GlobalUploadPanel"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
-const jakarta = Plus_Jakarta_Sans({
+const jakarta = DM_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],

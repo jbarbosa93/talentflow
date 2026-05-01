@@ -1,10 +1,10 @@
-import { Plus_Jakarta_Sans } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import type { Metadata } from 'next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import '../globals.css'
 import './auth.css'
 
-const jakarta = Plus_Jakarta_Sans({
+const jakarta = DM_Sans({
   variable: '--font-jakarta',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
