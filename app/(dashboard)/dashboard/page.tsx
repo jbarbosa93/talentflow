@@ -2,7 +2,7 @@
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2, Bell } from 'lucide-react'
+import { Plus, ArrowRight, Sparkles, Calendar, MapPin, Upload, Building2, Activity, Mail, MessageCircle, FileText, StickyNote, Smartphone, AlertTriangle, ClipboardList, Clock, CheckCircle2, Shield, Loader2, Bell, Users, Briefcase, TrendingUp, TrendingDown } from 'lucide-react'
 import { getMotivationalPhrase } from '@/lib/motivational-phrases'
 import { computeEtpSemaine, getISOWeek } from '@/lib/missions-etp'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
@@ -205,13 +205,14 @@ export default function DashboardPage() {
 
   const totalEtp = computeEtpSemaine(missionsRaw?.missions ?? [])
 
+  // v1.9.127 — KPIs au format design v2 (icône Lucide + tone pastille + delta)
   const kpisBase = [
-    { label: 'Candidats',         value: stats?.totalCandidats ?? '—', emoji: '👤', kpiClass: 'kpi-yellow',  href: '/candidats' },
-    { label: 'Clients',           value: stats?.totalClients   ?? '—', emoji: '🏢', kpiClass: 'kpi-green',  href: '/clients' },
-    { label: 'Commandes actives', value: stats?.offresActives  ?? '—', emoji: '📋', kpiClass: 'kpi-blue',   href: '/offres' },
+    { label: 'Candidats Actifs',  value: stats?.totalCandidats ?? '—', icon: Users,      tone: 'gold',   delta: null, href: '/candidats' },
+    { label: 'Clients Actifs',    value: stats?.totalClients   ?? '—', icon: Building2,  tone: 'blue',   delta: null, href: '/clients' },
+    { label: 'Commandes Ouvertes',value: stats?.offresActives  ?? '—', icon: Briefcase,  tone: 'green',  delta: null, href: '/offres' },
   ]
   const kpis = isJoao
-    ? [...kpisBase, { label: `ETP Missions S${getISOWeek(new Date())}`, value: missionsRaw ? totalEtp.toFixed(2) : '—', emoji: '💼', kpiClass: 'kpi-violet', href: '/missions' }]
+    ? [...kpisBase, { label: `ETP Missions S${getISOWeek(new Date())}`, value: missionsRaw ? totalEtp.toFixed(2) : '—', icon: Activity, tone: 'purple', delta: null, href: '/missions' }]
     : kpisBase
 
   const initiales = (c: any) => {
@@ -227,96 +228,68 @@ export default function DashboardPage() {
   return (
     <div className="d-page">
 
-      {/* ── Header riche avec phrase motivationnelle + badges ── */}
-      <motion.div
-        custom={0}
-        variants={fadeUp}
-        initial="hidden"
-        animate="show"
-        style={{
-          background: 'linear-gradient(135deg, var(--warning-soft) 0%, var(--success-soft) 100%)',
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          padding: '22px 26px',
-          marginBottom: 28,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 24,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 280, display: 'flex', alignItems: 'center', gap: 18 }}>
-          <WavingAvatar email={user?.email} size={60} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{
-            fontSize: 26, fontWeight: 700, color: 'var(--foreground)',
-            lineHeight: 1.2, marginBottom: 6,
-            fontFamily: 'var(--font-serif, Georgia, serif)',
-          }}>
-            Bonjour <span style={{ color: 'var(--primary)', fontStyle: 'italic' }}>{prenom || greeting}</span>
-            {dateStr && <> <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>— {dateStr}</span></>}
-            <span style={{
-              marginLeft: 10, fontSize: 12, fontWeight: 700,
-              padding: '3px 10px', borderRadius: 6,
-              background: 'var(--primary-soft)', color: 'var(--primary)',
-              letterSpacing: '0.05em', verticalAlign: 'middle',
-            }}>
-              S{getISOWeek(new Date())}
-            </span>
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted-foreground)', marginTop: 4 }}>
+      {/* ── v1.9.127 — Welcome Hero V2 (gold gradient + welcome-stats) ── */}
+      <motion.div className="welcome-v2" custom={0} variants={fadeUp} initial="hidden" animate="show">
+        <div className="welcome-v2-text">
+          <h2>
+            Bonjour <em>{prenom || greeting}</em>
+            {dateStr && <> <span className="date-label">— {dateStr}</span></>}
+          </h2>
+          <p>
             {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }, phraseStyle || 'aleatoire') : '…'}
           </p>
-          </div>
         </div>
-        <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
+        <div className="welcome-stats-v2">
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
-            { label: 'Rappels', value: stats?.rappels ?? 0, href: '/pipeline?rappels=1' },
+            { label: 'Rappels',   value: stats?.rappels   ?? 0, href: '/pipeline?rappels=1' },
+            { label: `S${getISOWeek(new Date())}`, value: stats?.totalCandidats ? `${Math.round((stats.aTraiter ?? 0))}` : 0, href: '/candidats/a-traiter', isWeek: true },
           ].map((b, i) => (
-            <Link key={i} href={b.href} style={{ textDecoration: 'none', minWidth: 60 }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1, fontFamily: 'var(--font-serif, Georgia, serif)' }}>
-                  {b.value}
-                </div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>
-                  {b.label}
-                </div>
-              </div>
+            <Link key={i} href={b.href} className="welcome-stat-v2" style={{ textDecoration: 'none' }}>
+              <b>{b.value}</b>
+              <span>{b.label}</span>
             </Link>
           ))}
         </div>
       </motion.div>
 
-      {/* ── KPI row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${kpis.length}, 1fr)`, gap: 16, marginBottom: 32 }}>
-        {kpis.map((kpi, i) => (
-          <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
-            <Link href={kpi.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <motion.div
-                className={`neo-kpi ${kpi.kpiClass || ''}`}
-                style={{ cursor: 'pointer' }}
-                whileHover={{ y: -4, boxShadow: '0 10px 28px rgba(0,0,0,0.12)' }}
-                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-              >
-                <motion.div
-                  className="neo-kpi-icon"
-                  whileHover={{ scale: 1.12, rotate: 8 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                >
-                  <span style={{ fontSize: 17 }}>{kpi.emoji}</span>
-                </motion.div>
-                <div className="neo-kpi-value">
-                  {typeof kpi.value === 'number'
-                    ? <NumberTicker value={kpi.value} delay={0.2 + i * 0.06} />
-                    : kpi.value}
+      {/* ── v1.9.127 — KPI Grid V2 ── */}
+      <div className="kpi-grid-v2">
+        {kpis.map((kpi, i) => {
+          const Icon = kpi.icon
+          const numericValue = typeof kpi.value === 'number' ? kpi.value : null
+          return (
+            <motion.div key={i} custom={i} variants={kpiVariants} initial="hidden" animate="show">
+              <Link href={kpi.href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                <div className="kpi-v2">
+                  <div className="kpi-top-v2">
+                    <div className={`kpi-icon-v2 ${kpi.tone || 'gold'}`}>
+                      <Icon />
+                    </div>
+                    {kpi.delta && (
+                      <div className={`kpi-delta-v2 ${kpi.delta > 0 ? 'up' : 'down'}`}>
+                        {kpi.delta > 0 ? <TrendingUp /> : <TrendingDown />}
+                        {kpi.delta > 0 ? '+' : ''}{kpi.delta}
+                      </div>
+                    )}
+                  </div>
+                  <div className="kpi-label-v2">{kpi.label}</div>
+                  <div className="kpi-value-v2">
+                    {numericValue !== null
+                      ? <NumberTicker value={numericValue} delay={0.2 + i * 0.06} />
+                      : kpi.value}
+                  </div>
+                  {/* Sparkline subtile (placeholder décoratif gold) */}
+                  <div className="kpi-spark-v2" aria-hidden="true">
+                    <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+                      <polyline points="0,22 12,18 24,20 36,14 48,16 60,10 72,12 84,8 100,5" />
+                    </svg>
+                  </div>
                 </div>
-                <div className="neo-kpi-label">{kpi.label}</div>
-              </motion.div>
-            </Link>
-          </motion.div>
-        ))}
+              </Link>
+            </motion.div>
+          )
+        })}
       </div>
 
       {/* ── Graphique candidatures (full width) ── */}
