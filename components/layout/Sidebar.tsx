@@ -284,7 +284,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
             TalentFlow
           </div>
           {entreprise && (
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600, marginLeft: 36, marginTop: 1 }}>
+            <span style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', fontWeight: 600, marginLeft: 36, marginTop: 1 }}>
               {entreprise}
             </span>
           )}
@@ -307,18 +307,18 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Loader2 size={13} color="#F5A623" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>Import en cours</span>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: 11, color: 'rgba(28,26,20,0.55)', marginLeft: 'auto' }}>
                     {importCtx.progress}%
                   </span>
                 </div>
-                <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: 4, background: 'rgba(28,26,20,0.08)', borderRadius: 99, overflow: 'hidden' }}>
                   <motion.div
                     style={{ height: '100%', background: 'linear-gradient(90deg, #F5A623, #F97316)', borderRadius: 99 }}
                     animate={{ width: `${importCtx.progress}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+                <div style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', marginTop: 5 }}>
                   {importCtx.completed}/{importCtx.total} CVs traités · {importCtx.succeeded} importés
                 </div>
               </div>
@@ -343,11 +343,11 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     : <><Loader2 size={13} color="#818CF8" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--info)' }}>Matching IA</span></>
                   }
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: 11, color: 'rgba(28,26,20,0.55)', marginLeft: 'auto' }}>
                     {matchingCtx.progress}%
                   </span>
                 </div>
-                <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: 4, background: 'rgba(28,26,20,0.08)', borderRadius: 99, overflow: 'hidden' }}>
                   <motion.div
                     style={{
                       height: '100%',
@@ -360,7 +360,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+                <div style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', marginTop: 5 }}>
                   {matchingCtx.doneCount}/{matchingCtx.total} candidats · {matchingCtx.offreName}
                 </div>
               </div>
@@ -385,18 +385,18 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     : <><Loader2 size={13} color="#10B981" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>Analyse photos</span></>
                   }
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: 11, color: 'rgba(28,26,20,0.55)', marginLeft: 'auto' }}>
                     {photosCtx.progress}%
                   </span>
                 </div>
-                <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ height: 4, background: 'rgba(28,26,20,0.08)', borderRadius: 99, overflow: 'hidden' }}>
                   <motion.div
                     style={{ height: '100%', background: 'linear-gradient(90deg, #10B981, #059669)', borderRadius: 99 }}
                     animate={{ width: `${photosCtx.progress}%` }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+                <div style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', marginTop: 5 }}>
                   {photosCtx.processed}/{photosCtx.total} CVs · {photosCtx.found} photo{photosCtx.found !== 1 ? 's' : ''} trouvée{photosCtx.found !== 1 ? 's' : ''}
                 </div>
               </div>
@@ -421,7 +421,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     Recherche doublons...
                   </span>
                 </div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 5 }}>
+                <div style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', marginTop: 5 }}>
                   Verification en cours...
                 </div>
               </div>
