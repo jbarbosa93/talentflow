@@ -278,296 +278,272 @@ function LoginForm() {
     transition: { delay, duration: 0.35 },
   })
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render V2 (Design V2 Claude Design — split layout) ────────────────────
   return (
-    <div className="auth-glass-bg">
-      <motion.div
-        className="auth-glass-card"
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+    <div className="login-v2">
+      {/* Pane gauche — art noir avec gradients or */}
+      <div className="login-art">
+        <div className="login-art-brand">
+          <span className="login-art-brand-mark">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+            </svg>
+          </span>
+          <span>TalentFlow</span>
+        </div>
+        <div className="login-art-inner">
+          <h1>Trouver la<br/>bonne personne,<br/><em>plus vite</em>.</h1>
+          <p>TalentFlow centralise tes candidats, automatise le matching et élimine les doublons.</p>
+        </div>
+        <div className="login-art-footer">
+          © 2026 L\'AGENCE SA · Monthey, Suisse
+        </div>
+      </div>
 
-        {/* ── Logo ── */}
-        <motion.div
-          className="auth-glass-logo"
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-        >
-          <Link href="/">
-            <span className="auth-glass-logo-icon">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
-              </svg>
-            </span>
-            <span className="auth-glass-logo-text">TalentFlow</span>
-          </Link>
-        </motion.div>
+      {/* Pane droite — form */}
+      <div className="login-form-pane">
+        <div className="login-card">
 
-        {/* ── States ── */}
-        {autoReconnecting ? (
-          <motion.div {...fadeUp(0.25)} style={{ textAlign: 'center', padding: '40px 0' }}>
-            <Loader2 size={28} className="animate-spin" style={{ color: '#F5A623', margin: '0 auto 16px' }} />
-            <p style={{ color: '#6B7280', fontSize: 14 }}>Reconnexion en cours...</p>
-          </motion.div>
-        ) : forgotMode ? (
-          /* ── Réinitialisation mot de passe ── */
-          <>
-            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <Mail size={20} style={{ color: '#F5A623' }} />
-              <h2 className="auth-card-title" style={{ margin: 0 }}>Mot de passe oublié</h2>
+          {/* Banner session expirée */}
+          {isAutoLogout && !autoReconnecting && (
+            <motion.div
+              className="info-banner"
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+            >
+              <ShieldCheck size={14} /> Session expirée — reconnecte-toi.
+            </motion.div>
+          )}
+
+          {/* État reconnexion auto */}
+          {autoReconnecting ? (
+            <motion.div {...fadeUp(0.1)} style={{ textAlign: 'center', padding: '40px 0' }}>
+              <Loader2 size={28} className="spinner" style={{ color: '#EAB308', margin: '0 auto 16px', display: 'block' }} />
+              <p style={{ color: 'var(--text-2, #5C5645)', fontSize: 13.5 }}>Reconnexion en cours…</p>
             </motion.div>
 
-            {forgotSent ? (
-              <>
-                <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-                  Un lien de réinitialisation a été envoyé à <strong style={{ color: '#374151' }}>{forgotEmail}</strong>. Vérifiez votre boîte mail.
-                </motion.p>
-                <motion.div {...fadeUp(0.2 + 0.25)} style={{ marginTop: 20 }}>
-                  <button
-                    onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); setError('') }}
-                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    ← Retour à la connexion
-                  </button>
-                </motion.div>
-              </>
-            ) : (
-              <>
-                <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-                  Entrez votre email pour recevoir un lien de réinitialisation.
-                </motion.p>
-                <form className="auth-form" onSubmit={handleForgotPassword}>
-                  {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-                  <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
-                    <label className="auth-label">Email professionnel</label>
+          ) : forgotMode ? (
+            /* ── Mot de passe oublié ── */
+            <>
+              <motion.h2 {...fadeUp(0)}>
+                {forgotSent ? 'Email envoyé.' : 'Mot de passe oublié ?'}
+              </motion.h2>
+              <motion.p className="subtitle" {...fadeUp(0.05)}>
+                {forgotSent
+                  ? <>Un lien de réinitialisation a été envoyé à <strong>{forgotEmail}</strong>. Vérifie ta boîte mail.</>
+                  : 'Entre ton email, on t\'envoie un lien de réinitialisation.'
+                }
+              </motion.p>
+
+              {!forgotSent && (
+                <form className="login-step" onSubmit={handleForgotPassword}>
+                  {error && <div className="error-v2"><Mail size={14} />{error}</div>}
+                  <motion.div className="form-row" {...fadeUp(0.1)}>
+                    <label>Email professionnel</label>
                     <input
                       type="email"
-                      className="auth-input"
-                      placeholder="vous@entreprise.com"
+                      className="input-v2"
+                      placeholder="prenom@l-agence.ch"
                       value={forgotEmail}
                       onChange={e => setForgotEmail(e.target.value)}
                       required
                       autoFocus
                     />
                   </motion.div>
-                  <motion.div {...fadeUp(0.3 + 0.25)}>
-                    <button type="submit" className="auth-btn" disabled={forgotLoading}>
-                      {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : null}
-                      {forgotLoading ? 'Envoi...' : 'Envoyer le lien'}
-                    </button>
-                  </motion.div>
+                  <motion.button type="submit" className="btn-v2 primary btn-block" disabled={forgotLoading} {...fadeUp(0.15)}>
+                    {forgotLoading ? <Loader2 size={14} className="spinner" /> : <Mail size={14} />}
+                    {forgotLoading ? 'Envoi…' : 'Envoyer le lien'}
+                  </motion.button>
                 </form>
-                <motion.div {...fadeUp(0.4 + 0.25)} style={{ marginTop: 14 }}>
-                  <button
-                    onClick={() => { setForgotMode(false); setError('') }}
-                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    ← Retour à la connexion
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </>
-
-        ) : emailOtpRequired && !mfaRequired ? (
-          /* ── Email OTP ── */
-          <>
-            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <Mail size={20} style={{ color: '#F5A623' }} />
-              <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification par email</h2>
-            </motion.div>
-            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-              Un code à 6 chiffres a été envoyé à <strong style={{ color: '#374151' }}>{email}</strong>.
-            </motion.p>
-
-            <form className="auth-form" onSubmit={handleEmailOtpVerify}>
-              {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-
-              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
-                <label className="auth-label">Code de vérification</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  className="auth-input"
-                  placeholder="000000"
-                  value={emailOtpCode}
-                  onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
-                  required
-                  autoFocus
-                  style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
-                />
-              </motion.div>
-
-              <motion.div {...fadeUp(0.3 + 0.25)}>
-                <button type="submit" className="auth-btn" disabled={emailOtpLoading}>
-                  {emailOtpLoading ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {emailOtpLoading ? 'Vérification...' : 'Confirmer'}
-                </button>
-              </motion.div>
-            </form>
-
-            <motion.div {...fadeUp(0.4 + 0.25)} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
-              <button
-                onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
-                style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                ← Retour
-              </button>
-              <button
-                onClick={async () => {
-                  setError('')
-                  try {
-                    const r = await fetch('/api/auth/send-otp', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email }),
-                    })
-                    if (r.ok) setError('✅ Nouveau code envoyé !')
-                    else setError('Erreur lors du renvoi.')
-                  } catch { setError('Erreur réseau.') }
-                }}
-                style={{ background: 'none', border: 'none', color: '#F5A623', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
-              >
-                Renvoyer le code
-              </button>
-            </motion.div>
-          </>
-
-        ) : !mfaRequired ? (
-          /* ── Login form ── */
-          <>
-            <motion.h2 className="auth-card-title" {...fadeUp(0.0 + 0.25)}>
-              Bon retour 👋
-            </motion.h2>
-            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-              Connectez-vous à votre espace recruteur.
-            </motion.p>
-
-            <form className="auth-form" onSubmit={handleSubmit}>
-              {(domainError || error) && (
-                <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  {domainError || error}
-                </motion.div>
               )}
 
-              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
-                <label className="auth-label">Email professionnel</label>
-                <input
-                  type="email"
-                  className="auth-input"
-                  placeholder="vous@entreprise.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
-              </motion.div>
+              <motion.button
+                type="button"
+                className="btn-v2 ghost btn-block"
+                onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); setError('') }}
+                {...fadeUp(0.2)}
+              >
+                ← Retour à la connexion
+              </motion.button>
+            </>
 
-              <motion.div className="auth-field" {...fadeUp(0.3 + 0.25)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                  <label className="auth-label" style={{ margin: 0 }}>Mot de passe</label>
-                  <button
-                    type="button"
-                    onClick={() => { setForgotMode(true); setForgotEmail(email); setError('') }}
-                    style={{ background: 'none', border: 'none', color: '#9CA3AF', fontSize: 11, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-                  >
-                    Mot de passe oublié ?
-                  </button>
-                </div>
-                <div className="auth-input-wrap">
+          ) : emailOtpRequired && !mfaRequired ? (
+            /* ── Vérification Email OTP ── */
+            <>
+              <motion.h2 {...fadeUp(0)}>Un code t\'attend.</motion.h2>
+              <motion.p className="subtitle" {...fadeUp(0.05)}>
+                Code à 6 chiffres envoyé à <strong>{email}</strong>.
+              </motion.p>
+
+              <form className="login-step" onSubmit={handleEmailOtpVerify}>
+                {error && <div className="error-v2"><Mail size={14} />{error}</div>}
+                <motion.div className="form-row" {...fadeUp(0.1)}>
+                  <label>Code de vérification</label>
                   <input
-                    type={showPwd ? 'text' : 'password'}
-                    className="auth-input"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    className="input-v2"
+                    placeholder="000000"
+                    value={emailOtpCode}
+                    onChange={e => setEmailOtpCode(e.target.value.replace(/\D/g, ''))}
                     required
-                    autoComplete="current-password"
+                    autoFocus
+                    style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700, height: 52 }}
                   />
-                  <button type="button" className="auth-eye-btn" onClick={() => setShowPwd(!showPwd)}>
-                    {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </motion.div>
+                </motion.div>
+                <motion.button type="submit" className="btn-v2 primary btn-block" disabled={emailOtpLoading} {...fadeUp(0.15)}>
+                  {emailOtpLoading ? <Loader2 size={14} className="spinner" /> : null}
+                  {emailOtpLoading ? 'Vérification…' : 'Vérifier et entrer'}
+                </motion.button>
+              </form>
 
-              <motion.div {...fadeUp(0.4 + 0.25)}>
-                <button type="submit" className="auth-btn" disabled={loading}>
-                  {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {loading ? 'Connexion...' : 'Se connecter'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 6 }}>
+                <button
+                  type="button"
+                  className="link-v2"
+                  onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
+                  style={{ color: 'var(--text-3)' }}
+                >
+                  ← Changer d\'email
                 </button>
-              </motion.div>
-            </form>
-
-            <motion.div className="auth-footer-link" {...fadeUp(0.5 + 0.25)} style={{ marginTop: 20 }}>
-              Pas d&apos;accès ?{' '}
-              <Link href="/demande-acces">Faire une demande →</Link>
-            </motion.div>
-          </>
-
-        ) : (
-          /* ── MFA TOTP ── */
-          <>
-            <motion.div {...fadeUp(0.0 + 0.25)} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <ShieldCheck size={20} style={{ color: '#F5A623' }} />
-              <h2 className="auth-card-title" style={{ margin: 0 }}>Vérification 2FA</h2>
-            </motion.div>
-            <motion.p className="auth-card-sub" {...fadeUp(0.1 + 0.25)}>
-              Entrez le code à 6 chiffres depuis votre application d&apos;authentification.
-            </motion.p>
-
-            <form className="auth-form" onSubmit={handleMfaVerify}>
-              {error && <motion.div className="auth-error" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-
-              <motion.div className="auth-field" {...fadeUp(0.2 + 0.25)}>
-                <label className="auth-label">Code d&apos;authentification</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  className="auth-input"
-                  placeholder="000000"
-                  value={mfaCode}
-                  onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                  required
-                  autoFocus
-                  style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700 }}
-                />
-              </motion.div>
-
-              <motion.div {...fadeUp(0.3 + 0.25)}>
-                <button type="submit" className="auth-btn" disabled={loadingMfa}>
-                  {loadingMfa ? <Loader2 size={16} className="animate-spin" /> : null}
-                  {loadingMfa ? 'Vérification...' : 'Vérifier'}
+                <button
+                  type="button"
+                  className="link-v2"
+                  onClick={async () => {
+                    setError('')
+                    try {
+                      const r = await fetch('/api/auth/send-otp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email }),
+                      })
+                      if (r.ok) setError('✅ Nouveau code envoyé !')
+                      else setError('Erreur lors du renvoi.')
+                    } catch { setError('Erreur réseau.') }
+                  }}
+                >
+                  Renvoyer le code
                 </button>
-              </motion.div>
-            </form>
+              </div>
+            </>
 
-            <motion.div {...fadeUp(0.4 + 0.25)}>
+          ) : !mfaRequired ? (
+            /* ── Login email + password (default) ── */
+            <>
+              <motion.h2 {...fadeUp(0)}>Bon retour.</motion.h2>
+              <motion.p className="subtitle" {...fadeUp(0.05)}>
+                Connecte-toi à ton espace recruteur.
+              </motion.p>
+
+              <form className="login-step" onSubmit={handleSubmit}>
+                {(domainError || error) && (
+                  <div className="error-v2"><Mail size={14} />{domainError || error}</div>
+                )}
+
+                <motion.div className="form-row" {...fadeUp(0.1)}>
+                  <label>Email professionnel</label>
+                  <input
+                    type="email"
+                    className="input-v2"
+                    placeholder="prenom@l-agence.ch"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                  />
+                </motion.div>
+
+                <motion.div className="form-row" {...fadeUp(0.15)}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label>Mot de passe</label>
+                    <button
+                      type="button"
+                      className="link-v2"
+                      onClick={() => { setForgotMode(true); setForgotEmail(email); setError('') }}
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
+                  <div className="input-wrap">
+                    <input
+                      type={showPwd ? 'text' : 'password'}
+                      className="input-v2 with-icon"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                    <button type="button" className="input-icon-right" onClick={() => setShowPwd(!showPwd)} aria-label={showPwd ? 'Cacher' : 'Afficher'}>
+                      {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </motion.div>
+
+                <motion.button type="submit" className="btn-v2 primary btn-block" disabled={loading} {...fadeUp(0.2)}>
+                  {loading ? <Loader2 size={14} className="spinner" /> : null}
+                  {loading ? 'Connexion…' : 'Se connecter'}
+                </motion.button>
+              </form>
+
+              <div className="footer-link">
+                Pas d\'accès ? <Link href="/demande-acces">Faire une demande →</Link>
+              </div>
+            </>
+
+          ) : (
+            /* ── MFA TOTP (2FA app authenticator) ── */
+            <>
+              <motion.h2 {...fadeUp(0)}>Vérification 2FA.</motion.h2>
+              <motion.p className="subtitle" {...fadeUp(0.05)}>
+                Code à 6 chiffres depuis ton application d\'authentification.
+              </motion.p>
+
+              <form className="login-step" onSubmit={handleMfaVerify}>
+                {error && <div className="error-v2"><ShieldCheck size={14} />{error}</div>}
+                <motion.div className="form-row" {...fadeUp(0.1)}>
+                  <label>Code d\'authentification</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    className="input-v2"
+                    placeholder="000000"
+                    value={mfaCode}
+                    onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                    style={{ letterSpacing: '0.35em', textAlign: 'center', fontSize: 22, fontWeight: 700, height: 52 }}
+                  />
+                </motion.div>
+                <motion.button type="submit" className="btn-v2 primary btn-block" disabled={loadingMfa} {...fadeUp(0.15)}>
+                  {loadingMfa ? <Loader2 size={14} className="spinner" /> : <ShieldCheck size={14} />}
+                  {loadingMfa ? 'Vérification…' : 'Vérifier'}
+                </motion.button>
+              </form>
+
               <button
+                type="button"
+                className="btn-v2 ghost btn-block"
                 onClick={() => { setMfaRequired(false); setMfaCode(''); setError('') }}
-                style={{ marginTop: 14, background: 'none', border: 'none', color: '#9CA3AF', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
               >
                 ← Retour à la connexion
               </button>
-            </motion.div>
-          </>
-        )}
+            </>
+          )}
 
-        {/* ── Legal footer ── */}
-        <div className="auth-glass-footer">
-          <Link href="/cgu">CGU</Link>
-          <span>·</span>
-          <Link href="/confidentialite">Confidentialité</Link>
-          <span>·</span>
-          <span>© 2026 TalentFlow</span>
+          {/* Legal footer */}
+          <div style={{ marginTop: 24, fontSize: 11, color: 'var(--text-3, #999)', textAlign: 'center', display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <Link href="/cgu" style={{ color: 'inherit' }}>CGU</Link>
+            <span>·</span>
+            <Link href="/confidentialite" style={{ color: 'inherit' }}>Confidentialité</Link>
+            <span>·</span>
+            <span>© 2026 TalentFlow</span>
+          </div>
         </div>
-
-      </motion.div>
+      </div>
     </div>
   )
 }
