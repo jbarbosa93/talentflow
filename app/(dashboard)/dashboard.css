@@ -1362,9 +1362,10 @@ body {
    Source : docs/design-v2/styles/screens.css §Welcome + §KPI + js/screen-dashboard.js
    ════════════════════════════════════════════════════════════════════════ */
 
-/* ===== Welcome Hero ===== */
+/* ===== Welcome Hero (v1.9.127 — match exact design Claude v2) ===== */
 .welcome-v2 {
-  background: linear-gradient(135deg, oklch(0.95 0.10 90) 0%, oklch(0.92 0.13 80) 100%);
+  background: linear-gradient(120deg, var(--surface, #fff) 0%, var(--accent-soft, oklch(0.96 0.08 95)) 100%);
+  border: 1px solid var(--border);
   border-radius: var(--r-xl, 20px);
   padding: 28px 32px;
   margin-bottom: 24px;
@@ -1380,9 +1381,10 @@ body {
   position: absolute;
   top: -40%;
   right: -10%;
-  width: 480px;
-  height: 480px;
-  background: radial-gradient(circle, rgba(255, 232, 0, 0.4) 0%, transparent 60%);
+  width: 460px;
+  height: 460px;
+  background: radial-gradient(circle, var(--accent, #EAB308) 0%, transparent 60%);
+  opacity: 0.18;
   pointer-events: none;
 }
 .welcome-v2-text { position: relative; z-index: 1; min-width: 0; }
