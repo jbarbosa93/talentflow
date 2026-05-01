@@ -243,7 +243,7 @@ export default function DashboardPage() {
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
             { label: 'Rappels',   value: stats?.rappels   ?? 0, href: '/pipeline?rappels=1' },
-            { label: `S${getISOWeek(new Date())}`, value: stats?.totalCandidats ? `${Math.round((stats.aTraiter ?? 0))}` : 0, href: '/candidats/a-traiter', isWeek: true },
+            { label: 'Alertes',   value: stats?.alertes   ?? 0, href: '/integrations' },
           ].map((b, i) => (
             <Link key={i} href={b.href} className="welcome-stat-v2" style={{ textDecoration: 'none' }}>
               <b>{b.value}</b>
@@ -292,38 +292,32 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* ── Graphique candidatures (full width) ── */}
+      {/* ── v1.9.127 — Imports de candidats (style v2 card-flush + tabs-pills) ── */}
       <motion.div
         custom={1}
         variants={fadeUp}
         initial="hidden"
         animate="show"
       >
-        <div className="neo-card-soft" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h2 className="neo-section-title" style={{ marginBottom: 0 }}>Candidatures reçues</h2>
-            <div style={{
-              display: 'flex', gap: 0, border: '2px solid var(--border)',
-              borderRadius: 8, overflow: 'hidden', background: 'var(--card)',
-            }}>
+        <div className="card-v2">
+          <div className="card-v2-head">
+            <div>
+              <h3>Imports de candidats</h3>
+              <p>Derniers 6 mois · OneDrive + manuel</p>
+            </div>
+            <div className="tabs-pills-v2">
               {([
-                { key: 'jour', label: 'Jour' },
-                { key: 'semaine', label: 'Semaine' },
                 { key: 'mois', label: 'Mois' },
+                { key: 'semaine', label: 'Semaine' },
+                { key: 'jour', label: 'Jour' },
               ] as const).map(p => (
-                <button key={p.key} onClick={() => setChartPeriod(p.key)} style={{
-                  padding: '6px 14px', border: 'none',
-                  borderRight: '1px solid var(--border)',
-                  background: chartPeriod === p.key ? 'var(--primary)' : 'transparent',
-                  color: chartPeriod === p.key ? 'var(--ink, #1C1A14)' : 'var(--muted)',
-                  fontSize: 12, fontWeight: chartPeriod === p.key ? 700 : 500,
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
-                }}>
+                <button key={p.key} onClick={() => setChartPeriod(p.key)} className={chartPeriod === p.key ? 'active' : ''}>
                   {p.label}
                 </button>
               ))}
             </div>
           </div>
+          <div className="card-v2-body">
           {chartData && chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 24, right: 10, left: -20, bottom: 0 }}>
@@ -366,6 +360,7 @@ export default function DashboardPage() {
               Chargement du graphique...
             </div>
           )}
+          </div>
         </div>
       </motion.div>
 
