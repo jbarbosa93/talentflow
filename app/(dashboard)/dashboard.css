@@ -1542,3 +1542,388 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.127 — CSS COMMUNS V2 (réutilisés sur toutes les pages liste)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ===== Page Head V2 (titre serif + sous-titre + actions droite) ===== */
+.page-head-v2 {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.page-head-v2-text { min-width: 0; }
+.page-head-v2 h1 {
+  font-family: var(--font-serif, 'Fraunces', Georgia, serif);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--text, var(--foreground));
+  margin: 0;
+  line-height: 1.1;
+}
+.page-head-v2 h1 em {
+  font-style: italic;
+  color: var(--accent, var(--primary));
+  font-weight: 500;
+}
+.page-head-v2 p {
+  margin: 6px 0 0;
+  color: var(--text-2, var(--secondary-foreground));
+  font-size: 13px;
+}
+.page-head-v2-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ===== Buttons V2 (réutilisables) ===== */
+.btn-v2-page {
+  height: 38px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface, var(--card));
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 10px);
+  color: var(--text, var(--foreground));
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, transform 120ms;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn-v2-page:hover {
+  background: var(--surface-2, var(--popover));
+  border-color: var(--border-2, var(--input));
+}
+.btn-v2-page svg { width: 14px; height: 14px; color: var(--text-2, var(--muted-foreground)); }
+.btn-v2-page.primary {
+  background: var(--accent, var(--primary));
+  color: #1C1A14;
+  border-color: var(--accent, var(--primary));
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px rgba(234, 179, 8, .35);
+}
+.btn-v2-page.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(234, 179, 8, .45);
+}
+.btn-v2-page.primary svg { color: #1C1A14; }
+
+/* ===== Tabs Pills V2 ===== */
+.tabs-pills-v2 {
+  display: inline-flex;
+  background: var(--surface, var(--card));
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 10px);
+  padding: 3px;
+  gap: 2px;
+}
+.tabs-pills-v2 button,
+.tabs-pills-v2 a {
+  height: 30px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: var(--text-2, var(--muted-foreground));
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+}
+.tabs-pills-v2 button:hover,
+.tabs-pills-v2 a:hover {
+  color: var(--text, var(--foreground));
+}
+.tabs-pills-v2 button.active,
+.tabs-pills-v2 a.active,
+.tabs-pills-v2 button[aria-current="page"],
+.tabs-pills-v2 button[data-active="true"] {
+  background: var(--accent-soft, var(--primary-soft));
+  color: var(--text, var(--foreground));
+  font-weight: 600;
+}
+.tabs-pills-v2 .badge-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--surface-3, var(--muted));
+  color: var(--text-2, var(--muted-foreground));
+  min-width: 17px;
+  text-align: center;
+}
+.tabs-pills-v2 .active .badge-count,
+.tabs-pills-v2 [data-active="true"] .badge-count {
+  background: var(--accent, var(--primary));
+  color: #1C1A14;
+}
+
+/* ===== Card V2 (générique pour blocks) ===== */
+.card-v2 {
+  background: var(--surface, var(--card));
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 14px);
+  overflow: hidden;
+}
+.card-v2-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.card-v2-head h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -.005em;
+  color: var(--text, var(--foreground));
+}
+.card-v2-head p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--text-3, var(--muted-foreground));
+}
+.card-v2-body { padding: 16px 20px; }
+.card-v2-body.flush { padding: 0; }
+
+/* ===== Status Pill V2 (badges colorés cohérents) ===== */
+.status-pill-v2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.status-pill-v2 .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.status-pill-v2.green   { background: var(--success-soft);    color: var(--success); }
+.status-pill-v2.gold    { background: var(--accent-soft, var(--primary-soft)); color: oklch(0.50 0.16 80); }
+.status-pill-v2.amber   { background: var(--warning-soft);    color: oklch(0.55 0.15 65); }
+.status-pill-v2.red     { background: var(--destructive-soft);color: var(--destructive); }
+.status-pill-v2.blue    { background: var(--info-soft);       color: var(--info); }
+.status-pill-v2.purple  { background: var(--purple-soft, oklch(0.94 0.05 300)); color: var(--purple, oklch(0.55 0.18 300)); }
+.status-pill-v2.slate   { background: var(--surface-3, var(--muted)); color: var(--text-2, var(--muted-foreground)); }
+
+/* ===== Table V2 ===== */
+.table-v2 {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface, var(--card));
+  font-size: 13px;
+}
+.table-v2 thead th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3, var(--muted-foreground));
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2, var(--popover));
+  white-space: nowrap;
+}
+.table-v2 tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text, var(--foreground));
+  vertical-align: middle;
+}
+.table-v2 tbody tr:last-child td { border-bottom: none; }
+.table-v2 tbody tr {
+  transition: background 120ms;
+  cursor: pointer;
+}
+.table-v2 tbody tr:hover { background: var(--surface-3, var(--muted)); }
+.table-v2 .ref-mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  color: var(--text-2, var(--muted-foreground));
+}
+
+/* ===== Avatar V2 (initiales colorées) ===== */
+.avatar-v2 {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #1C1A14;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--accent, var(--primary)), var(--accent-2, oklch(0.75 0.17 70)));
+}
+.avatar-v2.lg { width: 80px; height: 80px; font-size: 28px; }
+.avatar-v2.md { width: 48px; height: 48px; font-size: 17px; }
+
+/* ===== Tags V2 (badges légers) ===== */
+.tag-v2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tag-v2.gold    { background: oklch(0.92 0.13 95); color: oklch(0.40 0.15 80); }
+.tag-v2.platine { background: oklch(0.94 0.05 300); color: var(--purple, oklch(0.55 0.18 300)); }
+.tag-v2.argent  { background: oklch(0.94 0.005 0); color: oklch(0.45 0.005 0); }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.127 — SURCHARGE PAGE HEADERS V2
+   Toutes les pages liste utilisent .d-page-header / .d-page-title /
+   .d-page-sub (55 usages). On surchage pour appliquer le look v2 partout
+   d'un coup : titre Fraunces serif 32px, sous-titre warm grey.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.d-page-header {
+  align-items: flex-end !important;
+  margin-bottom: 24px !important;
+  flex-wrap: wrap;
+}
+.d-page-title {
+  font-family: var(--font-serif, 'Fraunces', Georgia, serif) !important;
+  font-size: 32px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.015em !important;
+  line-height: 1.1 !important;
+  color: var(--text, var(--foreground)) !important;
+}
+.d-page-sub {
+  font-size: 13px !important;
+  color: var(--text-2, var(--muted-foreground)) !important;
+  margin-top: 6px !important;
+}
+
+/* ===== SURCHARGE NEO-CARD (cards utilisées partout) ===== */
+.neo-card,
+.neo-card-soft {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg, 14px) !important;
+  box-shadow: none !important;
+  transition: border-color 200ms, box-shadow 200ms !important;
+}
+.neo-card:hover,
+.neo-card-soft:hover {
+  border-color: var(--border-2, var(--input)) !important;
+}
+
+/* ===== SURCHARGE NEO-KPI (cards KPI sur dashboard secrétaire ou autre) ===== */
+.neo-kpi {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg, 14px) !important;
+  padding: 18px 20px !important;
+  box-shadow: none !important;
+}
+.neo-kpi-value {
+  font-family: var(--font-serif, 'Fraunces', Georgia, serif) !important;
+  font-size: 32px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.02em !important;
+}
+.neo-kpi-label {
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  color: var(--text-3, var(--muted-foreground)) !important;
+}
+
+/* ===== SURCHARGE BOUTONS NEO ===== */
+.neo-btn-primary {
+  background: var(--accent, var(--primary)) !important;
+  color: #1C1A14 !important;
+  border: 1px solid var(--accent, var(--primary)) !important;
+  border-radius: var(--r-md, 10px) !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px -4px rgba(234, 179, 8, .35) !important;
+  transition: transform 120ms, box-shadow 120ms !important;
+}
+.neo-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -4px rgba(234, 179, 8, .45) !important;
+}
+.neo-btn-ghost {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md, 10px) !important;
+  color: var(--text, var(--foreground)) !important;
+  height: 38px !important;
+  padding: 0 14px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+.neo-btn-ghost:hover {
+  background: var(--surface-2, var(--popover)) !important;
+  border-color: var(--border-2, var(--input)) !important;
+}
+
+/* ===== SURCHARGE NEO-INPUT ===== */
+.neo-input,
+.neo-input-soft {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-md, 10px) !important;
+  height: 38px !important;
+  padding: 0 12px !important;
+  font-size: 13px !important;
+  color: var(--text, var(--foreground)) !important;
+  transition: border-color 120ms, box-shadow 120ms !important;
+}
+.neo-input:focus,
+.neo-input-soft:focus {
+  border-color: var(--accent, var(--primary)) !important;
+  box-shadow: 0 0 0 3px var(--accent-ring, rgba(234, 179, 8, 0.25)) !important;
+  outline: none !important;
+}
+
+/* ===== Section title (ex sur fiche client/candidat) ===== */
+.neo-section-title {
+  font-family: var(--font-serif, 'Fraunces', Georgia, serif) !important;
+  font-size: 20px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--text, var(--foreground)) !important;
+}
