@@ -1180,3 +1180,179 @@ body {
 .pipeline-board-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.127 — Shell V2 (Design V2 Claude Design)
+   Surcharge des styles d-sidebar / d-topbar / d-content / d-nav-link
+   pour appliquer le look v2 sans toucher au JSX (logique préservée 100%).
+   Source : docs/design-v2/styles/shell.css + screens.css
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ===== Shell layout ===== */
+.d-layout {
+  background: var(--bg-sunken);
+}
+
+/* Le contenu principal a maintenant un look "fenêtre" arrondie en haut-gauche */
+.d-content {
+  background: var(--bg);
+  border-top-left-radius: 14px;
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  padding: var(--gap-lg, 20px);
+  position: relative;
+}
+
+/* ===== Sidebar V2 ===== */
+.d-sidebar {
+  background: var(--bg-sunken) !important;
+  padding: 12px 10px !important;
+  gap: 8px;
+  border-right: none !important;
+  font-family: var(--font-jakarta), 'DM Sans', system-ui, sans-serif;
+}
+
+/* Brand (logo TalentFlow + entreprise) */
+.d-sidebar-logo {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 8px 10px !important;
+  border-bottom: 1px dashed var(--border) !important;
+  margin-bottom: 4px !important;
+  text-decoration: none !important;
+}
+
+/* Section title "Menu", "Compte" */
+.d-sidebar-section {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .08em !important;
+  color: var(--text-3, var(--muted-foreground)) !important;
+  padding: 12px 10px 4px !important;
+  margin: 0 !important;
+}
+
+/* Nav container */
+.d-sidebar-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  padding: 4px 0 !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Nav items (each link) */
+.d-nav-link {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 6px 9px !important;
+  border-radius: var(--r-sm, 6px) !important;
+  color: var(--text-2, var(--secondary-foreground)) !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  position: relative !important;
+  background: transparent !important;
+  text-decoration: none !important;
+  transition: background var(--d-fast, 120ms) var(--ease-out, ease-out),
+              color var(--d-fast, 120ms) var(--ease-out, ease-out),
+              transform var(--d-fast, 120ms) !important;
+}
+.d-nav-link:hover {
+  background: var(--surface-3, var(--muted)) !important;
+  color: var(--text, var(--foreground)) !important;
+}
+
+/* Active state — fond gold-soft + barre or à gauche */
+.d-nav-link.active {
+  background: var(--accent-soft, var(--primary-soft)) !important;
+  color: var(--text, var(--foreground)) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+.d-nav-link.active::before {
+  content: "" !important;
+  position: absolute !important;
+  left: -2px !important;
+  top: 6px !important;
+  bottom: 6px !important;
+  width: 3px !important;
+  border-radius: 3px !important;
+  background: var(--accent, var(--primary)) !important;
+  animation: shellSlideIn 220ms cubic-bezier(.34,1.56,.64,1) !important;
+}
+@keyframes shellSlideIn {
+  from { opacity: 0; transform: scaleY(.3); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+
+/* Icons */
+.d-nav-icon {
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--text-3, var(--muted-foreground)) !important;
+  transition: color var(--d-fast, 120ms) !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+}
+.d-nav-link:hover .d-nav-icon {
+  color: var(--text, var(--foreground)) !important;
+}
+.d-nav-link.active .d-nav-icon {
+  color: var(--accent, var(--primary)) !important;
+}
+
+/* Footer (Compte section) */
+.d-sidebar-footer {
+  border-top: 1px dashed var(--border) !important;
+  padding-top: 8px !important;
+  margin-top: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  background: transparent !important;
+}
+
+/* Badges sur items nav (compteurs candidats, intégrations, etc.) */
+.d-nav-link [class*="badge"],
+.d-nav-link span[style*="background"][style*="color"]:not(.d-nav-icon) {
+  margin-left: auto !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  padding: 1px 6px !important;
+  border-radius: var(--r-pill, 999px) !important;
+  min-width: 18px !important;
+  text-align: center !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ===== TopBar V2 ===== */
+.d-topbar {
+  background: var(--bg-sunken) !important;
+  border-bottom: none !important;
+  height: var(--topbar-h, 56px) !important;
+  padding: 0 var(--gap-lg, 20px) !important;
+  font-family: var(--font-jakarta), 'DM Sans', system-ui, sans-serif;
+}
+
+.d-topbar-title {
+  font-family: var(--font-serif, 'Fraunces', Georgia, serif);
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--text, var(--foreground));
+}
+
+/* ===== Mobile ===== */
+@media (max-width: 880px) {
+  .d-content {
+    border-top-left-radius: 0;
+    border-left: none;
+  }
+}
