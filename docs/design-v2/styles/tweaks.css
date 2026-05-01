@@ -1,0 +1,51 @@
+/* TalentFlow V2 — Tweaks panel */
+.tweaks-fab{
+  position: fixed; right: 20px; bottom: 20px; z-index: 200;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--accent); color: var(--text-on-accent);
+  border: 0; display: grid; place-items: center;
+  box-shadow: var(--shadow-lg), var(--shadow-accent);
+  font-size: 18px; cursor: pointer;
+  transition: transform var(--d-fast);
+}
+.tweaks-fab:hover{ transform: rotate(30deg) scale(1.05); }
+
+.tweaks{
+  position: fixed; right: 20px; bottom: 76px; z-index: 199;
+  width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 16px;
+  animation: popIn var(--d-med) var(--ease-spring);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.tweaks h3{
+  font-family: var(--font-serif); font-size: 20px; margin: 0 0 2px; font-weight: 400;
+}
+.tweaks .sub{ font-size: 11.5px; color: var(--text-3); margin: 0 0 14px; }
+.tweak-group{ margin-bottom: 14px; }
+.tweak-group > label{ display: block; font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.seg{ display: flex; gap: 2px; padding: 3px; background: var(--bg-sunken); border: 1px solid var(--border); border-radius: var(--r-md); }
+.seg button{
+  flex: 1; height: 28px; border: 0; background: transparent;
+  border-radius: var(--r-sm);
+  font-size: 11.5px; color: var(--text-2); font-weight: 500;
+  transition: background var(--d-fast), color var(--d-fast);
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
+.seg button.active{ background: var(--surface); color: var(--text); font-weight: 600; box-shadow: var(--shadow-xs); }
+.seg button i{ font-size: 13px; }
+
+.tw-nav-login{
+  margin-top: 8px; padding-top: 12px; border-top: 1px dashed var(--border);
+  display: flex; gap: 6px;
+}
+.tw-nav-login button{
+  flex: 1; height: 30px; background: var(--bg-sunken); border: 1px solid var(--border);
+  border-radius: var(--r-sm); font-size: 11.5px; color: var(--text-2);
+  transition: background var(--d-fast);
+}
+.tw-nav-login button:hover{ background: var(--surface-3); color: var(--text); }

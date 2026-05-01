@@ -1,0 +1,340 @@
+<!DOCTYPE html><html lang="fr" data-theme="light" data-density="confortable" data-sidebar="expanded" data-kpi="shadow" data-fiche="2col" data-login="centered" data-font="dm" data-accent="amber"><head>
+
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TalentFlow — V2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;family=Inter+Tight:wght@400;500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=DM+Serif+Display:ital@0;1&amp;family=Fraunces:ital,wght@0,400;0,500;1,400&amp;family=Instrument+Serif:ital@0;1&amp;display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/shell.css">
+<link rel="stylesheet" href="styles/screens.css">
+<link rel="stylesheet" href="styles/tweaks.css">
+<link rel="stylesheet" href="styles/extras.css">
+<link id="gfont-Inter" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"></head>
+<body data-view="app" data-cc-id="cc-7" style="cursor: crosshair; font-family: Inter;">
+
+<div id="app-root">
+  <!-- Login screen (hors-shell) -->
+  <section id="screen-login" class="screen screen-login" data-screen-label="07 Login"></section>
+
+  <!-- Shell (sidebar + topbar + content) -->
+  <div id="shell" class="shell" aria-hidden="false">
+    <aside id="sidebar" class="sidebar" data-cc-id="cc-1">
+      <div class="sb-brand" data-cc-id="cc-3">
+        <div class="sb-brand-mark">L</div>
+        <div class="sb-brand-name"><b data-cc-id="cc-2">TalentFlow</b><span>L'Agence SA</span></div>
+      </div>
+      <nav class="sb-nav">
+        <div class="sb-group-title">Navigation</div>
+        <a class="sb-item " data-nav="dashboard" style="animation: slideIn var(--d-med) var(--ease-spring) 0ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="layout-dashboard" class="lucide lucide-layout-dashboard"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg> <span>Tableau de bord</span> 
+      </a><a class="sb-item active" data-nav="candidats" style="animation: slideIn var(--d-med) var(--ease-spring) 40ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="users" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg> <span>Candidats</span> <span class="sb-badge dot"></span><span class="sb-badge ">12</span>
+      </a><a class="sb-item " data-nav="clients" style="animation: slideIn var(--d-med) var(--ease-spring) 80ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="building-2" class="lucide lucide-building-2"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg> <span>Clients</span> <span class="sb-badge ">3</span>
+      </a><a class="sb-item " data-nav="offres" style="animation: slideIn var(--d-med) var(--ease-spring) 120ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="briefcase" class="lucide lucide-briefcase"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg> <span>Commandes</span> <span class="sb-badge ">27</span>
+      </a><a class="sb-item " data-nav="pipeline" style="animation: slideIn var(--d-med) var(--ease-spring) 160ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="kanban-square" class="lucide lucide-kanban-square"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M8 7v7"></path><path d="M12 7v4"></path><path d="M16 7v9"></path></svg> <span>Pipeline</span> 
+      </a><a class="sb-item " data-nav="missions" style="animation: slideIn var(--d-med) var(--ease-spring) 200ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="trending-up" class="lucide lucide-trending-up"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg> <span>Missions</span> 
+      </a><a class="sb-item " data-nav="messages" style="animation: slideIn var(--d-med) var(--ease-spring) 240ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mail" class="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg> <span>Envois</span> 
+      </a><a class="sb-item " data-nav="matching" style="animation: slideIn var(--d-med) var(--ease-spring) 280ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkles" class="lucide lucide-sparkles"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> <span>Matching IA</span> <span class="sb-badge accent">Beta</span>
+      </a><a class="sb-item " data-nav="activites" style="animation: slideIn var(--d-med) var(--ease-spring) 320ms backwards">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="activity" class="lucide lucide-activity"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"></path></svg> <span>Activité</span> 
+      </a>
+        <div class="sb-group-title" style="margin-top: 10px">Configuration</div>
+        <a class="sb-item " data-nav="integrations"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plug" class="lucide lucide-plug"><path d="M12 22v-5"></path><path d="M9 8V2"></path><path d="M15 8V2"></path><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"></path></svg> <span>Intégrations</span></a><a class="sb-item " data-nav="outils"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="wrench" class="lucide lucide-wrench"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> <span>Outils</span></a><a class="sb-item " data-nav="parametres"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="settings" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg> <span>Paramètres</span></a>
+      </nav>
+      <div class="sb-footer">
+        <div class="sb-footer-user">
+          <div class="avatar">JB</div>
+          <div class="u-meta"><b>João Barbosa</b><span>Administrateur</span></div>
+        </div>
+      </div>
+    </aside>
+    <main class="shell-main">
+      <header id="topbar" class="topbar" data-cc-id="cc-4">
+      <div class="tb-left">
+        <button class="tb-btn icon" title="Replier" data-action="toggle-sidebar"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="panel-left-close" class="lucide lucide-panel-left-close"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg></button>
+        <div>
+          <div class="tb-crumb">Candidats <span style="opacity:.5">/</span> <b>Fiche candidat</b></div>
+        </div>
+      </div>
+      <label class="tb-search" style="justify-self: center; width: 100%; max-width: 440px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="search" class="lucide lucide-search"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input placeholder="Rechercher un candidat, client, offre…">
+        <span class="kbd">⌘K</span>
+      </label>
+      <div class="tb-right">
+        <button class="tb-btn" data-action="import" data-cc-id="cc-5"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="upload" class="lucide lucide-upload"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg> <span data-cc-id="cc-6">Importer CV</span></button>
+        <button class="tb-btn icon" title="Thème" data-action="toggle-theme"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sun" class="lucide lucide-sun"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></button>
+        <button class="tb-btn icon tb-notif" title="Notifications"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="bell" class="lucide lucide-bell"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+        <button class="tb-btn icon" title="Aide"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="help-circle" class="lucide lucide-help-circle"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg></button>
+        <div style="width:1px;height:22px;background:var(--border);margin:0 4px"></div>
+        <div class="avatar" style="width: 30px; height: 30px">JB</div>
+      </div>
+    </header>
+      <div id="content" class="content">
+        <!-- Screens injectés par JS -->
+        <section id="screen-dashboard" class="screen" data-screen-label="03 Dashboard" hidden=""></section>
+        <section id="screen-candidats" class="screen" data-screen-label="04 Liste candidats" hidden=""></section>
+        <section id="screen-fiche" class="screen" data-screen-label="05 Fiche candidat">
+      <div class="page-head">
+        <div>
+          <button class="btn ghost sm" onclick="window.TF_APP?.navigate('candidats')" style="margin-bottom:8px"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="arrow-left" class="lucide lucide-arrow-left"><path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path></svg> Retour à la liste</button>
+        </div>
+        <div class="page-actions">
+          <button class="btn ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="star" class="lucide lucide-star"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg></button>
+          <button class="btn ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="archive" class="lucide lucide-archive"><rect width="20" height="5" x="2" y="3" rx="1"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg></button>
+          <button class="btn"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mail" class="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg> Envoyer</button>
+          <button class="btn primary"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sparkles" class="lucide lucide-sparkles"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path><path d="M20 3v4"></path><path d="M22 5h-4"></path><path d="M4 17v2"></path><path d="M5 18H3"></path></svg> Matcher IA</button>
+        </div>
+      </div>
+
+      <div class="fiche-header">
+        <div class="fiche-avatar">PF</div>
+        <div class="fiche-title">
+          <h1>Pedro Ferreira</h1>
+          <div class="meta">
+            <span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="briefcase" class="lucide lucide-briefcase"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect width="20" height="14" x="2" y="6" rx="2"></rect></svg> Maçon qualifié</span>
+            <span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="map-pin" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"></path><circle cx="12" cy="10" r="3"></circle></svg> Monthey, Suisse</span>
+            <span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="phone" class="lucide lucide-phone"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> +41 79 482 17 56</span>
+            <span><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mail" class="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg> pedro.ferreira@email.ch</span>
+            <span class="chip amber"><span class="dot"></span> Entretien</span>
+            <span class="chip gold"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="target" class="lucide lucide-target"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg> Score 94/100</span>
+          </div>
+        </div>
+        <div class="fiche-actions">
+          <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="phone" class="lucide lucide-phone"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg></button>
+          <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="message-square" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></button>
+        </div>
+      </div>
+
+      <div class="fiche-layout">
+        <!-- Col gauche : infos -->
+        <div class="fiche-col-left" style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="card flush">
+            <div class="card-head"><h3>Informations</h3><button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="pencil" class="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></button></div>
+            <div class="card-body">
+              <dl style="margin:0">
+                <div class="info-row"><dt>Métier</dt><dd>Maçon qualifié</dd></div>
+                <div class="info-row"><dt>Expérience</dt><dd>12 ans</dd></div>
+                <div class="info-row"><dt>Disponible</dt><dd><span class="chip green"><span class="dot"></span> 01.05.2026</span></dd></div>
+                <div class="info-row"><dt>Permis</dt><dd>B — Suisse</dd></div>
+                <div class="info-row"><dt>Nationalité</dt><dd>Portugaise</dd></div>
+                <div class="info-row"><dt>Consultant</dt><dd>João Barbosa</dd></div>
+              </dl>
+            </div>
+          </div>
+
+          <div class="card flush">
+            <div class="card-head"><h3>Compétences</h3><button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button></div>
+            <div class="card-body">
+              <div class="skill-tags"><span class="chip slate">Coffrage</span><span class="chip slate">Béton armé</span><span class="chip slate">Maçonnerie pierre</span><span class="chip slate">Lecture de plans</span><span class="chip slate">Sécurité chantier</span><span class="chip slate">SUVA</span><span class="chip slate">Permis grue</span></div>
+            </div>
+          </div>
+
+          <div class="card flush">
+            <div class="card-head"><h3>Langues</h3></div>
+            <div class="card-body"><div class="skill-tags"><span class="chip slate">FR (courant)</span> <span class="chip slate">PT (natif)</span> <span class="chip slate">IT (basique)</span></div></div>
+          </div>
+
+          <div class="card flush">
+            <div class="card-head"><h3>Documents</h3><button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="upload" class="lucide lucide-upload"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg></button></div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:6px">
+              
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--r-sm)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-text" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                  <span style="flex:1;font-size:12px">CV_Ferreira_2026.pdf</span>
+                  <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg></button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--r-sm)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-text" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                  <span style="flex:1;font-size:12px">Permis_B.pdf</span>
+                  <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg></button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--r-sm)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-text" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                  <span style="flex:1;font-size:12px">Diplôme_CFC.pdf</span>
+                  <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg></button>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col centre : CV viewer -->
+        <div class="fiche-col-center">
+          <div class="card flush">
+            <div class="card-head">
+              <div><h3>CV · Pedro Ferreira</h3><p>Page 1 / 2 · Mis à jour aujourd'hui</p></div>
+              <div style="display:flex;gap:6px">
+                <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zoom-out" class="lucide lucide-zoom-out"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line><line x1="8" x2="14" y1="11" y2="11"></line></svg></button>
+                <span class="chip slate tnum">100%</span>
+                <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="zoom-in" class="lucide lucide-zoom-in"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line><line x1="11" x2="11" y1="8" y2="14"></line><line x1="8" x2="14" y1="11" y2="11"></line></svg></button>
+                <button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="rotate-cw" class="lucide lucide-rotate-cw"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+                <button class="btn sm"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="download" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg> PDF</button>
+              </div>
+            </div>
+            <div class="card-body" style="background:var(--bg-sunken)">
+              <div class="cv-viewer">
+                <h4>Pedro Ferreira</h4>
+                <div class="cv-sub">Maçon qualifié · Monthey, Suisse · +41 79 482 17 56</div>
+                <div class="cv-section">
+                  <h5>Profil</h5>
+                  <div style="font-size:10px;line-height:1.5">Maçon qualifié avec 12 ans d'expérience sur chantiers résidentiels et industriels en Suisse romande. Permis grue à tour, formé SUVA. Bilingue FR/PT.</div>
+                </div>
+                <div class="cv-section">
+                  <h5>Expérience professionnelle</h5>
+                  <div style="display:grid;grid-template-columns:70px 1fr;gap:8px;margin-bottom:8px">
+                    <div style="font-size:9px;color:#8b7444">2021 — 2026</div>
+                    <div>
+                      <b style="font-size:11px">Rossetti SA — Chef d'équipe maçonnerie</b>
+                      <div class="cv-bar"></div><div class="cv-bar short"></div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:70px 1fr;gap:8px;margin-bottom:8px">
+                    <div style="font-size:9px;color:#8b7444">2016 — 2021</div>
+                    <div>
+                      <b style="font-size:11px">Boulanger Construction — Maçon</b>
+                      <div class="cv-bar"></div><div class="cv-bar short"></div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:70px 1fr;gap:8px">
+                    <div style="font-size:9px;color:#8b7444">2014 — 2016</div>
+                    <div>
+                      <b style="font-size:11px">BTP Valais — Aide-maçon</b>
+                      <div class="cv-bar short"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="cv-section">
+                  <h5>Formations &amp; certifications</h5>
+                  <div style="font-size:10px;margin-bottom:3px">CFC Maçon — École Technique Sion (2014)</div>
+                  <div style="font-size:10px;margin-bottom:3px">Permis grue à tour — CFST (2019)</div>
+                  <div style="font-size:10px">SUVA sécurité chantier — 2022</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col droite : activité + notes -->
+        <div class="fiche-col-right" style="display:flex;flex-direction:column;gap:var(--gap)">
+          <div class="card flush">
+            <div class="card-head">
+              <div><h3>Timeline</h3><p>Toutes les actions sur ce candidat</p></div>
+            </div>
+            <div class="card-body">
+              <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-dot "><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-up" class="lucide lucide-file-up"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M12 12v6"></path><path d="m15 15-3-3-3 3"></path></svg></div>
+        <div class="timeline-body">
+          <b>CV mis à jour</b>
+          <p>Nouvelle version reçue via OneDrive — sync automatique</p>
+          <time>Aujourd'hui · 09:12</time>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-dot green"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="user-check" class="lucide lucide-user-check"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><polyline points="16 11 18 13 22 9"></polyline></svg></div>
+        <div class="timeline-body">
+          <b>Entretien réussi</b>
+          <p>Rossetti SA — feedback positif, prêt pour placement</p>
+          <time>Hier · 16:30</time>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-dot blue"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="mail" class="lucide lucide-mail"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg></div>
+        <div class="timeline-body">
+          <b>Email envoyé</b>
+          <p>Confirmation entretien du 22 avril</p>
+          <time>18 avril · 14:02</time>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-dot purple"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="pencil" class="lucide lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></div>
+        <div class="timeline-body">
+          <b>Note ajoutée</b>
+          <p>Disponible immédiatement, cherche mission longue durée</p>
+          <time>17 avril · 11:48</time>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-dot "><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="file-plus" class="lucide lucide-file-plus"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M9 15h6"></path><path d="M12 18v-6"></path></svg></div>
+        <div class="timeline-body">
+          <b>Candidat créé</b>
+          <p>Import manuel depuis CV_Ferreira_2026.pdf</p>
+          <time>15 avril · 08:23</time>
+        </div>
+      </div>
+    </div>
+            </div>
+          </div>
+
+          <div class="card flush">
+            <div class="card-head"><h3>Notes internes</h3><button class="btn sm ghost"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="plus" class="lucide lucide-plus"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button></div>
+            <div class="card-body">
+              <div style="background:var(--warning-soft);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;color:var(--text-2)">
+                <b style="color:var(--text);display:block;margin-bottom:4px">⚠ Disponible immédiatement</b>
+                Cherche mission longue durée. A refusé un poste à Lausanne (trop loin).
+                <div style="font-size:11px;color:var(--text-3);margin-top:6px">João · 17 avr 11:48</div>
+              </div>
+              <textarea class="textarea" placeholder="Ajouter une note…" style="margin-top:10px"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+        <section id="screen-parametres" class="screen" data-screen-label="06 Paramètres" hidden=""></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Tweaks panel -->
+  <div id="tweaks" class="tweaks" hidden=""></div>
+</div>
+
+<!-- Persisted tweak defaults -->
+<script>
+window.TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "accent": "amber",
+  "density": "confortable",
+  "sidebar": "expanded",
+  "kpi": "shadow",
+  "fiche": "2col",
+  "login": "centered",
+  "font": "dm"
+}/*EDITMODE-END*/;
+</script>
+
+<!-- Data + screens + shell logic -->
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/screen-login.js"></script>
+<script src="js/screen-dashboard.js"></script>
+<script src="js/screen-candidats.js"></script>
+<script src="js/screen-fiche.js"></script>
+<script src="js/screen-parametres.js"></script>
+<script src="js/screen-extras.js"></script>
+<script src="js/screen-auth.js"></script>
+<script src="js/tweaks.js"></script>
+<script src="js/app.js"></script><button class="tweaks-fab" title="Tweaks"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="sliders-horizontal" class="lucide lucide-sliders-horizontal"><line x1="21" x2="14" y1="4" y2="4"></line><line x1="10" x2="3" y1="4" y2="4"></line><line x1="21" x2="12" y1="12" y2="12"></line><line x1="8" x2="3" y1="12" y2="12"></line><line x1="21" x2="16" y1="20" y2="20"></line><line x1="12" x2="3" y1="20" y2="20"></line><line x1="14" x2="14" y1="2" y2="6"></line><line x1="8" x2="8" y1="10" y2="14"></line><line x1="16" x2="16" y1="18" y2="22"></line></svg></button>
+
+
+
+</body></html>
+<style id="__om-edit-overrides">
+#cand-tabs >button:nth-child(2) { width: 94px !important }
+#cand-tabs >.active { width: 97px !important }
+</style>

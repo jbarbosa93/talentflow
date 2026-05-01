@@ -1,0 +1,261 @@
+/* TalentFlow V2 — Design tokens
+   Light par défaut (blanc chaud), Dark en option.
+   Accent or L'Agence : #EAB308 (gold). */
+
+:root{
+  /* ===== Colors — LIGHT ===== */
+  --bg:            oklch(0.992 0.004 85);      /* paper warm white */
+  --bg-sunken:     oklch(0.975 0.006 85);      /* canvas behind cards */
+  --surface:       #ffffff;
+  --surface-2:     oklch(0.985 0.004 85);
+  --surface-3:     oklch(0.965 0.006 85);      /* hover */
+  --overlay:       rgba(20, 18, 10, .55);
+
+  --text:          oklch(0.20 0.012 70);
+  --text-2:        oklch(0.38 0.010 70);       /* secondary */
+  --text-3:        oklch(0.55 0.008 70);       /* tertiary, placeholders */
+  --text-on-accent:#1C1A14;                     /* black-ish on gold */
+
+  --border:        oklch(0.92 0.006 85);
+  --border-2:      oklch(0.88 0.008 85);        /* stronger divider */
+  --border-3:      oklch(0.82 0.010 85);        /* focus-ish */
+
+  --accent:        #EAB308;                      /* or L'Agence */
+  --accent-2:      #F5A623;                      /* amber hover/gradient */
+  --accent-soft:   oklch(0.96 0.08 95);          /* gold tint */
+  --accent-soft-2: oklch(0.92 0.13 95);
+  --accent-ring:   oklch(0.85 0.18 95 / .35);
+
+  --success:       oklch(0.62 0.14 155);
+  --success-soft:  oklch(0.94 0.06 155);
+  --warning:       oklch(0.72 0.15 65);
+  --warning-soft:  oklch(0.94 0.08 80);
+  --danger:        oklch(0.58 0.20 25);
+  --danger-soft:   oklch(0.94 0.06 25);
+  --info:          oklch(0.60 0.14 245);
+  --info-soft:     oklch(0.94 0.05 245);
+  --purple:        oklch(0.55 0.18 300);
+  --purple-soft:   oklch(0.94 0.05 300);
+
+  /* Chart palette, tuned to cohabit with gold */
+  --c1: #EAB308;   /* gold */
+  --c2: #334155;   /* slate */
+  --c3: #0EA5E9;   /* sky */
+  --c4: #10B981;   /* emerald */
+  --c5: #A855F7;   /* violet */
+  --c6: #F97316;   /* orange */
+
+  /* ===== Shape & rhythm ===== */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* Shadows — double-layer, very soft */
+  --shadow-xs: 0 1px 1px rgba(24, 20, 10, .03);
+  --shadow-sm: 0 1px 2px rgba(24, 20, 10, .04), 0 1px 1px rgba(24, 20, 10, .03);
+  --shadow-md: 0 4px 10px -4px rgba(24, 20, 10, .08), 0 2px 4px -2px rgba(24, 20, 10, .04);
+  --shadow-lg: 0 18px 40px -18px rgba(24, 20, 10, .18), 0 6px 12px -6px rgba(24, 20, 10, .06);
+  --shadow-xl: 0 30px 60px -28px rgba(24, 20, 10, .28), 0 10px 20px -10px rgba(24, 20, 10, .08);
+  --shadow-accent: 0 8px 24px -10px oklch(0.78 0.18 90 / .55);
+
+  /* Type */
+  --font-sans:  "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-mono:  "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Font variants (switched via [data-font] on <html>) */
+html[data-font="inter"]  { --font-sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif; --font-serif: "Instrument Serif", Georgia, serif; }
+html[data-font="geist"]  { --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif; --font-serif: "DM Serif Display", Georgia, serif; }
+html[data-font="plex"]   { --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; --font-serif: "Instrument Serif", Georgia, serif; }
+html[data-font="dm"]     { --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif; --font-serif: "Fraunces", Georgia, serif; }
+html[data-font="system"] { --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-serif: ui-serif, Georgia, serif; }
+
+:root{
+
+  /* Layout (dense default — Linear-like) */
+  --sidebar-w: 188px;
+  --sidebar-w-rail: 68px;
+  --topbar-h: 56px;
+  --content-max: 1480px;
+  --row-h: 40px;
+  --gap: 14px;
+  --gap-lg: 20px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(.22,.9,.36,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+  --ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --d-fast: 120ms;
+  --d-med: 220ms;
+  --d-slow: 420ms;
+}
+
+/* ===== Density variants ===== */
+[data-density="confortable"]{
+  --row-h: 48px;
+  --gap: 18px;
+  --gap-lg: 26px;
+}
+[data-density="aere"]{
+  --row-h: 56px;
+  --gap: 22px;
+  --gap-lg: 32px;
+}
+
+/* ===== Accent variants ===== */
+[data-accent="amber"]{
+  --accent:#F5A623; --accent-2:#EAB308;
+  --accent-soft: oklch(0.96 0.08 80);
+  --accent-soft-2: oklch(0.92 0.14 80);
+  --accent-ring: oklch(0.80 0.17 80 / .35);
+  --shadow-accent: 0 8px 24px -10px oklch(0.78 0.17 80 / .55);
+  --c1:#F5A623;
+}
+[data-accent="bronze"]{
+  --accent:#C99A2E; --accent-2:#B58520;
+  --accent-soft: oklch(0.94 0.05 85);
+  --accent-soft-2: oklch(0.88 0.10 85);
+  --accent-ring: oklch(0.75 0.14 85 / .35);
+  --shadow-accent: 0 8px 24px -10px oklch(0.72 0.14 85 / .55);
+  --c1:#C99A2E;
+}
+[data-accent="gradient"]{
+  --accent:#EAB308; --accent-2:#F5A623;
+  --accent-soft: oklch(0.96 0.09 90);
+  --accent-soft-2: oklch(0.91 0.14 90);
+}
+
+/* ===== DARK ===== */
+[data-theme="dark"]{
+  --bg:            oklch(0.17 0.012 260);
+  --bg-sunken:     oklch(0.14 0.012 260);
+  --surface:       oklch(0.21 0.013 260);
+  --surface-2:     oklch(0.235 0.014 260);
+  --surface-3:     oklch(0.27 0.015 260);
+  --overlay:       rgba(2, 4, 14, .65);
+
+  --text:          oklch(0.97 0.005 90);
+  --text-2:        oklch(0.78 0.010 90);
+  --text-3:        oklch(0.60 0.012 90);
+  --text-on-accent:#1C1A14;
+
+  --border:        oklch(0.30 0.013 260);
+  --border-2:      oklch(0.36 0.014 260);
+  --border-3:      oklch(0.44 0.016 260);
+
+  --accent-soft:   oklch(0.30 0.10 90 / .22);
+  --accent-soft-2: oklch(0.40 0.14 90 / .35);
+  --accent-ring:   oklch(0.85 0.18 95 / .45);
+
+  --success-soft:  oklch(0.35 0.10 155 / .22);
+  --warning-soft:  oklch(0.42 0.12 80  / .22);
+  --danger-soft:   oklch(0.42 0.16 25  / .22);
+  --info-soft:     oklch(0.38 0.12 245 / .22);
+  --purple-soft:   oklch(0.40 0.14 300 / .22);
+
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, .24);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 1px 1px rgba(0, 0, 0, .2);
+  --shadow-md: 0 6px 14px -6px rgba(0, 0, 0, .45), 0 2px 4px -2px rgba(0, 0, 0, .3);
+  --shadow-lg: 0 20px 44px -20px rgba(0, 0, 0, .6), 0 8px 14px -8px rgba(0, 0, 0, .35);
+  --shadow-xl: 0 34px 66px -30px rgba(0, 0, 0, .7), 0 14px 22px -12px rgba(0, 0, 0, .4);
+  --shadow-accent: 0 8px 28px -10px oklch(0.70 0.18 90 / .55);
+
+  --c2: #CBD5E1;   /* lighter slate in dark */
+}
+
+/* ===== Base ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body{
+  margin:0; padding:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11","ss01","tnum";
+  overflow: hidden; /* shell owns the scrolling */
+}
+[data-density="confortable"], [data-density="confortable"] body { font-size: 14px; }
+[data-density="aere"], [data-density="aere"] body { font-size: 14.5px; }
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; color: inherit; }
+
+::selection { background: var(--accent-soft-2); color: var(--text); }
+
+.serif { font-family: var(--font-serif); font-weight: 400; letter-spacing: -.01em; }
+.mono  { font-family: var(--font-mono); }
+.tnum  { font-variant-numeric: tabular-nums; }
+
+/* Utility colors */
+.t-2 { color: var(--text-2); }
+.t-3 { color: var(--text-3); }
+
+/* Scrollbars */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-2);
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--border-3); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ===== Lucide icons =====
+   Icons are generated as <svg> by lucide.createIcons() from <i data-lucide>.
+   Keep them inline-sized with the surrounding text, with currentColor stroke. */
+[data-lucide], .lucide, svg.lucide {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  stroke-width: 1.75;
+  stroke: currentColor;
+  fill: none;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+}
+/* Buttons & chips: icons a touch larger than text */
+.btn [data-lucide], .btn svg.lucide,
+.tb-btn [data-lucide], .tb-btn svg.lucide,
+.chip [data-lucide], .chip svg.lucide,
+.sb-item [data-lucide], .sb-item svg.lucide {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+.btn.sm [data-lucide], .btn.sm svg.lucide {
+  width: 13px;
+  height: 13px;
+}
+/* Icon-only buttons */
+.tb-btn.icon [data-lucide], .tb-btn.icon svg.lucide,
+.row-actions button [data-lucide], .row-actions button svg.lucide,
+.fiche-actions button [data-lucide], .fiche-actions button svg.lucide,
+.pager button [data-lucide], .pager button svg.lucide,
+.page-actions .btn.ghost [data-lucide]:only-child, .page-actions .btn.ghost svg.lucide:only-child {
+  width: 16px;
+  height: 16px;
+}
+/* KPI icons (square tile) */
+.kpi-icon [data-lucide], .kpi-icon svg.lucide { width: 18px; height: 18px; stroke-width: 2; }
+.kpi-delta [data-lucide], .kpi-delta svg.lucide { width: 12px; height: 12px; stroke-width: 2.2; }
+/* Activity + timeline dots */
+.act-icon [data-lucide], .act-icon svg.lucide,
+.timeline-dot [data-lucide], .timeline-dot svg.lucide { width: 13px; height: 13px; stroke-width: 2.2; }
+/* TopBar search icon */
+.tb-search [data-lucide], .tb-search svg.lucide,
+.filter-search [data-lucide], .filter-search svg.lucide { width: 15px; height: 15px; color: var(--text-3); }
+/* Tweaks FAB */
+.tweaks-fab [data-lucide], .tweaks-fab svg.lucide { width: 18px; height: 18px; stroke-width: 2; }
