@@ -256,38 +256,44 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
 
   return (
     <aside className={`d-sidebar${mobileOpen ? ' is-open' : ''}${desktopCollapsed ? ' is-collapsed' : ''}`}>
-      {/* Logo */}
+      {/* Logo V2 (design v2 — icône or + texte noir + sous-titre L'AGENCE · V2) */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <motion.span
-              whileHover={{ scale: 1.15, rotate: 5 }}
-              animate={{ boxShadow: ['0 0 0 0px rgba(255,232,0,0)', '0 0 14px 5px rgba(255,232,0,0.45)', '0 0 0 0px rgba(255,232,0,0)'] }}
-              transition={{
-                boxShadow: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
-                scale: { type: 'spring', stiffness: 400, damping: 20 },
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: 8,
-                background: 'var(--primary)', flexShrink: 0, cursor: 'pointer',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#000000"/>
-              </svg>
-            </motion.span>
-            TalentFlow
-          </div>
-          {entreprise && (
-            <span style={{ fontSize: 10, color: 'rgba(28,26,20,0.5)', fontWeight: 600, marginLeft: 36, marginTop: 1 }}>
-              {entreprise}
-            </span>
-          )}
+        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: '6px 8px 10px', textDecoration: 'none' }}>
+          <motion.span
+            whileHover={{ scale: 1.08, rotate: 4 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: 8,
+              background: '#EAB308', flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(0,0,0,.08), 0 4px 12px -4px rgba(255, 170, 0, .35)',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+            </svg>
+          </motion.span>
+          <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
+            <b style={{
+              fontFamily: 'var(--font-jakarta), DM Sans, system-ui, sans-serif',
+              fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
+              color: 'var(--text, #1C1A14)',
+            }}>
+              TalentFlow
+            </b>
+            {entreprise && (
+              <span style={{
+                fontSize: 10, color: 'var(--text-3, #8b8675)',
+                fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2,
+              }}>
+                {entreprise}
+              </span>
+            )}
+          </span>
         </Link>
       </motion.div>
 

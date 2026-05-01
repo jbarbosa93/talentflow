@@ -92,41 +92,41 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
   return (
     <>
       {inline ? (<>
-        {/* ── Sidebar inline version ── */}
+        {/* ── Sidebar inline version (v1.9.127 — couleurs v2 ink translucide) ── */}
         <button
           onClick={() => setShowChangelog(true)}
           style={{
             margin: '6px 10px 0',
-            padding: '7px 12px',
-            borderRadius: 8,
-            border: '1px solid rgba(255,255,255,0.08)',
-            background: 'rgba(255,255,255,0.04)',
-            color: 'rgba(255,255,255,0.4)',
-            fontSize: 11,
+            padding: '6px 10px',
+            borderRadius: 6,
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--text-3, rgba(28,26,20,0.5))',
+            fontSize: 10.5,
             fontWeight: 600,
             fontFamily: 'inherit',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 6,
             width: 'calc(100% - 20px)',
             transition: 'all 0.15s',
-            letterSpacing: '0.01em',
+            letterSpacing: '0.02em',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+            e.currentTarget.style.background = 'var(--surface-3, rgba(28,26,20,0.04))'
+            e.currentTarget.style.color = 'var(--text-2, rgba(28,26,20,0.75))'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.4)'
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--text-3, rgba(28,26,20,0.5))'
           }}
         >
           {envBadge}
           <span style={{ flex: 1 }}>{APP_VERSION}</span>
           {hasNewVersion && (
             <span style={{
-              width: 8, height: 8, borderRadius: '50%',
+              width: 7, height: 7, borderRadius: '50%',
               background: '#EF4444', flexShrink: 0,
               animation: 'pulse 2s infinite',
             }} />
@@ -135,27 +135,27 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
         <button
           onClick={() => setShowBugReport(true)}
           style={{
-            margin: '2px 10px 0',
-            padding: '5px 12px',
-            borderRadius: 8,
+            margin: '0 10px 4px',
+            padding: '4px 10px',
+            borderRadius: 6,
             border: 'none',
             background: 'transparent',
-            color: 'rgba(255,255,255,0.2)',
+            color: 'var(--text-3, rgba(28,26,20,0.4))',
             fontSize: 10,
             fontWeight: 500,
             fontFamily: 'inherit',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            gap: 5,
             width: 'calc(100% - 20px)',
-            transition: 'all 0.15s',
+            transition: 'color 0.15s',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.color = 'rgba(255,255,255,0.5)'
+            e.currentTarget.style.color = 'var(--text-2, rgba(28,26,20,0.65))'
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.color = 'rgba(255,255,255,0.2)'
+            e.currentTarget.style.color = 'var(--text-3, rgba(28,26,20,0.4))'
           }}
         >
           <Bug size={10} />
