@@ -1929,3 +1929,36 @@ body {
   letter-spacing: -0.01em !important;
   color: var(--text, var(--foreground)) !important;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.127 — Sidebar : fix icônes actives + hover gold-soft
+   Spécificité augmentée pour gagner sur les anciennes règles ligne 184/193.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Icônes des items ACTIFS : couleur or visible */
+aside.d-sidebar .d-nav-link.active .d-nav-icon,
+aside.d-sidebar .d-nav-link.active i,
+aside.d-sidebar .d-nav-link.active svg {
+  color: var(--accent, var(--primary)) !important;
+  opacity: 1 !important;
+}
+
+/* Icônes des items au HOVER : restent pleinement opaques */
+aside.d-sidebar .d-nav-link:hover .d-nav-icon,
+aside.d-sidebar .d-nav-link:hover i,
+aside.d-sidebar .d-nav-link:hover svg {
+  opacity: 1 !important;
+  color: var(--text, var(--foreground)) !important;
+}
+
+/* Hover : background gold-soft subtil au lieu de gris */
+aside.d-sidebar .d-nav-link:hover {
+  background: var(--accent-soft, var(--primary-soft)) !important;
+  color: var(--text, var(--foreground)) !important;
+}
+
+/* Item actif : fond plus marqué (gold-soft saturé) */
+aside.d-sidebar .d-nav-link.active {
+  background: var(--accent-soft-2, oklch(0.92 0.13 95)) !important;
+  color: #1C1A14 !important;
+}
