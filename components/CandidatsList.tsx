@@ -1348,26 +1348,30 @@ export default function CandidatsList() {
           {selected && <Check size={11} color="var(--foreground)" strokeWidth={3} />}
         </div>
 
-        {/* Avatar — v1.9.128 : hover déclenche preview CV (remplace l'ancien bouton CV) */}
+        {/* Avatar — v1.9.135 : hover déclenche preview CV ancré à DROITE DE LA PHOTO (pas à la souris) */}
         <div
           onMouseEnter={hasCv ? (e) => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-            const mouseX = e.clientX
-            const mouseY = e.clientY
+            // v1.9.135 — capturer le rect de l'avatar maintenant (le rect après async timeout n'est plus fiable)
+            const avatarRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
             hoveredCvTimeout.current = setTimeout(() => {
               const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
               const rotation = savedRot ? parseInt(savedRot, 10) : 0
               const screenW = window.innerWidth
               const screenH = window.innerHeight
-              const spaceRight = screenW - mouseX - 24
-              const spaceLeft  = mouseX - 24
+              // Anchor : panel TOUJOURS à droite de la photo (just-after avec 12 px gap)
+              const anchorX = avatarRect.right    // bord droit de la photo
+              const anchorY = avatarRect.top + avatarRect.height / 2  // centre vertical de la photo
+              const spaceRight = screenW - anchorX - 24
+              const spaceLeft  = avatarRect.left - 24
               const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
               const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
               const panelH = Math.min(Math.round(screenH * 0.82), 800)
-              const idealTop = mouseY - panelH / 2
+              // Top du panel : aligné sur le centre de la photo
+              const idealTop = anchorY - panelH / 2
               const newTop = Math.max(12, Math.min(idealTop, screenH - panelH - 12))
               panelTopRef.current = newTop
-              setPreviewData({ url: c.cv_url, ext: cvExt, x: mouseX, y: mouseY, rotation, panelW })
+              setPreviewData({ url: c.cv_url, ext: cvExt, x: anchorX, y: anchorY, rotation, panelW })
               setPreviewZoom(initZoom)
               setPreviewVisible(true)
             }, 200)

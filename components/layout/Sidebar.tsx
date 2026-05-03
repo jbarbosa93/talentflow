@@ -19,9 +19,7 @@ import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/use
 import { hasBadge, getViewedSet, getViewedAllAt, ensureInit, refreshViewedFromDB } from '@/lib/badge-candidats'
 // v1.9.62 — useOffresATraiterCount retiré (Veille offres suspendue)
 
-// v1.9.127 — Design V2 : ordre maquette Tableau / Candidats / Clients / Commandes /
-// Missions / Pipeline / Matching IA (Beta) / Entretiens / Envois / Activité.
-// Secrétariat reste visible Secrétaire+Admin et basculé sous Configuration.
+// v1.9.135 — Envois déplacé juste après Pipeline (demande João)
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/candidats',    label: 'Candidats',        icon: Users },
@@ -29,9 +27,9 @@ const NAV_ITEMS = [
   { href: '/offres',       label: 'Commandes',        icon: Briefcase,       hideForSecretaire: true },
   { href: '/missions',     label: 'Missions',         icon: TrendingUp,      adminOnly: true },
   { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
+  { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
   { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true, beta: true },
   { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireVisible: true },
-  { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
 ]
 
 const FOOTER_ITEMS = [
