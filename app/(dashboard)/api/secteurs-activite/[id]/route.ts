@@ -12,7 +12,11 @@ async function requireAdmin(): Promise<NextResponse | null> {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-    if (user.email !== ADMIN_EMAIL) {
+    // v2.0.1 — Accepte email==ADMIN_EMAIL OU rôle Admin/Administrateur (cohérent avec sidebar/topbar côté client).
+    const role = (user.user_metadata as { role?: string } | null)?.role || ''
+    const isAdminByRole = role === 'Admin' || role === 'Administrateur'
+    const isAdminByEmail = !!ADMIN_EMAIL && user.email === ADMIN_EMAIL
+    if (!isAdminByRole && !isAdminByEmail) {
       return NextResponse.json({ error: 'Accès réservé à l\'administrateur' }, { status: 403 })
     }
     return null

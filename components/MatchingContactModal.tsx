@@ -208,25 +208,34 @@ export default function MatchingContactModal({
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        background: 'rgba(28,26,20,0.55)', backdropFilter: 'blur(4px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 24,
+        // v2.0.1 — fontFamily Jakarta forcée à la racine du modal (cascade aux enfants)
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: 'var(--card)', borderRadius: 20,
+          background: 'var(--surface, var(--card))',
+          border: '1px solid var(--border)',
+          borderRadius: 16,
           width: '100%', maxWidth: 640, maxHeight: '90vh',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          boxShadow: '0 30px 80px -20px rgba(28,26,20,0.30)',
         }}
       >
-        {/* Header */}
+        {/* Header — v2.0.1 typographie Instrument Serif */}
         <div style={{ padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+                fontFamily: 'var(--font-instrument-serif, "Instrument Serif", Georgia, serif)',
+                letterSpacing: '-0.01em',
+              }}>
                 Contacter {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
               </h2>
               <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--muted)' }}>

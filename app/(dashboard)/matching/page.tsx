@@ -44,6 +44,17 @@ function MatchingPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  // v2.0.1 — Filet de sécurité : si la liste de résultats est vidée (matching.reset() appelé
+  // ailleurs OU au mount initial), purger aussi selectedIds + fermer le modal Contacter.
+  // Évite la barre flottante "X candidats sélectionnés" qui restait visible avec des IDs orphelins.
+  useEffect(() => {
+    if (matching.results.length === 0 && (selectedIds.size > 0 || showContactModal)) {
+      setSelectedIds(new Set())
+      setShowContactModal(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matching.results.length])
+
   // ── Mode offre externe (arrivée depuis /offres?externe=<id>) ────────────────
   const externeId = searchParams.get('externe')
   const fromPage = searchParams.get('from')
@@ -531,12 +542,12 @@ function MatchingPageInner() {
         </div>
       )}
 
-      {/* Résultats (mis à jour en temps réel) */}
+      {/* v2.0.1 — Résultats en LISTE (au lieu de grille) — 1 row par candidat, plus compact */}
       {matching.results.length > 0 && (
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-          gap: 14,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
         }}>
           {matching.results.map((r, idx) => (
             <CandidatMatchCard
@@ -608,137 +619,139 @@ function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { 
 
   const showPhoto = !!candidat.photo_url && !photoError
 
+  // v2.0.1 — Layout LISTE compact (1 row par candidat) au lieu de cards en grille
   return (
     <div
       onClick={onToggle}
       style={{
-        background: selected ? 'rgba(245,167,35,0.06)' : (rank <= 3 ? rankStyle!.bg : 'var(--card)'),
-        border: `1.5px solid ${selected ? 'var(--primary)' : (rank <= 3 ? rankStyle!.border : 'var(--border)')}`,
-        borderRadius: 'var(--radius-lg)',
-        padding: '18px 20px',
-        boxShadow: selected ? '0 0 0 3px rgba(245,167,35,0.15)' : 'var(--card-shadow)',
+        background: selected ? 'rgba(245,167,35,0.06)' : 'var(--card)',
+        border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+        borderRadius: 12,
+        padding: '12px 16px',
+        boxShadow: selected ? '0 0 0 2px rgba(245,167,35,0.15)' : 'none',
         cursor: 'pointer',
         transition: 'all 0.15s',
+        display: 'flex', alignItems: 'center', gap: 14,
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       } as React.CSSProperties}>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
 
-        {/* Checkbox + Rang + avatar */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {/* Checkbox */}
-          <div style={{
-            width: 20, height: 20, borderRadius: 6,
-            border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-            background: selected ? 'var(--primary)' : 'transparent',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'all 0.15s', flexShrink: 0,
-          }}>
-            {selected && <CheckCircle size={12} color="#0F172A" strokeWidth={3} />}
-          </div>
-          <div style={{ fontSize: 20, lineHeight: 1 }}>
-            {rank <= 3
-              ? rankStyle!.icon
-              : <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--muted)', width: 28, textAlign: 'center', display: 'block' }}>#{rank}</span>
-            }
-          </div>
-          <div style={{
-            width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-            background: showPhoto ? 'transparent' : 'var(--primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15, fontWeight: 800, color: 'var(--ink, #1C1A14)', overflow: 'hidden',
-          }}>
-            {showPhoto
-              ? <img
-                  src={candidat.photo_url!}
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={() => setPhotoError(true)}
-                />
-              : initiales
-            }
-          </div>
+      {/* Checkbox */}
+      <div style={{
+        width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+        border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+        background: selected ? 'var(--primary)' : 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.15s',
+      }}>
+        {selected && <CheckCircle size={12} color="#0F172A" strokeWidth={3} />}
+      </div>
+
+      {/* Rang */}
+      <div style={{ width: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, lineHeight: 1 }}>
+        {rank <= 3
+          ? rankStyle!.icon
+          : <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>#{rank}</span>
+        }
+      </div>
+
+      {/* Avatar */}
+      <div style={{
+        width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+        background: showPhoto ? 'transparent' : 'var(--primary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14, fontWeight: 800, color: 'var(--ink, #1C1A14)', overflow: 'hidden',
+      }}>
+        {showPhoto
+          ? <img
+              src={candidat.photo_url!}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={() => setPhotoError(true)}
+            />
+          : initiales
+        }
+      </div>
+
+      {/* Infos candidat (colonne flex 1) */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {/* Ligne 1 : nom + métier + lieu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
+            {candidat.prenom} {candidat.nom}
+          </span>
+          {candidat.titre_poste && (
+            <span style={{ fontSize: 12, color: 'var(--muted-foreground)', fontWeight: 500 }}>· {candidat.titre_poste}</span>
+          )}
+          {candidat.localisation && (
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>· 📍 {candidat.localisation}</span>
+          )}
         </div>
 
-        {/* Infos candidat */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
-              {candidat.prenom} {candidat.nom}
+        {/* Ligne 2 : tags compétences (max 4 OK + 2 KO) */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+          {competences_matchees.slice(0, 4).map(comp => (
+            <span key={comp} style={{ fontSize: 10.5, padding: '1.5px 7px', borderRadius: 99, background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.35)', color: '#15803D', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <CheckCircle size={9} />{comp}
             </span>
-            {candidat.titre_poste && (
-              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{candidat.titre_poste}</span>
-            )}
-            {candidat.localisation && (
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>📍 {candidat.localisation}</span>
-            )}
-          </div>
-
-          {/* Barres compétences + expérience */}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
-            <MiniBar label="Compétences" value={score_competences} />
-            <MiniBar label="Expérience" value={score_experience} />
-          </div>
-
-          {/* Tags matchées / manquantes */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-            {competences_matchees.slice(0, 5).map(comp => (
-              <span key={comp} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <CheckCircle size={10} />{comp}
-              </span>
-            ))}
-            {competences_manquantes.slice(0, 3).map(comp => (
-              <span key={comp} style={{ fontSize: 11, padding: '2px 9px', borderRadius: 99, background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <XCircle size={10} />{comp}
-              </span>
-            ))}
-          </div>
-
-          {explication && (
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>{explication}</p>
+          ))}
+          {competences_manquantes.slice(0, 2).map(comp => (
+            <span key={comp} style={{ fontSize: 10.5, padding: '1.5px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.30)', color: '#B91C1C', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <XCircle size={9} />{comp}
+            </span>
+          ))}
+          {competences_matchees.length > 4 && (
+            <span style={{ fontSize: 10.5, color: 'var(--muted)', fontWeight: 600 }}>+{competences_matchees.length - 4}</span>
           )}
         </div>
+      </div>
 
-        {/* Score + bouton */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          {/* Score circulaire */}
-          <div style={{
-            width: 72, height: 72, borderRadius: '50%',
-            background: c.bg, border: `3px solid ${c.border}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontSize: 22, fontWeight: 700, color: c.text, lineHeight: 1 }}>{score}</span>
-            <span style={{ fontSize: 10, color: c.text, fontWeight: 700 }}>{c.label}</span>
-          </div>
+      {/* Mini barres compétences/expérience (colonne fixe, design V2) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, width: 110 }}>
+        <MiniBar label="Comp." value={score_competences} />
+        <MiniBar label="Exp." value={score_experience} />
+      </div>
 
-          {hasCv && (
-            <CvHoverTrigger
-              cvUrl={candidat.cv_url!}
-              cvNomFichier={candidat.cv_nom_fichier}
-              candidatId={candidat.id}
-              hook={cvHoverHook}
-            >
-              <div
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 12px', borderRadius: 7,
-                  border: '1px solid rgba(245,167,35,0.35)',
-                  background: 'var(--primary-soft)',
-                  cursor: 'default', fontSize: 12, fontWeight: 700,
-                  color: 'var(--primary)', whiteSpace: 'nowrap',
-                }}
-                title="Survoler pour prévisualiser le CV"
-              >
-                <Eye size={11} /> CV
-              </div>
-            </CvHoverTrigger>
-          )}
-          <Link
-            href={`/candidats/${candidat.id}?from=matching`}
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 8, border: '1.5px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+      {/* Score circulaire */}
+      <div style={{
+        width: 56, height: 56, borderRadius: '50%', flexShrink: 0,
+        background: c.bg, border: `2.5px solid ${c.border}`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{ fontSize: 17, fontWeight: 700, color: c.text, lineHeight: 1 }}>{score}</span>
+        <span style={{ fontSize: 8, color: c.text, fontWeight: 700, marginTop: 1 }}>{c.label}</span>
+      </div>
+
+      {/* Actions à droite */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flexShrink: 0, width: 92 }}>
+        {hasCv && (
+          <CvHoverTrigger
+            cvUrl={candidat.cv_url!}
+            cvNomFichier={candidat.cv_nom_fichier}
+            candidatId={candidat.id}
+            hook={cvHoverHook}
           >
-            Voir profil <ArrowRight size={12} />
-          </Link>
-        </div>
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                padding: '5px 10px', borderRadius: 8,
+                border: '1px solid rgba(245,167,35,0.35)',
+                background: 'var(--primary-soft)',
+                cursor: 'default', fontSize: 11, fontWeight: 700,
+                color: 'var(--primary)', whiteSpace: 'nowrap',
+              }}
+              title="Survoler pour prévisualiser le CV"
+            >
+              <Eye size={11} /> CV
+            </div>
+          </CvHoverTrigger>
+        )}
+        <Link
+          href={`/candidats/${candidat.id}?from=matching`}
+          onClick={e => e.stopPropagation()}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap', background: 'var(--surface, var(--card))' }}
+        >
+          Profil <ArrowRight size={11} />
+        </Link>
       </div>
     </div>
   )

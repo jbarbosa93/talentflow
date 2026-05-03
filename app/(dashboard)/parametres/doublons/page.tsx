@@ -332,13 +332,8 @@ export default function DoublonsPage() {
 
   return (
     <div className="d-page" style={{ maxWidth: 860 }}>
-      {/* Header */}
+      {/* Header — v2.0.1 bouton retour interne supprimé (doublon du ParametresBackButton du layout) */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <Link href="/outils" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}>
-            <ArrowLeft size={14} /> Outils
-          </Link>
-        </div>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
           <Copy size={22} color="var(--primary)" />
           Analyser les doublons

@@ -489,86 +489,88 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
   const nom = formatFullName(candidat.prenom, candidat.nom)
   const rappelDue = rappel && !rappel.done && new Date(rappel.rappel_at) <= new Date(Date.now() + 60 * 60 * 1000)
 
+  // v2.0.1 — Refonte en LISTE row (au lieu de card stacké) — toutes les infos en 1 ligne, plus rapide à scanner
+  const mc = candidat.pipeline_metier ? (getColorForMetier(candidat.pipeline_metier) || '#F5A623') : '#F5A623'
   return (
     <div
-      style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 14px 12px', display: 'flex', flexDirection: 'column', gap: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', transition: 'box-shadow 0.15s' }}
-      onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)')}
-      onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)')}
+      style={{
+        background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
+        padding: '10px 14px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,166,35,0.40)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(28,26,20,0.06)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none' }}
     >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 42, height: 42, borderRadius: '50%', background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, overflow: 'hidden', border: '2px solid var(--border)', position: 'relative' }}>
-          <span style={{ position: 'absolute' }}>{getInitials(candidat.prenom, candidat.nom)}</span>
-          {candidat.photo_url && <Image src={candidat.photo_url} alt="" width={42} height={42} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-            {candidat.localisation && (
-              <span style={{ fontSize: 11, color: 'var(--destructive)', display: 'flex', alignItems: 'center', gap: 2 }}>
-                <MapPin size={10} />{candidat.localisation}
-              </span>
-            )}
-            {age !== null && <span style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>{age} ans</span>}
-          </div>
-        </div>
-        {rappel && !rappel.done && (
-          <div title={`Rappel: ${new Date(rappel.rappel_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-            style={{ width: 26, height: 26, borderRadius: 8, background: rappelDue ? '#EF444420' : '#F5A62320', border: `1.5px solid ${rappelDue ? '#EF4444' : '#F5A623'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Bell size={13} color={rappelDue ? '#EF4444' : '#F5A623'} />
-          </div>
-        )}
+      {/* Avatar */}
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+        <span style={{ position: 'absolute' }}>{getInitials(candidat.prenom, candidat.nom)}</span>
+        {candidat.photo_url && <Image src={candidat.photo_url} alt="" width={40} height={40} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
       </div>
 
-      {/* Métier badge */}
-      {candidat.pipeline_metier && (() => {
-        const mc = getColorForMetier(candidat.pipeline_metier) || '#F5A623'
-        return (
-          <div style={{ display: 'inline-flex', alignItems: 'center', background: `${mc}18`, border: `1px solid ${mc}44`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, color: mc, width: 'fit-content' }}>
-            {candidat.pipeline_metier}
-          </div>
-        )
-      })()}
+      {/* Nom + métier + meta — flex 1 */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span title={nom} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{nom}</span>
+          {candidat.pipeline_metier && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${mc}18`, border: `1px solid ${mc}44`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600, color: mc, whiteSpace: 'nowrap' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: mc }} />
+              {candidat.pipeline_metier}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--muted-foreground)' }}>
+          {candidat.localisation && (
+            <span title={candidat.localisation} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <MapPin size={10} />{candidat.localisation}
+            </span>
+          )}
+          {age !== null && <span>· {age} ans</span>}
+          {candidat.notes && (
+            <span title={candidat.notes} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--primary)', fontWeight: 600, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              · 📝 {candidat.notes}
+            </span>
+          )}
+        </div>
+      </div>
 
-      {/* Notes preview */}
-      {candidat.notes && (
-        <div style={{ fontSize: 12, color: 'var(--muted-foreground)', background: 'var(--secondary)', borderRadius: 6, padding: '6px 8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {candidat.notes}
+      {/* Rappel badge (si présent) */}
+      {rappel && !rappel.done && (
+        <div title={`Rappel: ${new Date(rappel.rappel_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: rappelDue ? 'rgba(239,68,68,0.10)' : 'rgba(245,166,35,0.12)', border: `1px solid ${rappelDue ? 'rgba(239,68,68,0.40)' : 'rgba(245,166,35,0.40)'}`, color: rappelDue ? '#B91C1C' : '#B45309', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+          <Bell size={11} />
+          {new Date(rappel.rappel_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
         </div>
       )}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      {/* Actions à droite (icônes compactes) */}
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
         <Link href={`/candidats/${candidat.id}?from=pipeline`} title="Fiche candidat"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', textDecoration: 'none' }}>
+          style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', textDecoration: 'none' }}>
           <FileText size={13} />
         </Link>
-
         {candidat.cv_url && (
           <CvHoverTrigger cvUrl={candidat.cv_url} cvNomFichier={candidat.cv_nom_fichier} candidatId={candidat.id} hook={cvHook}>
-            <button title="Aperçu CV" style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
+            <button title="Aperçu CV" style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
               <Eye size={13} />
             </button>
           </CvHoverTrigger>
         )}
-
         <button onClick={onNote} title="Notes"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: candidat.notes ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer' }}>
+          style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${candidat.notes ? 'rgba(245,166,35,0.40)' : 'var(--border)'}`, background: candidat.notes ? 'var(--primary-soft)' : 'var(--surface, var(--card))', color: candidat.notes ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer' }}>
           <Pencil size={13} />
         </button>
-
         <button onClick={onRappel} title="Rappel"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${rappel && !rappel.done ? '#F5A623' : 'var(--border)'}`, background: 'var(--card)', color: rappel && !rappel.done ? '#F5A623' : 'var(--muted-foreground)', cursor: 'pointer' }}>
+          style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${rappel && !rappel.done ? 'rgba(245,166,35,0.40)' : 'var(--border)'}`, background: rappel && !rappel.done ? 'var(--primary-soft)' : 'var(--surface, var(--card))', color: rappel && !rappel.done ? 'var(--primary)' : 'var(--muted-foreground)', cursor: 'pointer' }}>
           <Bell size={13} />
         </button>
-
         <button onClick={onModifier} title="Modifier consultant / métier"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
+          style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', cursor: 'pointer' }}>
           <Settings2 size={13} />
         </button>
-
         <button onClick={onRetirer} title="Retirer du pipeline"
-          style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--destructive)', cursor: 'pointer', marginLeft: 'auto' }}>
+          style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(239,68,68,0.30)', background: 'var(--surface, var(--card))', color: 'var(--destructive)', cursor: 'pointer' }}>
           <Trash2 size={13} />
         </button>
       </div>
@@ -638,12 +640,12 @@ function RappelsPanel({ rappels, onClose, onUpdate }: {
             <Bell size={16} style={{ color: 'var(--primary)' }} />
             Mes rappels
           </h2>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <X size={14} style={{ color: 'var(--muted-foreground)' }} />
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--foreground)' }}>
+            <X size={14} />
           </button>
         </div>
 
-        {/* Onglets */}
+        {/* Onglets — v2.0.1 contraste corrigé : actif = primary-soft + foncé brand (au lieu de jaune sur jaune) */}
         <div style={{ display: 'flex', gap: 4, padding: '12px 20px 0', borderBottom: '1px solid var(--border)' }}>
           <button
             onClick={() => setTab('cours')}
@@ -652,7 +654,7 @@ function RappelsPanel({ rappels, onClose, onUpdate }: {
               border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: 700,
               background: tab === 'cours' ? 'var(--primary-soft)' : 'transparent',
-              color: tab === 'cours' ? 'var(--primary)' : 'var(--muted-foreground)',
+              color: tab === 'cours' ? '#B45309' : 'var(--muted-foreground)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
           >
@@ -664,7 +666,7 @@ function RappelsPanel({ rappels, onClose, onUpdate }: {
               flex: 1, padding: '10px 14px', borderRadius: '8px 8px 0 0',
               border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: 700,
-              background: tab === 'passes' ? 'var(--muted)' : 'transparent',
+              background: tab === 'passes' ? 'var(--secondary)' : 'transparent',
               color: tab === 'passes' ? 'var(--foreground)' : 'var(--muted-foreground)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
@@ -984,21 +986,28 @@ export default function PipelinePage() {
           {metierTabs.map(({ label, count }) => {
             const active = activeMetier === label
             const catColor = label !== 'Tous' && label !== 'Autres' ? (getColorForMetier(label) || '#F5A623') : '#F5A623'
+            // v2.0.1 — Quand actif : point BLANC (visible sur tout fond coloré) + texte FONCÉ
+            // (lisible quelle que soit la couleur métier, contrairement à #fff sur jaune ≈ illisible)
             return (
               <button key={label} onClick={() => setActiveMetier(label)} style={{
-                padding: '5px 12px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                 borderRadius: 20, border: `1px solid ${active ? catColor : 'var(--border)'}`,
                 background: active ? catColor : 'var(--surface, var(--card))',
-                color: active ? '#fff' : 'var(--muted-foreground)',
+                color: active ? '#1C1A14' : 'var(--muted-foreground)',
                 transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
                 fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: catColor, flexShrink: 0 }} />
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%',
+                  background: active ? '#fff' : catColor,
+                  flexShrink: 0,
+                  boxShadow: active ? '0 0 0 1.5px rgba(28,26,20,0.20)' : 'none',
+                }} />
                 {label}
                 <span style={{
-                  fontSize: 10, fontWeight: 600, padding: '0px 6px', borderRadius: 8,
-                  background: active ? 'rgba(0,0,0,0.18)' : 'var(--secondary)',
-                  color: active ? '#fff' : 'var(--muted-foreground)',
+                  fontSize: 10, fontWeight: 700, padding: '0px 6px', borderRadius: 8,
+                  background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
+                  color: active ? '#1C1A14' : 'var(--muted-foreground)',
                 }}>{count}</span>
               </button>
             )
@@ -1021,23 +1030,21 @@ export default function PipelinePage() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {cols.map((col, ci) => (
-            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {col.map(candidat => (
-                <CandidatCard
-                  key={candidat.id}
-                  candidat={candidat}
-                  rappel={rappelByCandidatId.get(candidat.id) ?? null}
-                  cvHook={cvHook}
-                  onNote={() => setNoteModal({ candidat })}
-                  onRappel={() => setRappelModal({ candidat })}
-                  onModifier={() => setModifierModal({ candidat })}
-                  onRetirer={() => handleRetirer(candidat)}
-                  getColorForMetier={getColorForMetier}
-                />
-              ))}
-            </div>
+        /* v2.0.1 — Pipeline en LISTE single column (refonte demandée) :
+           plus accessible/rapide qu'une grille 3 cols. Toutes les actions accessibles d'un coup d'œil. */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {cols.flat().map(candidat => (
+            <CandidatCard
+              key={candidat.id}
+              candidat={candidat}
+              rappel={rappelByCandidatId.get(candidat.id) ?? null}
+              cvHook={cvHook}
+              onNote={() => setNoteModal({ candidat })}
+              onRappel={() => setRappelModal({ candidat })}
+              onModifier={() => setModifierModal({ candidat })}
+              onRetirer={() => handleRetirer(candidat)}
+              getColorForMetier={getColorForMetier}
+            />
           ))}
         </div>
       )}

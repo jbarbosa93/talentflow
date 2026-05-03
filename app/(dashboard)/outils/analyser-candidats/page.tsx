@@ -307,14 +307,7 @@ export default function AnalyserCandidatsPage() {
   return (
     <div className="d-page" style={{ maxWidth: 920, paddingBottom: 60 }}>
       {/* Back */}
-      <div style={{ marginBottom: 16 }}>
-        <Link
-          href="/outils"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600 }}
-        >
-          <ArrowLeft size={14} /> Outils
-        </Link>
-      </div>
+      {/* v2.0.1 — Bouton retour interne supprimé (doublon du OutilsBackButton du layout) */}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>

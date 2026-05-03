@@ -1000,8 +1000,8 @@ export default function MissionsPage() {
   if (!mounted) return null
 
   return (
-    <div className="d-page">
-      {/* Header */}
+    <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      {/* Header — v2.0.1 fontFamily Jakarta forcée sur tout le wrapper d-page (uniformise les inputs/tables/textes natifs) */}
       <div className="d-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

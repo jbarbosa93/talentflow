@@ -9,7 +9,7 @@ import { CvPreviewCanvas } from './CvPreviewCanvas'
 import DeleteConfirmModal from './DeleteConfirmModal'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Upload, Search, Trash2, ChevronDown, ChevronRight,
+  Upload, Search, Trash2, ChevronDown, ChevronRight, ChevronLeft,
   Check, X, SortAsc, Sparkles, Loader2,
   MessageSquare, MessageCircle, Phone, AlertTriangle, Eye, MapPin, SlidersHorizontal, Star, RotateCw,
   CheckCircle, Archive, Briefcase, Info, GraduationCap, Pencil, LayoutGrid, Users,
@@ -30,7 +30,7 @@ import type { PipelineEtape, ImportStatus } from '@/types/database'
 // ── Badge rouge : par candidat, persist dans localStorage ──────────────────
 // Badge actif si : created_at dans les 30 derniers jours ET fiche jamais ouverte
 import { markCandidatVu, markCandidatNonVu, markTousVus, markAllVu, getViewedSet, ensureInit, refreshViewedFromDB, hasBadge } from '@/lib/badge-candidats'
-import { onRecentlyUpdatedChange, getRecentlyUpdatedEntry, relativeMinutes, getBadgeStyleForType } from '@/lib/recently-updated'
+import { onRecentlyUpdatedChange, getRecentlyUpdatedEntry, relativeMinutes, getBadgeStyleForType, clearAllRecentlyUpdated } from '@/lib/recently-updated'
 export { markCandidatVu, markCandidatNonVu, markTousVus, getViewedSet }
 
 const ETAPE_BADGE: Record<PipelineEtape, string> = {
@@ -101,10 +101,10 @@ const calculerAge = (dateNaissance: string | null): number | null => {
 // v1.9.70 : parser booléen extrait dans lib/boolean-search.ts (partagé avec ClientPicker)
 // (Import + re-export au top du fichier)
 
+// v2.0.1 — Onglet 'archive' supprimé (inutilisable selon retour João)
 const IMPORT_STATUS_OPTS = [
   { value: 'traite',    label: 'Actif' },
   { value: 'a_traiter', label: 'À traiter' },
-  { value: 'archive',   label: 'Archivé' },
 ]
 
 // ─── Popover de sélection de métier (exporté pour réutilisation sur la fiche candidat) ───
@@ -1433,7 +1433,7 @@ export default function CandidatsList() {
           WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
           maskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
         }}>
-          <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div title={formatFullName(c.prenom, c.nom)} style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {formatFullName(c.prenom, c.nom)}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'nowrap', alignItems: 'center', overflow: 'hidden' }}>
@@ -1494,17 +1494,20 @@ export default function CandidatsList() {
           </div>
         </div>
 
-        {/* v1.9.129 — Colonne LOCALISATION resserrée (170 au lieu de 200) pour rapprocher l'Âge */}
-        <div style={{ flex: '0 0 170px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* v2.0.1 — Colonne LOCALISATION : minWidth:0 + ellipsis strict + tooltip natif au hover */}
+        <div style={{ flex: '0 0 170px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
           {c.localisation ? (
-            <span style={{
-              fontSize: 13, color: 'var(--muted)',
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              overflow: 'hidden', whiteSpace: 'nowrap',
-              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-            }}>
+            <span
+              title={formatCity(c.localisation)}
+              style={{
+                fontSize: 13, color: 'var(--muted)',
+                display: 'flex', alignItems: 'center', gap: 4,
+                overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              }}
+            >
               <MapPin size={11} style={{ flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
                 {formatCity(c.localisation)}
               </span>
             </span>
@@ -1988,11 +1991,26 @@ export default function CandidatsList() {
       {/* Header */}
       <div className="d-page-header">
         <div>
-          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            Candidats
+          <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <span>Candidats</span>
             {!isLoading && (
-              <span style={{ fontSize: 18, fontWeight: 600, color: 'var(--muted-foreground)' }}>
-                &middot; {totalCandidats}
+              <span
+                title={`${totalCandidats} candidat${totalCandidats > 1 ? 's' : ''}`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center',
+                  fontSize: 14, fontWeight: 700,
+                  color: 'var(--muted-foreground)',
+                  background: 'var(--secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '3px 10px',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                  letterSpacing: '0.01em',
+                  fontVariantNumeric: 'tabular-nums',
+                  lineHeight: 1.4,
+                }}
+              >
+                {totalCandidats.toLocaleString('fr-CH')}
               </span>
             )}
           </h1>
@@ -2065,10 +2083,17 @@ export default function CandidatsList() {
                     .map((c: any) => c.id)
                   markTousVus(idsAvecBadge)
                 } finally {
-                  fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
+                  // v2.0.1 (16-B) — Tout marquer vu reset AUSSI les badges colorés Actualisé/Réactivé/Nouveau :
+                  //  - DB OneDrive (onedrive_change_type=null) → handled par la route /api/candidats/mark-all-vu
+                  //  - localStorage manuel (recently-updated) → clearAllRecentlyUpdated()
+                  //  - Invalider React Query pour refresh visuel immédiat
+                  await fetch('/api/candidats/mark-all-vu', { method: 'POST' }).catch(() => {})
+                  clearAllRecentlyUpdated()
                   markAllVu()
                   // Sync React state (sinon hasBadge() utilise l'ancien viewedAllAt du closure)
                   setViewedAllAt(new Date().toISOString())
+                  // Refetch pour récupérer les onedrive_change_type=null et purger l'affichage
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
                 }
               }}
               className="neo-btn-ghost"
@@ -2573,32 +2598,41 @@ export default function CandidatsList() {
           )
         })()}
 
-        {/* Statut import — onglets (pas un filtre) */}
-        <div style={{ display: 'flex', gap: 0, borderRadius: 8, border: '1px solid var(--border)' }}>
-          {IMPORT_STATUS_OPTS.map((o, idx) => {
+        {/* v2.0.1 — Onglets statut import V2 : segmented control élégant, fond pill global,
+            item actif avec ombre/élévation + couleur sémantique douce. Police DM Sans. */}
+        <div style={{
+          display: 'inline-flex', gap: 0,
+          background: 'var(--secondary)',
+          padding: 4, borderRadius: 12,
+          border: '1px solid var(--border)',
+        }}>
+          {IMPORT_STATUS_OPTS.map((o) => {
             const active = importStatusFilter === o.value
             const badgeCount = nonVusParStatut[o.value] || 0
-            const colors: Record<string, { bg: string; color: string; activeBg: string }> = {
-              traite:    { bg: 'transparent', color: 'var(--muted)', activeBg: '#059669' },
-              a_traiter: { bg: 'transparent', color: 'var(--muted)', activeBg: '#D97706' },
-              archive:   { bg: 'transparent', color: 'var(--muted)', activeBg: '#6B7280' },
+            const palette: Record<string, { color: string; bg: string; ring: string }> = {
+              traite:    { color: '#15803D', bg: 'rgba(34,197,94,0.12)',  ring: 'rgba(34,197,94,0.30)'  },
+              a_traiter: { color: '#B45309', bg: 'rgba(245,158,11,0.14)', ring: 'rgba(245,158,11,0.35)' },
             }
-            const c = colors[o.value] || colors.traite
+            const p = palette[o.value] || palette.traite
             return (
               <button
                 key={o.value}
                 onClick={() => setImportStatusFilter(o.value)}
                 style={{
                   position: 'relative',
-                  borderRadius: idx === 0 ? '9px 0 0 9px' : idx === IMPORT_STATUS_OPTS.length - 1 ? '0 9px 9px 0' : 0,
-                  padding: '0 14px', height: 34, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  border: 'none', borderRight: '1px solid var(--border)',
-                  background: active ? c.activeBg : c.bg,
-                  color: active ? 'white' : c.color,
-                  transition: 'all 0.15s',
-                  fontFamily: 'var(--font-jakarta), inherit',
+                  borderRadius: 9,
+                  padding: '0 16px', height: 32,
+                  fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  border: active ? `1px solid ${p.ring}` : '1px solid transparent',
+                  background: active ? p.bg : 'transparent',
+                  color: active ? p.color : 'var(--muted-foreground)',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   lineHeight: 1,
+                  boxShadow: active ? '0 1px 2px rgba(28,26,20,0.04)' : 'none',
+                  letterSpacing: '0.005em',
                 }}
               >
                 {o.label}
@@ -2859,25 +2893,25 @@ export default function CandidatsList() {
             </select>
           </div>
 
-          {/* CFC toggle ON/OFF */}
+          {/* CFC toggle ON/OFF — v2.0.1 : VERT (aligné sur la pill verte de la liste) */}
           <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6}}>CFC</label>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6,fontFamily:'var(--font-jakarta), system-ui, sans-serif'}}>CFC</label>
             <button
               onClick={()=>setFilterCfc(filterCfc===null?true:null)}
-              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterCfc?'#F59E0B':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'inherit',fontWeight:700,
-                background:filterCfc?'rgba(245,158,11,0.12)':'var(--bg)',color:filterCfc?'#B45309':'var(--muted)',transition:'all 0.15s'
+              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterCfc?'#22C55E':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'var(--font-jakarta), system-ui, sans-serif',fontWeight:700,
+                background:filterCfc?'rgba(34,197,94,0.12)':'var(--bg)',color:filterCfc?'#15803D':'var(--muted)',transition:'all 0.15s'
               }}
             >
               {filterCfc ? '✓ CFC actif' : 'CFC'}
             </button>
           </div>
 
-          {/* Déjà engagé toggle ON/OFF */}
+          {/* Déjà engagé toggle ON/OFF — v2.0.1 vert (déjà OK) + label Jakarta forcé */}
           <div>
-            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6}}>DÉJÀ ENGAGÉ</label>
+            <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:6,fontFamily:'var(--font-jakarta), system-ui, sans-serif'}}>DÉJÀ ENGAGÉ</label>
             <button
               onClick={()=>setFilterEngage(filterEngage===null?true:null)}
-              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterEngage?'#22C55E':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'inherit',fontWeight:700,
+              style={{width:'100%',padding:'6px 10px',borderRadius:6,border:`1.5px solid ${filterEngage?'#22C55E':'var(--border)'}`,fontSize:13,cursor:'pointer',fontFamily:'var(--font-jakarta), system-ui, sans-serif',fontWeight:700,
                 background:filterEngage?'rgba(34,197,94,0.12)':'var(--bg)',color:filterEngage?'#15803D':'var(--muted)',transition:'all 0.15s'
               }}
             >
@@ -2992,6 +3026,59 @@ export default function CandidatsList() {
       ) : (
         /* Flat list */
         <div className="clist-v2" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* v2.0.1 — Mini-pagination subtile en haut (chevrons + page X/Y, pas de bouton plein) */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+              gap: 6, padding: '0 4px 8px', marginTop: -2,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                title="Page précédente"
+                style={{
+                  width: 26, height: 26, borderRadius: 7,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page <= 1 ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page <= 1 ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+                onMouseOver={e => { if (page > 1) { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--muted-foreground)' } }}
+                onMouseOut={e => { e.currentTarget.style.color = page <= 1 ? 'var(--border)' : 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                <ChevronLeft size={13} />
+              </button>
+              <span style={{
+                fontSize: 11.5, fontWeight: 600, color: 'var(--muted-foreground)',
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+                minWidth: 60, textAlign: 'center',
+              }}>
+                {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                title="Page suivante"
+                style={{
+                  width: 26, height: 26, borderRadius: 7,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page >= totalPages ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+                onMouseOver={e => { if (page < totalPages) { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--muted-foreground)' } }}
+                onMouseOut={e => { e.currentTarget.style.color = page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                <ChevronRight size={13} />
+              </button>
+            </div>
+          )}
+
           {/* v1.9.127 — Header colonnes V2 aligné EXACTEMENT sur les largeurs flex de renderCard.
               Inclut checkbox "Tout sélectionner" en cellule 1 (même width 20px que les rows). */}
           {(() => {

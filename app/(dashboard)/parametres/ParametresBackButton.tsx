@@ -3,11 +3,22 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
-// v1.9.127 — Bouton retour vers /parametres (hub) sur toutes les sous-pages.
-// Caché sur /parametres lui-même (= hub).
+// v1.9.127 — Bouton retour intelligent.
+// v2.0.1 — Routes considérées comme outils → "Retour à outils" au lieu de "Retour aux paramètres".
+//          Liste cohérente avec /outils/page.tsx (OUTILS array).
+const OUTILS_DANS_PARAMETRES = new Set([
+  '/parametres/import-masse',
+  '/parametres/doublons',
+  '/parametres/corriger-photos',
+])
+
 export default function ParametresBackButton() {
   const pathname = usePathname()
   if (!pathname || pathname === '/parametres' || pathname === '/parametres/') return null
+
+  const isOutil = OUTILS_DANS_PARAMETRES.has(pathname)
+  const href = isOutil ? '/outils' : '/parametres'
+  const label = isOutil ? 'Retour à outils' : 'Retour aux paramètres'
 
   return (
     <div style={{
@@ -16,7 +27,7 @@ export default function ParametresBackButton() {
       fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
     }}>
       <Link
-        href="/parametres"
+        href={href}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           height: 32, padding: '0 12px', borderRadius: 8,
@@ -37,7 +48,7 @@ export default function ParametresBackButton() {
         }}
       >
         <ArrowLeft size={14} />
-        Retour aux paramètres
+        {label}
       </Link>
     </div>
   )

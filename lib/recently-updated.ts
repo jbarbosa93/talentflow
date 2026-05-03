@@ -54,6 +54,15 @@ export function markRecentlyUpdated(id: string, type: RecentlyUpdatedType = 'mis
   write(m)
 }
 
+// v2.0.1 — Reset complet (utilisé par "Tout marquer vu" pour clear les badges colorés manuels)
+export function clearAllRecentlyUpdated() {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(KEY)
+    window.dispatchEvent(new CustomEvent(EVENT))
+  } catch { /* ignore */ }
+}
+
 export function isRecentlyUpdated(id: string): boolean {
   const m = read()
   const e = m[id]

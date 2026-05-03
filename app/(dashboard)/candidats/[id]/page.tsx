@@ -833,8 +833,13 @@ export default function CandidatDetailPage() {
   const cvIsImage    = ['jpg', 'jpeg', 'png', 'webp'].includes(ext)
   const cvIsPDF      = ext === 'pdf'
   const cvIsWord     = ['doc', 'docx'].includes(ext)
+  // v2.0.1 — Word/DOCX : Office Web Viewer (officiel Microsoft, plus fiable que Google Docs Viewer
+  //          qui est deprecated et casse régulièrement sur les URLs Supabase signées).
+  //          Pour les autres extensions non-PDF/non-image, fallback Google Docs viewer.
   const docViewerUrl = candidat.cv_url
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(candidat.cv_url)}&embedded=true`
+    ? (cvIsWord
+        ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(candidat.cv_url)}`
+        : `https://docs.google.com/viewer?url=${encodeURIComponent(candidat.cv_url)}&embedded=true`)
     : ''
 
   return (
@@ -1056,36 +1061,40 @@ export default function CandidatDetailPage() {
           background: `linear-gradient(90deg, ${fadeColor} 0%, transparent 55%)`,
           pointerEvents: 'none',
         }} />
-        {/* v1.9.127 — Avatar carré 140px (taille comme avant dans la col 1) + boutons photo */}
-        <div style={{ position: 'relative', flexShrink: 0, zIndex: 1 }}>
-          {(candidat.photo_url && candidat.photo_url !== 'checked')
-            ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
-                style={{ width: 140, height: 140, borderRadius: 14, objectFit: 'cover', display: 'block' }}
-                alt={formatFullName(candidat.prenom, candidat.nom)} />
-            : (
-              <div style={{
-                width: 140, height: 140, borderRadius: 14,
-                background: 'var(--surface-3, var(--secondary))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 44, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
-              }}>{initiales}</div>
-            )
-          }
-          {photoUploading && (
-            <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
-            </div>
-          )}
-          <div style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', gap: 3 }}>
+        {/* v2.0.1 — Avatar carré 140px + boutons photo placés EN DESSOUS de la photo (pas chevauchant)
+            pour avoir une vision complète de la photo. Wrapper passe en flex column. */}
+        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'relative', width: 140, height: 140 }}>
+            {(candidat.photo_url && candidat.photo_url !== 'checked')
+              ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
+                  style={{ width: 140, height: 140, borderRadius: 14, objectFit: 'cover', display: 'block' }}
+                  alt={formatFullName(candidat.prenom, candidat.nom)} />
+              : (
+                <div style={{
+                  width: 140, height: 140, borderRadius: 14,
+                  background: 'var(--surface-3, var(--secondary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 44, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
+                }}>{initiales}</div>
+              )
+            }
+            {photoUploading && (
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+              </div>
+            )}
+          </div>
+          {/* Toolbar boutons photo — sous la photo, pas dessus */}
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
             <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
               className="candidat-photo-btn"
-              style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <Camera size={11} color="var(--primary-foreground)" />
+              style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <Camera size={12} color="var(--primary-foreground)" />
             </button>
             {candidat.cv_url && (
               <button onClick={() => setShowCropModal(true)} title="Crop depuis le CV"
                 className="candidat-photo-btn"
-                style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}>
+                style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 12 }}>
                 ✂️
               </button>
             )}
@@ -1093,13 +1102,13 @@ export default function CandidatDetailPage() {
               <>
                 <button onClick={handlePhotoRotate} title="Rotation 90°"
                   className="candidat-photo-btn"
-                  style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <RotateCw size={11} color="var(--info)" />
+                  style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <RotateCw size={12} color="var(--info)" />
                 </button>
                 <button onClick={handlePhotoDelete} title="Supprimer la photo"
                   className="candidat-photo-btn"
-                  style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <X size={11} color="var(--destructive)" />
+                  style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <X size={12} color="var(--destructive)" />
                 </button>
               </>
             )}
@@ -1307,7 +1316,13 @@ export default function CandidatDetailPage() {
                 />
               </span>
             ) : candidat.telephone ? (
-              <a href={`tel:${candidat.telephone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none' }}>
+              <a
+                href={`tel:${candidat.telephone}`}
+                title="Appeler"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none', transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = '')}
+              >
                 <Phone size={12} /> {candidat.telephone}
               </a>
             ) : null}
@@ -1325,7 +1340,13 @@ export default function CandidatDetailPage() {
                 />
               </span>
             ) : candidat.email ? (
-              <a href={`mailto:${candidat.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none' }}>
+              <a
+                href={`mailto:${candidat.email}`}
+                title="Envoyer un email"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none', transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = '')}
+              >
                 <Mail size={12} /> {formatEmail(candidat.email)}
               </a>
             ) : null}
@@ -1490,27 +1511,30 @@ export default function CandidatDetailPage() {
           </div>
         </div>
 
-        {/* Actions rapides à droite (Email + WhatsApp) */}
+        {/* Actions rapides à droite (Email + WhatsApp) — v2.0.1 messages pré-remplis + WhatsApp app natif */}
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          {candidat.email && (
-            <a href={`mailto:${candidat.email}`}
-              title="Envoyer un email"
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 38, height: 38, borderRadius: 10,
-                background: 'var(--surface-2, var(--secondary))',
-                color: 'var(--text-2, var(--foreground))',
-                border: '1px solid var(--border)', textDecoration: 'none',
-                transition: 'all 0.15s',
-              }}
-            >
-              <Mail size={15} />
-            </a>
-          )}
+          {candidat.email && (() => {
+            const subject = `Bonjour ${candidat.prenom || ''}`
+            const body = `Bonjour ${candidat.prenom || ''},\n\nJ'espère que vous allez bien.\n\nJe suis à la recherche d'un profil comme vous, n'hésitez pas à me répondre à ce message ou m'appeler.\n\nCordialement,\n${consultantPrenom}\nL-AGENCE SA`
+            return (
+              <a href={`mailto:${candidat.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                title="Envoyer un email (sujet + corps pré-remplis)"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 38, height: 38, borderRadius: 10,
+                  background: 'var(--surface-2, var(--secondary))',
+                  color: 'var(--text-2, var(--foreground))',
+                  border: '1px solid var(--border)', textDecoration: 'none',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <Mail size={15} />
+              </a>
+            )
+          })()}
           {candidat.telephone && toWaPhone(candidat.telephone) && (
-            <a href={`https://wa.me/${toWaPhone(candidat.telephone)}`}
-              target="_blank" rel="noopener noreferrer"
-              title="Envoyer un WhatsApp"
+            <a href={`whatsapp://send?phone=${toWaPhone(candidat.telephone)}&text=${encodeURIComponent(`Bonjour ${candidat.prenom},\n\nJ'espère que vous allez bien.\n\nJe suis à la recherche d'un profil comme vous, n'hésitez pas à me répondre à ce message ou m'appeler.\n\nCordialement,\n${consultantPrenom}\nL-AGENCE SA`)}`}
+              title="Envoyer un WhatsApp (message pré-rempli, ouvre l'app)"
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 38, height: 38, borderRadius: 10,

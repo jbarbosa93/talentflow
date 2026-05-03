@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.0.0'
+export const APP_VERSION = '2.0.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,27 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.0.1',
+    date: '2026-05-03',
+    label: 'Pack 22 fixes/améliorations post-v2.0 (UX, design, fonctionnalités, accès admin)',
+    features: [
+      'ACCÈS ADMIN ROBUSTE — `requireAdmin` côté serveur (route /api/secteurs-activite) accepte désormais email==ADMIN_EMAIL OU user_metadata.role∈{Admin,Administrateur}. Évite blocage 403 quand ADMIN_EMAIL Vercel diffère de l\'email du compte admin TalentFlow réel.',
+      'WHATSAPP + MAIL FICHE CANDIDAT — Boutons en haut à droite (header actions) pré-remplissent désormais sujet+corps email + message WhatsApp. WhatsApp ouvre directement l\'app native via `whatsapp://send?phone=X&text=MESSAGE` au lieu de wa.me/X (web).',
+      'PIPELINE V2 EN LISTE — Refonte complète du pipeline en LISTE single column (au lieu de grille 3 cols). Layout row compact : avatar + nom + métier + meta + rappel badge + actions. Plus rapide à scanner. Onglet métier sélectionné : background couleur métier + point/texte FONCÉ contrastant (avant texte blanc invisible sur jaune). Modal "Mes rappels" : contraste corrigé (texte foncé sur primary-soft au lieu de jaune sur jaune).',
+      'SIDEBAR — Barre indicatrice gauche de l\'item actif passe de jaune (invisible sur fond jaune --primary) à INK foncé (#1C1A14) bien visible.',
+      'LISTE CANDIDATS — Pagination subtile en haut (chevrons + page X/Y, n\'importe pas la pagination du bas). Compteur total en pill avec tabular-nums (ex: "4 179"). Onglet Archivé supprimé. Onglets Actif / À traiter en segmented control V2 (vert/orange soft, font Jakarta 700). Fade overflow + tooltip hover sur localisation/nom (plus de débordement qui décale Âge).',
+      'MATCHING IA — Résultats passent en LISTE compacte (au lieu de grille cards 340px). 1 row par candidat avec : checkbox / rang / avatar / nom+métier+lieu / tags compétences ✓✗ / mini-barres compétence-expérience / score circulaire / actions CV+Profil. "Vider les résultats" reset aussi selectedIds via useEffect filet de sécurité. Modal Contacter : header en Instrument Serif 22px + fontFamily Jakarta sur tout le wrapper.',
+      'INTÉGRATIONS — Cards visuelles OneDrive/Microsoft 365/WhatsApp Business cachées (statut accessible via le panneau OneDrive ci-dessous).',
+      'OUTILS — Boutons retour internes "← Outils" supprimés sur 4 outils (analyser-candidats, rapport-heures, corriger-photos, doublons) car doublonnent le BackButton du layout. ParametresBackButton intelligent : pour les 3 outils dans /parametres/* (import-masse, doublons, corriger-photos), label/href "Retour à outils" → /outils au lieu de "Retour aux paramètres" → /parametres.',
+      'MISSIONS — fontFamily Jakarta forcée sur le wrapper d-page (uniformise les inputs/tables/textes natifs qui héritaient une police système différente).',
+      'FICHE CANDIDAT — Boutons photo (Camera/Crop/Rotation/Delete) déplacés EN DESSOUS de la photo (au lieu de chevaucher en bas-droite) → vision complète de la photo sans masquage. Hover surbrillance brand jaune sur téléphone et email (cohérent avec le hover lieu Google Maps). Pills CFC + Engagé maintenant en VERT (cohérent avec la liste candidats).',
+      'CV WORD VIEWER — Office Web Viewer Microsoft (`view.officeapps.live.com/op/embed.aspx`) au lieu de Google Docs Viewer (deprecated, cassait régulièrement sur les URLs Supabase signées).',
+      'FILTRES AVANCÉS — Boutons CFC + ENGAGÉ filtres alignés en VERT (au lieu de orange pour CFC) → cohérent avec la pill liste candidats. fontFamily Jakarta forcée sur les labels.',
+      '"TOUT MARQUER VU" — reset COMPLET (16-B) : badge rouge ✓ + badges colorés Nouveau/Actualisé/Réactivé. Implémentation : (a) localStorage `recently-updated` cleared via `clearAllRecentlyUpdated()`, (b) DB UPDATE `onedrive_change_type=null` + `onedrive_change_at=null` sur tous les candidats avec ces colonnes, (c) invalidation React Query `["candidats"]` pour refresh visuel immédiat. Side-effect cross-user assumé (action volontaire qui reset l\'état visuel global).',
+      'AUDIT BADGES — Documenté : badge rouge per-user (hasBadge sur viewedSet+viewedAllAt+last_import_at) ≠ badges colorés (localStorage manuel + DB onedrive_change_type). Avant 2.0.1, "Tout marquer vu" ne clearait QUE le badge rouge → badges colorés persistaient. Désormais les 2 sont synchronisés.',
+    ],
+  },
   {
     version: '2.0.0',
     date: '2026-05-03',

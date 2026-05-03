@@ -294,49 +294,8 @@ function IntegrationsContent() {
         </div>
       </div>
 
-      {/* v1.9.127 — Vue d'ensemble V2 : grille des intégrations actives */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap: 14,
-        marginBottom: 24,
-        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-      }}>
-        {/* OneDrive */}
-        <IntegrationCardV2
-          name="OneDrive"
-          description="Synchronisation des CV reçus par email"
-          icon={<FolderOpen size={20} />}
-          color="#0078D4"
-          bg="rgba(0,120,212,0.10)"
-          connected={isOnedriveConnected}
-          status={isOnedriveConnected
-            ? (onedriveMeta?.folder_name ? `Connecté · dossier "${onedriveMeta.folder_name}"` : 'Connecté')
-            : 'Non connecté'}
-          onClick={() => document.querySelector('[data-section="onedrive"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        />
-        {/* Microsoft 365 */}
-        <IntegrationCardV2
-          name="Microsoft 365"
-          description="Email pro, calendrier, contacts"
-          icon={<Mail size={20} />}
-          color="#D83B01"
-          bg="rgba(216,59,1,0.10)"
-          connected={isOnedriveConnected}
-          status={isOnedriveConnected ? 'Authentifié' : 'Non connecté'}
-          onClick={() => document.querySelector('[data-section="onedrive"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        />
-        {/* WhatsApp Business */}
-        <IntegrationCardV2
-          name="WhatsApp Business"
-          description="Envoi de messages aux candidats"
-          icon={<Zap size={20} />}
-          color="#25D366"
-          bg="rgba(37,211,102,0.10)"
-          connected={true}
-          status="Configuré (env)"
-        />
-      </div>
+      {/* v2.0.1 — Cards visuelles OneDrive/Microsoft365/WhatsApp masquées (demande João).
+          Le statut reste accessible via le panneau OneDrive ci-dessous. */}
 
       {/* v1.9.31 — Fichiers OneDrive en attente de validation (matches incertains 8-10) */}
       <PendingValidationPanel />
