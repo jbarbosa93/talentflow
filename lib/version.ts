@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '1.9.126'
+export const APP_VERSION = '2.0.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.0.0',
+    date: '2026-05-03',
+    label: 'TalentFlow 2.0 — Interface entièrement repensée (Design V2) + 1 mois de fonctionnalités majeures',
+    features: [
+      'INTERFACE ENTIÈREMENT REPENSÉE (DESIGN V2) — Nouveaux tokens CSS (palette OKLCH "warm white" + or brand), polices DM Sans / Instrument Serif / JetBrains Mono, rayons 14-16px, ombres softer, fini le neo-brutaliste épais. Login en split layout crème + glow jaune + animations flottantes. Dashboard avec hero gradient + KPI cards V2 + sparklines. Sidebar épurée et simplifiée. TopBar avec search à gauche + bouton Importer + menu profil V2. Shell complet (sidebar/topbar/content) avec collapse fluide.',
+      'PAGES PUBLIQUES REFONDUES — Login, Landing, Demande-accès, Reset-password, Verify-email, Accepter-invitation, CGU, Confidentialité, Mentions légales : tout passé en design V2 crème + brand jaune avec glassmorphism cards, Instrument Serif sur titres, boutons V2 (radius 10, plus de border noir épais).',
+      'GÉOLOCALISATION CANDIDATS PAR RAYON — Filtre ville + slider km (10/25/50/100). 5556 candidats géocodés (95%). Lookup local CP CH/FR + Nominatim fallback. RPC PostgreSQL Haversine. Badge orange "12 km" sur card si filtre actif.',
+      'NORMALISATION LOCALISATIONS CP VILLE PAYS — Format strict "CP Ville, Pays" via datasets geonames officiels (4228 villes CH + 34270 FR). 4942/5777 fiches normalisées en 4 min (90%).',
+      'VUE CARTE CLIENTS (LEAFLET) — 4 modes : grille / liste / carte / split. Markers 1 par client avec popup HTML, clustering markercluster, géocodage rue précise via Nominatim (875/1025 = 85% rue précise, fallback centroïde NPA). 1219/1219 clients géocodés. Click card mode split = focus marker.',
+      'PROSPECTION EMAIL IA EN LOT — Génération email personnalisé par client via Claude. Multi-sélection clients + métiers ciblés.',
+      'ZEFIX RC SUISSE — Vérification automatique entreprises suisses (1145 entreprises vérifiées). 4 colonnes DB zefix_uid/status/name/verified_at. Modale "Ajouter client" 3 onglets (Zefix RC / Recherche IA / Manuel). Section fiche client avec badge statut + alertes liquidation/radiée.',
+      'LOGOS ENTREPRISES AUTOMATIQUES — Cascade logo.dev → Google Favicons → initiales colorées. Intégré sur cards clients + header fiche + ClientPickerModal mailing + ProspectionModal.',
+      'SECTEURS D\'ACTIVITÉ CLIENTS (23 SECTEURS) — Taxonomie éditable en DB (`secteurs_activite_config`, page admin `/parametres/secteurs-activite`). 1174/1221 clients enrichis (96.2%). Filtre multi-select dans /clients + pills sur cards + extraction auto des notes.',
+      'PHOTOS CV AMÉLIORÉES — F1bis Vision crop scans A4 (banc test 22/22 100%, témoin 60/100). FlateDecode + DOCX grandes photos via Vision Haiku. 662 photos rétro-extraites en 22 min.',
+      'AUTRES — ContactsEditor éditable mode card avec Pencil, pagination améliorée /clients (per_page 20/50/100/1000/Tous), garde-fou created_at ≤ last_import_at + colonne générée derniere_activite GREATEST, bandeau "Actualisé" pending-validation, mailing refondu individual/grouped, historique team partagé + warning 7j, templates 3 canaux harmonisés, cron cleanup 30j (préserve cv_importe/candidat_importe), badges vu/non-vu DB strict per-user, et tout le reste de v1.9.107 → v1.9.126.',
+      '0 LOGIQUE MÉTIER TOUCHÉE PAR LE DESIGN — Les routes API, lib/supabase, middleware, lib/candidat-matching, lib/cv-photo, lib/normalize-localisation, lib/geocode-localisation sont strictement IDENTIQUES à la prod. Vérification : `git diff main..design-v2 -- <fichiers sensibles>` = 0 ligne.',
+    ],
+  },
   {
     version: '1.9.126',
     date: '2026-04-30',
