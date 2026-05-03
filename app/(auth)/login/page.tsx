@@ -278,30 +278,29 @@ function LoginForm() {
     transition: { delay, duration: 0.35 },
   })
 
-  // ── Render V2 (Design V2 Claude Design — split layout) ────────────────────
+  // ── Render V2 (Design V2 — fullscreen noir centré, logo top-left) ────────
   return (
-    <div className="login-v2">
-      {/* Pane gauche — art noir avec gradients or */}
-      <div className="login-art">
-        <div className="login-art-brand">
-          <span className="login-art-brand-mark">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
-            </svg>
-          </span>
-          <span>TalentFlow</span>
-        </div>
-        <div className="login-art-inner">
-          <h1>Trouver la<br/>bonne personne,<br/><em>plus vite</em>.</h1>
-          <p>TalentFlow centralise tes candidats, automatise le matching et élimine les doublons.</p>
-        </div>
-        <div className="login-art-footer">
-          © 2026 L\'AGENCE SA · Monthey, Suisse
-        </div>
+    <div className="login-v2 login-v2-dark">
+      {/* Logo top-left */}
+      <div className="login-v2-logo">
+        <span className="login-v2-logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+          </svg>
+        </span>
+        <span className="login-v2-logo-text">TalentFlow</span>
       </div>
 
-      {/* Pane droite — form */}
-      <div className="login-form-pane">
+      {/* Décor éclair jaune background */}
+      <div className="login-v2-bg-glow" aria-hidden />
+      <div className="login-v2-bg-bolt" aria-hidden>
+        <svg viewBox="0 0 200 240" fill="none">
+          <path d="M120 10 L40 130 H100 L80 230 L160 110 H100 Z" fill="#EAB308" opacity="0.06"/>
+        </svg>
+      </div>
+
+      {/* Form centré */}
+      <div className="login-v2-form-pane">
         <div className="login-card">
 
           {/* Banner session expirée */}
@@ -369,7 +368,7 @@ function LoginForm() {
           ) : emailOtpRequired && !mfaRequired ? (
             /* ── Vérification Email OTP ── */
             <>
-              <motion.h2 {...fadeUp(0)}>Un code t\'attend.</motion.h2>
+              <motion.h2 {...fadeUp(0)}>Un code t&apos;attend.</motion.h2>
               <motion.p className="subtitle" {...fadeUp(0.05)}>
                 Code à 6 chiffres envoyé à <strong>{email}</strong>.
               </motion.p>
@@ -405,7 +404,7 @@ function LoginForm() {
                   onClick={() => { setEmailOtpRequired(false); setEmailOtpCode(''); setError('') }}
                   style={{ color: 'var(--text-3)' }}
                 >
-                  ← Changer d\'email
+                  ← Changer d&apos;email
                 </button>
                 <button
                   type="button"
@@ -488,7 +487,7 @@ function LoginForm() {
               </form>
 
               <div className="footer-link">
-                Pas d\'accès ? <Link href="/demande-acces">Faire une demande →</Link>
+                Pas d&apos;accès ? <Link href="/demande-acces">Faire une demande →</Link>
               </div>
             </>
 
@@ -497,13 +496,13 @@ function LoginForm() {
             <>
               <motion.h2 {...fadeUp(0)}>Vérification 2FA.</motion.h2>
               <motion.p className="subtitle" {...fadeUp(0.05)}>
-                Code à 6 chiffres depuis ton application d\'authentification.
+                Code à 6 chiffres depuis ton application d&apos;authentification.
               </motion.p>
 
               <form className="login-step" onSubmit={handleMfaVerify}>
                 {error && <div className="error-v2"><ShieldCheck size={14} />{error}</div>}
                 <motion.div className="form-row" {...fadeUp(0.1)}>
-                  <label>Code d\'authentification</label>
+                  <label>Code d&apos;authentification</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -534,13 +533,11 @@ function LoginForm() {
             </>
           )}
 
-          {/* Legal footer */}
-          <div style={{ marginTop: 24, fontSize: 11, color: 'var(--text-3, #999)', textAlign: 'center', display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <Link href="/cgu" style={{ color: 'inherit' }}>CGU</Link>
+          {/* v1.9.135 — Legal footer minimaliste (juste CGU/Confidentialité, pas de "© 2026 ...") */}
+          <div className="login-v2-legal">
+            <Link href="/cgu">CGU</Link>
             <span>·</span>
-            <Link href="/confidentialite" style={{ color: 'inherit' }}>Confidentialité</Link>
-            <span>·</span>
-            <span>© 2026 TalentFlow</span>
+            <Link href="/confidentialite">Confidentialité</Link>
           </div>
         </div>
       </div>

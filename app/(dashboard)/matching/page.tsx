@@ -1,7 +1,7 @@
 'use client'
 import { detectAndFormat } from '@/lib/phone-format'
 import { useState, useEffect, useRef, Suspense } from 'react'
-import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown, Globe, ArrowLeft, Eye } from 'lucide-react'
+import { Sparkles, CheckCircle, XCircle, Loader2, ArrowRight, Pause, Play, Square, History, Phone, MessageSquare, Mail, X, Smartphone, MessageCircle, Users, AlertTriangle, ChevronDown, Globe, ArrowLeft, Eye, Target, ShieldCheck, AlertCircle } from 'lucide-react'
 import { useOffres } from '@/hooks/useOffres'
 import { useMatching, type MatchResult } from '@/contexts/MatchingContext'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -140,10 +140,10 @@ function MatchingPageInner() {
   const ready = (!!selectedOffre || !!externeOffre) && isIdle
 
   return (
-    <div className="d-page" style={{ maxWidth: 860 }}>
+    <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
 
       {/* Header */}
-      <div className="d-page-header" style={{ marginBottom: 28 }}>
+      <div className="d-page-header" style={{ marginBottom: 24 }}>
         <div>
           {fromPage && (
             <button
@@ -171,14 +171,73 @@ function MatchingPageInner() {
         </div>
         <Link
           href="/matching/historique"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 34, padding: '0 14px',
+            background: 'var(--surface, var(--card))',
+            border: '1px solid var(--border)', borderRadius: 10,
+            fontSize: 13, fontWeight: 500, color: 'var(--foreground)',
+            textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+            fontFamily: 'inherit',
+          }}
         >
           <History size={14} />Historique
         </Link>
       </div>
 
+      {/* v1.9.127 — KPIs Matching V2 (placeholder, basé sur résultats courants) */}
+      {(isDone || isIdle) && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12, marginBottom: 20,
+        }}>
+          {(() => {
+            const total = matching.results.length
+            const moyen = total > 0
+              ? Math.round(matching.results.reduce((acc, r) => acc + (r.score || 0), 0) / total)
+              : 0
+            const haute = matching.results.filter(r => (r.score || 0) >= 80).length
+            const aValider = matching.results.filter(r => (r.score || 0) >= 60 && (r.score || 0) < 80).length
+            return [
+              { label: 'Matches actifs', value: total,    icon: Sparkles,    color: '#F5A623', bg: 'rgba(245,166,35,0.12)' },
+              { label: 'Score moyen',    value: total > 0 ? `${moyen}/100` : '—', icon: Target, color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+              { label: 'Confiance haute',value: haute,    icon: ShieldCheck, color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+              { label: 'À valider',      value: aValider, icon: AlertCircle, color: '#A855F7', bg: 'rgba(168,85,247,0.12)' },
+            ]
+          })().map((kpi, i) => {
+            const Icon = kpi.icon
+            return (
+              <div key={i} style={{
+                background: 'var(--surface, var(--card))',
+                border: '1px solid var(--border)',
+                borderRadius: 12, padding: '14px 16px',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: kpi.bg, color: kpi.color,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
+                  <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 26, fontWeight: 400, color: 'var(--foreground)', lineHeight: 1.1, marginTop: 2 }}>
+                    {kpi.value}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Sélection commande + boutons */}
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, boxShadow: 'var(--card-shadow)', marginBottom: 24 }}>
+      <div style={{
+        background: 'var(--surface, var(--card))',
+        border: '1px solid var(--border)',
+        borderRadius: 14, padding: 20, marginBottom: 24,
+      }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           {/* Combobox offres avec recherche intégrée */}
           <div ref={offreComboRef} style={{ flex: 1, minWidth: 260, position: 'relative' }}>
@@ -474,7 +533,11 @@ function MatchingPageInner() {
 
       {/* Résultats (mis à jour en temps réel) */}
       {matching.results.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+          gap: 14,
+        }}>
           {matching.results.map((r, idx) => (
             <CandidatMatchCard
               key={r.candidat.id}
@@ -642,7 +705,7 @@ function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { 
             background: c.bg, border: `3px solid ${c.border}`,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontSize: 22, fontWeight: 900, color: c.text, lineHeight: 1 }}>{score}</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: c.text, lineHeight: 1 }}>{score}</span>
             <span style={{ fontSize: 10, color: c.text, fontWeight: 700 }}>{c.label}</span>
           </div>
 

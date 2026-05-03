@@ -180,8 +180,9 @@
   --shadow-accent: 0 8px 24px -10px oklch(0.78 0.18 90 / .55);
 
   /* Typography v2 */
-  --font-sans:  var(--font-jakarta);  /* DM Sans loaded by next/font (variable: --font-jakarta) */
-  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans:  var(--font-jakarta);                                /* DM Sans (next/font) */
+  --font-serif: var(--font-instrument-serif), "Fraunces", ui-serif, Georgia, serif;
+  --font-mono:  var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "Menlo", monospace;
 
   /* Layout v2 */
   --sidebar-w: 188px;
@@ -340,9 +341,12 @@
     font-feature-settings: "cv11","ss01","tnum"; /* v2 — DM Sans alternates */
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* v1.9.128 — Empêche scroll horizontal accidentel sur écrans wide (34"+) */
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;
+    overflow-x: hidden;
   }
   ::selection { background: var(--accent-soft-2); color: var(--text); }
 }

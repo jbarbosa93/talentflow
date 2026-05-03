@@ -497,7 +497,7 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier' : 'Nouveau candidat'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier' : 'Nouveau candidat'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
@@ -730,7 +730,7 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 580, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier le cas' : 'Nouveau cas'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier le cas' : 'Nouveau cas'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
@@ -909,7 +909,7 @@ function LoyerModal({ item, onClose, onSaved }: { item?: SecretariatLoyer | null
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier le loyer' : 'Nouveau loyer'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier le loyer' : 'Nouveau loyer'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
@@ -1068,7 +1068,7 @@ function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; 
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier ALFA' : 'Nouveau suivi ALFA'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier ALFA' : 'Nouveau suivi ALFA'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
@@ -1231,7 +1231,7 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{item ? 'Modifier paiement ALFA' : 'Nouveau paiement ALFA'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier paiement ALFA' : 'Nouveau paiement ALFA'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
@@ -1316,7 +1316,7 @@ function DeleteModal({ label, onConfirm, onClose }: { label: string; onConfirm: 
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 380 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
           <AlertTriangle size={20} color="var(--destructive)" />
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--foreground)' }}>Confirmer la suppression</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 20, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em' }}>Confirmer la suppression</h2>
         </div>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>Supprimer <strong style={{ color: 'var(--foreground)' }}>{label}</strong> ? Cette action est irréversible.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -1983,7 +1983,7 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
     <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Bell size={18} color="var(--primary)" /> Nouvelle alerte
           </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
@@ -2060,15 +2060,18 @@ function AlertModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => 
 function TabBtn({ active, onClick, children, count }: { active: boolean; onClick: () => void; children: React.ReactNode; count?: number }) {
   return (
     <button onClick={onClick} style={{
-      padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-      background: active ? 'var(--primary)' : 'var(--secondary)',
-      color: active ? 'var(--primary-foreground)' : 'var(--muted)',
-      border: active ? '1.5px solid var(--primary)' : '1.5px solid var(--border)',
+      padding: '8px 16px', height: 36, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 7,
+      background: active ? 'var(--primary)' : 'var(--surface, var(--card))',
+      color: active ? '#1C1A14' : 'var(--muted)',
+      border: active ? '1px solid var(--primary)' : '1px solid var(--border)',
       transition: 'all 0.15s',
+      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+      lineHeight: 1,
     }}>
       {children}
       {count !== undefined && count > 0 && (
-        <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: active ? 'rgba(255,255,255,0.3)' : 'rgba(245,166,35,0.2)', color: active ? '#fff' : '#B47A1A', minWidth: 20, textAlign: 'center' }}>
+        <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)', color: active ? '#1C1A14' : 'var(--muted)', minWidth: 20, textAlign: 'center' }}>
           {count}
         </span>
       )}

@@ -420,26 +420,25 @@ body {
   to   { transform: translate(-50px, -70px) scale(1.25); }
 }
 
-/* ── Card ── */
+/* ── Card v1.9.135 V2 — glassmorphism crème, fini neo-brutaliste ── */
 .auth-glass-card {
   width: 100%;
-  max-width: 440px;
-  background: #fff;
-  border: 1.5px solid #E8E0C8;
-  border-radius: 24px;
-  padding: 48px 44px;
-  box-shadow:
-    0 4px 6px rgba(28,26,20,0.04),
-    0 20px 60px rgba(28,26,20,0.08);
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(28, 26, 20, 0.08);
+  border-radius: 16px;
+  padding: 36px 32px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 30px 80px -20px rgba(28, 26, 20, 0.15), 0 0 0 1px rgba(234, 179, 8, 0.04) inset;
   position: relative;
   z-index: 1;
 }
 
-/* ── Logo ── */
+/* ── Logo V2 (cohérent avec login) ── */
 .auth-glass-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 .auth-glass-logo a {
   display: flex;
@@ -451,73 +450,94 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: #F5A623;
-  border: 2px solid #1C1A14;
-  box-shadow: 2px 2px 0 #1C1A14;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #EAB308;
+  box-shadow: 0 6px 18px -4px rgba(234, 179, 8, .45);
   flex-shrink: 0;
 }
+.auth-glass-logo-icon svg { width: 17px; height: 17px; }
 .auth-glass-logo-text {
-  font-family: var(--font-heading);
-  font-size: 22px;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--ink);
-  letter-spacing: -0.5px;
+  color: #1C1A14;
+  letter-spacing: -0.01em;
 }
 
-/* ── Text — contexte clair (hérite des classes existantes) ── */
+/* ── Text V2 — Instrument Serif sur titres ── */
 .auth-glass-card .auth-card-title {
-  color: var(--ink);
-  font-size: 26px;
+  color: #1C1A14;
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif);
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: -0.01em;
 }
 .auth-glass-card .auth-card-sub {
-  color: var(--ink2);
-  margin-bottom: 28px;
+  color: #5C5645;
+  font-size: 13.5px;
+  margin-bottom: 22px;
+  line-height: 1.5;
 }
 .auth-glass-card .auth-label {
   font-size: 12px;
-  letter-spacing: 0.2px;
+  font-weight: 600;
+  color: #5C5645;
+  letter-spacing: -0.005em;
 }
 
-/* ── Inputs ── */
+/* ── Inputs V2 ── */
 .auth-glass-card .auth-input {
-  border-radius: 12px;
-  padding: 13px 16px;
-  font-size: 14px;
-  border: 1.5px solid #E8E0C8;
+  border-radius: 10px;
+  padding: 0 12px;
+  height: 40px;
+  font-size: 13.5px;
+  border: 1px solid #e5e0d6;
+  background: #fff;
+  color: #1C1A14;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
 }
+.auth-glass-card .auth-input::placeholder { color: #b5ad9a; }
+.auth-glass-card .auth-input:hover { border-color: #d8d2c4; }
 .auth-glass-card .auth-input:focus {
-  border-color: #F5A623;
-  box-shadow: 0 0 0 3px rgba(245,166,35,0.12);
+  border-color: #EAB308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.20);
 }
 
-/* ── Button — orange ── */
+/* ── Button V2 — fini la shadow décalée neo-brutaliste ── */
 .auth-glass-card .auth-btn {
-  background: #F5A623;
-  border: 2px solid #1C1A14;
-  border-radius: 12px;
-  box-shadow: 3px 3px 0 #1C1A14;
+  background: #EAB308;
+  border: 1px solid #EAB308;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -8px rgba(234, 179, 8, 0.45);
   color: #1C1A14;
-  font-weight: 800;
-  font-size: 15px;
-  padding: 14px;
-  transition: transform 0.12s, box-shadow 0.12s;
+  font-weight: 700;
+  font-size: 14px;
+  height: 44px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  font-family: inherit;
 }
 .auth-glass-card .auth-btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #1C1A14;
+  background: #F5A623;
+  border-color: #F5A623;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px -8px rgba(234, 179, 8, 0.55);
 }
 .auth-glass-card .auth-btn:active:not(:disabled) {
-  transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0 #1C1A14;
+  transform: translateY(0);
 }
 .auth-glass-card .auth-btn:disabled {
   opacity: 0.5;
-  transform: none;
-  box-shadow: 3px 3px 0 #1C1A14;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ── Footer link ── */
@@ -608,17 +628,21 @@ body {
   display: flex; flex-direction: column; gap: 14px;
 }
 .login-v2 .login-art h1 {
-  font-size: 38px;
+  /* v1.9.127 — Aligné sur le hero Dashboard (Instrument Serif italic + sans-serif normal mix) */
+  font-size: 44px;
   color: #fff;
   margin: 0;
   letter-spacing: -0.02em;
-  line-height: 1.1;
-  font-weight: 500;
+  line-height: 1.05;
+  font-weight: 400;
+  font-family: var(--font-serif, 'Instrument Serif', Georgia, serif);
 }
 .login-v2 .login-art h1 em {
-  font-style: normal;
+  /* L'accent or "plus vite." — italic Instrument Serif */
+  font-style: italic;
   color: #EAB308;
-  font-weight: 600;
+  font-weight: 400;
+  font-family: var(--font-serif, 'Instrument Serif', Georgia, serif);
 }
 .login-v2 .login-art p {
   color: rgba(255, 255, 255, .55);
@@ -867,4 +891,251 @@ body {
   color: #EAB308;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.135 — Login V2 CRÈME (fond crème + éclair jaune + form centré)
+   Surcharge le split layout pour passer en mode plein écran centré clair.
+   ════════════════════════════════════════════════════════════════════════ */
+.login-v2.login-v2-dark {
+  grid-template-columns: 1fr;
+  background: #FFFDF5;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Logo top-left fixe */
+.login-v2-dark .login-v2-logo {
+  position: absolute;
+  top: 28px;
+  left: 32px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1C1A14;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+.login-v2-dark .login-v2-logo-mark {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: #EAB308;
+  display: grid; place-items: center;
+  box-shadow: 0 6px 18px -4px rgba(234, 179, 8, .45);
+}
+.login-v2-dark .login-v2-logo-mark svg { width: 17px; height: 17px; }
+.login-v2-dark .login-v2-logo-text { color: #1C1A14; }
+
+/* Décor radial éclair jaune en background (crème → jaune doux) — v1.9.135 + animations flottantes */
+.login-v2-dark .login-v2-bg-glow {
+  position: absolute;
+  top: -20%; right: -15%;
+  width: 700px; height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #EAB308 0%, transparent 60%);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+  animation: loginFloatGlow1 12s ease-in-out infinite alternate;
+}
+.login-v2-dark .login-v2-bg-glow::before {
+  content: "";
+  position: absolute;
+  bottom: -120%; left: -50%;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #F5A623 0%, transparent 70%);
+  opacity: 0.5;
+  animation: loginFloatGlow2 16s ease-in-out infinite alternate;
+}
+.login-v2-dark .login-v2-bg-bolt {
+  position: absolute;
+  bottom: -10%; left: -5%;
+  width: 480px; height: 580px;
+  pointer-events: none;
+  z-index: 0;
+  transform: rotate(-12deg);
+  opacity: 0.6;
+  animation: loginFloatBolt 9s ease-in-out infinite alternate;
+}
+.login-v2-dark .login-v2-bg-bolt svg { width: 100%; height: 100%; }
+
+/* Animations flottantes douces (mouvement organique sans secousse) */
+@keyframes loginFloatGlow1 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, 30px) scale(1.08); }
+}
+@keyframes loginFloatGlow2 {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-30px, -40px) scale(1.12); }
+}
+@keyframes loginFloatBolt {
+  from { transform: rotate(-12deg) translateY(0); }
+  to   { transform: rotate(-9deg) translateY(-18px); }
+}
+
+/* Logo top-left : entrée + breath subtil */
+.login-v2-dark .login-v2-logo {
+  animation: loginLogoIn 0.6s ease-out;
+}
+.login-v2-dark .login-v2-logo-mark {
+  animation: loginLogoMarkBreath 4s ease-in-out infinite;
+}
+@keyframes loginLogoIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes loginLogoMarkBreath {
+  0%, 100% { box-shadow: 0 6px 18px -4px rgba(234, 179, 8, .45); }
+  50%      { box-shadow: 0 8px 24px -4px rgba(234, 179, 8, .65); }
+}
+
+/* Card form : entrée + lévitation continue très légère */
+.login-v2-dark .login-card {
+  animation: loginCardIn 0.5s ease-out 0.1s both, loginCardFloat 6s ease-in-out infinite 0.6s;
+}
+@keyframes loginCardIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes loginCardFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* Respect prefers-reduced-motion : on désactive les flottements (garde les apparitions) */
+@media (prefers-reduced-motion: reduce) {
+  .login-v2-dark .login-v2-bg-glow,
+  .login-v2-dark .login-v2-bg-glow::before,
+  .login-v2-dark .login-v2-bg-bolt,
+  .login-v2-dark .login-v2-logo-mark,
+  .login-v2-dark .login-card {
+    animation: none !important;
+  }
+}
+
+/* Form pane centré */
+.login-v2-dark .login-v2-form-pane {
+  display: grid;
+  place-items: center;
+  padding: 80px 32px 40px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+.login-v2-dark .login-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(28, 26, 20, 0.08);
+  border-radius: 16px;
+  padding: 36px 32px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 30px 80px -20px rgba(28, 26, 20, 0.15), 0 0 0 1px rgba(234, 179, 8, 0.05) inset;
+}
+
+/* Typo carte sur fond clair */
+.login-v2-dark .login-card h2 {
+  color: #1C1A14;
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+}
+.login-v2-dark .login-card .subtitle {
+  color: #5C5645;
+  font-size: 13.5px;
+  margin: 0 0 22px;
+}
+.login-v2-dark .form-row label {
+  color: #5C5645;
+}
+.login-v2-dark .input-v2 {
+  background: #fff;
+  border-color: #e5e0d6;
+  color: #1C1A14;
+}
+.login-v2-dark .input-v2::placeholder { color: #b5ad9a; }
+.login-v2-dark .input-v2:hover { border-color: #d8d2c4; }
+.login-v2-dark .input-v2:focus {
+  border-color: #EAB308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.20);
+}
+.login-v2-dark .input-wrap .input-icon-right { color: #999; }
+.login-v2-dark .input-wrap .input-icon-right:hover { color: #1C1A14; }
+
+.login-v2-dark .btn-v2 {
+  background: #fff;
+  border-color: #e5e0d6;
+  color: #1C1A14;
+}
+.login-v2-dark .btn-v2:hover:not(:disabled) {
+  background: #faf8f1;
+  border-color: #d8d2c4;
+}
+.login-v2-dark .btn-v2.primary {
+  background: #EAB308;
+  color: #1C1A14;
+  border-color: #EAB308;
+  box-shadow: 0 8px 24px -8px rgba(234, 179, 8, 0.45);
+}
+.login-v2-dark .btn-v2.primary:hover:not(:disabled) {
+  background: #F5A623;
+  border-color: #F5A623;
+}
+.login-v2-dark .btn-v2.ghost {
+  background: transparent;
+  color: #5C5645;
+  border-color: #e5e0d6;
+}
+.login-v2-dark .btn-v2.ghost:hover:not(:disabled) {
+  background: rgba(28, 26, 20, 0.04);
+  color: #1C1A14;
+}
+
+.login-v2-dark .footer-link {
+  color: #888;
+  margin-top: 14px;
+}
+.login-v2-dark .footer-link a { color: #B45309; font-weight: 600; }
+
+.login-v2-dark .info-banner {
+  background: rgba(234, 179, 8, 0.10);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #B45309;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.login-v2-dark .error-v2 {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  color: #B91C1C;
+}
+
+/* Footer legal minimaliste */
+.login-v2-dark .login-v2-legal {
+  margin-top: 24px;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+  display: flex; gap: 8px; justify-content: center;
+}
+.login-v2-dark .login-v2-legal a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.login-v2-dark .login-v2-legal a:hover { color: #1C1A14; }
+
+@media (max-width: 600px) {
+  .login-v2-dark .login-v2-logo { top: 20px; left: 20px; font-size: 14px; }
+  .login-v2-dark .login-card { padding: 28px 22px; }
 }

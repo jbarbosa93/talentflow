@@ -48,6 +48,8 @@ export default function OffresPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [cdcViewer, setCdcViewer] = useState<{ url: string; titre: string } | null>(null)
   const [candidatsOffre, setCandidatsOffre] = useState<{ id: string; titre: string } | null>(null) // v1.9.71
+  // v1.9.127 — Modal détail commande (clic sur la ligne du tableau)
+  const [detailOffre, setDetailOffre] = useState<Offre | null>(null)
   // v1.9.72/73 : cache global candidats liés par offre → affichage aperçu sur chaque card
   // (la propriété jointe Supabase est `candidats` — pluriel, nom table)
   const [offreLinks, setOffreLinks] = useState<Record<string, any[]>>({})
@@ -173,16 +175,9 @@ export default function OffresPage() {
       {activeTab === 'offres' && (<>
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 0.5, y: 0 }}
-              transition={{ delay: i * 0.07, duration: 0.3 }}
-              style={{ height: 240, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}
-            />
-          ))}
+        <div style={{ height: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: 'var(--muted)' }}>
+          <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+          Chargement des commandes…
         </div>
       ) : offres?.length === 0 ? (
         <div className="neo-empty">
@@ -191,246 +186,281 @@ export default function OffresPage() {
           <div className="neo-empty-sub">Créez votre première commande via le bouton en haut à droite</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
-          {offres?.map((offre, i) => (
-            <motion.div
-              key={offre.id}
-              custom={i}
-              variants={cardVariants}
-              initial="hidden"
-              animate="show"
-              whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.12)' }}
-              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-              className="neo-card-soft"
-              style={{ padding: 0, position: 'relative' }}
-            >
-              {/* Top color bar — borderRadius pour ne pas avoir besoin de overflow:hidden */}
-              <div style={{
-                height: 4,
-                borderRadius: '14px 14px 0 0',
-                background: offre.statut === 'active' ? 'linear-gradient(90deg, #10B981, #059669)'
-                  : offre.statut === 'pourvue' ? 'linear-gradient(90deg, #3B82F6, #2563EB)'
-                  : 'linear-gradient(90deg, #94A3B8, #64748B)',
-              }} />
-
-              <div style={{ padding: '18px 20px 20px' }}>
-                {/* Actions top-right */}
-                <div style={{ position: 'absolute', top: 18, right: 14, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <StatusDropdown
-                    current={offre.statut}
-                    onSelect={(s) => handleStatusChange(offre.id, s)}
-                  />
-                  {(offre as any).cdc_url && (
-                    <button
-                      onClick={() => setCdcViewer({ url: (offre as any).cdc_url, titre: offre.titre })}
-                      title="Voir le cahier des charges"
-                      className="d-icon-btn"
-                      style={{ height: 28, borderRadius: 7, padding: '0 8px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700 }}
-                    >
-                      <FileText size={12} />
-                      CDC
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setEditOffre(offre)}
-                    title="Modifier"
-                    className="d-icon-btn"
-                    style={{ width: 28, height: 28, borderRadius: 7 }}
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  {confirmDelete === offre.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <button
-                        onClick={() => { deleteOffre.mutate(offre.id); setConfirmDelete(null) }}
-                        style={{ fontSize: 10, fontWeight: 700, background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
-                      >Oui</button>
-                      <button
-                        onClick={() => setConfirmDelete(null)}
-                        style={{ fontSize: 10, fontWeight: 700, background: 'none', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', padding: '3px 7px', borderRadius: 5 }}
-                      >Non</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDelete(offre.id)}
-                      title="Supprimer"
-                      className="d-icon-btn"
-                      style={{ width: 28, height: 28, borderRadius: 7 }}
-                      onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
-                      onMouseOut={e => { (e.currentTarget as HTMLElement).removeAttribute('style') }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Client name */}
-                {offre.client_nom && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <Building2 size={12} style={{ color: 'var(--primary)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                      {offre.client_nom}
-                    </span>
-                  </div>
-                )}
-
-                {/* Title + date création (v1.9.83) */}
-                <div style={{ marginBottom: 14, paddingRight: 100 }}>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 17, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
-                    {offre.titre}
-                  </h3>
-                  {(offre as any).created_at && (
-                    <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Calendar size={10} />
-                      Créée le {new Date((offre as any).created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  )}
-                </div>
-
-                {/* Key info grid */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-                  {(offre.nb_postes || 0) > 0 && (
-                    <span className="neo-badge neo-badge-green" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
-                      <Users size={12} />
-                      {offre.nb_postes} poste{(offre.nb_postes || 0) > 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {offre.date_debut && (
-                    <span className="neo-badge neo-badge-blue" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
-                      <Calendar size={12} />
-                      {formatDate(offre.date_debut)}
-                    </span>
-                  )}
-                  {offre.duree_mission && (
-                    <span className="neo-badge neo-badge-yellow" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
-                      <Clock size={12} />
-                      {offre.duree_mission}
-                    </span>
-                  )}
-                </div>
-
-                {/* Competences */}
-                {offre.competences.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                    {offre.competences.slice(0, 4).map(c => (
-                      <span key={c} className="neo-tag" style={{ fontSize: 10, padding: '3px 10px' }}>{c}</span>
-                    ))}
-                    {offre.competences.length > 4 && (
-                      <span style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 0' }}>+{offre.competences.length - 4}</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Location + Notes */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                  {offre.localisation && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <MapPin style={{ width: 11, height: 11 }} />{offre.localisation}
-                    </span>
-                  )}
-                </div>
-
-                {/* Notes preview */}
-                {offre.notes && (
-                  <div style={{
-                    marginTop: 12, padding: '8px 12px',
-                    background: 'var(--background)', borderRadius: 8, border: '1px solid var(--border)',
+        <>
+        {/* v1.9.127 — KPIs commandes (sans CA) */}
+        {(() => {
+          const total = offres?.length || 0
+          const actives = offres?.filter(o => o.statut === 'active').length || 0
+          const pourvues = offres?.filter(o => o.statut === 'pourvue').length || 0
+          const archivees = offres?.filter(o => o.statut === 'archivee').length || 0
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+              {[
+                { label: 'Total',     value: total,     icon: Briefcase,    color: '#F5A623', bg: 'rgba(245,166,35,0.12)' },
+                { label: 'Actives',   value: actives,   icon: CheckCircle2, color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+                { label: 'Pourvues',  value: pourvues,  icon: Users,        color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+                { label: 'Archivées', value: archivees, icon: Clock,        color: '#94A3B8', bg: 'rgba(148,163,184,0.16)' },
+              ].map((kpi, i) => {
+                const Icon = kpi.icon
+                return (
+                  <div key={i} style={{
+                    background: 'var(--surface, var(--card))',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    padding: '14px 16px',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-                      <FileText size={10} style={{ color: 'var(--muted)' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
+                    <div style={{
+                      width: 38, height: 38, borderRadius: 10,
+                      background: kpi.bg, color: kpi.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Icon size={18} />
                     </div>
-                    <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                      {offre.notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* v1.9.71+v1.9.72 — Aperçu candidats liés + bouton Gérer */}
-                {(() => {
-                  const links = offreLinks[offre.id] || []
-                  const toShow = links.slice(0, 3)
-                  const rest = Math.max(0, links.length - toShow.length)
-                  return (
-                    <div style={{ marginTop: 12 }}>
-                      {links.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            Candidats liés ({links.length})
-                          </div>
-                          {toShow.map((l: any) => {
-                            // v1.9.73 : Supabase retourne la table jointe sous son nom pluriel `candidats`, pas `candidat`
-                            const c = l.candidats || l.candidat
-                            if (!c) return null
-                            const hasPhoto = c.photo_url && c.photo_url !== 'checked'
-                            const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
-                            return (
-                              <a
-                                key={l.id}
-                                href={`/candidats/${c.id}?from=offres`}
-                                onClick={e => e.stopPropagation()}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: 8,
-                                  padding: '6px 10px', borderRadius: 8,
-                                  background: 'var(--background)', border: '1px solid var(--border)',
-                                  textDecoration: 'none', color: 'inherit',
-                                }}
-                              >
-                                <div style={{
-                                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                                  background: 'var(--secondary)', display: 'flex',
-                                  alignItems: 'center', justifyContent: 'center',
-                                  overflow: 'hidden',
-                                  fontSize: 10, fontWeight: 800, color: 'var(--foreground)',
-                                }}>
-                                  {hasPhoto
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    ? <img src={c.photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    : initiales
-                                  }
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {`${c.prenom || ''} ${c.nom || ''}`.trim() || '(sans nom)'}
-                                  </div>
-                                  {c.titre_poste && (
-                                    <div style={{ fontSize: 10, color: 'var(--muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {c.titre_poste}
-                                    </div>
-                                  )}
-                                </div>
-                              </a>
-                            )
-                          })}
-                          {rest > 0 && (
-                            <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', padding: '2px 0' }}>
-                              + {rest} autre{rest > 1 ? 's' : ''}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button
-                          onClick={() => setCandidatsOffre({ id: offre.id, titre: offre.titre })}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 6,
-                            padding: '6px 12px', borderRadius: 8,
-                            border: '1.5px solid var(--border)', background: 'var(--card)',
-                            color: 'var(--foreground)', cursor: 'pointer',
-                            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-                          }}
-                        >
-                          <Users size={13} />
-                          {links.length === 0 ? 'Ajouter candidats' : `Gérer (${links.length})`}
-                        </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</div>
+                      <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 26, fontWeight: 400, color: 'var(--foreground)', lineHeight: 1.1, marginTop: 2 }}>
+                        {kpi.value}
                       </div>
                     </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
+        {/* v1.9.127 — Table commandes (style V2) */}
+        <div style={{
+          background: 'var(--surface, var(--card))',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
+                  {['Client', 'Poste', 'Lieu', 'Émise', 'Démarrage', 'Statut', 'Candidats', ''].map((h, i) => (
+                    <th key={i} style={{
+                      textAlign: 'left', padding: '12px 14px',
+                      fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                      textTransform: 'uppercase', letterSpacing: '0.05em',
+                      whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {offres?.map((offre) => {
+                  const links = offreLinks[offre.id] || []
+                  const statutColor = offre.statut === 'active' ? '#10B981'
+                                    : offre.statut === 'pourvue' ? '#3B82F6'
+                                    : '#94A3B8'
+                  const statutBg = offre.statut === 'active' ? 'rgba(16,185,129,0.12)'
+                                 : offre.statut === 'pourvue' ? 'rgba(59,130,246,0.12)'
+                                 : 'rgba(148,163,184,0.16)'
+                  return (
+                    <tr
+                      key={offre.id}
+                      onClick={() => setDetailOffre(offre)}
+                      style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.12s', cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--background)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                    >
+                      {/* CLIENT */}
+                      <td style={{ padding: '14px', verticalAlign: 'top', maxWidth: 200 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {offre.client_nom || <span style={{ color: 'var(--muted)', fontWeight: 400 }}>—</span>}
+                        </div>
+                      </td>
+
+                      {/* POSTE (titre + compétences + notes) */}
+                      <td style={{ padding: '14px', verticalAlign: 'top', minWidth: 240, maxWidth: 360 }}>
+                        <div style={{ fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3 }}>
+                          {offre.titre}
+                        </div>
+                        {offre.duree_mission && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                            <Clock size={10} />
+                            {offre.duree_mission}
+                          </div>
+                        )}
+                        {offre.competences && offre.competences.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                            {offre.competences.slice(0, 3).map(c => (
+                              <span key={c} style={{
+                                fontSize: 10, padding: '2px 8px', borderRadius: 6,
+                                background: 'var(--secondary)', color: 'var(--foreground)',
+                                fontWeight: 500, lineHeight: 1.4,
+                              }}>{c}</span>
+                            ))}
+                            {offre.competences.length > 3 && (
+                              <span style={{ fontSize: 10, color: 'var(--muted)', padding: '2px 4px' }}>
+                                +{offre.competences.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {offre.notes && (
+                          <div title={offre.notes} style={{
+                            fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4,
+                            overflow: 'hidden', textOverflow: 'ellipsis',
+                            display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
+                          }}>
+                            {offre.notes}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* LIEU */}
+                      <td style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        {offre.localisation ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--foreground)' }}>
+                            <MapPin size={11} style={{ color: 'var(--muted)' }} />
+                            {offre.localisation}
+                          </span>
+                        ) : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      </td>
+
+                      {/* ÉMISE */}
+                      <td style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--foreground)' }}>
+                        {(offre as any).created_at
+                          ? new Date((offre as any).created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short' })
+                          : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      </td>
+
+                      {/* DÉMARRAGE */}
+                      <td style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--foreground)' }}>
+                        {offre.date_debut
+                          ? new Date(offre.date_debut).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short' })
+                          : <span style={{ color: 'var(--muted)' }}>—</span>}
+                      </td>
+
+                      {/* STATUT */}
+                      <td onClick={e => e.stopPropagation()} style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        <StatusDropdown
+                          current={offre.statut}
+                          onSelect={(s) => handleStatusChange(offre.id, s)}
+                        />
+                      </td>
+
+                      {/* CANDIDATS */}
+                      <td onClick={e => e.stopPropagation()} style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        <button
+                          onClick={() => setCandidatsOffre({ id: offre.id, titre: offre.titre })}
+                          title={links.length === 0 ? 'Ajouter des candidats' : `Gérer ${links.length} candidat(s)`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '5px 10px', borderRadius: 8,
+                            border: '1px solid var(--border)',
+                            background: links.length > 0 ? 'rgba(16,185,129,0.10)' : 'var(--surface, var(--card))',
+                            color: links.length > 0 ? '#059669' : 'var(--foreground)',
+                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          {/* Mini avatars */}
+                          {links.length > 0 && (
+                            <span style={{ display: 'inline-flex' }}>
+                              {links.slice(0, 3).map((l: any, idx) => {
+                                const c = l.candidats || l.candidat
+                                if (!c) return null
+                                const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                                const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+                                return (
+                                  <span key={l.id} style={{
+                                    width: 20, height: 20, borderRadius: '50%',
+                                    background: 'var(--secondary)', display: 'inline-flex',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    overflow: 'hidden', marginLeft: idx === 0 ? 0 : -6,
+                                    border: '2px solid var(--surface, var(--card))',
+                                    fontSize: 9, fontWeight: 800, color: 'var(--foreground)',
+                                  }}>
+                                    {hasPhoto
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      ? <img src={c.photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                      : initiales}
+                                  </span>
+                                )
+                              })}
+                            </span>
+                          )}
+                          <Users size={12} />
+                          {links.length === 0 ? 'Ajouter' : links.length}
+                        </button>
+                      </td>
+
+                      {/* ACTIONS */}
+                      <td onClick={e => e.stopPropagation()} style={{ padding: '14px', verticalAlign: 'top', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                          {(offre as any).cdc_url && (
+                            <button
+                              onClick={() => setCdcViewer({ url: (offre as any).cdc_url, titre: offre.titre })}
+                              title="Voir le cahier des charges"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                height: 28, padding: '0 8px', borderRadius: 7,
+                                border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+                                color: 'var(--foreground)', cursor: 'pointer',
+                                fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                              }}
+                            >
+                              <FileText size={11} />
+                              CDC
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setEditOffre(offre)}
+                            title="Modifier"
+                            style={{
+                              width: 28, height: 28, borderRadius: 7,
+                              border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+                              color: 'var(--foreground)', cursor: 'pointer',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            }}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                          {confirmDelete === offre.id ? (
+                            <div style={{ display: 'inline-flex', gap: 4 }}>
+                              <button
+                                onClick={() => { deleteOffre.mutate(offre.id); setConfirmDelete(null) }}
+                                style={{ fontSize: 10, fontWeight: 700, background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer', padding: '5px 8px', borderRadius: 6 }}
+                              >Oui</button>
+                              <button
+                                onClick={() => setConfirmDelete(null)}
+                                style={{ fontSize: 10, fontWeight: 700, background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', cursor: 'pointer', padding: '5px 8px', borderRadius: 6 }}
+                              >Non</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDelete(offre.id)}
+                              title="Supprimer"
+                              style={{
+                                width: 28, height: 28, borderRadius: 7,
+                                border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+                                color: 'var(--muted)', cursor: 'pointer',
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA' }}
+                              onMouseOut={e => { e.currentTarget.style.background = 'var(--surface, var(--card))'; e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   )
-                })()}
-              </div>
-            </motion.div>
-          ))}
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
+        </>
       )}
       </>)}
       {/* end offres tab */}
@@ -441,6 +471,18 @@ export default function OffresPage() {
           offreId={candidatsOffre.id}
           offreTitre={candidatsOffre.titre}
           onClose={() => setCandidatsOffre(null)}
+        />
+      )}
+
+      {/* v1.9.127 — Modal détail commande (clic sur ligne du tableau) */}
+      {detailOffre && (
+        <CommandeDetailModal
+          offre={detailOffre}
+          links={offreLinks[detailOffre.id] || []}
+          onClose={() => setDetailOffre(null)}
+          onEdit={() => { setEditOffre(detailOffre); setDetailOffre(null) }}
+          onManageCandidats={() => { setCandidatsOffre({ id: detailOffre.id, titre: detailOffre.titre }); setDetailOffre(null) }}
+          onCdc={() => { if ((detailOffre as any).cdc_url) { setCdcViewer({ url: (detailOffre as any).cdc_url, titre: detailOffre.titre }); setDetailOffre(null) } }}
         />
       )}
 
@@ -1942,3 +1984,315 @@ function CDCViewerModal({ open, url, titre, onClose }: { open: boolean; url: str
   )
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v1.9.127 — Modal détail commande (clic sur ligne du tableau)
+// Affiche toutes les infos de la commande + candidats liés en lecture seule.
+// Boutons d'action : Modifier, Gérer candidats, CDC.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CommandeDetailModal({
+  offre, links, onClose, onEdit, onManageCandidats, onCdc,
+}: {
+  offre: Offre
+  links: any[]
+  onClose: () => void
+  onEdit: () => void
+  onManageCandidats: () => void
+  onCdc: () => void
+}) {
+  // Esc pour fermer
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const fmtDate = (d: string | null | undefined) => {
+    if (!d) return null
+    try { return new Date(d).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' }) }
+    catch { return d }
+  }
+
+  const statutColor = offre.statut === 'active' ? '#10B981'
+                    : offre.statut === 'pourvue' ? '#3B82F6'
+                    : '#94A3B8'
+  const statutBg    = offre.statut === 'active' ? 'rgba(16,185,129,0.12)'
+                    : offre.statut === 'pourvue' ? 'rgba(59,130,246,0.12)'
+                    : 'rgba(148,163,184,0.16)'
+  const statutLabel = offre.statut === 'active' ? 'Active'
+                    : offre.statut === 'pourvue' ? 'Pourvue'
+                    : 'Archivée'
+
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        animation: 'fadeIn 0.15s ease-out',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--surface, var(--card))',
+          borderRadius: 16, width: '100%', maxWidth: 760,
+          maxHeight: '88vh', overflowY: 'auto',
+          border: '1px solid var(--border)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.25)',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '22px 28px 18px',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {offre.client_nom && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+                marginBottom: 6,
+              }}>
+                <Building2 size={11} /> {offre.client_nom}
+              </div>
+            )}
+            <h2 style={{
+              fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+              fontSize: 28, fontWeight: 400, color: 'var(--foreground)',
+              margin: 0, lineHeight: 1.15, letterSpacing: '-0.01em',
+            }}>
+              {offre.titre}
+            </h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 6,
+                background: statutBg, color: statutColor,
+                fontSize: 11, fontWeight: 700,
+                border: `1px solid ${statutColor}40`,
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: statutColor }} />
+                {statutLabel}
+              </span>
+              {(offre as any).created_at && (
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  Créée le {fmtDate((offre as any).created_at)}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            title="Fermer (Esc)"
+            style={{
+              width: 32, height: 32, borderRadius: 8,
+              border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+              color: 'var(--muted)', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Infos clés */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 14, padding: '18px 28px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          {[
+            { label: 'Postes',         icon: Users,     value: (offre.nb_postes || 1).toString() },
+            { label: 'Lieu',           icon: MapPin,    value: offre.localisation || '—' },
+            { label: 'Démarrage',      icon: Calendar,  value: fmtDate(offre.date_debut) || '—' },
+            { label: 'Durée',          icon: Clock,     value: offre.duree_mission || '—' },
+          ].map((info, i) => {
+            const Icon = info.icon
+            return (
+              <div key={i}>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                  marginBottom: 4,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                }}>
+                  <Icon size={11} /> {info.label}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>
+                  {info.value}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Compétences */}
+        {offre.competences && offre.competences.length > 0 && (
+          <div style={{ padding: '16px 28px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+              textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
+            }}>
+              Compétences requises
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {offre.competences.map(c => (
+                <span key={c} style={{
+                  fontSize: 12, padding: '4px 10px', borderRadius: 6,
+                  background: 'var(--secondary)', color: 'var(--foreground)',
+                  fontWeight: 500,
+                }}>{c}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {offre.notes && (
+          <div style={{ padding: '16px 28px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+              textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
+            }}>
+              Notes
+            </div>
+            <div style={{
+              fontSize: 13, color: 'var(--foreground)', lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              background: 'var(--background)', borderRadius: 10, padding: '12px 14px',
+              border: '1px solid var(--border)',
+            }}>
+              {offre.notes}
+            </div>
+          </div>
+        )}
+
+        {/* Candidats liés */}
+        <div style={{ padding: '16px 28px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              Candidats liés ({links.length})
+            </div>
+            <button
+              onClick={onManageCandidats}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                height: 28, padding: '0 10px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+                color: 'var(--foreground)', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <Users size={12} /> {links.length === 0 ? 'Ajouter' : 'Gérer'}
+            </button>
+          </div>
+          {links.length === 0 ? (
+            <div style={{
+              padding: '20px', textAlign: 'center',
+              background: 'var(--background)', borderRadius: 10,
+              border: '1px dashed var(--border)',
+              fontSize: 12, color: 'var(--muted)',
+            }}>
+              Aucun candidat lié à cette commande
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {links.map((l: any) => {
+                const c = l.candidats || l.candidat
+                if (!c) return null
+                const hasPhoto = c.photo_url && c.photo_url !== 'checked'
+                const initiales = `${(c.prenom || '')[0] || ''}${(c.nom || '')[0] || ''}`.toUpperCase() || '?'
+                return (
+                  <a
+                    key={l.id}
+                    href={`/candidats/${c.id}?from=offres`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 12px', borderRadius: 10,
+                      background: 'var(--background)', border: '1px solid var(--border)',
+                      textDecoration: 'none', color: 'inherit',
+                      transition: 'border-color 0.12s, background 0.12s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                      background: 'var(--secondary)', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden',
+                      fontSize: 12, fontWeight: 800, color: 'var(--foreground)',
+                    }}>
+                      {hasPhoto
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={c.photo_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : initiales}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                        {`${c.prenom || ''} ${c.nom || ''}`.trim() || '(sans nom)'}
+                      </div>
+                      {c.titre_poste && (
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>
+                          {c.titre_poste}
+                        </div>
+                      )}
+                    </div>
+                    <ArrowUpRight size={14} color="var(--muted)" />
+                  </a>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div style={{
+          padding: '16px 28px', display: 'flex', gap: 10,
+          justifyContent: 'flex-end', flexWrap: 'wrap',
+        }}>
+          {(offre as any).cdc_url && (
+            <button
+              onClick={onCdc}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 36, padding: '0 14px', borderRadius: 10,
+                border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+                color: 'var(--foreground)', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <FileText size={14} /> Voir CDC
+            </button>
+          )}
+          <button
+            onClick={onEdit}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 36, padding: '0 16px', borderRadius: 10,
+              border: '1px solid var(--primary)', background: 'var(--primary)',
+              color: '#1C1A14', fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 12px -4px rgba(234,179,8,.35)',
+            }}
+          >
+            <Pencil size={14} /> Modifier la commande
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}

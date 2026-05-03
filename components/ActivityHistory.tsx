@@ -289,9 +289,9 @@ export default function ActivityHistory({ candidatId, clientId, candidatNom, cli
         }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: 'var(--primary)', border: '2px solid var(--foreground)',
+            background: 'var(--primary)', border: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '2px 2px 0 var(--foreground)',
+            boxShadow: '0 4px 12px -4px rgba(245,166,35,0.35)',
           }}>
             <Clock size={18} color="var(--ink, #1C1A14)" />
           </div>

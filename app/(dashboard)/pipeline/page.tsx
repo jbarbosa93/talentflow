@@ -952,25 +952,26 @@ export default function PipelinePage() {
         </div>
       </div>
 
-      {/* Consultant tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1.5px solid var(--border)' }}>
+      {/* Consultant tabs V2 */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
         {CONSULTANTS.map(c => {
           const count = consultantCounts[c] ?? 0
           const active = activeConsultant === c
           return (
             <button key={c} onClick={() => { setActiveConsultant(c); setActiveMetier('Tous') }} style={{
-              padding: '8px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              background: 'none', border: 'none', marginBottom: -1.5,
-              borderBottom: active ? '2.5px solid #F5A623' : '2.5px solid transparent',
-              color: active ? '#F5A623' : 'var(--muted-foreground)',
+              padding: '10px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              background: 'none', border: 'none', marginBottom: -1,
+              borderBottom: active ? '2px solid #F5A623' : '2px solid transparent',
+              color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
               transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6,
+              fontFamily: 'inherit',
             }}>
               {c}
               <span style={{
-                fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-                background: active ? '#F5A62330' : 'var(--secondary)',
+                fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 10,
+                background: active ? '#F5A62325' : 'var(--secondary)',
                 color: active ? '#c07a00' : 'var(--muted-foreground)',
-                border: `1px solid ${active ? '#F5A62366' : 'var(--border)'}`,
+                border: `1px solid ${active ? '#F5A62355' : 'var(--border)'}`,
               }}>{count}</span>
             </button>
           )
@@ -985,17 +986,18 @@ export default function PipelinePage() {
             const catColor = label !== 'Tous' && label !== 'Autres' ? (getColorForMetier(label) || '#F5A623') : '#F5A623'
             return (
               <button key={label} onClick={() => setActiveMetier(label)} style={{
-                padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                borderRadius: 20, border: `1.5px solid ${active ? catColor : 'var(--border)'}`,
-                background: active ? catColor : 'var(--secondary)',
+                padding: '5px 12px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                borderRadius: 20, border: `1px solid ${active ? catColor : 'var(--border)'}`,
+                background: active ? catColor : 'var(--surface, var(--card))',
                 color: active ? '#fff' : 'var(--muted-foreground)',
                 transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: catColor, flexShrink: 0 }} />
                 {label}
                 <span style={{
-                  fontSize: 10, fontWeight: 800, padding: '0px 5px', borderRadius: 8,
-                  background: active ? 'rgba(0,0,0,0.15)' : 'var(--border)',
+                  fontSize: 10, fontWeight: 600, padding: '0px 6px', borderRadius: 8,
+                  background: active ? 'rgba(0,0,0,0.18)' : 'var(--secondary)',
                   color: active ? '#fff' : 'var(--muted-foreground)',
                 }}>{count}</span>
               </button>

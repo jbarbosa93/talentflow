@@ -116,16 +116,13 @@ export default function ImportMassePage() {
   return (
     <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
 
-      {/* Bouton retour */}
-      <Link href="/outils" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--muted)', textDecoration: 'none', fontWeight: 600, marginBottom: 20 }}>
-        ← Outils
-      </Link>
+      {/* v1.9.127 — Bouton retour interne supprimé (le layout /parametres fournit déjà "← Retour aux paramètres") */}
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 900, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
               Import en masse
             </h1>
             <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
@@ -174,7 +171,7 @@ export default function ImportMassePage() {
                 {s.icon}
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{s.label}</span>
               </div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -212,7 +209,7 @@ export default function ImportMassePage() {
         <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '20px 24px', marginBottom: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontSize: 28, fontWeight: 900, color: progress === 100 ? '#16A34A' : 'var(--foreground)' }}>
+              <span style={{ fontSize: 28, fontWeight: 700, color: progress === 100 ? '#16A34A' : 'var(--foreground)' }}>
                 {progress}%
               </span>
               <div>
@@ -482,13 +479,13 @@ function ImportLog({ jobs, resolveDoublon }: {
             </span>
             <button
               onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'ignorer'))}
-              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Tout ignorer
             </button>
             <button
               onClick={() => pendingDoublons.forEach(job => resolveDoublon(job, 'remplacer'))}
-              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1.5px solid #3B82F6', background: 'var(--info-soft)', color: 'var(--info)', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ padding: '4px 12px', borderRadius: 6, fontSize: 12, fontWeight: 700, border: '1px solid #3B82F6', background: 'var(--info-soft, rgba(59,130,246,0.12))', color: 'var(--info, #2563EB)', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               Tout remplacer
             </button>
@@ -625,15 +622,15 @@ function ImportLog({ jobs, resolveDoublon }: {
                       </div>
                       {/* Résolution doublon */}
                       {job.status === 'doublon' && job.candidatExistant && (
-                        <div style={{ margin: '0 20px 8px', background: 'white', border: '1.5px solid #FDE68A', borderRadius: 8, padding: '10px 12px' }}>
+                        <div style={{ margin: '0 20px 8px', background: 'var(--warning-soft, var(--surface, var(--card)))', border: '1px solid var(--warning, #FDE68A)', borderRadius: 10, padding: '10px 12px' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #E5E7EB', background: 'white', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button onClick={() => resolveDoublon(job, 'ignorer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', cursor: 'pointer', fontFamily: 'inherit' }}>
                               Garder l&apos;existant
                             </button>
-                            <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #3B82F6', background: 'var(--info-soft)', color: 'var(--info)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button onClick={() => resolveDoublon(job, 'remplacer')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid #3B82F6', background: 'var(--info-soft, rgba(59,130,246,0.12))', color: 'var(--info, #2563EB)', cursor: 'pointer', fontFamily: 'inherit' }}>
                               Remplacer
                             </button>
-                            <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1.5px solid #8B5CF6', background: '#F5F3FF', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            <button onClick={() => resolveDoublon(job, 'garder_les_deux')} style={{ flex: 1, padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 700, border: '1px solid #8B5CF6', background: 'rgba(139,92,246,0.10)', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
                               Garder les deux
                             </button>
                           </div>

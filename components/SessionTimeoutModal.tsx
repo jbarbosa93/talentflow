@@ -91,7 +91,7 @@ export function SessionTimeoutModal() {
 
         {/* Countdown */}
         <div style={{
-          fontSize: 48, fontWeight: 900, color: secondsLeft && secondsLeft <= 30 ? '#DC2626' : 'var(--primary)',
+          fontSize: 48, fontWeight: 700, color: secondsLeft && secondsLeft <= 30 ? '#DC2626' : 'var(--primary)',
           fontVariantNumeric: 'tabular-nums', letterSpacing: '-2px',
           margin: '0 0 20px',
           transition: 'color 0.3s',

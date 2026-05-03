@@ -458,7 +458,7 @@ export default function AnalyserCandidatsPage() {
                 textAlign: 'center',
               }}>
                 <div style={{
-                  fontSize: 32, fontWeight: 900, color: healthColor(s.score_sante),
+                  fontSize: 32, fontWeight: 700, color: healthColor(s.score_sante),
                   fontFamily: 'var(--font-heading)', lineHeight: 1,
                 }}>
                   {s.score_sante}%
@@ -755,7 +755,7 @@ function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: 
       }} />
       <div style={{ color, marginBottom: 8, display: 'flex', justifyContent: 'center' }}>{icon}</div>
       <div style={{
-        fontSize: 28, fontWeight: 900, color, lineHeight: 1,
+        fontSize: 28, fontWeight: 700, color, lineHeight: 1,
         fontFamily: 'var(--font-heading)',
       }}>
         {value}

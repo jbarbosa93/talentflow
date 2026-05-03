@@ -114,8 +114,9 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
             letterSpacing: '0.02em',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'var(--surface-3, rgba(28,26,20,0.04))'
-            e.currentTarget.style.color = 'var(--text-2, rgba(28,26,20,0.75))'
+            // v1.9.128 — hover jaune brand soft (au lieu du gris moche)
+            e.currentTarget.style.background = 'rgba(245,166,35,0.10)'
+            e.currentTarget.style.color = 'var(--primary, #F5A623)'
           }}
           onMouseLeave={e => {
             e.currentTarget.style.background = 'transparent'
@@ -132,35 +133,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
             }} />
           )}
         </button>
-        <button
-          onClick={() => setShowBugReport(true)}
-          style={{
-            margin: '0 10px 4px',
-            padding: '4px 10px',
-            borderRadius: 6,
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--text-3, rgba(28,26,20,0.4))',
-            fontSize: 10,
-            fontWeight: 500,
-            fontFamily: 'inherit',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 5,
-            width: 'calc(100% - 20px)',
-            transition: 'color 0.15s',
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.color = 'var(--text-2, rgba(28,26,20,0.65))'
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.color = 'var(--text-3, rgba(28,26,20,0.4))'
-          }}
-        >
-          <Bug size={10} />
-          Signaler un bug
-        </button>
+        {/* v1.9.127 — bouton "Signaler un bug" supprimé (sert à rien selon João) */}
       </>) : (
         /* ── Floating fixed version (legacy, not used) ── */
         <button
@@ -200,148 +173,162 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
         </button>
       )}
 
-      {/* Changelog modal — portail pour sortir du stacking context sidebar */}
+      {/* v1.9.127 — Changelog modal V2 (refonte complète : Instrument Serif + Jakarta + tokens dark-aware) */}
       {showChangelog && typeof document !== 'undefined' && createPortal(
         <div
           onClick={handleCloseChangelog}
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
+            position: 'fixed', inset: 0, zIndex: 99999,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
           }}
         >
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: '100%',
-              maxWidth: 680,
-              maxHeight: '85vh',
-              background: 'white',
+              width: '100%', maxWidth: 720, maxHeight: '88vh',
+              background: 'var(--surface, var(--card))',
+              border: '1px solid var(--border)',
               borderRadius: 16,
-              boxShadow: '0 25px 50px rgba(0,0,0,0.25)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
               overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
+              display: 'flex', flexDirection: 'column',
             }}
           >
-            {/* Header */}
+            {/* Header V2 — Instrument Serif */}
             <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid #E2E8F0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
+              padding: '20px 26px 18px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14,
             }}>
-              <div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h2 style={{
+                  fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+                  fontSize: 26, fontWeight: 400, color: 'var(--foreground)',
+                  margin: 0, lineHeight: 1.15, letterSpacing: '-0.01em',
+                }}>
                   Changelog
                 </h2>
-                <p style={{ fontSize: 12, color: '#64748B', margin: '4px 0 0' }}>
-                  Historique des mises a jour TalentFlow
+                <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0' }}>
+                  Historique des mises à jour TalentFlow
                 </p>
               </div>
               <button
                 onClick={handleCloseChangelog}
+                title="Fermer (Esc)"
                 style={{
-                  width: 32, height: 32, borderRadius: 8,
-                  border: '1px solid #E2E8F0', background: 'white',
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--muted)',
                 }}
               >
-                <X size={16} color="#64748B" />
+                <X size={15} />
               </button>
             </div>
 
-            {/* Content */}
-            <div style={{ overflowY: 'auto', padding: '16px 24px 24px' }}>
+            {/* Content — Timeline V2 (cards par version, dot bordure surface dynamique) */}
+            <div style={{ overflowY: 'auto', padding: '18px 26px 24px' }}>
               {CHANGELOG.map((entry, idx) => {
                 const isCurrent = idx === 0
+                const isLast = idx === CHANGELOG.length - 1
                 return (
                   <div key={entry.version} style={{
                     position: 'relative',
-                    paddingLeft: 24,
-                    paddingBottom: idx < CHANGELOG.length - 1 ? 24 : 0,
-                    borderLeft: idx < CHANGELOG.length - 1 ? '2px solid #E2E8F0' : 'none',
-                    marginLeft: 6,
+                    paddingLeft: 26,
+                    paddingBottom: !isLast ? 22 : 0,
                   }}>
+                    {/* Timeline ligne verticale (entre les dots) */}
+                    {!isLast && (
+                      <div style={{
+                        position: 'absolute', left: 5, top: 14, bottom: 0,
+                        width: 1, background: 'var(--border)',
+                      }} />
+                    )}
                     {/* Timeline dot */}
                     <div style={{
-                      position: 'absolute',
-                      left: -6,
-                      top: 2,
-                      width: 12,
-                      height: 12,
-                      borderRadius: '50%',
-                      background: isCurrent ? '#F5A723' : '#CBD5E1',
-                      border: isCurrent ? '2px solid #FDE68A' : '2px solid white',
+                      position: 'absolute', left: 0, top: 4,
+                      width: 12, height: 12, borderRadius: '50%',
+                      background: isCurrent ? '#F5A623' : 'var(--muted)',
+                      border: '2px solid var(--surface, var(--card))',
+                      boxShadow: isCurrent ? '0 0 0 3px rgba(245,166,35,0.20)' : 'none',
                     }} />
 
-                    {/* Version header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <span style={{
-                        fontSize: 14, fontWeight: 800,
-                        color: isCurrent ? '#0F172A' : '#475569',
-                      }}>
-                        {entry.version}
-                      </span>
-                      {entry.label && (
+                    {/* Card version */}
+                    <div style={{
+                      background: isCurrent ? 'rgba(245,166,35,0.06)' : 'transparent',
+                      border: isCurrent ? '1px solid rgba(245,166,35,0.30)' : '1px solid var(--border)',
+                      borderRadius: 12,
+                      padding: '12px 14px',
+                    }}>
+                      {/* Header version : numéro + label + badge actuel + date */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
                         <span style={{
-                          fontSize: 11, fontWeight: 700,
-                          padding: '2px 8px', borderRadius: 12,
-                          background: isCurrent ? 'rgba(245,167,35,0.15)' : '#F1F5F9',
-                          color: isCurrent ? '#B45309' : '#64748B',
+                          fontFamily: 'var(--font-jetbrains-mono, ui-monospace), monospace',
+                          fontSize: 12, fontWeight: 600,
+                          color: isCurrent ? '#F5A623' : 'var(--muted)',
+                          letterSpacing: '0.02em',
                         }}>
-                          {entry.label}
+                          v{entry.version}
                         </span>
-                      )}
-                      {isCurrent && hasNewVersion && (
-                        <span style={{
-                          fontSize: 9, fontWeight: 800,
-                          padding: '2px 6px', borderRadius: 8,
-                          background: '#EF4444', color: 'white',
-                          textTransform: 'uppercase', letterSpacing: '0.05em',
-                          animation: 'pulse 2s infinite',
-                        }}>
-                          Nouveau
-                        </span>
-                      )}
-                      {isCurrent && !hasNewVersion && (
-                        <span style={{
-                          fontSize: 9, fontWeight: 800,
-                          padding: '2px 6px', borderRadius: 8,
-                          background: '#10B981', color: 'white',
-                          textTransform: 'uppercase', letterSpacing: '0.05em',
-                        }}>
-                          Actuel
-                        </span>
-                      )}
-                      <span style={{ fontSize: 11, color: '#94A3B8', marginLeft: 'auto' }}>
-                        {new Date(entry.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </span>
-                    </div>
-
-                    {/* Features list */}
-                    <ul style={{ margin: 0, paddingLeft: 16, listStyle: 'none' }}>
-                      {entry.features.map((f, fi) => (
-                        <li key={fi} style={{
-                          fontSize: 12, color: '#475569', lineHeight: 1.6,
-                          position: 'relative', paddingLeft: 4,
-                        }}>
+                        {entry.label && (
                           <span style={{
-                            position: 'absolute', left: -12, top: 6,
-                            width: 4, height: 4, borderRadius: '50%',
-                            background: isCurrent ? '#F5A723' : '#CBD5E1',
-                          }} />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
+                            fontSize: 12, fontWeight: 600,
+                            color: 'var(--foreground)',
+                            flex: 1, minWidth: 0,
+                          }}>
+                            {entry.label}
+                          </span>
+                        )}
+                        {isCurrent && hasNewVersion && (
+                          <span style={{
+                            fontSize: 9.5, fontWeight: 600,
+                            padding: '3px 8px', borderRadius: 99,
+                            background: 'rgba(239,68,68,0.12)', color: '#DC2626',
+                            border: '1px solid rgba(239,68,68,0.30)',
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            animation: 'pulse 2s infinite',
+                          }}>
+                            Nouveau
+                          </span>
+                        )}
+                        {isCurrent && !hasNewVersion && (
+                          <span style={{
+                            fontSize: 9.5, fontWeight: 600,
+                            padding: '3px 8px', borderRadius: 99,
+                            background: 'rgba(16,185,129,0.12)', color: '#10B981',
+                            border: '1px solid rgba(16,185,129,0.30)',
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                          }}>
+                            Actuel
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {new Date(entry.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+
+                      {/* Features list */}
+                      <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                        {entry.features.map((f, fi) => (
+                          <li key={fi} style={{
+                            fontSize: 12.5, color: 'var(--foreground)',
+                            lineHeight: 1.6,
+                            position: 'relative', paddingLeft: 14,
+                            marginBottom: fi < entry.features.length - 1 ? 4 : 0,
+                          }}>
+                            <span style={{
+                              position: 'absolute', left: 0, top: 8,
+                              width: 4, height: 4, borderRadius: '50%',
+                              background: isCurrent ? '#F5A623' : 'var(--muted)',
+                              opacity: 0.7,
+                            }} />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 )
               })}
@@ -363,22 +350,22 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              width: '100%', maxWidth: 440, background: 'white',
+              width: '100%', maxWidth: 440, background: 'var(--surface, var(--card))',
               borderRadius: 16, boxShadow: '0 20px 50px rgba(0,0,0,0.2)',
               overflow: 'hidden',
             }}
           >
             <div style={{
-              padding: '18px 22px', borderBottom: '1px solid #E2E8F0',
+              padding: '18px 22px', borderBottom: '1px solid var(--border)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Bug size={16} color="#DC2626" />
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>Signaler un bug</h3>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>Signaler un bug</h3>
               </div>
               <button onClick={() => setShowBugReport(false)} style={{
                 width: 28, height: 28, borderRadius: 6, border: '1px solid #E2E8F0',
-                background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'var(--surface, var(--card))', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <X size={14} color="#64748B" />
               </button>
@@ -410,7 +397,7 @@ export default function BetaBadge({ inline }: { inline?: boolean }) {
                   onClick={() => setShowBugReport(false)}
                   style={{
                     flex: 1, padding: '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                    border: '1px solid #E2E8F0', background: 'white', color: '#374151',
+                    border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--foreground)',
                     cursor: 'pointer', fontFamily: 'inherit',
                   }}
                 >

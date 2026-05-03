@@ -95,13 +95,26 @@ export default function DashboardPage() {
       const rappelsQuery = user?.id
         ? (supabase as any).from('pipeline_rappels').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('done', false)
         : Promise.resolve({ count: 0 })
-      const [candidats, clients, offres, places, aTraiter, rappels] = await Promise.all([
+
+      // v1.9.127 — Deltas 30 derniers jours pour les KPIs (design v2)
+      const since30 = new Date()
+      since30.setDate(since30.getDate() - 30)
+      since30.setHours(0, 0, 0, 0)
+      const isoSince30 = since30.toISOString()
+
+      const [candidats, clients, offres, places, aTraiter, rappels,
+             candidatsRecent, clientsRecent, offresRecent, placesRecent] = await Promise.all([
         supabase.from('candidats').select('id', { count: 'exact', head: true }),
         (supabase as any).from('clients').select('id', { count: 'exact', head: true }),
         supabase.from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active'),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any),
         supabase.from('candidats').select('id', { count: 'exact', head: true }).eq('import_status', 'a_traiter' as any),
         rappelsQuery,
+        // Deltas 30j (creates récents)
+        (supabase as any).from('candidats').select('id', { count: 'exact', head: true }).gte('created_at', isoSince30),
+        (supabase as any).from('clients').select('id', { count: 'exact', head: true }).gte('created_at', isoSince30),
+        (supabase as any).from('offres').select('id', { count: 'exact', head: true }).eq('statut', 'active').gte('created_at', isoSince30),
+        (supabase as any).from('candidats').select('id', { count: 'exact', head: true }).eq('statut_pipeline', 'place' as any).gte('updated_at', isoSince30),
       ])
       return {
         totalCandidats: candidats.count ?? 0,
@@ -110,6 +123,11 @@ export default function DashboardPage() {
         places:         places.count ?? 0,
         aTraiter:       aTraiter.count ?? 0,
         rappels:        rappels.count ?? 0,
+        // v1.9.127 — Deltas 30 derniers jours (variation)
+        deltaCandidats: candidatsRecent.count ?? 0,
+        deltaClients:   clientsRecent.count ?? 0,
+        deltaOffres:    offresRecent.count ?? 0,
+        deltaPlaces:    placesRecent.count ?? 0,
       }
     },
     staleTime: 30_000,
@@ -205,11 +223,11 @@ export default function DashboardPage() {
 
   const totalEtp = computeEtpSemaine(missionsRaw?.missions ?? [])
 
-  // v1.9.127 — KPIs au format design v2 (icône Lucide + tone pastille + delta)
+  // v1.9.127 — KPIs au format design v2 (icône Lucide + tone pastille + delta réel sur 30j)
   const kpisBase = [
-    { label: 'Candidats Actifs',  value: stats?.totalCandidats ?? '—', icon: Users,      tone: 'gold',   delta: null, href: '/candidats' },
-    { label: 'Clients Actifs',    value: stats?.totalClients   ?? '—', icon: Building2,  tone: 'blue',   delta: null, href: '/clients' },
-    { label: 'Commandes Ouvertes',value: stats?.offresActives  ?? '—', icon: Briefcase,  tone: 'green',  delta: null, href: '/offres' },
+    { label: 'Candidats Actifs',  value: stats?.totalCandidats ?? '—', icon: Users,      tone: 'gold',   delta: stats?.deltaCandidats ?? null, href: '/candidats' },
+    { label: 'Clients Actifs',    value: stats?.totalClients   ?? '—', icon: Building2,  tone: 'blue',   delta: stats?.deltaClients   ?? null, href: '/clients' },
+    { label: 'Commandes Ouvertes',value: stats?.offresActives  ?? '—', icon: Briefcase,  tone: 'green',  delta: stats?.deltaOffres    ?? null, href: '/offres' },
   ]
   const kpis = isJoao
     ? [...kpisBase, { label: `ETP Missions S${getISOWeek(new Date())}`, value: missionsRaw ? totalEtp.toFixed(2) : '—', icon: Activity, tone: 'purple', delta: null, href: '/missions' }]
@@ -228,22 +246,26 @@ export default function DashboardPage() {
   return (
     <div className="d-page">
 
-      {/* ── v1.9.127 — Welcome Hero V2 (gold gradient + welcome-stats) ── */}
+      {/* ── v1.9.127 — Welcome Hero V2 (gold gradient + welcome-stats + photo consultant) ── */}
       <motion.div className="welcome-v2" custom={0} variants={fadeUp} initial="hidden" animate="show">
-        <div className="welcome-v2-text">
-          <h2>
-            Bonjour <em>{prenom || greeting}</em>
-            {dateStr && <> <span className="date-label">— {dateStr}</span></>}
-          </h2>
-          <p>
-            {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }, phraseStyle || 'aleatoire') : '…'}
-          </p>
+        <div className="welcome-v2-text" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* v1.9.128 — Photo consultant + main animée 👋 */}
+          <WavingAvatar email={user?.email} size={64} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2>
+              Bonjour <em>{prenom || greeting}</em>
+              {dateStr && <> <span className="date-label">— {dateStr}</span></>}
+            </h2>
+            <p>
+              {user?.email ? getMotivationalPhrase(user.email, { aTraiter: stats?.aTraiter, rappels: stats?.rappels }, phraseStyle || 'aleatoire') : '…'}
+            </p>
+          </div>
         </div>
         <div className="welcome-stats-v2">
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
             { label: 'Rappels',   value: stats?.rappels   ?? 0, href: '/pipeline?rappels=1' },
-            { label: 'Alertes',   value: stats?.alertes   ?? 0, href: '/integrations' },
+            { label: 'Alertes',   value: (stats as any)?.alertes ?? 0, href: '/integrations' },
           ].map((b, i) => (
             <Link key={i} href={b.href} className="welcome-stat-v2" style={{ textDecoration: 'none' }}>
               <b>{b.value}</b>
@@ -292,13 +314,15 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* ── v1.9.127 — Imports de candidats (style v2 card-flush + tabs-pills) ── */}
+      {/* ── v1.9.127 — Imports de candidats + À traiter par consultant (grid 2 cols design v2) ── */}
       <motion.div
         custom={1}
         variants={fadeUp}
         initial="hidden"
         animate="show"
+        className="dashboard-row-v2"
       >
+        {/* Col gauche — Chart imports */}
         <div className="card-v2">
           <div className="card-v2-head">
             <div>
@@ -362,6 +386,9 @@ export default function DashboardPage() {
           )}
           </div>
         </div>
+
+        {/* Col droite — File d'attente "À traiter par consultant" (design v2) */}
+        <ATraiterQueueWidget />
       </motion.div>
 
       {/* ── Activité récente + Top villes (v1.9.52) ── */}
@@ -379,6 +406,153 @@ export default function DashboardPage() {
       {showPhraseQuestionnaire && (
         <PhraseStyleQuestionnaire onDone={(style) => setPhraseStyle(style)} />
       )}
+    </div>
+  )
+}
+
+/* ─── v1.9.127 — File d'attente À traiter (panel droite du chart imports, design v2) ─── */
+function ATraiterQueueWidget() {
+  const supabase = createClient()
+  const { getColorForMetier } = useMetierCategories()
+
+  const { data: queue } = useQuery({
+    queryKey: ['dashboard-a-traiter-queue'],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('candidats')
+        .select('id, prenom, nom, metier, pipeline_consultant, created_at')
+        .eq('import_status', 'a_traiter')
+        .order('created_at', { ascending: false })
+        .limit(60)
+      return (data || []) as Array<{ id: string; prenom: string; nom: string; metier: string | null; pipeline_consultant: string | null }>
+    },
+    staleTime: 30_000,
+  })
+
+  // Groupage par consultant : ceux assignés (João/Seb), puis "Non assigné" pour le reste.
+  // Si rien d'assigné, on présente tout sous "File d'attente" (pas de groupes).
+  const groups = (() => {
+    const byCons: Record<string, { metiers: string[]; count: number }> = {}
+    for (const c of queue ?? []) {
+      const cons = (c.pipeline_consultant || '').trim() || '—'
+      if (!byCons[cons]) byCons[cons] = { metiers: [], count: 0 }
+      byCons[cons].count += 1
+      const m = (c.metier || '').trim()
+      if (m && !byCons[cons].metiers.includes(m)) byCons[cons].metiers.push(m)
+    }
+    return Object.entries(byCons)
+      .filter(([cons]) => cons !== '—')
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 4)
+  })()
+
+  const fallbackMetiers = (() => {
+    const s: Record<string, number> = {}
+    for (const c of queue ?? []) {
+      const m = (c.metier || '').trim()
+      if (m) s[m] = (s[m] || 0) + 1
+    }
+    return Object.entries(s).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([m]) => m)
+  })()
+
+  const consultantInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+    return (parts[0]?.[0] || '?').toUpperCase()
+  }
+
+  return (
+    <div className="card-v2">
+      <div className="card-v2-head">
+        <div>
+          <h3>À traiter par consultant</h3>
+          <p>File d&apos;attente des nouveaux candidats</p>
+        </div>
+        <Link href="/candidats/a-traiter" style={{
+          color: 'var(--text-3, var(--muted-foreground))',
+          padding: 6, borderRadius: 8, lineHeight: 0,
+          transition: 'background 0.15s, color 0.15s',
+        }} title="Voir tout">
+          <ArrowRight size={16} />
+        </Link>
+      </div>
+      <div className="card-v2-body" style={{ padding: '8px 16px 16px' }}>
+        {!queue ? (
+          <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-foreground)', fontSize: 13 }}>
+            Chargement…
+          </div>
+        ) : queue.length === 0 ? (
+          <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted-foreground)', fontSize: 13 }}>
+            Aucun candidat à traiter 🎉
+          </div>
+        ) : groups.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {groups.map(([consultant, info]) => (
+              <div key={consultant} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'var(--primary-soft, rgba(234,179,8,0.18))',
+                    color: 'var(--accent-foreground, #8B5A00)',
+                    fontSize: 10.5, fontWeight: 800, flexShrink: 0,
+                  }}>{consultantInitials(consultant)}</span>
+                  <b style={{ fontSize: 13, fontWeight: 700, color: 'var(--text, var(--foreground))' }}>{consultant}</b>
+                  <span style={{ fontSize: 11, color: 'var(--text-3, var(--muted-foreground))', marginLeft: 'auto' }}>
+                    {info.count}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 38 }}>
+                  {info.metiers.slice(0, 5).map(m => {
+                    const hex = getColorForMetier(m) || '#94A3B8'
+                    return (
+                      <span key={m} style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: '2px 9px', borderRadius: 999,
+                        background: `${hex}1A`,
+                        color: hex,
+                        border: `1px solid ${hex}33`,
+                      }}>{m}</span>
+                    )
+                  })}
+                  {info.metiers.length > 5 && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 600,
+                      padding: '2px 9px', borderRadius: 999,
+                      background: 'var(--surface-2, var(--secondary))',
+                      color: 'var(--text-2, var(--muted-foreground))',
+                      border: '1px solid var(--border)',
+                    }}>+{info.metiers.length - 5}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-3, var(--muted-foreground))', fontWeight: 500 }}>
+              {queue.length} candidat{queue.length > 1 ? 's' : ''} non assigné{queue.length > 1 ? 's' : ''} · top métiers
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {fallbackMetiers.map(m => {
+                const hex = getColorForMetier(m) || '#94A3B8'
+                return (
+                  <span key={m} style={{
+                    fontSize: 11.5, fontWeight: 600,
+                    padding: '3px 10px', borderRadius: 999,
+                    background: `${hex}1A`,
+                    color: hex,
+                    border: `1px solid ${hex}33`,
+                  }}>{m}</span>
+                )
+              })}
+              {fallbackMetiers.length === 0 && (
+                <span style={{ fontSize: 12, color: 'var(--text-3, var(--muted-foreground))' }}>Pas de métier renseigné</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -571,17 +745,20 @@ interface SecStats {
 // ─── Avatar activité (avec fallback initiales si photo cassée) ───
 function ActRowAvatar({ photoUrl, name }: { photoUrl: string | null; name: string }) {
   const [failed, setFailed] = useState(false)
-  const showPhoto = !!photoUrl && !failed
+  // v1.9.127 — 'checked' = marqueur "tenté + échoué" en DB, à traiter comme pas de photo.
+  // Avatars carrés (V2) avec initiales sur fond brand quand pas de photo.
+  const hasPhoto = !!photoUrl && photoUrl !== 'checked' && !failed
   return (
     <div style={{
-      width: 34, height: 34, borderRadius: '50%',
-      background: showPhoto ? 'transparent' : 'var(--primary)',
-      color: 'var(--primary-foreground)',
-      fontSize: 11, fontWeight: 800,
+      width: 34, height: 34, borderRadius: 8,
+      background: hasPhoto ? 'transparent' : 'var(--primary)',
+      color: '#1C1A14',
+      fontSize: 11, fontWeight: 700,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden', flexShrink: 0,
+      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
     }}>
-      {showPhoto
+      {hasPhoto
         ? <Image src={photoUrl!} alt="" width={34} height={34} unoptimized onError={() => setFailed(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         : actInitials(name)
       }

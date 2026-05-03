@@ -874,3 +874,230 @@
   .l-ms-n { font-size: 18px; }
   .l-ms-l { font-size: 9px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.135 — LANDING V2 CRÈME (touches design v2 sur fond crème conservé)
+   Surcharge légère : Instrument Serif sur titres, glows jaune doux,
+   raffinements design (border 1px, shadow douce, espacement V2).
+   ════════════════════════════════════════════════════════════════════════ */
+.landing-v2 {
+  font-family: var(--font-jakarta), 'DM Sans', system-ui, sans-serif;
+}
+
+/* Décor éclair jaune background (subtil sur crème) */
+.landing-v2 .landing-v2-glow-tl {
+  position: absolute; top: -10%; right: -10%;
+  width: 700px; height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #EAB308 0%, transparent 60%);
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: 0;
+}
+.landing-v2 .landing-v2-glow-br {
+  position: absolute; bottom: -20%; left: -10%;
+  width: 800px; height: 800px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #F5A623 0%, transparent 65%);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+.landing-v2 .landing-v2-bolt {
+  position: absolute; top: 22%; right: 4%;
+  width: 320px; height: 380px;
+  pointer-events: none;
+  z-index: 0;
+  transform: rotate(8deg);
+  opacity: 0.7;
+}
+.landing-v2 .landing-v2-bolt svg { width: 100%; height: 100%; }
+
+/* Titres en Instrument Serif (touche V2) */
+.landing-v2 .l-h1 {
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.015em !important;
+}
+.landing-v2 .l-h2 {
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em !important;
+}
+.landing-v2 .l-beta-title {
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif) !important;
+  font-weight: 400 !important;
+}
+/* Italique brand sur le squiggle */
+.landing-v2 .l-h1 .l-squiggle {
+  font-style: italic !important;
+  color: #B45309 !important;
+}
+
+/* Cards features V2 — border 1px subtle au lieu de neo-brutaliste épais */
+.landing-v2 .l-feat-card {
+  border: 1px solid rgba(28, 26, 20, 0.08) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(28, 26, 20, 0.04) !important;
+  transition: border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+.landing-v2 .l-feat-card:hover {
+  border-color: rgba(234, 179, 8, 0.40) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -10px rgba(234, 179, 8, 0.20) !important;
+}
+
+/* Mockup dashboard — shadow + border affinés */
+.landing-v2 .l-mockup-wrap {
+  border: 1px solid rgba(28, 26, 20, 0.10) !important;
+  box-shadow: 0 30px 80px -20px rgba(28, 26, 20, 0.18), 0 0 0 1px rgba(234, 179, 8, 0.04) inset !important;
+}
+
+/* Card beta — glassmorphism crème */
+.landing-v2 .l-beta-card {
+  border: 1px solid rgba(28, 26, 20, 0.10) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 30px 80px -20px rgba(28, 26, 20, 0.15) !important;
+}
+.landing-v2 .l-beta-title {
+  color: #1C1A14 !important;
+}
+.landing-v2 .l-beta-sub {
+  color: #5C5645 !important;
+}
+/* Neutralise le pseudo-élément ::before de la card beta (gradient sombre original) */
+.landing-v2 .l-beta-card::before { display: none !important; }
+
+/* Boutons primaires V2 — radius 10, plus de neo-brutaliste (border 2px noir + shadow décalée) */
+.landing-v2 .l-btn-main,
+.landing-v2 .l-beta-btn,
+.landing-v2 .l-nav-btn {
+  background: #EAB308 !important;
+  color: #1C1A14 !important;
+  border: 1px solid #EAB308 !important;
+  border-radius: 10px !important;
+  font-weight: 700;
+  box-shadow: 0 8px 24px -8px rgba(234, 179, 8, 0.45) !important;
+  transform: none !important;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.landing-v2 .l-btn-main:hover,
+.landing-v2 .l-beta-btn:hover,
+.landing-v2 .l-nav-btn:hover {
+  background: #F5A623 !important;
+  border-color: #F5A623 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 12px 32px -8px rgba(234, 179, 8, 0.55) !important;
+}
+
+/* Bouton ghost V2 — pareil, fini border 2px noir + shadow décalée */
+.landing-v2 .l-nav-btn-ghost {
+  background: transparent !important;
+  color: #1C1A14 !important;
+  border: 1px solid rgba(28, 26, 20, 0.15) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.landing-v2 .l-nav-btn-ghost:hover {
+  background: rgba(28, 26, 20, 0.04) !important;
+  border-color: rgba(28, 26, 20, 0.30) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Eyebrow + tag + badges — palette indigo→jaune brand harmonisée */
+.landing-v2 .l-eyebrow {
+  background: rgba(234, 179, 8, 0.10) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(234, 179, 8, 0.30) !important;
+}
+.landing-v2 .l-tag,
+.landing-v2 .l-beta-badge {
+  background: rgba(234, 179, 8, 0.10) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(234, 179, 8, 0.30) !important;
+}
+.landing-v2 .l-footer-beta {
+  background: rgba(234, 179, 8, 0.10) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(234, 179, 8, 0.30) !important;
+}
+
+/* Logo navbar — shadow brand au lieu de neo-brutalist */
+.landing-v2 .l-logo span:first-child {
+  background: #EAB308 !important;
+  border: 1px solid #EAB308 !important;
+  box-shadow: 0 4px 14px -3px rgba(234, 179, 8, .55) !important;
+}
+
+/* Navbar — barre crème glassmorphism */
+.landing-v2 .l-nav {
+  background: rgba(255, 253, 245, 0.80) !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(28, 26, 20, 0.06) !important;
+}
+.landing-v2 .l-nav-btn-ghost {
+  background: transparent !important;
+  border: 1px solid rgba(28, 26, 20, 0.12) !important;
+  color: #1C1A14 !important;
+  font-weight: 600;
+}
+.landing-v2 .l-nav-btn-ghost:hover {
+  background: rgba(28, 26, 20, 0.04) !important;
+  border-color: rgba(28, 26, 20, 0.20) !important;
+}
+
+/* Strip marquee — fond foncé conservé pour contraste, texte clair lisible */
+.landing-v2 .l-strip {
+  background: #1C1A14 !important;
+  border-radius: 14px;
+  margin: 60px 24px !important;
+}
+.landing-v2 .l-strip-item { color: rgba(255, 255, 255, 0.65) !important; }
+.landing-v2 .l-strip-item b { color: #EAB308 !important; }
+.landing-v2 .l-strip-sep { color: rgba(234, 179, 8, 0.5) !important; }
+
+/* Footer — séparation propre */
+.landing-v2 .l-footer {
+  border-top: 1px solid rgba(28, 26, 20, 0.06) !important;
+}
+
+/* ── Pages légales V2 ── */
+.landing-v2 .l-legal h1 {
+  font-family: var(--font-instrument-serif, 'Instrument Serif', Georgia, serif) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.015em !important;
+  color: #1C1A14 !important;
+}
+.landing-v2 .l-legal-card {
+  border: 1px solid rgba(28, 26, 20, 0.08) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(28, 26, 20, 0.04) !important;
+  border-radius: 14px !important;
+}
+.landing-v2 .l-legal-card h2 {
+  color: #1C1A14 !important;
+  font-weight: 700;
+}
+.landing-v2 .l-legal-badge {
+  background: rgba(234, 179, 8, 0.10) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(234, 179, 8, 0.30) !important;
+}
+.landing-v2 .l-legal-back {
+  color: #B45309 !important;
+}
+.landing-v2 .l-legal-notice {
+  background: rgba(234, 179, 8, 0.08) !important;
+  border: 1px solid rgba(234, 179, 8, 0.30) !important;
+  color: #5C5645 !important;
+}
+.landing-v2 .l-legal-date {
+  color: #888 !important;
+}

@@ -36,7 +36,7 @@ function ScoreBadge({ score }: { score: number }) {
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: 40, height: 40, borderRadius: '50%',
       background: c.bg, border: `2.5px solid ${c.border}`,
-      fontSize: 14, fontWeight: 900, color: c.text, flexShrink: 0,
+      fontSize: 14, fontWeight: 700, color: c.text, flexShrink: 0,
     }}>
       {score}
     </span>
@@ -345,47 +345,91 @@ export default function MatchingHistoriquePage() {
   )
 
   return (
-    <div className="d-page" style={{ maxWidth: 860, paddingBottom: selectedIds.size > 0 ? 100 : 0 }}>
+    <div className="d-page" style={{ paddingBottom: selectedIds.size > 0 ? 100 : 0, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Link
-            href="/matching"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 13, fontWeight: 700, color: 'var(--foreground)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-          >
-            <ArrowLeft size={14} />Retour
-          </Link>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
-              <History size={20} color="var(--primary)" />
-              Historique des recherches
-            </h1>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0 0' }}>
-              {history.length > 0 ? `${history.length} analyse${history.length > 1 ? 's' : ''} sauvegardée${history.length > 1 ? 's' : ''}` : 'Aucune analyse sauvegardée'}
-            </p>
-          </div>
+      {/* Bouton retour V2 */}
+      <div style={{ marginBottom: 16 }}>
+        <Link
+          href="/matching"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 32, padding: '0 12px', borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--surface, var(--card))',
+            color: 'var(--muted)',
+            fontSize: 13, fontWeight: 500,
+            textDecoration: 'none',
+            fontFamily: 'inherit',
+          }}
+        >
+          <ArrowLeft size={14} /> Retour au matching
+        </Link>
+      </div>
+
+      {/* Header V2 */}
+      <div className="d-page-header" style={{ marginBottom: 24 }}>
+        <div>
+          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <History size={22} color="var(--primary)" />
+            Historique des recherches
+          </h1>
+          <p className="d-page-sub">
+            {history.length > 0 ? `${history.length} analyse${history.length > 1 ? 's' : ''} sauvegardée${history.length > 1 ? 's' : ''}` : 'Aucune analyse sauvegardée'}
+          </p>
         </div>
         {history.length > 0 && (
           <button
             onClick={clearAll}
-            style={{ fontSize: 13, fontWeight: 600, color: 'var(--destructive)', background: 'transparent', border: '1.5px solid #FECACA', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 34, padding: '0 14px', borderRadius: 10,
+              border: '1px solid #FECACA', background: 'var(--surface, var(--card))',
+              color: 'var(--destructive)', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
           >
-            <Trash2 size={14} />Vider l&apos;historique
+            <Trash2 size={14} /> Vider l&apos;historique
           </button>
         )}
       </div>
 
-      {/* Empty state */}
+      {/* Empty state V2 */}
       {history.length === 0 && (
-        <div className="neo-empty" style={{ padding: '60px 24px', border: '2px dashed #E8E0C8' }}>
-          <div className="neo-empty-icon" style={{ fontSize: 40 }}>📋</div>
-          <div className="neo-empty-title">Aucun historique</div>
-          <div className="neo-empty-sub">
+        <div style={{
+          background: 'var(--surface, var(--card))',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          padding: '60px 24px',
+          textAlign: 'center',
+        }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: 'rgba(245,166,35,0.12)', color: '#F5A623',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 14,
+          }}>
+            <History size={28} />
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+            fontSize: 22, fontWeight: 400, color: 'var(--foreground)',
+            marginBottom: 6,
+          }}>
+            Aucun historique
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 18 }}>
             Les analyses terminées ou arrêtées apparaîtront ici automatiquement
           </div>
-          <Link href="/matching" style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: 'var(--foreground)', color: 'white', borderRadius: 8, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
-            <Sparkles size={16} />Lancer une analyse
+          <Link href="/matching" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 38, padding: '0 18px', borderRadius: 10,
+            background: 'var(--primary)', color: '#1C1A14',
+            border: '1px solid var(--primary)',
+            textDecoration: 'none', fontSize: 13, fontWeight: 600,
+            fontFamily: 'inherit',
+            boxShadow: '0 4px 12px -4px rgba(234,179,8,.35)',
+          }}>
+            <Sparkles size={14} /> Lancer une analyse
           </Link>
         </div>
       )}

@@ -81,8 +81,8 @@ function formatCHF(n: number): string {
 // ─── CSS variable helpers ─────────────────────────────────────────────────────
 
 const S = {
-  card: { background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 10 } as React.CSSProperties,
-  input: { width: '100%', padding: '9px 12px', borderRadius: 8, boxSizing: 'border-box' as const, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', fontSize: 14, outline: 'none' } as React.CSSProperties,
+  card: { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 } as React.CSSProperties,
+  input: { width: '100%', padding: '9px 12px', borderRadius: 8, boxSizing: 'border-box' as const, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--foreground)', fontSize: 14, outline: 'none' } as React.CSSProperties,
   label: { display: 'block' as const, fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 5, textTransform: 'uppercase' as const, letterSpacing: '0.05em' } as React.CSSProperties,
 }
 
@@ -213,7 +213,7 @@ function Autocomplete({ value, onChange, placeholder, searchFn }: {
         }
       </div>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 999, background: 'var(--surface)', border: '1.5px solid var(--border)', borderRadius: 8, overflow: 'hidden', boxShadow: 'var(--card-shadow-hover)', maxHeight: 200, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 999, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', boxShadow: 'var(--card-shadow-hover)', maxHeight: 200, overflowY: 'auto' }}>
           {results.map(r => (
             <button key={r.id} onMouseDown={() => select(r)} style={{ width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', color: 'var(--foreground)', fontSize: 13 }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
@@ -295,8 +295,21 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 28, width: '100%', maxWidth: 900, maxHeight: '92vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--foreground)' }}>{mission ? 'Modifier' : 'Nouvelle mission'}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+            fontSize: 24, fontWeight: 400, color: 'var(--foreground)',
+            letterSpacing: '-0.01em', lineHeight: 1.2,
+          }}>{mission ? 'Modifier la mission' : 'Nouvelle mission'}</h2>
+          <button
+            onClick={onClose}
+            style={{
+              width: 30, height: 30, borderRadius: 8,
+              border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+              color: 'var(--muted)', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          ><X size={15} /></button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -499,8 +512,8 @@ function MissionModal({ mission, onClose, onSaved }: { mission?: Mission | null;
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 14, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 7 }}>
             {saving && <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />}
             {mission ? 'Enregistrer' : 'Créer'}
           </button>
@@ -558,13 +571,13 @@ function DeleteModal({ mission, onConfirm, onClose }: { mission: Mission; onConf
       <div style={{ ...S.card, borderColor: 'rgba(239,68,68,0.3)', padding: 24, width: '100%', maxWidth: 380 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: 'var(--destructive)' }}>
           <AlertTriangle size={18} />
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>Supprimer</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Supprimer</h3>
         </div>
         <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
           Supprimer la mission de <strong style={{ color: 'var(--foreground)' }}>{mission.candidat_nom || 'ce candidat'}</strong> chez <strong style={{ color: 'var(--foreground)' }}>{mission.client_nom || 'ce client'}</strong> ?
         </p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
           <button onClick={onConfirm} style={{ padding: '8px 16px', borderRadius: 8, background: 'var(--destructive)', border: 'none', color: 'var(--destructive-foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Supprimer</button>
         </div>
       </div>
@@ -591,7 +604,7 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
       onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
     >
       {/* Avatar */}
-      <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 10, overflow: 'hidden', background: 'var(--secondary)', border: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--muted)', position: 'relative' }}>
+      <div style={{ flexShrink: 0, width: 48, height: 48, borderRadius: 10, overflow: 'hidden', background: 'var(--secondary)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: 'var(--muted)', position: 'relative' }}>
         <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initialesMission(mission.candidat_nom)}</span>
         {mission.photo_url && mission.photo_url !== 'checked' && (
           <img src={mission.photo_url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
@@ -662,17 +675,17 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
           const diffDays = Math.round((finMs - todayMs) / 86400000)
           if (diffDays < 0 || diffDays > 5) return null
           const label = diffDays === 0 ? 'Fin aujourd\'hui' : `Fin dans ${diffDays}j`
-          return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10, fontWeight: 800, color: 'var(--destructive)', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>{label}</span>
+          return <span style={{ display: 'inline-flex', alignSelf: 'flex-start', fontSize: 10, fontWeight: 700, color: 'var(--destructive)', background: 'rgba(239,68,68,0.1)', padding: '2px 7px', borderRadius: 99, whiteSpace: 'nowrap' }}>{label}</span>
         })()}
       </div>
 
       {/* Marge + LPP */}
       <div style={{ flex: '0 0 90px', textAlign: 'right' }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--success)' }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)' }}>
           {formatCHF(Number(mission.marge_brute))}
         </div>
         {lppActive && (
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#818CF8', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: 99 }}>LPP</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#818CF8', background: 'rgba(99,102,241,0.1)', padding: '1px 5px', borderRadius: 99 }}>LPP</span>
         )}
       </div>
 
@@ -681,13 +694,13 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         {mission._expired && (
           <button
             onClick={() => onMakePermanent(mission)}
-            style={{ padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', border: '1.5px solid rgba(99,102,241,0.4)', color: '#818CF8', cursor: 'pointer', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center' }}
+            style={{ padding: '5px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', border: '1.5px solid rgba(99,102,241,0.4)', color: '#818CF8', cursor: 'pointer', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center' }}
             title="Rendre indéterminée — supprime la date de fin"
           >
             ∞
           </button>
         )}
-        <button onClick={() => onEdit(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier"><Pencil size={12} /></button>
+        <button onClick={() => onEdit(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Modifier"><Pencil size={12} /></button>
         <button onClick={() => onDelete(mission)} style={{ padding: '5px 7px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1.5px solid rgba(239,68,68,0.2)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }} title="Supprimer"><Trash2 size={12} /></button>
       </div>
     </div>
@@ -1001,36 +1014,36 @@ export default function MissionsPage() {
         </button>
       </div>
 
-      {/* KPIs — 3 cartes */}
+      {/* KPIs — 3 cartes V2 */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         {/* En Mission count */}
-        <div style={{ ...S.card, padding: '14px 18px', flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>En Mission</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--primary)', lineHeight: 1 }}>{stats.total_en_cours}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+        <div style={{ background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>En Mission</div>
+          <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 30, fontWeight: 400, color: 'var(--foreground)', lineHeight: 1 }}>{stats.total_en_cours}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
             {stats.total_fin_mission > 0
-              ? <span style={{ color: 'var(--destructive)', fontWeight: 700 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
+              ? <span style={{ color: 'var(--destructive)', fontWeight: 600 }}>⚠ {stats.total_fin_mission} fin{stats.total_fin_mission > 1 ? 's' : ''} de mission</span>
               : <span>Toutes actives</span>}
           </div>
         </div>
 
-        {/* Total ETP (somme des coefficients actifs) */}
-        <div style={{ ...S.card, padding: '14px 18px', flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total ETP actif</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#38BDF8', lineHeight: 1 }}>{Number(stats.total_etp).toFixed(2)}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>Hors missions terminées</div>
+        {/* Total ETP */}
+        <div style={{ background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total ETP actif</div>
+          <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 30, fontWeight: 400, color: '#38BDF8', lineHeight: 1 }}>{Number(stats.total_etp).toFixed(2)}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>Hors missions terminées</div>
         </div>
 
         {/* Marge moyenne */}
-        <div style={{ ...S.card, padding: '14px 18px', flex: 1 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Marge moy. / candidat</div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--success)', lineHeight: 1 }}>{stats._marge_moyenne_count > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{stats._marge_moyenne_count > 0 ? `Sur ${stats._marge_moyenne_count} mission${stats._marge_moyenne_count !== 1 ? 's' : ''} (dès avril)` : 'Aucune mission depuis avril'}</div>
+        <div style={{ background: 'var(--surface, var(--card))', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', flex: 1, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Marge moy. / candidat</div>
+          <div style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 30, fontWeight: 400, color: '#10B981', lineHeight: 1 }}>{stats._marge_moyenne_count > 0 ? formatCHF(stats.marge_moyenne) : '—'}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>{stats._marge_moyenne_count > 0 ? `Sur ${stats._marge_moyenne_count} mission${stats._marge_moyenne_count !== 1 ? 's' : ''} (dès avril)` : 'Aucune mission depuis avril'}</div>
         </div>
       </div>
 
-      {/* Tab bar principale */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1.5px solid var(--border)', paddingBottom: 0 }}>
+      {/* Tab bar principale V2 */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 0, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
         {([
           { key: 'missions', label: 'Missions' },
           { key: 'bilan',    label: 'Bilan' },
@@ -1038,15 +1051,16 @@ export default function MissionsPage() {
           <button key={tab.key} onClick={() => setActiveMainTab(tab.key)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', background: 'none', border: 'none',
-              borderBottom: `2.5px solid ${activeMainTab === tab.key ? 'var(--primary)' : 'transparent'}`,
-              color: activeMainTab === tab.key ? 'var(--primary)' : 'var(--muted)',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: -1.5, transition: 'all 0.15s',
+              padding: '10px 16px', background: 'none', border: 'none',
+              borderBottom: `2px solid ${activeMainTab === tab.key ? 'var(--primary)' : 'transparent'}`,
+              color: activeMainTab === tab.key ? 'var(--foreground)' : 'var(--muted)',
+              fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: -1, transition: 'all 0.15s',
+              fontFamily: 'inherit',
             }}
           >
             {tab.label}
             {tab.count != null && tab.count > 0 && (
-              <span style={{ minWidth: 18, height: 18, borderRadius: 99, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontSize: 10, fontWeight: 800 }}>
+              <span style={{ minWidth: 18, height: 18, borderRadius: 99, padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--destructive)', color: 'var(--destructive-foreground)', fontSize: 10, fontWeight: 700 }}>
                 {tab.count}
               </span>
             )}
@@ -1060,8 +1074,8 @@ export default function MissionsPage() {
         {/* Header bilan */}
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 8 }}>
           {/* Nav mois */}
-          <button onClick={goToPrevMonth} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>‹</button>
-          <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: isCurrentMonth ? 'var(--border)' : 'var(--muted)', cursor: isCurrentMonth ? 'default' : 'pointer', fontSize: 14, lineHeight: 1 }}>›</button>
+          <button onClick={goToPrevMonth} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--secondary)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>‹</button>
+          <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--secondary)', border: '1px solid var(--border)', color: isCurrentMonth ? 'var(--border)' : 'var(--muted)', cursor: isCurrentMonth ? 'default' : 'pointer', fontSize: 14, lineHeight: 1 }}>›</button>
           {!isCurrentMonth && (
             <button onClick={() => { setBilanMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setBilanWeekIdx(0); setHeuresOverride({}) }}
               style={{ padding: '3px 8px', borderRadius: 6, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', color: 'var(--primary)', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>
@@ -1071,7 +1085,7 @@ export default function MissionsPage() {
           {/* Toggle expand */}
           <button onClick={() => setBilanOpen(o => !o)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground)', padding: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 14, fontWeight: 800 }}>Bilan — {moisLabel}</span>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>Bilan — {moisLabel}</span>
             <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
               {bilanMode === 'month' ? `${bilanRows.length} mission${bilanRows.length !== 1 ? 's' : ''} ce mois` : (selectedWeek?.label || '')}
             </span>
@@ -1079,11 +1093,11 @@ export default function MissionsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ETP actifs</div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: '#38BDF8' }}>{etpActifs.toFixed(2)}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#38BDF8' }}>{etpActifs.toFixed(2)}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Marge brute est.</div>
-              <div style={{ fontSize: 15, fontWeight: 900, color: totalMargeBrute > 0 ? '#22C55E' : 'var(--muted)' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: totalMargeBrute > 0 ? '#22C55E' : 'var(--muted)' }}>
                 {totalMargeBrute > 0 ? formatCHF(totalMargeBrute) : '—'}
               </div>
             </div>
@@ -1129,7 +1143,7 @@ export default function MissionsPage() {
                 {weekSummaries.map((w, i) => (
                   <div key={i} style={{ ...S.card, padding: '8px 14px', minWidth: 130, flex: 1 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', marginBottom: 3 }}>{w.label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--foreground)' }}>{w.count} candidat{w.count !== 1 ? 's' : ''}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>{w.count} candidat{w.count !== 1 ? 's' : ''}</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Coeff moy. {w.count ? w.avgCoeff.toFixed(2) : '—'} · Total {w.totalCoeff.toFixed(2)}</div>
                   </div>
                 ))}
@@ -1191,10 +1205,10 @@ export default function MissionsPage() {
                         </td>
                         <td style={{ padding: '7px 12px', textAlign: 'right', color: tauxHoraire > 0 ? 'var(--foreground)' : '#F5A623', fontWeight: tauxHoraire > 0 ? 600 : 700 }}>
                           {tauxHoraire > 0
-                            ? <>{formatCHF(tauxHoraire)}{lppUsed && <span style={{ fontSize: 9, fontWeight: 800, color: '#818CF8', marginLeft: 4 }}>LPP</span>}</>
+                            ? <>{formatCHF(tauxHoraire)}{lppUsed && <span style={{ fontSize: 9, fontWeight: 700, color: '#818CF8', marginLeft: 4 }}>LPP</span>}</>
                             : <span title="Aucune marge renseignée">À compléter</span>}
                         </td>
-                        <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 800, color: effectiveMarge > 0 ? '#22C55E' : 'var(--muted)' }}>
+                        <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700, color: effectiveMarge > 0 ? '#22C55E' : 'var(--muted)' }}>
                           {effectiveMarge > 0 ? formatCHF(effectiveMarge) : '—'}
                         </td>
                       </tr>
@@ -1225,7 +1239,7 @@ export default function MissionsPage() {
             <button key={tab.key} onClick={() => setFiltreStatut(tab.key)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: `1.5px solid ${filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)'}`, background: filtreStatut === tab.key ? (tab.color ? `${tab.color}18` : 'var(--primary-soft)') : 'var(--secondary)', color: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}>
               {tab.label}
-              <span style={{ fontSize: 10, fontWeight: 800, background: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)', color: filtreStatut === tab.key ? 'var(--primary-foreground)' : 'var(--muted)', borderRadius: 99, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{tab.count}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, background: filtreStatut === tab.key ? (tab.color || 'var(--primary)') : 'var(--border)', color: filtreStatut === tab.key ? 'var(--primary-foreground)' : 'var(--muted)', borderRadius: 99, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>{tab.count}</span>
             </button>
           ))}
         </div>

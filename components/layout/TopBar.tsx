@@ -1,6 +1,6 @@
 'use client'
 import Image from 'next/image'
-import { Search, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload } from 'lucide-react'
+import { Search, Sparkles, Loader2, X, Briefcase, MapPin, ChevronDown, User, LogOut, Settings, Menu, Sun, Moon, PanelLeftClose, Upload, HelpCircle } from 'lucide-react'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useUpload } from '@/contexts/UploadContext'
 import { usePathname, useRouter } from 'next/navigation'
@@ -21,6 +21,31 @@ const PAGE_TITLES: Record<string, string> = {
   '/matching':    'Matching IA',
   '/integrations':'Intégrations',
   '/parametres':  'Paramètres',
+}
+
+// v1.9.127 — Design V2 breadcrumb : { section parente, page courante }
+// Affiché à gauche dans la TopBar, après le toggle sidebar.
+const BREADCRUMB_MAP: Record<string, { parent: string; page: string }> = {
+  '/dashboard':                { parent: 'Accueil',       page: 'Tableau de bord' },
+  '/candidats':                { parent: 'Base',          page: 'Candidats' },
+  '/candidats/a-traiter':      { parent: 'Base',          page: 'À traiter' },
+  '/clients':                  { parent: 'Comptes',       page: 'Clients' },
+  '/offres':                   { parent: 'Comptes',       page: 'Commandes' },
+  '/missions':                 { parent: 'Comptes',       page: 'Missions' },
+  '/pipeline':                 { parent: 'Travail',       page: 'Pipeline' },
+  '/matching':                 { parent: 'Travail',       page: 'Matching IA' },
+  '/entretiens':               { parent: 'Travail',       page: 'Entretiens' },
+  '/messages':                 { parent: 'Travail',       page: 'Envois' },
+  '/activites':                { parent: 'Travail',       page: 'Activité' },
+  '/secretariat':              { parent: 'Configuration', page: 'Secrétariat' },
+  '/integrations':             { parent: 'Configuration', page: 'Intégrations' },
+  '/outils':                   { parent: 'Configuration', page: 'Outils' },
+  '/parametres':               { parent: 'Configuration', page: 'Paramètres' },
+  '/parametres/profil':        { parent: 'Configuration', page: 'Mon profil' },
+  '/parametres/admin':         { parent: 'Configuration', page: 'Administration' },
+  '/parametres/securite':      { parent: 'Configuration', page: 'Sécurité' },
+  '/parametres/doublons':      { parent: 'Configuration', page: 'Doublons' },
+  '/parametres/import-masse':  { parent: 'Configuration', page: 'Import en masse' },
 }
 
 const ETAPE_COLORS: Record<PipelineEtape, string> = {
@@ -70,6 +95,12 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
     .sort((a, b) => b[0].length - a[0].length)
     .find(([key]) => pathname === key || pathname.startsWith(key + '/'))
     ?.[1] ?? 'TalentFlow'
+
+  // v1.9.127 — match longest prefix pour breadcrumb (/candidats/a-traiter > /candidats)
+  const breadcrumb = Object.entries(BREADCRUMB_MAP)
+    .sort((a, b) => b[0].length - a[0].length)
+    .find(([key]) => pathname === key || pathname.startsWith(key + '/'))
+    ?.[1]
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -191,11 +222,13 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
         </button>
       )}
 
+      {/* v1.9.128 — Breadcrumb supprimé (espace donné à la search bar à gauche) */}
+
       {isOnCandidats ? (
         <div style={{ flex: 1 }} />
       ) : (
-      /* ── Barre de recherche ── */
-      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginRight: 20 }}>
+      /* ── Barre de recherche (positionnée à gauche, juste après le toggle sidebar) ── */
+      <div ref={wrapRef} style={{ position: 'relative', flex: 1, maxWidth: 520, marginLeft: 8, marginRight: 20 }}>
         <motion.div
           style={{
             display: 'flex', alignItems: 'center',
@@ -250,6 +283,28 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
               >
                 <X size={13} />
               </motion.button>
+            )}
+            {!query && !aiSearching && (
+              <motion.span
+                key="kbd"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  marginRight: 8,
+                  padding: '2px 6px',
+                  fontFamily: 'var(--font-jetbrains-mono, ui-monospace, monospace)',
+                  fontSize: 10.5, fontWeight: 600,
+                  color: 'var(--text-3, var(--muted-foreground))',
+                  background: 'var(--surface-2, var(--secondary))',
+                  border: '1px solid var(--border)',
+                  borderRadius: 4, lineHeight: 1.2,
+                  letterSpacing: '0.02em',
+                  pointerEvents: 'none',
+                }}
+              >
+                ⌘K
+              </motion.span>
             )}
           </AnimatePresence>
         </motion.div>
@@ -333,22 +388,24 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
 
       {/* ── Actions droite ── */}
       <div className="d-topbar-actions">
-        {/* Bouton Importer — visible partout (global) */}
+        {/* v1.9.127 — Importer CV : bouton compact ghost (design v2). L'icône reste partout, le label passe en tooltip. */}
         <motion.button
           onClick={openUpload}
-          title="Importer des candidats"
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+          title="Importer un CV"
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          className="d-topbar-import-btn"
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 14px', borderRadius: 10,
-            background: 'var(--primary)', color: 'var(--primary-foreground)',
-            border: 'none', cursor: 'pointer',
-            fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+            padding: '7px 12px', borderRadius: 10,
+            background: 'transparent', color: 'var(--text, var(--foreground))',
+            border: '1px solid var(--border)', cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 600, fontFamily: 'inherit',
+            transition: 'background 0.15s, border-color 0.15s',
           }}
         >
           <Upload size={14} />
-          <span className="d-topbar-import-label">Importer candidat</span>
+          <span className="d-topbar-import-label">Importer CV</span>
         </motion.button>
 
         {/* v1.9.84 — Cloche notifications unifiée (pipeline + entretiens) */}
@@ -374,6 +431,9 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
             )}
           </AnimatePresence>
         </motion.button>
+
+        {/* Séparateur fin entre actions et profil (design v2) */}
+        <span aria-hidden style={{ width: 1, height: 22, background: 'var(--border)', margin: '0 4px' }} />
 
         {/* Profil recruteur — dropdown */}
         <div ref={profileRef} style={{ position: 'relative' }}>
@@ -450,7 +510,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
                     Mon profil
                   </motion.button>
                   <motion.button
-                    onClick={() => { setProfileOpen(false); router.push('/parametres/profil') }}
+                    onClick={() => { setProfileOpen(false); router.push('/parametres') }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                       padding: '9px 12px', border: 'none', background: 'transparent',

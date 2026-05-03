@@ -51,7 +51,7 @@ export default function Hero() {
                 </div>
               ))}
             </div>
-            <span><strong style={{ color: 'var(--ink)' }}>En phase bêta</strong> — utilisateurs actifs en Suisse</span>
+            <span><strong style={{ color: 'var(--ink)' }}>Utilisé</strong> par des agences de recrutement en Suisse</span>
           </div>
         </BlurFade>
       </div>

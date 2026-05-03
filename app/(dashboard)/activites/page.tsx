@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Trash2, Edit3, Check, MessageSquare,
   Filter, CheckSquare, Square, AlertTriangle, CalendarRange,
   FolderSync, RefreshCw, Copy, Star, UserCheck, Tag, LogIn, Send,
+  ArrowLeft,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -587,6 +588,34 @@ export default function ActivitesPage() {
 
   return (
     <div className="d-page">
+      {/* v1.9.127 — Bouton retour vers /parametres (Activité est listée dans le hub Paramètres) */}
+      <div style={{ marginBottom: 16, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+        <Link
+          href="/parametres"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            height: 32, padding: '0 12px', borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--surface, var(--card))',
+            color: 'var(--muted)',
+            fontSize: 13, fontWeight: 500,
+            textDecoration: 'none',
+            transition: 'border-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'var(--primary)'
+            e.currentTarget.style.color = 'var(--foreground)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.color = 'var(--muted)'
+          }}
+        >
+          <ArrowLeft size={14} />
+          Retour aux paramètres
+        </Link>
+      </div>
+
       {/* ── Header ── */}
       <motion.div
         className="d-page-header"
@@ -823,11 +852,12 @@ export default function ActivitesPage() {
         {/* Tabs */}
         <div style={{
           display: 'flex', gap: 0,
-          background: 'var(--card)',
-          border: '2px solid var(--border)',
-          borderRadius: 12,
+          background: 'var(--surface, var(--card))',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
           overflow: 'hidden',
           flexWrap: 'wrap',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         }}>
           {TABS.map(tab => {
             const tabCount = tabCounts?.[tab.key as 'all' | 'candidats' | 'imports' | 'clients']
@@ -837,25 +867,26 @@ export default function ActivitesPage() {
                 key={tab.key}
                 onClick={() => { setActiveTab(tab.key); setPage(1) }}
                 style={{
-                  padding: '10px 16px',
+                  padding: '9px 16px', height: 36,
                   border: 'none',
                   borderRight: '1px solid var(--border)',
                   background: isActive ? 'var(--primary)' : 'transparent',
-                  color: isActive ? 'var(--ink, #1C1A14)' : 'var(--muted)',
-                  fontSize: 12, fontWeight: isActive ? 800 : 600,
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  color: isActive ? '#1C1A14' : 'var(--muted)',
+                  fontSize: 13, fontWeight: 500,
+                  cursor: 'pointer', fontFamily: 'inherit',
                   transition: 'all 0.15s',
                   whiteSpace: 'nowrap',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
+                  lineHeight: 1,
                 }}
               >
                 {tab.label}
                 {typeof tabCount === 'number' && tabCount > 0 && (
                   <span style={{
-                    fontSize: 10, fontWeight: 800,
+                    fontSize: 10, fontWeight: 600,
                     padding: '1px 7px', borderRadius: 99,
                     background: isActive ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
-                    color: isActive ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+                    color: isActive ? '#1C1A14' : 'var(--foreground)',
                     minWidth: 20, textAlign: 'center',
                   }}>
                     {tabCount > 9999 ? '9999+' : tabCount}
@@ -880,9 +911,10 @@ export default function ActivitesPage() {
               onChange={e => handleSearch(e.target.value)}
               style={{
                 width: '100%', padding: '10px 14px 10px 36px',
-                border: '2px solid var(--border)', borderRadius: 10,
-                background: 'var(--card)', color: 'var(--foreground)',
-                fontSize: 13, fontFamily: 'var(--font-body)',
+                border: '1px solid var(--border)', borderRadius: 10,
+                background: 'var(--surface, var(--card))', color: 'var(--foreground)',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                fontSize: 13,
                 outline: 'none', transition: 'border-color 0.15s',
               }}
               onFocus={e => e.target.style.borderColor = 'var(--primary)'}

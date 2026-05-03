@@ -3,11 +3,14 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { useQuery } from '@tanstack/react-query'
+import { createClient as createSupabaseClient } from '@/lib/supabase/client'
 import {
   Building2, Search, Plus, MapPin, Phone, Mail, Globe,
   ChevronLeft, ChevronRight, Loader2, X, Filter,
   Briefcase, LayoutGrid, List, SlidersHorizontal, Users, RotateCcw, Sparkles,
   ShieldCheck, ExternalLink, Check, AlertCircle, Map as MapIcon, Columns,
+  TrendingUp, BarChart3,
 } from 'lucide-react'
 import { useClients, useCreateClient, useSecteursStats, type Client } from '@/hooks/useClients'
 import { useMetierCategories } from '@/hooks/useMetierCategories'
@@ -163,9 +166,9 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
             style={{
               flex: 1, height: 40, border: 'none',
               background: activeTab === 'zefix' ? '#F7C948' : 'transparent',
-              color: activeTab === 'zefix' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              color: activeTab === 'zefix' ? '#1C1A14' : 'var(--foreground)',
               fontSize: 13, fontWeight: activeTab === 'zefix' ? 700 : 500,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               borderRight: '1px solid var(--border)',
             }}
@@ -178,9 +181,9 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
             style={{
               flex: 1, height: 40, border: 'none',
               background: activeTab === 'ia' ? '#F7C948' : 'transparent',
-              color: activeTab === 'ia' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              color: activeTab === 'ia' ? '#1C1A14' : 'var(--foreground)',
               fontSize: 13, fontWeight: activeTab === 'ia' ? 700 : 500,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               borderRight: '1px solid var(--border)',
             }}
@@ -193,9 +196,9 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
             style={{
               flex: 1, height: 40, border: 'none',
               background: activeTab === 'manual' ? '#F7C948' : 'transparent',
-              color: activeTab === 'manual' ? 'var(--ink, #1C1A14)' : 'var(--foreground)',
+              color: activeTab === 'manual' ? '#1C1A14' : 'var(--foreground)',
               fontSize: 13, fontWeight: activeTab === 'manual' ? 700 : 500,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}
           >
@@ -252,7 +255,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                 width: '100%', height: 40, padding: '0 12px',
                 border: '1.5px solid var(--border)', borderRadius: 8,
                 background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
               }}
             />
           </div>
@@ -270,7 +273,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                 width: '100%', height: 40, padding: '0 12px',
                 border: '1.5px solid var(--border)', borderRadius: 8,
                 background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
               }}
             />
           </div>
@@ -289,7 +292,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -307,7 +310,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -321,7 +324,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -335,7 +338,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -353,7 +356,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -367,7 +370,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   width: '100%', height: 40, padding: '0 12px',
                   border: '1.5px solid var(--border)', borderRadius: 8,
                   background: 'var(--secondary)', color: 'var(--foreground)',
-                  fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                  fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -384,7 +387,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                 width: '100%', height: 40, padding: '0 12px',
                 border: '1.5px solid var(--border)', borderRadius: 8,
                 background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
               }}
             />
           </div>
@@ -401,7 +404,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                 width: '100%', padding: '10px 12px',
                 border: '1.5px solid var(--border)', borderRadius: 8,
                 background: 'var(--secondary)', color: 'var(--foreground)',
-                fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
+                fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none',
                 resize: 'vertical', boxSizing: 'border-box',
               }}
             />
@@ -432,7 +435,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                       background: active ? c.bg : 'var(--card)',
                       color: active ? c.text : 'var(--muted-foreground)',
                       fontSize: 12, fontWeight: active ? 700 : 500,
-                      cursor: 'pointer', fontFamily: 'var(--font-body)',
+                      cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                     }}
                   >
                     {s}
@@ -459,7 +462,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                   height: 26, padding: '0 10px', borderRadius: 6,
                   border: '1.5px solid var(--primary)', background: 'var(--primary-soft)',
                   color: 'var(--primary)', fontSize: 11, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                 }}
               >
                 <Plus size={11} /> Ajouter
@@ -500,7 +503,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                           next[idx] = { ...next[idx], prenom: e.target.value }
                           return { ...f, contacts: next }
                         })}
-                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                       />
                       <input
                         type="text" placeholder="Nom"
@@ -510,7 +513,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                           next[idx] = { ...next[idx], nom: e.target.value }
                           return { ...f, contacts: next }
                         })}
-                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                       />
                     </div>
                     <input
@@ -521,7 +524,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                         next[idx] = { ...next[idx], fonction: e.target.value }
                         return { ...f, contacts: next }
                       })}
-                      style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                     />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                       <input
@@ -532,7 +535,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                           next[idx] = { ...next[idx], email: e.target.value }
                           return { ...f, contacts: next }
                         })}
-                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                       />
                       <input
                         type="tel" placeholder="Téléphone"
@@ -542,7 +545,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
                           next[idx] = { ...next[idx], telephone: e.target.value }
                           return { ...f, contacts: next }
                         })}
-                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '6px 9px', borderRadius: 5, border: '1.5px solid var(--border)', background: 'var(--card)', fontSize: 12, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                       />
                     </div>
                   </div>
@@ -558,7 +561,7 @@ function CreateClientModal({ open, onClose, onCreate, onClientAdded }: {
             height: 40, padding: '0 20px', borderRadius: 8,
             border: '1.5px solid var(--border)', background: 'var(--secondary)',
             color: 'var(--foreground)', fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'var(--font-body)',
+            cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
           }}>
             Annuler
           </button>
@@ -610,8 +613,9 @@ export default function ClientsPage() {
     return 1
   })
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'split'>(() => {
-    if (typeof window !== 'undefined') return (sessionStorage.getItem('clients_view') as any) || 'grid'
-    return 'grid'
+    /* v1.9.127 — Default = list (au lieu de grid) selon demande João : plus dense, plus de candidats visibles. */
+    if (typeof window !== 'undefined') return (sessionStorage.getItem('clients_view') as any) || 'list'
+    return 'list'
   })
   const [cantonFilter, setCantonFilter] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('clients_canton') || ''
@@ -776,6 +780,31 @@ export default function ClientsPage() {
   const total = data?.total || 0
   const totalPages = data?.total_pages || 1
 
+  // v1.9.127 — Stats globales pour KPI grid V2 (counts par statut + total contacts)
+  // Indépendant des filtres actifs : reflète l'état global de la base.
+  const { data: kpiStats } = useQuery({
+    queryKey: ['clients-kpi-stats-v2'],
+    queryFn: async () => {
+      const supa = createSupabaseClient()
+      const [actifs, prospects, total, withContacts] = await Promise.all([
+        (supa as any).from('clients').select('id', { count: 'exact', head: true }).eq('statut', 'actif'),
+        (supa as any).from('clients').select('id', { count: 'exact', head: true }).eq('statut', 'prospect'),
+        (supa as any).from('clients').select('id', { count: 'exact', head: true }),
+        (supa as any).from('clients').select('contacts').not('contacts', 'is', null),
+      ])
+      const totalContacts = (withContacts.data || []).reduce((sum: number, c: any) => {
+        return sum + (Array.isArray(c.contacts) ? c.contacts.length : 0)
+      }, 0)
+      return {
+        actifs:    actifs.count    ?? 0,
+        prospects: prospects.count ?? 0,
+        total:     total.count     ?? 0,
+        contacts:  totalContacts,
+      }
+    },
+    staleTime: 60_000,
+  })
+
   return (
     <div className="d-page" style={{ maxWidth: 1400 }}>
       {/* Header */}
@@ -796,7 +825,7 @@ export default function ClientsPage() {
               height: 40, padding: '0 16px', borderRadius: 10,
               border: '2px solid var(--border)', background: 'var(--card)',
               color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
             }}
             title="Générer des emails de prospection en lot via IA"
           >
@@ -823,11 +852,12 @@ export default function ClientsPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher par nom, ville, secteur, email..."
             style={{
-              width: '100%', height: 44, paddingLeft: 40, paddingRight: search ? 36 : 14,
-              border: '2px solid var(--border)', borderRadius: 10,
-              background: 'var(--card)', color: 'var(--foreground)',
-              fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none',
-              boxSizing: 'border-box', fontWeight: 500,
+              width: '100%', height: 42, paddingLeft: 40, paddingRight: search ? 36 : 14,
+              border: '1px solid var(--border)', borderRadius: 10,
+              background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))',
+              fontSize: 14, fontWeight: 500,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              outline: 'none', boxShadow: 'none', boxSizing: 'border-box',
               transition: 'border-color 0.2s',
             }}
             onFocus={e => e.currentTarget.style.borderColor = 'var(--primary)'}
@@ -847,23 +877,25 @@ export default function ClientsPage() {
           )}
         </div>
 
-        {/* Statut tabs */}
+        {/* Statut tabs — v1.9.127 même style que liste candidats */}
         <div style={{
           display: 'flex', gap: 0,
-          border: '2px solid var(--border)', borderRadius: 10, overflow: 'hidden',
-          background: 'var(--card)',
+          border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden',
+          background: 'var(--surface, var(--card))',
         }}>
-          {STATUT_TABS.map(tab => (
+          {STATUT_TABS.map((tab, idx) => (
             <button
               key={tab.value}
               onClick={() => { setStatutFilter(tab.value); setPage(1) }}
               style={{
-                height: 40, padding: '0 16px',
-                border: 'none', borderRight: '1px solid var(--border)',
-                background: statutFilter === tab.value ? 'var(--primary)' : 'transparent',
-                color: statutFilter === tab.value ? 'var(--ink)' : 'var(--foreground)',
-                fontSize: 13, fontWeight: statutFilter === tab.value ? 700 : 500,
-                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                height: 34, padding: '0 14px',
+                border: 'none', borderRight: idx < STATUT_TABS.length - 1 ? '1px solid var(--border)' : 'none',
+                background: statutFilter === tab.value ? '#059669' : 'transparent',
+                color: statutFilter === tab.value ? 'white' : 'var(--text-3, var(--muted-foreground))',
+                fontSize: 13, fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                lineHeight: 1,
                 transition: 'background 0.15s',
               }}
             >
@@ -872,17 +904,18 @@ export default function ClientsPage() {
           ))}
         </div>
 
-        {/* Filtres avancés button */}
+        {/* Filtres avancés — v1.9.127 même style que liste candidats */}
         <button
           onClick={() => setShowAdvancedFilters(v => !v)}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            height: 40, padding: '0 14px', borderRadius: 10,
-            border: '2px solid var(--border)',
-            background: showAdvancedFilters ? 'var(--primary)' : 'var(--card)',
-            color: showAdvancedFilters ? 'var(--ink)' : 'var(--foreground)',
-            fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-body)',
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            height: 34, padding: '0 14px', borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: showAdvancedFilters ? 'var(--primary)' : 'var(--surface, var(--card))',
+            color: showAdvancedFilters ? 'var(--primary-foreground)' : 'var(--text, var(--foreground))',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            transition: 'all 0.15s', lineHeight: 1,
           }}
         >
           <SlidersHorizontal size={14} />
@@ -894,15 +927,19 @@ export default function ClientsPage() {
           )}
         </button>
 
-        {/* Sort dropdown */}
+        {/* Sort dropdown — v1.9.127 cohérent candidats */}
         <select
           value={sortOrder}
           onChange={e => setSortOrder(e.target.value as any)}
           style={{
-            height: 40, padding: '0 12px', borderRadius: 10,
-            border: '2px solid var(--border)', background: 'var(--card)',
-            color: 'var(--foreground)', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'var(--font-body)',
+            height: 34, padding: '0 30px 0 12px', borderRadius: 10,
+            border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+            color: 'var(--text, var(--foreground))', fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            outline: 'none',
+            appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px 16px',
           }}
         >
           <option value="recent">Plus récents</option>
@@ -913,16 +950,21 @@ export default function ClientsPage() {
         {/* v1.9.114 — Pagination header : perPage + total + numéros pages */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
-          fontSize: 13, color: 'var(--muted)', fontFamily: 'var(--font-body)',
+          fontSize: 13, color: 'var(--text-3, var(--muted-foreground))',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         }}>
           <select
             value={perPage}
             onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
             style={{
-              fontSize: 13, padding: '8px 10px', borderRadius: 8,
-              border: '2px solid var(--border)', background: 'var(--card)',
-              color: 'var(--foreground)', cursor: 'pointer', fontFamily: 'var(--font-body)',
-              fontWeight: 600,
+              fontSize: 13, padding: '0 30px 0 10px', height: 34, borderRadius: 10,
+              border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+              color: 'var(--text, var(--foreground))', cursor: 'pointer',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif', fontWeight: 500,
+              outline: 'none',
+              appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px 16px',
             }}
           >
             <option value={20}>20</option>
@@ -939,35 +981,29 @@ export default function ClientsPage() {
           )}
         </div>
 
-        {/* View toggle */}
+        {/* View toggle — v1.9.127 sans bouton grille (mode liste seulement + carte/split) */}
         <div style={{
-          display: 'flex', gap: 0, border: '2px solid var(--border)',
-          borderRadius: 10, overflow: 'hidden', background: 'var(--card)',
+          display: 'flex', gap: 0, border: '1px solid var(--border)',
+          borderRadius: 10, overflow: 'hidden', background: 'var(--surface, var(--card))',
         }}>
-          <button onClick={() => setViewMode('grid')} style={{
-            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: viewMode === 'grid' ? 'var(--primary)' : 'transparent',
-            color: viewMode === 'grid' ? 'var(--ink)' : 'var(--muted)',
-            cursor: 'pointer', borderRight: '1px solid var(--border)',
-          }} title="Vue grille"><LayoutGrid size={16} /></button>
           <button onClick={() => setViewMode('list')} style={{
-            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
-            color: viewMode === 'list' ? 'var(--ink)' : 'var(--muted)',
+            color: viewMode === 'list' ? 'var(--primary-foreground)' : 'var(--text-3, var(--muted-foreground))',
             cursor: 'pointer', borderRight: '1px solid var(--border)',
-          }} title="Vue liste"><List size={16} /></button>
+          }} title="Vue liste"><List size={15} /></button>
           <button onClick={() => setViewMode('map')} style={{
-            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: viewMode === 'map' ? 'var(--primary)' : 'transparent',
-            color: viewMode === 'map' ? 'var(--ink)' : 'var(--muted)',
+            color: viewMode === 'map' ? 'var(--primary-foreground)' : 'var(--text-3, var(--muted-foreground))',
             cursor: 'pointer', borderRight: '1px solid var(--border)',
-          }} title="Vue carte"><MapIcon size={16} /></button>
+          }} title="Vue carte"><MapIcon size={15} /></button>
           <button onClick={() => setViewMode('split')} style={{
-            width: 40, height: 40, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 34, height: 34, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: viewMode === 'split' ? 'var(--primary)' : 'transparent',
-            color: viewMode === 'split' ? 'var(--ink)' : 'var(--muted)',
+            color: viewMode === 'split' ? 'var(--primary-foreground)' : 'var(--text-3, var(--muted-foreground))',
             cursor: 'pointer',
-          }} title="Vue partagée (liste + carte)"><Columns size={16} /></button>
+          }} title="Vue partagée (liste + carte)"><Columns size={15} /></button>
         </div>
 
         {/* Loading indicator */}
@@ -979,21 +1015,22 @@ export default function ClientsPage() {
       {/* Filtres avancés panel */}
       {showAdvancedFilters && (
         <div style={{
-          background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 12,
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
           padding: 16, marginBottom: 16,
           display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12,
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         }}>
           {/* v1.9.114 — Secteur (multi-select dropdown style /candidats) */}
           <div style={{ position: 'relative' }}>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Secteur</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Secteur</label>
             <button
               type="button"
               onClick={() => setSecteursDropdownOpen(v => !v)}
               style={{
                 width: '100%', padding: '8px 30px 8px 10px', borderRadius: 8,
-                border: '1.5px solid var(--border)', background: 'var(--secondary)',
+                border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
                 fontSize: 13, color: filterSecteurs.length > 0 ? 'var(--foreground)' : 'var(--muted)',
-                fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box',
                 textAlign: 'left', cursor: 'pointer', position: 'relative',
                 fontWeight: filterSecteurs.length > 0 ? 600 : 500,
               }}
@@ -1029,7 +1066,7 @@ export default function ClientsPage() {
                         width: '100%', padding: '6px 12px', textAlign: 'left',
                         background: 'transparent', border: 'none', cursor: 'pointer',
                         fontSize: 12, color: 'var(--destructive)', fontWeight: 600,
-                        fontFamily: 'var(--font-body)',
+                        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                         borderBottom: '1px solid var(--border)', marginBottom: 4,
                       }}
                     >
@@ -1048,7 +1085,7 @@ export default function ClientsPage() {
                           padding: '7px 12px', cursor: 'pointer',
                           fontSize: 13, color: active ? c.text : 'var(--muted-foreground)',
                           fontWeight: active ? 700 : 500,
-                          fontFamily: 'var(--font-body)',
+                          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                           background: active ? c.bg : 'transparent',
                           transition: 'background 0.1s',
                         }}
@@ -1084,16 +1121,16 @@ export default function ClientsPage() {
             )}
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ville</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Ville</label>
             <input value={filterVille} onChange={e => { setFilterVille(e.target.value); setPage(1) }}
               placeholder="Ex: Monthey, Sion..."
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Canton</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Canton</label>
             <select value={cantonFilter} onChange={e => { setCantonFilter(e.target.value); setPage(1) }}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: cantonFilter ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: cantonFilter ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             >
               <option value="">Tous</option>
               {Object.keys(CANTON_COLORS).sort().map(c => (
@@ -1102,16 +1139,16 @@ export default function ClientsPage() {
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>NPA</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>NPA</label>
             <input value={filterNPA} onChange={e => { setFilterNPA(e.target.value); setPage(1) }}
               placeholder="Ex: 1870, 1950..."
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contacts</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Contacts</label>
             <select value={filterAvecContacts} onChange={e => { setFilterAvecContacts(e.target.value); setPage(1) }}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: filterAvecContacts ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: filterAvecContacts ? 'var(--foreground)' : 'var(--muted)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             >
               <option value="">Tous</option>
               <option value="avec">Avec contacts</option>
@@ -1120,21 +1157,21 @@ export default function ClientsPage() {
           </div>
           {/* v1.9.114 — Date d'ajout (range) */}
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ajouté après</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Ajouté après</label>
             <input
               type="date"
               value={filterCreatedAfter}
               onChange={e => { setFilterCreatedAfter(e.target.value); setPage(1) }}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
           <div>
-            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ajouté avant</label>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: 4 }}>Ajouté avant</label>
             <input
               type="date"
               value={filterCreatedBefore}
               onChange={e => { setFilterCreatedBefore(e.target.value); setPage(1) }}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--secondary)', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
@@ -1143,9 +1180,9 @@ export default function ClientsPage() {
             }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               height: 38, padding: '0 16px', borderRadius: 8,
-              border: '1.5px solid var(--border)', background: 'var(--secondary)',
-              color: 'var(--foreground)', fontSize: 13, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+              color: 'var(--foreground)', fontSize: 13, fontWeight: 500,
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
             }}>
               <RotateCcw size={13} /> Réinitialiser
             </button>

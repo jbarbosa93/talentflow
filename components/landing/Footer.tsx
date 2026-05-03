@@ -20,7 +20,7 @@ export default function Footer() {
           <p className="l-footer-col-title">Plateforme</p>
           <ul className="l-footer-links">
             <li><a href="/#fonctionnalites">Fonctionnalités</a></li>
-            <li><a href="/#beta">Demander une démo</a></li>
+            <li><a href="/#demo">Demander une démo</a></li>
             <li><Link href="/login">Espace Recruteurs</Link></li>
           </ul>
         </div>
@@ -37,8 +37,7 @@ export default function Footer() {
       </div>
 
       <div className="l-footer-bottom">
-        <p>© 2026 TalentFlow — Valais, Suisse. Tous droits réservés.</p>
-        <span className="l-footer-beta">En phase bêta</span>
+        <p>© 2026 TalentFlow — Tous droits réservés.</p>
       </div>
     </footer>
   )

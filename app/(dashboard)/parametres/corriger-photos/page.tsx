@@ -506,7 +506,7 @@ function StatCard({ label, value, color, icon }: {
       {/* top accent */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '16px 16px 0 0', opacity: 0.7 }} />
       <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, fontFamily: 'var(--font-heading)' }}>{value.toLocaleString('fr-FR')}</div>
+      <div style={{ fontSize: 28, fontWeight: 700, color, lineHeight: 1, fontFamily: 'var(--font-heading)' }}>{value.toLocaleString('fr-FR')}</div>
       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
     </div>
   )

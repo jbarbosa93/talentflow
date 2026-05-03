@@ -1,4 +1,4 @@
-import { DM_Sans } from 'next/font/google'
+import { DM_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
 import type { Metadata } from 'next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import '../globals.css'
@@ -11,6 +11,22 @@ const jakarta = DM_Sans({
   display: 'swap',
 })
 
+// v1.9.127 — Mêmes fonts que (dashboard) pour cohérence design v2 (login + auth)
+const instrumentSerif = Instrument_Serif({
+  variable: '--font-instrument-serif',
+  subsets: ['latin'],
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'TalentFlow — Connexion',
 }
@@ -18,7 +34,7 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className={jakarta.variable}>
+      <body className={`${jakarta.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}>
         {children}
         <SpeedInsights />
       </body>

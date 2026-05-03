@@ -107,8 +107,8 @@ const IMPORT_STATUS_OPTS = [
   { value: 'archive',   label: 'Archivé' },
 ]
 
-// ─── Popover de sélection de métier ───
-function MetierPopover({ candidatId, currentTags, onClose, onSave, anchorRect }: {
+// ─── Popover de sélection de métier (exporté pour réutilisation sur la fiche candidat) ───
+export function MetierPopover({ candidatId, currentTags, onClose, onSave, anchorRect }: {
   candidatId: string
   currentTags: string[]
   onClose: () => void
@@ -592,10 +592,31 @@ export default function CandidatsList() {
   const [hoveredNoteId, setHoveredNoteId] = useState<string | null>(null)
   const [hoveredNoteRect, setHoveredNoteRect] = useState<{ top: number; left: number; right: number } | null>(null)
   const [notePopoverId, setNotePopoverId] = useState<string | null>(null)
+  // v1.9.129 — tooltip métiers multi : portalisé (échappe au overflow:hidden du wrapper info col)
+  const [metierTooltip, setMetierTooltip] = useState<{ tags: string[]; top: number; left: number; bottom: number; width: number } | null>(null)
   const [notePopoverRect, setNotePopoverRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
   const [noteText, setNoteText] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // v1.9.128 — Fermer le popover notes au click outside + Esc
+  useEffect(() => {
+    if (!notePopoverId) return
+    const close = () => { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null); setEditNoteId(null) }
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // Ne pas fermer si on clique dans le popover lui-même OU sur le bouton notes qui l'a ouvert
+      if (target.closest('[data-notes-popover]') || target.closest('[data-notes-trigger]')) return
+      close()
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [notePopoverId])
   const [editNoteId, setEditNoteId] = useState<string | null>(null)
   const [editNoteText, setEditNoteText] = useState('')
   const [editNoteSaving, setEditNoteSaving] = useState(false)
@@ -1254,16 +1275,18 @@ export default function CandidatsList() {
         key={c.id}
         onClick={() => handleCardClick(c.id, c)}
         onMouseEnter={() => handleCardHover(c.id)}
-        whileHover={{ y: -3, boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.4), 0 16px 36px rgba(0,0,0,0.35)' : '0 16px 36px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,232,0,0.18)' }}
-        whileTap={{ scale: 0.99 }}
+        whileTap={{ scale: 0.997 }}
         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+        className="clist-row-v2"
         style={{
+          // v1.9.127 — Flex avec largeurs fixes sur localisation/âge → alignement vertical
+          // entre rows, et un spacer pousse stars/CV/notes/date à droite.
           display: 'flex', alignItems: 'center', gap: 14,
           background: selected ? 'var(--primary-soft)' : 'var(--surface)',
           border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-          borderRadius: 14, padding: '16px 18px',
+          borderRadius: 14, padding: '12px 18px',
           cursor: 'pointer',
-          boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.2)' : 'var(--card-shadow)',
+          boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.2)' : 'none',
           position: 'relative',
         }}
       >
@@ -1302,7 +1325,7 @@ export default function CandidatsList() {
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '2px 8px', borderRadius: 999,
                 background: style.bg, color: style.fg,
-                fontSize: 10, fontWeight: 800, letterSpacing: '0.02em',
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.02em',
                 border: `1px solid ${style.border}`,
                 zIndex: 2, whiteSpace: 'nowrap',
               }}
@@ -1315,7 +1338,7 @@ export default function CandidatsList() {
         <div
           onClick={e => { e.stopPropagation(); toggleSelect(c.id, c) }}
           style={{
-            width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+            flex: '0 0 20px', height: 20, borderRadius: 6,
             border: `2px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
             background: selected ? 'var(--primary)' : 'var(--surface)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1325,102 +1348,224 @@ export default function CandidatsList() {
           {selected && <Check size={11} color="var(--foreground)" strokeWidth={3} />}
         </div>
 
-        {/* Avatar */}
-        {(c.photo_url && c.photo_url !== 'checked')
-          ? <Image src={c.photo_url} width={56} height={56} unoptimized style={{ objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} alt="" />
-          : (
-            <div
+        {/* Avatar — v1.9.128 : hover déclenche preview CV (remplace l'ancien bouton CV) */}
+        <div
+          onMouseEnter={hasCv ? (e) => {
+            if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+            const mouseX = e.clientX
+            const mouseY = e.clientY
+            hoveredCvTimeout.current = setTimeout(() => {
+              const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
+              const rotation = savedRot ? parseInt(savedRot, 10) : 0
+              const screenW = window.innerWidth
+              const screenH = window.innerHeight
+              const spaceRight = screenW - mouseX - 24
+              const spaceLeft  = mouseX - 24
+              const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
+              const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
+              const panelH = Math.min(Math.round(screenH * 0.82), 800)
+              const idealTop = mouseY - panelH / 2
+              const newTop = Math.max(12, Math.min(idealTop, screenH - panelH - 12))
+              panelTopRef.current = newTop
+              setPreviewData({ url: c.cv_url, ext: cvExt, x: mouseX, y: mouseY, rotation, panelW })
+              setPreviewZoom(initZoom)
+              setPreviewVisible(true)
+            }, 200)
+          } : undefined}
+          onMouseLeave={hasCv ? () => {
+            if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
+            hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
+          } : undefined}
+          style={{
+            position: 'relative', flex: '0 0 68px',
+            height: 68,
+            // v1.9.128 — cursor: zoom-in (au lieu de 'help' qui affiche un ? sur macOS)
+            cursor: hasCv ? 'zoom-in' : 'default',
+            transition: 'transform 0.12s ease',
+          }}
+          onMouseOver={hasCv ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)' } : undefined}
+          onMouseOut={hasCv ? (e) => { (e.currentTarget as HTMLElement).style.transform = 'none' } : undefined}
+          title={hasCv ? 'Survoler pour prévisualiser le CV' : ''}
+        >
+          {(c.photo_url && c.photo_url !== 'checked')
+            ? <Image src={c.photo_url} width={68} height={68} unoptimized style={{ objectFit: 'cover', borderRadius: 10, flexShrink: 0, display: 'block' }} alt="" />
+            : (
+              <div
+                style={{
+                  width: 68, height: 68, borderRadius: 10,
+                  background: 'var(--bg-muted, #F1F5F9)', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: 20, fontWeight: 700,
+                  color: 'var(--text-muted, #64748B)', flexShrink: 0, overflow: 'hidden',
+                }}
+              >
+                {initiales(c)}
+              </div>
+            )
+          }
+          {/* Petit badge CV en bas-droit pour signaler la disponibilité */}
+          {hasCv && (
+            <span
+              aria-hidden
               style={{
-                width: 56, height: 56, borderRadius: 8,
-                background: 'var(--bg-muted, #F1F5F9)', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 18, fontWeight: 800,
-                color: 'var(--text-muted, #64748B)', flexShrink: 0, overflow: 'hidden',
+                position: 'absolute', bottom: -3, right: -3,
+                width: 20, height: 20, borderRadius: '50%',
+                background: 'var(--primary, #F5A623)',
+                border: '2px solid var(--surface, var(--card))',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                color: '#1C1A14',
+                pointerEvents: 'none',
               }}
+              title="CV disponible"
             >
-              {initiales(c)}
-            </div>
-          )
-        }
+              <Eye size={10} strokeWidth={2.5} />
+            </span>
+          )}
+        </div>
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3 }}>
+        {/* Info — largeur fixe + fade à droite quand le contenu déborde (nom long, métier long…) */}
+        <div style={{
+          flex: '0 0 320px', minWidth: 0, overflow: 'hidden', position: 'relative',
+          // Masque dégradé sur les 24 derniers px pour fade gracieux quand débordement
+          WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
+          maskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {formatFullName(c.prenom, c.nom)}
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-            {c.titre_poste && (
-              <span style={{ fontSize: 15, color: 'var(--foreground)', fontWeight: 400 }}>{c.titre_poste}</span>
-            )}
-            {/* En mode à-traiter, lieu + âge sur la même ligne sous le titre */}
-            {importStatusFilter === 'a_traiter' ? (
-              <>
-                {c.localisation && (
-                  <span style={{ fontSize: 13, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    {'\uD83D\uDCCD'} {formatCity(c.localisation)}
-                  </span>
-                )}
-                {/* v1.9.110 — distance vs ville filtrée (info bleu, distinct de l'âge orange) */}
-                {villeRayon && typeof (c as any).distance_km === 'number' && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 6, background: 'var(--info-soft)', color: 'var(--info)' }}>
-                    {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
-                  </span>
-                )}
-                {/* v1.9.111 — âge en pill orange (cohérent avec mode Actif) */}
-                {age !== null && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 800,
-                    padding: '2px 8px', borderRadius: 6,
-                    background: 'var(--primary-soft)',
-                    color: 'var(--primary)',
-                    border: '1px solid rgba(245,167,35,0.35)',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {age} ans
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                {c.localisation && (
-                  <span style={{ fontSize: 14, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    {'\uD83D\uDCCD'} {formatCity(c.localisation)}
-                  </span>
-                )}
-                {/* v1.9.110 — distance vs ville filtrée (info bleu, distinct de l'âge orange) */}
-                {villeRayon && typeof (c as any).distance_km === 'number' && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--info-soft)', color: 'var(--info)', border: '1px solid var(--info-soft)' }}>
-                    {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
-                  </span>
-                )}
-                {/* v1.9.71/73 — Âge en petit carré pill, visible */}
-                {age !== null && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 800,
-                    padding: '2px 8px', borderRadius: 6,
-                    background: 'var(--primary-soft)',
-                    color: 'var(--primary)',
-                    border: '1px solid rgba(245,167,35,0.35)',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {age} ans
-                  </span>
-                )}
-                {/* Badges CFC + Engagée (hors à-traiter) — uniquement basé sur le champ DB */}
-                {c.cfc === true && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', letterSpacing: '0.03em' }}>CFC</span>
-                )}
-                {c.deja_engage === true && (
-                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4, background: 'var(--success-soft)', color: 'var(--success)', letterSpacing: '0.03em' }}>Engagé</span>
-                )}
-              </>
-            )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'nowrap', alignItems: 'center', overflow: 'hidden' }}>
+            {/* v1.9.127 — Sous-titre = pill MÉTIER ASSIGNÉ cliquable (ouvre le picker MetierPopover).
+                Le bouton métier dupliqué à la fin est désormais caché (display:none).
+                v1.9.127 — flex-wrap nowrap + overflow hidden pour rester sur 1 ligne avec fade au parent. */}
+            {(() => {
+              const configuredTags = (c.tags || []).filter((t: string) => agenceMetiers.includes(t))
+              const hasTags = configuredTags.length > 0
+              const tagColor = hasTags ? (getColorForMetier(configuredTags[0]) || '#3B82F6') : '#3B82F6'
+              return (
+                <button
+                  onMouseDown={(e) => {
+                    // v1.9.128 — Bloquer mousedown DOM natif (le listener du popover écoute en bubble natif,
+                    // React stopPropagation seul ne suffit pas). On le fait UNIQUEMENT si ce candidat a le popover
+                    // ouvert pour permettre le toggle (sinon pas besoin de bloquer).
+                    if (metierPopoverId === c.id) {
+                      e.stopPropagation()
+                      e.nativeEvent.stopImmediatePropagation()
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (metierPopoverId === c.id) {
+                      setMetierPopoverId(null)
+                    } else {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setMetierPopoverRect({ top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right })
+                      setMetierPopoverId(c.id)
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (hasTags && configuredTags.length > 1) {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setMetierTooltip({ tags: configuredTags, top: r.top, left: r.left, bottom: r.bottom, width: r.width })
+                    }
+                  }}
+                  onMouseLeave={() => setMetierTooltip(null)}
+                  aria-label={hasTags ? (configuredTags.length > 1 ? `${configuredTags.length} métiers` : 'Cliquer pour modifier') : 'Assigner un métier'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: 999,
+                    border: hasTags ? `1px solid ${tagColor}40` : '1px dashed var(--border)',
+                    background: hasTags ? `${tagColor}14` : 'transparent',
+                    color: hasTags ? tagColor : 'var(--muted)',
+                    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'inherit', whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Briefcase size={11} />
+                  {hasTags ? (configuredTags[0] + (configuredTags.length > 1 ? ` +${configuredTags.length - 1}` : '')) : (c.titre_poste || 'Métier')}
+                </button>
+              )
+            })()}
+            {/* v1.9.127 — Localisation + distance + âge déplacés en colonnes grid dédiées (alignement vertical entre rows).
+                Mode actif/archivé : badges CFC/Engagé uniquement à côté du métier. */}
+            {/* v1.9.134 — Pills CFC/Engagé déplacées hors de la cellule INFO (cf. plus bas, après Âge) */}
           </div>
         </div>
 
-        {/* Étoiles interactives (tous onglets) */}
+        {/* v1.9.129 — Colonne LOCALISATION resserrée (170 au lieu de 200) pour rapprocher l'Âge */}
+        <div style={{ flex: '0 0 170px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {c.localisation ? (
+            <span style={{
+              fontSize: 13, color: 'var(--muted)',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              overflow: 'hidden', whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              <MapPin size={11} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {formatCity(c.localisation)}
+              </span>
+            </span>
+          ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>}
+          {villeRayon && typeof (c as any).distance_km === 'number' && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5,
+              background: 'var(--info-soft)', color: 'var(--info)',
+              alignSelf: 'flex-start',
+            }}>
+              {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
+            </span>
+          )}
+        </div>
+
+        {/* v1.9.127 — Colonne ÂGE (largeur fixe, collée à Lieu) */}
+        <div style={{ flex: '0 0 80px' }}>
+          {age !== null ? (
+            <span style={{
+              fontSize: 12, fontWeight: 700,
+              padding: '4px 11px', borderRadius: 7,
+              background: 'var(--primary-soft)',
+              color: 'var(--primary)',
+              border: '1px solid rgba(245,167,35,0.35)',
+              whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              {age} ans
+            </span>
+          ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>}
+        </div>
+
+        {/* v1.9.134 — Pills CFC + Engagé APRÈS l'Âge (mode Actif/Archivé seulement) — couleur vert */}
+        {importStatusFilter !== 'a_traiter' && (c.cfc === true || c.deja_engage === true) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {c.cfc === true && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6,
+                background: 'var(--success-soft)', color: 'var(--success)',
+                border: '1px solid rgba(34,197,94,0.30)',
+              }}>
+                <GraduationCap size={11} strokeWidth={2} /> CFC
+              </span>
+            )}
+            {c.deja_engage === true && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6,
+                background: 'var(--success-soft)', color: 'var(--success)',
+                border: '1px solid rgba(34,197,94,0.30)',
+              }}>
+                <CheckCircle size={11} strokeWidth={2} /> Engagé
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* v1.9.127 — Spacer flex pour pousser étoiles / CV / notes / date à droite */}
+        <div style={{ flex: 1 }} />
+
+        {/* Étoiles interactives (tous onglets) — v1.9.128 width fixe 130, aligné gauche pour matcher header */}
         <div
           onClick={e => e.stopPropagation()}
-          style={{ display: 'flex', gap: 2, flexShrink: 0 }}
+          style={{ display: 'flex', gap: 2, flex: '0 0 130px' }}
         >
           {[1, 2, 3, 4, 5].map(star => (
             <button
@@ -1454,101 +1599,105 @@ export default function CandidatsList() {
         </div>
         {/* v1.9.71 — Âge déplacé inline après localisation (cohérent avec à-traiter). Badge pill droite supprimé. */}
 
-        {/* Bouton CV hover preview */}
-        {hasCv && (
-          <div
-            onClick={e => e.stopPropagation()}
-            onMouseEnter={e => {
-              if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-              const mouseX = e.clientX
-              const mouseY = e.clientY
-              hoveredCvTimeout.current = setTimeout(() => {
-                  const savedRot = localStorage.getItem(`cv_rotation_${c.id}`)
-                  const rotation = savedRot ? parseInt(savedRot, 10) : 0
-                  const screenW = window.innerWidth
-                  const screenH = window.innerHeight
-                  const spaceRight = screenW - mouseX - 24
-                  const spaceLeft  = mouseX - 24
-                  const panelW = Math.min(820, Math.max(480, Math.max(spaceRight, spaceLeft)) - 8)
-                  const initZoom = Math.min(1, +(panelW / 840).toFixed(2))
-                  const panelH = Math.min(Math.round(screenH * 0.82), 800)
-                  const idealTop = mouseY - panelH / 2
-                  const newTop = Math.max(12, Math.min(idealTop, screenH - panelH - 12))
-                  panelTopRef.current = newTop
-                  setPreviewData({ url: c.cv_url, ext: cvExt, x: mouseX, y: mouseY, rotation, panelW })
-                  setPreviewZoom(initZoom)
-                  setPreviewVisible(true)
-              }, 120)
-            }}
-            onMouseLeave={() => {
-              if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-              hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
-            }}
-            className="clist-cv-btn"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '4px 9px', borderRadius: 7,
-              border: '1px solid rgba(245,167,35,0.35)',
-              background: 'var(--primary-soft)',
-              cursor: 'default', fontSize: 11, fontWeight: 700,
-              color: 'var(--primary)', flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-            title="Survoler pour prévisualiser le CV"
-          >
-            <Eye size={11} /> CV
-          </div>
-        )}
+        {/* v1.9.128 — Bouton "CV" supprimé : preview CV désormais déclenchée
+            par le hover sur la photo/avatar du candidat (gain de place dans la row). */}
 
-        {/* Bouton ajouter note (tous onglets) */}
-        <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-            <button
-              onClick={e => {
-                e.stopPropagation()
-                if (notePopoverId === c.id) { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null) }
-                else {
-                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                  setNotePopoverRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
-                  setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50)
-                }
-              }}
-              title="Ajouter une note"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: 8, cursor: 'pointer', flexShrink: 0,
-                border: `1.5px solid ${notePopoverId === c.id ? '#6366F1' : 'var(--border)'}`,
-                background: notePopoverId === c.id ? 'rgba(99,102,241,0.1)' : 'transparent',
-                color: notePopoverId === c.id ? '#6366F1' : 'var(--muted)',
-                transition: 'all 0.15s',
-              }}
-            >
-              <MessageSquare size={13} />
-            </button>
+        {/* v1.9.127 — Bouton notes unifié : icône seule si vide, icône + compteur si notes existent.
+            v1.9.128 — wrapper width 60 aligné à gauche pour matcher header "Notes". */}
+        <div style={{ position: 'relative', flex: '0 0 60px', display: 'flex' }} onClick={e => e.stopPropagation()}>
+            {(() => {
+              const noteCount = c.notes_candidat?.length || 0
+              const hasNotes = noteCount > 0
+              const isOpen = notePopoverId === c.id
+              return (
+                <button
+                  data-notes-trigger
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (isOpen) { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null) }
+                    else {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setNotePopoverRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
+                      setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50)
+                    }
+                  }}
+                  title={hasNotes ? `${noteCount} note${noteCount > 1 ? 's' : ''} — clique pour voir / ajouter` : 'Ajouter une note'}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    height: 28, padding: hasNotes ? '0 8px' : 0, minWidth: 28,
+                    borderRadius: 8, cursor: 'pointer', flexShrink: 0,
+                    border: `1px solid ${isOpen ? '#6366F1' : (hasNotes ? 'rgba(99,102,241,0.35)' : 'var(--border)')}`,
+                    background: isOpen ? 'rgba(99,102,241,0.10)' : (hasNotes ? 'rgba(99,102,241,0.08)' : 'transparent'),
+                    color: (isOpen || hasNotes) ? '#6366F1' : 'var(--muted)',
+                    fontSize: 11, fontWeight: 600,
+                    fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <MessageSquare size={13} />
+                  {hasNotes && <span>{noteCount}</span>}
+                </button>
+              )
+            })()}
             {notePopoverId === c.id && notePopoverRect && typeof document !== 'undefined' && (() => {
               const sortedNotes = [...(c.notes_candidat || [])].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              const PANEL_W = 268
-              const PANEL_MAX_H = 420
-              const MARGIN = 12
+              const PANEL_W = 320
+              const PANEL_MAX_H = 380
+              const MARGIN = 16
+              const GAP = 8
               const screenW = window.innerWidth
               const screenH = window.innerHeight
-              // v1.9.74 : popover TOUJOURS sous le bouton (jamais en haut, même pour le dernier candidat).
-              // Si peu de place en bas, le popover se cale contre le bas du viewport via Math.min clamp.
-              // Le textarea et la liste de notes sont scrollables (overflow-y: auto) donc pas de perte de contenu.
+              // v1.9.132 — Popover COLLÉ au bouton notes, auto-flip intelligent :
+              // - vertical : sous le bouton si place, sinon au-dessus (jamais sur le bouton)
+              // - horizontal : aligné droite-droite (le popover s'étend vers la gauche depuis le bouton),
+              //   sinon aligné gauche-gauche si déborde à gauche.
               const spaceBelow = screenH - notePopoverRect.bottom - MARGIN
-              const maxH = Math.min(PANEL_MAX_H, Math.max(160, spaceBelow - 10))
-              const top = Math.min(screenH - maxH - MARGIN, notePopoverRect.bottom + 6)
-              const left = Math.max(MARGIN, Math.min(screenW - PANEL_W - MARGIN, notePopoverRect.right - PANEL_W))
+              const spaceAbove = notePopoverRect.top - MARGIN
+              const placeAbove = spaceBelow < 220 && spaceAbove > spaceBelow
+              const maxH = Math.min(PANEL_MAX_H, Math.max(180, placeAbove ? spaceAbove - GAP : spaceBelow - GAP))
+              // v1.9.132 — Quand au-dessus du bouton, on utilise `bottom` pour que le popover SOIT collé
+              // au bouton par sa base (sinon avec `top` calculé sur maxH, il y a un gap blanc quand le contenu est petit)
+              const positionStyle: React.CSSProperties = placeAbove
+                ? { bottom: screenH - notePopoverRect.top + GAP }
+                : { top: notePopoverRect.bottom + GAP }
+              // Aligné right-edge-to-right-edge par défaut (popover déborde à gauche depuis le bouton)
+              let left = notePopoverRect.right - PANEL_W
+              if (left < MARGIN) left = notePopoverRect.left   // sinon aligné left-edge-to-left-edge
+              if (left + PANEL_W > screenW - MARGIN) left = screenW - PANEL_W - MARGIN
+              if (left < MARGIN) left = MARGIN
               return createPortal(
               <div
+                data-notes-popover
                 onClick={e => e.stopPropagation()}
+                className="scroll-thin"
                 style={{
-                  position: 'fixed', top, left,
-                  background: 'var(--card)', border: '1.5px solid #6366F1',
-                  borderRadius: 10, padding: 10, width: PANEL_W, zIndex: 10000,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                  position: 'fixed', left,
+                  ...positionStyle,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 14, padding: 14, width: PANEL_W, zIndex: 10000,
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.22)',
                   maxHeight: maxH, overflowY: 'auto',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                 }}
               >
+                {/* v1.9.131 — Header du panel : nom du candidat */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <MessageSquare size={14} color="#6366F1" />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Notes — {formatFullName(c.prenom, c.nom)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null); setEditNoteId(null) }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, display: 'flex' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
                 {/* Notes existantes */}
                 {sortedNotes.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
@@ -1649,67 +1798,12 @@ export default function CandidatsList() {
             })()}
           </div>
 
-        {/* Badge note avec tooltip hover — jusqu'à 3 notes */}
-        {c.notes_candidat && c.notes_candidat.length > 0 && (() => {
-          const sortedNotes = [...c.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          const visibleNotes = sortedNotes.slice(0, 3)
-          return (
-            <div
-              style={{ position: 'relative', flexShrink: 0 }}
-              onMouseEnter={e => {
-                e.stopPropagation()
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                setHoveredNoteId(c.id)
-                setHoveredNoteRect({ top: rect.bottom + 6, left: rect.left, right: rect.right })
-              }}
-              onMouseLeave={() => setHoveredNoteId(null)}
-            >
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '4px 8px', borderRadius: 7,
-                border: '1px solid rgba(99,102,241,0.3)',
-                background: 'rgba(99,102,241,0.08)',
-                cursor: 'default', fontSize: 11, fontWeight: 700,
-                color: '#6366F1',
-              }}>
-                <MessageSquare size={11} />
-                {c.notes_candidat.length}
-              </div>
-              {hoveredNoteId === c.id && hoveredNoteRect && createPortal(
-                <div style={{
-                  position: 'fixed',
-                  top: Math.min(hoveredNoteRect.top, window.innerHeight - 320),
-                  left: Math.max(8, Math.min(hoveredNoteRect.right - 300, window.innerWidth - 308)),
-                  background: 'var(--card)', border: '1px solid var(--border)',
-                  borderRadius: 10, padding: 12, width: 300,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                  zIndex: 9999, pointerEvents: 'none',
-                  display: 'flex', flexDirection: 'column', gap: 0,
-                }}>
-                  {visibleNotes.map((note: any, i: number) => (
-                    <div key={note.id || i}>
-                      {i > 0 && <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />}
-                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '0.05em' }}>
-                        {i === 0 ? 'Dernière note' : `Note ${i + 1}`} · {new Date(note.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </div>
-                      <p style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.5, margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {note.contenu}
-                      </p>
-                    </div>
-                  ))}
-                  {c.notes_candidat.length > 3 && (
-                    <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 8 }}>+ {c.notes_candidat.length - 3} autre{c.notes_candidat.length > 4 ? 's' : ''} note{c.notes_candidat.length > 4 ? 's' : ''}</div>
-                  )}
-                </div>,
-                document.body
-              )}
-            </div>
-          )
-        })()}
+        {/* v1.9.127 — Badge note dupliqué supprimé : le compteur est intégré au bouton unique ci-dessus. */}
 
-        {/* Toggles CFC + Engagée (a_traiter mode only) */}
+        {/* Toggles CFC + Engagée (a_traiter mode only) — v1.9.128 chaque toggle dans un wrapper fixe pour alignement header */}
         {importStatusFilter === 'a_traiter' && (
           <>
+            <div style={{ flex: '0 0 64px', display: 'flex' }}>
             <button
               onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation()
@@ -1735,7 +1829,7 @@ export default function CandidatsList() {
               title={c.cfc ? 'CFC — désactiver' : 'CFC — activer'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 3,
-                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
+                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700,
                 border: `1.5px solid ${c.cfc ? '#22C55E' : 'var(--border)'}`,
                 background: c.cfc ? 'rgba(34,197,94,0.12)' : 'transparent',
                 color: c.cfc ? '#15803D' : 'var(--muted)',
@@ -1746,6 +1840,8 @@ export default function CandidatsList() {
               <GraduationCap size={10} />
               CFC
             </button>
+            </div>
+            <div style={{ flex: '0 0 80px', display: 'flex' }}>
             <button
               onClick={async e => {
                 e.stopPropagation()
@@ -1771,7 +1867,7 @@ export default function CandidatsList() {
               title={c.deja_engage ? 'Engagé — désactiver' : 'Engagé — activer'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 3,
-                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 800,
+                padding: '3px 8px', borderRadius: 100, fontSize: 10, fontWeight: 700,
                 border: `1.5px solid ${c.deja_engage ? '#22C55E' : 'var(--border)'}`,
                 background: c.deja_engage ? 'rgba(34,197,94,0.12)' : 'transparent',
                 color: c.deja_engage ? '#15803D' : 'var(--muted)',
@@ -1782,41 +1878,19 @@ export default function CandidatsList() {
               <Briefcase size={10} />
               Engagé
             </button>
+            </div>
           </>
         )}
 
-        {/* Métier — pastille colorée selon catégorie si assigné, bouton discret sinon */}
+        {/* v1.9.127 — Bloc métier d'origine masqué : le bouton est maintenant
+            directement dans le sous-titre du candidat (à côté du nom).
+            Le wrapper reste dans le DOM uniquement pour héberger le MetierPopover
+            qui peut être ouvert depuis le sous-titre via metierPopoverId. */}
         {(() => {
-          const configuredTags = (c.tags || []).filter((t: string) => agenceMetiers.includes(t))
-          const hasTags = configuredTags.length > 0
-          const tagColor = hasTags ? (getColorForMetier(configuredTags[0]) || '#3B82F6') : '#3B82F6'
           return (
-            <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0 }}>
-              <button
-                onClick={e => {
-                  e.stopPropagation()
-                  if (metierPopoverId === c.id) {
-                    setMetierPopoverId(null)
-                  } else {
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                    setMetierPopoverRect({ top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right })
-                    setMetierPopoverId(c.id)
-                  }
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  padding: '3px 9px', borderRadius: 100,
-                  border: hasTags ? 'none' : '1px dashed var(--border)',
-                  background: hasTags ? `${tagColor}18` : 'transparent',
-                  cursor: 'pointer', fontSize: 10, fontWeight: hasTags ? 700 : 600,
-                  color: hasTags ? tagColor : 'var(--muted)',
-                  fontFamily: 'inherit', whiteSpace: 'nowrap',
-                  opacity: hasTags ? 1 : 0.6,
-                }}
-                title={hasTags ? 'Modifier les métiers' : 'Assigner un métier'}
-              >
+            <div onClick={e => e.stopPropagation()} style={{ position: 'relative', flexShrink: 0, display: 'none' }}>
+              <button style={{ display: 'none' }}>
                 <Briefcase size={10} />
-                {hasTags ? (configuredTags[0] + (configuredTags.length > 1 ? ` +${configuredTags.length - 1}` : '')) : 'Métier'}
               </button>
               {metierPopoverId === c.id && metierPopoverRect && (
                 <MetierPopover
@@ -1846,7 +1920,7 @@ export default function CandidatsList() {
 
         {/* v1.9.90 — Date la plus récente : last_import_at (si plus récent que created_at) sinon created_at.
             Affiche la date pertinente pour la liste : date du dernier import = dernière activité sur le candidat. */}
-        <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flexShrink: 0, fontWeight: 500 }}>
+        <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flex: '0 0 110px', fontWeight: 500, textAlign: 'left', display: 'inline-flex', alignItems: 'center' }}>
           {(() => {
             const lastImport = (c as any).last_import_at as string | null | undefined
             const createdAt = c.created_at
@@ -1859,20 +1933,22 @@ export default function CandidatsList() {
 
         {/* Quick validate button (a_traiter mode only) — après la date */}
         {importStatusFilter === 'a_traiter' && (
-          <button
-            onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
-            title="Valider ce candidat"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 30, height: 30, borderRadius: 8, border: '1.5px solid #16A34A',
-              background: '#16A34A', cursor: 'pointer', flexShrink: 0,
-              transition: 'all 0.15s',
-            }}
-            onMouseOver={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.borderColor = '#15803D' }}
-            onMouseOut={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.borderColor = '#16A34A' }}
-          >
-            <CheckCircle size={15} color="white" />
-          </button>
+          <div style={{ flex: '0 0 38px', display: 'flex' }}>
+            <button
+              onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
+              title="Valider ce candidat"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, borderRadius: 8, border: '1.5px solid #16A34A',
+                background: '#16A34A', cursor: 'pointer', flexShrink: 0,
+                transition: 'all 0.15s',
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = '#15803D'; e.currentTarget.style.borderColor = '#15803D' }}
+              onMouseOut={e => { e.currentTarget.style.background = '#16A34A'; e.currentTarget.style.borderColor = '#16A34A' }}
+            >
+              <CheckCircle size={15} color="white" />
+            </button>
+          </div>
         )}
       </motion.div>
     )
@@ -1955,7 +2031,7 @@ export default function CandidatsList() {
               {filterNonVu ? 'Tous les profils' : 'Non vus'}
               <span style={{
                 background: '#EF4444', color: 'white', borderRadius: 100,
-                fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: 1.4,
+                fontSize: 10, fontWeight: 700, padding: '1px 6px', lineHeight: 1.4,
               }}>
                 {nonVusTotal}
               </span>
@@ -2015,7 +2091,7 @@ export default function CandidatsList() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {/* Label */}
             <span style={{
-              fontSize: 13, fontWeight: 800, color: 'var(--primary)',
+              fontSize: 13, fontWeight: 700, color: 'var(--primary)',
               background: 'rgba(245,167,35,0.1)', borderRadius: 8,
               padding: '4px 10px', whiteSpace: 'nowrap',
             }}>
@@ -2038,7 +2114,7 @@ export default function CandidatsList() {
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
               background: 'var(--secondary)', color: 'var(--foreground)',
-              border: '1.5px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
+              border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
             }}>
               <X size={12} /> Désélectionner
             </button>
@@ -2210,10 +2286,18 @@ export default function CandidatsList() {
       {/* Search bar — pleine largeur */}
       <div style={{ position: 'relative', marginBottom: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
         <div className="search-wrapper" style={{ position: 'relative', flex: 1 }}>
-            <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted)', transition: 'color 0.2s, transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }} />
+            <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'var(--muted-foreground, var(--muted))', pointerEvents: 'none', zIndex: 2 }} />
             <input
-              className="neo-input-soft"
-              style={{ paddingLeft: 38, paddingRight: (search || aiResults !== null) ? 32 : 12, width: '100%', height: 42, fontSize: 14 }}
+              style={{
+                paddingLeft: 40, paddingRight: (search || aiResults !== null) ? 36 : 14,
+                width: '100%', height: 42, fontSize: 14, fontWeight: 500,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                background: 'var(--surface, var(--card))',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                color: 'var(--text, var(--foreground))',
+                outline: 'none', boxShadow: 'none',
+              }}
               placeholder="Nom, métier, compétence, contenu du CV..."
               value={search}
               onChange={e => { setSearch(e.target.value); if (aiResults !== null) clearAiSearch() }}
@@ -2249,7 +2333,7 @@ export default function CandidatsList() {
                 boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
                 border: '1px solid var(--border)', width: 340,
               }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 10 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)', marginBottom: 10 }}>
                   Recherche avancée
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '0 0 12px', lineHeight: 1.6 }}>
@@ -2323,13 +2407,16 @@ export default function CandidatsList() {
               <button
                 data-metier-trigger
                 onClick={() => setMetierDropdownOpen(!metierDropdownOpen)}
-                className="neo-input-soft"
                 style={{
-                  height: 38, fontSize: 13, paddingLeft: 10, paddingRight: 28, minWidth: 170,
+                  height: 34, fontSize: 13, paddingLeft: 12, paddingRight: 28, minWidth: 170,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left',
-                  color: nSelected > 0 ? 'var(--foreground)' : 'var(--muted)', fontWeight: nSelected > 0 ? 600 : 400,
-                  background: triggerColor ? triggerColor + '18' : (nSelected > 1 ? 'var(--primary-soft)' : undefined),
-                  borderColor: triggerColor ? triggerColor + '60' : (nSelected > 1 ? 'var(--primary)' : undefined),
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                  fontWeight: nSelected > 0 ? 600 : 500,
+                  lineHeight: 1,
+                  borderRadius: 10, outline: 'none',
+                  color: nSelected > 0 ? 'var(--text, var(--foreground))' : 'var(--text-3, var(--muted-foreground))',
+                  background: triggerColor ? triggerColor + '18' : (nSelected > 1 ? 'var(--primary-soft)' : 'var(--surface, var(--card))'),
+                  border: `1px solid ${triggerColor ? triggerColor + '60' : (nSelected > 1 ? 'var(--primary)' : 'var(--border)')}`,
                 }}
               >
                 {triggerColor && <span style={{ width: 8, height: 8, borderRadius: '50%', background: triggerColor, flexShrink: 0 }} />}
@@ -2499,12 +2586,15 @@ export default function CandidatsList() {
                 onClick={() => setImportStatusFilter(o.value)}
                 style={{
                   position: 'relative',
-                  borderRadius: idx === 0 ? '7px 0 0 7px' : idx === IMPORT_STATUS_OPTS.length - 1 ? '0 7px 7px 0' : 0,
-                  padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  borderRadius: idx === 0 ? '9px 0 0 9px' : idx === IMPORT_STATUS_OPTS.length - 1 ? '0 9px 9px 0' : 0,
+                  padding: '0 14px', height: 34, fontSize: 13, fontWeight: 500, cursor: 'pointer',
                   border: 'none', borderRight: '1px solid var(--border)',
                   background: active ? c.activeBg : c.bg,
                   color: active ? 'white' : c.color,
                   transition: 'all 0.15s',
+                  fontFamily: 'var(--font-jakarta), inherit',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  lineHeight: 1,
                 }}
               >
                 {o.label}
@@ -2512,7 +2602,7 @@ export default function CandidatsList() {
                   <span style={{
                     position: 'absolute', top: -5, right: -5, zIndex: 50,
                     background: '#EF4444', color: 'white',
-                    borderRadius: '100px', fontSize: 9, fontWeight: 800,
+                    borderRadius: '100px', fontSize: 9, fontWeight: 700,
                     padding: '1px 4px', lineHeight: 1.4, minWidth: 14,
                     textAlign: 'center', pointerEvents: 'none',
                     animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite',
@@ -2525,14 +2615,26 @@ export default function CandidatsList() {
           })}
         </div>
 
-        {/* Sort */}
+        {/* Sort — v1.9.127 styles inline (sans neo-input-soft pour éviter conflit avec arrow custom des selects) */}
         <div style={{ position: 'relative' }}>
-          <SortAsc style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, color: 'var(--muted)', pointerEvents: 'none' }} />
+          <SortAsc style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: 'var(--muted-foreground, var(--muted))', pointerEvents: 'none', zIndex: 2 }} />
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as any)}
-            className="neo-input-soft"
-            style={{ paddingLeft: 30, width: 'auto', cursor: 'pointer', fontSize: 13, paddingRight: 8 }}
+            style={{
+              paddingLeft: 34, paddingRight: 30,
+              width: 'auto', cursor: 'pointer',
+              height: 34, fontSize: 13, fontWeight: 500,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              background: 'var(--surface, var(--card))',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              color: 'var(--text, var(--foreground))',
+              outline: 'none', boxShadow: 'none',
+              appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+              backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '16px 16px',
+            }}
           >
             {/* v1.9.121 — option "Plus proche" injectée seulement si filtre rayon actif */}
             {(villeRayon ? [...SORT_OPTS, SORT_OPT_DISTANCE] : SORT_OPTS)
@@ -2541,7 +2643,7 @@ export default function CandidatsList() {
         </div>
 
         {/* Filtres avancés button */}
-        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 14px',borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--bg-card)',color:showAdvancedFilters?'var(--primary-foreground)':'var(--foreground)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>
+        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'inline-flex',alignItems:'center',gap:7,padding:'0 14px',height:34,borderRadius:10,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--surface, var(--card))',color:showAdvancedFilters?'var(--primary-foreground)':'var(--text, var(--foreground))',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',transition:'all 0.15s',lineHeight:1}}>
           <SlidersHorizontal size={14} />
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
@@ -2552,7 +2654,7 @@ export default function CandidatsList() {
           <button
             onClick={resetAllFilters}
             title="Réinitialiser tous les filtres"
-            style={{display:'flex',alignItems:'center',gap:5,padding:'8px 12px',borderRadius:8,border:'1px solid #FCA5A5',background:'#FEF2F2',color:'#DC2626',fontSize:12,cursor:'pointer',fontFamily:'inherit',fontWeight:600}}
+            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'0 12px',height:34,borderRadius:10,border:'1px solid var(--destructive-soft, #FCA5A5)',background:'var(--destructive-soft, #FEF2F2)',color:'var(--destructive, #DC2626)',fontSize:12.5,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',fontWeight:500,lineHeight:1}}
           >
             <X size={13} /> Tout effacer
           </button>
@@ -2560,7 +2662,7 @@ export default function CandidatsList() {
 
         {/* Nombre de résultats par page */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, fontWeight: 500, height: 34, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))', cursor: 'pointer', fontFamily: 'var(--font-jakarta), inherit' }}>
             <option value={20}>20</option>
             <option value={100}>100</option>
             <option value={500}>500</option>
@@ -2576,9 +2678,9 @@ export default function CandidatsList() {
         </div>
       </div>
 
-      {/* Advanced filters panel */}
+      {/* Advanced filters panel — v1.9.127 polices Jakarta cohérentes */}
       {showAdvancedFilters && (
-        <div style={{background:'var(--bg-card)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12}}>
+        <div style={{background:'var(--surface, var(--card))',border:'1px solid var(--border)',borderRadius:14,padding:16,marginBottom:12,display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',gap:12,fontFamily:'var(--font-jakarta), system-ui, sans-serif'}}>
           {/* v1.9.110 — Filtre rayon : autocomplete ville + slider km */}
           <div style={{gridColumn:'span 2',position:'relative'}}>
             <label style={{fontSize:11,color:'var(--muted)',fontWeight:600,display:'block',marginBottom:4}}>
@@ -2868,7 +2970,7 @@ export default function CandidatsList() {
                       ? <ChevronRight size={15} color="var(--muted)" />
                       : <ChevronDown size={15} color="var(--muted)" />
                     }
-                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>{groupKey}</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)' }}>{groupKey}</span>
                     <span className="neo-badge neo-badge-gray">{items.length}</span>
                   </div>
                 </div>
@@ -2885,8 +2987,68 @@ export default function CandidatsList() {
         </div>
       ) : (
         /* Flat list */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Compteur supprimé — total affiché en haut */}
+        <div className="clist-v2" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* v1.9.127 — Header colonnes V2 aligné EXACTEMENT sur les largeurs flex de renderCard.
+              Inclut checkbox "Tout sélectionner" en cellule 1 (même width 20px que les rows). */}
+          {(() => {
+            const visibleIds = candidatesPagines.map((c: any) => c.id)
+            const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id))
+            const someSelected = !allSelected && visibleIds.some(id => selectedIds.has(id))
+            const headerCellStyle: React.CSSProperties = {
+              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              // v1.9.133 — display flex pour matcher exactement le comportement des cellules row (qui sont des div flex)
+              display: 'flex', alignItems: 'center',
+              boxSizing: 'border-box',
+            }
+            return (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '8px 18px 8px',
+                // v1.9.129 — border transparente 1px gauche/droite pour matcher exactement le décalage
+                // des rows (qui ont border: 1px solid var(--border) all sides). Sinon contenu du row décalé de 1px.
+                border: '1px solid transparent',
+                borderBottom: '1px solid var(--border)',
+                marginBottom: 4,
+              }}>
+                {/* Checkbox "Tout sélectionner" — aligné avec les checkboxes des rows */}
+                <div
+                  onClick={() => allSelected ? deselectAll() : selectAll()}
+                  title={allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+                  style={{
+                    flex: '0 0 20px', height: 20, borderRadius: 6,
+                    border: `2px solid ${allSelected || someSelected ? 'var(--primary)' : 'var(--border)'}`,
+                    background: allSelected ? 'var(--primary)' : (someSelected ? 'var(--primary-soft)' : 'transparent'),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {allSelected && <Check size={11} color="var(--foreground)" strokeWidth={3} />}
+                  {someSelected && !allSelected && <span style={{ width: 8, height: 2, background: 'var(--primary)', borderRadius: 1 }} />}
+                </div>
+                <span style={{ flex: '0 0 68px' }} />
+                <span style={{ flex: '0 0 320px', ...headerCellStyle }}>Nom</span>
+                <span style={{ flex: '0 0 170px', ...headerCellStyle }}>Lieu</span>
+                <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Âge</span>
+                <span style={{ flex: 1 }} />
+                {/* v1.9.134 — `flex: 0 0 Npx` shorthand strict (no-grow, no-shrink, basis=Npx)
+                    GARANTIT la même width header ↔ row, indépendamment du contenu environnant. */}
+                <span style={{ flex: '0 0 130px', ...headerCellStyle }}>Évaluation</span>
+                <span style={{ flex: '0 0 60px', ...headerCellStyle }}>Notes</span>
+                {importStatusFilter === 'a_traiter' && (
+                  <>
+                    <span style={{ flex: '0 0 64px', ...headerCellStyle }}>CFC</span>
+                    <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Engagé</span>
+                  </>
+                )}
+                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Mise à jour</span>
+                {importStatusFilter === 'a_traiter' && (
+                  <span style={{ flex: '0 0 38px', ...headerCellStyle }}>Valider</span>
+                )}
+              </div>
+            )
+          })()}
           {candidatesPagines.map((c: any) => renderCard(c))}
 
           {/* Pagination */}
@@ -2921,6 +3083,45 @@ export default function CandidatsList() {
           )}
         </div>
       )}
+
+      {/* v1.9.129 — Tooltip métiers multi (portalisé : échappe au overflow:hidden du wrapper info col) */}
+      {metierTooltip && typeof document !== 'undefined' && (() => {
+        const screenH = window.innerHeight
+        const spaceAbove = metierTooltip.top
+        const spaceBelow = screenH - metierTooltip.bottom
+        const placeAbove = spaceAbove > 120 && spaceAbove > spaceBelow
+        const top = placeAbove ? metierTooltip.top - 8 : metierTooltip.bottom + 8
+        return createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top,
+              left: metierTooltip.left,
+              transform: placeAbove ? 'translateY(-100%)' : 'none',
+              background: 'var(--foreground, #1f2937)',
+              color: 'var(--background, #fff)',
+              padding: '10px 14px',
+              borderRadius: 10,
+              fontSize: 12, fontWeight: 500,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+              zIndex: 99999,
+              pointerEvents: 'none',
+              display: 'flex', flexDirection: 'column', gap: 4,
+              minWidth: 160, maxWidth: 280,
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, opacity: 0.6, textTransform: 'uppercase', marginBottom: 2 }}>
+              Métiers ({metierTooltip.tags.length})
+            </span>
+            {metierTooltip.tags.map(t => (
+              <span key={t} style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.4 }}>· {t}</span>
+            ))}
+          </div>,
+          document.body
+        )
+      })()}
 
       {/* CV Preview Overlay — rendu via portal pour éviter que les transform Framer Motion cassent position:fixed */}
       {hoveredCv && typeof document !== 'undefined' && createPortal(
@@ -3062,7 +3263,7 @@ export default function CandidatsList() {
       {showBulkPipelineModal && typeof window !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setShowBulkPipelineModal(false)}>
-          <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 480, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, width: 480, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
               <span style={{ fontWeight: 700, fontSize: 15 }}>Ajouter {selCount} candidat{selCount > 1 ? 's' : ''} au pipeline</span>
@@ -3085,7 +3286,7 @@ export default function CandidatsList() {
               </div>
               <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 6 }}>Métier (optionnel)</label>
               {/* v1.9.73 : MetierPicker partagé avec la page Pipeline (UX cohérente) */}
-              <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8 }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
                 <MetierPicker
                   metiers={agenceMetiers}
                   categories={metierCategories}
@@ -3094,7 +3295,7 @@ export default function CandidatsList() {
                 />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 24px 18px', borderTop: '1px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
               <button onClick={() => setShowBulkPipelineModal(false)} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
               <button onClick={addSelectionToPipeline} disabled={bulkPipelineSaving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>
                 {bulkPipelineSaving ? '…' : 'Ajouter au pipeline'}
@@ -3121,27 +3322,37 @@ export default function CandidatsList() {
         confirmLabel={`Supprimer (${selCount})`}
       />
 
-      {/* Modal Message */}
-      {showMessage && (() => {
+      {/* Modal Message — v1.9.130 design V2 + portal + scrollbar discrète */}
+      {showMessage && typeof document !== 'undefined' && (() => {
         // v1.9.122 — cache toutes-pages (avant : page courante seulement = bug Seb 18 sélectionnés / 8 affichés)
         const selected = getAllSelectedCandidats()
         const avecTel   = selected.filter((c: any) => c.telephone)
         const sansTel   = selected.filter((c: any) => !c.telephone)
         const formatted = avecTel.map((c: any) => detectAndFormat(c.telephone).number)
-        return (
+        return createPortal(
           <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+            backdropFilter: 'blur(2px)',
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
           }}>
-            <div className="neo-card" style={{ maxWidth: 720, width: '92%', padding: 0, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              maxWidth: 720, width: '92%', maxHeight: '92vh',
+              display: 'flex', flexDirection: 'column',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              overflow: 'hidden',
+            }}>
               {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#007AFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MessageSquare size={15} color="white" />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Envoyer un message</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)' }}>Envoyer un message</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ouvre l&apos;app Messages sur votre Mac</div>
                   </div>
                 </div>
@@ -3150,7 +3361,7 @@ export default function CandidatsList() {
                 </button>
               </div>
 
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
+              <div className="scroll-thin" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 {/* v1.9.68 — Warning si déjà contacté dans les 7 derniers jours */}
                 {!warningDismissed && (
                   <RecentContactsWarning
@@ -3172,7 +3383,7 @@ export default function CandidatsList() {
                       style={{
                         width: '100%', padding: '10px 14px', paddingRight: 90,
                         fontSize: 13, fontFamily: 'monospace', fontWeight: 600,
-                        border: '1.5px solid var(--border)', borderRadius: 10,
+                        border: '1px solid var(--border)', borderRadius: 10,
                         resize: 'none', background: 'var(--secondary)', color: 'var(--foreground)',
                         outline: 'none', boxSizing: 'border-box', lineHeight: 1.8,
                       }}
@@ -3202,13 +3413,13 @@ export default function CandidatsList() {
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     Destinataires — {avecTel.length} avec numéro
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                  <div className="scroll-thin" style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto', paddingRight: 4 }}>
                     {avecTel.map((c: any) => {
                       const { number, countryCode, country } = detectAndFormat(c.telephone)
                       const hasPhoto = c.photo_url && c.photo_url !== 'checked'
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--success-soft)', border: '1px solid var(--success-soft)', borderRadius: 8, padding: '8px 12px' }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
                             {hasPhoto ? (
                               <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -3234,7 +3445,7 @@ export default function CandidatsList() {
                       const hasPhoto = c.photo_url && c.photo_url !== 'checked'
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.85 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
                             {hasPhoto ? (
                               <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -3264,7 +3475,7 @@ export default function CandidatsList() {
                         onClick={() => setShowSmsTplDropdown(v => !v)}
                         style={{
                           padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                          border: '1.5px solid var(--border)', borderRadius: 7,
+                          border: '1px solid var(--border)', borderRadius: 7,
                           background: selectedSmsTpl ? 'var(--info-soft)' : 'var(--card)',
                           color: selectedSmsTpl ? 'var(--info)' : 'var(--foreground)',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
@@ -3280,7 +3491,7 @@ export default function CandidatsList() {
                           title="Sauvegarder le message courant comme template"
                           style={{
                             padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                            border: '1.5px solid var(--border)', borderRadius: 7,
+                            border: '1px solid var(--border)', borderRadius: 7,
                             background: 'var(--surface)', color: 'var(--foreground)',
                             cursor: 'pointer',
                           }}
@@ -3377,7 +3588,7 @@ export default function CandidatsList() {
                     rows={selectedSmsTpl ? 8 : 4}
                     style={{
                       width: '100%', padding: '10px 14px', fontSize: 14,
-                      border: '1.5px solid var(--border)', borderRadius: 10,
+                      border: '1px solid var(--border)', borderRadius: 10,
                       resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)',
                       background: 'var(--background)', outline: 'none', boxSizing: 'border-box',
                     }}
@@ -3390,7 +3601,7 @@ export default function CandidatsList() {
               </div>
 
               {/* Footer sticky — boutons toujours visibles */}
-              <div style={{ padding: '14px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+              <div style={{ padding: '14px 24px 18px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
                 {avecTel.length === 0 && (
                   <p style={{ fontSize: 12, color: 'var(--warning)', textAlign: 'center', margin: 0 }}>
                     Aucun candidat sélectionné n&apos;a de numéro de téléphone.
@@ -3412,7 +3623,8 @@ export default function CandidatsList() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       })()}
 
@@ -3491,13 +3703,13 @@ export default function CandidatsList() {
           }}>
             <div className="neo-card" style={{ maxWidth: 720, width: '92%', padding: 0, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}>
               {/* Header vert WhatsApp */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1.5px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MessageCircle size={15} color="white" />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)' }}>Envoyer WhatsApp en masse</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)' }}>Envoyer WhatsApp en masse</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)' }}>Ouvre un chat à la fois (anti-blocage navigateur)</div>
                   </div>
                 </div>
@@ -3535,7 +3747,7 @@ export default function CandidatsList() {
                     onClick={openNext}
                     disabled={!nextCandidat || !messageText.trim()}
                     style={{
-                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 800,
+                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                       background: nextCandidat && messageText.trim() ? '#25D366' : 'var(--border)',
                       color: nextCandidat && messageText.trim() ? '#fff' : 'var(--muted)',
                       border: 'none', cursor: nextCandidat && messageText.trim() ? 'pointer' : 'default',
@@ -3561,7 +3773,7 @@ export default function CandidatsList() {
                         onClick={() => setShowSmsTplDropdown(v => !v)}
                         style={{
                           padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                          border: '1.5px solid var(--border)', borderRadius: 7,
+                          border: '1px solid var(--border)', borderRadius: 7,
                           background: selectedTpl ? 'var(--success-soft)' : 'var(--card)',
                           color: selectedTpl ? 'var(--success)' : 'var(--foreground)',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
@@ -3662,7 +3874,7 @@ export default function CandidatsList() {
                     rows={selectedSmsTpl ? 6 : 4}
                     style={{
                       width: '100%', padding: '10px 14px', fontSize: 14,
-                      border: '1.5px solid var(--border)', borderRadius: 10,
+                      border: '1px solid var(--border)', borderRadius: 10,
                       resize: 'vertical', fontFamily: 'inherit', color: 'var(--foreground)',
                       background: 'var(--background)', outline: 'none', boxSizing: 'border-box',
                     }}
@@ -3705,7 +3917,7 @@ export default function CandidatsList() {
                             borderRadius: 8, padding: '8px 12px',
                           }}
                         >
-                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--foreground)', flexShrink: 0, overflow: 'hidden' }}>
                             {hasPhoto ? (
                               <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -3747,7 +3959,7 @@ export default function CandidatsList() {
                       const hasPhoto = c.photo_url && c.photo_url !== 'checked'
                       return (
                         <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--destructive-soft)', border: '1px solid var(--destructive-soft)', borderRadius: 8, padding: '8px 12px', opacity: 0.85 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--card)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)', flexShrink: 0, overflow: 'hidden' }}>
                             {hasPhoto ? (
                               <Image src={c.photo_url} alt="" width={34} height={34} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
@@ -3768,7 +3980,7 @@ export default function CandidatsList() {
               </div>
 
               {/* Footer */}
-              <div style={{ padding: '14px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+              <div style={{ padding: '14px 24px 18px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
                 {avecTel.length === 0 && (
                   <p style={{ fontSize: 12, color: 'var(--warning)', textAlign: 'center', margin: 0 }}>
                     Aucun candidat sélectionné n&apos;a de numéro de téléphone.
@@ -3819,7 +4031,7 @@ export default function CandidatsList() {
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: 420, width: '92%', padding: 0, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
           >
-            <div style={{ padding: '20px 24px 12px', flexShrink: 0, fontSize: 15, fontWeight: 800, color: 'var(--foreground)' }}>
+            <div style={{ padding: '20px 24px 12px', flexShrink: 0, fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
               Sauvegarder comme template SMS
             </div>
             <div style={{ padding: '0 24px 14px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
@@ -3832,13 +4044,13 @@ export default function CandidatsList() {
                 placeholder="Nom du template (ex: Recherche maçon)"
                 style={{
                   width: '100%', padding: '10px 14px', fontSize: 14,
-                  border: '1.5px solid var(--border)', borderRadius: 10,
+                  border: '1px solid var(--border)', borderRadius: 10,
                   background: 'var(--background)', color: 'var(--foreground)',
                   outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                 }}
               />
             </div>
-            <div style={{ display: 'flex', gap: 10, padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 10, padding: '12px 24px 18px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
               <button onClick={() => setShowSaveTpl(false)} className="neo-btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>
                 Annuler
               </button>

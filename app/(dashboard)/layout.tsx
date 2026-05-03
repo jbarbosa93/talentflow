@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { DM_Sans } from "next/font/google"
+import { DM_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google"
 import "../globals.css"
 import "./dashboard.css"
 import "flag-icons/css/flag-icons.min.css"
@@ -19,6 +19,21 @@ const jakarta = DM_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+})
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
 })
 
@@ -51,7 +66,7 @@ export default function DashboardRootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className={jakarta.variable}>
+      <body className={`${jakarta.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}>
         <ReactQueryProvider>
           <ImportProvider>
             <MatchingProvider>
@@ -63,7 +78,23 @@ export default function DashboardRootLayout({
                     </DashboardShell>
                     <GlobalUploadPanel />
                     <SessionTimeoutModal />
-                    <Toaster richColors position="top-right" />
+                    {/* v1.9.127 — Toast style design v2 (subtil, plus de fond vert flashy) */}
+                    <Toaster
+                      position="top-right"
+                      toastOptions={{
+                        style: {
+                          background: 'var(--surface, var(--card))',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text, var(--foreground))',
+                          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                          fontSize: 13.5,
+                          fontWeight: 500,
+                          boxShadow: 'var(--shadow-lg, 0 8px 24px rgba(0,0,0,.12))',
+                          borderRadius: 12,
+                        },
+                        className: 'tf-toast-v2',
+                      }}
+                    />
                     <SpeedInsights />
                   </UploadProvider>
                 </DoublonsProvider>

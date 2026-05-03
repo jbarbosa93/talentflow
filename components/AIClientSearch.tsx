@@ -225,10 +225,10 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
           >
             <div style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 56, height: 56, borderRadius: 16,
+              width: 56, height: 56, borderRadius: 14,
               background: 'linear-gradient(135deg, #F7C948 0%, #F5B731 100%)',
-              border: '2px solid var(--foreground)',
-              boxShadow: '3px 3px 0 var(--foreground)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 6px 18px -4px rgba(245,166,35,0.40)',
               marginBottom: 16,
               animation: 'pulse 1.5s ease-in-out infinite',
             }}>
@@ -476,14 +476,14 @@ export default function AIClientSearch({ onClientAdded, onClose, compact }: AICl
                         onClick={() => handleAdd(result, index)}
                         disabled={addingIndex === index}
                         style={{
-                          height: 34, padding: '0 16px', borderRadius: 8,
-                          border: '2px solid var(--foreground)',
+                          height: 34, padding: '0 14px', borderRadius: 10,
+                          border: result.already_exists ? '1px solid var(--border)' : '1px solid #10B981',
                           background: result.already_exists ? 'var(--secondary)' : '#10B981',
                           color: result.already_exists ? 'var(--foreground)' : 'white',
-                          fontSize: 13, fontWeight: 700, cursor: addingIndex === index ? 'wait' : 'pointer',
-                          fontFamily: 'var(--font-body)',
+                          fontSize: 13, fontWeight: 500, cursor: addingIndex === index ? 'wait' : 'pointer',
+                          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                           display: 'flex', alignItems: 'center', gap: 6,
-                          boxShadow: '2px 2px 0 var(--foreground)',
+                          boxShadow: result.already_exists ? 'none' : '0 4px 12px -4px rgba(16,185,129,0.40)',
                           transition: 'transform 0.1s',
                         }}
                       >

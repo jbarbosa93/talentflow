@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function ConfidentialitePage() {
   return (
-    <div className="landing-root" style={{ background: '#FFFDF5', minHeight: '100vh' }}>
+    <div className="landing-root landing-v2" style={{ background: '#FFFDF5', minHeight: '100vh' }}>
       <Navbar />
       <main className="l-legal">
         <Link href="/" className="l-legal-back">

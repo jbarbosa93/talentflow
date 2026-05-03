@@ -10,20 +10,24 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
+// v1.9.127 — Style V2 : labels lisibles (sans uppercase aggressif), inputs 1px Jakarta
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: 'var(--muted)',
-  textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6,
+  fontSize: 12, fontWeight: 600, color: 'var(--muted)',
+  display: 'block', marginBottom: 6,
+  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
 }
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 40, padding: '0 14px', borderRadius: 8,
-  border: '1.5px solid var(--border)', background: 'var(--card)',
-  fontSize: 13, color: 'var(--foreground)', fontFamily: 'var(--font-body)',
+  width: '100%', height: 40, padding: '0 14px', borderRadius: 10,
+  border: '1px solid var(--border)', background: 'var(--surface, var(--card))',
+  fontSize: 14, color: 'var(--foreground)',
+  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
   outline: 'none', transition: 'border-color 0.15s',
 }
 const sectionTitle: React.CSSProperties = {
-  fontSize: 14, fontWeight: 800, color: 'var(--foreground)', marginBottom: 16,
-  paddingBottom: 10, borderBottom: '2px solid var(--border)',
-  display: 'flex', alignItems: 'center', gap: 8,
+  fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+  fontSize: 20, fontWeight: 400, color: 'var(--foreground)', marginBottom: 18,
+  paddingBottom: 12, borderBottom: '1px solid var(--border)',
+  display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.2,
 }
 
 // ─── Image Crop Modal ─────────────────────────────────────────────────────────
@@ -480,26 +484,30 @@ export default function ProfilPage() {
           <input ref={avatarRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
         </div>
 
-        {/* Nom + email */}
+        {/* Nom + email V2 */}
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+            fontSize: 30, fontWeight: 400, color: 'var(--foreground)',
+            lineHeight: 1.1, letterSpacing: '-0.01em', margin: 0,
+          }}>
             {[form.prenom, form.nom].filter(Boolean).join(' ') || 'Mon Profil'}
           </h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>{form.role || 'Consultant'}</p>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>{form.role || 'Consultant'}</p>
           {form.entreprise && (
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1, fontWeight: 600 }}>{form.entreprise}</p>
+            <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1, fontWeight: 500, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>{form.entreprise}</p>
           )}
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{user?.email}</p>
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>{user?.email}</p>
         </div>
 
-        {/* Déconnexion */}
+        {/* Déconnexion V2 */}
         <button
           onClick={logout}
           style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
-            borderRadius: 8, border: '1.5px solid #FECACA', background: 'var(--card)',
-            fontSize: 12, fontWeight: 700, color: 'var(--destructive)', cursor: 'pointer',
-            flexShrink: 0, fontFamily: 'var(--font-body)',
+            borderRadius: 10, border: '1px solid #FECACA', background: 'var(--surface, var(--card))',
+            fontSize: 13, fontWeight: 500, color: 'var(--destructive)', cursor: 'pointer',
+            flexShrink: 0, fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
           }}
         >
           <LogOut size={13} /> Déconnexion

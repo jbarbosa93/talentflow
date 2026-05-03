@@ -81,7 +81,7 @@ export default function DemandesAccesPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 900, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
             Demandes d&apos;accès
           </h1>
           <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
@@ -107,7 +107,7 @@ export default function DemandesAccesPage() {
           }}>
             <div style={{ color: s.color }}>{s.icon}</div>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{s.label}</div>
             </div>
           </div>
@@ -236,7 +236,7 @@ function DemandeCard({ demande, updating, onUpdate, onTrash, onDeleteFinal, isCo
         background: isCorbeille ? '#CBD5E1' : '#F7C948',
         border: `2px solid ${isCorbeille ? '#94A3B8' : 'var(--foreground)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 15, fontWeight: 900, color: isCorbeille ? '#64748B' : 'var(--foreground)',
+        fontSize: 15, fontWeight: 700, color: isCorbeille ? '#64748B' : 'var(--foreground)',
       }}>
         {demande.prenom[0]}{demande.nom[0]}
       </div>

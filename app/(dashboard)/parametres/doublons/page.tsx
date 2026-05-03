@@ -808,7 +808,7 @@ function MergeModal({ pair, keepId, deleteId, fieldChoices, merging, onChangeKee
 function StatBadge({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
     <div>
-      <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
     </div>
   )

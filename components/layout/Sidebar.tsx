@@ -19,27 +19,25 @@ import { useNewItemsBadges, useMarkSectionSeen, BADGE_COLORS } from '@/hooks/use
 import { hasBadge, getViewedSet, getViewedAllAt, ensureInit, refreshViewedFromDB } from '@/lib/badge-candidats'
 // v1.9.62 — useOffresATraiterCount retiré (Veille offres suspendue)
 
+// v1.9.127 — Design V2 : ordre maquette Tableau / Candidats / Clients / Commandes /
+// Missions / Pipeline / Matching IA (Beta) / Entretiens / Envois / Activité.
+// Secrétariat reste visible Secrétaire+Admin et basculé sous Configuration.
 const NAV_ITEMS = [
   { href: '/dashboard',    label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { href: '/candidats',    label: 'Candidats',        icon: Users },
   { href: '/clients',      label: 'Clients',          icon: Building2 },
   { href: '/offres',       label: 'Commandes',        icon: Briefcase,       hideForSecretaire: true },
-  { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
-  // { href: '/entretiens', label: 'Entretiens / Suivi', icon: Calendar }, // masqué temporairement
   { href: '/missions',     label: 'Missions',         icon: TrendingUp,      adminOnly: true },
+  { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
+  { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true, beta: true },
   { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireVisible: true },
   { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
-  { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true },
-  // v1.9.124 — Activite déplacé dans FOOTER_ITEMS (section Compte) après Administration
 ]
 
 const FOOTER_ITEMS = [
   { href: '/integrations',               label: 'Intégrations',      icon: Plug,      adminOnly: true },
   { href: '/outils',                     label: 'Outils',            icon: Wrench },
-  { href: '/parametres/admin',           label: 'Administration',    icon: Shield,    adminOnly: true },
-  // v1.9.124 — Activite ici plutôt que dans le menu principal : utilité = trace ponctuelle, pas action quotidienne
-  { href: '/activites',                  label: 'Activite',          icon: Activity,  hideForSecretaire: true },
-  { href: '/parametres/profil',          label: 'Paramètres',        icon: Settings },
+  { href: '/parametres',                 label: 'Paramètres',        icon: Settings },
 ]
 
 const ADMIN_EMAIL = 'j.barbosa@l-agence.ch'
@@ -263,18 +261,19 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: '6px 8px 10px', textDecoration: 'none' }}>
+          {/* TalentFlow icon (éclair brand) */}
           <motion.span
             whileHover={{ scale: 1.08, rotate: 4 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
             style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 32, height: 32, borderRadius: 8,
-              background: '#EAB308', flexShrink: 0,
+              background: '#1C1A14', flexShrink: 0,
               boxShadow: '0 1px 2px rgba(0,0,0,.08), 0 4px 12px -4px rgba(255, 170, 0, .35)',
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M13 2L4 13h7l-1 9 10-12h-7z" fill="#1C1A14"/>
+            <svg width="18" height="18" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+              <path d="M288 48L112 272h144l-32 192 176-224H256z" fill="#F7C948"/>
             </svg>
           </motion.span>
           <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
@@ -438,7 +437,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
 
       {/* Main nav */}
       <nav className="d-sidebar-nav">
-        <span className="d-sidebar-section">Menu</span>
+        <span className="d-sidebar-section">Navigation</span>
         <motion.div
           initial="hidden"
           animate="show"
@@ -501,6 +500,19 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                 >
                   <Icon className="d-nav-icon" strokeWidth={active ? 2.5 : 2} />
                   {item.label}
+                  {/* v1.9.127 — Badge "Beta" sur Matching IA (design v2) */}
+                  {(item as any).beta && (
+                    <span style={{
+                      marginLeft: 'auto',
+                      padding: '1px 6px', borderRadius: 6,
+                      background: 'rgba(249, 115, 22, 0.14)',
+                      color: '#C2410C', fontWeight: 800,
+                      fontSize: 9, letterSpacing: '0.04em',
+                      textTransform: 'uppercase', flexShrink: 0,
+                    }}>
+                      Beta
+                    </span>
+                  )}
                   {/* Badge nombre de nouveaux candidats depuis dernière visite */}
                   {item.href === '/candidats' && sidebarBadgeCount > 0 && (
                     <span style={{
@@ -513,7 +525,9 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                       {sidebarBadgeCount > 99 ? '99+' : sidebarBadgeCount}
                     </span>
                   )}
-                  {/* Petit rond rouge — nouveaux éléments (autres sections) */}
+                  {/* v1.9.127 — Badge count "design v2" pour les autres sections (Clients/Commandes/Entretiens).
+                      Avant : simple dot rouge animé. Maintenant : nombre dans pill discret slate
+                      (cohérent avec la maquette V2 qui montre 3, 27, 12 sur les items). */}
                   {(() => {
                     if (item.href === '/candidats') return null
                     const badgeKey = BADGE_SECTION_MAP[item.href]
@@ -521,10 +535,15 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     if (!count) return null
                     return (
                       <span style={{
-                        marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%',
-                        background: 'var(--destructive)', flexShrink: 0,
-                        animation: 'pulse 2s infinite',
-                      }} />
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
+                        padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--surface-3, var(--muted))',
+                        color: 'var(--text-2, var(--muted-foreground))',
+                        fontSize: 10, fontWeight: 700, flexShrink: 0,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {count > 99 ? '99+' : count}
+                      </span>
                     )
                   })()}
                   {/* Badge rappels entretiens */}
@@ -566,7 +585,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
 
       {/* Footer */}
       <div className="d-sidebar-footer">
-        <span className="d-sidebar-section" style={{ margin: '0 0 6px' }}>Compte</span>
+        <span className="d-sidebar-section" style={{ margin: '0 0 6px' }}>Configuration</span>
         <motion.div
           initial="hidden"
           animate="show"
@@ -686,7 +705,8 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
         </motion.div>
       </div>
 
-      {/* Beta badge inline */}
+      {/* v1.9.127 — Footer sidebar : user info supprimé (déjà top-right), bouton "Signaler bug" supprimé.
+          Badge version Production conservé. */}
       <BetaBadge inline />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

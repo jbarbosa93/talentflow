@@ -937,7 +937,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                     {item.cvUrl && (
                       <button
                         onClick={() => setPreviewUrl(item.cvUrl || null)}
-                        style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
+                        style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 3 }}
                         title="Voir le document"
                       >
                         <Eye size={10} /> Voir
@@ -952,7 +952,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                             onClick={() => handleSelectMatch(i, c.id)}
                             style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, color: 'var(--info)', transition: 'all 0.15s' }}
                             onMouseEnter={e => { e.currentTarget.style.background = '#8B5CF6'; e.currentTarget.style.color = 'white' }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#7C3AED' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface, var(--card))'; e.currentTarget.style.color = '#7C3AED' }}
                           >
                             {c.prenom} {c.nom} {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
                           </button>
@@ -979,9 +979,9 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                               <button
                                 key={c.id}
                                 onClick={() => handleSelectMatch(i, c.id)}
-                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, color: 'var(--foreground)', textAlign: 'left', transition: 'all 0.12s' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+                                style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500, color: 'var(--foreground)', textAlign: 'left', transition: 'all 0.12s' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface, var(--card))')}
                               >
                                 <strong>{c.prenom} {c.nom}</strong> {c.titre_poste ? `· ${c.titre_poste}` : ''} {c.telephone ? `· ${c.telephone}` : ''}
                               </button>
@@ -994,7 +994,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         <button
                           onClick={() => handleForceCreate(i)}
-                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #16A34A', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid #16A34A', background: 'var(--surface, var(--card))', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}
                         >
                           <UserPlus size={10} /> Nouveau candidat
                         </button>
@@ -1006,7 +1006,7 @@ export default function UploadCV({ offreId, onSuccess, onClose }: UploadCVProps)
                         </button>
                         <button
                           onClick={() => updateFile(i, { status: 'error', error: 'Ignoré', multipleMatches: undefined, storagePath: undefined })}
-                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)' }}
+                          style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--muted-foreground)' }}
                         >
                           Ignorer
                         </button>

@@ -94,7 +94,7 @@ export default function SecuritePage() {
           { label: 'Événements total',    value: logs.length,  color: '#6366F1', bg: '#EEF2FF', border: '#C7D2FE' },
         ].map(s => (
           <div key={s.label} style={{ background: s.bg, border: `1.5px solid ${s.border}`, borderRadius: 12, padding: '16px 20px' }}>
-            <div style={{ fontSize: 28, fontWeight: 900, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
             <div style={{ fontSize: 12, fontWeight: 600, color: s.color, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}

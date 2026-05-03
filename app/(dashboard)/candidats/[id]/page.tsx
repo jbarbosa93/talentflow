@@ -3,12 +3,14 @@ import Image from 'next/image'
 import { formatFullName, formatInitials, formatEmail, formatCity, formatCountry } from '@/lib/format-candidat'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ArrowLeft, Mail, Phone, MapPin, Briefcase, GraduationCap,
   FileText, ExternalLink, Trash2, MessageSquare, Star, Send,
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
   Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, Activity,
+  Cake,
 } from 'lucide-react'
 import CVCustomizerModal from '@/components/CVCustomizer'
 import ActivityHistory from '@/components/ActivityHistory'
@@ -27,6 +29,7 @@ import { toWaPhone } from '@/lib/phone-format'
 import PhotoCropModal from '@/components/PhotoCropModal'
 import DocumentsPanel from '@/components/DocumentsSection'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal'
+import { MetierPopover } from '@/components/CandidatsList'
 
 // Drapeau emoji pour chaque langue
 const LANG_FLAGS: Record<string, string> = {
@@ -193,6 +196,11 @@ export default function CandidatDetailPage() {
   const [showInfo, setShowInfo]           = useState(false)
   const [showNotes, setShowNotes]         = useState(false)
   const [showNotesTooltip, setShowNotesTooltip] = useState(false)
+  const [showMetiersTooltip, setShowMetiersTooltip] = useState(false)  /* v1.9.127 — tooltip pill métier banner */
+  const [metiersTooltipRect, setMetiersTooltipRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
+  // v1.9.127 — picker métier cliquable depuis la pill du banner (renommé pour éviter collision avec le picker mode edit)
+  const [showBannerMetierPicker, setShowBannerMetierPicker] = useState(false)
+  const [bannerMetierPickerRect, setBannerMetierPickerRect] = useState<{ top: number; left: number; bottom: number; right: number } | null>(null)
   const [showMenu, setShowMenu]           = useState(false)
   const [showDocuments, setShowDocuments] = useState(false)
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
@@ -832,8 +840,8 @@ export default function CandidatDetailPage() {
   return (
     <div className="d-page" style={{ paddingBottom: 40, display: 'flex', flexDirection: 'column', maxWidth: 'none' }}>
 
-      {/* ── Header ── */}
-      <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, position: 'sticky', top: 0, zIndex: 30, background: 'var(--background)', paddingTop: 4, paddingBottom: 4 }}>
+      {/* ── Header ── (v1.9.127 — sticky retiré : la barre flottait bizarrement au scroll) */}
+      <div className="candidat-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8, paddingTop: 4, paddingBottom: 4 }}>
         <button onClick={() => goBack()} className="neo-btn-ghost neo-btn-sm">
           <ArrowLeft size={14} /> {backLabel}
         </button>
@@ -873,13 +881,41 @@ export default function CandidatDetailPage() {
               <span className="candidat-btn-reanalyse-label">{reanalyseLoading ? 'Analyse en cours...' : 'Ré-analyser IA'}</span>
             </button>
           )}
+          {/* v1.9.127 — Bouton Documents dans le header (lecture + édition) */}
+          <button
+            onClick={() => setShowDocuments(true)}
+            className="neo-btn-ghost neo-btn-sm"
+            title="Voir les documents"
+          >
+            <FolderOpen size={13} />
+            Documents
+            {(((candidat as any).documents?.length || 0) + (candidat.cv_url ? 1 : 0)) > 0 && (
+              <span style={{
+                marginLeft: 4,
+                padding: '1px 7px', borderRadius: 999,
+                background: '#E5E7EB',
+                color: '#374151',
+                fontSize: 10, fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1.4,
+              }}>
+                {((candidat as any).documents?.length || 0) + (candidat.cv_url ? 1 : 0)}
+              </span>
+            )}
+          </button>
           {!isEditing ? (
             <button onClick={startEdit} className="neo-btn-ghost neo-btn-sm">
               <Pencil size={13} /> Modifier
             </button>
           ) : (
             <>
-              <button onClick={saveEdit} disabled={updateCandidat.isPending} className="neo-btn neo-btn-sm" style={{ background: '#059669', boxShadow: 'none' }}>
+              {/* v1.9.127 — Enregistrer = même classe que Annuler (héritage CSS exact) + override couleur vert success via .btn-save-action */}
+              <button
+                onClick={saveEdit}
+                disabled={updateCandidat.isPending}
+                className="neo-btn-ghost neo-btn-sm btn-save-action"
+                style={{ opacity: updateCandidat.isPending ? 0.6 : 1 }}
+              >
                 <Check size={13} />
                 {updateCandidat.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </button>
@@ -983,14 +1019,524 @@ export default function CandidatDetailPage() {
         </div>
       </div>
 
+      {/* v1.9.127 — Banner V2 horizontal TOUJOURS visible (lecture + édition).
+          Toggles CFC/Engagé/étoiles + boutons photo restent interactifs en permanence.
+          + Dégradé subtil de gauche à droite selon la catégorie du métier (proto V2). */}
+      {(() => {
+        // v1.9.127 — Dégradé du banner basé sur la VRAIE couleur du métier assigné.
+        // Plus de mapping tone heuristique (qui ratait Nettoyage et autres métiers
+        // hors top 8). On prend directement la couleur hex de getColorForMetier()
+        // et on l'applique en alpha 0.22 pour un fade pastel cohérent.
+        const metierPrimaire = (Array.isArray(candidat.tags) && candidat.tags[0]) || candidat.titre_poste || ''
+        const colorHex = getColorForMetier(metierPrimaire) || '#EAB308'
+        const hexToRgba = (h: string, alpha: number): string => {
+          let c = (h || '').replace('#', '')
+          if (c.length === 3) c = c.split('').map(x => x + x).join('')
+          if (c.length !== 6) return `rgba(234, 179, 8, ${alpha})`
+          const r = parseInt(c.slice(0, 2), 16)
+          const g = parseInt(c.slice(2, 4), 16)
+          const b = parseInt(c.slice(4, 6), 16)
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`
+        }
+        const fadeColor = hexToRgba(colorHex, 0.28)
+        const tone = colorHex.toLowerCase().slice(1, 4)
+        return (
+      <div className="fiche-banner-v2" data-metier-tone={tone} style={{
+        display: 'flex', alignItems: 'center', gap: 22,
+        padding: '20px 24px', marginBottom: 16,
+        background: 'var(--surface, var(--card))',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Dégradé métier subtil (couleur réelle du métier en alpha 0.28, transparent à 55%).
+            v1.9.127 — Classe pour override dark mode (alpha trop fort sur fond sombre = teinte crème). */}
+        <div aria-hidden className="fiche-banner-v2-fade" style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(90deg, ${fadeColor} 0%, transparent 55%)`,
+          pointerEvents: 'none',
+        }} />
+        {/* v1.9.127 — Avatar carré 140px (taille comme avant dans la col 1) + boutons photo */}
+        <div style={{ position: 'relative', flexShrink: 0, zIndex: 1 }}>
+          {(candidat.photo_url && candidat.photo_url !== 'checked')
+            ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
+                style={{ width: 140, height: 140, borderRadius: 14, objectFit: 'cover', display: 'block' }}
+                alt={formatFullName(candidat.prenom, candidat.nom)} />
+            : (
+              <div style={{
+                width: 140, height: 140, borderRadius: 14,
+                background: 'var(--surface-3, var(--secondary))',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 44, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
+              }}>{initiales}</div>
+            )
+          }
+          {photoUploading && (
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+          )}
+          <div style={{ position: 'absolute', bottom: -6, right: -6, display: 'flex', gap: 3 }}>
+            <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
+              className="candidat-photo-btn"
+              style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <Camera size={11} color="var(--primary-foreground)" />
+            </button>
+            {candidat.cv_url && (
+              <button onClick={() => setShowCropModal(true)} title="Crop depuis le CV"
+                className="candidat-photo-btn"
+                style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 11 }}>
+                ✂️
+              </button>
+            )}
+            {candidat.photo_url && candidat.photo_url !== 'checked' && (
+              <>
+                <button onClick={handlePhotoRotate} title="Rotation 90°"
+                  className="candidat-photo-btn"
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <RotateCw size={11} color="var(--info)" />
+                </button>
+                <button onClick={handlePhotoDelete} title="Supprimer la photo"
+                  className="candidat-photo-btn"
+                  style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--surface, white)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <X size={11} color="var(--destructive)" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Nom serif + meta inline + chips */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Ligne 1 : nom + étoiles (en édition : 2 inputs prénom/nom inline serif) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            {isEditing ? (
+              <div style={{ display: 'flex', gap: 8, flex: 1, minWidth: 240, maxWidth: 600 }}>
+                <input
+                  value={editData.prenom || ''}
+                  onChange={e => set('prenom', e.target.value)}
+                  placeholder="Prénom"
+                  style={{
+                    flex: 1, minWidth: 0,
+                    fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                    fontSize: 28, fontWeight: 400, letterSpacing: '-0.01em',
+                    padding: '4px 10px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    color: 'var(--text, var(--foreground))', outline: 'none',
+                  }}
+                />
+                <input
+                  value={editData.nom || ''}
+                  onChange={e => set('nom', e.target.value)}
+                  placeholder="Nom"
+                  style={{
+                    flex: 1, minWidth: 0,
+                    fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                    fontSize: 28, fontWeight: 400, letterSpacing: '-0.01em',
+                    padding: '4px 10px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)',
+                    color: 'var(--text, var(--foreground))', outline: 'none',
+                  }}
+                />
+              </div>
+            ) : (
+              <h2 style={{
+                margin: 0,
+                fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)',
+                fontSize: 32, fontWeight: 400, lineHeight: 1.05,
+                letterSpacing: '-0.01em',
+                color: 'var(--text, var(--foreground))',
+              }}>
+                {formatFullName(candidat.prenom, candidat.nom)}
+              </h2>
+            )}
+            {/* Étoiles cliquables (lecture + édition rapide) */}
+            <div style={{ display: 'flex', gap: 1 }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <button key={star} type="button"
+                  onClick={async () => {
+                    const newRating = candidat.rating === star ? null : star
+                    queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, rating: newRating } : old)
+                    try {
+                      await fetch(`/api/candidats/${candidat.id}`, {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rating: newRating }),
+                      })
+                      queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                    } catch { queryClient.invalidateQueries({ queryKey: ['candidat', id] }) }
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1 }}
+                  title={`${star} étoile${star > 1 ? 's' : ''}`}
+                >
+                  <Star size={16} color="#EAB308" fill={star <= (candidat.rating || 0) ? '#EAB308' : 'none'} />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ligne 2 : meta inline (métier ASSIGNÉ · ville · tel · email).
+              v1.9.127 — Police agrandie (14px) pour cohérence avec la pill métier. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center', fontSize: 14, fontWeight: 500, color: 'var(--text-3, var(--muted-foreground))' }}>
+            {(() => {
+              // v1.9.127 — Pill métier cliquable + fallback titre_poste si aucun tag assigné.
+              // Au clic → ouvre MetierPopover pour assigner / modifier les métiers.
+              const tags: string[] = Array.isArray(candidat.tags) ? candidat.tags.filter(Boolean) : []
+              const metierAssigne = tags[0] || null
+              const fallbackParse = !metierAssigne && candidat.titre_poste ? candidat.titre_poste : null
+              const display = metierAssigne || fallbackParse
+              const isAssigned = !!metierAssigne
+              const color = isAssigned ? (getColorForMetier(metierAssigne!) || '#3B82F6') : '#94A3B8'
+              return (
+                <button
+                  onMouseDown={(e) => {
+                    // v1.9.128 — Bloquer le mousedown DOM natif quand popover ouvert (toggle 2e click)
+                    if (showBannerMetierPicker) {
+                      e.stopPropagation()
+                      e.nativeEvent.stopImmediatePropagation()
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (showBannerMetierPicker) {
+                      setShowBannerMetierPicker(false)
+                      setBannerMetierPickerRect(null)
+                    } else {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setBannerMetierPickerRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
+                      setShowBannerMetierPicker(true)
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (tags.length > 1) {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setMetiersTooltipRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
+                      setShowMetiersTooltip(true)
+                    }
+                  }}
+                  onMouseLeave={() => { setShowMetiersTooltip(false); setMetiersTooltipRect(null) }}
+                  aria-label={isAssigned ? `Modifier le métier${tags.length > 1 ? 's' : ''}` : 'Assigner un métier'}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '5px 12px', borderRadius: 999,
+                    background: isAssigned ? `${color}1A` : 'transparent',
+                    color: isAssigned ? color : 'var(--muted)',
+                    border: isAssigned ? `1.5px solid ${color}66` : '1.5px dashed var(--border)',
+                    fontWeight: isAssigned ? 700 : 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                    position: 'relative',
+                    transition: 'background 0.15s, border-color 0.15s',
+                  }}
+                  onMouseOver={e => {
+                    if (!isAssigned) {
+                      (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)';
+                      (e.currentTarget as HTMLElement).style.color = 'var(--primary)'
+                    }
+                  }}
+                  onMouseOut={e => {
+                    if (!isAssigned) {
+                      (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                      (e.currentTarget as HTMLElement).style.color = 'var(--muted)'
+                    }
+                  }}
+                >
+                  <Briefcase size={12} />
+                  {display || 'Assigner un métier'}
+                  {!isAssigned && fallbackParse && (
+                    <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.7, fontStyle: 'italic' }}>· non assigné</span>
+                  )}
+                  {tags.length > 1 && <span style={{ opacity: 0.7, fontWeight: 700 }}>+{tags.length - 1}</span>}
+                </button>
+              )
+            })()}
+            {/* Localisation */}
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <MapPin size={12} />
+                <input
+                  value={editData.localisation || ''}
+                  onChange={e => set('localisation', e.target.value)}
+                  placeholder="Ville, Pays"
+                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 150, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                />
+              </span>
+            ) : candidat.localisation ? (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(candidat.localisation)}`}
+                target="_blank" rel="noopener noreferrer"
+                title="Ouvrir dans Google Maps"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
+                onMouseLeave={e => (e.currentTarget.style.color = '')}
+              >
+                <MapPin size={12} /> {formatCity(candidat.localisation)}
+              </a>
+            ) : null}
+
+            {/* Date de naissance / Âge — icône Cake (anniversaire) */}
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Cake size={12} />
+                <input
+                  value={editData.date_naissance || ''}
+                  onChange={e => set('date_naissance', e.target.value)}
+                  placeholder="JJ/MM/AAAA ou âge"
+                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 130, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                />
+              </span>
+            ) : (() => {
+              const a = calculerAge(candidat.date_naissance)
+              return a !== null ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <Cake size={12} />
+                  {a} ans
+                </span>
+              ) : null
+            })()}
+
+            {/* Téléphone */}
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Phone size={12} />
+                <input
+                  value={editData.telephone || ''}
+                  onChange={e => set('telephone', e.target.value)}
+                  placeholder="+41 79 ..."
+                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 140, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                />
+              </span>
+            ) : candidat.telephone ? (
+              <a href={`tel:${candidat.telephone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none' }}>
+                <Phone size={12} /> {candidat.telephone}
+              </a>
+            ) : null}
+
+            {/* Email */}
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Mail size={12} />
+                <input
+                  type="email"
+                  value={editData.email || ''}
+                  onChange={e => set('email', e.target.value)}
+                  placeholder="email@..."
+                  style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 200, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                />
+              </span>
+            ) : candidat.email ? (
+              <a href={`mailto:${candidat.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'inherit', textDecoration: 'none' }}>
+                <Mail size={12} /> {formatEmail(candidat.email)}
+              </a>
+            ) : null}
+
+            {/* Titre poste / Permis (édition seulement) */}
+            {isEditing && (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Briefcase size={12} />
+                  <input
+                    value={editData.titre_poste || ''}
+                    onChange={e => set('titre_poste', e.target.value)}
+                    placeholder="Titre / Métier IA"
+                    style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 12, width: 160, outline: 'none', fontFamily: 'var(--font-jakarta), inherit' }}
+                  />
+                </span>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer' }}>
+                  <Car size={12} />
+                  <input
+                    type="checkbox"
+                    checked={!!editData.permis_conduire}
+                    onChange={e => set('permis_conduire', e.target.checked)}
+                    style={{ accentColor: 'var(--primary)' }}
+                  />
+                  Permis B
+                </label>
+              </>
+            )}
+          </div>
+
+          {/* Ligne 3 : toggles CFC/Engagé (click on/off) + dates Ajouté + Actualisé/Réactivé */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {/* Toggle CFC */}
+            <button
+              type="button"
+              onClick={async () => {
+                const newVal = !candidat.cfc
+                queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, cfc: newVal } : old)
+                try {
+                  await fetch(`/api/candidats/${candidat.id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cfc: newVal }),
+                  })
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                } catch { queryClient.invalidateQueries({ queryKey: ['candidat', id] }) }
+              }}
+              title={candidat.cfc ? 'CFC — cliquer pour désactiver' : 'CFC — cliquer pour activer'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 9px', borderRadius: 6,
+                fontSize: 10.5, fontWeight: 800, letterSpacing: '0.04em',
+                border: `1px solid ${candidat.cfc ? 'var(--success)' : 'var(--border)'}`,
+                background: candidat.cfc ? 'var(--success-soft)' : 'transparent',
+                color: candidat.cfc ? 'var(--success)' : 'var(--text-3, var(--muted-foreground))',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+            >
+              <GraduationCap size={11} /> CFC
+            </button>
+            {/* Toggle Engagé */}
+            <button
+              type="button"
+              onClick={async () => {
+                const newVal = !candidat.deja_engage
+                queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, deja_engage: newVal } : old)
+                try {
+                  await fetch(`/api/candidats/${candidat.id}`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deja_engage: newVal }),
+                  })
+                  queryClient.invalidateQueries({ queryKey: ['candidats'] })
+                } catch { queryClient.invalidateQueries({ queryKey: ['candidat', id] }) }
+              }}
+              title={candidat.deja_engage ? 'Engagé — cliquer pour désactiver' : 'Engagé — cliquer pour activer'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 9px', borderRadius: 6,
+                fontSize: 10.5, fontWeight: 800, letterSpacing: '0.04em',
+                border: `1px solid ${candidat.deja_engage ? 'var(--success)' : 'var(--border)'}`,
+                background: candidat.deja_engage ? 'var(--success-soft)' : 'transparent',
+                color: candidat.deja_engage ? 'var(--success)' : 'var(--text-3, var(--muted-foreground))',
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+            >
+              <Briefcase size={11} /> Engagé
+            </button>
+            <span style={{ width: 1, height: 12, background: 'var(--border)', margin: '0 4px' }} aria-hidden />
+            {/* v1.9.127 — Mode édition : 2 inputs date (ajout + modif) au lieu du label */}
+            {isEditing ? (
+              <>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-3, var(--muted-foreground))', fontFamily: 'var(--font-jakarta), inherit' }}>
+                  Ajouté
+                  <input
+                    type="date"
+                    value={editData.created_at || ''}
+                    onChange={e => set('created_at', e.target.value)}
+                    style={{ padding: '2px 6px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--font-jakarta), inherit', outline: 'none' }}
+                  />
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-3, var(--muted-foreground))', fontFamily: 'var(--font-jakarta), inherit' }}>
+                  Modifié
+                  <input
+                    type="date"
+                    value={editData.last_import_at || ''}
+                    onChange={e => set('last_import_at', e.target.value)}
+                    style={{ padding: '2px 6px', borderRadius: 5, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)', fontSize: 11, fontFamily: 'var(--font-jakarta), inherit', outline: 'none' }}
+                  />
+                  {editData.last_import_at && (
+                    <button
+                      type="button"
+                      onClick={() => set('last_import_at', '')}
+                      title="Effacer la date de modification"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--destructive)', padding: 2, display: 'flex' }}
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
+                </span>
+              </>
+            ) : candidat.created_at && (() => {
+              const fmt = (iso: string) => new Date(iso).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
+              const changeType = (candidat as any).onedrive_change_type as string | null | undefined
+              const changeAt = (candidat as any).onedrive_change_at as string | null | undefined
+              const lastImport = (candidat as any).last_import_at as string | null | undefined
+              const createdAt = candidat.created_at
+              const hasArchivedDocs = (((candidat as any).documents as unknown[]) || []).length > 0
+
+              // Calcul du label secondaire (Réactivé/Actualisé)
+              let updateLabel: string | null = null
+              let updateColor: string = 'var(--info)'
+              if (changeType === 'reactive' && changeAt) {
+                updateLabel = `Réactivé le ${fmt(changeAt)}`
+                updateColor = 'var(--warning)'
+              } else if (changeType === 'mis_a_jour' && changeAt) {
+                updateLabel = `Actualisé le ${fmt(changeAt)}`
+                updateColor = 'var(--info)'
+              } else if (changeType !== 'nouveau' && lastImport) {
+                const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
+                const DAY_MS = 24 * 60 * 60 * 1000
+                if (diffMs > DAY_MS) {
+                  if (hasArchivedDocs) { updateLabel = `Actualisé le ${fmt(lastImport)}`; updateColor = 'var(--info)' }
+                  else { updateLabel = `Réactivé le ${fmt(lastImport)}`; updateColor = 'var(--warning)' }
+                }
+              }
+
+              return (
+                <>
+                  <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>
+                    Ajouté le {fmt(createdAt)}
+                  </span>
+                  {updateLabel && (
+                    <>
+                      <span style={{ fontSize: 11, color: 'var(--text-3, var(--muted-foreground))', opacity: 0.5 }}>·</span>
+                      <span style={{ fontSize: 11, color: updateColor, fontWeight: 600 }}>
+                        {updateLabel}
+                      </span>
+                    </>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        </div>
+
+        {/* Actions rapides à droite (Email + WhatsApp) */}
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          {candidat.email && (
+            <a href={`mailto:${candidat.email}`}
+              title="Envoyer un email"
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 38, height: 38, borderRadius: 10,
+                background: 'var(--surface-2, var(--secondary))',
+                color: 'var(--text-2, var(--foreground))',
+                border: '1px solid var(--border)', textDecoration: 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              <Mail size={15} />
+            </a>
+          )}
+          {candidat.telephone && toWaPhone(candidat.telephone) && (
+            <a href={`https://wa.me/${toWaPhone(candidat.telephone)}`}
+              target="_blank" rel="noopener noreferrer"
+              title="Envoyer un WhatsApp"
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 38, height: 38, borderRadius: 10,
+                background: '#25D366', color: 'white',
+                border: 'none', textDecoration: 'none',
+                transition: 'all 0.15s',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.612l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.37 0-4.567-.82-6.3-2.188l-.44-.348-2.858.958.958-2.858-.348-.44A9.953 9.953 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+            </a>
+          )}
+        </div>
+      </div>
+        )
+      })()}
+
       {/* ── Grid 3 colonnes ── */}
       <div className="candidat-grid" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', minWidth: 0 }}>
 
-        {/* ══ COLONNE 1 — Infos candidat ══ */}
-        <div className="candidat-col-info" style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* ══ COLONNE 1 — Infos candidat ══
+            v1.9.127 — Visible UNIQUEMENT en édition (formulaires nom/prenom/email/etc.).
+            En lecture, on ne montre que le banner V2 + CV viewer (immersif). */}
+        <div className="candidat-col-info" style={{ width: 240, flexShrink: 0, display: isEditing ? 'flex' : 'none', flexDirection: 'column', gap: 12 }}>
 
-          {/* Identité */}
-          <div className="neo-card-soft" style={{ padding: 18 }}>
+          {/* Identité — v1.9.127 TOUJOURS cachée. Tous les champs éditables sont inline dans le banner V2. */}
+          <div className="neo-card-soft" style={{ padding: 18, display: 'none' }}>
             {/* v1.9.90 — 2 lignes distinctes :
                 Ligne 1 : "Ajouté le X" (created_at IMMUABLE = vraie date de 1er import) en vert
                 Ligne 2 : "Réactivé / Actualisé le Y" si applicable (bleu/jaune selon type)
@@ -1145,7 +1691,15 @@ export default function CandidatDetailPage() {
                   </div>
                 ) : (
                   <>
-                    <h1 style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', lineHeight: 1.3 }}>
+                    <h1 style={{
+                      fontWeight: 400,
+                      fontSize: 22,
+                      color: 'var(--foreground)',
+                      lineHeight: 1.15,
+                      letterSpacing: '-0.01em',
+                      fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)',
+                      textAlign: 'center',
+                    }}>
                       {formatFullName(candidat.prenom, candidat.nom)}
                     </h1>
                     {candidat.titre_poste && <p style={{ ...smallMuted, marginTop: 2 }}>{candidat.titre_poste}</p>}
@@ -1544,9 +2098,13 @@ export default function CandidatDetailPage() {
           </div>
 
 
-          {/* Compétences */}
-          <div className="neo-card-soft" style={{ padding: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          {/* v1.9.127 — Formations + Expériences ne sont plus affichées dans le panel :
+              elles sont visibles directement dans le CV viewer à droite (qui prend désormais
+              toute la largeur restante en mode lecture). */}
+
+          {/* Compétences — v1.9.127 cachée en mode édition */}
+          <div className="neo-card-soft" style={{ padding: 14, display: isEditing ? 'none' : undefined }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Compétences</label>
               {isEditing && (
                 <button onClick={() => openEditModal('competences')} title="Modifier les compétences"
@@ -1560,17 +2118,16 @@ export default function CandidatDetailPage() {
                 ? (editData.competences || '').split(',').map((s: string) => s.trim()).filter(Boolean)
                 : (candidat.competences || [])
               return comps.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {comps.map((c: string) => (
                     <span key={c} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                      padding: '4px 10px', borderRadius: 8,
-                      fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-                      background: 'var(--primary-soft)',
-                      color: 'var(--foreground)',
-                      border: '1px solid rgba(245,167,35,0.3)',
+                      display: 'inline-flex', alignItems: 'center',
+                      padding: '4px 10px', borderRadius: 999,
+                      fontSize: 11, fontWeight: 500, lineHeight: 1.3,
+                      background: 'var(--accent-soft, var(--primary-soft))',
+                      color: 'var(--text-2, var(--foreground))',
+                      border: 'none',
                     }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />
                       {c}
                     </span>
                   ))}
@@ -1581,8 +2138,8 @@ export default function CandidatDetailPage() {
             })()}
           </div>
 
-          {/* Langues */}
-          {(isEditing || candidat.langues?.length > 0) && (
+          {/* Langues — v1.9.127 cachée en mode édition */}
+          {!isEditing && candidat.langues?.length > 0 && (
             <div className="neo-card-soft" style={{ padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <label style={{ ...labelStyle, marginBottom: 0 }}>Langues</label>
@@ -1598,17 +2155,17 @@ export default function CandidatDetailPage() {
                   ? (editData.langues || '').split(',').map((s: string) => s.trim()).filter(Boolean)
                   : (candidat.langues || [])
                 return langs.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                     {langs.map((l: string) => (
                       <span key={l} style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '4px 10px', borderRadius: 8,
-                        fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-                        background: 'rgba(59,130,246,0.1)',
-                        color: 'var(--foreground)',
-                        border: '1px solid rgba(59,130,246,0.25)',
+                        padding: '4px 10px', borderRadius: 999,
+                        fontSize: 11, fontWeight: 500, lineHeight: 1.3,
+                        background: 'transparent',
+                        color: 'var(--text-2, var(--foreground))',
+                        border: '1px solid var(--border)',
                       }}>
-                        <span style={{ fontSize: 13 }}>{getLangFlag(l)}</span>
+                        <span style={{ fontSize: 12 }}>{getLangFlag(l)}</span>
                         {l}
                       </span>
                     ))}
@@ -1620,13 +2177,13 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Documents — ouvre le panneau latéral */}
+          {/* Documents — v1.9.127 caché en édition (déjà dans le header de la fiche) */}
           <button
             onClick={() => setShowDocuments(true)}
             className="neo-card-soft"
             style={{
               padding: 14, width: '100%', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 8,
+              display: isEditing ? 'none' : 'flex', alignItems: 'center', gap: 8,
               border: '1px solid var(--border)', background: 'var(--card)',
               fontFamily: 'inherit', textAlign: 'left',
               transition: 'border-color 0.15s, box-shadow 0.15s',
@@ -1649,7 +2206,11 @@ export default function CandidatDetailPage() {
         </div>
 
         {/* ══ COLONNE 2 — Contenu (résumé, exp, formations, notes) ══ */}
-        <div className="candidat-col-main" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* v1.9.127 — Col 2 (centre) TOUJOURS cachée : Expériences + Formations restent
+            visibles dans le CV viewer à droite. L'édition se limite à l'identité, compétences,
+            langues et documents (col 1). Pour modifier les expériences/formations en profondeur :
+            utiliser "Ré-analyser IA" qui re-extrait du CV. */}
+        <div className="candidat-col-main" style={{ flex: 1, minWidth: 0, display: 'none', flexDirection: 'column', gap: 14 }}>
 
           {/* v1.9.111 — Résumé IA masqué (données conservées en DB, pipeline d'extraction inchangé) */}
           {false && (
@@ -1721,29 +2282,51 @@ export default function CandidatDetailPage() {
                   ))}
                 </div>
               ) : (
-                <div style={{ position: 'relative', paddingLeft: 18 }}>
-                  <div style={{ position: 'absolute', left: 5, top: 6, bottom: 6, width: 2, background: 'var(--border)', borderRadius: 2 }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {candidat.experiences.map((exp: any, i: number) => (
-                      <div key={i} style={{ position: 'relative' }}>
-                        <div style={{ position: 'absolute', left: -16, top: 4, width: 8, height: 8, borderRadius: '50%', background: '#7C3AED', border: '2px solid white', boxShadow: '0 0 0 1px #7C3AED' }} />
-                        {exp.periode && <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3, marginBottom: 2 }}>{exp.periode}</p>}
-                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.3 }}>{exp.poste}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, marginBottom: exp.description ? 5 : 0 }}>
-                          {exp.entreprise && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{exp.entreprise}</span>}
-                        </div>
-                        {exp.description && <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5, fontStyle: 'italic' }}>{exp.description}</p>}
-                      </div>
-                    ))}
-                  </div>
+                /* v1.9.127 — Liste expériences design v2 : pas de timeline brutale, dates discrètes, séparateur entre items */
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {candidat.experiences.map((exp: any, i: number) => (
+                    <div key={i} style={{
+                      display: 'flex', flexDirection: 'column', gap: 4,
+                      padding: '14px 0',
+                      borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                    }}>
+                      {exp.periode && (
+                        <p style={{
+                          fontSize: 11, fontWeight: 600,
+                          color: 'var(--text-3, var(--muted-foreground))',
+                          letterSpacing: '0.02em',
+                          margin: 0,
+                        }}>{exp.periode}</p>
+                      )}
+                      <p style={{
+                        fontSize: 14, fontWeight: 700,
+                        color: 'var(--text, var(--foreground))',
+                        lineHeight: 1.3, margin: 0,
+                      }}>{exp.poste}</p>
+                      {exp.entreprise && (
+                        <p style={{
+                          fontSize: 12.5, fontWeight: 500,
+                          color: 'var(--text-2, var(--muted-foreground))',
+                          margin: 0,
+                        }}>{exp.entreprise}</p>
+                      )}
+                      {exp.description && (
+                        <p style={{
+                          fontSize: 12, lineHeight: 1.5,
+                          color: 'var(--text-3, var(--muted-foreground))',
+                          margin: '4px 0 0',
+                        }}>{exp.description}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           )}
           </div>
 
-          {/* Formations détaillées */}
-          <div style={{ order: sectionsOrder.indexOf('formations') }}>
+          {/* Formations détaillées — v1.9.127 cachée en mode lecture (déplacée dans col 1, voir plus haut) */}
+          <div style={{ order: sectionsOrder.indexOf('formations'), display: isEditing ? 'block' : 'none' }}>
           {(isEditing || candidat.formations_details?.length > 0) && (
             <div className="neo-card-soft">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -1844,33 +2427,19 @@ export default function CandidatDetailPage() {
           {/* cv_texte_brut masqué — reste en DB pour dédup/matching mais plus affiché */}
         </div>
 
-        {/* ══ Resize handle ══ */}
-        {showCV && (
-          <div
-            className="candidat-resize-handle"
-            onMouseDown={handleResizeStart}
-            style={{
-              width: 6, flexShrink: 0, cursor: 'col-resize',
-              background: 'transparent', borderRadius: 3,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary)')}
-            onMouseLeave={e => { if (!resizeDragRef.current.active) e.currentTarget.style.background = 'transparent' }}
-          >
-            <div style={{ width: 2, height: 40, borderRadius: 2, background: 'var(--border)' }} />
-          </div>
-        )}
+        {/* v1.9.127 — Resize handle retiré : col 2 toujours cachée, le viewer CV
+            prend toujours toute la largeur restante. Plus de drag latéral inutile. */}
 
-        {/* ══ COLONNE 3 — Viewer CV (sticky) ══ */}
+        {/* ══ COLONNE 3 — Viewer CV (sticky) ══
+            v1.9.127 — Col 2 toujours cachée → CV viewer prend tout l'espace restant
+            (en lecture comme en édition). */}
         {showCV && (
-        <div className="candidat-col-cv" style={{ width: cvWidth, flexShrink: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
+        <div className="candidat-col-cv" style={{ flex: 1, minWidth: 0, position: 'sticky', top: 0, alignSelf: 'flex-start', height: 'calc(100vh - 96px)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
 
-            {/* Header du viewer */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)' }}>
-              <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-              <span style={{ flex: 1 }} />
+            {/* Header du viewer — v1.9.127 boutons centrés */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--background)', justifyContent: 'center', position: 'relative' }}>
+              <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0, position: 'absolute', left: 14 }} />
               {candidat.cv_url && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <button onClick={() => setCvLightbox(true)}
@@ -1878,9 +2447,11 @@ export default function CandidatDetailPage() {
                     title="Voir en plein écran">
                     <Eye size={13} />
                   </button>
-                  {/* v1.9.71 — Bouton Envoyer : redirige vers /messages avec candidat présélectionné */}
+                  {/* v1.9.71 — Bouton Envoyer : redirige vers /messages avec candidat présélectionné.
+                      v1.9.127 — Full reload (window.location) garanti pour forcer le mount frais
+                      de MessagesPageContent et bypass le cache de routes Next.js. */}
                   <button
-                    onClick={() => router.push(`/messages?candidat_id=${id}&attach=original`)}
+                    onClick={() => { window.location.href = `/messages?tab=email&candidat_id=${id}&attach=original` }}
                     className="d-icon-btn"
                     style={{ width: 28, height: 28, borderRadius: 7, color: 'var(--info)' }}
                     title="Envoyer ce CV par email"
@@ -1908,10 +2479,7 @@ export default function CandidatDetailPage() {
                   <button onClick={() => setCvZoom(z => Math.min(3.0, Math.round((z + 0.2) * 10) / 10))} className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, fontSize: 14, fontWeight: 700 }}>+</button>
                 </div>
               )}
-              <button onClick={() => setShowCV(false)} title="Masquer le CV"
-                className="d-icon-btn" style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0 }}>
-                <ChevronRight size={12} />
-              </button>
+              {/* v1.9.127 — Bouton "masquer CV" retiré (plus besoin, le viewer prend toute la place) */}
             </div>
 
             {/* Corps du viewer */}
@@ -1926,7 +2494,7 @@ export default function CandidatDetailPage() {
             ) : cvIsImage ? (
               <div ref={imgContainerRef}
                 style={{
-                  flex: 1, overflow: 'auto', background: 'var(--muted)',
+                  flex: 1, overflow: 'auto', background: 'var(--cv-viewer-bg, #e8e3d6)',
                   cursor: cvZoom > 1 ? 'grab' : 'default', userSelect: 'none',
                   padding: 16,
                 }}
@@ -1956,10 +2524,14 @@ export default function CandidatDetailPage() {
                 </div>
               </div>
             ) : (cvIsPDF || cvIsWord) ? (
+              /* v1.9.127 — Viewer adapté : PDF/Word centré sur fond crème,
+                 largeur max 880px (taille A4 réaliste à 96dpi) au lieu de plein écran.
+                 Le CV garde sa proportion naturelle, le fond crème est sur les côtés. */
               <div ref={cvScrollRef}
                 style={{
-                  flex: 1, overflow: 'auto', background: 'var(--muted)', position: 'relative',
+                  flex: 1, overflow: 'auto', background: 'var(--cv-viewer-bg, #e8e3d6)', position: 'relative',
                   cursor: cvZoom > 1 ? 'grab' : 'default',
+                  padding: '20px 0',
                 }}
                 onMouseDown={cvZoom > 1 ? cvDragStart : undefined}
                 onMouseMove={cvZoom > 1 ? cvDragMove : undefined}
@@ -1973,37 +2545,39 @@ export default function CandidatDetailPage() {
                   }
                 }}
               >
-                {/* Container agrandi — iframe rendue en HD par Chrome PDF viewer */}
+                {/* Wrapper centré avec largeur max A4 — le PDF reste à taille réaliste */}
                 <div style={{
-                  width: `${cvZoom * 100}%`,
-                  height: cvZoom === 1 ? '100%' : `${Math.round(cvZoom * 5000)}px`,
-                  minWidth: '100%',
+                  width: `${Math.min(880 * cvZoom, 1400)}px`,
+                  maxWidth: cvZoom === 1 ? 'calc(100% - 40px)' : 'none',
+                  margin: '0 auto',
+                  height: cvZoom === 1 ? 'calc(100% - 0px)' : `${Math.round(cvZoom * 5000)}px`,
                   minHeight: '100%',
+                  background: 'white',
+                  boxShadow: '0 1px 3px rgba(0,0,0,.05), 0 8px 32px -12px rgba(0,0,0,.18)',
+                  borderRadius: 4,
+                  overflow: 'hidden',
                   position: 'relative',
                 }}>
                   {cvIsWord && <>
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'var(--background)', zIndex: 10 }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'var(--background)', zIndex: 10 }} />
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 56, height: 56, background: 'white', zIndex: 10 }} />
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 56, background: 'white', zIndex: 10 }} />
                   </>}
                   <iframe
                     key={`cv-iframe-${cvRotation}-${cvZoom}`}
                     src={
                       cvIsPDF && cvRotation !== 0
-                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
+                        ? `/api/cv/rotate?rotation=${cvRotation}&url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&view=FitH`
                         : cvIsPDF
-                          ? `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&zoom=page-width`
+                          ? `/api/cv/print?url=${encodeURIComponent(candidat.cv_url)}#toolbar=0&navpanes=0&view=FitH`
                           : docViewerUrl
                     }
-                    style={{
-                      width: '100%', height: '100%', border: 'none', display: 'block',
-                      pointerEvents: cvZoom > 1 ? 'none' : 'auto',
-                    }}
+                    style={{ width: '100%', height: '100%', border: 'none', display: 'block', pointerEvents: cvZoom > 1 ? 'none' : 'auto' }}
                     title="CV"
                   />
                 </div>
               </div>
             ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--muted)' }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--cv-viewer-bg, #e8e3d6)' }}>
                 <div style={{ textAlign: 'center', padding: 32 }}>
                   <FileText size={36} style={{ color: 'var(--muted)', opacity: 0.4, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
                   <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14 }}>Aperçu non disponible (.{ext})</p>
@@ -2188,12 +2762,12 @@ export default function CandidatDetailPage() {
       {/* ── Panneau Notes (slide-in) ── */}
       {showNotes && (
         <div onClick={() => { setShowNotes(false); setEditingNoteId(null) }} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 400, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 400, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MessageSquare size={16} color="var(--primary)" /> Notes
+              <h3 style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, letterSpacing: '-0.01em', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                Notes
                 {candidat.notes_candidat?.length > 0 && (
-                  <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--primary)', color: 'var(--ink, #1C1A14)', borderRadius: 99, padding: '1px 7px' }}>
+                  <span style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', fontSize: 11, fontWeight: 700, background: '#E5E7EB', color: '#374151', borderRadius: 99, padding: '2px 8px' }}>
                     {candidat.notes_candidat.length}
                   </span>
                 )}
@@ -2365,6 +2939,7 @@ export default function CandidatDetailPage() {
         open={showDocuments}
         onClose={() => setShowDocuments(false)}
         candidatId={candidat.id}
+        candidatName={formatFullName(candidat.prenom, candidat.nom)}
         documents={(candidat.documents as CandidatDocument[]) || []}
         cvUrl={candidat.cv_url}
         cvFileName={candidat.cv_nom_fichier}
@@ -2560,6 +3135,79 @@ export default function CandidatDetailPage() {
           onClose={() => setShowActivityHistory(false)}
         />
       )}
+
+      {/* v1.9.127 — Picker métier (assigner / modifier depuis la pill du banner) */}
+      {showBannerMetierPicker && bannerMetierPickerRect && candidat && (
+        <MetierPopover
+          candidatId={candidat.id}
+          currentTags={Array.isArray(candidat.tags) ? candidat.tags : []}
+          anchorRect={bannerMetierPickerRect}
+          onClose={() => { setShowBannerMetierPicker(false); setBannerMetierPickerRect(null) }}
+          onSave={async (tags) => {
+            // Optimistic update (banner + listes)
+            queryClient.setQueryData(['candidat', id], (old: any) => old ? { ...old, tags } : old)
+            queryClient.setQueriesData({ queryKey: ['candidats'] }, (old: any) =>
+              old?.candidats
+                ? { ...old, candidats: old.candidats.map((x: any) => x.id === candidat.id ? { ...x, tags } : x) }
+                : old
+            )
+            try {
+              const supabase = createClient()
+              const { error } = await supabase.from('candidats').update({ tags }).eq('id', candidat.id)
+              if (error) throw error
+              toast.success(tags.length > 0 ? `${tags.length} métier${tags.length > 1 ? 's' : ''} assigné${tags.length > 1 ? 's' : ''}` : 'Métiers retirés')
+            } catch {
+              toast.error('Erreur lors de la sauvegarde')
+              queryClient.invalidateQueries({ queryKey: ['candidat', id] })
+              queryClient.invalidateQueries({ queryKey: ['candidats'] })
+            }
+          }}
+        />
+      )}
+
+      {/* Tooltip métiers (portal pour éviter clipping/cut-off dans le banner) */}
+      {showMetiersTooltip && metiersTooltipRect && candidat && Array.isArray(candidat.tags) && candidat.tags.length > 1 && (() => {
+        const tags = candidat.tags.filter(Boolean) as string[]
+        const r = metiersTooltipRect
+        const spaceAbove = r.top
+        const spaceBelow = (typeof window !== 'undefined' ? window.innerHeight : 800) - r.bottom
+        const placeAbove = spaceAbove > 140 && spaceAbove > spaceBelow
+        const top = placeAbove ? r.top - 8 : r.bottom + 8
+        return createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top,
+              left: r.left,
+              transform: placeAbove ? 'translateY(-100%)' : 'none',
+              background: 'var(--foreground, #1f2937)',
+              color: 'var(--background, #fff)',
+              padding: '10px 14px',
+              borderRadius: 10,
+              fontSize: 12,
+              fontWeight: 500,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+              zIndex: 9999,
+              pointerEvents: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              minWidth: 160,
+              maxWidth: 280,
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, opacity: 0.6, textTransform: 'uppercase', marginBottom: 2 }}>
+              Métiers ({tags.length})
+            </span>
+            {tags.map(t => (
+              <span key={t} style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.4 }}>· {t}</span>
+            ))}
+          </div>,
+          document.body
+        )
+      })()}
 
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }

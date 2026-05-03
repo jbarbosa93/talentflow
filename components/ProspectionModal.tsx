@@ -314,7 +314,7 @@ export default function ProspectionModal({ open, onClose }: Props) {
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', borderBottom: '1.5px solid var(--border)',
+          padding: '20px 24px', borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -322,7 +322,7 @@ export default function ProspectionModal({ open, onClose }: Props) {
               <button
                 onClick={() => setStep('config')}
                 style={{
-                  background: 'var(--secondary)', border: '1.5px solid var(--border)',
+                  background: 'var(--secondary)', border: '1px solid var(--border)',
                   borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 4,
                   color: 'var(--foreground)', fontSize: 12, fontWeight: 600,
@@ -340,7 +340,7 @@ export default function ProspectionModal({ open, onClose }: Props) {
               <Mail size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: 17, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
                 Prospection email en lot
               </h2>
               <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '2px 0 0' }}>
@@ -396,7 +396,7 @@ export default function ProspectionModal({ open, onClose }: Props) {
 
         {/* Footer */}
         <div style={{
-          padding: '16px 24px', borderTop: '1.5px solid var(--border)',
+          padding: '16px 24px', borderTop: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexShrink: 0, background: 'var(--secondary)',
         }}>
@@ -488,7 +488,7 @@ const btnPrimary: React.CSSProperties = {
 const btnSecondary: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '10px 16px', borderRadius: 8,
-  border: '1.5px solid var(--border)', background: 'var(--card)',
+  border: '1px solid var(--border)', background: 'var(--card)',
   color: 'var(--foreground)', fontSize: 13, fontWeight: 600,
   cursor: 'pointer', fontFamily: 'inherit',
 }
@@ -528,7 +528,7 @@ function ConfigStep({
             placeholder="Rechercher (nom, secteur, ville...)"
             style={{
               width: '100%', height: 38, padding: '0 32px 0 36px',
-              border: '1.5px solid var(--border)', borderRadius: 8,
+              border: '1px solid var(--border)', borderRadius: 8,
               background: 'var(--secondary)', color: 'var(--foreground)',
               fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
             }}
@@ -548,7 +548,7 @@ function ConfigStep({
             onClick={() => setSecteursOpen((o: boolean) => !o)}
             style={{
               width: '100%', height: 38, padding: '0 10px', borderRadius: 8,
-              border: '1.5px solid var(--border)',
+              border: '1px solid var(--border)',
               background: secteursFilter.size > 0 ? 'var(--primary-soft)' : 'var(--secondary)',
               color: secteursFilter.size > 0 ? 'var(--foreground)' : 'var(--muted)',
               fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
@@ -634,7 +634,7 @@ function ConfigStep({
           onChange={e => setCantonFilter(e.target.value)}
           style={{
             height: 38, padding: '0 10px', borderRadius: 8,
-            border: '1.5px solid var(--border)', background: 'var(--secondary)',
+            border: '1px solid var(--border)', background: 'var(--secondary)',
             color: cantonFilter ? 'var(--foreground)' : 'var(--muted)',
             fontSize: 13, fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
           }}
@@ -646,13 +646,13 @@ function ConfigStep({
 
       {/* Liste clients */}
       <div style={{
-        border: '1.5px solid var(--border)', borderRadius: 8,
+        border: '1px solid var(--border)', borderRadius: 8,
         maxHeight: 280, overflowY: 'auto',
         background: 'var(--card)',
       }}>
         {/* Toggle all */}
         <div style={{
-          padding: '8px 12px', borderBottom: '1.5px solid var(--border)',
+          padding: '8px 12px', borderBottom: '1px solid var(--border)',
           background: 'var(--secondary)',
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 1,
@@ -725,7 +725,7 @@ function ConfigStep({
           rows={3}
           style={{
             width: '100%', padding: '10px 12px', borderRadius: 8,
-            border: '1.5px solid var(--border)', background: 'var(--secondary)',
+            border: '1px solid var(--border)', background: 'var(--secondary)',
             color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit',
             outline: 'none', resize: 'vertical', boxSizing: 'border-box',
           }}
@@ -764,7 +764,7 @@ function GenerateStep({ emails, stats }: { emails: GeneratedEmail[]; stats: any 
 
       {/* Liste statuts */}
       <div style={{
-        border: '1.5px solid var(--border)', borderRadius: 8,
+        border: '1px solid var(--border)', borderRadius: 8,
         maxHeight: 360, overflowY: 'auto',
       }}>
         {emails.map((e, idx) => (
@@ -841,7 +841,7 @@ function ResultsStep({
             {/* Header carte */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {e.nom_entreprise || '—'}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--muted-foreground)' }}>
@@ -882,7 +882,7 @@ function ResultsStep({
                   disabled={isSent}
                   style={{
                     width: '100%', padding: '8px 10px', borderRadius: 6,
-                    border: '1.5px solid var(--border)', background: isSent ? 'var(--secondary)' : 'var(--background)',
+                    border: '1px solid var(--border)', background: isSent ? 'var(--secondary)' : 'var(--background)',
                     color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
                     fontFamily: 'inherit', outline: 'none', marginBottom: 8, boxSizing: 'border-box',
                   }}
@@ -896,7 +896,7 @@ function ResultsStep({
                   rows={6}
                   style={{
                     width: '100%', padding: '10px 12px', borderRadius: 6,
-                    border: '1.5px solid var(--border)', background: isSent ? 'var(--secondary)' : 'var(--background)',
+                    border: '1px solid var(--border)', background: isSent ? 'var(--secondary)' : 'var(--background)',
                     color: 'var(--foreground)', fontSize: 13, lineHeight: 1.5,
                     fontFamily: 'inherit', outline: 'none', resize: 'vertical', boxSizing: 'border-box',
                   }}
@@ -913,7 +913,7 @@ function ResultsStep({
 const iconBtn: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
   width: 30, height: 30, borderRadius: 6,
-  border: '1.5px solid var(--border)', background: 'var(--card)',
+  border: '1px solid var(--border)', background: 'var(--card)',
   color: 'var(--foreground)', cursor: 'pointer', flexShrink: 0,
   fontFamily: 'inherit',
 }

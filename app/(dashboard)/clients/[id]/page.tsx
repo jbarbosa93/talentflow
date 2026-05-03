@@ -85,13 +85,14 @@ interface CardEditField {
   multiline?: boolean
 }
 
-function CardEditModal({ title, fields, values, onSave, onClose, isSaving }: {
+function CardEditModal({ title, fields, values, onSave, onClose, isSaving, extraAction }: {
   title: string
   fields: CardEditField[]
   values: Record<string, string | null>
   onSave: (next: Record<string, string>) => void
   onClose: () => void
   isSaving: boolean
+  extraAction?: { label: string; variant?: 'danger' | 'default'; onClick: () => void }
 }) {
   const [draft, setDraft] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {}
@@ -114,18 +115,25 @@ function CardEditModal({ title, fields, values, onSave, onClose, isSaving }: {
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--card)', borderRadius: 16, width: '100%', maxWidth: 520, boxShadow: '0 24px 80px rgba(0,0,0,0.3)', border: '2px solid var(--border)', display: 'flex', flexDirection: 'column' }}
+        style={{
+          background: 'var(--surface, var(--card))', borderRadius: 14,
+          width: '100%', maxWidth: 540,
+          boxShadow: 'var(--shadow-xl, 0 24px 80px rgba(0,0,0,0.3))',
+          border: '1px solid var(--border)',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}
       >
-        <div style={{ padding: '18px 22px', borderBottom: '1.5px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--foreground)', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ width: 30, height: 30, border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, letterSpacing: '-0.01em', color: 'var(--text, var(--foreground))', margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ width: 30, height: 30, border: '1px solid var(--border)', background: 'transparent', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3, var(--muted-foreground))' }}>
             <X size={14} />
           </button>
         </div>
         <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {fields.map(f => (
             <div key={f.field}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 5 }}>
+              <label style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-3, var(--muted-foreground))', display: 'block', marginBottom: 5 }}>
                 {f.label}
               </label>
               {f.multiline ? (
@@ -133,26 +141,43 @@ function CardEditModal({ title, fields, values, onSave, onClose, isSaving }: {
                   value={draft[f.field] || ''}
                   onChange={e => setDraft(d => ({ ...d, [f.field]: e.target.value }))}
                   rows={3}
-                  style={{ width: '100%', padding: '8px 12px', border: '2px solid var(--border)', borderRadius: 8, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))', fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                 />
               ) : (
                 <input
                   value={draft[f.field] || ''}
                   onChange={e => setDraft(d => ({ ...d, [f.field]: e.target.value }))}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() } }}
-                  style={{ width: '100%', height: 38, padding: '0 12px', border: '2px solid var(--border)', borderRadius: 8, background: 'var(--secondary)', color: 'var(--foreground)', fontSize: 14, fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))', fontSize: 14, fontFamily: 'var(--font-jakarta), system-ui, sans-serif', outline: 'none', boxSizing: 'border-box' }}
                 />
               )}
             </div>
           ))}
         </div>
-        <div style={{ padding: '14px 22px', borderTop: '1.5px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end', background: 'var(--secondary)', borderBottomLeftRadius: 14, borderBottomRightRadius: 14 }}>
-          <button onClick={onClose} disabled={isSaving} style={{ padding: '9px 16px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
-            Annuler
-          </button>
-          <button onClick={handleSubmit} disabled={isSaving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: isSaving ? 0.6 : 1 }}>
-            <Check size={13} strokeWidth={3} /> {isSaving ? 'Sauvegarde…' : 'Sauvegarder'}
-          </button>
+        <div style={{ padding: '14px 22px', borderTop: '1.5px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center', background: 'var(--secondary)', borderBottomLeftRadius: 14, borderBottomRightRadius: 14 }}>
+          {extraAction ? (
+            <button
+              onClick={extraAction.onClick}
+              disabled={isSaving}
+              style={{
+                padding: '9px 14px', borderRadius: 8, border: '1px solid',
+                borderColor: extraAction.variant === 'danger' ? 'var(--destructive)' : 'var(--border)',
+                background: extraAction.variant === 'danger' ? 'var(--destructive-soft)' : 'var(--card)',
+                color: extraAction.variant === 'danger' ? 'var(--destructive)' : 'var(--foreground)',
+                fontSize: 13, fontWeight: 600, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {extraAction.label}
+            </button>
+          ) : <span />}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} disabled={isSaving} style={{ padding: '9px 16px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontWeight: 600, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>
+              Annuler
+            </button>
+            <button onClick={handleSubmit} disabled={isSaving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: isSaving ? 0.6 : 1 }}>
+              <Check size={13} strokeWidth={3} /> {isSaving ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -423,7 +448,8 @@ export default function ClientDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
   // v1.9.116 — Modal édition card (Contact / Adresse)
-  const [editingCard, setEditingCard] = useState<'header' | 'contact' | 'adresse' | 'notes' | null>(null)
+  const [editingCard, setEditingCard] = useState<'header' | 'contact' | 'adresse' | 'notes' | 'add-contact' | 'new-commande' | null>(null)
+  const [editingContactIdx, setEditingContactIdx] = useState<number | null>(null)  /* v1.9.127 — index contact en cours d'édition */
   // v1.9.117 — Vérification Zefix
   const queryClient = useQueryClient()
   const [verifyingZefix, setVerifyingZefix] = useState(false)
@@ -505,150 +531,272 @@ export default function ClientDetailPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 900, margin: '0 auto' }}>
-      {/* v1.9.117 — Bouton retour aligné sur /candidats/[id] : router.back() natif
-          (respecte l'historique nav et donc page+filtres+scroll), fallback /clients */}
-      <button
-        onClick={() => {
-          if (typeof window !== 'undefined' && window.history.length > 1) {
-            router.back()
-          } else {
-            router.push('/clients')
-          }
-        }}
-        className="neo-btn-ghost neo-btn-sm"
-        style={{ marginBottom: 16 }}
-      >
-        <ArrowLeft size={14} /> Retour
-      </button>
-
-      {/* Header card */}
+    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      {/* v1.9.127 — Header style maquette V2 : ligne unique sans card autour
+          Titre serif Instrument Serif + sous-titre meta inline + actions à droite. */}
       <div style={{
-        background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 16,
-        padding: '28px 30px', marginBottom: 20,
-        display: 'flex', alignItems: 'center', gap: 20,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        marginBottom: 24, gap: 16, flexWrap: 'wrap',
       }}>
-        {/* v1.9.115 — Logo automatique (Clearbit / Google Favicons / initiales) */}
-        <ClientLogo nom_entreprise={client.nom_entreprise} site_web={client.site_web} size="lg" />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <h1 style={{
-            fontSize: 26, fontWeight: 800, color: 'var(--foreground)', margin: 0,
-            lineHeight: 1.2,
+            fontFamily: 'var(--font-instrument-serif), Georgia, serif',
+            fontSize: 38, fontWeight: 400, lineHeight: 1.05,
+            letterSpacing: '-0.015em',
+            color: 'var(--text, var(--foreground))',
+            margin: 0,
           }}>
             {client.nom_entreprise}
           </h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
-            {client.ville && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 13, color: 'var(--muted)', fontWeight: 500,
-              }}>
-                <MapPin size={13} />
-                {client.npa ? `${client.npa} ` : ''}{client.ville}{client.canton ? `, ${client.canton}` : ''}
-              </span>
-            )}
-            {/* v1.9.114 — Secteurs d'activité colorés par catégorie métier */}
-            {client.secteurs_activite && client.secteurs_activite.length > 0 && (
+          <div style={{ marginTop: 8, fontSize: 13.5, color: 'var(--text-3, var(--muted-foreground))', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {(client.secteurs_activite && client.secteurs_activite.length > 0) && (
               <>
-                {client.secteurs_activite.slice(0, 3).map(s => {
-                  const c = getSecteurColor(s)
-                  return (
-                    <span key={s} style={{
-                      padding: '3px 10px', borderRadius: 6,
-                      background: c.bg, border: `1px solid ${c.border}`,
-                      fontSize: 11, fontWeight: 700, color: c.text,
-                    }}>
-                      {s}
-                    </span>
-                  )
-                })}
-                {client.secteurs_activite.length > 3 && (
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 6,
-                    background: 'var(--secondary)', border: '1px solid var(--border)',
-                    fontSize: 11, fontWeight: 700, color: 'var(--muted-foreground)',
-                  }}>
-                    +{client.secteurs_activite.length - 3}
-                  </span>
-                )}
+                <span>{client.secteurs_activite[0]}</span>
+                {client.secteurs_activite.length > 1 && <span style={{ opacity: 0.6 }}>+{client.secteurs_activite.length - 1}</span>}
+                {client.ville && <span style={{ opacity: 0.4 }}>·</span>}
               </>
             )}
-            {/* Statut toggle */}
+            {client.ville && <span>{client.ville}{client.canton ? `, ${client.canton}` : ''}</span>}
+            {/* Statut */}
             <button
               onClick={handleToggleStatut}
+              title={client.statut === 'actif' ? 'Cliquer pour désactiver' : 'Cliquer pour activer'}
               style={{
+                marginLeft: 4,
                 display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '3px 10px', borderRadius: 6,
+                padding: '2px 9px', borderRadius: 999,
                 background: client.statut === 'actif' ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)',
-                border: `1.5px solid ${client.statut === 'actif' ? 'rgba(34,197,94,0.4)' : 'rgba(148,163,184,0.3)'}`,
-                fontSize: 11, fontWeight: 700,
+                border: `1px solid ${client.statut === 'actif' ? 'rgba(34,197,94,0.3)' : 'rgba(148,163,184,0.3)'}`,
+                fontSize: 11, fontWeight: 600,
                 color: client.statut === 'actif' ? '#16A34A' : '#64748B',
-                cursor: 'pointer', fontFamily: 'var(--font-body)',
+                cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: client.statut === 'actif' ? '#22C55E' : '#94A3B8',
-              }} />
-              {client.statut === 'actif' ? 'Actif' : 'Desactive'}
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: client.statut === 'actif' ? '#22C55E' : '#94A3B8' }} />
+              {client.statut === 'actif' ? 'Actif' : 'Désactivé'}
             </button>
+            {client.created_at && (
+              <>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span style={{ fontSize: 12 }}>
+                  Créé le {new Date(client.created_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+        {/* Actions à droite : Retour ghost + Contacter ghost + Nouvelle commande primary */}
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
           <button
-            onClick={() => setEditingCard('header')}
-            style={{
-              width: 40, height: 40, borderRadius: 10,
-              border: '1.5px solid var(--border)', background: 'var(--card)',
-              color: 'var(--muted)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s, border-color 0.15s',
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+              else router.push('/clients')
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-            title="Modifier nom entreprise / site web"
+            className="neo-btn-ghost neo-btn-sm"
           >
-            <Pencil size={16} />
+            <ArrowLeft size={13} /> Retour
           </button>
           <button
             onClick={() => setShowActivityHistory(true)}
-            style={{
-              width: 40, height: 40, borderRadius: 10,
-              border: '1.5px solid var(--border)', background: 'var(--card)',
-              color: 'var(--muted)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            className="neo-btn-ghost neo-btn-sm"
             title="Historique d'activité"
           >
-            <Activity size={16} />
+            <Activity size={13} />
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            style={{
-              width: 40, height: 40, borderRadius: 10,
-              border: '1.5px solid var(--border)', background: 'var(--card)',
-              color: 'var(--muted)', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.borderColor = '#EF4444' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ color: 'var(--destructive)' }}
             title="Supprimer ce client"
           >
-            <Trash2 size={16} />
+            <Trash2 size={13} />
+          </button>
+          <button
+            onClick={() => setEditingCard('new-commande')}
+            className="neo-btn-yellow neo-btn-sm"
+          >
+            <Plus size={13} /> Nouvelle commande
           </button>
         </div>
       </div>
 
-      {/* v1.9.116 — Info cards grid : un seul bouton "Modifier" par card → modal multi-champs.
-          Site web et email sont cliquables (ouvrent navigateur / mailto) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+      {/* v1.9.127 — Cards V2 maquette : Informations (gauche) + Contacts (droite).
+          Les anciennes cards Contact + Adresse sont conservées plus bas (display: none)
+          pour préserver la logique d'édition / EditCardModal. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', gap: 20, marginBottom: 20 }}>
+        {/* ═══ Card Informations ═══ */}
+        <div className="neo-card-soft" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+            <label style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 18, fontWeight: 400, letterSpacing: '-0.005em', color: 'var(--text, var(--foreground))', margin: 0 }}>
+              Informations
+            </label>
+            <button
+              onClick={() => setEditingCard('header')}
+              title="Modifier les informations"
+              style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3, var(--muted-foreground))' }}
+            >
+              <Pencil size={12} />
+            </button>
+          </div>
+          <div style={{ padding: '8px 18px 14px' }}>
+            {(() => {
+              const adresseParts = [client.adresse, client.npa && client.ville ? `${client.npa} ${client.ville}` : (client.ville || '')].filter(Boolean)
+              const adresse = adresseParts.join(', ') || null
+              const zefixUid = (client as any).zefix_uid as string | null
+              const rows: Array<{ label: string; value: React.ReactNode }> = [
+                { label: 'Raison sociale', value: client.nom_entreprise },
+                { label: 'Secteur',        value: (client.secteurs_activite && client.secteurs_activite[0]) || (client as any).secteur || null },
+                { label: 'Adresse',        value: adresse },
+                { label: 'Site',           value: client.site_web ? (
+                  <a href={client.site_web.startsWith('http') ? client.site_web : `https://${client.site_web}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
+                    {client.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                  </a>
+                ) : null },
+                {
+                  label: 'Registre RC',
+                  value: zefixUid ? (() => {
+                    const zefixName = (client as any).zefix_name as string | null
+                    const zefixStatus = (client as any).zefix_status as string | null
+                    const zefixVerifiedAt = (client as any).zefix_verified_at as string | null
+                    const statusLabel = zefixStatus === 'EXISTIEREND' ? 'Actif' : zefixStatus === 'AUFGELOEST' ? 'En liquidation' : zefixStatus === 'GELOESCHT' ? 'Radié' : zefixStatus
+                    const statusColor = zefixStatus === 'EXISTIEREND' ? 'var(--success)' : zefixStatus === 'GELOESCHT' ? 'var(--destructive)' : 'var(--warning)'
+                    const cantonalUrl = `https://www.zefix.ch/fr/search/entity/list?name=${encodeURIComponent(client.nom_entreprise)}`
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <code style={{ fontFamily: 'var(--font-jetbrains-mono), ui-monospace, monospace', fontSize: 12 }}>{zefixUid}</code>
+                          {zefixStatus && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, background: `${statusColor}15`, color: statusColor }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
+                              {statusLabel}
+                            </span>
+                          )}
+                        </div>
+                        {zefixName && zefixName !== client.nom_entreprise && (
+                          <div style={{ fontSize: 11.5, color: 'var(--text-3, var(--muted-foreground))' }}>
+                            <span style={{ opacity: 0.7 }}>Nom RC : </span>{zefixName}
+                          </div>
+                        )}
+                        {zefixVerifiedAt && (
+                          <div style={{ fontSize: 11, color: 'var(--text-3, var(--muted-foreground))', opacity: 0.8 }}>
+                            Vérifié le {new Date(zefixVerifiedAt).toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                          <a href={cantonalUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--text-2, var(--muted-foreground))', fontSize: 11, fontWeight: 600, textDecoration: 'none', fontFamily: 'inherit' }}>
+                            <ExternalLink size={11} /> Extrait Zefix
+                          </a>
+                          <button
+                            onClick={() => router.push(`/integrations?zefix_search=${encodeURIComponent(client.nom_entreprise)}`)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--text-2, var(--muted-foreground))', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                          >
+                            <ShieldCheck size={11} /> Re-vérifier
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })() : (
+                    <button
+                      onClick={() => router.push(`/integrations?zefix_search=${encodeURIComponent(client.nom_entreprise)}`)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--primary)', background: 'var(--primary-soft, rgba(234,179,8,0.14))', color: 'var(--accent-foreground, #8B5A00)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      <ShieldCheck size={12} /> Vérifier sur Zefix
+                    </button>
+                  ),
+                },
+              ].filter(r => !!r.value)
+              return (
+                <div>
+                  {rows.map((r, i) => (
+                    <div key={r.label} style={{
+                      display: 'grid', gridTemplateColumns: '120px 1fr', gap: 10,
+                      padding: '10px 0', borderTop: i === 0 ? 'none' : '1px dashed var(--border)',
+                      fontSize: 13, lineHeight: 1.4,
+                    }}>
+                      <span style={{ color: 'var(--text-3, var(--muted-foreground))', fontWeight: 500 }}>{r.label}</span>
+                      <span style={{ color: 'var(--text, var(--foreground))', fontWeight: 500, wordBreak: 'break-word' }}>{r.value}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+
+        {/* ═══ Card Contacts ═══ */}
+        <div className="neo-card-soft" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+            <label style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 18, fontWeight: 400, letterSpacing: '-0.005em', color: 'var(--text, var(--foreground))', margin: 0 }}>
+              Contacts
+            </label>
+            <button
+              onClick={() => setEditingCard('add-contact')}
+              title="Ajouter un nouveau contact (personne)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', cursor: 'pointer', color: 'var(--text-2, var(--foreground))', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+            >
+              <Plus size={13} /> Ajouter
+            </button>
+          </div>
+          <div style={{ padding: '8px 18px 14px' }}>
+            {(() => {
+              /* v1.9.127 — Parser robuste : contacts peut être array OU string JSON OU null */
+              const raw = (client as any).contacts
+              let contacts: any[] = []
+              if (Array.isArray(raw)) contacts = raw
+              else if (typeof raw === 'string' && raw.trim()) {
+                try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) contacts = parsed } catch {}
+              }
+              if (contacts.length === 0) {
+                return <p style={{ fontSize: 13, color: 'var(--muted-foreground, var(--muted))', padding: '12px 0', margin: 0 }}>Aucun contact enregistré</p>
+              }
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {contacts.map((p: any, i: number) => {
+                    const fullName = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || p.nom || p.email || 'Contact sans nom'
+                    const initials = fullName.split(/\s+/).map((x: string) => x[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
+                    return (
+                      <div key={i}
+                        onClick={() => setEditingContactIdx(i)}
+                        title="Cliquer pour modifier ce contact"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '12px 6px',
+                          borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                          cursor: 'pointer',
+                          borderRadius: 8,
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2, var(--secondary))')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: 'var(--surface-3, var(--secondary))',
+                          color: 'var(--text-2, var(--foreground))',
+                          fontSize: 12, fontWeight: 700, flexShrink: 0,
+                        }}>{initials}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text, var(--foreground))' }}>{fullName}</div>
+                          {p.role && <div style={{ fontSize: 11.5, color: 'var(--text-3, var(--muted-foreground))', marginTop: 1 }}>{p.role}</div>}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, fontSize: 11.5, color: 'var(--text-3, var(--muted-foreground))', whiteSpace: 'nowrap' }}>
+                          {p.telephone && <a href={`tel:${p.telephone}`} style={{ color: 'inherit', textDecoration: 'none' }}>{p.telephone}</a>}
+                          {p.email && <a href={`mailto:${p.email}`} style={{ color: 'var(--primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{p.email}</a>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      </div>
+
+      {/* === Anciennes cards Contact / Adresse cachées (logique d'édition préservée) === */}
+      <div style={{ display: 'none' }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
         {/* Contact */}
         <div style={{
           background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
@@ -707,16 +855,34 @@ export default function ClientDetailPage() {
           <DisplayField label="Canton" value={client.canton} />
         </div>
       </div>
+      </div>{/* v1.9.127 — fin wrapper display:none des anciennes cards Contact/Adresse */}
 
-      {/* v1.9.117 — Modal édition header (nom entreprise + site web pour le logo) */}
+      {/* v1.9.127 — Modal édition Informations COMPLET (tous les champs de la card V2) */}
       {editingCard === 'header' && (
         <CardEditModal
-          title="Modifier l'entreprise"
+          title="Modifier les informations"
           fields={[
-            { field: 'nom_entreprise', label: 'Nom de l\'entreprise' },
-            { field: 'site_web', label: 'Site web' },
+            { field: 'nom_entreprise', label: 'Raison sociale' },
+            { field: 'secteur',        label: 'Secteur (NOGA)' },
+            { field: 'adresse',        label: 'Adresse (rue + n°)' },
+            { field: 'npa',            label: 'NPA' },
+            { field: 'ville',          label: 'Ville' },
+            { field: 'canton',         label: 'Canton (VD, VS, GE...)' },
+            { field: 'site_web',       label: 'Site web' },
+            { field: 'email',          label: 'Email général' },
+            { field: 'telephone',      label: 'Téléphone général' },
           ]}
-          values={{ nom_entreprise: client.nom_entreprise, site_web: client.site_web }}
+          values={{
+            nom_entreprise: client.nom_entreprise,
+            secteur:        (client as any).secteur,
+            adresse:        client.adresse,
+            npa:            client.npa,
+            ville:          client.ville,
+            canton:         client.canton,
+            site_web:       client.site_web,
+            email:          client.email,
+            telephone:      client.telephone,
+          }}
           isSaving={updateClient.isPending}
           onSave={(next) => {
             updateClient.mutate(
@@ -727,6 +893,104 @@ export default function ClientDetailPage() {
           onClose={() => setEditingCard(null)}
         />
       )}
+      {/* v1.9.127 — Modal Ajouter / Modifier un contact (personne) */}
+      {(editingCard === 'add-contact' || editingContactIdx !== null) && (() => {
+        /* Parser sûr (string JSON OU array) */
+        const raw = (client as any).contacts
+        let parsed: any[] = []
+        if (Array.isArray(raw)) parsed = raw
+        else if (typeof raw === 'string' && raw.trim()) {
+          try { const p = JSON.parse(raw); if (Array.isArray(p)) parsed = p } catch {}
+        }
+        const isEditing = editingContactIdx !== null
+        const current = isEditing ? (parsed[editingContactIdx as number] || {}) : {}
+        return (
+          <CardEditModal
+            title={isEditing ? `Modifier ${current.prenom || ''} ${current.nom || ''}`.trim() || 'Modifier le contact' : 'Ajouter un contact'}
+            fields={[
+              { field: 'prenom',    label: 'Prénom' },
+              { field: 'nom',       label: 'Nom' },
+              { field: 'role',      label: 'Rôle / Fonction' },
+              { field: 'email',     label: 'Email' },
+              { field: 'telephone', label: 'Téléphone' },
+            ]}
+            values={current}
+            isSaving={updateClient.isPending}
+            onSave={(next) => {
+              let updated: any[]
+              if (isEditing) {
+                updated = parsed.map((c, i) => i === editingContactIdx ? { ...c, ...next } : c)
+              } else {
+                updated = [...parsed, next]
+              }
+              updateClient.mutate(
+                { id, data: { contacts: updated } as any },
+                { onSuccess: () => { setEditingCard(null); setEditingContactIdx(null) } }
+              )
+            }}
+            onClose={() => { setEditingCard(null); setEditingContactIdx(null) }}
+            extraAction={isEditing ? {
+              label: 'Supprimer',
+              variant: 'danger',
+              onClick: () => {
+                if (!confirm('Supprimer ce contact ?')) return
+                const updated = parsed.filter((_, i) => i !== editingContactIdx)
+                updateClient.mutate(
+                  { id, data: { contacts: updated } as any },
+                  { onSuccess: () => { setEditingCard(null); setEditingContactIdx(null) } }
+                )
+              },
+            } : undefined}
+          />
+        )
+      })()}
+
+      {/* v1.9.127 — Modal Nouvelle commande inline (entreprise pré-sélectionnée) */}
+      {editingCard === 'new-commande' && (
+        <CardEditModal
+          title={`Nouvelle commande — ${client.nom_entreprise}`}
+          fields={[
+            { field: 'titre',           label: 'Titre du poste *' },
+            { field: 'nb_postes',       label: 'Nombre de postes' },
+            { field: 'date_debut',      label: 'Date de début (JJ/MM/AAAA)' },
+            { field: 'duree',           label: 'Durée (ex: 3 mois, CDI)' },
+            { field: 'localisation',    label: 'Localisation' },
+            { field: 'competences',     label: 'Compétences requises (séparées par virgule)' },
+            { field: 'description',     label: 'Description', multiline: true },
+            { field: 'notes_internes',  label: 'Notes internes', multiline: true },
+          ]}
+          values={{ nb_postes: '1' }}
+          isSaving={false}
+          onSave={async (next) => {
+            try {
+              const res = await fetch('/api/offres', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  titre: next.titre,
+                  client_id: client.id,
+                  client_nom: client.nom_entreprise,
+                  nombre_postes: parseInt(next.nb_postes || '1', 10) || 1,
+                  date_debut: next.date_debut,
+                  duree_mission: next.duree,
+                  localisation: next.localisation,
+                  competences: (next.competences || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+                  description: next.description,
+                  notes_internes: next.notes_internes,
+                  statut: 'active',
+                }),
+              })
+              if (!res.ok) throw new Error('Erreur création')
+              setEditingCard(null)
+              router.push('/offres')
+            } catch (e) {
+              console.error(e)
+              alert('Erreur lors de la création de la commande')
+            }
+          }}
+          onClose={() => setEditingCard(null)}
+        />
+      )}
+
       {/* v1.9.116 — Modals édition card (Contact + Adresse) */}
       {editingCard === 'contact' && (
         <CardEditModal
@@ -768,12 +1032,15 @@ export default function ClientDetailPage() {
         />
       )}
 
-      {/* v1.9.114 — Personnes de contact (juste après les infos entreprise) */}
-      <ContactsEditor
-        contacts={(typeof client.contacts === 'string' ? JSON.parse(client.contacts) : client.contacts) || []}
-        onSave={(next) => updateClient.mutate({ id, data: { contacts: next } as any })}
-        isSaving={updateClient.isPending}
-      />
+      {/* v1.9.114 — Personnes de contact — v1.9.127 cachée car remplacée par la card Contacts V2 ci-dessus.
+          Conservée dans le DOM pour préserver l'édition complète (modal CardEditModal etc.) */}
+      <div style={{ display: 'none' }}>
+        <ContactsEditor
+          contacts={(typeof client.contacts === 'string' ? JSON.parse(client.contacts) : client.contacts) || []}
+          onSave={(next) => updateClient.mutate({ id, data: { contacts: next } as any })}
+          isSaving={updateClient.isPending}
+        />
+      </div>
 
       {/* v1.9.116 — Notes (bouton "Modifier" → modal multi-champ comme Contact/Adresse) */}
       <div style={{
@@ -888,6 +1155,7 @@ export default function ClientDetailPage() {
 
         return (
           <div style={{
+            display: 'none',  /* v1.9.127 — section RC retirée : intégrée dans card Informations (ligne IDE/RC) */
             background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
             padding: '20px 22px', marginBottom: 20,
           }}>
@@ -1032,15 +1300,7 @@ export default function ClientDetailPage() {
         )
       })()}
 
-      {/* Meta info */}
-      <div style={{
-        fontSize: 11, color: 'var(--muted)', fontWeight: 500, textAlign: 'center',
-        padding: '8px 0 40px',
-      }}>
-        Cree le {new Date(client.created_at).toLocaleDateString('fr-CH', {
-          day: 'numeric', month: 'long', year: 'numeric',
-        })}
-      </div>
+      {/* v1.9.127 — Date création déplacée dans le sous-titre du header */}
 
       {/* Delete confirmation dialog — v1.9.47 portal pour garantir position:fixed centré */}
       {showDeleteConfirm && typeof window !== 'undefined' && createPortal(

@@ -218,7 +218,7 @@ export default function AdminPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <h1 style={{
-              fontSize: 24, fontWeight: 900, color: 'var(--foreground)',
+              fontSize: 24, fontWeight: 700, color: 'var(--foreground)',
               letterSpacing: '-0.5px', margin: 0,
             }}>
               Administration

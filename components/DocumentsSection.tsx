@@ -15,6 +15,7 @@ interface DocumentsPanelProps {
   open: boolean
   onClose: () => void
   candidatId: string
+  candidatName?: string                  /* v1.9.127 — header serif "Documents · {nom}" */
   documents: CandidatDocument[]
   cvUrl: string | null
   cvFileName: string | null
@@ -54,7 +55,7 @@ const ACCEPTED_FORMATS = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt'
 
 const getCat = (key: CategoryKey) => DOC_CATEGORIES.find(c => c.key === key) || DOC_CATEGORIES[6]
 
-export default function DocumentsPanel({ open, onClose, candidatId, documents, cvUrl, cvFileName, onUpdate, onCvChange }: DocumentsPanelProps) {
+export default function DocumentsPanel({ open, onClose, candidatId, candidatName, documents, cvUrl, cvFileName, onUpdate, onCvChange }: DocumentsPanelProps) {
   const [dragOver, setDragOver] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [changingTypeIdx, setChangingTypeIdx] = useState<number | null>(null)
@@ -362,69 +363,88 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
           overflow: 'hidden',
         }}
       >
-        {/* Header */}
+        {/* v1.9.127 — Header design v2 maquette : titre serif "Documents · {Nom}" + bouton Ajouter + close */}
         <div style={{
-          padding: '18px 24px',
+          padding: '20px 24px 18px',
           borderBottom: '1px solid var(--border)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'var(--card)',
           flexShrink: 0,
+          gap: 16,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: 'rgba(245,166,35,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 style={{
+              fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)',
+              fontSize: 22, fontWeight: 400, margin: 0, lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+              color: 'var(--text, var(--foreground))',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              <FolderOpen size={18} color="var(--primary)" />
-            </div>
-            <div>
-              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>
-                Documents
-              </h3>
-              <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.2 }}>
-                {totalCount === 0 ? 'Aucun document' : `${totalCount} document${totalCount > 1 ? 's' : ''}`}
-              </p>
-            </div>
+              Documents{candidatName && <span style={{ color: 'var(--text-3, var(--muted-foreground))' }}> · {candidatName}</span>}
+            </h2>
+            <p style={{ fontSize: 12, color: 'var(--text-3, var(--muted-foreground))', margin: '4px 0 0', fontWeight: 500 }}>
+              {totalCount === 0 ? 'Aucun fichier' : `${totalCount} fichier${totalCount > 1 ? 's' : ''}`}
+            </p>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--secondary)', border: '1px solid var(--border)', cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--border)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--secondary)' }}
-          >
-            <X size={16} color="var(--muted)" />
-          </button>
-        </div>
-
-        {/* Upload button / drop zone */}
-        <div
-          style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}
-        >
-          {!showUpload ? (
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
             <button
               onClick={() => setShowUpload(true)}
               style={{
-                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: dragOver ? '20px 0' : '10px 0', borderRadius: 8, fontSize: 13, fontWeight: 700,
-                border: `1.5px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
-                background: dragOver ? 'rgba(234,179,8,0.08)' : 'var(--secondary)',
-                color: dragOver ? 'var(--primary)' : 'var(--foreground)',
-                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 34, padding: '0 14px', borderRadius: 10,
+                background: 'var(--surface-2, var(--secondary))',
+                border: '1px solid var(--border)',
+                color: 'var(--text, var(--foreground))',
+                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary)' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--foreground)' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3, var(--muted))' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2, var(--secondary))' }}
             >
-              <Upload size={14} />
-              {dragOver ? 'Déposer le fichier ici' : 'Ajouter un document'}
+              <Upload size={14} /> Ajouter
             </button>
-          ) : (
+            <button
+              onClick={onClose}
+              style={{
+                width: 34, height: 34, borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'transparent', border: '1px solid var(--border)',
+                cursor: 'pointer', transition: 'background 0.15s',
+                color: 'var(--text-3, var(--muted-foreground))',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2, var(--secondary))' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Upload button / drop zone */}
+        {/* v1.9.127 — Zone d'upload visible UNIQUEMENT quand on est en mode upload (showUpload).
+            Le bouton "Ajouter" du header ouvre cette zone — pas de doublon visuel.
+            Drop visuel apparaît juste pendant le dragover. */}
+        <div
+          style={{
+            padding: showUpload || dragOver ? '14px 24px' : 0,
+            borderBottom: showUpload || dragOver ? '1px solid var(--border)' : 'none',
+            flexShrink: 0,
+          }}
+        >
+          {dragOver && !showUpload && (
+            <div style={{
+              padding: '20px 0', borderRadius: 10,
+              border: '2px dashed var(--primary)',
+              background: 'rgba(234,179,8,0.08)',
+              color: 'var(--primary)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              fontSize: 13, fontWeight: 700,
+            }}>
+              <Upload size={14} /> Déposer le fichier ici
+            </div>
+          )}
+          {showUpload && (
             <div style={{
               background: 'var(--secondary)', border: '1px solid var(--border)',
               borderRadius: 10, padding: 14,
@@ -592,15 +612,23 @@ export default function DocumentsPanel({ open, onClose, candidatId, documents, c
                           key={`${doc.name}-${doc.uploaded_at}-${localIdx}`}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '8px 10px', borderRadius: 8,
-                            background: cat.bg, border: `1px solid ${cat.border}`,
-                            marginBottom: 4,
-                            transition: 'box-shadow 0.15s',
+                            padding: '10px 12px', borderRadius: 10,
+                            background: 'var(--bg-sunken, var(--surface-2, var(--secondary)))',
+                            border: '1px solid var(--border)',
+                            marginBottom: 6,
+                            transition: 'border-color 0.15s, background 0.15s',
                           }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-2, var(--input))' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                         >
-                          <IconComp size={14} style={{ color: cat.color, flexShrink: 0 }} />
+                          {/* v1.9.127 — Carré coloré pour l'icône (style maquette V2) */}
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            background: cat.bg, color: cat.color,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <IconComp size={14} />
+                          </div>
 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             {isEditingThis ? (

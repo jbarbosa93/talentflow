@@ -77,6 +77,9 @@ body {
 .d-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* v1.9.128 — min-width: 0 garantit que flex-1 peut shrinker sous le contenu (évite scroll x) */
+  min-width: 0;
 }
 
 /* ══════════════════════════════════════
@@ -92,13 +95,26 @@ body {
   top: 0;
   flex-shrink: 0;
   border-right: 1px solid var(--sidebar-border);
-  transition: width 0.22s ease, border-right-width 0.22s ease;
-}
-/* v1.9.47 — sidebar cachable desktop */
-.d-sidebar.is-collapsed {
-  width: 0;
-  border-right: none;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-right-width 0.28s ease, transform 0.28s ease;
   overflow: hidden;
+  will-change: width;
+}
+/* v1.9.47 — sidebar cachable desktop / v1.9.128 — fix transition propre */
+.d-sidebar.is-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right: none;
+  /* Glissement vers la gauche en plus du shrink → effet plus naturel */
+  transform: translateX(-10px);
+}
+.d-sidebar.is-collapsed > * {
+  opacity: 0;
+  transition: opacity 0.18s ease 0s;
+  pointer-events: none;
+}
+/* v1.9.128 — Le contenu à droite suit la transition de width sans saut */
+.d-main {
+  transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .d-topbar-toggle-sidebar {
   display: none;
@@ -318,7 +334,21 @@ body {
 /* ══════════════════════════════════════
    PAGE STRUCTURE
    ══════════════════════════════════════ */
-.d-page { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+.d-page { padding: 28px 32px; max-width: 1600px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+/* v1.9.128 — Auto-adapt tous écrans : du laptop 13" au 34" wide */
+@media (min-width: 1920px) {
+  .d-page { max-width: 1800px; padding: 32px 48px; }
+}
+@media (min-width: 2560px) {
+  /* Écran 4K / 34" wide : pleine largeur dans la limite du sidebar */
+  .d-page { max-width: 2200px; padding: 36px 56px; }
+}
+@media (max-width: 768px) {
+  .d-page { padding: 20px 16px; }
+}
+@media (max-width: 480px) {
+  .d-page { padding: 16px 12px; }
+}
 .d-page-header {
   display: flex;
   align-items: flex-start;
@@ -1181,6 +1211,33 @@ body {
   background: var(--muted-foreground);
 }
 
+/* v1.9.130 — Scrollbar fine et discrète (modals SMS/WhatsApp/Mail) */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+/* v1.9.130 — Scrollbar complètement masquée */
+.scroll-none {
+  scrollbar-width: none;
+}
+.scroll-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* ════════════════════════════════════════════════════════════════════════
    v1.9.127 — Shell V2 (Design V2 Claude Design)
    Surcharge des styles d-sidebar / d-topbar / d-content / d-nav-link
@@ -1221,6 +1278,31 @@ body {
   border-bottom: 1px dashed var(--border) !important;
   margin-bottom: 4px !important;
   text-decoration: none !important;
+  background: transparent !important;
+}
+/* v1.9.129 — tooltip métiers multi est maintenant portalisé (cf. CandidatsList.tsx metierTooltip state) */
+
+/* v1.9.128 — Annule le hover gris moche hérité (probablement d'un global a:hover) */
+aside.d-sidebar a.d-sidebar-logo,
+aside.d-sidebar a.d-sidebar-logo:hover,
+aside.d-sidebar a.d-sidebar-logo:focus,
+aside.d-sidebar a.d-sidebar-logo:active,
+aside.d-sidebar a.d-sidebar-logo:visited {
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  text-decoration: none !important;
+  color: inherit !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+/* Annuler aussi tout effet hover sur les enfants directs du logo */
+aside.d-sidebar a.d-sidebar-logo:hover * {
+  background-color: inherit !important;
+}
+/* Garder l'animation Framer Motion (whileHover scale/rotate) sur l'éclair lui-même */
+aside.d-sidebar a.d-sidebar-logo:hover > span:first-child {
+  background-color: #1C1A14 !important; /* éclair fond noir conservé */
 }
 
 /* Section title "Menu", "Compte" */
@@ -1268,10 +1350,11 @@ body {
   color: var(--text, var(--foreground)) !important;
 }
 
-/* Active state — fond gold-soft + barre or à gauche */
+/* v1.9.128 — Active state : vrai jaune brand (var(--primary)) au lieu du pastel.
+   Texte ink #1C1A14 pour contraster sur le jaune. */
 .d-nav-link.active {
-  background: var(--accent-soft, var(--primary-soft)) !important;
-  color: var(--text, var(--foreground)) !important;
+  background: var(--primary, #F5A623) !important;
+  color: #1C1A14 !important;
   font-weight: 600 !important;
   box-shadow: none !important;
 }
@@ -1304,8 +1387,15 @@ body {
 .d-nav-link:hover .d-nav-icon {
   color: var(--text, var(--foreground)) !important;
 }
-.d-nav-link.active .d-nav-icon {
-  color: var(--accent, var(--primary)) !important;
+.d-nav-link.active .d-nav-icon,
+.d-sidebar a.d-nav-link.active svg.d-nav-icon,
+.d-sidebar a.d-nav-link.active svg.lucide {
+  /* v1.9.127 — l'item actif a un fond jaune --primary. L'icône doit être
+     ink #1C1A14 pour bien contraster sur le jaune. Selectors agressifs
+     pour gagner contre les autres règles avec !important. */
+  color: #1C1A14 !important;
+  stroke: #1C1A14 !important;
+  opacity: 1 !important;
 }
 
 /* Footer (Compte section) */
@@ -1442,6 +1532,59 @@ body {
   letter-spacing: 0.1em;
   margin-top: 6px;
   display: block;
+}
+
+/* v1.9.127 — Dark mode CV viewer : fond crème #e8e3d6 → gris foncé en dark.
+   La var --cv-viewer-bg est lue en inline style sur les wrappers du viewer. */
+:root { --cv-viewer-bg: #e8e3d6; }
+.dark, [data-theme="dark"] { --cv-viewer-bg: #1a1a1a; }
+
+/* v1.9.127 — Dark mode fiche candidat : gradient métier conservé mais opacity réduite
+   (passe de 1.0 → 0.55) + blend overlay pour bien se fondre sur fond sombre.
+   Banner reste en surface dark, le glow métier subtil de gauche identifie le métier. */
+.dark .fiche-banner-v2,
+[data-theme="dark"] .fiche-banner-v2 {
+  background: var(--surface, #0F0F10) !important;
+  border-color: var(--border, #2a2a2a) !important;
+}
+.dark .fiche-banner-v2-fade,
+[data-theme="dark"] .fiche-banner-v2-fade {
+  opacity: 0.55 !important;
+  mix-blend-mode: screen;
+}
+
+/* v1.9.128 — Dark mode hero : gradient repensé pour ne plus déteindre en jaune fade.
+   Surface dark dominante + glow ambre subtil + halo radial doré côté droit où sont les KPI. */
+.dark .welcome-v2,
+[data-theme="dark"] .welcome-v2 {
+  background:
+    radial-gradient(circle at 92% 50%, rgba(234, 179, 8, 0.12) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(234, 179, 8, 0.04) 0%, var(--surface, #141414) 60%);
+  border-color: rgba(234, 179, 8, 0.20);
+}
+.dark .welcome-v2::before,
+[data-theme="dark"] .welcome-v2::before {
+  opacity: 0.20;
+}
+.dark .welcome-v2 h2,
+[data-theme="dark"] .welcome-v2 h2 {
+  color: var(--foreground, #F5F5F5);
+}
+.dark .welcome-v2 h2 .date-label,
+[data-theme="dark"] .welcome-v2 h2 .date-label {
+  color: rgba(245, 245, 245, 0.6);
+}
+.dark .welcome-v2 p,
+[data-theme="dark"] .welcome-v2 p {
+  color: rgba(245, 245, 245, 0.75);
+}
+.dark .welcome-stat-v2 b,
+[data-theme="dark"] .welcome-stat-v2 b {
+  color: var(--foreground, #F5F5F5);
+}
+.dark .welcome-stat-v2 span,
+[data-theme="dark"] .welcome-stat-v2 span {
+  color: rgba(245, 245, 245, 0.65);
 }
 
 /* ===== KPI Grid ===== */
@@ -1707,6 +1850,450 @@ body {
 .card-v2-body { padding: 16px 20px; }
 .card-v2-body.flush { padding: 0; }
 
+/* v1.9.127 — REMPLACEMENT GLOBAL des boutons & cards néo-brutalist par le style V2.
+   Override puissant qui s'applique partout dans l'app sans toucher au TSX.
+   Style aligné sur le proto V2 (.btn / .btn.primary / .btn.ghost / .card du ZIP). */
+.neo-btn,
+.neo-btn-yellow,
+.neo-btn-yellow-outline,
+.neo-btn-ghost,
+.neo-btn-primary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  height: auto !important;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  font-family: var(--font-jakarta), 'DM Sans', system-ui, sans-serif !important;
+  letter-spacing: 0 !important;
+  cursor: pointer !important;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  line-height: 1 !important;
+}
+.neo-btn-sm {
+  min-height: 28px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+}
+
+/* Variant : default (neutral) — surface + border */
+.neo-btn {
+  background: var(--surface, var(--card)) !important;
+  color: var(--text, var(--foreground)) !important;
+  border: 1px solid var(--border) !important;
+}
+.neo-btn:hover {
+  background: var(--surface-2, var(--secondary)) !important;
+  border-color: var(--border-2, var(--input)) !important;
+  transform: none !important;
+  color: var(--text, var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+/* Variant : primary (gold) — accent fill */
+.neo-btn-yellow,
+.neo-btn-primary {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border: 1px solid var(--primary) !important;
+}
+.neo-btn-yellow:hover,
+.neo-btn-primary:hover {
+  background: var(--accent-2, var(--primary-hover, var(--primary))) !important;
+  border-color: var(--accent-2, var(--primary-hover, var(--primary))) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: var(--shadow-accent, 0 4px 12px -4px rgba(234,179,8,0.4)) !important;
+}
+.neo-btn-yellow:active,
+.neo-btn-primary:active {
+  transform: translateY(0) !important;
+  box-shadow: none !important;
+}
+
+/* Variant : outline yellow → outline neutral propre */
+.neo-btn-yellow-outline {
+  background: transparent !important;
+  color: var(--text, var(--foreground)) !important;
+  border: 1px solid var(--border) !important;
+}
+.neo-btn-yellow-outline:hover {
+  background: var(--surface-2, var(--secondary)) !important;
+  border-color: var(--primary) !important;
+  color: var(--text, var(--foreground)) !important;
+}
+
+/* Variant : ghost — transparent + hover discret */
+.neo-btn-ghost {
+  background: transparent !important;
+  color: var(--text-2, var(--muted-foreground)) !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+}
+.neo-btn-ghost:hover {
+  background: var(--surface-2, var(--secondary)) !important;
+  color: var(--text, var(--foreground)) !important;
+  border-color: transparent !important;
+}
+
+/* v1.9.127 — Variante "save action" verte qui override le ghost (même taille/police, couleur success) */
+.neo-btn-ghost.btn-save-action,
+.btn-save-action {
+  background: var(--success) !important;
+  color: var(--success-foreground, white) !important;
+  border-color: var(--success) !important;
+}
+.neo-btn-ghost.btn-save-action:hover,
+.btn-save-action:hover {
+  background: oklch(from var(--success) calc(l - 0.04) c h) !important;
+  border-color: oklch(from var(--success) calc(l - 0.04) c h) !important;
+  color: var(--success-foreground, white) !important;
+}
+
+/* Cards néo-brutalist : retire l'ombre brutale + radius cohérent V2 */
+.neo-card-soft {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+}
+.neo-card-soft:hover {
+  box-shadow: none !important;
+  border-color: var(--border) !important;
+}
+
+/* v1.9.127 — Inputs néo-brutalist en mode édition → style V2 propre
+   (radius 10px, border 1px discret, focus accent gold subtil, plus de bordure noire 2px).
+   PAS de padding/height en !important — on laisse les composants définir leur propre
+   espacement (sinon les paddingLeft pour icônes Search sont écrasés). */
+.neo-input,
+.neo-input-soft {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  color: var(--text, var(--foreground)) !important;
+  font-family: var(--font-jakarta), 'DM Sans', system-ui, sans-serif !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.neo-input:not([style*="height"]),
+.neo-input-soft:not([style*="height"]) {
+  height: 34px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.neo-input:hover,
+.neo-input-soft:hover {
+  border-color: var(--border-2, var(--input)) !important;
+}
+.neo-input:focus,
+.neo-input-soft:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--ring, rgba(234,179,8,.18)) !important;
+  background: var(--surface, var(--card)) !important;
+}
+.neo-input::placeholder,
+.neo-input-soft::placeholder {
+  color: var(--text-3, var(--muted-foreground)) !important;
+  opacity: 0.7 !important;
+}
+/* Textarea : garde la hauteur auto, juste les autres props */
+textarea.neo-input {
+  height: auto !important;
+  min-height: 60px !important;
+  padding: 8px 12px !important;
+  line-height: 1.5 !important;
+  resize: vertical !important;
+}
+
+/* v1.9.127 — Selects natifs : appearance none pour rendering identique aux boutons */
+select.neo-input,
+select.neo-input-soft {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: var(--surface, var(--card)) !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 16px 16px !important;
+  cursor: pointer !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+/* v1.9.127 — Tous les <select> natifs dans le dashboard reçoivent le style V2 :
+   appearance:none + chevron SVG + Jakarta + border 1px + radius 10. La liste
+   déroulante elle-même reste native (limitation HTML), mais l'élément fermé
+   est cohérent V2 partout (clients, offres, missions, parametres, etc.) */
+.d-page select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2398a2b3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px 16px;
+  padding-right: 32px !important;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  cursor: pointer;
+}
+.d-page select:hover {
+  border-color: var(--primary, #F5A623);
+}
+.d-page select:focus {
+  outline: none;
+  border-color: var(--primary, #F5A623);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15);
+}
+/* Dark mode : chevron plus visible */
+.dark .d-page select,
+[data-theme="dark"] .d-page select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+}
+/* <option> dans la liste déroulante (limité par le navigateur mais on essaie) */
+.d-page select option {
+  background: var(--surface, var(--card));
+  color: var(--foreground);
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  padding: 8px 12px;
+}
+
+/* v1.9.127 — Liste candidats V2 : header de colonnes + cards plus denses (Phase 5a)
+   Pas de refonte du renderCard (3905 lignes, trop risqué) — juste un header indicatif
+   par-dessus la flat list + adoucissement visuel des cards. */
+.clist-v2 {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface, var(--card));
+  overflow: hidden;
+}
+/* v1.9.127 — Header de colonnes retiré : impossible d'aligner pixel-perfect
+   avec le contenu mixé (boutons CV/Note/badges variables). Le header trompait
+   visuellement sans tenir l'alignement promis. */
+.clist-v2-head { display: none !important; }
+
+/* Adoucir chaque card-ligne : moins d'ombre/border, padding plus dense.
+   Sélecteur ciblé sur enfants directs sauf le header. */
+.clist-v2 > div:not(.clist-v2-head) {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 10px 18px !important;
+  border-color: transparent !important;
+  border-top: 1px solid var(--border) !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  background: var(--surface, var(--card)) !important;
+  gap: 14px !important;
+  transform: none !important;
+}
+/* Pas de double border sur la 1re ligne (le header en met déjà une) */
+.clist-v2 > div:not(.clist-v2-head):first-of-type {
+  border-top: none !important;
+}
+/* Card hover : juste un fond légèrement teinté, pas de translate y */
+.clist-v2 > div:not(.clist-v2-head):hover {
+  background: var(--surface-2, var(--secondary)) !important;
+}
+
+/* v1.9.127 — Réduire la taille du nom + sous-titre et tighter le bloc Info pour vraie densité table */
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex: 1"][style*="minWidth: 0"] > div:first-child,
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex:1"][style*="minWidth:0"] > div:first-child {
+  font-size: 14px !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+}
+/* Sous-titre + ville + âge ligne suivante : plus compacte */
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex: 1"][style*="minWidth: 0"] > div:nth-child(2),
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex:1"][style*="minWidth:0"] > div:nth-child(2) {
+  margin-top: 2px !important;
+  gap: 8px !important;
+}
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex: 1"][style*="minWidth: 0"] > div:nth-child(2) > span,
+.clist-v2 > div:not(.clist-v2-head) > div[style*="flex:1"][style*="minWidth:0"] > div:nth-child(2) > span {
+  font-size: 12px !important;
+}
+
+/* v1.9.127 — Avatar carré 60px (légèrement plus grand pour meilleure lisibilité). */
+.clist-v2 > div:not(.clist-v2-head) > img,
+.clist-v2 > div:not(.clist-v2-head) > div[style*="width: 56px"][style*="height: 56px"],
+.clist-v2 > div:not(.clist-v2-head) > div[style*="width:56px"][style*="height:56px"] {
+  width: 60px !important;
+  height: 60px !important;
+  font-size: 18px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+}
+
+/* Bouton CV / Note / Métier / Validate : plus discrets en mode table */
+.clist-v2 > div:not(.clist-v2-head) .clist-cv-btn {
+  padding: 3px 7px !important;
+  font-size: 10.5px !important;
+  min-width: 50px !important;
+  justify-content: center !important;
+}
+
+/* v1.9.127 — Alignement strict des colonnes : largeurs fixes par élément.
+   Comme les éléments sont conditionnels (CV, Note, CFC...), on force
+   chacun à occuper sa case quoi qu'il arrive. */
+
+/* Étoiles (5 étoiles ⭐ + gap) — largeur fixe 100px alignée à droite */
+.clist-v2 > div:not(.clist-v2-head) > div[style*="display: flex"][style*="gap: 2"] {
+  width: 100px !important;
+  min-width: 100px !important;
+  justify-content: flex-start !important;
+  flex-shrink: 0 !important;
+}
+
+/* Bouton Note (icône MessageSquare 28x28) — largeur fixe colonne 32px */
+.clist-v2 > div:not(.clist-v2-head) > div[style*="position: relative"]:has(> button[title*="ote"]) {
+  width: 32px !important;
+  min-width: 32px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Métier pill (popover wrapper) — largeur fixe 140px */
+.clist-v2 > div:not(.clist-v2-head) > div[style*="position: relative"]:has(> button[title*="étier"]),
+.clist-v2 > div:not(.clist-v2-head) > div[style*="position: relative"]:has(> button[title*="Assigner"]) {
+  width: 140px !important;
+  min-width: 140px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Date (span clist-date) — largeur fixe 88px alignée à droite */
+.clist-v2 > div:not(.clist-v2-head) .clist-date {
+  width: 88px !important;
+  min-width: 88px !important;
+  text-align: right !important;
+  flex-shrink: 0 !important;
+}
+
+/* Buttons CFC + Engagé (mode a_traiter) — width fixe pour ne pas pousser */
+.clist-v2 > div:not(.clist-v2-head) > button[title*="CFC"],
+.clist-v2 > div:not(.clist-v2-head) > button[title*="Engagé"] {
+  width: 70px !important;
+  min-width: 70px !important;
+  flex-shrink: 0 !important;
+  justify-content: center !important;
+}
+
+/* Bouton Valider final (mode a_traiter) */
+.clist-v2 > div:not(.clist-v2-head) > button[title*="Valider"] {
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 720px) {
+  /* En mobile : laisser les éléments se réorganiser naturellement */
+  .clist-v2 > div:not(.clist-v2-head) > div[style*="display: flex"][style*="gap: 2"],
+  .clist-v2 > div:not(.clist-v2-head) > div[style*="position: relative"],
+  .clist-v2 > div:not(.clist-v2-head) .clist-date {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+}
+
+/* v1.9.127 — Cards fiche style proto V2 EXACT (card.flush du ZIP design v2).
+   Override sur les .neo-card-soft de la col gauche fiche pour matcher pixel-près. */
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft {
+  background: var(--surface, var(--card)) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  padding: 0 !important;             /* card.flush */
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+/* "card-head" — barre titre du proto (padding 14px 18px + border-bottom) */
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft > div:first-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 14px 18px !important;
+  border-bottom: 1px solid var(--border) !important;
+  margin-bottom: 0 !important;
+  gap: 12px !important;
+}
+/* h3/h2/label-équivalent (titre dans la fiche) — typo serif du proto */
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft label,
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft h2,
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft h3 {
+  font-family: var(--font-serif, 'Instrument Serif', Georgia, serif) !important;
+  text-transform: none !important;
+  letter-spacing: -0.005em !important;
+  font-size: 17px !important;
+  font-weight: 400 !important;
+  color: var(--text, var(--foreground)) !important;
+  margin: 0 !important;
+}
+/* Le mini-rond icône coloré devant le titre Expériences/Formations — masqué pour épure V2 */
+.fiche-banner-v2 ~ .candidat-grid .candidat-col-main .neo-card-soft > div:first-child > div:first-child > div[style*="width: 26"][style*="height: 26"],
+.fiche-banner-v2 ~ .candidat-grid .candidat-col-main .neo-card-soft > div:first-child > div:first-child > div[style*="width:26px"][style*="height:26px"] {
+  display: none !important;
+}
+/* "card-body" — contenu sous le head (padding 14px 18px) */
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft > div:last-child:not(:first-child),
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft > div:nth-child(2) {
+  padding: 14px 18px !important;
+}
+/* v1.9.127 — Pills design v2 EXACT maquette :
+   - Compétences (background "var(--accent-soft)" rendu inline) → fond beige doux gold
+   - Langues (background "transparent" rendu inline + border) → outline propre */
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft span[style*="accent-soft"],
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft span[style*="primary-soft"] {
+  background: var(--accent-soft, var(--primary-soft, rgba(234,179,8,0.14))) !important;
+  color: var(--text-2, var(--foreground)) !important;
+  border: 1px solid rgba(234,179,8,0.18) !important;
+  font-weight: 500 !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+}
+.fiche-banner-v2 ~ .candidat-grid .neo-card-soft span[style*="background: transparent"] {
+  background: transparent !important;
+  color: var(--text-2, var(--foreground)) !important;
+  border: 1px solid var(--border) !important;
+  font-weight: 500 !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+}
+/* Bouton Documents — card flush + ouvre la modale */
+.fiche-banner-v2 ~ .candidat-grid .candidat-col-info button.neo-card-soft {
+  padding: 14px 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  border-radius: 14px !important;
+}
+
+/* v1.9.127 — Grid 2 cols (chart imports + queue à traiter, design v2) */
+.dashboard-row-v2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--gap-lg, 20px);
+  margin-top: var(--gap-lg, 20px);
+  align-items: stretch;
+}
+.dashboard-row-v2 > .card-v2 {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-row-v2 > .card-v2 .card-v2-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 980px) {
+  .dashboard-row-v2 { grid-template-columns: 1fr; }
+}
+
 /* ===== Status Pill V2 (badges colorés cohérents) ===== */
 .status-pill-v2 {
   display: inline-flex;
@@ -1870,6 +2457,43 @@ body {
   color: var(--text-3, var(--muted-foreground)) !important;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   v1.9.127 — PASS V2 missions / pipeline / envois / activités / secrétariat
+   Cible les patterns inline v1 (font-weight 800-900, borders 1.5-2.5px,
+   labels uppercase aggressifs) sans toucher à la logique métier.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Toute la zone .d-page hérite de Jakarta — fix inputs/selects qui n'héritent
+   pas la font-family du parent par défaut */
+.d-page input,
+.d-page select,
+.d-page textarea,
+.d-page button {
+  font-family: var(--font-jakarta, 'Plus Jakarta Sans'), system-ui, sans-serif;
+}
+
+/* Boutons V2 par défaut sur boutons sans classe explicite — n'override pas
+   les boutons qui ont déjà neo-btn-* ou des styles inline complets */
+.d-page button.neo-btn,
+.d-page button.neo-btn-primary,
+.d-page button.neo-btn-yellow,
+.d-page button.neo-btn-ghost {
+  font-weight: 500 !important;
+}
+
+/* font-weight extrême → ramené à 600 (style V2 plus posé) */
+.d-page [style*="font-weight: 900"],
+.d-page [style*="fontWeight: 900"],
+.d-page [style*="font-weight:900"],
+.d-page [style*="fontWeight:900"] {
+  font-weight: 700 !important;
+}
+
+/* Tab bars avec borderBottom 2.5px → 2px V2 */
+.d-page [style*="2.5px solid var(--primary)"] {
+  border-bottom-width: 2px !important;
+}
+
 /* ===== SURCHARGE BOUTONS NEO ===== */
 .neo-btn-primary {
   background: var(--accent, var(--primary)) !important;
@@ -1957,8 +2581,14 @@ aside.d-sidebar .d-nav-link:hover {
   color: var(--text, var(--foreground)) !important;
 }
 
-/* Item actif : fond plus marqué (gold-soft saturé) */
+/* v1.9.128 — Item actif : vrai jaune brand (au lieu du gold-soft qui devient brun en dark) */
 aside.d-sidebar .d-nav-link.active {
-  background: var(--accent-soft-2, oklch(0.92 0.13 95)) !important;
+  background: var(--primary, #F5A623) !important;
+  color: #1C1A14 !important;
+}
+/* Override dark explicite — au cas où --primary serait modifié dans dark scope */
+.dark aside.d-sidebar .d-nav-link.active,
+[data-theme="dark"] aside.d-sidebar .d-nav-link.active {
+  background: #F5A623 !important;
   color: #1C1A14 !important;
 }
