@@ -865,7 +865,16 @@ export default function CandidatDetailPage() {
                 toast.success('Candidat validé')
               }}
               className="neo-btn neo-btn-sm"
-              style={{ background: '#059669', boxShadow: 'none', color: 'white' }}
+              // v2.0.3 — Vert plein bien visible (override styles neo-btn potentiellement neutres)
+              style={{
+                background: '#16A34A',
+                color: '#fff',
+                border: '1px solid #15803D',
+                boxShadow: '0 4px 12px -4px rgba(22,163,74,0.45)',
+                fontWeight: 700,
+              }}
+              onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#15803D' }}
+              onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = '#16A34A' }}
             >
               <Check size={13} /> Valider
             </button>
@@ -1084,17 +1093,17 @@ export default function CandidatDetailPage() {
               </div>
             )}
           </div>
-          {/* Toolbar boutons photo — sous la photo, pas dessus */}
-          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+          {/* Toolbar boutons photo — v2.0.3 réduits 26→22 (demande João : trop grands) */}
+          <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
             <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
               className="candidat-photo-btn"
-              style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <Camera size={12} color="var(--primary-foreground)" />
+              style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <Camera size={11} color="var(--primary-foreground)" />
             </button>
             {candidat.cv_url && (
               <button onClick={() => setShowCropModal(true)} title="Crop depuis le CV"
                 className="candidat-photo-btn"
-                style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 12 }}>
+                style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 10 }}>
                 ✂️
               </button>
             )}
@@ -1102,13 +1111,13 @@ export default function CandidatDetailPage() {
               <>
                 <button onClick={handlePhotoRotate} title="Rotation 90°"
                   className="candidat-photo-btn"
-                  style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <RotateCw size={12} color="var(--info)" />
+                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <RotateCw size={11} color="var(--info)" />
                 </button>
                 <button onClick={handlePhotoDelete} title="Supprimer la photo"
                   className="candidat-photo-btn"
-                  style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <X size={12} color="var(--destructive)" />
+                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <X size={11} color="var(--destructive)" />
                 </button>
               </>
             )}
@@ -1678,13 +1687,7 @@ export default function CandidatDetailPage() {
                   )}
                 </div>
                 <input ref={photoInputRef} type="file" accept="image/*,.heic,.heif" onChange={handlePhotoUpload} style={{ display: 'none' }} />
-                {showCropModal && candidat.cv_url && (
-                  <PhotoCropModal
-                    cvUrl={candidat.cv_url}
-                    onConfirm={handleCropConfirm}
-                    onClose={() => setShowCropModal(false)}
-                  />
-                )}
+                {/* v2.0.3 — PhotoCropModal déplacé au niveau racine (était inline ici, donc invisible en mode lecture car col 1 display:none) */}
               </div>
 
               {/* Nom / Edit fields */}
@@ -2201,30 +2204,7 @@ export default function CandidatDetailPage() {
             </div>
           )}
 
-          {/* Documents — v1.9.127 caché en édition (déjà dans le header de la fiche) */}
-          <button
-            onClick={() => setShowDocuments(true)}
-            className="neo-card-soft"
-            style={{
-              padding: 14, width: '100%', cursor: 'pointer',
-              display: isEditing ? 'none' : 'flex', alignItems: 'center', gap: 8,
-              border: '1px solid var(--border)', background: 'var(--card)',
-              fontFamily: 'inherit', textAlign: 'left',
-              transition: 'border-color 0.15s, box-shadow 0.15s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
-          >
-            <FolderOpen size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', flex: 1 }}>Documents</span>
-            <span style={{
-              fontSize: 10, fontWeight: 700, color: 'var(--muted)',
-              background: 'var(--border)', borderRadius: 10, padding: '2px 7px',
-            }}>
-              {((candidat.documents as CandidatDocument[]) || []).length + (candidat.cv_url ? 1 : 0)}
-            </span>
-            <ChevronRight size={14} style={{ color: 'var(--muted)' }} />
-          </button>
+          {/* v2.0.3 — Bouton Documents legacy supprimé (doublon avec le bouton du header de la fiche) */}
 
           {/* Notes et Infos sont maintenant en panneau slide-in (voir en bas du composant) */}
         </div>
@@ -3232,6 +3212,15 @@ export default function CandidatDetailPage() {
           document.body
         )
       })()}
+
+      {/* v2.0.3 — PhotoCropModal au niveau racine (visible en mode lecture aussi) */}
+      {showCropModal && candidat?.cv_url && (
+        <PhotoCropModal
+          cvUrl={candidat.cv_url}
+          onConfirm={handleCropConfirm}
+          onClose={() => setShowCropModal(false)}
+        />
+      )}
 
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }

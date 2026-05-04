@@ -6,6 +6,7 @@ import { Shield, Trash2, UserPlus, Mail, Building2, RefreshCw, AlertTriangle, Pe
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { useRequireAdmin } from '@/hooks/useRequireAdmin'
 
 interface AdminUser {
   id: string
@@ -53,6 +54,8 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function AdminPage() {
+  // v2.0.3 — SÉCURITÉ : guard client (redirige /parametres si non admin)
+  const { isAdmin, isLoading: authLoading } = useRequireAdmin('/parametres')
   const queryClient = useQueryClient()
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [editingRole, setEditingRole] = useState<string | null>(null)
@@ -208,6 +211,11 @@ export default function AdminPage() {
         </div>
       </div>
     )
+  }
+
+  // v2.0.3 — Affichage neutre pendant la vérification + après redirect
+  if (authLoading || !isAdmin) {
+    return null
   }
 
   return (

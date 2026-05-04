@@ -1,6 +1,10 @@
 'use client'
 import Link from 'next/link'
+import { useQuery } from '@tanstack/react-query'
 import { Briefcase, Building2, KeyRound, Users as UsersIcon, Settings as SettingsIcon, Activity, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
 
 type Section = {
   href: string
@@ -22,6 +26,21 @@ const SECTIONS: Section[] = [
 ]
 
 export default function ParametresHubPage() {
+  // v2.0.3 — SÉCURITÉ : filtrer les sections adminOnly côté client (cohérent avec sidebar).
+  // Critère : email==ADMIN_EMAIL OU user_metadata.role∈{Admin,Administrateur}.
+  const { data: user } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      return user
+    },
+    staleTime: 60_000,
+  })
+  const role = (user?.user_metadata as { role?: string } | null | undefined)?.role || ''
+  const isAdmin = (ADMIN_EMAIL && user?.email === ADMIN_EMAIL) || role === 'Admin' || role === 'Administrateur'
+  const visibleSections = SECTIONS.filter(s => !s.adminOnly || isAdmin)
+
   return (
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
       <div className="d-page-header" style={{ marginBottom: 24 }}>
@@ -39,7 +58,7 @@ export default function ParametresHubPage() {
         gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
         gap: 16,
       }}>
-        {SECTIONS.map(s => <SectionCard key={s.href} section={s} />)}
+        {visibleSections.map(s => <SectionCard key={s.href} section={s} />)}
       </div>
     </div>
   )

@@ -87,6 +87,13 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
   const entreprise = user?.user_metadata?.entreprise || ''
   const userRole: string = user?.user_metadata?.role || 'Consultant'
   const isSecretaire = userRole === 'Secrétaire'
+  // v2.0.3 — Helper admin cohérent avec hooks/useRequireAdmin : email==ADMIN_EMAIL OU role∈{Admin,Administrateur}
+  const isAdminUser = (u: typeof user): boolean => {
+    if (!u) return false
+    if (ADMIN_EMAIL && u.email === ADMIN_EMAIL) return true
+    const r = (u.user_metadata as { role?: string } | null | undefined)?.role || ''
+    return r === 'Admin' || r === 'Administrateur'
+  }
 
   // Badge rappels entretiens actifs
   const { data: rappelsCount } = useQuery({
@@ -442,9 +449,9 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
           style={{ display: 'flex', flexDirection: 'column' }}
         >
           {NAV_ITEMS.filter(item => {
-            if ((item as any).adminOnly && user?.email !== ADMIN_EMAIL) return false
+            if ((item as any).adminOnly && !isAdminUser(user)) return false
             // Secrétariat visible pour Secrétaire ET Admin
-            if ((item as any).secretaireVisible && userRole !== 'Secrétaire' && user?.email !== ADMIN_EMAIL) return false
+            if ((item as any).secretaireVisible && userRole !== 'Secrétaire' && !isAdminUser(user)) return false
             // Masquer certains items pour la Secrétaire
             if ((item as any).hideForSecretaire && isSecretaire) return false
             return true
@@ -590,7 +597,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
           style={{ display: 'flex', flexDirection: 'column' }}
         >
           {FOOTER_ITEMS.filter(item => {
-            if (item.adminOnly && user?.email !== ADMIN_EMAIL) return false
+            if (item.adminOnly && !isAdminUser(user)) return false
             if (item.href === '/outils' && isSecretaire) return false
             return true
           }).map((item, i) => {

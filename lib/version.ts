@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.0.2'
+export const APP_VERSION = '2.0.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.0.3',
+    date: '2026-05-04',
+    label: 'Pack 9 fixes (sécurité admin, fiche candidat, intégrations, sidebar, compaction liste)',
+    features: [
+      'SÉCURITÉ ADMIN — /parametres hub : sections "Demandes d\'accès" et "Administration" filtrées côté client (visibles uniquement si email==ADMIN_EMAIL OU role∈{Admin,Administrateur}). Pages /parametres/admin et /parametres/demandes-acces : guard `useRequireAdmin()` redirige vers /parametres si non-admin (UX). Sidebar : check via helper `isAdminUser()` cohérent (email OU role).',
+      'FICHE CANDIDAT — Boutons photo réduits 26→22 (demande João : trop grands). Bouton ciseaux fonctionnel : `<PhotoCropModal>` déplacé au niveau racine (était dans col 1 cachée en lecture). Ancien bouton "Documents" en col 1 supprimé (doublonnait celui du header). Bouton Valider passé en VERT bien visible (bg #16A34A + ring #15803D + shadow brand vert).',
+      'INTÉGRATIONS — Carte fichier en attente : background `var(--card-bg, #FFF)` → `var(--surface, var(--card))` pour respecter le dark mode (avant : box blanche fixe en dark).',
+      'LISTE CANDIDATS — Petit œil sur photo supprimé (la fonctionnalité hover CV reste sur l\'avatar). Délai d\'ouverture CV preview 200→60ms, fermeture 200→80ms (quasi instantané).',
+      'SIDEBAR — Barre indicatrice gauche de l\'item actif passe de NOIR `#1C1A14` → ORANGE FONCÉ `#B45309` (cohérent avec brand jaune --primary, contraste OK).',
+      'LISTE CANDIDATS COMPACTION — Avatar 68→48, padding row 12/18→8/14, gap 14→10, radius 14→12, nom 17→14, lieu col 170→150, INFO col 320→260, étoiles 15→13 + col 130→110, notes col 60→48 + bouton 28→24, âge pill 12→11. Onglets Actif/À traiter h32→h28 + padding compact. Tous les boutons barre filtres uniformisés en h28.',
+      'PAGINATION INLINE — Mini-pager (chevrons + Page X/Y) déplacé à côté du compteur "/ N" dans la barre filtres (avant : ligne horizontale séparée au-dessus de la liste). Plus compact.',
+    ],
+  },
   {
     version: '2.0.2',
     date: '2026-05-04',

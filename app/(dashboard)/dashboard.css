@@ -1369,15 +1369,14 @@ aside.d-sidebar a.d-sidebar-logo:hover > span:first-child {
   bottom: 6px !important;
   width: 3px !important;
   border-radius: 3px !important;
-  /* v2.0.1 — barre indicatrice INK (foncée) pour contraster avec le fond jaune --primary
-     de l'item actif. Avant : --accent (jaune) → invisible sur fond jaune. */
-  background: #1C1A14 !important;
+  /* v2.0.3 — barre indicatrice ORANGE foncé (match avec le brand jaune sans concurrencer le fond)
+     #B45309 = teinte foncée de l'orange Tailwind, contraste OK sur jaune --primary. */
+  background: #B45309 !important;
   animation: shellSlideIn 220ms cubic-bezier(.34,1.56,.64,1) !important;
 }
 .dark .d-nav-link.active::before,
 [data-theme="dark"] .d-nav-link.active::before {
-  /* En dark le fond actif jaune reste, donc barre ink reste visible */
-  background: #1C1A14 !important;
+  background: #B45309 !important;
 }
 @keyframes shellSlideIn {
   from { opacity: 0; transform: scaleY(.3); }

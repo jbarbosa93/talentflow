@@ -180,7 +180,7 @@ function PendingFichierCard({
   const cvNom = `${analyse.prenom || ''} ${analyse.nom || ''}`.trim() || '—'
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--card-bg, #FFF)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--surface, var(--card))' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>

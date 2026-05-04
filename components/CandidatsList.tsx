@@ -1279,12 +1279,11 @@ export default function CandidatsList() {
         transition={{ type: 'spring', stiffness: 380, damping: 28 }}
         className="clist-row-v2"
         style={{
-          // v1.9.127 — Flex avec largeurs fixes sur localisation/âge → alignement vertical
-          // entre rows, et un spacer pousse stars/CV/notes/date à droite.
-          display: 'flex', alignItems: 'center', gap: 14,
+          // v2.0.3 — Compaction (demande João) : padding 12/18→8/14, gap 14→10, radius 14→12
+          display: 'flex', alignItems: 'center', gap: 10,
           background: selected ? 'var(--primary-soft)' : 'var(--surface)',
           border: `1px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
-          borderRadius: 14, padding: '12px 18px',
+          borderRadius: 12, padding: '8px 14px',
           cursor: 'pointer',
           boxShadow: selected ? '0 0 0 2px rgba(255,232,0,0.2)' : 'none',
           position: 'relative',
@@ -1374,16 +1373,15 @@ export default function CandidatsList() {
               setPreviewData({ url: c.cv_url, ext: cvExt, x: anchorX, y: anchorY, rotation, panelW })
               setPreviewZoom(initZoom)
               setPreviewVisible(true)
-            }, 200)
+            }, 60) // v2.0.3 — délai 200→60ms pour ouverture quasi instantanée
           } : undefined}
           onMouseLeave={hasCv ? () => {
             if (hoveredCvTimeout.current) clearTimeout(hoveredCvTimeout.current)
-            hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 200)
+            hoveredCvTimeout.current = setTimeout(() => setPreviewVisible(false), 80) // v2.0.3 — disparition rapide
           } : undefined}
           style={{
-            position: 'relative', flex: '0 0 68px',
-            height: 68,
-            // v1.9.128 — cursor: zoom-in (au lieu de 'help' qui affiche un ? sur macOS)
+            position: 'relative', flex: '0 0 56px',
+            height: 56,
             cursor: hasCv ? 'zoom-in' : 'default',
             transition: 'transform 0.12s ease',
           }}
@@ -1392,13 +1390,13 @@ export default function CandidatsList() {
           title={hasCv ? 'Survoler pour prévisualiser le CV' : ''}
         >
           {(c.photo_url && c.photo_url !== 'checked')
-            ? <Image src={c.photo_url} width={68} height={68} unoptimized style={{ objectFit: 'cover', borderRadius: 10, flexShrink: 0, display: 'block' }} alt="" />
+            ? <Image src={c.photo_url} width={56} height={56} unoptimized style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 9, flexShrink: 0, display: 'block' }} alt="" />
             : (
               <div
                 style={{
-                  width: 68, height: 68, borderRadius: 10,
+                  width: 56, height: 56, borderRadius: 9,
                   background: 'var(--bg-muted, #F1F5F9)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: 20, fontWeight: 700,
+                  justifyContent: 'center', fontSize: 18, fontWeight: 700,
                   color: 'var(--text-muted, #64748B)', flexShrink: 0, overflow: 'hidden',
                 }}
               >
@@ -1407,33 +1405,17 @@ export default function CandidatsList() {
             )
           }
           {/* Petit badge CV en bas-droit pour signaler la disponibilité */}
-          {hasCv && (
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute', bottom: -3, right: -3,
-                width: 20, height: 20, borderRadius: '50%',
-                background: 'var(--primary, #F5A623)',
-                border: '2px solid var(--surface, var(--card))',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                color: '#1C1A14',
-                pointerEvents: 'none',
-              }}
-              title="CV disponible"
-            >
-              <Eye size={10} strokeWidth={2.5} />
-            </span>
-          )}
+          {/* v2.0.3 — Petit œil supprimé (la fonctionnalité hover CV est conservée sur l'avatar) */}
         </div>
 
         {/* Info — largeur fixe + fade à droite quand le contenu déborde (nom long, métier long…) */}
         <div style={{
-          flex: '0 0 320px', minWidth: 0, overflow: 'hidden', position: 'relative',
+          flex: '0 0 260px', minWidth: 0, overflow: 'hidden', position: 'relative',
           // Masque dégradé sur les 24 derniers px pour fade gracieux quand débordement
           WebkitMaskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
           maskImage: 'linear-gradient(to right, #000 calc(100% - 24px), transparent 100%)',
         }}>
-          <div title={formatFullName(c.prenom, c.nom)} style={{ fontWeight: 700, fontSize: 17, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div title={formatFullName(c.prenom, c.nom)} style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {formatFullName(c.prenom, c.nom)}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'nowrap', alignItems: 'center', overflow: 'hidden' }}>
@@ -1501,7 +1483,7 @@ export default function CandidatsList() {
         </div>
 
         {/* v2.0.1 — Colonne LOCALISATION : minWidth:0 + ellipsis strict + tooltip natif au hover */}
-        <div style={{ flex: '0 0 170px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
+        <div style={{ flex: '0 0 150px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
           {c.localisation ? (
             <span
               title={formatCity(c.localisation)}
@@ -1534,7 +1516,7 @@ export default function CandidatsList() {
           {age !== null ? (
             <span style={{
               fontSize: 12, fontWeight: 700,
-              padding: '4px 11px', borderRadius: 7,
+              padding: '3.5px 10px', borderRadius: 7,
               background: 'var(--primary-soft)',
               color: 'var(--primary)',
               border: '1px solid rgba(245,167,35,0.35)',
@@ -1578,7 +1560,7 @@ export default function CandidatsList() {
         {/* Étoiles interactives (tous onglets) — v1.9.128 width fixe 130, aligné gauche pour matcher header */}
         <div
           onClick={e => e.stopPropagation()}
-          style={{ display: 'flex', gap: 2, flex: '0 0 130px' }}
+          style={{ display: 'flex', gap: 2, flex: '0 0 110px' }}
         >
           {[1, 2, 3, 4, 5].map(star => (
             <button
@@ -1606,7 +1588,7 @@ export default function CandidatsList() {
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 1, flexShrink: 0 }}
               title={`${star} étoile${star > 1 ? 's' : ''}`}
             >
-              <Star size={15} color="#EAB308" fill={star <= (c.rating || 0) ? '#EAB308' : 'none'} />
+              <Star size={14} color="#EAB308" fill={star <= (c.rating || 0) ? '#EAB308' : 'none'} />
             </button>
           ))}
         </div>
@@ -1617,7 +1599,7 @@ export default function CandidatsList() {
 
         {/* v1.9.127 — Bouton notes unifié : icône seule si vide, icône + compteur si notes existent.
             v1.9.128 — wrapper width 60 aligné à gauche pour matcher header "Notes". */}
-        <div style={{ position: 'relative', flex: '0 0 60px', display: 'flex' }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'relative', flex: '0 0 56px', display: 'flex' }} onClick={e => e.stopPropagation()}>
             {(() => {
               const noteCount = c.notes_candidat?.length || 0
               const hasNotes = noteCount > 0
@@ -1644,8 +1626,8 @@ export default function CandidatsList() {
                   title={hasNotes ? `${noteCount} note${noteCount > 1 ? 's' : ''} — clique pour voir / ajouter` : 'Ajouter une note'}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    height: 28, padding: hasNotes ? '0 8px' : 0, minWidth: 28,
-                    borderRadius: 8, cursor: 'pointer', flexShrink: 0,
+                    height: 26, padding: hasNotes ? '0 7px' : 0, minWidth: 26,
+                    borderRadius: 7, cursor: 'pointer', flexShrink: 0,
                     border: `1px solid ${isOpen ? '#6366F1' : (hasNotes ? 'rgba(99,102,241,0.35)' : 'var(--border)')}`,
                     background: isOpen ? 'rgba(99,102,241,0.10)' : (hasNotes ? 'rgba(99,102,241,0.08)' : 'transparent'),
                     color: (isOpen || hasNotes) ? '#6366F1' : 'var(--muted)',
@@ -1654,7 +1636,7 @@ export default function CandidatsList() {
                     transition: 'all 0.15s',
                   }}
                 >
-                  <MessageSquare size={13} />
+                  <MessageSquare size={12} />
                   {hasNotes && <span>{noteCount}</span>}
                 </button>
               )
@@ -1975,7 +1957,7 @@ export default function CandidatsList() {
 
         {/* v1.9.90 — Date la plus récente : last_import_at (si plus récent que created_at) sinon created_at.
             Affiche la date pertinente pour la liste : date du dernier import = dernière activité sur le candidat. */}
-        <span className="clist-date" style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', flex: '0 0 110px', fontWeight: 500, textAlign: 'left', display: 'inline-flex', alignItems: 'center' }}>
+        <span className="clist-date" style={{ fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap', flex: '0 0 110px', fontWeight: 600, textAlign: 'left', display: 'inline-flex', alignItems: 'center', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
           {(() => {
             const lastImport = (c as any).last_import_at as string | null | undefined
             const createdAt = c.created_at
@@ -2486,7 +2468,7 @@ export default function CandidatsList() {
                 data-metier-trigger
                 onClick={() => setMetierDropdownOpen(!metierDropdownOpen)}
                 style={{
-                  height: 34, fontSize: 13, paddingLeft: 12, paddingRight: 28, minWidth: 170,
+                  height: 28, fontSize: 12.5, paddingLeft: 10, paddingRight: 24, minWidth: 150,
                   cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, textAlign: 'left',
                   fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                   fontWeight: nSelected > 0 ? 600 : 500,
@@ -2658,7 +2640,7 @@ export default function CandidatsList() {
         <div style={{
           display: 'inline-flex', gap: 0,
           background: 'var(--secondary)',
-          padding: 4, borderRadius: 12,
+          padding: 3, borderRadius: 10,
           border: '1px solid var(--border)',
         }}>
           {IMPORT_STATUS_OPTS.map((o) => {
@@ -2675,16 +2657,17 @@ export default function CandidatsList() {
                 onClick={() => setImportStatusFilter(o.value)}
                 style={{
                   position: 'relative',
-                  borderRadius: 9,
-                  padding: '0 16px', height: 32,
-                  fontSize: 13, fontWeight: 700,
+                  borderRadius: 7,
+                  /* v2.0.3 — compaction onglets : padding 0 16/h32 → 0 12/h28 */
+                  padding: '0 12px', height: 28,
+                  fontSize: 12.5, fontWeight: 700,
                   cursor: 'pointer',
                   border: active ? `1px solid ${p.ring}` : '1px solid transparent',
                   background: active ? p.bg : 'transparent',
                   color: active ? p.color : 'var(--muted-foreground)',
                   transition: 'all 0.15s ease',
                   fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
                   lineHeight: 1,
                   boxShadow: active ? '0 1px 2px rgba(28,26,20,0.04)' : 'none',
                   letterSpacing: '0.005em',
@@ -2717,7 +2700,7 @@ export default function CandidatsList() {
             style={{
               paddingLeft: 34, paddingRight: 30,
               width: 'auto', cursor: 'pointer',
-              height: 34, fontSize: 13, fontWeight: 500,
+              height: 28, fontSize: 12.5, fontWeight: 500,
               fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               background: 'var(--surface, var(--card))',
               border: '1px solid var(--border)',
@@ -2736,7 +2719,7 @@ export default function CandidatsList() {
         </div>
 
         {/* Filtres avancés button */}
-        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'inline-flex',alignItems:'center',gap:7,padding:'0 14px',height:34,borderRadius:10,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--surface, var(--card))',color:showAdvancedFilters?'var(--primary-foreground)':'var(--text, var(--foreground))',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',transition:'all 0.15s',lineHeight:1}}>
+        <button onClick={() => setShowAdvancedFilters((v: boolean) => !v)} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'0 12px',height:28,borderRadius:8,border:'1px solid var(--border)',background:showAdvancedFilters?'var(--primary)':'var(--surface, var(--card))',color:showAdvancedFilters?'var(--primary-foreground)':'var(--text, var(--foreground))',fontSize:12.5,fontWeight:500,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',transition:'all 0.15s',lineHeight:1}}>
           <SlidersHorizontal size={14} />
           Filtres avancés
           {activeFiltersCount > 0 && <span style={{background:'#EF4444',color:'white',borderRadius:10,padding:'1px 6px',fontSize:11}}>{activeFiltersCount}</span>}
@@ -2747,7 +2730,7 @@ export default function CandidatsList() {
           <button
             onClick={resetAllFilters}
             title="Réinitialiser tous les filtres"
-            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'0 12px',height:34,borderRadius:10,border:'1px solid var(--destructive-soft, #FCA5A5)',background:'var(--destructive-soft, #FEF2F2)',color:'var(--destructive, #DC2626)',fontSize:12.5,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',fontWeight:500,lineHeight:1}}
+            style={{display:'inline-flex',alignItems:'center',gap:5,padding:'0 10px',height:28,borderRadius:8,border:'1px solid var(--destructive-soft, #FCA5A5)',background:'var(--destructive-soft, #FEF2F2)',color:'var(--destructive, #DC2626)',fontSize:12,cursor:'pointer',fontFamily:'var(--font-jakarta), inherit',fontWeight:500,lineHeight:1}}
           >
             <X size={13} /> Tout effacer
           </button>
@@ -2755,7 +2738,7 @@ export default function CandidatsList() {
 
         {/* Nombre de résultats par page */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 13, fontWeight: 500, height: 34, padding: '0 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))', cursor: 'pointer', fontFamily: 'var(--font-jakarta), inherit' }}>
+          <select value={perPage} onChange={e => setPerPage(Number(e.target.value))} style={{ fontSize: 12.5, fontWeight: 500, height: 28, padding: '0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--text, var(--foreground))', cursor: 'pointer', fontFamily: 'var(--font-jakarta), inherit' }}>
             <option value={20}>20</option>
             <option value={100}>100</option>
             <option value={500}>500</option>
@@ -2763,7 +2746,51 @@ export default function CandidatsList() {
             <option value={0}>Tous</option>
           </select>
           <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>/ {candidatesTries.length}</span>
-          {/* v2.0.2 — "Page X/Y" supprimé : le pager subtil en haut de la liste affiche déjà l'info */}
+          {/* v2.0.3 — Mini-pager inline (chevrons + Page X/Y) à côté du compteur, plus de ligne séparée */}
+          {totalPages > 1 && (
+            <>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                title="Page précédente"
+                style={{
+                  width: 24, height: 24, borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page <= 1 ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page <= 1 ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  marginLeft: 6, transition: 'all 0.12s',
+                }}
+              >
+                <ChevronLeft size={12} />
+              </button>
+              <span style={{
+                fontSize: 11.5, fontWeight: 600, color: 'var(--muted-foreground)',
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                whiteSpace: 'nowrap',
+              }}>
+                Page {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                title="Page suivante"
+                style={{
+                  width: 24, height: 24, borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page >= totalPages ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+              >
+                <ChevronRight size={12} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -3077,59 +3104,7 @@ export default function CandidatsList() {
       ) : (
         /* Flat list */
         <div className="clist-v2" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* v2.0.1 — Mini-pagination subtile en haut (chevrons + page X/Y, pas de bouton plein) */}
-          {totalPages > 1 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-              gap: 6, padding: '0 4px 8px', marginTop: -2,
-              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-            }}>
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                title="Page précédente"
-                style={{
-                  width: 26, height: 26, borderRadius: 7,
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: page <= 1 ? 'var(--border)' : 'var(--muted-foreground)',
-                  cursor: page <= 1 ? 'default' : 'pointer',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.12s',
-                }}
-                onMouseOver={e => { if (page > 1) { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--muted-foreground)' } }}
-                onMouseOut={e => { e.currentTarget.style.color = page <= 1 ? 'var(--border)' : 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-              >
-                <ChevronLeft size={13} />
-              </button>
-              <span style={{
-                fontSize: 11.5, fontWeight: 600, color: 'var(--muted-foreground)',
-                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
-                minWidth: 90, textAlign: 'center',
-                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-              }}>
-                Page {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                title="Page suivante"
-                style={{
-                  width: 26, height: 26, borderRadius: 7,
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)',
-                  cursor: page >= totalPages ? 'default' : 'pointer',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.12s',
-                }}
-                onMouseOver={e => { if (page < totalPages) { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--muted-foreground)' } }}
-                onMouseOut={e => { e.currentTarget.style.color = page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-              >
-                <ChevronRight size={13} />
-              </button>
-            </div>
-          )}
+          {/* v2.0.3 — Mini-pagination déplacée à côté du compteur "/ 20" en barre filtres (demande João) */}
 
           {/* v1.9.127 — Header colonnes V2 aligné EXACTEMENT sur les largeurs flex de renderCard.
               Inclut checkbox "Tout sélectionner" en cellule 1 (même width 20px que les rows). */}
@@ -3170,15 +3145,15 @@ export default function CandidatsList() {
                   {allSelected && <Check size={11} color="var(--foreground)" strokeWidth={3} />}
                   {someSelected && !allSelected && <span style={{ width: 8, height: 2, background: 'var(--primary)', borderRadius: 1 }} />}
                 </div>
-                <span style={{ flex: '0 0 68px' }} />
-                <span style={{ flex: '0 0 320px', ...headerCellStyle }}>Nom</span>
-                <span style={{ flex: '0 0 170px', ...headerCellStyle }}>Lieu</span>
+                <span style={{ flex: '0 0 56px' }} />
+                <span style={{ flex: '0 0 260px', ...headerCellStyle }}>Nom</span>
+                <span style={{ flex: '0 0 150px', ...headerCellStyle }}>Lieu</span>
                 <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Âge</span>
                 <span style={{ flex: 1 }} />
                 {/* v1.9.134 — `flex: 0 0 Npx` shorthand strict (no-grow, no-shrink, basis=Npx)
                     GARANTIT la même width header ↔ row, indépendamment du contenu environnant. */}
-                <span style={{ flex: '0 0 130px', ...headerCellStyle }}>Évaluation</span>
-                <span style={{ flex: '0 0 60px', ...headerCellStyle }}>Notes</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Évaluation</span>
+                <span style={{ flex: '0 0 56px', ...headerCellStyle }}>Notes</span>
                 {importStatusFilter === 'a_traiter' && (
                   <>
                     <span style={{ flex: '0 0 64px', ...headerCellStyle }}>CFC</span>

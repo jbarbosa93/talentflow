@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Users, Mail, Building2, Clock, CheckCircle, XCircle, RefreshCw, Trash2, RotateCcw } from 'lucide-react'
+import { useRequireAdmin } from '@/hooks/useRequireAdmin'
 
 interface Demande {
   id: string
@@ -28,6 +29,8 @@ function formatDate(iso: string) {
 }
 
 export default function DemandesAccesPage() {
+  // v2.0.3 — SÉCURITÉ : guard client (redirige /parametres si non admin)
+  const { isAdmin, isLoading: authLoading } = useRequireAdmin('/parametres')
   const [demandes, setDemandes] = useState<Demande[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
@@ -74,6 +77,11 @@ export default function DemandesAccesPage() {
   const enAttente = demandes.filter(d => d.statut === 'en_attente')
   const traitees  = demandes.filter(d => d.statut === 'approuve' || d.statut === 'refuse')
   const corbeille = demandes.filter(d => d.statut === 'supprime')
+
+  // v2.0.3 — Affichage neutre pendant la vérification + après redirect
+  if (authLoading || !isAdmin) {
+    return null
+  }
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: 900, margin: '0 auto' }}>
