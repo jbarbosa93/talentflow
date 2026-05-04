@@ -54,6 +54,7 @@ export function useClients(filters?: {
   created_before?: string
   page?: number
   per_page?: number
+  sort?: 'recent' | 'az' | 'za'
 }, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['clients', filters],
@@ -73,6 +74,7 @@ export function useClients(filters?: {
       if (filters?.created_before) params.set('created_before', filters.created_before)
       if (filters?.page) params.set('page', String(filters.page))
       if (filters?.per_page !== undefined) params.set('per_page', String(filters.per_page))
+      if (filters?.sort) params.set('sort', filters.sort)
       const res = await fetch(`/api/clients?${params}`)
       if (!res.ok) throw new Error('Erreur chargement clients')
       const data = await res.json()

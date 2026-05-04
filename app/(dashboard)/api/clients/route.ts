@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const rawPerPage = parseInt(searchParams.get('per_page') || '20')
     const perPage = rawPerPage === 0 ? 10000 : Math.min(rawPerPage, 10000)
+    // v2.1.9 — Tri server-side : recent | az | za (default = az alphabétique)
+    const sort = (searchParams.get('sort') || 'az') as 'recent' | 'az' | 'za'
 
     // Si recherche → RPC unaccent sur tous les champs (y compris contacts jsonb, notes, site_web, npa)
     // Sinon → select standard
@@ -105,9 +107,15 @@ export async function GET(request: NextRequest) {
     if (createdAfter) query = query.gte('created_at', createdAfter)
     if (createdBefore) query = query.lte('created_at', createdBefore)
 
-    // Tri : si recherche → laisser ORDER BY relevance du RPC. Sinon → nom_entreprise ASC.
+    // Tri : si recherche → laisser ORDER BY relevance du RPC. Sinon → param `sort` (v2.1.9).
     if (!search || !search.trim()) {
-      query = query.order('nom_entreprise', { ascending: true })
+      if (sort === 'recent') {
+        query = query.order('created_at', { ascending: false, nullsFirst: false })
+      } else if (sort === 'za') {
+        query = query.order('nom_entreprise', { ascending: false })
+      } else {
+        query = query.order('nom_entreprise', { ascending: true })
+      }
     }
 
     // Pagination

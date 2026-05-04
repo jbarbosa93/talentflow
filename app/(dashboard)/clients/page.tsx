@@ -738,6 +738,7 @@ export default function ClientsPage() {
     created_before: filterCreatedBefore,
     page,
     per_page: perPage,
+    sort: sortOrder, // v2.1.9 — propagé server-side (avant : tri client-only sur la page courante = invisible quand le nouveau client n'est pas dans les 20 premiers alphabétiques)
   })
 
   // v1.9.118 — Fetch dédié pour la carte (sans pagination, mêmes filtres)

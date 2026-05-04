@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.8'
+export const APP_VERSION = '2.1.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.9',
+    date: '2026-05-04',
+    label: 'Fix tri /clients : "Plus récents" propagé server-side (avant : tri front-only sur page courante)',
+    features: [
+      'TRI CLIENTS — Le sélecteur "Plus récents / A→Z / Z→A" sur /clients ne triait que la page courante côté front (20 résultats) après que l\'API ait déjà trié par nom_entreprise ASC. Résultat : un nouveau client (ex Z Truc Sàrl) restait page 62 au lieu d\'apparaître page 1 en mode "Plus récents". Fix : ajout du param `?sort=recent|az|za` à `/api/clients` GET + propagation via hook `useClients` (`filters.sort`) + page passe `sortOrder` au hook. Tri server-side respecte aussi la pagination → un nouveau client apparaît bien en page 1 quand "Plus récents" est sélectionné.',
+    ],
+  },
   {
     version: '2.1.8',
     date: '2026-05-04',
