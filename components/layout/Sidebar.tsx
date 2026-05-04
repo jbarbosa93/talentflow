@@ -521,11 +521,13 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                   {/* Badge nombre de nouveaux candidats depuis dernière visite */}
                   {item.href === '/candidats' && sidebarBadgeCount > 0 && (
                     <span style={{
-                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 99,
-                      padding: '0 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      // v2.1.7 — boxSizing border-box + minWidth=height pour cercle parfait à 1 chiffre, expand propre 2+ chiffres
+                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
+                      padding: '0 6px', boxSizing: 'border-box',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: 'var(--destructive)', color: '#FFFFFF',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0,
-                      lineHeight: 1,
+                      fontSize: 10.5, fontWeight: 800, flexShrink: 0,
+                      lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {sidebarBadgeCount > 99 ? '99+' : sidebarBadgeCount}
                     </span>
@@ -540,12 +542,14 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     if (!count) return null
                     return (
                       <span style={{
-                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                        padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        // v2.1.7 — boxSizing border-box pour cercle parfait à 1 chiffre
+                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
+                        padding: '0 5px', boxSizing: 'border-box',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         background: 'var(--surface-3, var(--muted))',
                         color: 'var(--text-2, var(--muted-foreground))',
                         fontSize: 10, fontWeight: 700, flexShrink: 0,
-                        fontVariantNumeric: 'tabular-nums',
+                        lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                       }}>
                         {count > 99 ? '99+' : count}
                       </span>
@@ -554,10 +558,12 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                   {/* Badge rappels entretiens */}
                   {item.href === '/entretiens' && typeof rappelsCount === 'number' && rappelsCount > 0 && (
                     <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
+                      padding: '0 5px', boxSizing: 'border-box',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: 'var(--destructive)', color: 'var(--destructive-foreground)',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {rappelsCount > 9 ? '9+' : rappelsCount}
                     </span>
@@ -566,10 +572,12 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                   {/* Badge notifications secrétariat */}
                   {item.href === '/secretariat' && typeof secNotifCount === 'number' && secNotifCount > 0 && (
                     <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 99,
-                      padding: '0 5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
+                      padding: '0 5px', boxSizing: 'border-box',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: 'var(--destructive)', color: '#fff',
                       fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {secNotifCount}
                     </span>

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.6'
+export const APP_VERSION = '2.1.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.7',
+    date: '2026-05-04',
+    label: '2 fixes : badge "Nouveau" décalé en mode À traiter + badges sidebar cercle parfait (box-sizing)',
+    features: [
+      'BADGE "NOUVEAU" LISTE CANDIDATS — En mode "À traiter", le badge vert "Nouveau" chevauchait le bouton Valider vert (à droite de la card). Fix : `right: 60` au lieu de 6 quand `importStatusFilter === a_traiter` → décalé à gauche du bouton Valider.',
+      'BADGES SIDEBAR — Forme ovale avec chiffre mal centré quand 1 chiffre. Fix : ajout `boxSizing: border-box` sur tous les badges sidebar (Candidats / sections génériques / Entretiens / Secrétariat) → cercle parfait quand 1 chiffre, expand propre 2+ chiffres. + `lineHeight: 1` + `fontVariantNumeric: tabular-nums` pour centrage vertical net.',
+    ],
+  },
   {
     version: '2.1.6',
     date: '2026-05-04',

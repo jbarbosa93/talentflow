@@ -1320,7 +1320,9 @@ export default function CandidatsList() {
             <span
               title={`${style.label}${titleExtra}`}
               style={{
-                position: 'absolute', top: 6, right: 6,
+                // v2.1.7 — En mode "À traiter" : décalé à gauche (right: 56) pour ne pas chevaucher le bouton Valider vert
+                position: 'absolute', top: 6,
+                right: importStatusFilter === 'a_traiter' ? 60 : 6,
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '2px 8px', borderRadius: 999,
                 background: style.bg, color: style.fg,
