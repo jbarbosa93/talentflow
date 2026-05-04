@@ -639,9 +639,9 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         </div>
       </div>
 
-      {/* Dates */}
-      <div style={{ flex: '0 1 155px', minWidth: 0, fontSize: 13, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+      {/* Dates — v2.1.5 : flex strict 180 (avant 0 1 155 qui shrinkait → date tronquée) */}
+      <div style={{ flex: '0 0 180px', minWidth: 0, fontSize: 13, color: 'var(--muted)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           <Calendar size={12} style={{ flexShrink: 0 }} />{formatDate(mission.date_debut)}{mission.date_fin ? ` → ${formatDate(mission.date_fin)}` : ''}
         </div>
         {!mission.date_fin && (
@@ -658,8 +658,8 @@ function MissionRow({ mission, onEdit, onDelete, onMakePermanent }: {
         })()}
       </div>
 
-      {/* Coeff */}
-      <div style={{ flex: '0 0 50px', textAlign: 'center' }}>
+      {/* Coeff — v2.1.5 : col 60px (était 50, header passé à 60) */}
+      <div style={{ flex: '0 0 60px', textAlign: 'center' }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)', background: 'var(--secondary)', padding: '2px 7px', borderRadius: 6 }}>
           ×{Number(mission.coefficient).toFixed(2)}
         </span>
@@ -1260,8 +1260,9 @@ export default function MissionsPage() {
             <button onClick={() => toggleSort('client')} style={{ flex: '1 1 150px', maxWidth: 200, fontSize: 11, fontWeight: 700, color: sortKey === 'client' ? 'var(--primary)' : 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               Client {sortKey === 'client' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
             </button>
-            <div style={{ flex: '0 1 155px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dates</div>
-            <div style={{ flex: '0 0 50px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Répart.</div>
+            {/* v2.1.5 — Col Dates passée en flex strict 0 0 180px (avant : 0 1 155px qui shrinkait sous 155 → date_fin tronquée par Répart.) */}
+            <div style={{ flex: '0 0 180px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dates</div>
+            <div style={{ flex: '0 0 60px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Répart.</div>
             <div style={{ flex: '1 1 140px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Statut</div>
             <div style={{ flex: '0 0 90px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Marge</div>
             <div style={{ width: 78 }}></div>

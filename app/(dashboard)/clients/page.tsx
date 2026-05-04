@@ -1340,8 +1340,11 @@ export default function ClientsPage() {
                       </>
                     ) : <span style={{ color: 'var(--border)' }}>—</span>}
                   </div>
-                  {/* Secteur (1er) */}
-                  <div style={{ flex: '0 0 160px', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                  {/* Secteur (1er) — v2.1.5 : title tooltip avec TOUS les secteurs assignés */}
+                  <div
+                    style={{ flex: '0 0 160px', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}
+                    title={client.secteurs_activite && client.secteurs_activite.length > 0 ? client.secteurs_activite.join(' · ') : undefined}
+                  >
                     {client.secteurs_activite && client.secteurs_activite.length > 0 ? (
                       <>
                         {(() => {
@@ -1357,12 +1360,14 @@ export default function ClientsPage() {
                           )
                         })()}
                         {client.secteurs_activite.length > 1 && (
-                          <span style={{
-                            padding: '2px 6px', borderRadius: 5,
-                            background: 'var(--secondary)', border: '1px solid var(--border)',
-                            fontSize: 10.5, fontWeight: 700, color: 'var(--muted-foreground)',
-                            flexShrink: 0,
-                          }}>+{client.secteurs_activite.length - 1}</span>
+                          <span
+                            title={client.secteurs_activite.slice(1).join(', ')}
+                            style={{
+                              padding: '2px 6px', borderRadius: 5,
+                              background: 'var(--secondary)', border: '1px solid var(--border)',
+                              fontSize: 10.5, fontWeight: 700, color: 'var(--muted-foreground)',
+                              flexShrink: 0, cursor: 'help',
+                            }}>+{client.secteurs_activite.length - 1}</span>
                         )}
                       </>
                     ) : <span style={{ fontSize: 12, color: 'var(--border)' }}>—</span>}

@@ -234,38 +234,90 @@ function RappelModal({ candidatId, nom, existingRappel, onClose, onSaved }: {
     if (!existingRappel) return
     try {
       await fetch('/api/pipeline/rappels', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: existingRappel.id }) })
-      toast.success('Rappel supprimé')
+      // v2.1.5 — dismiss notif permanente + dédup confirmation
+      toast.dismiss(`rappel-notif-${existingRappel.id}`)
+      toast.success('Rappel supprimé', { id: `rappel-deleted-${existingRappel.id}` })
       onSaved(); onClose()
     } catch { toast.error('Erreur') }
   }
 
   if (typeof window === 'undefined') return null
+  // v2.1.5 — Refonte design v2 (Jakarta + Instrument Serif title + boutons inline v2)
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 16, width: 380, maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', flexShrink: 0 }}>
-          <span style={{ fontWeight: 700, fontSize: 15 }}><Bell size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />Rappel — {nom}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)' }}><X size={18} /></button>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
+        width: 440, maxWidth: '92vw', maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 24px 64px -16px rgba(0,0,0,0.45)',
+      }}>
+        {/* Header serif v2 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 14px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{
+            margin: 0, display: 'flex', alignItems: 'center', gap: 8,
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 24, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+            color: 'var(--foreground)',
+          }}>
+            <Bell size={18} color="var(--primary)" /> Rappel — {nom}
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
-        <div style={{ padding: '0 24px 12px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Date et heure</label>
-          <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
-            style={{ width: '100%', border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 14, background: 'var(--secondary)', color: 'var(--foreground)', marginBottom: 12, boxSizing: 'border-box' }}
-          />
-          <label style={{ fontSize: 12, color: 'var(--muted-foreground)', display: 'block', marginBottom: 4 }}>Note (optionnel)</label>
-          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Rappeler pour l'entretien"
-            style={{ width: '100%', minHeight: 72, border: '1.5px solid var(--border)', borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical', background: 'var(--secondary)', color: 'var(--foreground)', fontFamily: 'inherit', boxSizing: 'border-box' }}
-          />
+        {/* Body */}
+        <div style={{ padding: '18px 24px 8px', flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Date et heure</label>
+            <input type="datetime-local" value={datetime} onChange={e => setDatetime(e.target.value)}
+              style={{
+                width: '100%', height: 38, padding: '0 12px', borderRadius: 10,
+                border: '1.5px solid var(--border)', background: 'var(--surface, var(--card))',
+                color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 6 }}>Note (optionnel)</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Rappeler pour l'entretien"
+              style={{
+                width: '100%', minHeight: 84, padding: '10px 12px', borderRadius: 10,
+                border: '1.5px solid var(--border)', background: 'var(--surface, var(--card))',
+                color: 'var(--foreground)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit',
+                lineHeight: 1.55, outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', padding: '12px 24px 18px', borderTop: '1.5px solid var(--border)', background: 'var(--card)', flexShrink: 0 }}>
+        {/* Footer */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', padding: '14px 24px 18px', borderTop: '1px solid var(--border)' }}>
           <div>
             {existingRappel && (
-              <button onClick={handleDelete} style={{ background: 'none', border: '1.5px solid #EF4444', color: 'var(--destructive)', borderRadius: 8, padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}>Supprimer</button>
+              <button onClick={handleDelete} style={{
+                padding: '8px 14px', borderRadius: 10,
+                border: '1.5px solid var(--destructive)', background: 'transparent',
+                color: 'var(--destructive)', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>Supprimer</button>
             )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={onClose} className="neo-btn" style={{ fontSize: 13, padding: '6px 14px' }}>Annuler</button>
-            <button onClick={handleSave} disabled={saving} className="neo-btn-yellow" style={{ fontSize: 13, padding: '6px 14px' }}>{saving ? '…' : 'Enregistrer'}</button>
+            <button onClick={onClose} style={{
+              padding: '8px 14px', borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--card)',
+              color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>Annuler</button>
+            <button onClick={handleSave} disabled={saving} style={{
+              padding: '8px 16px', borderRadius: 10,
+              border: '1.5px solid var(--primary)', background: 'var(--primary)',
+              color: '#1C1A14', fontSize: 13, fontWeight: 700,
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 12px -4px rgba(234,179,8,.45)',
+            }}>{saving ? '…' : 'Enregistrer'}</button>
           </div>
         </div>
       </div>
@@ -625,8 +677,10 @@ function RappelsPanel({ rappels, onClose, onUpdate }: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     })
+    // v2.1.5 — dismiss notif permanente du rappel + dédup toast confirmation via id
+    toast.dismiss(`rappel-notif-${id}`)
     onUpdate()
-    toast.success('Rappel supprimé')
+    toast.success('Rappel supprimé', { id: `rappel-deleted-${id}` })
   }
 
   if (typeof window === 'undefined') return null
@@ -825,9 +879,11 @@ export default function PipelinePage() {
           const nom = r.candidats
             ? `${r.candidats.prenom || ''} ${r.candidats.nom}`.trim()
             : 'Candidat'
+          // v2.1.5 — id stable pour pouvoir le dismiss quand le rappel est supprimé/marqué done
           toast(
             `🔔 Rappel : ${nom}${r.note ? ` — ${r.note}` : ''}`,
             {
+              id: `rappel-notif-${r.id}`,
               duration: Infinity,
               action: {
                 label: 'Valider',
@@ -836,10 +892,11 @@ export default function PipelinePage() {
                     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: r.id, done: true }),
                   })
+                  toast.dismiss(`rappel-notif-${r.id}`)
                   refetchRappels()
                 },
               },
-              cancel: { label: 'Fermer', onClick: () => {} },
+              cancel: { label: 'Fermer', onClick: () => toast.dismiss(`rappel-notif-${r.id}`) },
             }
           )
         }

@@ -265,7 +265,7 @@ export default function DashboardPage() {
           {[
             { label: 'À traiter', value: stats?.aTraiter ?? 0, href: '/candidats/a-traiter' },
             { label: 'Rappels',   value: stats?.rappels   ?? 0, href: '/pipeline?rappels=1' },
-            { label: 'Alertes',   value: (stats as any)?.alertes ?? 0, href: '/integrations' },
+            // v2.1.5 — "Alertes" supprimé : c'était un placeholder mort (stats.alertes jamais calculé → toujours 0)
           ].map((b, i) => (
             <Link key={i} href={b.href} className="welcome-stat-v2" style={{ textDecoration: 'none' }}>
               <b>{b.value}</b>

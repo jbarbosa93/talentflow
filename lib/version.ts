@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.0'
+export const APP_VERSION = '2.1.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.5',
+    date: '2026-05-04',
+    label: 'Pack 11 fixes UX (menu 3 points, photo gauche, bulk bar, modal rappel v2, dédup toasts)',
+    features: [
+      'FICHE CANDIDAT — Menu 3 points polish design v2 (Jakarta + hover var(--secondary)) + nouveau bouton "Pipeline" (mêmes options que liste candidats : modal mini avec étape, consultant João/Seb, métier).',
+      'LISTE CLIENTS — Tooltip mouseover sur cellule Secteur affiche TOUS les secteurs assignés (avant : seul le 1er + "+N" sans tooltip).',
+      'FICHE CANDIDAT — Notes popover header refondu design v2 (Jakarta + radius 14 + box-shadow soft + tabular-nums dates).',
+      'FICHE CANDIDAT — Boutons photo déplacés à GAUCHE EN VERTICAL de la photo (au lieu d\'en bas qui rajoutait une ligne et épaississait la card). Photo réduite 140→120 pour cohérence.',
+      'LISTE CANDIDATS — Bouton "Non vus" : si filtres ou recherche actifs, RESET automatique avant d\'appliquer le filtre (logique : si user clique Non vu, il s\'attend à voir les non-vus pas une intersection).',
+      'DASHBOARD — Card "Alertes" supprimée du hero stats : c\'était un placeholder MORT (`stats.alertes` jamais calculé → toujours 0). Remplacement futur si nouvelle sémantique trouvée.',
+      'LISTE CANDIDATS BARRE BULK — Refonte ordre : pill "X sélectionnés" supprimée (info déjà dans titre), bouton Archiver supprimé partout (n\'existait plus comme onglet), Vu/Non vu déplacé à gauche (avec Tout/Désél/À traiter), Pipeline déplacé à droite (avec Lier à commande).',
+      'MISSIONS — Col Dates passée en flex strict 0 0 180px (avant : 0 1 155 qui shrinkait sous 155px → date_fin tronquée par Répart.). Coeff col 50→60. Overflow:hidden+ellipsis sur la date pour propreté.',
+      'PIPELINE — Modal "Rappel" refondu design v2 : Instrument Serif 24px title + Jakarta wrapper + boutons inline v2 (au lieu className neo-btn).',
+      'TOASTS — Position Sonner top-right → bottom-right (cachait Importer CV / cloche / profil dans le header). offset 20.',
+      'TOASTS RAPPELS — Dédup via `id` Sonner stable : `rappel-deleted-{id}` empêche le double toast quand suppression cascade modal+panel. `rappel-notif-{id}` permet de dismiss la notif permanente "🔔 Rappel" dès que le rappel est supprimé/marqué done.',
+    ],
+  },
   {
     version: '2.1.0',
     date: '2026-05-04',

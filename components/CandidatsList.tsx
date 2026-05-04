@@ -2064,10 +2064,17 @@ export default function CandidatsList() {
             <button
               onClick={() => {
                 if (!filterNonVu) {
+                  // v2.1.5 — Activation "Non vus" reset search + filtres avancés AVANT
+                  // pour que les non-vus s'affichent direct (logique : si l'user clique Non vu
+                  // il s'attend à voir les non-vus, pas une intersection avec les filtres actuels).
                   statusBeforeNonVuRef.current = importStatusFilter
                   sessionStorage.setItem('candidats_status_before_nonvu', importStatusFilter)
+                  setSearch(''); ssSet('search', '')
+                  resetFiltersOnly()
+                  setFilterNonVu(true)
+                } else {
+                  setFilterNonVu(false)
                 }
-                setFilterNonVu(v => !v)
                 setPage(1)
               }}
               className="neo-btn-ghost"
@@ -2146,82 +2153,60 @@ export default function CandidatsList() {
           boxShadow: '0 0 0 4px rgba(245,167,35,0.08)',
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
-          {/* Ligne 1 : label + sélection + vu/non vu */}
+          {/* v2.1.5 — Ligne 1 : Tout / Désélectionner / Non vu / Action onglet (pill "X sélectionnés" supprimée car déjà dans le titre Candidats) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* Label */}
-            <span style={{
-              fontSize: 13, fontWeight: 700, color: 'var(--primary)',
-              background: 'rgba(245,167,35,0.1)', borderRadius: 8,
-              padding: '4px 10px', whiteSpace: 'nowrap',
-            }}>
-              {selCount} sélectionné{selCount > 1 ? 's' : ''}
-            </span>
+            {/* SECTION SÉLECTION (gauche) — Tout / Désélectionner / Non vu / À traiter */}
+              <button onClick={selectAll} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: 'var(--primary)', color: 'var(--foreground)', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <CheckCircle size={12} /> Tout ({sorted.length})
+              </button>
+              <button onClick={deselectAll} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: 'var(--secondary)', color: 'var(--foreground)',
+                border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <X size={12} /> Désélectionner
+              </button>
 
-            {/* Séparateur */}
-            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
+              {/* v2.1.5 — Vu/Non vu DÉPLACÉ ICI à GAUCHE (avant : ligne 2) */}
+              {(() => {
+                const selectedArr = Array.from(selectedIds)
+                const selectedCandidats = getAllSelectedCandidats()
+                const anyUnseen = selectedCandidats.some(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
+                const anySeen   = selectedCandidats.some(c => !hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
+                return (
+                  <>
+                    {anyUnseen && (
+                      <button onClick={() => { markTousVus(selectedArr); setSelectedIds(new Set()) }} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        background: 'var(--success)', color: 'var(--destructive-foreground)', border: 'none',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                        <Eye size={12} /> Marquer vu
+                      </button>
+                    )}
+                    {anySeen && (
+                      <button onClick={() => { selectedArr.forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                        background: 'var(--muted-foreground)', color: 'var(--destructive-foreground)', border: 'none',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                        <Eye size={12} /> Non vu
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
 
-            {/* Sélection */}
-            <button onClick={selectAll} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: 'var(--primary)', color: 'var(--foreground)', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <CheckCircle size={12} /> Tout ({sorted.length})
-            </button>
-            <button onClick={deselectAll} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: 'var(--secondary)', color: 'var(--foreground)',
-              border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <X size={12} /> Désélectionner
-            </button>
-
-            {/* Séparateur */}
-            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
-
-            {/* Vu / Non vu — v1.9.63 : logique basée sur hasBadge() (viewedSet + viewedAllAt + last_import_at).
-                Règle João : "Marquer vu" apparaît UNIQUEMENT quand au moins un candidat est non-vu (badge rouge).
-                "Non vu" apparaît UNIQUEMENT quand au moins un candidat est vu (pas de badge). */}
-            {(() => {
-              const selectedArr = Array.from(selectedIds)
-              // v1.9.122 — cache toutes-pages (avant : byId page courante seulement)
-              const selectedCandidats = getAllSelectedCandidats()
-              const anyUnseen = selectedCandidats.some(c => hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
-              const anySeen   = selectedCandidats.some(c => !hasBadge(c.id, c.created_at, viewedSet, viewedAllAt, c.last_import_at))
-              return (
-                <>
-                  {anyUnseen && (
-                    <button onClick={() => { markTousVus(selectedArr); setSelectedIds(new Set()) }} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      background: 'var(--success)', color: 'var(--destructive-foreground)', border: 'none',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                      <Eye size={12} /> Marquer vu
-                    </button>
-                  )}
-                  {anySeen && (
-                    <button onClick={() => { selectedArr.forEach(id => markCandidatNonVu(id)); setSelectedIds(new Set()) }} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                      background: 'var(--muted-foreground)', color: 'var(--destructive-foreground)', border: 'none',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                      <Eye size={12} /> Non vu
-                    </button>
-                  )}
-                </>
-              )
-            })()}
-          </div>
-
-          {/* Ligne 2 : actions contextuelles + actions globales */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* Actions selon l'onglet */}
-            {importStatusFilter === 'a_traiter' && (
-              <>
+              {/* Actions selon l'onglet — restent à GAUCHE (Valider/À traiter/Activer). v2.1.5 : "Archiver" supprimé */}
+              {importStatusFilter === 'a_traiter' && (
                 <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
@@ -2230,18 +2215,8 @@ export default function CandidatsList() {
                 }}>
                   <CheckCircle size={12} /> Valider ({selCount})
                 </button>
-                <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  background: '#6B7280', color: '#fff', border: 'none',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  <Archive size={12} /> Archiver ({selCount})
-                </button>
-              </>
-            )}
-            {importStatusFilter === 'traite' && (
-              <>
+              )}
+              {importStatusFilter === 'traite' && (
                 <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
@@ -2250,15 +2225,60 @@ export default function CandidatsList() {
                 }}>
                   <RotateCw size={12} /> À traiter ({selCount})
                 </button>
-                <button onClick={handleBulkArchive} disabled={updateImportStatus.isPending} style={{
+              )}
+              {importStatusFilter === 'archive' && (
+                <>
+                  <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    background: '#16A34A', color: '#fff', border: 'none',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    <CheckCircle size={12} /> Activer ({selCount})
+                  </button>
+                  <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    background: '#3B82F6', color: '#fff', border: 'none',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    <RotateCw size={12} /> À traiter ({selCount})
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Ligne 2 : Actions globales (Message / WhatsApp / Pipeline / Lier à commande / Supprimer) — v2.1.5 ordre */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setShowMessage(true)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: '#0EA5E9', color: '#fff', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <MessageSquare size={12} /> Message ({selCount})
+              </button>
+              <button
+                onClick={() => {
+                  setShowWhatsApp(true)
+                  setWaOpenedIds(new Set())
+                  setWaLogged(false)
+                  setWaCampagneId(
+                    (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+                  )
+                }}
+                style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  background: '#6B7280', color: '#fff', border: 'none',
+                  background: '#25D366', color: '#fff', border: 'none',
                   cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  <Archive size={12} /> Archiver ({selCount})
-                </button>
-                {/* Pipeline */}
+                }}
+                title="Ouvrir WhatsApp pour chaque candidat (séquentiel)"
+              >
+                <MessageCircle size={12} /> WhatsApp ({selCount})
+              </button>
+              {/* v2.1.5 — Pipeline DÉPLACÉ ici à droite (avant : à gauche dans actions onglet) */}
+              {importStatusFilter === 'traite' && (
                 <button onClick={() => setShowBulkPipelineModal(true)} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
@@ -2267,79 +2287,25 @@ export default function CandidatsList() {
                 }}>
                   <LayoutGrid size={12} /> Pipeline ({selCount})
                 </button>
-              </>
-            )}
-            {importStatusFilter === 'archive' && (
-              <>
-                <button onClick={handleBulkValidate} disabled={updateImportStatus.isPending} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  background: '#16A34A', color: '#fff', border: 'none',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  <CheckCircle size={12} /> Activer ({selCount})
-                </button>
-                <button onClick={() => { const ids = Array.from(selectedIds); updateImportStatus.mutate({ ids, status: 'a_traiter' }) }} disabled={updateImportStatus.isPending} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  background: '#3B82F6', color: '#fff', border: 'none',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>
-                  <RotateCw size={12} /> À traiter ({selCount})
-                </button>
-              </>
-            )}
-
-            {/* Séparateur */}
-            <div style={{ width: 1, height: 22, background: 'var(--border)', flexShrink: 0 }} />
-
-            {/* Actions globales */}
-            <button onClick={() => setShowMessage(true)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: '#0EA5E9', color: '#fff', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <MessageSquare size={12} /> Message ({selCount})
-            </button>
-            <button
-              onClick={() => {
-                setShowWhatsApp(true)
-                setWaOpenedIds(new Set())
-                setWaLogged(false)
-                setWaCampagneId(
-                  (globalThis as any).crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-                )
-              }}
-              style={{
+              )}
+              <button onClick={() => setShowLinkOffre(true)} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                background: '#25D366', color: '#fff', border: 'none',
+                background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none',
                 cursor: 'pointer', fontFamily: 'inherit',
-              }}
-              title="Ouvrir WhatsApp pour chaque candidat (séquentiel)"
-            >
-              <MessageCircle size={12} /> WhatsApp ({selCount})
-            </button>
-            {/* v1.9.71 — Lier à une commande */}
-            <button onClick={() => setShowLinkOffre(true)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }} title="Lier ces candidats à une commande ouverte">
-              <Briefcase size={12} /> Lier à commande ({selCount})
-            </button>
-            <button onClick={() => setShowDeleteConfirm(true)} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: '#EF4444', color: '#fff', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              <Trash2 size={12} /> Supprimer ({selCount})
-            </button>
+              }} title="Lier ces candidats à une commande ouverte">
+                <Briefcase size={12} /> Lier à commande ({selCount})
+              </button>
+              <button onClick={() => setShowDeleteConfirm(true)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: '#EF4444', color: '#fff', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <Trash2 size={12} /> Supprimer ({selCount})
+              </button>
+            </div>
           </div>
-        </div>
       )}
 
       {/* Search bar — pleine largeur */}

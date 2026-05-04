@@ -10,7 +10,7 @@ import {
   Pencil, X, Check, Car, Languages, ChevronLeft, ChevronRight,
   ChevronUp, ChevronDown, Info, Download, Printer, RotateCcw, RotateCw,
   Upload, Camera, Loader2, Eye, MoreVertical, Merge, Search, Sparkles, FolderOpen, Activity,
-  Cake,
+  Cake, GitBranch,
 } from 'lucide-react'
 import CVCustomizerModal from '@/components/CVCustomizer'
 import ActivityHistory from '@/components/ActivityHistory'
@@ -206,6 +206,7 @@ export default function CandidatDetailPage() {
   const [showCvCustomizer, setShowCvCustomizer] = useState(false)
   const [showMergeSearch, setShowMergeSearch] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
+  const [showPipelineModal, setShowPipelineModal] = useState(false)
   const [mergeSearch, setMergeSearch]     = useState('')
   const [mergeResults, setMergeResults]   = useState<Array<{ id: string; nom: string; prenom: string | null; titre_poste: string | null; email: string | null }>>([])
   const [mergeLoading, setMergeLoading]   = useState(false)
@@ -964,22 +965,28 @@ export default function CandidatDetailPage() {
               )}
             </button>
             {showNotesTooltip && (candidat?.notes_candidat?.length ?? 0) > 0 && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500, width: 300, background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.15)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes internes</p>
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500, width: 320,
+                background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14,
+                boxShadow: '0 16px 40px rgba(0,0,0,0.20)', padding: 14,
+                display: 'flex', flexDirection: 'column', gap: 10,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              }}>
+                <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notes internes</p>
                 {[...candidat.notes_candidat]
                   .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                   .slice(0, 3)
                   .map((n: any) => (
                     <div key={n.id} style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
-                        <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                       </div>
-                      <p style={{ fontSize: 12, color: 'var(--foreground)', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{n.contenu}</p>
+                      <p style={{ fontSize: 12.5, color: 'var(--foreground)', margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{n.contenu}</p>
                     </div>
                   ))}
                 {candidat.notes_candidat.length > 3 && (
-                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, textAlign: 'center' }}>+{candidat.notes_candidat.length - 3} autre{candidat.notes_candidat.length - 3 > 1 ? 's' : ''} — cliquer pour tout voir</p>
+                  <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, textAlign: 'center', fontStyle: 'italic' }}>+{candidat.notes_candidat.length - 3} autre{candidat.notes_candidat.length - 3 > 1 ? 's' : ''} — cliquer pour tout voir</p>
                 )}
               </div>
             )}
@@ -994,48 +1001,58 @@ export default function CandidatDetailPage() {
             >
               <MoreVertical size={16} />
             </button>
-            {showMenu && (
-              <div style={{
-                position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 100,
-                background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10,
-                boxShadow: '0 8px 30px rgba(0,0,0,0.12)', minWidth: 200, overflow: 'hidden',
-              }}>
-                <button onClick={() => { setShowInfo(v => !v); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <Info size={14} color="var(--muted)" /> Informations
-                </button>
-                <button onClick={() => { setShowCvCustomizer(true); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <FileText size={14} color="var(--primary)" /> Personnaliser CV
-                </button>
-                <button onClick={() => { setShowMergeSearch(true); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <Merge size={14} color="var(--muted)" /> Fusionner avec...
-                </button>
-                <button onClick={() => { setShowActivityHistory(true); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <Activity size={14} color="var(--primary)" /> Historique d&apos;activité
-                </button>
-                <button onClick={() => {
-                    if (isVu) {
-                      markCandidatNonVu(id)
-                      setIsVu(false)
-                    } else {
-                      markCandidatVu(id)
-                      setIsVu(true)
-                    }
-                    setShowMenu(false)
-                  }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: isVu ? '#F59E0B' : 'var(--foreground)', fontFamily: 'inherit', borderBottom: '1px solid var(--border)' }}>
-                  <Eye size={14} color={isVu ? '#F59E0B' : 'var(--muted)'} />
-                  {isVu ? 'Marquer comme non vu' : 'Marquer comme vu'}
-                </button>
-                <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--destructive)', fontFamily: 'inherit' }}>
-                  <Trash2 size={14} /> Supprimer
-                </button>
-              </div>
-            )}
+            {showMenu && (() => {
+              // v2.1.5 — Menu 3 points en design v2 (Jakarta) + bouton Pipeline
+              const itemStyle = {
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                borderBottom: '1px solid var(--border)',
+                transition: 'background 0.12s',
+              } as const
+              const onHover = (e: any) => { e.currentTarget.style.background = 'var(--secondary)' }
+              const onLeave = (e: any) => { e.currentTarget.style.background = 'none' }
+              return (
+                <div style={{
+                  position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 100,
+                  background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12,
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.20)', minWidth: 220, overflow: 'hidden',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                }}>
+                  <button onClick={() => { setShowInfo(v => !v); setShowMenu(false) }} style={itemStyle} onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <Info size={14} color="var(--muted)" /> Informations
+                  </button>
+                  <button onClick={() => { setShowCvCustomizer(true); setShowMenu(false) }} style={itemStyle} onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <FileText size={14} color="var(--primary)" /> Personnaliser CV
+                  </button>
+                  <button onClick={() => { setShowPipelineModal(true); setShowMenu(false) }} style={itemStyle} onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <GitBranch size={14} color="#A855F7" /> {candidat.statut_pipeline ? `Pipeline : ${ETAPE_LABELS[candidat.statut_pipeline as PipelineEtape] || 'Statut'}` : 'Ajouter au Pipeline'}
+                  </button>
+                  <button onClick={() => { setShowMergeSearch(true); setShowMenu(false) }} style={itemStyle} onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <Merge size={14} color="var(--muted)" /> Fusionner avec...
+                  </button>
+                  <button onClick={() => { setShowActivityHistory(true); setShowMenu(false) }} style={itemStyle} onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <Activity size={14} color="var(--primary)" /> Historique d&apos;activité
+                  </button>
+                  <button onClick={() => {
+                      if (isVu) { markCandidatNonVu(id); setIsVu(false) }
+                      else { markCandidatVu(id); setIsVu(true) }
+                      setShowMenu(false)
+                    }}
+                    style={{ ...itemStyle, color: isVu ? '#F59E0B' : 'var(--foreground)' }}
+                    onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <Eye size={14} color={isVu ? '#F59E0B' : 'var(--muted)'} />
+                    {isVu ? 'Marquer comme non vu' : 'Marquer comme vu'}
+                  </button>
+                  <button onClick={() => { setShowDeleteConfirm(true); setShowMenu(false) }}
+                    style={{ ...itemStyle, color: 'var(--destructive)', borderBottom: 'none' }}
+                    onMouseEnter={onHover} onMouseLeave={onLeave}>
+                    <Trash2 size={14} /> Supprimer
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -1077,30 +1094,10 @@ export default function CandidatDetailPage() {
           background: `linear-gradient(90deg, ${fadeColor} 0%, transparent 55%)`,
           pointerEvents: 'none',
         }} />
-        {/* v2.0.4 — Boutons photo EN BAS, plus petits, fond glass qui se fond dans le banner */}
-        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ position: 'relative', width: 140, height: 140 }}>
-            {(candidat.photo_url && candidat.photo_url !== 'checked')
-              ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
-                  style={{ width: 140, height: 140, borderRadius: 14, objectFit: 'cover', display: 'block' }}
-                  alt={formatFullName(candidat.prenom, candidat.nom)} />
-              : (
-                <div style={{
-                  width: 140, height: 140, borderRadius: 14,
-                  background: 'var(--surface-3, var(--secondary))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 44, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
-                }}>{initiales}</div>
-              )
-            }
-            {photoUploading && (
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
-              </div>
-            )}
-          </div>
-          {/* Toolbar boutons photo — v2.0.5 : 18×18, retour aux couleurs (jaune/orange/bleu/rouge) demande João */}
-          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+        {/* v2.1.5 — Boutons photo À GAUCHE en VERTICAL (au lieu d'en bas qui épaississait la card) */}
+        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* Toolbar boutons photo — verticale à gauche */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center' }}>
             <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
               className="candidat-photo-btn"
               style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -1126,6 +1123,27 @@ export default function CandidatDetailPage() {
                   <X size={10} color="var(--destructive)" />
                 </button>
               </>
+            )}
+          </div>
+          {/* Photo (à droite de la toolbar verticale) */}
+          <div style={{ position: 'relative', width: 120, height: 120 }}>
+            {(candidat.photo_url && candidat.photo_url !== 'checked')
+              ? <Image src={candidat.photo_url} width={120} height={120} unoptimized
+                  style={{ width: 120, height: 120, borderRadius: 14, objectFit: 'cover', display: 'block' }}
+                  alt={formatFullName(candidat.prenom, candidat.nom)} />
+              : (
+                <div style={{
+                  width: 120, height: 120, borderRadius: 14,
+                  background: 'var(--surface-3, var(--secondary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 38, fontWeight: 800, color: 'var(--text-2, var(--muted-foreground))',
+                }}>{initiales}</div>
+              )
+            }
+            {photoUploading && (
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 14, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={18} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+              </div>
             )}
           </div>
         </div>
@@ -3146,6 +3164,15 @@ export default function CandidatDetailPage() {
         />
       )}
 
+      {/* v2.1.5 — Modal Pipeline (ajouter / changer étape / retirer) */}
+      {showPipelineModal && candidat && (
+        <PipelineActionsModal
+          candidat={candidat}
+          onClose={() => setShowPipelineModal(false)}
+          onSaved={() => { queryClient.invalidateQueries({ queryKey: ['candidat', id] }); queryClient.invalidateQueries({ queryKey: ['candidats'] }) }}
+        />
+      )}
+
       {/* v1.9.127 — Picker métier (assigner / modifier depuis la pill du banner) */}
       {showBannerMetierPicker && bannerMetierPickerRect && candidat && (
         <MetierPopover
@@ -3236,5 +3263,157 @@ export default function CandidatDetailPage() {
         .hide-scrollbar::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
+  )
+}
+
+// ─── PipelineActionsModal — v2.1.5 ────────────────────────────────────────────
+// Mini modal pour ajouter / changer / retirer un candidat du pipeline depuis sa fiche.
+function PipelineActionsModal({ candidat, onClose, onSaved }: {
+  candidat: any
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const inPipeline = !!candidat.statut_pipeline
+  const { metiers } = useMetiers()
+  const [consultant, setConsultant] = useState<string>(candidat.pipeline_consultant || 'João')
+  const [metier, setMetier] = useState<string>(candidat.pipeline_metier || '')
+  const [etape, setEtape] = useState<PipelineEtape>(candidat.statut_pipeline as PipelineEtape || 'nouveau')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await fetch(`/api/candidats/${candidat.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          statut_pipeline: etape,
+          pipeline_consultant: consultant,
+          pipeline_metier: metier || null,
+        }),
+      })
+      toast.success(inPipeline ? 'Pipeline mis à jour' : 'Ajouté au pipeline')
+      onSaved(); onClose()
+    } catch { toast.error('Erreur') } finally { setSaving(false) }
+  }
+
+  async function handleRemove() {
+    if (!confirm('Retirer ce candidat du pipeline ?')) return
+    setSaving(true)
+    try {
+      await fetch(`/api/candidats/${candidat.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut_pipeline: null, pipeline_consultant: null, pipeline_metier: null }),
+      })
+      toast.success('Retiré du pipeline')
+      onSaved(); onClose()
+    } catch { toast.error('Erreur') } finally { setSaving(false) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
+        width: 460, maxWidth: '92vw', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.45)',
+        overflow: 'hidden',
+      }}>
+        {/* Header serif v2 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 24, fontWeight: 400, letterSpacing: '-0.01em', color: 'var(--foreground)',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <GitBranch size={18} color="#A855F7" />
+            {inPipeline ? 'Pipeline' : 'Ajouter au Pipeline'}
+          </h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '18px 24px 8px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Étape (uniquement si déjà dans pipeline) */}
+          {inPipeline && (
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Étape</label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(Object.entries(ETAPE_LABELS) as [PipelineEtape, string][]).map(([k, label]) => (
+                  <button key={k} onClick={() => setEtape(k)} style={{
+                    padding: '6px 12px', borderRadius: 20, border: `1.5px solid ${etape === k ? 'var(--primary)' : 'var(--border)'}`,
+                    background: etape === k ? 'var(--primary-soft)' : 'var(--card)',
+                    color: etape === k ? '#B45309' : 'var(--muted-foreground)',
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>{label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Consultant */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Consultant</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['João', 'Seb'].map(c => (
+                <button key={c} onClick={() => setConsultant(c)} style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 10,
+                  border: `1.5px solid ${consultant === c ? 'var(--primary)' : 'var(--border)'}`,
+                  background: consultant === c ? 'var(--primary-soft)' : 'var(--card)',
+                  color: consultant === c ? '#B45309' : 'var(--muted-foreground)',
+                  fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                }}>{c}</button>
+              ))}
+            </div>
+          </div>
+          {/* Métier */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Métier</label>
+            <select value={metier} onChange={e => setMetier(e.target.value)} style={{
+              width: '100%', height: 38, padding: '0 12px', borderRadius: 10,
+              border: '1.5px solid var(--border)', background: 'var(--surface, var(--card))',
+              color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+            }}>
+              <option value="">— Aucun —</option>
+              {metiers.map((m: any) => (
+                <option key={m.id || m.nom} value={m.nom}>{m.nom}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 24px 18px', borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
+          <div>
+            {inPipeline && (
+              <button onClick={handleRemove} disabled={saving} style={{
+                padding: '8px 14px', borderRadius: 10, border: '1.5px solid var(--destructive)',
+                background: 'transparent', color: 'var(--destructive)', fontSize: 13, fontWeight: 700,
+                cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              }}>Retirer</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{
+              padding: '8px 14px', borderRadius: 10, border: '1.5px solid var(--border)',
+              background: 'var(--card)', color: 'var(--foreground)', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>Annuler</button>
+            <button onClick={handleSave} disabled={saving} style={{
+              padding: '8px 16px', borderRadius: 10, border: '1.5px solid var(--primary)',
+              background: 'var(--primary)', color: '#1C1A14', fontSize: 13, fontWeight: 700,
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 12px -4px rgba(234,179,8,.45)',
+            }}>{saving ? '…' : (inPipeline ? 'Enregistrer' : 'Ajouter')}</button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }

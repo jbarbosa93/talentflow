@@ -78,9 +78,11 @@ export default function DashboardRootLayout({
                     </DashboardShell>
                     <GlobalUploadPanel />
                     <SessionTimeoutModal />
-                    {/* v1.9.127 — Toast style design v2 (subtil, plus de fond vert flashy) */}
+                    {/* v1.9.127 — Toast style design v2 (subtil, plus de fond vert flashy)
+                        v2.1.5 — position bottom-right pour ne plus cacher les boutons header (Importer CV, cloche, profil) */}
                     <Toaster
-                      position="top-right"
+                      position="bottom-right"
+                      offset={20}
                       toastOptions={{
                         style: {
                           background: 'var(--surface, var(--card))',
