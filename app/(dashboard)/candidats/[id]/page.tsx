@@ -2787,95 +2787,220 @@ export default function CandidatDetailPage() {
         </div>
       )}
 
-      {/* ── Panneau Notes (slide-in) ── */}
-      {showNotes && (
-        <div onClick={() => { setShowNotes(false); setEditingNoteId(null) }} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 400, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, letterSpacing: '-0.01em', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                Notes
-                {candidat.notes_candidat?.length > 0 && (
-                  <span style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', fontSize: 11, fontWeight: 700, background: '#E5E7EB', color: '#374151', borderRadius: 99, padding: '2px 8px' }}>
-                    {candidat.notes_candidat.length}
-                  </span>
-                )}
-              </h3>
-              <button onClick={() => setShowNotes(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="var(--muted)" /></button>
+      {/* ── Modal Notes — v2.1.6 : refonte en MODAL CENTRÉ (avant : panneau slide-over à droite, design cohérent avec DocumentsPanel) ── */}
+      {showNotes && createPortal(
+        <div
+          onClick={() => { setShowNotes(false); setEditingNoteId(null) }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 8000,
+            background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+            animation: 'fadeIn 0.15s ease',
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(640px, 95vw)', maxHeight: '88vh',
+              background: 'var(--card)', borderRadius: 16,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.30), 0 4px 16px rgba(0,0,0,0.12)',
+              display: 'flex', flexDirection: 'column',
+              animation: 'scaleIn 0.2s ease',
+              border: '1px solid var(--border)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header design v2 — Instrument Serif title + count + close */}
+            <div style={{
+              padding: '20px 24px 18px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 16, flexShrink: 0,
+            }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={{
+                  fontFamily: 'var(--font-serif, "Instrument Serif", Georgia, serif)',
+                  fontSize: 22, fontWeight: 400, margin: 0, lineHeight: 1.15,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--text, var(--foreground))',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  Notes{candidat && <span style={{ color: 'var(--text-3, var(--muted-foreground))' }}> · {formatFullName(candidat.prenom, candidat.nom)}</span>}
+                </h2>
+                <p style={{ fontSize: 12, color: 'var(--text-3, var(--muted-foreground))', margin: '4px 0 0', fontWeight: 500 }}>
+                  {!candidat.notes_candidat || candidat.notes_candidat.length === 0
+                    ? 'Aucune note pour le moment'
+                    : `${candidat.notes_candidat.length} note${candidat.notes_candidat.length > 1 ? 's' : ''}`}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNotes(false)}
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'transparent', border: '1px solid var(--border)',
+                  cursor: 'pointer', transition: 'background 0.15s',
+                  color: 'var(--text-3, var(--muted-foreground))',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2, var(--secondary))' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <X size={16} />
+              </button>
             </div>
-            <div style={{ padding: 16, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <textarea className="neo-input" placeholder="Ajouter une note... (Entrée)" value={note} onChange={e => setNote(e.target.value)}
+
+            {/* Composer */}
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <textarea
+                  placeholder="Ajouter une note… (Entrée pour envoyer · Shift+Entrée pour saut de ligne)"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendNote() } }}
-                  style={{ height: 'auto', minHeight: 70, padding: '10px 12px', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5, fontSize: 13, flex: 1 }} />
-                <button onClick={handleSendNote} disabled={!note.trim() || ajouterNote.isPending} className="neo-btn neo-btn-sm" style={{ alignSelf: 'flex-end', padding: '10px 12px' }}>
-                  <Send size={13} />
+                  style={{
+                    flex: 1, minHeight: 72, padding: '10px 12px',
+                    border: '1px solid var(--border)', borderRadius: 10,
+                    background: 'var(--surface, var(--card))',
+                    color: 'var(--foreground)', fontSize: 13, lineHeight: 1.55,
+                    resize: 'vertical', outline: 'none',
+                    fontFamily: 'inherit', boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  onClick={handleSendNote}
+                  disabled={!note.trim() || ajouterNote.isPending}
+                  title="Envoyer (Entrée)"
+                  style={{
+                    height: 38, padding: '0 14px', borderRadius: 10,
+                    border: '1.5px solid var(--primary)',
+                    background: !note.trim() ? 'var(--secondary)' : 'var(--primary)',
+                    color: !note.trim() ? 'var(--muted-foreground)' : '#1C1A14',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: !note.trim() ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', alignSelf: 'flex-end',
+                    boxShadow: !note.trim() ? 'none' : '0 4px 12px -4px rgba(234,179,8,.45)',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <Send size={13} /> Envoyer
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+
+            {/* Liste */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 20px' }}>
               {(!candidat.notes_candidat || candidat.notes_candidat.length === 0) ? (
-                <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: 40 }}>Aucune note pour le moment</div>
+                <div style={{
+                  textAlign: 'center', color: 'var(--muted)', fontSize: 13, padding: '40px 16px',
+                  border: '1px dashed var(--border)', borderRadius: 12,
+                }}>
+                  Aucune note pour le moment.<br />
+                  <span style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>Ajoute la première au-dessus ↑</span>
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[...candidat.notes_candidat].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((n: any) => (
-                    <div key={n.id} style={{ background: 'var(--secondary)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
-                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                          <button
-                            onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.contenu) }}
-                            title="Modifier"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => { if (confirm('Supprimer cette note ?')) deleteNote.mutate({ note_id: n.id, candidat_id: id }) }}
-                            title="Supprimer"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', borderRadius: 4, color: 'var(--destructive)', display: 'flex', alignItems: 'center' }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      </div>
-                      {editingNoteId === n.id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <textarea
-                            value={editingNoteText}
-                            onChange={e => setEditingNoteText(e.target.value)}
-                            className="neo-input"
-                            style={{ fontSize: 13, lineHeight: 1.5, resize: 'none', minHeight: 60, padding: '8px 10px', fontFamily: 'inherit' }}
-                            autoFocus
-                            onKeyDown={e => {
-                              if (e.key === 'Escape') setEditingNoteId(null)
-                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && editingNoteText.trim()) {
-                                updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) })
-                              }
-                            }}
-                          />
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button onClick={() => setEditingNoteId(null)} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {[...candidat.notes_candidat]
+                    .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map((n: any) => (
+                      <div key={n.id} style={{
+                        background: 'var(--surface, var(--secondary))',
+                        border: '1px solid var(--border)',
+                        borderRadius: 12, padding: 14,
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--foreground)' }}>{n.auteur}</span>
+                            <span style={{ fontSize: 11, color: 'var(--muted)', fontVariantNumeric: 'tabular-nums' }}>
+                              {new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                             <button
-                              onClick={() => { if (editingNoteText.trim()) updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) }) }}
-                              disabled={!editingNoteText.trim() || updateNote.isPending}
-                              className="neo-btn neo-btn-sm"
-                              style={{ fontSize: 11, padding: '4px 10px' }}
-                            >Enregistrer</button>
+                              onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.contenu) }}
+                              title="Modifier"
+                              style={{
+                                width: 28, height: 28, borderRadius: 7,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'transparent', border: '1px solid var(--border)',
+                                color: 'var(--muted-foreground)', cursor: 'pointer',
+                                transition: 'all 0.12s',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--card)'; e.currentTarget.style.color = 'var(--primary)' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted-foreground)' }}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              onClick={() => { if (confirm('Supprimer cette note ?')) deleteNote.mutate({ note_id: n.id, candidat_id: id }) }}
+                              title="Supprimer"
+                              style={{
+                                width: 28, height: 28, borderRadius: 7,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: 'transparent', border: '1px solid rgba(239,68,68,0.30)',
+                                color: 'var(--destructive)', cursor: 'pointer',
+                                transition: 'all 0.12s',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--destructive-soft)' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         </div>
-                      ) : (
-                        <p style={{ fontSize: 13, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>{n.contenu}</p>
-                      )}
-                    </div>
-                  ))}
+                        {editingNoteId === n.id ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <textarea
+                              value={editingNoteText}
+                              onChange={e => setEditingNoteText(e.target.value)}
+                              autoFocus
+                              onKeyDown={e => {
+                                if (e.key === 'Escape') setEditingNoteId(null)
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && editingNoteText.trim()) {
+                                  updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) })
+                                }
+                              }}
+                              style={{
+                                width: '100%', minHeight: 70, padding: '10px 12px', borderRadius: 10,
+                                border: '1.5px solid var(--primary)', background: 'var(--card)',
+                                color: 'var(--foreground)', fontSize: 13, lineHeight: 1.55,
+                                resize: 'vertical', outline: 'none',
+                                fontFamily: 'inherit', boxSizing: 'border-box',
+                              }}
+                            />
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              <button onClick={() => setEditingNoteId(null)} style={{
+                                padding: '6px 12px', borderRadius: 8,
+                                border: '1px solid var(--border)', background: 'var(--card)',
+                                color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                              }}>Annuler</button>
+                              <button
+                                onClick={() => { if (editingNoteText.trim()) updateNote.mutate({ note_id: n.id, candidat_id: id, contenu: editingNoteText.trim() }, { onSuccess: () => setEditingNoteId(null) }) }}
+                                disabled={!editingNoteText.trim() || updateNote.isPending}
+                                style={{
+                                  padding: '6px 14px', borderRadius: 8,
+                                  border: '1.5px solid var(--primary)', background: 'var(--primary)',
+                                  color: '#1C1A14', fontSize: 12, fontWeight: 700,
+                                  cursor: !editingNoteText.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                                  boxShadow: '0 4px 12px -4px rgba(234,179,8,.45)',
+                                  opacity: !editingNoteText.trim() ? 0.5 : 1,
+                                }}
+                              >Enregistrer</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: 13.5, color: 'var(--foreground)', whiteSpace: 'pre-wrap', lineHeight: 1.6, margin: 0 }}>{n.contenu}</p>
+                        )}
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Panneau Infos (slide-in) ── */}

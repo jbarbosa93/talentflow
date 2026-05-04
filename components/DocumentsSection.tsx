@@ -352,11 +352,12 @@ export default function DocumentsPanel({ open, onClose, candidatId, candidatName
         }}
         className="documents-panel"
         style={{
-          width: 'min(700px, 95vw)',
-          maxHeight: '88vh',
+          // v2.1.6 — modal plus grand (700→900) demande João : ouvrir spacieux même si 1 doc
+          width: 'min(900px, 95vw)',
+          maxHeight: '90vh',
           background: 'var(--card)',
           borderRadius: 16,
-          boxShadow: '0 24px 64px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.12)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.30), 0 4px 16px rgba(0,0,0,0.12)',
           display: 'flex', flexDirection: 'column',
           animation: 'scaleIn 0.2s ease',
           border: '1px solid var(--border)',
@@ -387,20 +388,28 @@ export default function DocumentsPanel({ open, onClose, candidatId, candidatName
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {/* v2.1.6 — Bouton Ajouter en JAUNE BRAND (au lieu de surface gris moche au hover) */}
             <button
               onClick={() => setShowUpload(true)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 34, padding: '0 14px', borderRadius: 10,
-                background: 'var(--surface-2, var(--secondary))',
-                border: '1px solid var(--border)',
-                color: 'var(--text, var(--foreground))',
-                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                height: 36, padding: '0 16px', borderRadius: 10,
+                background: 'var(--primary)',
+                border: '1.5px solid var(--primary)',
+                color: '#1C1A14',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 fontFamily: 'inherit',
+                boxShadow: '0 4px 12px -4px rgba(234,179,8,.45)',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-3, var(--muted))' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2, var(--secondary))' }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px -4px rgba(234,179,8,.55)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.transform = 'none';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px -4px rgba(234,179,8,.45)'
+              }}
             >
               <Upload size={14} /> Ajouter
             </button>

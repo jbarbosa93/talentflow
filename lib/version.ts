@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.5'
+export const APP_VERSION = '2.1.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.6',
+    date: '2026-05-04',
+    label: 'Refontes Modal Notes (slide-over → modal centré v2) + Modal Documents (taille + bouton Ajouter brand)',
+    features: [
+      'MODAL NOTES FICHE CANDIDAT — Refonte complète : passage du panneau slide-over à droite (design ancien, pas v2) à un MODAL CENTRÉ portalisé style cohérent avec DocumentsPanel. Header Instrument Serif 22px "Notes · {Nom}" + sous-titre count. Composer textarea v2 + bouton Envoyer JAUNE BRAND (au lieu className neo-btn gris). Cards notes design v2 : background var(--surface) + border 12 + boutons icônes 28×28 v2 (Pencil hover jaune / Trash hover destructive-soft). État vide avec border dashed + helper text. Mode édition inline avec textarea border primary 1.5 + Cmd/Ctrl+Enter pour sauver, Échap pour annuler.',
+      'MODAL DOCUMENTS — Taille augmentée 700→900px (demande João : ouvrir spacieux même si 1 doc). Bouton "Ajouter" passé en JAUNE BRAND (avant : `surface-2` qui devenait `surface-3` gris moche au hover). Hover : translateY(-1px) + box-shadow renforcée pour effet brand cohérent avec les autres CTAs primary de l\'app.',
+    ],
+  },
   {
     version: '2.1.5',
     date: '2026-05-04',
