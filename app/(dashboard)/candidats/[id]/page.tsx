@@ -162,10 +162,30 @@ export default function CandidatDetailPage() {
   const fromPage = searchParams.get('from')
   // v1.9.78 — Retour intelligent : router.back() natif (respecte l'historique nav),
   //           fallback sur ?from= ou /candidats si pas d'historique interne.
+  // v2.1.10 — Si CV DOCX/DOC : iframe Office Web Viewer (view.officeapps.live.com)
+  //           pollue window.history du parent (Edge surtout) → router.back() reste sur
+  //           la fiche. Forcer router.push(fallbackRoute) dans ce cas.
   const fallbackRoute = fromPage === 'pipeline' ? '/pipeline' : fromPage === 'missions' ? '/missions' : fromPage === 'secretariat' ? '/secretariat' : fromPage === 'matching' ? '/matching' : fromPage === 'messages' ? '/messages' : fromPage === 'historique' ? '/messages?tab=historique' : '/candidats'
   const backLabel = fromPage === 'pipeline' ? 'Retour au pipeline' : fromPage === 'missions' ? 'Retour aux missions' : fromPage === 'secretariat' ? 'Retour au secrétariat' : fromPage === 'matching' ? 'Retour au matching' : fromPage === 'messages' || fromPage === 'historique' ? 'Retour à l\'historique' : 'Retour'
+  // Snapshot de window.history.length au mount pour détecter la pollution iframe
+  const historyLengthOnMount = useRef<number | null>(null)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && historyLengthOnMount.current === null) {
+      historyLengthOnMount.current = window.history.length
+    }
+  }, [])
   const goBack = () => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
+    if (typeof window === 'undefined') { router.push(fallbackRoute); return }
+    // Détection pollution iframe Office : si window.history.length a augmenté
+    // depuis le mount, c'est que l'iframe a poussé des entries → router.back()
+    // reviendrait dessus. On force le fallback.
+    const startLen = historyLengthOnMount.current ?? window.history.length
+    const polluted = window.history.length > startLen
+    if (polluted) {
+      router.push(fallbackRoute)
+      return
+    }
+    if (window.history.length > 1) {
       router.back()
     } else {
       router.push(fallbackRoute)

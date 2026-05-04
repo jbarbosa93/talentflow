@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.9'
+export const APP_VERSION = '2.1.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.10',
+    date: '2026-05-04',
+    label: 'Fix bouton Retour fiche candidat avec CV Word (Edge) — pollution history par iframe Office',
+    features: [
+      'BOUTON RETOUR FICHE CANDIDAT — Bug Seb sur Edge/Windows : ouvrir une fiche avec CV `.docx`/`.doc` puis cliquer "Retour" → URL change mais reste sur la fiche. Cause : l\'iframe Office Web Viewer (`view.officeapps.live.com`) pollue `window.history` du parent (loading viewer + ouvertures internes Office). `router.back()` revient sur ces entries non-navigables. Fix : snapshot de `window.history.length` au mount via useRef. Si à l\'instant du clic Retour le length a augmenté, on détecte la pollution → on force `router.push(fallbackRoute)` au lieu de `router.back()`. Solution générique (pas de check `cvIsWord` hardcodé) qui couvre aussi tout autre cas de pollution future. Edge montrait juste plus le bug — Chromium est plus permissif sur les history pushes des iframes externes que Firefox/Safari.',
+    ],
+  },
   {
     version: '2.1.9',
     date: '2026-05-04',
