@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.0.1'
+export const APP_VERSION = '2.0.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.0.2',
+    date: '2026-05-04',
+    label: 'Pack 9 fixes UX/design (sidebar, paging, métiers, notes preview, prospection, cards clients)',
+    features: [
+      'SIDEBAR — pointillés séparateurs supprimés (logo + footer Configuration). Padding logo réduit pour remonter la nav. Bouton toggle sidebar topbar : bordure 1.5px + box-shadow doublonnée → supprimés (petit trait fantôme à côté du logo).',
+      'LISTE CANDIDATS — Pagination bas en police Jakarta (était police système). Label "Page X/Y" déplacé de la barre filtres vers le pager subtil en haut. fontFamily Jakarta forcée sur tout le wrapper barre filtres (selecteur perPage, labels).',
+      'NOTES PREVIEW HOVER — Si un candidat a au moins une note, mouseover sur le bouton notes affiche la dernière note en preview (portail, pointer-events: none). Sans clic, sans ouvrir le popover éditable.',
+      'CATÉGORIE MÉTIER DROPDOWN — Police catégorie augmentée 11→12.5px + uppercase + letter-spacing pour lisibilité. Pastille couleur 7→9px.',
+      'LISTE CANDIDATS MÉTIERS MULTIPLES — Affiche jusqu\'à 2 métiers séparés par virgule (au lieu de 1 + "+N"). Si 3+ métiers, "Métier1, Métier2 +N". Tooltip portal au mouseEnter affiche tous les métiers.',
+      'ENVOIS HISTORIQUE — Le panneau de droite affiche désormais les NOMS des candidats (pill 👤 brand jaune) au lieu des numéros/emails bruts si la campagne a des candidats liés. Fallback sur destinataires bruts sinon.',
+      'MODAL PROSPECTION — z-index sticky header "Sélectionner les visibles" passé à 5 (logos clients ne passent plus devant). Dropdown secteurs : pastille couleur du secteur résolue via mapping métier représentatif (cohérent avec les pills cards clients).',
+      'CARDS CLIENTS — Bloc Contact info (email/tel/site web) supprimé des cards (info accessible sur la fiche client). Date de création de l\'entreprise affichée en haut à droite (pattern cohérent avec liste candidats).',
+    ],
+  },
   {
     version: '2.0.1',
     date: '2026-05-03',

@@ -1368,39 +1368,18 @@ export default function ClientsPage() {
                 )}
               </div>
 
-              {/* Contact info */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {client.email && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                    <Mail size={12} style={{ flexShrink: 0, opacity: 0.7 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {client.email}
-                    </span>
-                  </div>
-                )}
-                {client.telephone && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                    <Phone size={12} style={{ flexShrink: 0, opacity: 0.7 }} />
-                    {client.telephone}
-                  </div>
-                )}
-                {client.site_web && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}>
-                    <Globe size={12} style={{ flexShrink: 0, opacity: 0.7 }} />
-                    <span
-                      style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--primary)', textDecoration: 'underline' }}
-                      onClick={e => {
-                        e.stopPropagation()
-                        let url = client.site_web || ''
-                        if (!url.startsWith('http')) url = 'https://' + url
-                        window.open(url, '_blank')
-                      }}
-                    >
-                      {client.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                    </span>
-                  </div>
-                )}
-              </div>
+              {/* v2.0.2 — Bloc Contact info (email/tel/site) supprimé. Date de création affichée
+                  en haut à droite (comme date dans liste candidats). */}
+              {client.created_at && (
+                <span style={{
+                  position: 'absolute', top: 18, right: 22,
+                  fontSize: 11.5, fontWeight: 600, color: 'var(--muted)',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                  fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                }}>
+                  {new Date(client.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+              )}
 
               {/* v1.9.119 — Bouton "Voir fiche" en mode split (click card recentre la carte) */}
               {viewMode === 'split' && (

@@ -9,8 +9,9 @@ import { createPortal } from 'react-dom'
 import { Mail, X, Search, Send, Copy, Check, Loader2, AlertCircle, ChevronLeft, ChevronDown, Trash2, Users, Building2 } from 'lucide-react'
 import { useClients, type Client } from '@/hooks/useClients'
 import { toast } from 'sonner'
-import { SECTEURS_ACTIVITE } from '@/lib/secteurs-extractor'
-import { useSecteursList } from '@/hooks/useSecteursActiviteConfig'
+import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
+import { useSecteursList, useSecteursActiviteConfig } from '@/hooks/useSecteursActiviteConfig'
+import { useMetierCategories } from '@/hooks/useMetierCategories'
 import ClientLogo from './ClientLogo'
 
 const MAX_BATCH = 100
@@ -501,6 +502,20 @@ function ConfigStep({
   contexte, setContexte,
 }: any) {
   const [secteursOpen, setSecteursOpen] = useState(false)
+  // v2.0.2 — Couleur secteur (mapping secteur → métier représentatif → couleur catégorie)
+  const { getColorForMetier } = useMetierCategories()
+  const { data: secteursDB } = useSecteursActiviteConfig()
+  const secteurColor = useMemo(() => {
+    const dbMap = new Map<string, string | null>()
+    ;(secteursDB || []).forEach((s: { nom: string; metier_representatif: string | null }) => {
+      dbMap.set(s.nom, s.metier_representatif)
+    })
+    return (secteur: string): string | null => {
+      const metier = dbMap.get(secteur)
+        ?? SECTEUR_REPRESENTATIVE_METIER[secteur as keyof typeof SECTEUR_REPRESENTATIVE_METIER]
+      return metier ? (getColorForMetier(metier) || null) : null
+    }
+  }, [secteursDB, getColorForMetier])
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Stats top */}
@@ -595,6 +610,8 @@ function ConfigStep({
                 {secteursMeta.list.map((s: string) => {
                   const checked = secteursFilter.has(s)
                   const count = secteursMeta.counts.get(s) || 0
+                  // v2.0.2 — Pastille couleur du secteur (résolue via mapping métier représentatif)
+                  const color = secteurColor(s)
                   return (
                     <label
                       key={s}
@@ -602,7 +619,7 @@ function ConfigStep({
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '7px 10px', borderRadius: 6, cursor: 'pointer',
                         fontSize: 12, color: 'var(--foreground)',
-                        background: checked ? 'var(--primary-soft)' : 'transparent',
+                        background: checked ? (color ? `${color}1A` : 'var(--primary-soft)') : 'transparent',
                         fontWeight: checked ? 700 : 500,
                       }}
                       onMouseOver={e => { if (!checked) e.currentTarget.style.background = 'var(--secondary)' }}
@@ -618,9 +635,11 @@ function ConfigStep({
                             return next
                           })
                         }}
-                        style={{ width: 13, height: 13, accentColor: '#F5A623', cursor: 'pointer' }}
+                        style={{ width: 13, height: 13, accentColor: color || '#F5A623', cursor: 'pointer' }}
                       />
-                      <span style={{ flex: 1 }}>{s}</span>
+                      {/* Pastille couleur secteur */}
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color || 'var(--muted)', flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: checked && color ? color : 'inherit' }}>{s}</span>
                       <span style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700 }}>{count}</span>
                     </label>
                   )
@@ -655,7 +674,8 @@ function ConfigStep({
           padding: '8px 12px', borderBottom: '1px solid var(--border)',
           background: 'var(--secondary)',
           display: 'flex', alignItems: 'center', gap: 10,
-          position: 'sticky', top: 0, zIndex: 1,
+          /* v2.0.2 — z-index 5 pour passer DEVANT les logos clients (img étant rendu en stacking context propre) */
+          position: 'sticky', top: 0, zIndex: 5,
         }}>
           <input
             type="checkbox"

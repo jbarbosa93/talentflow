@@ -117,15 +117,16 @@ body {
   transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .d-topbar-toggle-sidebar {
+  /* v2.0.1 — bordure 1.5px supprimée (apparaissait comme un petit trait à côté du logo, demande João) */
   display: none;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
   margin-right: 8px;
-  border: 1.5px solid var(--border);
+  border: none;
   border-radius: 8px;
-  background: var(--card);
+  background: transparent;
   cursor: pointer;
   color: var(--muted);
   transition: background 0.15s, color 0.15s;
@@ -244,6 +245,7 @@ body {
    TOPBAR — Clean white SaaS style
    ══════════════════════════════════════ */
 .d-topbar {
+  /* v2.0.1 — petit trait fantôme supprimé : box-shadow doublonnait la border-bottom (demande João) */
   height: 58px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -252,7 +254,7 @@ body {
   gap: 16px;
   padding: 0 28px;
   flex-shrink: 0;
-  box-shadow: 0 1px 0 var(--border);
+  box-shadow: none;
 }
 .d-topbar-title {
   font-family: var(--font-heading);
@@ -1271,12 +1273,13 @@ body {
 
 /* Brand (logo TalentFlow + entreprise) */
 .d-sidebar-logo {
+  /* v2.0.1 — pointillés supprimés + padding réduit pour remonter la nav (demande João) */
   display: flex !important;
   align-items: center !important;
   gap: 10px !important;
-  padding: 6px 8px 10px !important;
-  border-bottom: 1px dashed var(--border) !important;
-  margin-bottom: 4px !important;
+  padding: 4px 8px 6px !important;
+  border-bottom: none !important;
+  margin-bottom: 0 !important;
   text-decoration: none !important;
   background: transparent !important;
 }
@@ -1405,9 +1408,9 @@ aside.d-sidebar a.d-sidebar-logo:hover > span:first-child {
   opacity: 1 !important;
 }
 
-/* Footer (Compte section) */
+/* Footer (Compte section) — v2.0.1 pointillés supprimés (demande João) */
 .d-sidebar-footer {
-  border-top: 1px dashed var(--border) !important;
+  border-top: none !important;
   padding-top: 8px !important;
   margin-top: auto !important;
   display: flex !important;

@@ -258,7 +258,7 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
       >
-        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: '6px 8px 10px', textDecoration: 'none' }}>
+        <Link href="/dashboard" className="d-sidebar-logo" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           {/* TalentFlow icon (éclair brand) */}
           <motion.span
             whileHover={{ scale: 1.08, rotate: 4 }}

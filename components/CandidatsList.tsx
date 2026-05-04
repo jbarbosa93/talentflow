@@ -1484,7 +1484,13 @@ export default function CandidatsList() {
                   }}
                 >
                   <Briefcase size={11} />
-                  {hasTags ? (configuredTags[0] + (configuredTags.length > 1 ? ` +${configuredTags.length - 1}` : '')) : (c.titre_poste || 'Métier')}
+                  {/* v2.0.2 — Affiche jusqu'à 2 métiers (séparés par virgule), puis +N si plus.
+                      Le tooltip portal au mouseEnter affiche TOUS les métiers (cf. metierTooltip state). */}
+                  {hasTags ? (
+                    configuredTags.length <= 2
+                      ? configuredTags.join(', ')
+                      : `${configuredTags[0]}, ${configuredTags[1]} +${configuredTags.length - 2}`
+                  ) : (c.titre_poste || 'Métier')}
                 </button>
               )
             })()}
@@ -1621,13 +1627,20 @@ export default function CandidatsList() {
                   data-notes-trigger
                   onClick={e => {
                     e.stopPropagation()
-                    if (isOpen) { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null) }
+                    if (isOpen) { setNotePopoverId(null); setNoteText(''); setNotePopoverRect(null); setHoveredNoteId(null); setHoveredNoteRect(null) }
                     else {
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
                       setNotePopoverRect({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
                       setNotePopoverId(c.id); setNoteText(''); setTimeout(() => noteTextareaRef.current?.focus(), 50)
                     }
                   }}
+                  // v2.0.2 — Hover preview : si candidat a des notes, afficher la dernière au mouseover (sans clic)
+                  onMouseEnter={hasNotes && !isOpen ? e => {
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    setHoveredNoteRect({ top: r.top, left: r.left, right: r.right })
+                    setHoveredNoteId(c.id)
+                  } : undefined}
+                  onMouseLeave={hasNotes ? () => { setHoveredNoteId(null); setHoveredNoteRect(null) } : undefined}
                   title={hasNotes ? `${noteCount} note${noteCount > 1 ? 's' : ''} — clique pour voir / ajouter` : 'Ajouter une note'}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
@@ -1644,6 +1657,41 @@ export default function CandidatsList() {
                   <MessageSquare size={13} />
                   {hasNotes && <span>{noteCount}</span>}
                 </button>
+              )
+            })()}
+            {/* v2.0.2 — Note preview au hover (portalisée pour échapper aux overflow) */}
+            {hoveredNoteId === c.id && hoveredNoteRect && notePopoverId !== c.id && typeof document !== 'undefined' && (() => {
+              const lastNote = [...(c.notes_candidat || [])].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+              if (!lastNote) return null
+              const screenW = window.innerWidth
+              const PANEL_W = 280
+              const left = Math.max(12, Math.min(screenW - PANEL_W - 12, hoveredNoteRect.right - PANEL_W))
+              const top = hoveredNoteRect.top + 32 + 6
+              const totalNotes = c.notes_candidat?.length || 0
+              return createPortal(
+                <div
+                  style={{
+                    position: 'fixed', top, left, width: PANEL_W, zIndex: 9999,
+                    background: 'var(--surface, var(--card))',
+                    border: '1px solid rgba(99,102,241,0.30)',
+                    borderRadius: 10, padding: 12,
+                    boxShadow: '0 12px 32px -8px rgba(28,26,20,0.20)',
+                    pointerEvents: 'none',
+                    fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                  }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>📝 Dernière note</span>
+                    {totalNotes > 1 && <span style={{ color: 'var(--muted)' }}>+{totalNotes - 1}</span>}
+                  </div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--muted-foreground)', marginBottom: 4 }}>
+                    {lastNote.auteur || 'Recruteur'} · {new Date(lastNote.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--foreground)', lineHeight: 1.45, margin: 0, whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {lastNote.contenu}
+                  </p>
+                </div>,
+                document.body
               )
             })()}
             {notePopoverId === c.id && notePopoverRect && typeof document !== 'undefined' && (() => {
@@ -2404,7 +2452,8 @@ export default function CandidatsList() {
             )}
           </div>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+        {/* v2.0.2 — fontFamily Jakarta forcée sur tout le wrapper barre filtres (uniformise selecteurs natifs et labels) */}
         {/* Filtre métier — multi-select checkbox (v1.9.65) */}
         {agenceMetiers.length > 0 && (() => {
           const assigned = new Set(metierCategories.flatMap(c => c.metiers))
@@ -2508,8 +2557,14 @@ export default function CandidatsList() {
                     if (catMetiers.length === 0) return null
                     return (
                       <div key={cat.name}>
-                        <div style={{ padding: '8px 14px 4px', fontSize: 11, fontWeight: 700, color: cat.color, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: cat.color }} />
+                        {/* v2.0.2 — Police catégorie augmentée 11→12.5px + lettering + uppercase pour lisibilité */}
+                        <div style={{
+                          padding: '10px 14px 6px', fontSize: 12.5, fontWeight: 700,
+                          color: cat.color, display: 'flex', alignItems: 'center', gap: 7,
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                        }}>
+                          <span style={{ width: 9, height: 9, borderRadius: '50%', background: cat.color }} />
                           {cat.name}
                         </div>
                         {catMetiers.map(m => {
@@ -2707,12 +2762,8 @@ export default function CandidatsList() {
             <option value={1000}>1000</option>
             <option value={0}>Tous</option>
           </select>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>/ {candidatesTries.length}</span>
-          {totalPages > 1 && (
-            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginLeft: 8 }}>
-              Page {page} / {totalPages}
-            </span>
-          )}
+          <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>/ {candidatesTries.length}</span>
+          {/* v2.0.2 — "Page X/Y" supprimé : le pager subtil en haut de la liste affiche déjà l'info */}
         </div>
       </div>
 
@@ -3054,9 +3105,10 @@ export default function CandidatsList() {
               <span style={{
                 fontSize: 11.5, fontWeight: 600, color: 'var(--muted-foreground)',
                 fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
-                minWidth: 60, textAlign: 'center',
+                minWidth: 90, textAlign: 'center',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               }}>
-                {page} / {totalPages}
+                Page {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
@@ -3142,30 +3194,36 @@ export default function CandidatsList() {
           })()}
           {candidatesPagines.map((c: any) => renderCard(c))}
 
-          {/* Pagination */}
+          {/* Pagination — v2.0.2 police Jakarta + style V2 cohérent */}
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'var(--bg-card)', color: page <= 1 ? 'var(--border)' : 'var(--foreground)',
-                  fontSize: 13, fontWeight: 600, cursor: page <= 1 ? 'default' : 'pointer', fontFamily: 'inherit',
+                  padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--surface, var(--card))', color: page <= 1 ? 'var(--border)' : 'var(--foreground)',
+                  fontSize: 13, fontWeight: 600, cursor: page <= 1 ? 'default' : 'pointer',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                 }}
               >
                 ← Précédent
               </button>
-              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>
+              <span style={{
+                fontSize: 13, color: 'var(--muted-foreground)', fontWeight: 600,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+              }}>
                 Page {page} / {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
                 style={{
-                  padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'var(--bg-card)', color: page >= totalPages ? 'var(--border)' : 'var(--foreground)',
-                  fontSize: 13, fontWeight: 600, cursor: page >= totalPages ? 'default' : 'pointer', fontFamily: 'inherit',
+                  padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--surface, var(--card))', color: page >= totalPages ? 'var(--border)' : 'var(--foreground)',
+                  fontSize: 13, fontWeight: 600, cursor: page >= totalPages ? 'default' : 'pointer',
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                 }}
               >
                 Suivant →

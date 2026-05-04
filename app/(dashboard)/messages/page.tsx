@@ -3540,24 +3540,54 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                 <span>· {selected.nb_destinataires} destinataire{selected.nb_destinataires > 1 ? 's' : ''}</span>
               </div>
 
-              {/* Destinataires */}
+              {/* Destinataires — v2.0.2 affiche le NOM du candidat lié si dispo (au lieu du numéro/email brut) */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
                   À
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {selected.destinataires.slice(0, 8).map((d, i) => (
-                    <span key={i} style={{
-                      padding: '4px 10px', borderRadius: 99, fontSize: 12,
-                      background: 'var(--secondary)', color: 'var(--foreground)',
-                      fontWeight: 500,
-                    }}>{d}</span>
-                  ))}
-                  {selected.destinataires.length > 8 && (
-                    <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
-                      +{selected.destinataires.length - 8}
-                    </span>
-                  )}
+                  {(() => {
+                    // Prio 1 : candidats liés (avec nom) → afficher les noms
+                    // Prio 2 : destinataires bruts (email/tel)
+                    const useCandidats = selected.candidats && selected.candidats.length > 0
+                    const items = useCandidats
+                      ? selected.candidats.map(cand => ({
+                          key: cand.id,
+                          label: `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '—',
+                          tooltip: `${cand.prenom || ''} ${cand.nom || ''}`.trim(),
+                          isCandidat: true,
+                        }))
+                      : selected.destinataires.map((d, i) => ({
+                          key: `dest-${i}`,
+                          label: d,
+                          tooltip: d,
+                          isCandidat: false,
+                        }))
+                    return (
+                      <>
+                        {items.slice(0, 8).map(it => (
+                          <span
+                            key={it.key}
+                            title={it.tooltip}
+                            style={{
+                              padding: '4px 10px', borderRadius: 99, fontSize: 12,
+                              background: it.isCandidat ? 'var(--primary-soft)' : 'var(--secondary)',
+                              color: it.isCandidat ? 'var(--primary)' : 'var(--foreground)',
+                              border: it.isCandidat ? '1px solid rgba(245,166,35,0.30)' : '1px solid transparent',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {it.isCandidat && '👤 '}{it.label}
+                          </span>
+                        ))}
+                        {items.length > 8 && (
+                          <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
+                            +{items.length - 8}
+                          </span>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
 
