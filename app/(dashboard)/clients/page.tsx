@@ -624,6 +624,8 @@ export default function ClientsPage() {
   const [sortOrder, setSortOrder] = useState<'recent' | 'az' | 'za'>('recent')
   // v1.9.119 — Mode split : id du client mis en focus sur la carte (zoom + popup)
   const [focusedClientId, setFocusedClientId] = useState<string | null>(null)
+  // v2.1.11 — Tooltip portal pour TOUS les secteurs (style liste candidats métiers)
+  const [secteurTooltip, setSecteurTooltip] = useState<{ secteurs: string[]; top: number; left: number; bottom: number } | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showProspectionModal, setShowProspectionModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -1341,10 +1343,15 @@ export default function ClientsPage() {
                       </>
                     ) : <span style={{ color: 'var(--border)' }}>—</span>}
                   </div>
-                  {/* Secteur (1er) — v2.1.5 : title tooltip avec TOUS les secteurs assignés */}
+                  {/* Secteur (1er) — v2.1.11 : tooltip PORTAL avec TOUS les secteurs (style liste candidats métiers) */}
                   <div
                     style={{ flex: '0 0 160px', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}
-                    title={client.secteurs_activite && client.secteurs_activite.length > 0 ? client.secteurs_activite.join(' · ') : undefined}
+                    onMouseEnter={e => {
+                      if (!client.secteurs_activite || client.secteurs_activite.length < 2) return
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setSecteurTooltip({ secteurs: client.secteurs_activite, top: r.top, left: r.left, bottom: r.bottom })
+                    }}
+                    onMouseLeave={() => setSecteurTooltip(null)}
                   >
                     {client.secteurs_activite && client.secteurs_activite.length > 0 ? (
                       <>
@@ -1362,7 +1369,6 @@ export default function ClientsPage() {
                         })()}
                         {client.secteurs_activite.length > 1 && (
                           <span
-                            title={client.secteurs_activite.slice(1).join(', ')}
                             style={{
                               padding: '2px 6px', borderRadius: 5,
                               background: 'var(--secondary)', border: '1px solid var(--border)',
@@ -1669,6 +1675,42 @@ export default function ClientsPage() {
         open={showProspectionModal}
         onClose={() => setShowProspectionModal(false)}
       />
+
+      {/* v2.1.11 — Tooltip portal secteurs (style métiers liste candidats) */}
+      {secteurTooltip && typeof document !== 'undefined' && (() => {
+        const screenH = window.innerHeight
+        const spaceAbove = secteurTooltip.top
+        const spaceBelow = screenH - secteurTooltip.bottom
+        const placeAbove = spaceAbove > spaceBelow && spaceAbove > 200
+        const top = placeAbove ? secteurTooltip.top - 8 : secteurTooltip.bottom + 8
+        return createPortal(
+          <div style={{
+            position: 'fixed',
+            top, left: secteurTooltip.left,
+            transform: placeAbove ? 'translateY(-100%)' : 'none',
+            background: 'var(--foreground, #1f2937)',
+            color: 'var(--background, #fff)',
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 12, fontWeight: 500,
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            boxShadow: '0 8px 28px rgba(0,0,0,0.22)',
+            zIndex: 99999,
+            pointerEvents: 'none',
+            display: 'flex', flexDirection: 'column', gap: 4,
+            minWidth: 160, maxWidth: 280,
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, opacity: 0.6, textTransform: 'uppercase', marginBottom: 2 }}>
+              Secteurs ({secteurTooltip.secteurs.length})
+            </span>
+            {secteurTooltip.secteurs.map(s => (
+              <span key={s} style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.4 }}>· {s}</span>
+            ))}
+          </div>,
+          document.body
+        )
+      })()}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>

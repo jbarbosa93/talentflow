@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.10'
+export const APP_VERSION = '2.1.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.11',
+    date: '2026-05-04',
+    label: 'Pack 6 fixes (tooltip secteurs clients, badges sidebar rouges, reset mailing, nom CV, genre, panneau Infos v2)',
+    features: [
+      'LISTE CLIENTS — Hover sur cellule Secteur (clients avec 2+ secteurs) affiche désormais un TOOLTIP PORTAL avec tous les secteurs (style cohérent avec liste candidats Métiers). Avant : `title=` HTML basique pas joli.',
+      'SIDEBAR BADGES — Tous les badges sections (Clients/Commandes/Entretiens/Secrétariat) passent en ROUGE (avant : surface-3/muted gris pour les sections génériques). Padding dynamique : 0 pour 1 chiffre (cercle parfait centré) + `0 5px` pour 2+ chiffres. fontSize bumpé 10→11 pour lisibilité. fontVariantNumeric tabular-nums + lineHeight 1.',
+      'MAILING NOUVEL ENVOI — Reset COMPLET du formulaire après envoi réussi (avant : seul corps/sujet/contexteIA était reset → candidats joints + destinataires clients restaient mémorisés). Reset : candidatIds, cvAttached, extraDocs, candidatDocsCache, destinataires, ccEmails, overrides, previewIdx, templateId, civiliteByCandidat, customByCandidat + clear sessionStorage `talentflow_mailing_session`.',
+      'PIÈCE JOINTE CV MAILING — Nom de fichier renommé en `cv_prenom_nom_YYYY-MM-DD.ext` (avant : nom original brut "PINTO PEREIRA PASSOS vitor manuel 07.03.2022.docx" pas pro pour le client). Sanitize accents/espaces → `_`. Supporte ext PDF/DOCX/DOC/JPG/JPEG/PNG avec contentType correct.',
+      'FICHE CANDIDAT GENRE — Affichage Homme/Femme avec emoji 👨/👩 dans la banner après l\'âge (avant : pas affiché en lecture). Masqué si null ou autre valeur.',
+      'PANNEAU INFORMATIONS FICHE CANDIDAT — Slide-over droite refondu design v2 : Instrument Serif 22 sur "Informations" + Jakarta wrapper + bouton X 32×32 v2 + backdrop blur 6 + width 380 + padding 20/24 + labels uppercase 10.5px + valeurs 13.5px lineHeight 1.4.',
+    ],
+  },
   {
     version: '2.1.10',
     date: '2026-05-04',

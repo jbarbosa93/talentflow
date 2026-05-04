@@ -1357,6 +1357,14 @@ export default function CandidatDetailPage() {
               ) : null
             })()}
 
+            {/* v2.1.11 — Genre (Homme/Femme) après âge — masqué si null */}
+            {!isEditing && candidat.genre && (candidat.genre === 'homme' || candidat.genre === 'femme') && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 13 }}>{candidat.genre === 'homme' ? '👨' : '👩'}</span>
+                {candidat.genre === 'homme' ? 'Homme' : 'Femme'}
+              </span>
+            )}
+
             {/* Téléphone */}
             {isEditing ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -3023,31 +3031,69 @@ export default function CandidatDetailPage() {
         document.body
       )}
 
-      {/* ── Panneau Infos (slide-in) ── */}
+      {/* ── Panneau Infos (slide-in) — v2.1.11 design v2 ── */}
       {showInfo && (
-        <div onClick={() => setShowInfo(false)} style={{ position: 'fixed', inset: 0, zIndex: 8000, background: 'rgba(0,0,0,0.3)', animation: 'fadeIn 0.15s ease' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: 0, right: 0, width: 340, height: '100%', background: 'var(--card)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideInRight 0.2s ease' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Info size={16} color="var(--primary)" /> Informations</h3>
-              <button onClick={() => setShowInfo(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="var(--muted)" /></button>
+        <div onClick={() => setShowInfo(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 8000,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
+          animation: 'fadeIn 0.15s ease',
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: 'absolute', top: 0, right: 0, width: 380, height: '100%',
+            background: 'var(--card)', borderLeft: '1px solid var(--border)',
+            boxShadow: '-12px 0 40px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column',
+            animation: 'slideInRight 0.2s ease',
+          }}>
+            {/* Header serif v2 */}
+            <div style={{
+              padding: '20px 24px 18px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexShrink: 0,
+            }}>
+              <h2 style={{
+                fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                fontSize: 22, fontWeight: 400, margin: 0, lineHeight: 1.15,
+                letterSpacing: '-0.01em',
+                color: 'var(--foreground)',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <Info size={18} color="var(--primary)" /> Informations
+              </h2>
+              <button onClick={() => setShowInfo(false)} style={{
+                width: 32, height: 32, borderRadius: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'transparent', border: '1px solid var(--border)',
+                cursor: 'pointer', color: 'var(--muted-foreground)',
+                transition: 'background 0.15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              ><X size={16} /></button>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                 {[
                   { label: 'Source', value: candidat.source || '—' },
                   { label: 'Créé le', value: new Date(candidat.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) },
-                  // v1.9.122 — last_import_at au lieu de updated_at (sens métier = même date que la liste candidats).
-                  // updated_at est un timestamp système (trigger DB) qui bouge à chaque UPDATE peu importe le champ.
                   { label: 'Modifié le', value: candidat.last_import_at
                     ? new Date(candidat.last_import_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
                     : '—' },
-                  { label: 'Statut pipeline', value: candidat.statut_pipeline },
+                  { label: 'Statut pipeline', value: candidat.statut_pipeline || '—' },
                   { label: 'Statut import', value: candidat.import_status === 'a_traiter' ? 'À traiter' : candidat.import_status === 'traite' ? 'Traité' : candidat.import_status || '—' },
                   { label: 'CV', value: candidat.cv_nom_fichier || '—' },
                 ].map(item => (
                   <div key={item.label}>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', wordBreak: 'break-word' }}>{item.value}</div>
+                    <div style={{
+                      fontSize: 10.5, color: 'var(--muted)', marginBottom: 4,
+                      fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    }}>{item.label}</div>
+                    <div style={{
+                      fontSize: 13.5, fontWeight: 600, color: 'var(--foreground)',
+                      wordBreak: 'break-word', lineHeight: 1.4,
+                    }}>{item.value}</div>
                   </div>
                 ))}
               </div>

@@ -519,19 +519,22 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     </span>
                   )}
                   {/* Badge nombre de nouveaux candidats depuis dernière visite */}
-                  {item.href === '/candidats' && sidebarBadgeCount > 0 && (
-                    <span style={{
-                      // v2.1.7 — boxSizing border-box + minWidth=height pour cercle parfait à 1 chiffre, expand propre 2+ chiffres
-                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
-                      padding: '0 6px', boxSizing: 'border-box',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'var(--destructive)', color: '#FFFFFF',
-                      fontSize: 10.5, fontWeight: 800, flexShrink: 0,
-                      lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {sidebarBadgeCount > 99 ? '99+' : sidebarBadgeCount}
-                    </span>
-                  )}
+                  {item.href === '/candidats' && sidebarBadgeCount > 0 && (() => {
+                    // v2.1.11 — padding dynamique : 0 (cercle parfait) si 1 chiffre, '0 5' si 2+ chiffres
+                    const isLong = sidebarBadgeCount >= 10
+                    return (
+                      <span style={{
+                        marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
+                        padding: isLong ? '0 5px' : 0, boxSizing: 'border-box',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'var(--destructive)', color: '#FFFFFF',
+                        fontSize: 11, fontWeight: 800, flexShrink: 0,
+                        lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {sidebarBadgeCount > 99 ? '99+' : sidebarBadgeCount}
+                      </span>
+                    )
+                  })()}
                   {/* v1.9.127 — Badge count "design v2" pour les autres sections (Clients/Commandes/Entretiens).
                       Avant : simple dot rouge animé. Maintenant : nombre dans pill discret slate
                       (cohérent avec la maquette V2 qui montre 3, 27, 12 sur les items). */}
@@ -542,13 +545,12 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                     if (!count) return null
                     return (
                       <span style={{
-                        // v2.1.7 — boxSizing border-box pour cercle parfait à 1 chiffre
-                        marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
-                        padding: '0 5px', boxSizing: 'border-box',
+                        // v2.1.11 — ROUGE partout (avant : surface-3/muted gris) pour cohérence avec Candidats
+                        marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
+                        padding: count >= 10 ? '0 5px' : 0, boxSizing: 'border-box',
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--surface-3, var(--muted))',
-                        color: 'var(--text-2, var(--muted-foreground))',
-                        fontSize: 10, fontWeight: 700, flexShrink: 0,
+                        background: 'var(--destructive)', color: '#FFFFFF',
+                        fontSize: 11, fontWeight: 800, flexShrink: 0,
                         lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                       }}>
                         {count > 99 ? '99+' : count}
@@ -558,11 +560,11 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                   {/* Badge rappels entretiens */}
                   {item.href === '/entretiens' && typeof rappelsCount === 'number' && rappelsCount > 0 && (
                     <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
-                      padding: '0 5px', boxSizing: 'border-box',
+                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
+                      padding: rappelsCount >= 10 || rappelsCount > 9 ? '0 5px' : 0, boxSizing: 'border-box',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: 'var(--destructive)', color: 'var(--destructive-foreground)',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      fontSize: 11, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {rappelsCount > 9 ? '9+' : rappelsCount}
@@ -572,11 +574,11 @@ export function Sidebar({ mobileOpen, onClose, desktopCollapsed }: { mobileOpen?
                   {/* Badge notifications secrétariat */}
                   {item.href === '/secretariat' && typeof secNotifCount === 'number' && secNotifCount > 0 && (
                     <span style={{
-                      marginLeft: 'auto', minWidth: 18, height: 18, borderRadius: 999,
-                      padding: '0 5px', boxSizing: 'border-box',
+                      marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 999,
+                      padding: secNotifCount >= 10 ? '0 5px' : 0, boxSizing: 'border-box',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: 'var(--destructive)', color: '#fff',
-                      fontSize: 10, fontWeight: 800, flexShrink: 0,
+                      fontSize: 11, fontWeight: 800, flexShrink: 0,
                       lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                     }}>
                       {secNotifCount}

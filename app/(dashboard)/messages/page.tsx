@@ -1264,9 +1264,25 @@ function EmailTab() {
         setSent(true)
         setDoublonAlert(null)
         setTimeout(() => setSent(false), 3000)
-        setCorps('')
+        // v2.1.11 — Reset COMPLET du formulaire après envoi (avant : seul corps/sujet/contexteIA était reset
+        //           → candidats joints + destinataires clients restaient en mémoire au prochain "Nouvel envoi")
+        setCandidatIds([])
+        setCvCandidatId(null)
+        setCvAttached({})
+        setExtraDocs({})
+        setCandidatDocsCache({})
+        setDestinataires([])
+        setCcEmails([])
+        setOverrides({})
+        setPreviewIdx(0)
+        setTemplateId('')
         setSujet('')
+        setCorps('')
         setContexteIA('')
+        setCiviliteByCandidat({})
+        setCustomByCandidat({})
+        // Clear session storage pour ne pas restaurer au prochain mount
+        try { sessionStorage.removeItem(MAILING_KEY) } catch {}
       } else {
         toast.error('Aucun email envoyé')
       }

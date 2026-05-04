@@ -155,10 +155,17 @@ export async function POST(request: NextRequest) {
 
         // ─── 1. CV (si attachCvs) ──────────────────────────────────────────
         if (attachCvs) {
+          // v2.1.11 — Renommer la pièce jointe en cv_prenom_nom_YYYY-MM-DD.ext (clean pour le client)
+          const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+          const sanitize = (s: string) => (s || '').trim().replace(/[^a-zA-Z0-9À-ÿ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '')
+          const cleanPrenom = sanitize(c.prenom || '')
+          const cleanNom = sanitize(c.nom || '')
+          const cleanBase = `cv_${cleanPrenom}_${cleanNom}_${today}`.replace(/_+/g, '_').replace(/^_|_$/g, '') || `cv_${today}`
+
           if (opts?.pdfBase64) {
             pushAttachment({
               '@odata.type': '#microsoft.graph.fileAttachment',
-              name: `CV_${c.prenom || ''}_${c.nom || ''}.pdf`,
+              name: `${cleanBase}.pdf`,
               contentType: 'application/pdf',
               contentBytes: opts.pdfBase64,
             }, cname)
@@ -168,10 +175,16 @@ export async function POST(request: NextRequest) {
               const cvRes = await fetch(c.cv_url)
               if (cvRes.ok) {
                 const buffer = Buffer.from(await cvRes.arrayBuffer())
-                const filename = c.cv_nom_fichier || `CV_${c.prenom || ''}_${c.nom || ''}.pdf`
-                const contentType = filename.toLowerCase().endsWith('.docx')
+                const originalExt = (c.cv_nom_fichier || '').toLowerCase().split('.').pop() || 'pdf'
+                const safeExt = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'].includes(originalExt) ? originalExt : 'pdf'
+                const filename = `${cleanBase}.${safeExt}`
+                const contentType = safeExt === 'docx'
                   ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                  : 'application/pdf'
+                  : safeExt === 'doc'
+                    ? 'application/msword'
+                    : safeExt === 'jpg' || safeExt === 'jpeg' ? 'image/jpeg'
+                    : safeExt === 'png' ? 'image/png'
+                    : 'application/pdf'
                 pushAttachment({
                   '@odata.type': '#microsoft.graph.fileAttachment',
                   name: filename,
