@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.7'
+export const APP_VERSION = '2.1.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.8',
+    date: '2026-05-04',
+    label: 'Pack 5 fixes (pipeline cats horizontal, polish v2 8 pages /parametres + /outils, refonte métiers/secteurs)',
+    features: [
+      'PIPELINE — Pills métiers : passage de la disposition VERTICALE (lignes empilées par catégorie) à une BARRE HORIZONTALE de catégories cliquables. Click sur une catégorie → DROPDOWN affichant les métiers de cette catégorie en pills design v2 avec scale brand au sélectionné. Catégorie de métier actif soulignée (bordure basse colorée). Bouton "Tous" en début de barre + "Autres" en fin. État `activeCategory` reset au changement de consultant.',
+      'POLISH V2 (4 pages outils/parametres) — Headers passés en Instrument Serif 32px + Jakarta wrapper sur : `/parametres/doublons` (+ card v2 + bandeau success/warning soft + bouton Lancer brand v2), `/parametres/import-masse`, `/outils/analyser-candidats`, `/outils/rapport-heures`.',
+      'RAPPORT D\'HEURES — Labels Type de journée raccourcis ("Heures travaillées" → "Travail", "Jour férié" → "Férié", etc.) pour ne plus être tronqués dans la cellule étroite. Bandeau "Semaine N · DD.MM au DD.MM" : couleur passée de `var(--muted)` (illisible sur fond orange-soft) à `COLOR` (orange brand) bold pour contraste.',
+      'REFONTE /parametres/metiers — Header serif v2 + pills métiers refondues : background `var(--surface)` + bordure subtile (au lieu de primary-soft+primary jaune intense partout) + hover affiche bordure brand + bouton X qui passe en destructive au hover. Compteur "X métiers définis" en label uppercase au-dessus.',
+      'REFONTE /parametres/secteurs-activite — Header serif v2 + sous-titre en muted-foreground.',
+      'POLISH V2 /parametres/profil + /parametres/demandes-acces + /parametres/admin — Wrapper Jakarta + Instrument Serif 32 sur les titres (avant : sans-serif 24).',
+    ],
+  },
   {
     version: '2.1.7',
     date: '2026-05-04',

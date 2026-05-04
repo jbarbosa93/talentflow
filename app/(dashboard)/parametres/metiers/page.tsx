@@ -46,13 +46,20 @@ function SectionCard({ title, description, children, onSave, saving, saved }: {
 
 export default function MetiersPage() {
   return (
-    <div className="d-page" style={{ maxWidth: 860 }}>
-      <div className="d-page-header" style={{ marginBottom: 28 }}>
-        <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Briefcase size={22} style={{ color: 'var(--primary)' }} />
+    <div className="d-page" style={{ maxWidth: 920, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{
+          fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+          fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+          color: 'var(--foreground)', margin: 0,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <Briefcase size={26} style={{ color: 'var(--primary)' }} />
           Configuration des métiers
         </h1>
-        <p className="d-page-sub">Gérez les métiers et leurs catégories</p>
+        <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', margin: '6px 0 0' }}>
+          Gérez les métiers et leurs catégories
+        </p>
       </div>
       <MetiersSection />
     </div>
@@ -128,20 +135,48 @@ function MetiersSection() {
               </button>
             </div>
             {metiers.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', textAlign: 'center', padding: '12px 0' }}>
+              <div style={{
+                fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: '24px 16px',
+                border: '1px dashed var(--border)', borderRadius: 12,
+              }}>
                 Aucun métier défini. Ajoutez vos catégories ci-dessus.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {metiers.map(m => (
-                  <div key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
-                    {m}
-                    <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--muted)', lineHeight: 1 }}>
-                      <X size={13} />
-                    </button>
-                  </div>
-                ))}
               </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '4px 0 10px' }}>
+                  {metiers.length} métier{metiers.length > 1 ? 's' : ''} défini{metiers.length > 1 ? 's' : ''}
+                </p>
+                {/* v2.1.8 — refonte pills : background subtil var(--secondary) + bordure légère + bouton X visible au hover */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {metiers.map(m => (
+                    <div key={m}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--primary-soft)' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface, var(--card))' }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 8,
+                        padding: '6px 12px', borderRadius: 999,
+                        background: 'var(--surface, var(--card))',
+                        border: '1px solid var(--border)',
+                        fontSize: 12.5, fontWeight: 600, color: 'var(--foreground)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {m}
+                      <button onClick={() => remove(m)} title="Retirer"
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                          display: 'flex', color: 'var(--muted-foreground)', lineHeight: 1,
+                          transition: 'color 0.12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--destructive)' }}
+                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted-foreground)' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </>
         )}

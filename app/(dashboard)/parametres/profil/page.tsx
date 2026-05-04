@@ -446,7 +446,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <div className="d-page" style={{ maxWidth: 740, paddingBottom: 60 }}>
+    <div className="d-page" style={{ maxWidth: 740, paddingBottom: 60, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
 
       {/* ── Hero profil ── */}
       <div className="neo-card" style={{ padding: 28, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 24 }}>

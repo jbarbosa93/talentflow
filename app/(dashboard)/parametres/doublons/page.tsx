@@ -331,20 +331,28 @@ export default function DoublonsPage() {
   }, {} as Record<string, number>)
 
   return (
-    <div className="d-page" style={{ maxWidth: 860 }}>
-      {/* Header — v2.0.1 bouton retour interne supprimé (doublon du ParametresBackButton du layout) */}
+    <div className="d-page" style={{ maxWidth: 860, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      {/* Header — v2.1.8 design v2 (Instrument Serif title + Jakarta) */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 10, margin: 0 }}>
-          <Copy size={22} color="var(--primary)" />
+        <h1 style={{
+          fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+          fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+          color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 12, margin: 0,
+        }}>
+          <Copy size={26} color="var(--primary)" />
           Analyser les doublons
         </h1>
-        <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 6, margin: '6px 0 0 0' }}>
-          Recherche les candidats avec le meme email, telephone ou nom+prenom
+        <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', marginTop: 6, margin: '6px 0 0 0' }}>
+          Recherche les candidats avec le même email, téléphone ou nom+prénom
         </p>
       </div>
 
-      {/* Bouton lancer + résultat */}
-      <div className="neo-card-soft" style={{ padding: 24, marginBottom: 20 }}>
+      {/* Bouton lancer + résultat — v2.1.8 card v2 */}
+      <div style={{
+        padding: 24, marginBottom: 20,
+        background: 'var(--card)', border: '1px solid var(--border)',
+        borderRadius: 14,
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <StatBadge label="Doublons" value={pendingDoublons.length > 0 ? pendingDoublons.length : '—'} color={pendingDoublons.length > 0 ? '#DC2626' : 'var(--foreground)'} />
@@ -352,23 +360,37 @@ export default function DoublonsPage() {
             <StatBadge label="Fusionnes" value={mergedCount > 0 ? mergedCount : '—'} color="#7C3AED" />
           </div>
           <button onClick={handleLancer}
-            className="neo-btn-yellow"
-            style={{ padding: '0 24px' }}
             disabled={phase === 'loading'}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              height: 38, padding: '0 18px', borderRadius: 10,
+              border: '1.5px solid var(--primary)', background: 'var(--primary)',
+              color: '#1C1A14', fontSize: 13, fontWeight: 700,
+              cursor: phase === 'loading' ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: phase === 'loading' ? 'none' : '0 4px 12px -4px rgba(234,179,8,.45)',
+            }}
           >
             {phase === 'loading'
-              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />Analyse...</>
-              : <><RefreshCw size={16} />{phase === 'done' ? 'Relancer' : 'Lancer l\'analyse'}</>
+              ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />Analyse…</>
+              : <><RefreshCw size={14} />{phase === 'done' ? 'Relancer' : 'Lancer l\'analyse'}</>
             }
           </button>
         </div>
 
         {phase === 'done' && (
-          <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: pendingDoublons.length > 0 ? '#FFFBEB' : '#F0FDF4', border: `1px solid ${pendingDoublons.length > 0 ? '#FDE68A' : '#BBF7D0'}` }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: pendingDoublons.length > 0 ? '#92400E' : '#16A34A', margin: 0 }}>
+          <div style={{
+            marginTop: 16, padding: '10px 14px', borderRadius: 10,
+            background: pendingDoublons.length > 0 ? 'var(--warning-soft)' : 'var(--success-soft)',
+            border: `1px solid ${pendingDoublons.length > 0 ? 'rgba(245,158,11,0.30)' : 'rgba(34,197,94,0.30)'}`,
+          }}>
+            <p style={{
+              fontSize: 13, fontWeight: 700, margin: 0,
+              color: pendingDoublons.length > 0 ? 'var(--warning)' : 'var(--success)',
+            }}>
               {pendingDoublons.length > 0
-                ? `${pendingDoublons.length} doublon${pendingDoublons.length > 1 ? 's' : ''} detecte${pendingDoublons.length > 1 ? 's' : ''}`
-                : 'Aucun doublon detecte'
+                ? `${pendingDoublons.length} doublon${pendingDoublons.length > 1 ? 's' : ''} détecté${pendingDoublons.length > 1 ? 's' : ''}`
+                : 'Aucun doublon détecté'
               }
             </p>
           </div>
@@ -419,8 +441,13 @@ export default function DoublonsPage() {
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Users size={16} color="var(--primary)" />
+            <h2 style={{
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 22, fontWeight: 400, lineHeight: 1.15, letterSpacing: '-0.01em',
+              color: 'var(--foreground)', margin: 0,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <Users size={18} color="var(--primary)" />
               Possibles doublons ({pendingDoublons.length} paire{pendingDoublons.length > 1 ? 's' : ''} · {clusters.length} groupe{clusters.length > 1 ? 's' : ''})
             </h2>
             {clusters.map((cluster, ci) => {

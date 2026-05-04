@@ -18,11 +18,12 @@ const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dima
 type LineType = 'travail' | 'ferie' | 'vacances' | 'absence' | 'maladie'
 
 const LINE_TYPES: { key: LineType; label: string; color: string; icon: typeof Clock; autoHours: number | null }[] = [
-  { key: 'travail',  label: 'Heures travaillées', color: '#22C55E', icon: Clock,        autoHours: null },
-  { key: 'ferie',    label: 'Jour férié',         color: '#F59E0B', icon: Sun,           autoHours: 8 },
-  { key: 'vacances', label: 'Vacances',           color: '#3B82F6', icon: Umbrella,      autoHours: 8 },
-  { key: 'absence',  label: 'Absence',            color: '#EF4444', icon: UserX,         autoHours: null },
-  { key: 'maladie',  label: 'Maladie',            color: '#8B5CF6', icon: Thermometer,   autoHours: null },
+  // v2.1.8 — labels raccourcis (avant : "Heures travaillées" tronqué dans select cellule étroite → "Heures trava")
+  { key: 'travail',  label: 'Travail',   color: '#22C55E', icon: Clock,        autoHours: null },
+  { key: 'ferie',    label: 'Férié',     color: '#F59E0B', icon: Sun,           autoHours: 8 },
+  { key: 'vacances', label: 'Vacances',  color: '#3B82F6', icon: Umbrella,      autoHours: 8 },
+  { key: 'absence',  label: 'Absence',   color: '#EF4444', icon: UserX,         autoHours: null },
+  { key: 'maladie',  label: 'Maladie',   color: '#8B5CF6', icon: Thermometer,   autoHours: null },
 ]
 
 const ROWS: { key: string; label: string; type: 'number' | 'text' }[] = [
@@ -194,8 +195,12 @@ export default function RapportHeuresPage() {
           <ClipboardList size={22} style={{ color: COLOR }} />
         </div>
         <div>
-          <h1 className="d-page-title" style={{ margin: 0 }}>Rapport d&apos;heures</h1>
-          <p className="d-page-sub" style={{ margin: 0 }}>Créez et envoyez les rapports de travail hebdomadaires</p>
+          <h1 style={{
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+            color: 'var(--foreground)', margin: 0,
+          }}>Rapport d&apos;heures</h1>
+          <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', margin: '4px 0 0' }}>Créez et envoyez les rapports de travail hebdomadaires</p>
         </div>
       </div>
 
@@ -243,11 +248,12 @@ export default function RapportHeuresPage() {
             />
           </div>
         </div>
-        {/* Week dates preview */}
+        {/* Week dates preview — v2.1.8 contraste corrigé (avant : var(--muted) illisible sur fond orange-soft) */}
         <div style={{
-          marginTop: 14, padding: '8px 12px', borderRadius: 8,
-          background: COLOR_SOFT, border: `1px solid ${COLOR}30`,
-          fontSize: 12, color: 'var(--muted)',
+          marginTop: 14, padding: '10px 14px', borderRadius: 10,
+          background: COLOR_SOFT, border: `1px solid ${COLOR}40`,
+          fontSize: 13, fontWeight: 600, color: COLOR,
+          fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
         }}>
           Semaine {semaine} · {formatDate(dates[0])} au {formatDate(dates[6])}.{currentYear}
         </div>

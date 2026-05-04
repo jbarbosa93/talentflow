@@ -305,11 +305,8 @@ export default function AnalyserCandidatsPage() {
   const progressPct = overallProgress.total > 0 ? Math.round((overallProgress.current / overallProgress.total) * 100) : 0
 
   return (
-    <div className="d-page" style={{ maxWidth: 920, paddingBottom: 60 }}>
-      {/* Back */}
-      {/* v2.0.1 — Bouton retour interne supprimé (doublon du OutilsBackButton du layout) */}
-
-      {/* Header */}
+    <div className="d-page" style={{ maxWidth: 920, paddingBottom: 60, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      {/* Header — v2.1.8 design v2 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
@@ -320,8 +317,12 @@ export default function AnalyserCandidatsPage() {
             <Search size={22} style={{ color: '#8B5CF6' }} />
           </div>
           <div>
-            <h1 className="d-page-title" style={{ margin: 0 }}>Analyser les candidats</h1>
-            <p className="d-page-sub" style={{ margin: 0 }}>Audit qualite de votre base candidats</p>
+            <h1 style={{
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+              color: 'var(--foreground)', margin: 0,
+            }}>Analyser les candidats</h1>
+            <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', margin: '4px 0 0' }}>Audit qualité de votre base candidats</p>
           </div>
         </div>
 

@@ -101,16 +101,18 @@ export default function SecteursActiviteParamsPage() {
   }, [metiers])
 
   return (
-    <div className="d-page" style={{ maxWidth: 860 }}>
-      <div className="d-page-header" style={{ marginBottom: 28 }}>
-        <div>
-          <h1 className="d-page-title">Secteurs d&apos;activité (clients)</h1>
-          <p className="d-page-sub">
-            Liste des secteurs disponibles pour classer les clients (filtres, mailing, prospection).
-            Chaque secteur peut être lié à un métier représentatif pour récupérer la couleur de pastille.
-            Renommer un secteur met à jour automatiquement tous les clients qui l&apos;utilisent.
-          </p>
-        </div>
+    <div className="d-page" style={{ maxWidth: 920, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{
+          fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+          fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+          color: 'var(--foreground)', margin: 0,
+        }}>Secteurs d&apos;activité <span style={{ color: 'var(--muted-foreground)' }}>· clients</span></h1>
+        <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', margin: '6px 0 0', lineHeight: 1.55 }}>
+          Liste des secteurs disponibles pour classer les clients (filtres, mailing, prospection).
+          Chaque secteur peut être lié à un métier représentatif pour récupérer la couleur de pastille.
+          Renommer un secteur met à jour automatiquement tous les clients qui l&apos;utilisent.
+        </p>
       </div>
 
       <div className="neo-card-soft" style={{ padding: 24 }}>

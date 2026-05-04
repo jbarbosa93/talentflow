@@ -219,15 +219,16 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
+    <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
 
-      {/* Header */}
+      {/* Header — v2.1.8 design v2 */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
             <h1 style={{
-              fontSize: 24, fontWeight: 700, color: 'var(--foreground)',
-              letterSpacing: '-0.5px', margin: 0,
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+              color: 'var(--foreground)', margin: 0,
             }}>
               Administration
             </h1>

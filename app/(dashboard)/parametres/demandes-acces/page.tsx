@@ -84,15 +84,19 @@ export default function DemandesAccesPage() {
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ padding: '32px 40px', maxWidth: 900, margin: '0 auto', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
 
-      {/* Header */}
+      {/* Header — v2.1.8 design v2 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
+          <h1 style={{
+            fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+            fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+            color: 'var(--foreground)', margin: 0,
+          }}>
             Demandes d&apos;accès
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
+          <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', marginTop: 6 }}>
             Personnes ayant demandé un accès à TalentFlow depuis la landing page
           </p>
         </div>

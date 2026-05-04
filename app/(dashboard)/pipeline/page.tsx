@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import {
   Bell, X, Search, FileText, Eye, MapPin, Pencil, Trash2,
   UserPlus, Check, Settings2, GitBranch, CheckCircle2, Clock,
+  ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
@@ -807,6 +808,7 @@ export default function PipelinePage() {
   // Tabs
   const [activeConsultant, setActiveConsultant] = useState('Tous')
   const [activeMetier, setActiveMetier] = useState('Tous')
+  const [activeCategory, setActiveCategory] = useState<string | null>(null) // v2.1.8 — catégorie ouverte dans le dropdown horizontal
 
   // Modals
   const [showAdd, setShowAdd] = useState(false)
@@ -1028,7 +1030,7 @@ export default function PipelinePage() {
           const count = consultantCounts[c] ?? 0
           const active = activeConsultant === c
           return (
-            <button key={c} onClick={() => { setActiveConsultant(c); setActiveMetier('Tous') }} style={{
+            <button key={c} onClick={() => { setActiveConsultant(c); setActiveMetier('Tous'); setActiveCategory(null) }} style={{
               padding: '10px 18px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
               background: 'none', border: 'none', marginBottom: -1,
               borderBottom: active ? '2px solid #F5A623' : '2px solid transparent',
@@ -1048,14 +1050,12 @@ export default function PipelinePage() {
         })}
       </div>
 
-      {/* v2.0.5 — Pills métiers organisées par CATÉGORIE (avant : flat à la rache) */}
+      {/* v2.1.8 — Pills métiers : barre HORIZONTALE de catégories en haut + dropdown métiers en dessous quand catégorie active */}
       {metierTabs.length > 1 && (() => {
-        // Grouper les tabs métiers par catégorie via le hook useMetierCategories
         const labelToCategory = new Map<string, { name: string; color: string }>()
         for (const cat of categories) {
           for (const m of cat.metiers) labelToCategory.set(m, { name: cat.name, color: cat.color })
         }
-        // Buckets : 'Tous' & 'Autres' isolés en haut, puis catégories ordonnées
         const allTab = metierTabs.find(t => t.label === 'Tous')
         const autresTab = metierTabs.find(t => t.label === 'Autres')
         const realTabs = metierTabs.filter(t => t.label !== 'Tous' && t.label !== 'Autres')
@@ -1069,73 +1069,195 @@ export default function PipelinePage() {
         }
         const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], 'fr'))
 
-        const renderPill = (label: string, count: number, accent: string) => {
-          const active = activeMetier === label
-          return (
-            <button key={label} onClick={() => setActiveMetier(label)} style={{
-              padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              borderRadius: 20, border: `1px solid ${active ? accent : 'var(--border)'}`,
-              background: active ? accent : 'var(--surface, var(--card))',
-              color: active ? '#1C1A14' : 'var(--muted-foreground)',
-              transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
-              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-            }}>
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: active ? '#fff' : accent,
-                flexShrink: 0,
-                boxShadow: active ? '0 0 0 1.5px rgba(28,26,20,0.20)' : 'none',
-              }} />
-              {label}
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '0px 6px', borderRadius: 8,
-                background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
-                color: active ? '#1C1A14' : 'var(--muted-foreground)',
-              }}>{count}</span>
-            </button>
-          )
-        }
+        // Catégorie associée au métier actuellement sélectionné (pour surbrillance auto de la cat)
+        const activeMetierCat = activeMetier !== 'Tous' && activeMetier !== 'Autres'
+          ? labelToCategory.get(activeMetier)?.name
+          : null
+
+        // Catégorie ouverte dans le dropdown : par défaut suit le métier actif, sinon suit l'état local
+        // (état contrôlé via activeCategory déclaré dans le composant parent — voir useState plus bas)
+        const openCategory = activeCategory || activeMetierCat || null
+
+        const isCatActive = (catName: string) => openCategory === catName
+        const catTotal = (tabs: typeof realTabs) => tabs.reduce((acc, t) => acc + t.count, 0)
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-            {/* Ligne Tous + Autres */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              {allTab && renderPill(allTab.label, allTab.count, '#F5A623')}
-              {autresTab && renderPill(autresTab.label, autresTab.count, 'var(--muted)')}
+            {/* Barre horizontale : Tous + Catégories + Autres */}
+            <div style={{
+              display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center',
+              padding: 4, background: 'var(--surface, var(--card))',
+              border: '1px solid var(--border)', borderRadius: 12,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              {/* Tous */}
+              {allTab && (
+                <button
+                  onClick={() => { setActiveMetier('Tous'); setActiveCategory(null) }}
+                  style={{
+                    padding: '7px 14px', borderRadius: 8, border: 'none',
+                    background: activeMetier === 'Tous' ? 'var(--primary)' : 'transparent',
+                    color: activeMetier === 'Tous' ? '#1C1A14' : 'var(--muted-foreground)',
+                    fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  Tous
+                  <span style={{
+                    fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                    background: activeMetier === 'Tous' ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
+                    color: activeMetier === 'Tous' ? '#1C1A14' : 'var(--muted-foreground)',
+                    boxSizing: 'border-box', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                  }}>{allTab.count}</span>
+                </button>
+              )}
+              {/* Séparateur */}
+              {allTab && sortedGroups.length > 0 && <div style={{ width: 1, height: 22, background: 'var(--border)' }} />}
+              {/* Catégories — boutons cliquables qui ouvrent le dropdown métiers */}
+              {sortedGroups.map(([catName, { color, tabs }]) => {
+                const active = isCatActive(catName)
+                const hasActiveMetier = activeMetierCat === catName
+                return (
+                  <button
+                    key={catName}
+                    onClick={() => {
+                      // Si la cat est déjà ouverte → fermer
+                      if (active) {
+                        setActiveCategory(null)
+                      } else {
+                        setActiveCategory(catName)
+                      }
+                    }}
+                    style={{
+                      padding: '7px 14px', borderRadius: 8, border: 'none',
+                      background: active ? `${color}22` : 'transparent',
+                      color: active || hasActiveMetier ? color : 'var(--muted-foreground)',
+                      fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                      fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      transition: 'all 0.15s',
+                      borderBottom: hasActiveMetier ? `2px solid ${color}` : '2px solid transparent',
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    {catName}
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                      background: active ? `${color}33` : 'var(--secondary)',
+                      color: active ? color : 'var(--muted-foreground)',
+                      boxSizing: 'border-box', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                    }}>{catTotal(tabs)}</span>
+                    <ChevronDown size={12} style={{
+                      transition: 'transform 0.15s',
+                      transform: active ? 'rotate(180deg)' : 'rotate(0)',
+                      opacity: 0.6,
+                    }} />
+                  </button>
+                )
+              })}
+              {/* Autres + Sans catégorie */}
+              {(autresTab || uncategorized.length > 0) && (
+                <>
+                  <div style={{ width: 1, height: 22, background: 'var(--border)' }} />
+                  {autresTab && (
+                    <button
+                      onClick={() => { setActiveMetier('Autres'); setActiveCategory(null) }}
+                      style={{
+                        padding: '7px 14px', borderRadius: 8, border: 'none',
+                        background: activeMetier === 'Autres' ? 'var(--secondary)' : 'transparent',
+                        color: activeMetier === 'Autres' ? 'var(--foreground)' : 'var(--muted-foreground)',
+                        fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                        fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6,
+                      }}
+                    >
+                      Autres
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                        background: 'var(--card)', color: 'var(--muted-foreground)',
+                        boxSizing: 'border-box', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                      }}>{autresTab.count}</span>
+                    </button>
+                  )}
+                </>
+              )}
             </div>
-            {/* Catégories groupées */}
-            {sortedGroups.map(([catName, { color, tabs }]) => (
-              <div key={catName} style={{
-                display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
-                paddingTop: 4, borderTop: '1px dashed var(--border)',
-              }}>
+
+            {/* Dropdown métiers : affiché quand une catégorie est ouverte */}
+            {openCategory && (() => {
+              const group = groups.get(openCategory)
+              if (!group) return null
+              return (
                 <div style={{
-                  flexShrink: 0, paddingRight: 6,
-                  fontSize: 10.5, fontWeight: 800,
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                  color: color || 'var(--muted)',
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: 12,
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  display: 'flex', flexWrap: 'wrap', gap: 6,
+                  alignItems: 'center',
                   fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-                  minWidth: 110,
+                  animation: 'fadeIn 0.15s ease',
                 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color || 'var(--muted)' }} />
-                  {catName}
+                  {group.tabs.map(t => {
+                    const accent = getColorForMetier(t.label) || group.color || '#F5A623'
+                    const active = activeMetier === t.label
+                    return (
+                      <button key={t.label} onClick={() => setActiveMetier(t.label)} style={{
+                        padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        borderRadius: 20,
+                        border: `1.5px solid ${active ? accent : 'var(--border)'}`,
+                        background: active ? accent : 'var(--surface, var(--card))',
+                        color: active ? '#1C1A14' : 'var(--muted-foreground)',
+                        transition: 'all 0.15s', display: 'inline-flex', alignItems: 'center', gap: 6,
+                        fontFamily: 'inherit',
+                        boxShadow: active ? `0 4px 12px -4px ${accent}80` : 'none',
+                      }}>
+                        <span style={{
+                          width: 7, height: 7, borderRadius: '50%',
+                          background: active ? '#fff' : accent,
+                          flexShrink: 0,
+                          boxShadow: active ? '0 0 0 1.5px rgba(28,26,20,0.20)' : 'none',
+                        }} />
+                        {t.label}
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 6,
+                          background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
+                          color: active ? '#1C1A14' : 'var(--muted-foreground)',
+                          boxSizing: 'border-box', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                        }}>{t.count}</span>
+                      </button>
+                    )
+                  })}
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-                  {tabs.map(t => renderPill(t.label, t.count, getColorForMetier(t.label) || color || '#F5A623'))}
-                </div>
-              </div>
-            ))}
+              )
+            })()}
+
+            {/* Sans catégorie : si présent, dropdown séparé toujours visible (pas de cat parente) */}
             {uncategorized.length > 0 && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px dashed var(--border)' }}>
-                <div style={{
-                  flexShrink: 0, paddingRight: 6,
-                  fontSize: 10.5, fontWeight: 800,
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '4px 8px' }}>
+                <span style={{
+                  fontSize: 10.5, fontWeight: 800, color: 'var(--muted)',
                   textTransform: 'uppercase', letterSpacing: '0.06em',
-                  color: 'var(--muted)', minWidth: 110,
                   fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
-                }}>Sans catégorie</div>
-                {uncategorized.map(t => renderPill(t.label, t.count, getColorForMetier(t.label) || '#F5A623'))}
+                  marginRight: 4,
+                }}>Sans catégorie :</span>
+                {uncategorized.map(t => {
+                  const accent = getColorForMetier(t.label) || '#F5A623'
+                  const active = activeMetier === t.label
+                  return (
+                    <button key={t.label} onClick={() => setActiveMetier(t.label)} style={{
+                      padding: '4px 10px', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                      borderRadius: 16,
+                      border: `1px solid ${active ? accent : 'var(--border)'}`,
+                      background: active ? accent : 'var(--surface, var(--card))',
+                      color: active ? '#1C1A14' : 'var(--muted-foreground)',
+                      fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      {t.label}
+                      <span style={{ fontSize: 10, opacity: 0.7 }}>{t.count}</span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

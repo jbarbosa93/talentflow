@@ -118,14 +118,18 @@ export default function ImportMassePage() {
 
       {/* v1.9.127 — Bouton retour interne supprimé (le layout /parametres fournit déjà "← Retour aux paramètres") */}
 
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
+      {/* Header — v2.1.8 design v2 (Instrument Serif title + Jakarta) */}
+      <div style={{ marginBottom: 32, fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--foreground)', letterSpacing: '-0.5px', margin: 0 }}>
+            <h1 style={{
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 32, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+              color: 'var(--foreground)', margin: 0,
+            }}>
               Import en masse
             </h1>
-            <p style={{ fontSize: 14, color: 'var(--muted)', marginTop: 4 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--muted-foreground)', marginTop: 6 }}>
               Importez et traitez des centaines de CVs en lot — traitement automatique par IA
             </p>
           </div>
