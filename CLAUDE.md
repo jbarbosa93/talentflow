@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.1.0 prod (Polish post-V2 : 50+ fixes UX/design groupés par thème)** — 04/05/2026
+**2.1.9 prod (5 packs successifs : modals refondus + pipeline horizontal cats + polish 12 pages + fix tri clients)** — 04/05/2026
 
 ---
 
@@ -399,6 +399,14 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
 **36. Bandeau "Actualisé" pending-validation** (v1.9.106) — `pending-validation/route.ts` L161-180 ajoute `onedrive_change_type:'mis_a_jour'` + `onedrive_change_at` au payload. Cohérent cv/parse cvUpdated, onedrive/sync update, candidats/[id] onCvChange.
+
+**48. Tri server-side obligatoire avec pagination** (v2.1.9) — Le sélecteur "Plus récents / A→Z / Z→A" sur `/clients` ne triait QUE la page courante (20 résultats) côté front, après que `/api/clients` ait trié par `nom_entreprise ASC` par défaut. Résultat : un nouveau client (Z Truc Sàrl, page 62) restait invisible en mode "Plus récents". **Règle générale** : dès que la pagination est server-side (LIMIT/OFFSET sur Supabase), le tri DOIT l'être aussi. Tri client-only = ne fonctionne que pour les éléments DÉJÀ dans la page renvoyée. Fix : param `?sort=recent|az|za` à l'API + propagation via hook (`filters.sort` dans queryKey → refetch automatique). Vérifier les autres listes paginées (candidats, missions, offres) si même piège.
+
+**47. Toasts Sonner dédup + dismiss permanent** (v2.1.5) — 2 patterns à connaître pour les toasts longs/répétés :
+1. **Dédup** : passer un `id` stable au toast (`toast.success(msg, { id: 'rappel-deleted-' + rid })`) → si le même id est ré-émis (ex : suppression cascade modal+panel), Sonner remplace au lieu d'ajouter. Évite les doubles toasts.
+2. **Notif permanente dismissable** : pour un toast `duration: Infinity` (ex : alerte rappel à valider), utiliser un id stable (`'rappel-notif-' + rid`) ET appeler `toast.dismiss('rappel-notif-' + rid)` quand l'action devient obsolète (rappel marqué done/supprimé) — sinon le toast reste affiché avec un bouton "Valider" qui ne fait plus rien.
+
+**46. Modal portalisé v2 — pattern Documents** (v2.1.6) — Pour tout nouveau modal centré (Notes, Pipeline-actions, etc.) reproduire la structure DocumentsPanel : `createPortal` + backdrop `rgba(0,0,0,0.55) blur(6px)` + container `width: min(640-900px, 95vw) maxHeight: 88vh background: var(--card) borderRadius: 16 boxShadow: 0 24px 64px rgba(0,0,0,0.30)` + header `padding 20px 24px 18px borderBottom 1px solid var(--border)` avec **DialogTitle Instrument Serif 22-24** + sous-titre count en `var(--text-3)` + bouton X 34×34 `border 1px var(--border) hover background var(--surface-2)`. Boutons CTA primary en jaune brand (pas surface gris). NE PAS utiliser de slide-over à droite pour les actions principales (réservé aux panneaux info secondaires).
 
 **45. Modals shadcn/ui en design V2** (v2.1.0) — Les composants `<Dialog>` shadcn ont des classes par défaut (`bg-background`, `text-base font-medium`) qui n'utilisent pas DM Sans / Instrument Serif. Pour respecter le design V2 : (a) sur `DialogContent` ajouter `style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', background: 'var(--card)', padding: 24, gap: 16, border: '1px solid var(--border)', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.35)' }}` ; (b) sur `DialogTitle` ajouter `style={{ fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', fontSize: 26, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--foreground)' }}`. **NE PAS modifier `components/ui/dialog.tsx`** (composant shadcn générique réutilisé partout) — appliquer les overrides au point d'usage. Précédent : modals templates `/messages` v2.1.0.
 
