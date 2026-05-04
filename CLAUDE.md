@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.0.0 prod (TalentFlow 2.0 — Design V2 mergé + WelcomeV2Modal confettis)** — 03/05/2026
+**2.1.0 prod (Polish post-V2 : 50+ fixes UX/design groupés par thème)** — 04/05/2026
 
 ---
 
@@ -399,6 +399,10 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
 **36. Bandeau "Actualisé" pending-validation** (v1.9.106) — `pending-validation/route.ts` L161-180 ajoute `onedrive_change_type:'mis_a_jour'` + `onedrive_change_at` au payload. Cohérent cv/parse cvUpdated, onedrive/sync update, candidats/[id] onCvChange.
+
+**45. Modals shadcn/ui en design V2** (v2.1.0) — Les composants `<Dialog>` shadcn ont des classes par défaut (`bg-background`, `text-base font-medium`) qui n'utilisent pas DM Sans / Instrument Serif. Pour respecter le design V2 : (a) sur `DialogContent` ajouter `style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif', background: 'var(--card)', padding: 24, gap: 16, border: '1px solid var(--border)', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.35)' }}` ; (b) sur `DialogTitle` ajouter `style={{ fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif', fontSize: 26, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--foreground)' }}`. **NE PAS modifier `components/ui/dialog.tsx`** (composant shadcn générique réutilisé partout) — appliquer les overrides au point d'usage. Précédent : modals templates `/messages` v2.1.0.
+
+**44. Pipeline grid horizontal + pills par catégorie** (v2.1.0) — Ancien pipeline (v2.0.1) en LISTE single column ne respectait pas l'alignement de colonnes (chaque card avait ses widths internes flottants). Refonte v2.1.0 : grid horizontal STRICT avec `flex: '0 0 Npx'` (Photo 48 / Nom+métier flex 1 / Lieu 200 / Âge 50 / Notes 220 / Rappel 90 / Actions 180) + header colonnes Jakarta uppercase 10.5px au-dessus. Pills métiers GROUPÉES PAR CATÉGORIE via `useMetierCategories` : pour chaque catégorie, label coloré uppercase à gauche (min 110px) + pills à droite, séparés par `borderTop: 1px dashed`. "Tous" et "Autres" isolés en haut. Renderer factorisé en helper `renderPill(label, count, accent)`. Ne JAMAIS revenir au wrap flat (illisible quand >10 métiers).
 
 **43. Alignement liste candidats — `flex: 0 0 Npx` strict obligatoire** (v2.0.0) — Bug récurrent vu sur 4 sessions : les wrappers row utilisaient `width: Npx + flexShrink: 0` mais les spans header n'avaient pas tous `flexShrink: 0` → en flex étroit, les cellules header se compressaient (130 → 80px) alors que rows gardaient leurs 130 → décalage 30-90px visuellement. **Fix définitif** : remplacer tout par `flex: '0 0 Npx'` (shorthand strict no-grow/no-shrink/basis) sur header ET row simultanément. Ajouter `width: 68, height: 68` explicite sur le wrapper avatar du row (qui n'avait pas de width). NE JAMAIS revenir à `width + flexShrink:0` qui peut diverger silencieusement.
 

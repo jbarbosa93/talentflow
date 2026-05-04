@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.0.3'
+export const APP_VERSION = '2.1.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -17,53 +17,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '2.0.3',
+    version: '2.1.0',
     date: '2026-05-04',
-    label: 'Pack 9 fixes (sécurité admin, fiche candidat, intégrations, sidebar, compaction liste)',
+    label: 'TalentFlow 2.1 — Polish complet post-V2 (50+ fixes UX/design groupés par thème)',
     features: [
-      'SÉCURITÉ ADMIN — /parametres hub : sections "Demandes d\'accès" et "Administration" filtrées côté client (visibles uniquement si email==ADMIN_EMAIL OU role∈{Admin,Administrateur}). Pages /parametres/admin et /parametres/demandes-acces : guard `useRequireAdmin()` redirige vers /parametres si non-admin (UX). Sidebar : check via helper `isAdminUser()` cohérent (email OU role).',
-      'FICHE CANDIDAT — Boutons photo réduits 26→22 (demande João : trop grands). Bouton ciseaux fonctionnel : `<PhotoCropModal>` déplacé au niveau racine (était dans col 1 cachée en lecture). Ancien bouton "Documents" en col 1 supprimé (doublonnait celui du header). Bouton Valider passé en VERT bien visible (bg #16A34A + ring #15803D + shadow brand vert).',
-      'INTÉGRATIONS — Carte fichier en attente : background `var(--card-bg, #FFF)` → `var(--surface, var(--card))` pour respecter le dark mode (avant : box blanche fixe en dark).',
-      'LISTE CANDIDATS — Petit œil sur photo supprimé (la fonctionnalité hover CV reste sur l\'avatar). Délai d\'ouverture CV preview 200→60ms, fermeture 200→80ms (quasi instantané).',
-      'SIDEBAR — Barre indicatrice gauche de l\'item actif passe de NOIR `#1C1A14` → ORANGE FONCÉ `#B45309` (cohérent avec brand jaune --primary, contraste OK).',
-      'LISTE CANDIDATS COMPACTION — Avatar 68→48, padding row 12/18→8/14, gap 14→10, radius 14→12, nom 17→14, lieu col 170→150, INFO col 320→260, étoiles 15→13 + col 130→110, notes col 60→48 + bouton 28→24, âge pill 12→11. Onglets Actif/À traiter h32→h28 + padding compact. Tous les boutons barre filtres uniformisés en h28.',
-      'PAGINATION INLINE — Mini-pager (chevrons + Page X/Y) déplacé à côté du compteur "/ N" dans la barre filtres (avant : ligne horizontale séparée au-dessus de la liste). Plus compact.',
-    ],
-  },
-  {
-    version: '2.0.2',
-    date: '2026-05-04',
-    label: 'Pack 9 fixes UX/design (sidebar, paging, métiers, notes preview, prospection, cards clients)',
-    features: [
-      'SIDEBAR — pointillés séparateurs supprimés (logo + footer Configuration). Padding logo réduit pour remonter la nav. Bouton toggle sidebar topbar : bordure 1.5px + box-shadow doublonnée → supprimés (petit trait fantôme à côté du logo).',
-      'LISTE CANDIDATS — Pagination bas en police Jakarta (était police système). Label "Page X/Y" déplacé de la barre filtres vers le pager subtil en haut. fontFamily Jakarta forcée sur tout le wrapper barre filtres (selecteur perPage, labels).',
-      'NOTES PREVIEW HOVER — Si un candidat a au moins une note, mouseover sur le bouton notes affiche la dernière note en preview (portail, pointer-events: none). Sans clic, sans ouvrir le popover éditable.',
-      'CATÉGORIE MÉTIER DROPDOWN — Police catégorie augmentée 11→12.5px + uppercase + letter-spacing pour lisibilité. Pastille couleur 7→9px.',
-      'LISTE CANDIDATS MÉTIERS MULTIPLES — Affiche jusqu\'à 2 métiers séparés par virgule (au lieu de 1 + "+N"). Si 3+ métiers, "Métier1, Métier2 +N". Tooltip portal au mouseEnter affiche tous les métiers.',
-      'ENVOIS HISTORIQUE — Le panneau de droite affiche désormais les NOMS des candidats (pill 👤 brand jaune) au lieu des numéros/emails bruts si la campagne a des candidats liés. Fallback sur destinataires bruts sinon.',
-      'MODAL PROSPECTION — z-index sticky header "Sélectionner les visibles" passé à 5 (logos clients ne passent plus devant). Dropdown secteurs : pastille couleur du secteur résolue via mapping métier représentatif (cohérent avec les pills cards clients).',
-      'CARDS CLIENTS — Bloc Contact info (email/tel/site web) supprimé des cards (info accessible sur la fiche client). Date de création de l\'entreprise affichée en haut à droite (pattern cohérent avec liste candidats).',
-    ],
-  },
-  {
-    version: '2.0.1',
-    date: '2026-05-03',
-    label: 'Pack 22 fixes/améliorations post-v2.0 (UX, design, fonctionnalités, accès admin)',
-    features: [
-      'ACCÈS ADMIN ROBUSTE — `requireAdmin` côté serveur (route /api/secteurs-activite) accepte désormais email==ADMIN_EMAIL OU user_metadata.role∈{Admin,Administrateur}. Évite blocage 403 quand ADMIN_EMAIL Vercel diffère de l\'email du compte admin TalentFlow réel.',
-      'WHATSAPP + MAIL FICHE CANDIDAT — Boutons en haut à droite (header actions) pré-remplissent désormais sujet+corps email + message WhatsApp. WhatsApp ouvre directement l\'app native via `whatsapp://send?phone=X&text=MESSAGE` au lieu de wa.me/X (web).',
-      'PIPELINE V2 EN LISTE — Refonte complète du pipeline en LISTE single column (au lieu de grille 3 cols). Layout row compact : avatar + nom + métier + meta + rappel badge + actions. Plus rapide à scanner. Onglet métier sélectionné : background couleur métier + point/texte FONCÉ contrastant (avant texte blanc invisible sur jaune). Modal "Mes rappels" : contraste corrigé (texte foncé sur primary-soft au lieu de jaune sur jaune).',
-      'SIDEBAR — Barre indicatrice gauche de l\'item actif passe de jaune (invisible sur fond jaune --primary) à INK foncé (#1C1A14) bien visible.',
-      'LISTE CANDIDATS — Pagination subtile en haut (chevrons + page X/Y, n\'importe pas la pagination du bas). Compteur total en pill avec tabular-nums (ex: "4 179"). Onglet Archivé supprimé. Onglets Actif / À traiter en segmented control V2 (vert/orange soft, font Jakarta 700). Fade overflow + tooltip hover sur localisation/nom (plus de débordement qui décale Âge).',
-      'MATCHING IA — Résultats passent en LISTE compacte (au lieu de grille cards 340px). 1 row par candidat avec : checkbox / rang / avatar / nom+métier+lieu / tags compétences ✓✗ / mini-barres compétence-expérience / score circulaire / actions CV+Profil. "Vider les résultats" reset aussi selectedIds via useEffect filet de sécurité. Modal Contacter : header en Instrument Serif 22px + fontFamily Jakarta sur tout le wrapper.',
-      'INTÉGRATIONS — Cards visuelles OneDrive/Microsoft 365/WhatsApp Business cachées (statut accessible via le panneau OneDrive ci-dessous).',
-      'OUTILS — Boutons retour internes "← Outils" supprimés sur 4 outils (analyser-candidats, rapport-heures, corriger-photos, doublons) car doublonnent le BackButton du layout. ParametresBackButton intelligent : pour les 3 outils dans /parametres/* (import-masse, doublons, corriger-photos), label/href "Retour à outils" → /outils au lieu de "Retour aux paramètres" → /parametres.',
-      'MISSIONS — fontFamily Jakarta forcée sur le wrapper d-page (uniformise les inputs/tables/textes natifs qui héritaient une police système différente).',
-      'FICHE CANDIDAT — Boutons photo (Camera/Crop/Rotation/Delete) déplacés EN DESSOUS de la photo (au lieu de chevaucher en bas-droite) → vision complète de la photo sans masquage. Hover surbrillance brand jaune sur téléphone et email (cohérent avec le hover lieu Google Maps). Pills CFC + Engagé maintenant en VERT (cohérent avec la liste candidats).',
-      'CV WORD VIEWER — Office Web Viewer Microsoft (`view.officeapps.live.com/op/embed.aspx`) au lieu de Google Docs Viewer (deprecated, cassait régulièrement sur les URLs Supabase signées).',
-      'FILTRES AVANCÉS — Boutons CFC + ENGAGÉ filtres alignés en VERT (au lieu de orange pour CFC) → cohérent avec la pill liste candidats. fontFamily Jakarta forcée sur les labels.',
-      '"TOUT MARQUER VU" — reset COMPLET (16-B) : badge rouge ✓ + badges colorés Nouveau/Actualisé/Réactivé. Implémentation : (a) localStorage `recently-updated` cleared via `clearAllRecentlyUpdated()`, (b) DB UPDATE `onedrive_change_type=null` + `onedrive_change_at=null` sur tous les candidats avec ces colonnes, (c) invalidation React Query `["candidats"]` pour refresh visuel immédiat. Side-effect cross-user assumé (action volontaire qui reset l\'état visuel global).',
-      'AUDIT BADGES — Documenté : badge rouge per-user (hasBadge sur viewedSet+viewedAllAt+last_import_at) ≠ badges colorés (localStorage manuel + DB onedrive_change_type). Avant 2.0.1, "Tout marquer vu" ne clearait QUE le badge rouge → badges colorés persistaient. Désormais les 2 sont synchronisés.',
+      'SÉCURITÉ ADMIN HARDENED — `requireAdmin` côté serveur accepte désormais email==ADMIN_EMAIL OU user_metadata.role∈{Admin,Administrateur} (évite 403 quand ADMIN_EMAIL Vercel diffère). Hub /parametres : sections "Demandes d\'accès" et "Administration" filtrées côté client. Pages /parametres/admin et /parametres/demandes-acces : guard `useRequireAdmin()` redirige vers /parametres si non-admin. Sidebar cohérente via helper `isAdminUser()`.',
+      'PIPELINE REFONTE COMPLÈTE — Passage de la grille 3 cols à une LISTE grid horizontal avec colonnes alignées (Photo 48 / Nom+métier flex / Lieu 200 / Âge 50 / Notes 220 / Rappel 90 / Actions 180) + header colonnes Jakarta uppercase. Pills métiers GROUPÉES PAR CATÉGORIE (Maçonnerie, Électricité, etc.) via `useMetierCategories`, séparateurs pointillés + label catégorie coloré (avant : wrap flat à la rache). Onglet métier actif : point blanc + texte foncé contrastant. Modal "Mes rappels" contraste corrigé.',
+      'LISTE CANDIDATS — Compaction massive : avatar 68→48, padding row 8/14, gap 10, radius 12, nom 14px, INFO col 260, étoiles col 110, notes col 48 + bouton 24, âge pill 11px. Onglets Actif/À traiter h28 segmented control V2 (vert/orange soft). Mini-pager inline (chevrons + Page X/Y) à côté du compteur "/ N" dans la barre filtres. Compteur total en pill tabular-nums. Onglet Archivé supprimé. Affiche jusqu\'à 2 métiers + "+N" tooltip portal. Petit œil sur photo supprimé (hover CV reste sur l\'avatar). Délai CV preview 200→60ms ouverture, 200→80ms fermeture. Fade overflow sur localisation/nom (plus de débordement). Police Jakarta forcée partout (paging, selecteurs, labels).',
+      'LISTE CLIENTS — Mode liste refondu en GRID horizontal style liste candidats avec header de colonnes (Statut / Nom / Lieu / Secteur / Téléphone / Email / Date). Email + téléphone CLIQUABLES (mailto/tel) avec stopPropagation. Logos clients via cascade logo.dev → Google Favicons → initiales. Modes grille et split conservent les cards classiques.',
+      'FICHE CANDIDAT — Boutons photo (Camera/Crop/Rotation/Delete) en BAS de la photo en 18×18 avec couleurs originales (jaune brand / orange / bleu info-soft / rouge destructive-soft). Bouton ciseaux fonctionnel (`<PhotoCropModal>` déplacé au niveau racine, était dans col 1 cachée en lecture). Bouton "Documents" col 1 supprimé (doublonnait header). Bouton Valider VERT vif (bg #16A34A + border #15803D + shadow brand vert) — className neo-btn supprimée car overrides CSS bloquaient. Hover surbrillance brand jaune sur téléphone/email (cohérent hover lieu Google Maps). Pills CFC + Engagé en vert. WhatsApp + Mail header pré-remplissent sujet+corps. WhatsApp via `whatsapp://send?...` (app native) au lieu de wa.me/.',
+      'WhatsApp + MAIL FICHE CANDIDAT — Boutons header pré-remplissent désormais sujet+corps email + message WhatsApp. WhatsApp ouvre l\'app native via `whatsapp://send?phone=X&text=MESSAGE`.',
+      'SIDEBAR — Pointillés séparateurs supprimés (logo + footer Configuration). Padding logo réduit pour remonter la nav. Bouton toggle topbar : bordure 1.5px + box-shadow doublonnée supprimés (petit trait fantôme). Barre indicatrice gauche de l\'item actif : ORANGE FONCÉ #B45309 (cohérent brand jaune, contraste OK).',
+      'TEMPLATES (/messages) — Refonte grid cards en LISTE compacte single-column (1 row par template : pastille canal + nom + sujet/preview + boutons "Copier vers" + Pencil + Trash). Modals "Nouveau template" et "Modifier le template" stylés design V2 : DialogContent en `var(--card)` + Jakarta + padding 24, DialogTitle en Instrument Serif 26px (au lieu sans-serif shadcn par défaut).',
+      'MATCHING IA — Résultats en LISTE compacte (au lieu grille cards 340px). 1 row par candidat avec checkbox / rang / avatar / nom+métier+lieu / tags compétences ✓✗ / mini-barres / score circulaire / actions CV+Profil. "Vider résultats" reset aussi selectedIds. Modal Contacter : header Instrument Serif 22px + Jakarta wrapper.',
+      'NOTES PREVIEW HOVER — Si candidat a une note, mouseover bouton notes affiche dernière note en preview (portail, pointer-events: none) sans ouvrir popover éditable.',
+      'CATÉGORIE MÉTIER DROPDOWN — Police catégorie 11→12.5px uppercase letter-spacing. Pastille 7→9px.',
+      'ENVOIS HISTORIQUE — Panneau droite affiche NOMS candidats (pill 👤 brand jaune) au lieu des numéros/emails si campagne a candidats liés.',
+      'MODAL PROSPECTION — z-index sticky header passé à 5 (logos clients ne passent plus devant). Dropdown secteurs : pastille couleur résolue via mapping métier représentatif (cohérent pills cards clients).',
+      'INTÉGRATIONS — Cards visuelles OneDrive/Microsoft 365/WhatsApp Business cachées (statut via panneau OneDrive). PendingValidation : wrapper externe orange-soft (alerte) + card intérieure `var(--card)` foncé en dark mode + DIFF intérieure (CHAMP / CANDIDAT SUSPECT / CV IMPORTÉ) en `var(--surface)` dark-aware avec bordure (avant : `#F9FAFB` hardcodé illisible en dark).',
+      'OUTILS & PARAMÈTRES — Boutons retour internes "← Outils" supprimés sur 4 outils (analyser-candidats, rapport-heures, corriger-photos, doublons) qui doublonnaient le BackButton. ParametresBackButton intelligent : pour les 3 outils dans /parametres/*, label/href "Retour à outils" → /outils au lieu de /parametres.',
+      'CV WORD VIEWER — Office Web Viewer Microsoft (`view.officeapps.live.com/op/embed.aspx`) au lieu de Google Docs Viewer deprecated qui cassait sur URLs Supabase signées.',
+      'MISSIONS — fontFamily Jakarta forcée sur wrapper d-page (uniformise inputs/tables/textes natifs).',
+      '"TOUT MARQUER VU" — Reset COMPLET (16-B) : badge rouge + badges colorés Nouveau/Actualisé/Réactivé. (a) localStorage `recently-updated` cleared, (b) DB UPDATE `onedrive_change_type=null + onedrive_change_at=null`, (c) invalidation `["candidats"]`. Side-effect cross-user assumé.',
+      '0 LOGIQUE MÉTIER TOUCHÉE — `git diff main..HEAD -- app/api lib/supabase middleware.ts lib/candidat-matching* lib/cv-photo* lib/normalize-localisation lib/geocode-localisation` = 0 ligne. Tous les fixes 2.1 sont strictement design/UX.',
     ],
   },
   {

@@ -2136,89 +2136,49 @@ function TemplatesTab() {
                   <span style={{ fontSize: 12, color: 'var(--muted)' }}>{meta.description}</span>
                 </div>
 
-                {/* Grid cards V2 */}
+                {/* v2.0.4 — LISTE row compacte (au lieu de grid cards 320px) */}
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                  gap: 12,
+                  display: 'flex', flexDirection: 'column',
+                  border: '1px solid var(--border)',
+                  borderRadius: 12,
+                  background: 'var(--surface, var(--card))',
+                  overflow: 'hidden',
                 }}>
-                  {items.map((t: any) => (
+                  {items.map((t: any, idx) => (
                     <div key={t.id}
                       style={{
-                        background: 'var(--surface, var(--card))',
-                        border: '1px solid var(--border)',
-                        borderRadius: 12, padding: '14px 16px',
-                        display: 'flex', flexDirection: 'column', gap: 10,
-                        transition: 'border-color 0.15s, transform 0.12s, box-shadow 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 14px',
+                        borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
+                        transition: 'background 0.12s',
                       }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.borderColor = `${meta.color}55`
-                        e.currentTarget.style.transform = 'translateY(-2px)'
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.06)'
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.borderColor = 'var(--border)'
-                        e.currentTarget.style.transform = 'none'
-                        e.currentTarget.style.boxShadow = 'none'
-                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     >
-                      {/* Header card : nom + actions */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: 14, fontWeight: 700, color: 'var(--foreground)',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>{t.nom}</div>
-                          {canal === 'email' && t.sujet && (
-                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {t.sujet}
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                          <button
-                            onClick={() => setEditingTemplate(t)}
-                            title="Modifier"
-                            style={{
-                              width: 26, height: 26, borderRadius: 7,
-                              border: '1px solid transparent', background: 'transparent',
-                              color: 'var(--muted)', cursor: 'pointer',
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.color = 'var(--foreground)' }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)' }}
-                          >
-                            <Pencil size={13} />
-                          </button>
-                          <button
-                            onClick={() => deleteTemplate.mutate(t.id)}
-                            title="Supprimer"
-                            style={{
-                              width: 26, height: 26, borderRadius: 7,
-                              border: '1px solid transparent', background: 'transparent',
-                              color: 'var(--muted)', cursor: 'pointer',
-                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626' }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                      {/* Pastille canal */}
+                      <span style={{
+                        width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                        background: meta.bg, color: meta.color,
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 14,
+                      }}>{meta.icon}</span>
+
+                      {/* Nom + sujet/preview corps — flex 1 */}
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{
+                          fontSize: 13, fontWeight: 700, color: 'var(--foreground)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>{t.nom}</div>
+                        <div style={{
+                          fontSize: 11.5, color: 'var(--muted)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {canal === 'email' && t.sujet ? `${t.sujet} · ` : ''}{(t.corps || '').replace(/\s+/g, ' ').slice(0, 80)}
                         </div>
                       </div>
 
-                      {/* Preview corps */}
-                      <div style={{
-                        fontSize: 12, color: 'var(--muted)', lineHeight: 1.5,
-                        overflow: 'hidden', display: '-webkit-box',
-                        WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as any,
-                        flex: 1,
-                      }}>
-                        {t.corps}
-                      </div>
-
-                      {/* Footer : copier vers autres canaux */}
-                      <div style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px dashed var(--border)' }}>
+                      {/* Boutons "Copier vers" autres canaux */}
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         {(['email', 'sms', 'whatsapp'] as const)
                           .filter(c => c !== canal)
                           .map(target => {
@@ -2229,8 +2189,8 @@ function TemplatesTab() {
                                 onClick={() => copyToCanal(t, target)}
                                 title={`Copier vers ${tm.label}`}
                                 style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                                  height: 24, padding: '0 8px', borderRadius: 6,
+                                  display: 'inline-flex', alignItems: 'center', gap: 3,
+                                  height: 24, padding: '0 7px', borderRadius: 6,
                                   background: 'transparent', border: '1px solid var(--border)',
                                   color: 'var(--muted)', fontSize: 10.5, fontWeight: 500,
                                   cursor: 'pointer', fontFamily: 'inherit',
@@ -2239,10 +2199,42 @@ function TemplatesTab() {
                                 onMouseEnter={e => { e.currentTarget.style.background = tm.bg; e.currentTarget.style.borderColor = tm.color + '55'; e.currentTarget.style.color = tm.color }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
                               >
-                                <span>{tm.icon}</span> {tm.label}
+                                <span>{tm.icon}</span>
                               </button>
                             )
                           })}
+                      </div>
+
+                      {/* Actions Pencil + Trash */}
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0, marginLeft: 4 }}>
+                        <button
+                          onClick={() => setEditingTemplate(t)}
+                          title="Modifier"
+                          style={{
+                            width: 26, height: 26, borderRadius: 7,
+                            border: '1px solid transparent', background: 'transparent',
+                            color: 'var(--muted)', cursor: 'pointer',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.color = 'var(--foreground)' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)' }}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          onClick={() => deleteTemplate.mutate(t.id)}
+                          title="Supprimer"
+                          style={{
+                            width: 26, height: 26, borderRadius: 7,
+                            border: '1px solid transparent', background: 'transparent',
+                            color: 'var(--muted)', cursor: 'pointer',
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.10)'; e.currentTarget.style.color = '#DC2626' }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--muted)' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2253,10 +2245,26 @@ function TemplatesTab() {
         </div>
       )}
 
+      {/* v2.0.5 — Modals templates en design V2 (Jakarta + Instrument Serif title) */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent
+          className="sm:max-w-xl"
+          style={{
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            background: 'var(--card)',
+            padding: 24, gap: 16,
+            border: '1px solid var(--border)',
+            boxShadow: '0 24px 64px -16px rgba(0,0,0,0.35)',
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Nouveau template</DialogTitle>
+            <DialogTitle style={{
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 26, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+              color: 'var(--foreground)',
+            }}>
+              Nouveau template
+            </DialogTitle>
           </DialogHeader>
           <CreateTemplateForm onSuccess={() => { setShowCreate(false); refetch() }} />
         </DialogContent>
@@ -2264,9 +2272,24 @@ function TemplatesTab() {
 
       {/* v1.9.83 — Dialog édition (réutilise CreateTemplateForm en mode PATCH) */}
       <Dialog open={!!editingTemplate} onOpenChange={(open) => { if (!open) setEditingTemplate(null) }}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent
+          className="sm:max-w-xl"
+          style={{
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            background: 'var(--card)',
+            padding: 24, gap: 16,
+            border: '1px solid var(--border)',
+            boxShadow: '0 24px 64px -16px rgba(0,0,0,0.35)',
+          }}
+        >
           <DialogHeader>
-            <DialogTitle>Modifier le template</DialogTitle>
+            <DialogTitle style={{
+              fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+              fontSize: 26, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+              color: 'var(--foreground)',
+            }}>
+              Modifier le template
+            </DialogTitle>
           </DialogHeader>
           {editingTemplate && (
             <CreateTemplateForm

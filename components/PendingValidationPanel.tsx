@@ -102,7 +102,14 @@ export default function PendingValidationPanel() {
   if (fichiers.length === 0) return null
 
   return (
-    <div className="neo-card-soft" style={{ padding: 18, marginBottom: 14, borderLeft: '4px solid #F59E0B' }}>
+    <div style={{
+      padding: 18, marginBottom: 14,
+      /* v2.0.4 — fond orange soft (alerte warning) au lieu du blanc neo-card-soft */
+      background: 'var(--warning-soft, rgba(245,158,11,0.10))',
+      border: '1px solid rgba(245,158,11,0.30)',
+      borderLeft: '4px solid #F59E0B',
+      borderRadius: 14,
+    }}>
       <button
         type="button"
         onClick={() => setExpanded(v => !v)}
@@ -180,7 +187,13 @@ function PendingFichierCard({
   const cvNom = `${analyse.prenom || ''} ${analyse.nom || ''}`.trim() || '—'
 
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: 'var(--surface, var(--card))' }}>
+    <div style={{
+      border: '1px solid var(--border)', borderRadius: 10, padding: 14,
+      /* v2.0.4 — Card intérieure : fond surface FONCÉ pour bien contraster avec le wrapper orange-soft externe.
+         Avant : background: var(--surface) qui était identique au wrapper → texte muted illisible. */
+      background: 'var(--card)',
+      color: 'var(--foreground)',
+    }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
@@ -218,8 +231,8 @@ function PendingFichierCard({
         </div>
       </div>
 
-      {/* Diff side-by-side */}
-      <div style={{ background: 'var(--input-bg, #F9FAFB)', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+      {/* Diff side-by-side — v2.0.5 : background var(--surface) dark-aware (avant : #F9FAFB hardcodé illisible en dark) */}
+      <div style={{ background: 'var(--surface, var(--secondary))', borderRadius: 8, padding: 10, marginBottom: 12, border: '1px solid var(--border)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr', gap: 8, fontSize: 11, fontWeight: 700, color: 'var(--muted)', paddingBottom: 6, borderBottom: '1.5px solid var(--border)' }}>
           <div>CHAMP</div>
           <div>👤 CANDIDAT SUSPECT (DB)</div>

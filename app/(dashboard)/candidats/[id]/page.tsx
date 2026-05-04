@@ -864,14 +864,21 @@ export default function CandidatDetailPage() {
                 queryClient.invalidateQueries({ queryKey: ['candidats-a-traiter-count'] })
                 toast.success('Candidat validé')
               }}
-              className="neo-btn neo-btn-sm"
-              // v2.0.3 — Vert plein bien visible (override styles neo-btn potentiellement neutres)
+              // v2.0.4 — className neo-btn supprimée (les overrides CSS empêchaient le vert)
               style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
                 background: '#16A34A',
                 color: '#fff',
                 border: '1px solid #15803D',
-                boxShadow: '0 4px 12px -4px rgba(22,163,74,0.45)',
+                borderRadius: 8,
+                padding: '0 14px',
+                height: 32,
+                fontSize: 13,
                 fontWeight: 700,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px -4px rgba(22,163,74,0.45)',
+                transition: 'background 0.15s, transform 0.12s',
               }}
               onMouseOver={e => { (e.currentTarget as HTMLButtonElement).style.background = '#15803D' }}
               onMouseOut={e => { (e.currentTarget as HTMLButtonElement).style.background = '#16A34A' }}
@@ -1070,9 +1077,8 @@ export default function CandidatDetailPage() {
           background: `linear-gradient(90deg, ${fadeColor} 0%, transparent 55%)`,
           pointerEvents: 'none',
         }} />
-        {/* v2.0.1 — Avatar carré 140px + boutons photo placés EN DESSOUS de la photo (pas chevauchant)
-            pour avoir une vision complète de la photo. Wrapper passe en flex column. */}
-        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+        {/* v2.0.4 — Boutons photo EN BAS, plus petits, fond glass qui se fond dans le banner */}
+        <div style={{ flexShrink: 0, zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <div style={{ position: 'relative', width: 140, height: 140 }}>
             {(candidat.photo_url && candidat.photo_url !== 'checked')
               ? <Image src={candidat.photo_url} width={140} height={140} unoptimized
@@ -1093,17 +1099,17 @@ export default function CandidatDetailPage() {
               </div>
             )}
           </div>
-          {/* Toolbar boutons photo — v2.0.3 réduits 26→22 (demande João : trop grands) */}
-          <div style={{ display: 'flex', gap: 5, justifyContent: 'center' }}>
+          {/* Toolbar boutons photo — v2.0.5 : 18×18, retour aux couleurs (jaune/orange/bleu/rouge) demande João */}
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
             <button onClick={() => photoInputRef.current?.click()} title="Changer la photo"
               className="candidat-photo-btn"
-              style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <Camera size={11} color="var(--primary-foreground)" />
+              style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+              <Camera size={10} color="var(--primary-foreground)" />
             </button>
             {candidat.cv_url && (
               <button onClick={() => setShowCropModal(true)} title="Crop depuis le CV"
                 className="candidat-photo-btn"
-                style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 10 }}>
+                style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: '#FFF7ED', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 9 }}>
                 ✂️
               </button>
             )}
@@ -1111,13 +1117,13 @@ export default function CandidatDetailPage() {
               <>
                 <button onClick={handlePhotoRotate} title="Rotation 90°"
                   className="candidat-photo-btn"
-                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <RotateCw size={11} color="var(--info)" />
+                  style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--info-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <RotateCw size={10} color="var(--info)" />
                 </button>
                 <button onClick={handlePhotoDelete} title="Supprimer la photo"
                   className="candidat-photo-btn"
-                  style={{ width: 22, height: 22, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                  <X size={11} color="var(--destructive)" />
+                  style={{ width: 18, height: 18, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--destructive-soft)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                  <X size={10} color="var(--destructive)" />
                 </button>
               </>
             )}

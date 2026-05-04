@@ -1233,6 +1233,28 @@ export default function ClientsPage() {
           flexDirection: (viewMode === 'list' || viewMode === 'split') ? 'column' : undefined,
           gap: viewMode === 'grid' ? 16 : 8,
         }}>
+          {/* v2.0.5 — Header colonnes mode liste (cohérence avec liste candidats) */}
+          {viewMode === 'list' && clients.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '8px 14px',
+              fontSize: 10.5, fontWeight: 700,
+              color: 'var(--muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 4,
+            }}>
+              <div style={{ flex: '0 0 86px' }}>Statut</div>
+              <div style={{ flex: '1 1 0', minWidth: 0, paddingLeft: 42 }}>Nom</div>
+              <div style={{ flex: '0 0 180px' }}>Lieu</div>
+              <div style={{ flex: '0 0 160px' }}>Secteur</div>
+              <div style={{ flex: '0 0 130px' }}>Téléphone</div>
+              <div style={{ flex: '0 0 200px' }}>Email</div>
+              <div style={{ flex: '0 0 90px', textAlign: 'right' }}>Date</div>
+            </div>
+          )}
           {[...clients].sort((a, b) => {
             if (sortOrder === 'az') return (a.nom_entreprise || '').localeCompare(b.nom_entreprise || '', 'fr')
             if (sortOrder === 'za') return (b.nom_entreprise || '').localeCompare(a.nom_entreprise || '', 'fr')
@@ -1242,6 +1264,157 @@ export default function ClientsPage() {
             return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           }).map(client => {
             const isNew = clientsLastSeen && client.created_at ? new Date(client.created_at) > new Date(clientsLastSeen) : false
+            // v2.0.4 — Mode liste = ligne horizontale avec colonnes (style liste candidats)
+            if (viewMode === 'list') {
+              const firstContact = (client.contacts && client.contacts[0]) as any
+              const tel = firstContact?.telephone || (client as any).telephone || null
+              const email = firstContact?.email || (client as any).email || null
+              const dateAjout = client.created_at ? new Date(client.created_at).toLocaleDateString('fr-CH', { day: '2-digit', month: 'short', year: 'numeric' }) : ''
+              return (
+                <div
+                  key={client.id}
+                  onClick={() => router.push(`/clients/${client.id}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    padding: '10px 14px',
+                    cursor: 'pointer',
+                    transition: 'border-color 0.12s, background 0.12s',
+                    position: 'relative',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--card-soft, var(--card))' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--card)' }}
+                >
+                  {/* Badge nouveau */}
+                  {isNew && (
+                    <span style={{
+                      position: 'absolute', top: 8, left: 6,
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: '#EF4444', boxShadow: '0 0 6px rgba(239,68,68,0.5)',
+                    }} />
+                  )}
+                  {/* Statut pill */}
+                  <div style={{ flex: '0 0 86px', display: 'flex', justifyContent: 'flex-start' }}>
+                    <span style={{
+                      padding: '3px 9px', borderRadius: 6,
+                      background: client.statut === 'actif' ? 'rgba(34,197,94,0.15)' : 'var(--secondary)',
+                      border: `1px solid ${client.statut === 'actif' ? '#22C55E' : 'var(--border)'}`,
+                      fontSize: 10.5, fontWeight: 700,
+                      color: client.statut === 'actif' ? '#15803D' : 'var(--muted-foreground)',
+                      lineHeight: 1.4, whiteSpace: 'nowrap',
+                    }}>
+                      {client.statut === 'actif' ? 'Actif' : 'Désactivé'}
+                    </span>
+                  </div>
+                  {/* Logo + Nom */}
+                  <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <ClientLogo nom_entreprise={client.nom_entreprise} site_web={client.site_web} size="sm" />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontSize: 14, fontWeight: 700, color: 'var(--foreground)',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                      }}>
+                        {client.nom_entreprise}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Lieu */}
+                  <div style={{ flex: '0 0 180px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)', minWidth: 0 }}>
+                    {client.ville ? (
+                      <>
+                        <MapPin size={12} style={{ flexShrink: 0 }} />
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {client.npa ? `${client.npa} ` : ''}{client.ville}
+                        </span>
+                        {client.canton && (
+                          <span style={{
+                            fontSize: 9.5, fontWeight: 800, padding: '1px 5px',
+                            borderRadius: 3, color: 'white',
+                            background: getCantonColor(client.canton),
+                            flexShrink: 0,
+                          }}>{client.canton.toUpperCase()}</span>
+                        )}
+                      </>
+                    ) : <span style={{ color: 'var(--border)' }}>—</span>}
+                  </div>
+                  {/* Secteur (1er) */}
+                  <div style={{ flex: '0 0 160px', display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                    {client.secteurs_activite && client.secteurs_activite.length > 0 ? (
+                      <>
+                        {(() => {
+                          const s = client.secteurs_activite[0]
+                          const c = getSecteurColor(s)
+                          return (
+                            <span style={{
+                              padding: '2px 8px', borderRadius: 5,
+                              background: c.bg, border: `1px solid ${c.border}`,
+                              fontSize: 11, fontWeight: 700, color: c.text,
+                              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
+                            }}>{s}</span>
+                          )
+                        })()}
+                        {client.secteurs_activite.length > 1 && (
+                          <span style={{
+                            padding: '2px 6px', borderRadius: 5,
+                            background: 'var(--secondary)', border: '1px solid var(--border)',
+                            fontSize: 10.5, fontWeight: 700, color: 'var(--muted-foreground)',
+                            flexShrink: 0,
+                          }}>+{client.secteurs_activite.length - 1}</span>
+                        )}
+                      </>
+                    ) : <span style={{ fontSize: 12, color: 'var(--border)' }}>—</span>}
+                  </div>
+                  {/* Tel cliquable */}
+                  <div style={{ flex: '0 0 130px', minWidth: 0 }}>
+                    {tel ? (
+                      <a href={`tel:${tel}`} onClick={e => e.stopPropagation()}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 12, color: 'var(--foreground)', textDecoration: 'none',
+                          padding: '3px 8px', borderRadius: 6,
+                          background: 'var(--secondary)', border: '1px solid var(--border)',
+                          maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary-soft)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                      >
+                        <Phone size={11} style={{ flexShrink: 0 }} /> {tel}
+                      </a>
+                    ) : <span style={{ fontSize: 12, color: 'var(--border)' }}>—</span>}
+                  </div>
+                  {/* Email cliquable */}
+                  <div style={{ flex: '0 0 200px', minWidth: 0 }}>
+                    {email ? (
+                      <a href={`mailto:${email}`} onClick={e => e.stopPropagation()}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          fontSize: 12, color: 'var(--foreground)', textDecoration: 'none',
+                          padding: '3px 8px', borderRadius: 6,
+                          background: 'var(--secondary)', border: '1px solid var(--border)',
+                          maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--primary-soft)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'var(--secondary)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                      >
+                        <Mail size={11} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{email}</span>
+                      </a>
+                    ) : <span style={{ fontSize: 12, color: 'var(--border)' }}>—</span>}
+                  </div>
+                  {/* Date d'ajout */}
+                  <div style={{
+                    flex: '0 0 90px', textAlign: 'right',
+                    fontSize: 11.5, fontWeight: 600, color: 'var(--muted)',
+                    fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                    fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                  }}>
+                    {dateAjout}
+                  </div>
+                </div>
+              )
+            }
             return (
             <div
               key={client.id}

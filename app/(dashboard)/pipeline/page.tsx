@@ -489,7 +489,7 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
   const nom = formatFullName(candidat.prenom, candidat.nom)
   const rappelDue = rappel && !rappel.done && new Date(rappel.rappel_at) <= new Date(Date.now() + 60 * 60 * 1000)
 
-  // v2.0.1 — Refonte en LISTE row (au lieu de card stacké) — toutes les infos en 1 ligne, plus rapide à scanner
+  // v2.0.5 — Grid horizontal avec colonnes alignées (style liste candidats)
   const mc = candidat.pipeline_metier ? (getColorForMetier(candidat.pipeline_metier) || '#F5A623') : '#F5A623'
   return (
     <div
@@ -503,49 +503,60 @@ function CandidatCard({ candidat, rappel, cvHook, onNote, onRappel, onModifier, 
       onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,166,35,0.40)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(28,26,20,0.06)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none' }}
     >
-      {/* Avatar */}
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, overflow: 'hidden', position: 'relative' }}>
+      {/* Photo (col 48px strict) */}
+      <div style={{ flex: '0 0 48px', width: 48, height: 48, borderRadius: 10, background: '#F5A623', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, overflow: 'hidden', position: 'relative' }}>
         <span style={{ position: 'absolute' }}>{getInitials(candidat.prenom, candidat.nom)}</span>
-        {candidat.photo_url && <Image src={candidat.photo_url} alt="" width={40} height={40} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
+        {candidat.photo_url && <Image src={candidat.photo_url} alt="" width={48} height={48} unoptimized style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />}
       </div>
 
-      {/* Nom + métier + meta — flex 1 */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <span title={nom} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{nom}</span>
-          {candidat.pipeline_metier && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${mc}18`, border: `1px solid ${mc}44`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600, color: mc, whiteSpace: 'nowrap' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: mc }} />
-              {candidat.pipeline_metier}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--muted-foreground)' }}>
-          {candidat.localisation && (
-            <span title={candidat.localisation} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <MapPin size={10} />{candidat.localisation}
-            </span>
-          )}
-          {age !== null && <span>· {age} ans</span>}
-          {candidat.notes && (
-            <span title={candidat.notes} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--primary)', fontWeight: 600, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              · 📝 {candidat.notes}
-            </span>
-          )}
-        </div>
+      {/* Nom + métier pill (flex 1) */}
+      <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span title={nom} style={{ fontWeight: 700, fontSize: 14, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nom}</span>
+        {candidat.pipeline_metier && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: `${mc}18`, border: `1px solid ${mc}44`, borderRadius: 6, padding: '1px 8px', fontSize: 11, fontWeight: 600, color: mc, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: mc }} />
+            {candidat.pipeline_metier}
+          </span>
+        )}
       </div>
 
-      {/* Rappel badge (si présent) */}
-      {rappel && !rappel.done && (
-        <div title={`Rappel: ${new Date(rappel.rappel_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: rappelDue ? 'rgba(239,68,68,0.10)' : 'rgba(245,166,35,0.12)', border: `1px solid ${rappelDue ? 'rgba(239,68,68,0.40)' : 'rgba(245,166,35,0.40)'}`, color: rappelDue ? '#B91C1C' : '#B45309', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-          <Bell size={11} />
-          {new Date(rappel.rappel_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-        </div>
-      )}
+      {/* Lieu (col 200px) */}
+      <div style={{ flex: '0 0 200px', minWidth: 0, fontSize: 12, color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', gap: 4 }}>
+        {candidat.localisation ? (
+          <>
+            <MapPin size={11} style={{ flexShrink: 0 }} />
+            <span title={candidat.localisation} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{candidat.localisation}</span>
+          </>
+        ) : <span style={{ color: 'var(--border)' }}>—</span>}
+      </div>
 
-      {/* Actions à droite (icônes compactes) */}
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+      {/* Âge (col 50px) */}
+      <div style={{ flex: '0 0 50px', fontSize: 12, color: 'var(--muted-foreground)', textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
+        {age !== null ? `${age} ans` : <span style={{ color: 'var(--border)' }}>—</span>}
+      </div>
+
+      {/* Notes preview (col 220px) */}
+      <div style={{ flex: '0 0 220px', minWidth: 0, fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
+        {candidat.notes ? (
+          <span title={candidat.notes} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+            📝 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{candidat.notes}</span>
+          </span>
+        ) : <span style={{ color: 'var(--border)' }}>—</span>}
+      </div>
+
+      {/* Rappel badge (col 90px, vide si pas de rappel) */}
+      <div style={{ flex: '0 0 90px', display: 'flex', justifyContent: 'flex-start' }}>
+        {rappel && !rappel.done ? (
+          <div title={`Rappel: ${new Date(rappel.rappel_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: rappelDue ? 'rgba(239,68,68,0.10)' : 'rgba(245,166,35,0.12)', border: `1px solid ${rappelDue ? 'rgba(239,68,68,0.40)' : 'rgba(245,166,35,0.40)'}`, color: rappelDue ? '#B91C1C' : '#B45309', fontSize: 11, fontWeight: 700 }}>
+            <Bell size={11} />
+            {new Date(rappel.rappel_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Actions (col 180px) */}
+      <div style={{ flex: '0 0 180px', display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'flex-end' }}>
         <Link href={`/candidats/${candidat.id}?from=pipeline`} title="Fiche candidat"
           style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface, var(--card))', color: 'var(--muted-foreground)', textDecoration: 'none' }}>
           <FileText size={13} />
@@ -980,40 +991,99 @@ export default function PipelinePage() {
         })}
       </div>
 
-      {/* Métier sub-tabs */}
-      {metierTabs.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-          {metierTabs.map(({ label, count }) => {
-            const active = activeMetier === label
-            const catColor = label !== 'Tous' && label !== 'Autres' ? (getColorForMetier(label) || '#F5A623') : '#F5A623'
-            // v2.0.1 — Quand actif : point BLANC (visible sur tout fond coloré) + texte FONCÉ
-            // (lisible quelle que soit la couleur métier, contrairement à #fff sur jaune ≈ illisible)
-            return (
-              <button key={label} onClick={() => setActiveMetier(label)} style={{
-                padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                borderRadius: 20, border: `1px solid ${active ? catColor : 'var(--border)'}`,
-                background: active ? catColor : 'var(--surface, var(--card))',
+      {/* v2.0.5 — Pills métiers organisées par CATÉGORIE (avant : flat à la rache) */}
+      {metierTabs.length > 1 && (() => {
+        // Grouper les tabs métiers par catégorie via le hook useMetierCategories
+        const labelToCategory = new Map<string, { name: string; color: string }>()
+        for (const cat of categories) {
+          for (const m of cat.metiers) labelToCategory.set(m, { name: cat.name, color: cat.color })
+        }
+        // Buckets : 'Tous' & 'Autres' isolés en haut, puis catégories ordonnées
+        const allTab = metierTabs.find(t => t.label === 'Tous')
+        const autresTab = metierTabs.find(t => t.label === 'Autres')
+        const realTabs = metierTabs.filter(t => t.label !== 'Tous' && t.label !== 'Autres')
+        const groups = new Map<string, { color: string; tabs: typeof realTabs }>()
+        const uncategorized: typeof realTabs = []
+        for (const t of realTabs) {
+          const cat = labelToCategory.get(t.label)
+          if (!cat) { uncategorized.push(t); continue }
+          if (!groups.has(cat.name)) groups.set(cat.name, { color: cat.color || '#F5A623', tabs: [] })
+          groups.get(cat.name)!.tabs.push(t)
+        }
+        const sortedGroups = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], 'fr'))
+
+        const renderPill = (label: string, count: number, accent: string) => {
+          const active = activeMetier === label
+          return (
+            <button key={label} onClick={() => setActiveMetier(label)} style={{
+              padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              borderRadius: 20, border: `1px solid ${active ? accent : 'var(--border)'}`,
+              background: active ? accent : 'var(--surface, var(--card))',
+              color: active ? '#1C1A14' : 'var(--muted-foreground)',
+              transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: active ? '#fff' : accent,
+                flexShrink: 0,
+                boxShadow: active ? '0 0 0 1.5px rgba(28,26,20,0.20)' : 'none',
+              }} />
+              {label}
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '0px 6px', borderRadius: 8,
+                background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
                 color: active ? '#1C1A14' : 'var(--muted-foreground)',
-                transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 5,
-                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              }}>{count}</span>
+            </button>
+          )
+        }
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+            {/* Ligne Tous + Autres */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {allTab && renderPill(allTab.label, allTab.count, '#F5A623')}
+              {autresTab && renderPill(autresTab.label, autresTab.count, 'var(--muted)')}
+            </div>
+            {/* Catégories groupées */}
+            {sortedGroups.map(([catName, { color, tabs }]) => (
+              <div key={catName} style={{
+                display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+                paddingTop: 4, borderTop: '1px dashed var(--border)',
               }}>
-                <span style={{
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: active ? '#fff' : catColor,
-                  flexShrink: 0,
-                  boxShadow: active ? '0 0 0 1.5px rgba(28,26,20,0.20)' : 'none',
-                }} />
-                {label}
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: '0px 6px', borderRadius: 8,
-                  background: active ? 'rgba(28,26,20,0.18)' : 'var(--secondary)',
-                  color: active ? '#1C1A14' : 'var(--muted-foreground)',
-                }}>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-      )}
+                <div style={{
+                  flexShrink: 0, paddingRight: 6,
+                  fontSize: 10.5, fontWeight: 800,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  color: color || 'var(--muted)',
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                  minWidth: 110,
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: color || 'var(--muted)' }} />
+                  {catName}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                  {tabs.map(t => renderPill(t.label, t.count, getColorForMetier(t.label) || color || '#F5A623'))}
+                </div>
+              </div>
+            ))}
+            {uncategorized.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px dashed var(--border)' }}>
+                <div style={{
+                  flexShrink: 0, paddingRight: 6,
+                  fontSize: 10.5, fontWeight: 800,
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  color: 'var(--muted)', minWidth: 110,
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                }}>Sans catégorie</div>
+                {uncategorized.map(t => renderPill(t.label, t.count, getColorForMetier(t.label) || '#F5A623'))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Grid */}
       {isLoading ? (
@@ -1030,9 +1100,28 @@ export default function PipelinePage() {
           </button>
         </div>
       ) : (
-        /* v2.0.1 — Pipeline en LISTE single column (refonte demandée) :
-           plus accessible/rapide qu'une grille 3 cols. Toutes les actions accessibles d'un coup d'œil. */
+        /* v2.0.5 — Pipeline en LISTE grid horizontal avec colonnes alignées + header (style liste candidats) */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Header colonnes */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '8px 14px',
+            fontSize: 10.5, fontWeight: 700,
+            color: 'var(--muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 4,
+          }}>
+            <div style={{ flex: '0 0 48px' }}>Photo</div>
+            <div style={{ flex: '1 1 0', minWidth: 0 }}>Nom &amp; métier</div>
+            <div style={{ flex: '0 0 200px' }}>Lieu</div>
+            <div style={{ flex: '0 0 50px' }}>Âge</div>
+            <div style={{ flex: '0 0 220px' }}>Notes</div>
+            <div style={{ flex: '0 0 90px' }}>Rappel</div>
+            <div style={{ flex: '0 0 180px', textAlign: 'right' }}>Actions</div>
+          </div>
           {cols.flat().map(candidat => (
             <CandidatCard
               key={candidat.id}
