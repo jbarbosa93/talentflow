@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.11'
+export const APP_VERSION = '2.1.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.12',
+    date: '2026-05-05',
+    label: 'Pack 4 fixes (header liste candidats aligné, modal Prospection v2, audit doublons clients, secteurs réorder + tri auto)',
+    features: [
+      'LISTE CANDIDATS HEADER — Décalé d\'environ 36px par rapport aux rows (visible surtout sur "À traiter"). Cause : header `gap: 14, padding: 18` vs row `gap: 10, padding: 14` (compaction v2.0.3 jamais propagée au header). Fix : aligné gap+padding identiques.',
+      'MODAL PROSPECTION EMAIL EN LOT — Polish design v2 : Instrument Serif 24 sur le titre + Jakarta wrapper + bouton X 34×34 v2 + backdrop blur 6 + bordure 1px (avant : 2px). Bouton Retour avec radius 10 + Jakarta. Icône Mail dans box 44×44.',
+      'AUDIT DOUBLONS CLIENTS — Script standalone `scripts/batch/audit-doublons-clients.ts` qui groupe les clients par nom_entreprise + ville (normalisés : lowercase, accents, suffixes SA/Sàrl/AG strippés). Run : `npx tsx --env-file=.env.local scripts/batch/audit-doublons-clients.ts`. Résultat actuel : 17 groupes / 34 clients dupliqués détectés (CSV exporté sur le Desktop).',
+      'SECTEURS D\'ACTIVITÉ /parametres — Réorder complet : (a) Drag&drop natif HTML5 sur chaque card (handle GripVertical visible) + opacity 0.4 + bordure brand au drag. (b) Boutons ↑↓ compacts pour réordonner sans souris. (c) Bouton "Trier par…" en haut avec dropdown 2 options : par catégorie de métier (group + alphabétique) ou par couleur (hex). Toast "X secteurs réordonnés" après save. (d) Bouton "Valider"/"Ajouter" en JAUNE BRAND (au lieu de className neo-btn-primary qui rendait gris/foncé). Numérotation #N basée sur position visible (1..N) au lieu de l\'ordre interne.',
+    ],
+  },
   {
     version: '2.1.11',
     date: '2026-05-04',

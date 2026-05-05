@@ -3090,10 +3090,10 @@ export default function CandidatsList() {
             }
             return (
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '8px 18px 8px',
-                // v1.9.129 — border transparente 1px gauche/droite pour matcher exactement le décalage
-                // des rows (qui ont border: 1px solid var(--border) all sides). Sinon contenu du row décalé de 1px.
+                // v2.1.12 — gap 14→10 + padding 18→14 pour matcher EXACTEMENT le row (compaction v2.0.3)
+                // Avant : header décalé de ~36px sur 7 cellules.
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 14px',
                 border: '1px solid transparent',
                 borderBottom: '1px solid var(--border)',
                 marginBottom: 4,

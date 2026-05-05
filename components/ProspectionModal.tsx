@@ -301,32 +301,35 @@ export default function ProspectionModal({ open, onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 10000,
-        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       }}
     >
       <div style={{
+        // v2.1.12 — Polish v2 (border 1px au lieu de 2 + shadow plus large)
         background: 'var(--card)', borderRadius: 16,
-        border: '2px solid var(--border)',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+        border: '1px solid var(--border)',
+        boxShadow: '0 24px 64px -16px rgba(0,0,0,0.45)',
         width: '100%', maxWidth: 920, maxHeight: '92vh',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
-        {/* Header */}
+        {/* Header — v2.1.12 design v2 (Instrument Serif title) */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '20px 24px', borderBottom: '1px solid var(--border)',
-          flexShrink: 0,
+          padding: '20px 24px 18px', borderBottom: '1px solid var(--border)',
+          flexShrink: 0, gap: 16,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             {step !== 'config' && step !== 'generate' && (
               <button
                 onClick={() => setStep('config')}
                 style={{
                   background: 'var(--secondary)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '6px 10px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  color: 'var(--foreground)', fontSize: 12, fontWeight: 600,
+                  borderRadius: 10, padding: '7px 12px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  color: 'var(--foreground)', fontSize: 12.5, fontWeight: 700,
+                  fontFamily: 'inherit',
                 }}
                 title="Revenir à la configuration"
               >
@@ -334,17 +337,22 @@ export default function ProspectionModal({ open, onClose }: Props) {
               </button>
             )}
             <div style={{
-              width: 40, height: 40, borderRadius: 10,
+              width: 44, height: 44, borderRadius: 12,
               background: 'var(--primary-soft)', color: 'var(--primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <Mail size={20} />
             </div>
-            <div>
-              <h2 style={{ fontSize: 17, fontWeight: 700, color: 'var(--foreground)', margin: 0 }}>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{
+                fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                fontSize: 24, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+                color: 'var(--foreground)', margin: 0,
+              }}>
                 Prospection email en lot
               </h2>
-              <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '2px 0 0' }}>
+              <p style={{ fontSize: 12.5, color: 'var(--muted-foreground)', margin: '4px 0 0', fontWeight: 500 }}>
                 {step === 'config' && 'Étape 1 / 3 — Sélection des clients'}
                 {step === 'generate' && `Étape 2 / 3 — Génération ${stats.progress}/${stats.total}`}
                 {step === 'results' && 'Étape 3 / 3 — Résultats'}
@@ -354,11 +362,16 @@ export default function ProspectionModal({ open, onClose }: Props) {
           <button
             onClick={onClose}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)', padding: 4, display: 'flex',
+              width: 34, height: 34, borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: '1px solid var(--border)',
+              cursor: 'pointer', color: 'var(--muted-foreground)',
+              flexShrink: 0, transition: 'background 0.15s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
-            <X size={22} />
+            <X size={16} />
           </button>
         </div>
 
