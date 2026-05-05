@@ -17,11 +17,12 @@ interface CampagneResume {
   nb_destinataires: number
   candidat_ids: string[]
   nb_candidats: number
-  candidats: { id: string; prenom: string | null; nom: string | null }[]
+  candidats: { id: string; prenom: string | null; nom: string | null; cv_url: string | null; cv_nom_fichier: string | null }[]
   client_nom: string | null
   cv_personnalise: boolean
   cv_urls_utilises: string[]
-  corps_extract: string
+  corps_extract: string  // 220 chars max pour preview liste
+  corps_full: string     // v2.1.15 — corps complet sans signature pour le panneau preview
   statut: string
   canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
   user_id: string | null          // v1.9.68 — expéditeur (pour historique global team)
@@ -91,6 +92,22 @@ export async function GET(req: Request) {
       cv_personnalise: !!first.cv_personnalise,
       cv_urls_utilises: first.cv_urls_utilises ?? [],
       corps_extract: (first.corps ?? '').slice(0, 220),
+      // v2.1.15 — Corps complet, signature retirée si elle est concaténée à la fin.
+      // La signature est ajoutée côté send avec `<br><br>` ou `\n\n` + bloc HTML/texte.
+      // Heuristique : couper avant le dernier "<br><br>" ou "\n\n" suivi d'un mot signature courant.
+      corps_full: (() => {
+        const raw = first.corps ?? ''
+        if (!raw) return ''
+        // Repère un séparateur signature classique : 2+ sauts de ligne + (Cordialement / Bien à vous / Sincères / Salutations / Bonne journée / Best regards / -- )
+        const sigRegex = /\n\s*\n\s*(Cordialement|Bien à vous|Sincères|Salutations|Bonne journée|Best regards|--\s)/i
+        const m = raw.match(sigRegex)
+        if (m && typeof m.index === 'number') return raw.slice(0, m.index).trimEnd()
+        // Fallback : si HTML signature avec <table> ou block-level signature à la fin
+        const htmlSigRegex = /\n*<(table|div\s+[^>]*signature|p[^>]*>(?:Cordialement|Bien à vous))/i
+        const mh = raw.match(htmlSigRegex)
+        if (mh && typeof mh.index === 'number') return raw.slice(0, mh.index).trimEnd()
+        return raw
+      })(),
       statut: first.statut ?? 'envoye',
       canal: (first.canal ?? 'email') as CampagneResume['canal'],
       user_id: first.user_id ?? null,
@@ -104,7 +121,7 @@ export async function GET(req: Request) {
   if (allCandidatIds.length > 0) {
     const { data: cands } = await supabase
       .from('candidats')
-      .select('id, prenom, nom')
+      .select('id, prenom, nom, cv_url, cv_nom_fichier')
       .in('id', allCandidatIds)
     const byId = new Map((cands ?? []).map((c: any) => [c.id, c]))
     for (const c of campagnes) {

@@ -1478,9 +1478,6 @@ export default function CandidatsList() {
                 </button>
               )
             })()}
-            {/* v1.9.127 — Localisation + distance + âge déplacés en colonnes grid dédiées (alignement vertical entre rows).
-                Mode actif/archivé : badges CFC/Engagé uniquement à côté du métier. */}
-            {/* v1.9.134 — Pills CFC/Engagé déplacées hors de la cellule INFO (cf. plus bas, après Âge) */}
           </div>
         </div>
 
@@ -1530,7 +1527,7 @@ export default function CandidatsList() {
           ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>}
         </div>
 
-        {/* v1.9.134 — Pills CFC + Engagé APRÈS l'Âge (mode Actif/Archivé seulement) — couleur vert */}
+        {/* Pills CFC + Engagé APRÈS l'Âge (mode Actif/Archivé seulement) — couleur vert */}
         {importStatusFilter !== 'a_traiter' && (c.cfc === true || c.deja_engage === true) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {c.cfc === true && (
@@ -1556,13 +1553,13 @@ export default function CandidatsList() {
           </div>
         )}
 
-        {/* v1.9.127 — Spacer flex pour pousser étoiles / CV / notes / date à droite */}
+        {/* Spacer flex pour pousser étoiles / CV / notes / date à droite */}
         <div style={{ flex: 1 }} />
 
-        {/* Étoiles interactives (tous onglets) — v1.9.128 width fixe 130, aligné gauche pour matcher header */}
+        {/* Étoiles — v2.1.18 : paddingRight UNIQUEMENT en mode À traiter pour décaler à gauche */}
         <div
           onClick={e => e.stopPropagation()}
-          style={{ display: 'flex', gap: 2, flex: '0 0 110px' }}
+          style={{ display: 'flex', gap: 2, flex: '0 0 110px', justifyContent: 'center' }}
         >
           {[1, 2, 3, 4, 5].map(star => (
             <button
@@ -1601,7 +1598,7 @@ export default function CandidatsList() {
 
         {/* v1.9.127 — Bouton notes unifié : icône seule si vide, icône + compteur si notes existent.
             v1.9.128 — wrapper width 60 aligné à gauche pour matcher header "Notes". */}
-        <div style={{ position: 'relative', flex: '0 0 56px', display: 'flex' }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'relative', flex: '0 0 56px', display: 'flex', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
             {(() => {
               const noteCount = c.notes_candidat?.length || 0
               const hasNotes = noteCount > 0
@@ -1628,17 +1625,17 @@ export default function CandidatsList() {
                   title={hasNotes ? `${noteCount} note${noteCount > 1 ? 's' : ''} — clique pour voir / ajouter` : 'Ajouter une note'}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    height: 26, padding: hasNotes ? '0 7px' : 0, minWidth: 26,
-                    borderRadius: 7, cursor: 'pointer', flexShrink: 0,
+                    height: 32, padding: hasNotes ? '0 9px' : 0, minWidth: 32,
+                    borderRadius: 8, cursor: 'pointer', flexShrink: 0,
                     border: `1px solid ${isOpen ? '#6366F1' : (hasNotes ? 'rgba(99,102,241,0.35)' : 'var(--border)')}`,
                     background: isOpen ? 'rgba(99,102,241,0.10)' : (hasNotes ? 'rgba(99,102,241,0.08)' : 'transparent'),
                     color: (isOpen || hasNotes) ? '#6366F1' : 'var(--muted)',
-                    fontSize: 11, fontWeight: 600,
+                    fontSize: 12, fontWeight: 600,
                     fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
                     transition: 'all 0.15s',
                   }}
                 >
-                  <MessageSquare size={12} />
+                  <MessageSquare size={14} />
                   {hasNotes && <span>{noteCount}</span>}
                 </button>
               )
@@ -1842,7 +1839,7 @@ export default function CandidatsList() {
         {/* Toggles CFC + Engagée (a_traiter mode only) — v1.9.128 chaque toggle dans un wrapper fixe pour alignement header */}
         {importStatusFilter === 'a_traiter' && (
           <>
-            <div style={{ flex: '0 0 64px', display: 'flex' }}>
+            <div style={{ flex: '0 0 64px', display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={async (e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation()
@@ -1880,7 +1877,7 @@ export default function CandidatsList() {
               CFC
             </button>
             </div>
-            <div style={{ flex: '0 0 80px', display: 'flex' }}>
+            <div style={{ flex: '0 0 80px', display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={async e => {
                 e.stopPropagation()
@@ -1957,9 +1954,8 @@ export default function CandidatsList() {
           )
         })()}
 
-        {/* v1.9.90 — Date la plus récente : last_import_at (si plus récent que created_at) sinon created_at.
-            Affiche la date pertinente pour la liste : date du dernier import = dernière activité sur le candidat. */}
-        <span className="clist-date" style={{ fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap', flex: '0 0 110px', fontWeight: 600, textAlign: 'left', display: 'inline-flex', alignItems: 'center', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
+        {/* v1.9.90 — Date la plus récente : last_import_at (si plus récent que created_at) sinon created_at. */}
+        <span className="clist-date" style={{ fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'nowrap', flex: '0 0 110px', fontWeight: 600, textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
           {(() => {
             const lastImport = (c as any).last_import_at as string | null | undefined
             const createdAt = c.created_at
@@ -1972,7 +1968,7 @@ export default function CandidatsList() {
 
         {/* Quick validate button (a_traiter mode only) — après la date */}
         {importStatusFilter === 'a_traiter' && (
-          <div style={{ flex: '0 0 38px', display: 'flex' }}>
+          <div style={{ flex: '0 0 38px', display: 'flex', justifyContent: 'center' }}>
             <button
               onClick={e => { e.stopPropagation(); handleSingleValidate(c.id) }}
               title="Valider ce candidat"
@@ -3090,6 +3086,7 @@ export default function CandidatsList() {
             }
             // v2.1.13 — Cellules droite (Évaluation/Notes/CFC/Engagé/Mise à jour/Valider) : labels CENTRÉS
             //           pour matcher visuellement le contenu pill/icône/étoiles centré dans les rows.
+            // v2.1.18 — Header : centrage classique (le user veut bouger les rows seulement, pas le header)
             const headerCellStyleCenter: React.CSSProperties = {
               ...headerCellStyle,
               justifyContent: 'center',
@@ -3125,21 +3122,15 @@ export default function CandidatsList() {
                 <span style={{ flex: '0 0 150px', ...headerCellStyle }}>Lieu</span>
                 <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Âge</span>
                 <span style={{ flex: 1 }} />
-                {/* v1.9.134 — `flex: 0 0 Npx` shorthand strict (no-grow, no-shrink, basis=Npx)
-                    GARANTIT la même width header ↔ row, indépendamment du contenu environnant. */}
-                {/* v2.1.14 — Header alignement par colonne :
-                    - Évaluation/Mise à jour : LEFT (étoiles + date à gauche dans rows)
-                    - CFC/Engagé : LEFT (pills toggle commencent à gauche)
-                    - Notes/Valider : CENTER (bouton centré dans la cell) */}
-                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Évaluation</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Évaluation</span>
                 <span style={{ flex: '0 0 56px', ...headerCellStyleCenter }}>Notes</span>
                 {importStatusFilter === 'a_traiter' && (
                   <>
-                    <span style={{ flex: '0 0 64px', ...headerCellStyle }}>CFC</span>
-                    <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Engagé</span>
+                    <span style={{ flex: '0 0 64px', ...headerCellStyleCenter }}>CFC</span>
+                    <span style={{ flex: '0 0 80px', ...headerCellStyleCenter }}>Engagé</span>
                   </>
                 )}
-                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Mise à jour</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Mise à jour</span>
                 {importStatusFilter === 'a_traiter' && (
                   <span style={{ flex: '0 0 38px', ...headerCellStyleCenter }}>Valider</span>
                 )}

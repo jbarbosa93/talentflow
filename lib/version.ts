@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.14'
+export const APP_VERSION = '2.1.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.18',
+    date: '2026-05-05',
+    label: 'Pack consolidé 11 fixes (Notes header + Map fiche client, signature v2, historique envois, modal commandes v2, tri secteurs, pills compteur, header liste centré, etc.)',
+    features: [
+      'FICHE CLIENT NOTES — Boîte Notes en bas SUPPRIMÉE. Remplacée par bouton MessageSquare dans le header avec point rouge si notes existent + tooltip preview au mouseover + clic ouvre modal édition. Pattern cohérent fiche candidat.',
+      'FICHE CLIENT MAP LEAFLET — Nouveau composant `ClientFicheMap.tsx` (Leaflet + react-leaflet, lazy SSR-off) affiché en bas si lat/lng. 1 marker, popup avec nom + adresse + lien Google Maps itinéraire. Hauteur 340px.',
+      'FICHE CLIENT — Card "Secteurs d\'activité" déplacée TOUT EN BAS (après Map). Avant : au milieu juste après Notes.',
+      'PARAMETRES PROFIL SIGNATURE — Boutons "Aperçu" / "HTML source" en jaune brand actif + foreground inactif (avant : blanc/blanc invisible en dark). Bouton Enregistrer passé du violet au jaune brand v2. Aperçu fond blanc fixe + text:#111 (signatures HTML utilisent souvent couleurs sombres). Mode HTML source PAR DÉFAUT (édition directe vs Aperçu read-only).',
+      'PARAMETRES SECTEURS — Tri "Par catégorie de métier" et "Par couleur" ne marchaient pas (catOf retournait `cat_` + métier au lieu de la vraie catégorie). Fix : utilise `categories` du hook `useMetierCategories` pour mapper métier → catégorie, et conversion HEX→hue HSL pour tri couleur stable.',
+      'HISTORIQUE ENVOIS — Le destinataire affiché utilisait le candidat[0] (ex: "Romuald Trinel") au lieu du client. Fix : prio `client_nom > destinataires[0] > candidats[0]`. Panneau preview : section "À" affiche le client (🏢) + emails. Section séparée "Candidats proposés" avec pills jaune cliquables (lien vers fiche). Hover preview CV sur les pills via `useCvHoverPreview` + `CvHoverTrigger` (style cohérent liste candidats). API `/api/emails/history` étendue avec `cv_url` + `cv_nom_fichier` + `corps_full` (corps complet sans signature, heuristique regex `\\n\\n+Cordialement/Bien à vous/Sincères/etc.`).',
+      'MODAL COMMANDES — Modal "Candidats liés à une commande" (OffreCandidatsModal) en design v2 : Instrument Serif 24 + Jakarta wrapper + bouton X 34×34 v2 + backdrop blur 6 + box header primary-soft 44×44.',
+      'COHÉRENCE PILL COMPTEUR — Sur Clients, Commandes et Pipeline : ajout d\'un pill `var(--secondary)` à droite du titre (style identique à Candidats), avec count tabular-nums fr-CH. Suppression des sous-titres "X entreprises trouvées / X commandes / X candidats en suivi" (info redondante).',
+      'HEADER LISTE CANDIDATS — `headerCellStyleCenter` (justifyContent + textAlign center) sur tous les labels colonnes droite (Évaluation/Notes/CFC/Engagé/Mise à jour/Valider) + `justifyContent: center` sur tous les wrappers row. En mode Actif les pills CFC/Engagé restent INLINE après l\'âge. Header CFC/Engagé columns seulement en mode À traiter.',
+    ],
+  },
   {
     version: '2.1.14',
     date: '2026-05-05',

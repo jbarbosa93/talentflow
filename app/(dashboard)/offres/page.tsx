@@ -135,8 +135,29 @@ export default function OffresPage() {
         transition={{ duration: 0.25, ease: 'easeOut' }}
       >
         <div>
-          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Briefcase size={22} color="var(--primary)" />Commandes</h1>
-          <p className="d-page-sub">{offres?.length || 0} commande{(offres?.length || 0) > 1 ? 's' : ''}</p>
+          {/* v2.1.15 — Pill compteur cohérent avec Candidats/Clients */}
+          <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <Briefcase size={22} color="var(--primary)" />
+            <span>Commandes</span>
+            <span
+              title={`${offres?.length || 0} commande${(offres?.length || 0) > 1 ? 's' : ''}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                fontSize: 14, fontWeight: 700,
+                color: 'var(--muted-foreground)',
+                background: 'var(--secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '3px 10px',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                letterSpacing: '0.01em',
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1.4,
+              }}
+            >
+              {(offres?.length || 0).toLocaleString('fr-CH')}
+            </span>
+          </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Tabs */}

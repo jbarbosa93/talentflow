@@ -982,15 +982,31 @@ export default function PipelinePage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="d-page" style={{ maxWidth: 1400 }}>
-      {/* Header */}
+      {/* Header — v2.1.15 : pill compteur cohérent avec Candidats/Clients */}
       <div className="d-page-header" style={{ marginBottom: 24 }}>
         <div>
-          <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <GitBranch size={22} color="var(--primary)" />Pipeline
+          <h1 className="d-page-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <GitBranch size={22} color="var(--primary)" />
+            <span>Pipeline</span>
+            <span
+              title={`${allCandidats.length} candidat${allCandidats.length > 1 ? 's' : ''} en suivi`}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                fontSize: 14, fontWeight: 700,
+                color: 'var(--muted-foreground)',
+                background: 'var(--secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '3px 10px',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                letterSpacing: '0.01em',
+                fontVariantNumeric: 'tabular-nums',
+                lineHeight: 1.4,
+              }}
+            >
+              {allCandidats.length.toLocaleString('fr-CH')}
+            </span>
           </h1>
-          <p className="d-page-sub">
-            {allCandidats.length} candidat{allCandidats.length !== 1 ? 's' : ''} en suivi
-          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Cloche Mes rappels */}

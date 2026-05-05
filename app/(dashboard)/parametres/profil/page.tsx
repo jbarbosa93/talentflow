@@ -230,7 +230,9 @@ export default function ProfilPage() {
   // Signature email
   const [signatureHtml, setSignatureHtml] = useState('')
   const [savingSignature, setSavingSignature] = useState(false)
-  const [showSignatureSource, setShowSignatureSource] = useState(false)
+  // v2.1.16 — Mode HTML source par défaut (édition directe vs Aperçu read-only).
+  // Le user voulait modifier directement, le bascule manuel vers HTML source était caché.
+  const [showSignatureSource, setShowSignatureSource] = useState(true)
 
   // ── Outlook : intégration email personnelle ────────────────────────────────
   const { data: outlookIntegration, refetch: refetchOutlook } = useQuery({
@@ -608,27 +610,31 @@ export default function ProfilPage() {
           Les images doivent utiliser des URLs externes publiques (pas de <code>cid:</code> ni base64).
         </p>
 
+        {/* v2.1.15 — Boutons toggle : avant background var(--foreground) + color white = blanc/blanc invisible en dark mode.
+                     Maintenant : actif = primary jaune + ink foncé. Inactif = transparent + foreground. */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <button
             type="button"
             onClick={() => setShowSignatureSource(false)}
             style={{
-              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-              border: '1px solid var(--border)',
-              background: !showSignatureSource ? 'var(--foreground)' : 'transparent',
-              color: !showSignatureSource ? 'white' : 'var(--foreground)',
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+              border: `1.5px solid ${!showSignatureSource ? 'var(--primary)' : 'var(--border)'}`,
+              background: !showSignatureSource ? 'var(--primary)' : 'transparent',
+              color: !showSignatureSource ? '#1C1A14' : 'var(--foreground)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              transition: 'all 0.15s',
             }}
           >Aperçu</button>
           <button
             type="button"
             onClick={() => setShowSignatureSource(true)}
             style={{
-              padding: '6px 12px', borderRadius: 7, fontSize: 12, fontWeight: 600,
-              border: '1px solid var(--border)',
-              background: showSignatureSource ? 'var(--foreground)' : 'transparent',
-              color: showSignatureSource ? 'white' : 'var(--foreground)',
-              cursor: 'pointer', fontFamily: 'var(--font-body)',
+              padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+              border: `1.5px solid ${showSignatureSource ? 'var(--primary)' : 'var(--border)'}`,
+              background: showSignatureSource ? 'var(--primary)' : 'transparent',
+              color: showSignatureSource ? '#1C1A14' : 'var(--foreground)',
+              cursor: 'pointer', fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              transition: 'all 0.15s',
             }}
           >HTML source</button>
         </div>
@@ -649,15 +655,25 @@ export default function ProfilPage() {
             onBlur={e => (e.target.style.borderColor = 'var(--border)')}
           />
         ) : (
+          // v2.1.15 — Aperçu : background BLANC fixe (signatures HTML utilisent souvent des couleurs sombres
+          //            qui doivent être lisibles). Texte fixé en color:#111 pour cohérence.
           <div
             style={{
               minHeight: 160, padding: 16, border: '1px solid var(--border)',
-              borderRadius: 8, background: '#FAFAFA', overflow: 'auto',
+              borderRadius: 10, background: '#FFFFFF', color: '#111',
+              overflow: 'auto',
             }}
             dangerouslySetInnerHTML={{
               __html: signatureHtml || '<p style="color:#9CA3AF;font-size:13px;margin:0">Aucune signature définie. Bascule sur <b>HTML source</b> pour la coller.</p>',
             }}
           />
+        )}
+
+        {/* v2.1.15 — Hint visible en mode Aperçu pour rappeler que pour modifier il faut HTML source */}
+        {!showSignatureSource && (
+          <p style={{ fontSize: 11.5, color: 'var(--muted-foreground)', margin: '8px 0 0', fontStyle: 'italic' }}>
+            💡 Pour modifier ta signature, clique sur <strong style={{ color: 'var(--foreground)' }}>HTML source</strong> ↑
+          </p>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
@@ -668,15 +684,18 @@ export default function ProfilPage() {
             onClick={saveSignature}
             disabled={savingSignature}
             style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              padding: '10px 22px', borderRadius: 9,
-              background: '#8B5CF6', border: 'none', color: 'white',
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '0 18px', height: 38, borderRadius: 10,
+              border: '1.5px solid var(--primary)', background: 'var(--primary)',
+              color: '#1C1A14',
               fontSize: 13, fontWeight: 700,
-              cursor: savingSignature ? 'default' : 'pointer',
-              opacity: savingSignature ? 0.7 : 1, fontFamily: 'var(--font-body)',
+              cursor: savingSignature ? 'not-allowed' : 'pointer',
+              opacity: savingSignature ? 0.7 : 1,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              boxShadow: savingSignature ? 'none' : '0 4px 12px -4px rgba(234,179,8,.45)',
             }}
           >
-            {savingSignature ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enregistrement...</> : <><Save size={14} /> Enregistrer</>}
+            {savingSignature ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enregistrement…</> : <><Save size={14} /> Enregistrer</>}
           </button>
         </div>
       </div>

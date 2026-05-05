@@ -7,6 +7,7 @@ const CVCustomizer = dynamic(() => import('@/components/CVCustomizer'), { ssr: f
 import EmailChipInput from '@/components/EmailChipInput'
 import MultiCandidatSearch from '@/components/MultiCandidatSearch'
 import ClientLogo from '@/components/ClientLogo'
+import { useCvHoverPreview, CvHoverTrigger, CvHoverPanel } from '@/components/CvHoverPreview'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -2532,11 +2533,12 @@ interface HistoriqueCampagne {
   nb_destinataires: number
   candidat_ids: string[]
   nb_candidats: number
-  candidats: { id: string; prenom: string | null; nom: string | null }[]
+  candidats: { id: string; prenom: string | null; nom: string | null; cv_url?: string | null; cv_nom_fichier?: string | null }[]
   client_nom: string | null
   cv_personnalise: boolean
   cv_urls_utilises: string[]
   corps_extract: string
+  corps_full?: string
   statut: string
   canal: 'email' | 'imessage' | 'whatsapp' | 'sms'
   user_id: string | null
@@ -2557,6 +2559,8 @@ function HistoriqueTab() {
   const [expanded, setExpanded] = useState<string | null>(null)
   // v1.9.66 — filtre par canal (email/imessage/whatsapp/sms ou '' = tous)
   const [canalFilter, setCanalFilter] = useState<'' | HistoriqueCampagne['canal']>('')
+  // v2.1.16 — Hover CV preview sur pills candidats proposés (style liste candidats)
+  const cvHook = useCvHoverPreview()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['emails-history', search, canalFilter],
@@ -3256,6 +3260,8 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
   const [search, setSearch] = useState('')
   const [canalFilter, setCanalFilter] = useState<'' | HistoriqueCampagne['canal']>('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // v2.1.18 — Hover CV preview sur pills candidats proposés (style liste candidats)
+  const cvHook = useCvHoverPreview()
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['emails-history-v2', search, canalFilter],
@@ -3473,9 +3479,11 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
             {campagnes.map(c => {
               const meta = CANAL_META[c.canal]
               const isSelected = selected?.campagne_id === c.campagne_id
-              const dest = c.candidats[0]
-                ? `${c.candidats[0].prenom || ''} ${c.candidats[0].nom || ''}`.trim()
-                : c.destinataires[0] || '—'
+              // v2.1.15 — Affiche le CLIENT comme destinataire (pas le candidat).
+              //           Prio : client_nom > destinataires[0] > candidats[0] (fallback historique sans client).
+              const dest = c.client_nom
+                || c.destinataires[0]
+                || (c.candidats[0] ? `${c.candidats[0].prenom || ''} ${c.candidats[0].nom || ''}`.trim() : '—')
               const more = (c.nb_destinataires || c.destinataires.length || 1) - 1
               return (
                 <div
@@ -3579,56 +3587,87 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                 <span>· {selected.nb_destinataires} destinataire{selected.nb_destinataires > 1 ? 's' : ''}</span>
               </div>
 
-              {/* Destinataires — v2.0.2 affiche le NOM du candidat lié si dispo (au lieu du numéro/email brut) */}
+              {/* v2.1.15 — Destinataires = CLIENT (entreprise + emails) + Candidats = JOINTS (séparés) */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
                   À
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(() => {
-                    // Prio 1 : candidats liés (avec nom) → afficher les noms
-                    // Prio 2 : destinataires bruts (email/tel)
-                    const useCandidats = selected.candidats && selected.candidats.length > 0
-                    const items = useCandidats
-                      ? selected.candidats.map(cand => ({
-                          key: cand.id,
-                          label: `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '—',
-                          tooltip: `${cand.prenom || ''} ${cand.nom || ''}`.trim(),
-                          isCandidat: true,
-                        }))
-                      : selected.destinataires.map((d, i) => ({
-                          key: `dest-${i}`,
-                          label: d,
-                          tooltip: d,
-                          isCandidat: false,
-                        }))
-                    return (
-                      <>
-                        {items.slice(0, 8).map(it => (
-                          <span
-                            key={it.key}
-                            title={it.tooltip}
-                            style={{
-                              padding: '4px 10px', borderRadius: 99, fontSize: 12,
-                              background: it.isCandidat ? 'var(--primary-soft)' : 'var(--secondary)',
-                              color: it.isCandidat ? 'var(--primary)' : 'var(--foreground)',
-                              border: it.isCandidat ? '1px solid rgba(245,166,35,0.30)' : '1px solid transparent',
-                              fontWeight: 600,
-                            }}
-                          >
-                            {it.isCandidat && '👤 '}{it.label}
-                          </span>
-                        ))}
-                        {items.length > 8 && (
-                          <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
-                            +{items.length - 8}
-                          </span>
-                        )}
-                      </>
-                    )
-                  })()}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  {selected.client_nom && (
+                    <span style={{
+                      padding: '4px 10px', borderRadius: 99, fontSize: 12,
+                      background: 'var(--secondary)',
+                      color: 'var(--foreground)',
+                      border: '1px solid var(--border)',
+                      fontWeight: 700,
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      🏢 {selected.client_nom}
+                    </span>
+                  )}
+                  {selected.destinataires.slice(0, 8).map((d, i) => (
+                    <span
+                      key={`dest-${i}`}
+                      title={d}
+                      style={{
+                        padding: '4px 10px', borderRadius: 99, fontSize: 12,
+                        background: 'var(--secondary)',
+                        color: 'var(--foreground)',
+                        border: '1px solid var(--border)',
+                        fontWeight: 500,
+                      }}
+                    >{d}</span>
+                  ))}
+                  {selected.destinataires.length > 8 && (
+                    <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
+                      +{selected.destinataires.length - 8}
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* v2.1.15 — Candidats joints (proposés au client) sur ligne séparée */}
+              {selected.candidats && selected.candidats.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+                    Candidat{selected.candidats.length > 1 ? 's' : ''} proposé{selected.candidats.length > 1 ? 's' : ''}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {selected.candidats.slice(0, 12).map(cand => {
+                      const label = `${cand.prenom || ''} ${cand.nom || ''}`.trim() || '—'
+                      const pill = (
+                        <a
+                          key={cand.id}
+                          href={`/candidats/${cand.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${label} — survol pour aperçu CV`}
+                          style={{
+                            padding: '4px 10px', borderRadius: 99, fontSize: 12,
+                            background: 'var(--primary-soft)',
+                            color: 'var(--primary)',
+                            border: '1px solid rgba(245,166,35,0.30)',
+                            fontWeight: 600, textDecoration: 'none',
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            cursor: cand.cv_url ? 'pointer' : 'default',
+                          }}
+                        >👤 {label}</a>
+                      )
+                      // v2.1.16 — Wrap en CvHoverTrigger pour preview CV au survol (style liste candidats)
+                      return cand.cv_url ? (
+                        <CvHoverTrigger key={cand.id} cvUrl={cand.cv_url} cvNomFichier={cand.cv_nom_fichier} candidatId={cand.id} hook={cvHook}>
+                          {pill}
+                        </CvHoverTrigger>
+                      ) : pill
+                    })}
+                    {selected.candidats.length > 12 && (
+                      <span style={{ padding: '4px 10px', fontSize: 12, color: 'var(--muted)' }}>
+                        +{selected.candidats.length - 12}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Corps */}
               <div style={{
@@ -3638,7 +3677,7 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
                 border: '1px solid var(--border)',
                 fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
               }}>
-                {selected.corps_extract || <span style={{ color: 'var(--muted)' }}>(corps non disponible)</span>}
+                {selected.corps_full || selected.corps_extract || <span style={{ color: 'var(--muted)' }}>(corps non disponible)</span>}
               </div>
 
               {/* CV joint */}
@@ -3652,6 +3691,8 @@ function EnvoisHubV2({ onCompose, onTemplates }: { onCompose: () => void; onTemp
         </div>
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+      {/* v2.1.16 — Panel hover CV preview (rendu une seule fois, hook contrôle l'affichage) */}
+      <CvHoverPanel hook={cvHook} />
     </div>
   )
 }

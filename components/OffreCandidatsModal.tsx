@@ -180,6 +180,8 @@ export default function OffreCandidatsModal({ offreId, offreTitre, onClose }: Pr
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 10000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        backdropFilter: 'blur(6px)',
+        fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       }}
     >
       <div
@@ -188,25 +190,41 @@ export default function OffreCandidatsModal({ offreId, offreTitre, onClose }: Pr
           background: 'var(--card)', borderRadius: 16,
           width: '100%', maxWidth: 860, maxHeight: '88vh',
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+          boxShadow: '0 24px 64px -16px rgba(0,0,0,0.45)',
           border: '1px solid var(--border)',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Briefcase size={16} color="var(--primary-foreground)" />
+        {/* Header — v2.1.15 design v2 (Instrument Serif title + Jakarta) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 18px', borderBottom: '1px solid var(--border)', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--primary)' }}>
+              <Briefcase size={20} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{offreTitre}</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',
+                fontSize: 24, fontWeight: 400, lineHeight: 1.1, letterSpacing: '-0.01em',
+                color: 'var(--foreground)', margin: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>{offreTitre}</h2>
+              <p style={{ fontSize: 12.5, color: 'var(--muted-foreground)', margin: '4px 0 0', fontWeight: 500 }}>
                 {links.length} candidat{links.length > 1 ? 's' : ''} lié{links.length > 1 ? 's' : ''}
-              </div>
+              </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
-            <X size={18} />
+          <button
+            onClick={onClose}
+            style={{
+              width: 34, height: 34, borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: '1px solid var(--border)',
+              cursor: 'pointer', color: 'var(--muted-foreground)', flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--secondary)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <X size={16} />
           </button>
         </div>
 

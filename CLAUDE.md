@@ -93,7 +93,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.1.9 prod (5 packs successifs : modals refondus + pipeline horizontal cats + polish 12 pages + fix tri clients)** — 04/05/2026
+**2.1.18 prod (Map Leaflet fiche client + Notes header + signature v2 + historique envois + tri secteurs + pills compteur + header liste centré)** — 05/05/2026
 
 ---
 

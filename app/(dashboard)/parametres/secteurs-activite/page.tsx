@@ -22,7 +22,7 @@ const inputStyle: React.CSSProperties = {
 export default function SecteursActiviteParamsPage() {
   const { data: secteurs = [], isLoading } = useSecteursActiviteConfig()
   const { metiers } = useMetiers()
-  const { getColorForMetier } = useMetierCategories()
+  const { getColorForMetier, categories } = useMetierCategories()
   const createSecteur = useCreateSecteur()
   const updateSecteur = useUpdateSecteur()
   const deleteSecteur = useDeleteSecteur()
@@ -76,39 +76,61 @@ export default function SecteursActiviteParamsPage() {
     }
   }
 
-  // Tri auto par catégorie de métier OU par couleur
+  // v2.1.15 — Tri auto par catégorie de métier OU par couleur (FIX : utilise vraiment categories du hook)
   const sortBy = async (mode: 'categorie' | 'couleur') => {
     setSortMenuOpen(false)
-    let sorted = [...secteurs]
-    if (mode === 'categorie') {
-      // Récupérer la catégorie (depuis le hook useMetierCategories) du métier représentatif
-      const catOf = (s: SecteurConfig): string => {
-        if (!s.metier_representatif) return 'zzz_aucune'
-        // Trouver la catégorie qui contient ce métier
-        return 'cat_' + (s.metier_representatif || 'zz')
-      }
-      sorted.sort((a, b) => {
-        const ca = catOf(a)
-        const cb = catOf(b)
+    // Map "métier → nom de catégorie" depuis le hook useMetierCategories
+    const metierToCatName = new Map<string, string>()
+    for (const cat of (categories || [])) {
+      for (const m of cat.metiers) metierToCatName.set(m, cat.name)
+    }
+    // Hex → numéro pour tri couleur stable (sinon localeCompare alphabétique sur hex est aléatoire)
+    const hexToHueRank = (hex: string): number => {
+      const m = hex.match(/^#?([0-9a-f]{6})$/i)
+      if (!m) return 999
+      const r = parseInt(m[1].slice(0, 2), 16) / 255
+      const g = parseInt(m[1].slice(2, 4), 16) / 255
+      const b = parseInt(m[1].slice(4, 6), 16) / 255
+      const max = Math.max(r, g, b), min = Math.min(r, g, b)
+      const d = max - min
+      if (d === 0) return 360 + (1 - max) * 100 // gris en queue, plus sombre = + loin
+      let h = 0
+      if (max === r) h = ((g - b) / d) % 6
+      else if (max === g) h = (b - r) / d + 2
+      else h = (r - g) / d + 4
+      h = h * 60
+      return h < 0 ? h + 360 : h
+    }
+
+    const sorted = [...secteurs].sort((a, b) => {
+      if (mode === 'categorie') {
+        const ca = a.metier_representatif ? (metierToCatName.get(a.metier_representatif) || 'zzz_inconnu') : 'zzz_aucun'
+        const cb = b.metier_representatif ? (metierToCatName.get(b.metier_representatif) || 'zzz_inconnu') : 'zzz_aucun'
         if (ca !== cb) return ca.localeCompare(cb, 'fr')
         return a.nom.localeCompare(b.nom, 'fr')
-      })
-    } else if (mode === 'couleur') {
-      sorted.sort((a, b) => {
-        const ca = a.metier_representatif ? (getColorForMetier(a.metier_representatif) || '#zzz') : '#zzz'
-        const cb = b.metier_representatif ? (getColorForMetier(b.metier_representatif) || '#zzz') : '#zzz'
-        if (ca !== cb) return ca.localeCompare(cb)
+      } else {
+        const ha = a.metier_representatif ? hexToHueRank(getColorForMetier(a.metier_representatif) || '#888') : 9999
+        const hb = b.metier_representatif ? hexToHueRank(getColorForMetier(b.metier_representatif) || '#888') : 9999
+        if (ha !== hb) return ha - hb
         return a.nom.localeCompare(b.nom, 'fr')
-      })
-    }
+      }
+    })
+
     // Update ordre pour chaque secteur dont l'ordre a changé
-    const updates = sorted.map((s, i) => s.ordre !== i ? updateSecteur.mutateAsync({ id: s.id, data: { ordre: i } }) : null).filter(Boolean) as Promise<any>[]
+    const updates = sorted
+      .map((s, i) => (s.ordre !== i ? updateSecteur.mutateAsync({ id: s.id, data: { ordre: i } }) : null))
+      .filter(Boolean) as Promise<any>[]
+
     if (updates.length === 0) {
       toast.info('Déjà trié')
       return
     }
-    await Promise.all(updates)
-    toast.success(`Trié par ${mode === 'categorie' ? 'catégorie' : 'couleur'} (${updates.length} secteurs réordonnés)`)
+    try {
+      await Promise.all(updates)
+      toast.success(`Trié par ${mode === 'categorie' ? 'catégorie' : 'couleur'} (${updates.length} secteurs réordonnés)`)
+    } catch (e: any) {
+      toast.error(`Erreur tri : ${e?.message || 'inconnue'}`)
+    }
   }
 
   const startEdit = (s: SecteurConfig) => {

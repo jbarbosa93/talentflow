@@ -2,6 +2,10 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import dynamic from 'next/dynamic'
+
+// v2.1.15 — Map fiche client (lazy load, ssr off — Leaflet incompatible SSR)
+const ClientFicheMap = dynamic(() => import('@/components/ClientFicheMap'), { ssr: false })
 import {
   ArrowLeft, Building2, MapPin, Phone, Mail, Globe,
   Pencil, Trash2, X, Check, FileText, Loader2,
@@ -453,6 +457,7 @@ export default function ClientDetailPage() {
   const getSecteurColor = makeSecteurColors(getColorForMetier, secteursMap)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showActivityHistory, setShowActivityHistory] = useState(false)
+  const [showNotesTooltip, setShowNotesTooltip] = useState(false) // v2.1.15
   // v1.9.116 — Modal édition card (Contact / Adresse)
   const [editingCard, setEditingCard] = useState<'header' | 'contact' | 'adresse' | 'notes' | 'add-contact' | 'new-commande' | null>(null)
   const [editingContactIdx, setEditingContactIdx] = useState<number | null>(null)  /* v1.9.127 — index contact en cours d'édition */
@@ -603,6 +608,42 @@ export default function ClientDetailPage() {
           >
             <ArrowLeft size={13} /> Retour
           </button>
+          {/* v2.1.15 — Bouton Notes header avec preview au mouseover (style fiche candidat) */}
+          <div style={{ position: 'relative' }}
+            onMouseEnter={() => setShowNotesTooltip(true)}
+            onMouseLeave={() => setShowNotesTooltip(false)}
+          >
+            <button
+              onClick={() => { setEditingCard('notes'); setShowNotesTooltip(false) }}
+              className="neo-btn-ghost neo-btn-sm"
+              style={{ position: 'relative' }}
+              title="Notes internes"
+            >
+              <MessageSquare size={13} />
+              {client.notes && client.notes.trim().length > 0 && (
+                <span style={{
+                  position: 'absolute', top: 2, right: 2,
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: 'var(--primary)',
+                }} />
+              )}
+            </button>
+            {showNotesTooltip && client.notes && client.notes.trim().length > 0 && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500, width: 320,
+                background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14,
+                boxShadow: '0 16px 40px rgba(0,0,0,0.20)', padding: 14,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              }}>
+                <p style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Notes internes
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--foreground)', margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+                  {client.notes}
+                </p>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setShowActivityHistory(true)}
             className="neo-btn-ghost neo-btn-sm"
@@ -1060,32 +1101,7 @@ export default function ClientDetailPage() {
       </div>
 
       {/* v1.9.116 — Notes (bouton "Modifier" → modal multi-champ comme Contact/Adresse) */}
-      <div style={{
-        background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
-        padding: '20px 22px', marginBottom: 20,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-          <h3 style={{
-            fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: 0,
-            textTransform: 'uppercase', letterSpacing: 0.5,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <MessageSquare size={14} />
-            Notes
-          </h3>
-          <button
-            onClick={() => setEditingCard('notes')}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1.5px solid var(--border)', background: 'transparent', borderRadius: 7, color: 'var(--muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: 0.3 }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--foreground)'; e.currentTarget.style.borderColor = 'var(--foreground)' }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-          >
-            <Pencil size={11} /> Modifier
-          </button>
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 500, color: client.notes ? 'var(--foreground)' : 'var(--muted)', whiteSpace: 'pre-wrap', minHeight: 20 }}>
-          {client.notes || '— Aucune note —'}
-        </div>
-      </div>
+      {/* v2.1.15 — Boîte Notes en bas SUPPRIMÉE (déplacée en bouton header avec tooltip mouseover + modal). */}
       {editingCard === 'notes' && (
         <CardEditModal
           title="Modifier les notes"
@@ -1102,53 +1118,7 @@ export default function ClientDetailPage() {
         />
       )}
 
-      {/* v1.9.114 — Secteurs d'activité (au fond, après notes) */}
-      <div style={{
-        background: 'var(--card)', border: '2px solid var(--border)', borderRadius: 14,
-        padding: '20px 22px', marginBottom: 20,
-      }}>
-        <h3 style={{
-          fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 6px',
-          textTransform: 'uppercase', letterSpacing: 0.5,
-        }}>
-          Secteurs d&apos;activité
-        </h3>
-        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '0 0 12px' }}>
-          Tagger les secteurs que ce client recherche habituellement. Utilisé par la prospection email et le matching.
-          {(client.secteurs_activite?.length ?? 0) === 0 && ' (Aucun secteur — clique sur les pills ci-dessous pour ajouter)'}
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {SECTEURS_LIST.map(s => {
-            const current = client.secteurs_activite ?? []
-            const active = current.includes(s)
-            const c = getSecteurColor(s)
-            return (
-              <button
-                key={s}
-                type="button"
-                disabled={updateClient.isPending}
-                onClick={() => {
-                  const next = active ? current.filter(x => x !== s) : [...current, s]
-                  updateClient.mutate({ id, data: { secteurs_activite: next } as any })
-                }}
-                style={{
-                  padding: '5px 11px', borderRadius: 6,
-                  border: `1.5px solid ${active ? c.border : 'var(--border)'}`,
-                  background: active ? c.bg : 'var(--card)',
-                  color: active ? c.text : 'var(--muted-foreground)',
-                  fontSize: 12, fontWeight: active ? 700 : 500,
-                  cursor: updateClient.isPending ? 'wait' : 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  opacity: updateClient.isPending ? 0.6 : 1,
-                  transition: 'all 0.1s',
-                }}
-              >
-                {s}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      {/* v2.1.16 — Section Secteurs d'activité DÉPLACÉE tout en bas (après la Map) */}
 
       {/* v1.9.117 — Registre du commerce suisse (Zefix) */}
       {(() => {
@@ -1318,6 +1288,85 @@ export default function ClientDetailPage() {
       })()}
 
       {/* v1.9.127 — Date création déplacée dans le sous-titre du header */}
+
+      {/* v2.1.15 — Map Leaflet en bas avec marker du client (lat/lng géocodés) */}
+      {(() => {
+        const lat = (client as any).latitude as number | null
+        const lng = (client as any).longitude as number | null
+        if (!lat || !lng) return null
+        return (
+          <div style={{
+            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14,
+            padding: '20px 22px', marginBottom: 20,
+          }}>
+            <h3 style={{
+              fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 14px',
+              textTransform: 'uppercase', letterSpacing: 0.5,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <MapPin size={14} />
+              Localisation
+            </h3>
+            <ClientFicheMap
+              latitude={lat}
+              longitude={lng}
+              nom={client.nom_entreprise || ''}
+              adresse={client.adresse}
+              ville={client.ville}
+              npa={client.npa}
+              height={340}
+            />
+          </div>
+        )
+      })()}
+
+      {/* v2.1.16 — Secteurs d'activité TOUT EN BAS (après Map) — demande João */}
+      <div style={{
+        background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14,
+        padding: '20px 22px', marginBottom: 20,
+      }}>
+        <h3 style={{
+          fontSize: 13, fontWeight: 800, color: 'var(--foreground)', margin: '0 0 6px',
+          textTransform: 'uppercase', letterSpacing: 0.5,
+        }}>
+          Secteurs d&apos;activité
+        </h3>
+        <p style={{ fontSize: 12, color: 'var(--muted-foreground)', margin: '0 0 12px' }}>
+          Tagger les secteurs que ce client recherche habituellement. Utilisé par la prospection email et le matching.
+          {(client.secteurs_activite?.length ?? 0) === 0 && ' (Aucun secteur — clique sur les pills ci-dessous pour ajouter)'}
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SECTEURS_LIST.map(s => {
+            const current = client.secteurs_activite ?? []
+            const active = current.includes(s)
+            const c = getSecteurColor(s)
+            return (
+              <button
+                key={s}
+                type="button"
+                disabled={updateClient.isPending}
+                onClick={() => {
+                  const next = active ? current.filter(x => x !== s) : [...current, s]
+                  updateClient.mutate({ id, data: { secteurs_activite: next } as any })
+                }}
+                style={{
+                  padding: '5px 11px', borderRadius: 6,
+                  border: `1.5px solid ${active ? c.border : 'var(--border)'}`,
+                  background: active ? c.bg : 'var(--card)',
+                  color: active ? c.text : 'var(--muted-foreground)',
+                  fontSize: 12, fontWeight: active ? 700 : 500,
+                  cursor: updateClient.isPending ? 'wait' : 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  opacity: updateClient.isPending ? 0.6 : 1,
+                  transition: 'all 0.1s',
+                }}
+              >
+                {s}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Delete confirmation dialog — v1.9.47 portal pour garantir position:fixed centré */}
       {showDeleteConfirm && typeof window !== 'undefined' && createPortal(
