@@ -3127,15 +3127,19 @@ export default function CandidatsList() {
                 <span style={{ flex: 1 }} />
                 {/* v1.9.134 — `flex: 0 0 Npx` shorthand strict (no-grow, no-shrink, basis=Npx)
                     GARANTIT la même width header ↔ row, indépendamment du contenu environnant. */}
-                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Évaluation</span>
+                {/* v2.1.14 — Header alignement par colonne :
+                    - Évaluation/Mise à jour : LEFT (étoiles + date à gauche dans rows)
+                    - CFC/Engagé : LEFT (pills toggle commencent à gauche)
+                    - Notes/Valider : CENTER (bouton centré dans la cell) */}
+                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Évaluation</span>
                 <span style={{ flex: '0 0 56px', ...headerCellStyleCenter }}>Notes</span>
                 {importStatusFilter === 'a_traiter' && (
                   <>
-                    <span style={{ flex: '0 0 64px', ...headerCellStyleCenter }}>CFC</span>
-                    <span style={{ flex: '0 0 80px', ...headerCellStyleCenter }}>Engagé</span>
+                    <span style={{ flex: '0 0 64px', ...headerCellStyle }}>CFC</span>
+                    <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Engagé</span>
                   </>
                 )}
-                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Mise à jour</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Mise à jour</span>
                 {importStatusFilter === 'a_traiter' && (
                   <span style={{ flex: '0 0 38px', ...headerCellStyleCenter }}>Valider</span>
                 )}

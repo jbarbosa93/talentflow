@@ -431,6 +431,12 @@ export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { data: client, isLoading } = useClient(id)
+  // v2.1.14 — Marquer ce client comme vu (pour faire disparaître le badge isNew dans la liste)
+  useEffect(() => {
+    if (id) {
+      import('@/lib/clients-seen').then(m => m.markClientSeen(id))
+    }
+  }, [id])
   const updateClient = useUpdateClient()
   const deleteClient = useDeleteClient()
   const { getColorForMetier } = useMetierCategories()
@@ -648,6 +654,17 @@ export default function ClientDetailPage() {
                 { label: 'Raison sociale', value: client.nom_entreprise },
                 { label: 'Secteur',        value: (client.secteurs_activite && client.secteurs_activite[0]) || (client as any).secteur || null },
                 { label: 'Adresse',        value: adresse },
+                // v2.1.14 — Email + Téléphone général affichés sur la fiche (étaient seulement dans le modal édition)
+                { label: 'Email',          value: client.email ? (
+                  <a href={`mailto:${client.email}`} style={{ color: 'var(--primary)', textDecoration: 'none' }}>
+                    {client.email}
+                  </a>
+                ) : null },
+                { label: 'Téléphone',      value: client.telephone ? (
+                  <a href={`tel:${client.telephone.replace(/\s+/g, '')}`} style={{ color: 'var(--foreground)', textDecoration: 'none' }}>
+                    {client.telephone}
+                  </a>
+                ) : null },
                 { label: 'Site',           value: client.site_web ? (
                   <a href={client.site_web.startsWith('http') ? client.site_web : `https://${client.site_web}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
                     {client.site_web.replace(/^https?:\/\//, '').replace(/\/$/, '')}

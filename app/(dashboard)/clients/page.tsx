@@ -34,6 +34,7 @@ const ClientsMap = dynamic(() => import('@/components/ClientsMap'), {
 })
 import { SECTEURS_ACTIVITE, SECTEUR_REPRESENTATIVE_METIER } from '@/lib/secteurs-extractor'
 import { useSecteursActiviteConfig } from '@/hooks/useSecteursActiviteConfig'
+import { getClientsSeenIds } from '@/lib/clients-seen'
 
 // v1.9.114 — Couleur d'un secteur depuis les catégories métiers définies
 // dans /parametres/metiers (mapping secteur → métier représentatif → catégorie).
@@ -626,6 +627,14 @@ export default function ClientsPage() {
   const [focusedClientId, setFocusedClientId] = useState<string | null>(null)
   // v2.1.11 — Tooltip portal pour TOUS les secteurs (style liste candidats métiers)
   const [secteurTooltip, setSecteurTooltip] = useState<{ secteurs: string[]; top: number; left: number; bottom: number } | null>(null)
+  // v2.1.14 — Set des clients dont la fiche a été ouverte localement (badge isNew skip)
+  const [clientsSeenIds, setClientsSeenIds] = useState<Set<string>>(() => getClientsSeenIds())
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onSeen = () => setClientsSeenIds(getClientsSeenIds())
+    window.addEventListener('talentflow:client-seen', onSeen)
+    return () => window.removeEventListener('talentflow:client-seen', onSeen)
+  }, [])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showProspectionModal, setShowProspectionModal] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
@@ -1266,7 +1275,9 @@ export default function ClientsPage() {
             if (debouncedSearch && debouncedSearch.trim()) return 0
             return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           }).map(client => {
-            const isNew = clientsLastSeen && client.created_at ? new Date(client.created_at) > new Date(clientsLastSeen) : false
+            // v2.1.14 — isNew skipped si fiche déjà ouverte localement (Set localStorage talentflow_clients_seen_ids)
+            const seenLocally = clientsSeenIds.has(client.id)
+            const isNew = !seenLocally && clientsLastSeen && client.created_at ? new Date(client.created_at) > new Date(clientsLastSeen) : false
             // v2.0.4 — Mode liste = ligne horizontale avec colonnes (style liste candidats)
             if (viewMode === 'list') {
               const firstContact = (client.contacts && client.contacts[0]) as any

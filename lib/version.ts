@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.13'
+export const APP_VERSION = '2.1.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.14',
+    date: '2026-05-05',
+    label: '3 fixes (header alignement par colonne, badge clients persiste, email/tel manquants fiche client)',
+    features: [
+      'HEADER LISTE CANDIDATS — Alignement par colonne corrigé (cassait le mode "Actif" en v2.1.13). LEFT pour Évaluation/CFC/Engagé/Mise à jour (contenu rows à gauche), CENTER pour Notes/Valider (bouton centré dans la cell). Nom/Lieu/Âge restent à gauche.',
+      'BADGE CLIENT NOUVEAU — Restait visible dans la liste après ouverture de la fiche (était basé seulement sur `clientsLastSeen` global). Fix : nouveau helper `lib/clients-seen.ts` qui maintient un Set localStorage `talentflow_clients_seen_ids` (max 5000 IDs LRU). `useEffect` au mount de `/clients/[id]` → `markClientSeen(id)` + broadcast event `talentflow:client-seen`. La liste écoute l\'event et re-render → badge disparaît.',
+      'FICHE CLIENT — Email + Téléphone général étaient enregistrés en DB et visibles dans le modal d\'édition mais PAS affichés dans la card "Informations" en lecture. Ajout de 2 rows entre Adresse et Site, avec lien `mailto:` / `tel:` cliquable.',
+    ],
+  },
   {
     version: '2.1.13',
     date: '2026-05-05',
