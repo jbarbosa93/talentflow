@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.12'
+export const APP_VERSION = '2.1.13'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.13',
+    date: '2026-05-05',
+    label: 'Header liste candidats : labels centrés colonnes droite (alignement visuel pills/étoiles) + fusion 17 doublons clients appliquée',
+    features: [
+      'LISTE CANDIDATS HEADER — Labels des colonnes DROITE (Évaluation, Notes, CFC, Engagé, Mise à jour, Valider) maintenant `justifyContent: center + textAlign: center` (avant : flex-start = labels à gauche alors que pills/étoiles sont visuellement centrés). Nom/Lieu/Âge restent alignés à gauche (matchent le contenu rows à gauche).',
+      'FUSION DOUBLONS CLIENTS APPLIQUÉE — 17 fusions effectuées via `scripts/batch/merge-doublons-clients.ts --apply`. Logique winner : zefix_uid > nb contacts > ancienneté. 1131 → 1114 clients. Aucune FK orpheline (0 emails / 0 entretiens / 0 missions à migrer car les doublons étaient récents et pas encore utilisés). Contacts JSONB mergés avec dédup par email lowercase. Champs manquants du winner remplis depuis les losers (adresse, secteur, secteurs_activite, site_web, etc.). CSV rapport sur Desktop.',
+    ],
+  },
   {
     version: '2.1.12',
     date: '2026-05-05',

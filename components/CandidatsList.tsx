@@ -3088,6 +3088,13 @@ export default function CandidatsList() {
               display: 'flex', alignItems: 'center',
               boxSizing: 'border-box',
             }
+            // v2.1.13 — Cellules droite (Évaluation/Notes/CFC/Engagé/Mise à jour/Valider) : labels CENTRÉS
+            //           pour matcher visuellement le contenu pill/icône/étoiles centré dans les rows.
+            const headerCellStyleCenter: React.CSSProperties = {
+              ...headerCellStyle,
+              justifyContent: 'center',
+              textAlign: 'center',
+            }
             return (
               <div style={{
                 // v2.1.12 — gap 14→10 + padding 18→14 pour matcher EXACTEMENT le row (compaction v2.0.3)
@@ -3120,17 +3127,17 @@ export default function CandidatsList() {
                 <span style={{ flex: 1 }} />
                 {/* v1.9.134 — `flex: 0 0 Npx` shorthand strict (no-grow, no-shrink, basis=Npx)
                     GARANTIT la même width header ↔ row, indépendamment du contenu environnant. */}
-                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Évaluation</span>
-                <span style={{ flex: '0 0 56px', ...headerCellStyle }}>Notes</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Évaluation</span>
+                <span style={{ flex: '0 0 56px', ...headerCellStyleCenter }}>Notes</span>
                 {importStatusFilter === 'a_traiter' && (
                   <>
-                    <span style={{ flex: '0 0 64px', ...headerCellStyle }}>CFC</span>
-                    <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Engagé</span>
+                    <span style={{ flex: '0 0 64px', ...headerCellStyleCenter }}>CFC</span>
+                    <span style={{ flex: '0 0 80px', ...headerCellStyleCenter }}>Engagé</span>
                   </>
                 )}
-                <span style={{ flex: '0 0 110px', ...headerCellStyle }}>Mise à jour</span>
+                <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Mise à jour</span>
                 {importStatusFilter === 'a_traiter' && (
-                  <span style={{ flex: '0 0 38px', ...headerCellStyle }}>Valider</span>
+                  <span style={{ flex: '0 0 38px', ...headerCellStyleCenter }}>Valider</span>
                 )}
               </div>
             )
