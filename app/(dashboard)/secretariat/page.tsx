@@ -10,7 +10,7 @@ import {
   ClipboardList, Bell, Plus, Pencil, Trash2,
   Mail, AlertTriangle, Search, Loader2, X,
   User, Calendar, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
-  FileText, Home, History, Filter, ArrowUpDown, ArrowUp, ArrowDown,
+  FileText, History, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -24,20 +24,28 @@ interface SecretariatCandidat {
   date_naissance: string | null
   enfants_charge: string | null
   lieu_demande: string | null
+  date_demande: string | null
+  type_demande: 'renouvellement' | 'changement_employeur' | 'premiere' | null
   genre_permis: string | null
   date_echeance_permis: string | null
   permis_travail: string | null
+  permis_note: string | null
   carte_id: string
   numero_avs: string | null
   iban: string | null
   has_cv: boolean
   has_cm: boolean
   has_docs_clients: boolean
+  has_permis_conduire: boolean
+  docs_clients_note: string | null
   remarques: string | null
-  mission_terminee: string | null
+  date_mission: string | null
+  is_mission_terminee: boolean
+  date_fin_mission: string | null
   mappe: boolean
-  docs_manquants: string | null
   suisse: boolean
+  archive: boolean
+  archived_at: string | null
   annee: number
   photo_url?: string | null
   tel?: string | null
@@ -69,22 +77,6 @@ interface SecretariatAccident {
   email?: string | null
 }
 
-interface SecretariatLoyer {
-  id: string
-  candidat_id: string | null
-  nom_prenom: string
-  adresse: string | null
-  montant_loyer: number | null
-  date_debut: string | null
-  date_fin: string | null
-  remarques: string | null
-  annee: number
-  couleur?: string | null
-  photo_url?: string | null
-  tel?: string | null
-  email?: string | null
-}
-
 interface SecretariatAlfa {
   id: string
   candidat_id: string | null
@@ -105,6 +97,7 @@ interface SecretariatAlfa {
   lieu_enfants: string | null
   consimo: string | null
   termine: boolean
+  raf: boolean
   annee: number
   couleur?: string | null
   photo_url?: string | null
@@ -123,6 +116,7 @@ interface SecretariatAlfaPaiement {
   annee_periode: string | null
   alfa_dernier_mois: string | null
   date_fin_mission: string | null
+  dates_fin_mission: string | null
   statut_termine: boolean
   dernier_mois_paye: string | null
   prochain_mois_paye: string | null
@@ -141,6 +135,8 @@ interface Notification {
   reference_id: string | null
   reference_table: string | null
   lue: boolean
+  traitee?: boolean
+  traitee_at?: string | null
   urgence: 'normale' | 'urgente'
   created_by: string | null
   created_by_nom: string | null
@@ -156,6 +152,20 @@ const S = {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
+
+function ZoneSection({ title, icon, children }: { title: string; icon?: string; children: React.ReactNode }) {
+  return (
+    <section style={{ border: '1.5px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--card)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: '1.5px dashed var(--border)' }}>
+        {icon && <span style={{ fontSize: 16 }}>{icon}</span>}
+        <h3 style={{ margin: 0, fontSize: 11, fontWeight: 800, color: 'var(--foreground)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</h3>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {children}
+      </div>
+    </section>
+  )
+}
 
 function formatDate(d: string | null): string {
   if (!d) return '—'
@@ -178,7 +188,7 @@ function getPermisColor(dateEcheance: string | null): 'green' | 'yellow' | 'red'
   const today = new Date()
   const echeance = new Date(dateEcheance)
   const jours = Math.floor((echeance.getTime() - today.getTime()) / 86400000)
-  if (jours < 30) return 'red'
+  if (jours < 14) return 'red'
   if (jours < 90) return 'yellow'
   return 'green'
 }
@@ -186,7 +196,8 @@ function getPermisColor(dateEcheance: string | null): 'green' | 'yellow' | 'red'
 function getLigneStatut(c: SecretariatCandidat): 'ok' | 'warning' | 'urgent' {
   const permisColor = getPermisColor(c.date_echeance_permis)
   if (permisColor === 'red') return 'urgent'
-  if (c.docs_manquants) return 'warning'
+  const docsComplet = c.has_cv && c.has_cm && c.has_docs_clients && c.has_permis_conduire && c.mappe
+  if (!docsComplet) return 'warning'
   if (permisColor === 'yellow') return 'warning'
   return 'ok'
 }
@@ -361,7 +372,7 @@ function CandidatAutocomplete({ value, onChange }: {
   }
 
   const select = (c: any) => {
-    const label = [c.prenom, c.nom].filter(Boolean).join(' ')
+    const label = [c.nom, c.prenom].filter(Boolean).join(' ')
     setQuery(label)
     onChange(label, c.id, c)
     setResults([]); setOpen(false)
@@ -389,7 +400,7 @@ function CandidatAutocomplete({ value, onChange }: {
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--secondary)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              <div style={{ fontWeight: 600 }}>{c.prenom} {c.nom}</div>
+              <div style={{ fontWeight: 600 }}>{c.nom} {c.prenom}</div>
               {(c.titre || c.localisation) && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>{[c.titre, c.localisation].filter(Boolean).join(' · ')}</div>}
             </button>
           ))}
@@ -408,9 +419,12 @@ const EMPTY_CANDIDAT_FORM = {
   date_naissance: '',
   enfants_charge: '?',
   lieu_demande: '',
+  date_demande: '',
+  type_demande: '' as '' | 'renouvellement' | 'changement_employeur' | 'premiere',
   genre_permis: '',
   date_echeance_permis: '',
   permis_travail: '',
+  permis_note: '',
   carte_id: '',
   numero_avs: '',
   iban: '',
@@ -418,26 +432,33 @@ const EMPTY_CANDIDAT_FORM = {
   has_cv: false,
   has_cm: false,
   has_docs_clients: false,
+  has_permis_conduire: false,
+  docs_clients_note: '',
   remarques: '',
-  mission_terminee: '',
+  date_mission: '',
+  is_mission_terminee: false,
+  date_fin_mission: '',
   mappe: false,
-  docs_manquants: '',
   suisse: false,
+  archive: false,
   annee: new Date().getFullYear(),
 }
 
 function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState(() => item ? {
     candidat_id: item.candidat_id,
-    candidat_nom_complet: [item.prenom, item.nom].filter(Boolean).join(' '),
+    candidat_nom_complet: [item.nom, item.prenom].filter(Boolean).join(' '),
     nom: item.nom || '',
     prenom: item.prenom || '',
     date_naissance: item.date_naissance || '',
     enfants_charge: typeof item.enfants_charge === 'boolean' ? (item.enfants_charge ? 'oui' : 'non') : (item.enfants_charge || '?'),
     lieu_demande: item.lieu_demande || '',
+    date_demande: item.date_demande || '',
+    type_demande: (item.type_demande || '') as '' | 'renouvellement' | 'changement_employeur' | 'premiere',
     genre_permis: item.genre_permis || '',
     date_echeance_permis: item.date_echeance_permis || '',
     permis_travail: item.permis_travail || '',
+    permis_note: item.permis_note || '',
     carte_id: item.carte_id || '',
     numero_avs: item.numero_avs || '',
     iban: item.iban || '',
@@ -445,11 +466,15 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
     has_cv: item.has_cv || false,
     has_cm: item.has_cm || false,
     has_docs_clients: item.has_docs_clients || false,
+    has_permis_conduire: item.has_permis_conduire || false,
+    docs_clients_note: item.docs_clients_note || '',
     remarques: item.remarques || '',
-    mission_terminee: item.mission_terminee || '',
+    date_mission: item.date_mission || '',
+    is_mission_terminee: !!item.is_mission_terminee,
+    date_fin_mission: item.date_fin_mission || '',
     mappe: item.mappe || false,
-    docs_manquants: item.docs_manquants || '',
     suisse: item.suisse || false,
+    archive: !!item.archive,
     annee: item.annee || new Date().getFullYear(),
   } : { ...EMPTY_CANDIDAT_FORM, annee: new Date().getFullYear() })
   const [saving, setSaving] = useState(false)
@@ -465,9 +490,12 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
         date_naissance: form.date_naissance || null,
         enfants_charge: form.enfants_charge,
         lieu_demande: form.lieu_demande || null,
+        date_demande: form.date_demande || null,
+        type_demande: form.type_demande || null,
         genre_permis: form.genre_permis || null,
         date_echeance_permis: form.date_echeance_permis || null,
         permis_travail: form.permis_travail || null,
+        permis_note: form.permis_note || null,
         carte_id: form.carte_id || '',
         numero_avs: form.numero_avs || null,
         iban: form.iban || null,
@@ -475,17 +503,56 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
         has_cv: form.has_cv,
         has_cm: form.has_cm,
         has_docs_clients: form.has_docs_clients,
+        has_permis_conduire: form.has_permis_conduire,
+        docs_clients_note: form.docs_clients_note || null,
         remarques: form.remarques || null,
-        mission_terminee: form.mission_terminee || null,
+        date_mission: form.date_mission || null,
+        is_mission_terminee: form.is_mission_terminee,
+        date_fin_mission: form.is_mission_terminee ? (form.date_fin_mission || null) : null,
         mappe: form.mappe,
-        docs_manquants: form.docs_manquants || null,
         suisse: form.suisse,
+        archive: form.archive,
+        archived_at: form.archive && !item?.archive ? new Date().toISOString() : (item?.archived_at || null),
         annee: form.annee,
       }
       const url = item ? `/api/secretariat/candidats/${item.id}` : '/api/secretariat/candidats'
       const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
+
+      // Alerte fin ALFA caisse : si Mission Terminée vient d'être cochée
+      // ET qu'un suivi ALFA EN COURS existe pour ce candidat → créer notif persistante.
+      // « En cours » = !termine && !raf (RAF est un statut distinct).
+      const wasNotTerminated = !item?.is_mission_terminee
+      if (form.is_mission_terminee && wasNotTerminated && form.candidat_id) {
+        try {
+          const alfaRes = await fetch(`/api/secretariat/alfa?annee=${form.annee}`)
+          if (alfaRes.ok) {
+            const alfaData = await alfaRes.json()
+            const matchingAlfa = (alfaData.alfa || []).find((a: any) =>
+              a.candidat_id === form.candidat_id && !a.termine && !a.raf
+            )
+            if (matchingAlfa) {
+              const candidatLabel = `${form.nom} ${form.prenom}`.trim()
+              await fetch('/api/secretariat/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'fin_alfa_caisse',
+                  titre: `🚨 Annoncer fin ALFA à la caisse — ${candidatLabel}`,
+                  message: `Le candidat ${candidatLabel} a terminé sa mission. Une fiche ALFA en cours existe encore. Annonce la fin à la caisse, puis clique sur "C'est Fait" pour archiver cette alerte.`,
+                  candidat_id: form.candidat_id,
+                  reference_id: `fin_alfa_${data.candidat?.id || item?.id || form.candidat_id}_${form.date_fin_mission || 'no-date'}`,
+                  reference_table: 'secretariat_candidats',
+                  urgence: 'urgente',
+                }),
+              })
+              toast.warning(`⚠️ N'oublie pas d'annoncer la fin d'ALFA à la caisse pour ${candidatLabel}`, { duration: 6000 })
+            }
+          }
+        } catch { /* best-effort */ }
+      }
+
       toast.success(item ? 'Entrée modifiée' : 'Entrée créée')
       onSaved(); onClose()
     } catch (e: any) { toast.error(e.message) }
@@ -501,139 +568,229 @@ function CandidatModal({ item, onClose, onSaved }: { item?: SecretariatCandidat 
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Lien candidat */}
-          <div>
-            <label style={S.label}>Lier à un candidat TalentFlow</label>
-            <CandidatAutocomplete
-              value={form.candidat_nom_complet}
-              onChange={(nom, id, candidat) => setForm(f => ({
-                ...f,
-                candidat_nom_complet: nom,
-                candidat_id: id,
-                nom: candidat?.nom || f.nom,
-                prenom: candidat?.prenom || f.prenom,
-              }))}
-            />
-            {form.candidat_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié au candidat</div>}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* ─── ZONE 1 : CANDIDAT ─── */}
+          <ZoneSection title="Candidat" icon="👤">
             <div>
-              <label style={S.label}>Prénom *</label>
-              <input value={form.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénom" style={S.input} />
+              <label style={S.label}>Lier à un candidat TalentFlow</label>
+              <CandidatAutocomplete
+                value={form.candidat_nom_complet}
+                onChange={(nom, id, candidat) => setForm(f => ({
+                  ...f,
+                  candidat_nom_complet: nom,
+                  candidat_id: id,
+                  nom: candidat?.nom || f.nom,
+                  prenom: candidat?.prenom || f.prenom,
+                }))}
+              />
+              {form.candidat_id && <div style={{ fontSize: 10, color: 'var(--success)', marginTop: 2 }}>✓ Lié au candidat</div>}
             </div>
-            <div>
-              <label style={S.label}>Nom *</label>
-              <input value={form.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom" style={S.input} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Nom *</label>
+                <input value={form.nom} onChange={e => set('nom', e.target.value)} placeholder="Nom" style={S.input} />
+              </div>
+              <div>
+                <label style={S.label}>Prénom *</label>
+                <input value={form.prenom} onChange={e => set('prenom', e.target.value)} placeholder="Prénom" style={S.input} />
+              </div>
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Date de naissance</label>
-              <input type="date" value={form.date_naissance} onChange={e => set('date_naissance', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Date de naissance</label>
+                <input type="date" value={form.date_naissance} onChange={e => set('date_naissance', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
+              <div>
+                <label style={S.label}>N° Quadrigis</label>
+                <input value={form.numero_quadrigis} onChange={e => set('numero_quadrigis', e.target.value)} placeholder="Ex: Q-12345" style={S.input} />
+              </div>
             </div>
-            <div>
-              <label style={S.label}>N° Quadrigis</label>
-              <input value={form.numero_quadrigis} onChange={e => set('numero_quadrigis', e.target.value)} placeholder="Ex: Q-12345" style={S.input} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Permis de séjour</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <select value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} style={{ ...S.input, flex: 1 }}>
-                  <option value="">— Sélectionner —</option>
-                  <option value="L">L</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="G">G</option>
-                  <option value="IMES">IMES</option>
-                </select>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none', fontSize: 12, fontWeight: 700, color: form.suisse ? '#DC2626' : 'var(--muted)', whiteSpace: 'nowrap', padding: '6px 8px', borderRadius: 6, background: form.suisse ? 'rgba(220,38,38,0.08)' : 'var(--secondary)', border: `1.5px solid ${form.suisse ? 'rgba(220,38,38,0.3)' : 'var(--border)'}` }}>
-                  <input type="checkbox" checked={form.suisse} onChange={e => set('suisse', e.target.checked)}
-                    style={{ width: 14, height: 14, accentColor: '#DC2626', cursor: 'pointer' }} />
-                  🇨🇭 Suisse
+            <div style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 12 }}>
+              <div style={{ ...S.label, marginBottom: 10 }}>Documents reçus</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {[
+                  { key: 'has_cv', label: 'CV' },
+                  { key: 'has_cm', label: 'CM' },
+                  { key: 'has_docs_clients', label: 'Docs Clients' },
+                  { key: 'mappe', label: 'Mappe' },
+                  { key: 'has_permis_conduire', label: 'Permis conduire' },
+                ].map(({ key, label }) => (
+                  <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                    <input type="checkbox" checked={form[key as keyof typeof form] as boolean} onChange={e => set(key as keyof typeof form, e.target.checked)}
+                      style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                    {label}
+                  </label>
+                ))}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                  <input type="checkbox" checked={!!form.numero_avs} onChange={e => set('numero_avs', e.target.checked ? 'oui' : '')}
+                    style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                  AVS
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                  <input type="checkbox" checked={!!form.iban} onChange={e => set('iban', e.target.checked ? 'oui' : '')}
+                    style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                  IBAN
+                </label>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <label style={{ ...S.label, marginBottom: 4 }}>Note Docs Clients (visible au survol)</label>
+                <input value={form.docs_clients_note} onChange={e => set('docs_clients_note', e.target.value)} placeholder="Ex: contrat signé, attestation…" style={S.input} />
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 2 : PERMIS DE TRAVAIL ─── */}
+          <ZoneSection title="Permis de travail" icon="🪪">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Permis de séjour</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select value={form.genre_permis} onChange={e => set('genre_permis', e.target.value)} style={{ ...S.input, flex: 1 }}>
+                    <option value="">— Sélectionner —</option>
+                    <option value="L">L</option>
+                    <option value="B">B</option>
+                    <option value="B réfugié">B réfugié</option>
+                    <option value="B (marié CH/C)">B (marié avec CH ou C)</option>
+                    <option value="C">C</option>
+                    <option value="F">F</option>
+                    <option value="G">G</option>
+                    <option value="N">N</option>
+                    <option value="S">S</option>
+                    <option value="IMES">IMES</option>
+                  </select>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none', fontSize: 12, fontWeight: 700, color: form.suisse ? '#DC2626' : 'var(--muted)', whiteSpace: 'nowrap', padding: '6px 8px', borderRadius: 6, background: form.suisse ? 'rgba(220,38,38,0.08)' : 'var(--secondary)', border: `1.5px solid ${form.suisse ? 'rgba(220,38,38,0.3)' : 'var(--border)'}` }}>
+                    <input type="checkbox" checked={form.suisse} onChange={e => set('suisse', e.target.checked)}
+                      style={{ width: 14, height: 14, accentColor: '#DC2626', cursor: 'pointer' }} />
+                    🇨🇭 Suisse
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label style={S.label}>Échéance permis</label>
+                <input type="date" value={form.date_echeance_permis} onChange={e => set('date_echeance_permis', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
               </div>
             </div>
             <div>
-              <label style={S.label}>Échéance permis</label>
-              <input type="date" value={form.date_echeance_permis} onChange={e => set('date_echeance_permis', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              <label style={S.label}>Note permis (visible au survol)</label>
+              <input value={form.permis_note} onChange={e => set('permis_note', e.target.value)} placeholder="Ex: renouvellement en cours…" style={S.input} />
             </div>
-          </div>
-
-          <div>
-            <label style={S.label}>Lieu de demande</label>
-            <input value={form.lieu_demande} onChange={e => set('lieu_demande', e.target.value)} placeholder="Ex: Genève" style={S.input} />
-          </div>
-
-          {/* Checkboxes documents */}
-          <div style={{ background: 'var(--secondary)', border: '1.5px solid var(--border)', borderRadius: 8, padding: 12 }}>
-            <div style={{ ...S.label, marginBottom: 10 }}>Documents reçus</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              {[
-                { key: 'has_cv', label: 'CV' },
-                { key: 'has_cm', label: 'CM' },
-                { key: 'has_docs_clients', label: 'Docs Clients' },
-                { key: 'mappe', label: 'Mappe' },
-              ].map(({ key, label }) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                  <input type="checkbox" checked={form[key as keyof typeof form] as boolean} onChange={e => set(key as keyof typeof form, e.target.checked)}
-                    style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                  {label}
-                </label>
-              ))}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                <input type="checkbox" checked={!!form.numero_avs} onChange={e => set('numero_avs', e.target.checked ? 'oui' : '')}
-                  style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                AVS
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                <input type="checkbox" checked={!!form.iban} onChange={e => set('iban', e.target.checked ? 'oui' : '')}
-                  style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                IBAN
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label style={S.label}>Enfants a charge</label>
-            <select value={form.enfants_charge as string} onChange={e => set('enfants_charge', e.target.value)} style={S.input}>
-              <option value="oui">OUI</option>
-              <option value="non">NON</option>
-              <option value="?">? (inconnu)</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-              <input type="checkbox" checked={!!form.docs_manquants} onChange={e => set('docs_manquants', e.target.checked ? 'x' : '')}
-                style={{ width: 15, height: 15, accentColor: '#EF4444', cursor: 'pointer' }} />
-              Docs manquants
-            </label>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Mission terminée (date)</label>
-              <input type="date" value={form.mission_terminee} onChange={e => set('mission_terminee', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Lieu de demande</label>
+                <input value={form.lieu_demande} onChange={e => set('lieu_demande', e.target.value)} placeholder="Ex: Genève" style={S.input} />
+              </div>
+              <div>
+                <label style={S.label}>Date de demande</label>
+                <input type="date" value={form.date_demande} onChange={e => set('date_demande', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
             </div>
             <div>
-              <label style={S.label}>Année</label>
-              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
-                <option value={2026}>2026</option>
-                <option value={2025}>2025</option>
+              <label style={S.label}>Type de demande</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([
+                  { key: 'renouvellement', label: '🔄 Renouvellement' },
+                  { key: 'changement_employeur', label: '🔁 Changement d\'employeur' },
+                  { key: 'premiere', label: '✨ 1ère Demande' },
+                ] as const).map(t => {
+                  const active = form.type_demande === t.key
+                  return (
+                    <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: active ? 'var(--primary-soft)' : 'var(--secondary)', border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`, color: active ? 'var(--primary)' : 'var(--muted)' }}>
+                      <input type="checkbox" checked={active} onChange={() => set('type_demande', active ? '' : t.key)}
+                        style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                      {t.label}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 3 : ALFA ─── */}
+          <ZoneSection title="ALFA" icon="👨‍👩‍👧">
+            <div>
+              <label style={S.label}>Enfants à charge</label>
+              <select value={form.enfants_charge as string} onChange={e => set('enfants_charge', e.target.value)} style={S.input}>
+                <option value="oui">OUI</option>
+                <option value="oui_pas_a_charge">OUI pas à charge</option>
+                <option value="non">NON</option>
+                <option value="?">? (inconnu)</option>
               </select>
+              {form.enfants_charge === 'oui' && (
+                <div style={{ marginTop: 8, padding: 10, background: 'rgba(234,179,8,0.08)', border: '1.5px solid rgba(234,179,8,0.25)', borderRadius: 8, fontSize: 12, color: 'var(--foreground)' }}>
+                  💡 Une fiche ALFA est requise. Après enregistrement, clique sur le badge <strong>ALFA</strong> dans la liste pour la créer ou la consulter.
+                </div>
+              )}
+              {form.enfants_charge === 'oui_pas_a_charge' && (
+                <div style={{ marginTop: 8, padding: 10, background: 'var(--secondary)', border: '1.5px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--muted)' }}>
+                  ℹ️ Le candidat a des enfants mais pas à charge. Aucune fiche ALFA n'est nécessaire.
+                </div>
+              )}
             </div>
-          </div>
+          </ZoneSection>
 
-          <div>
-            <label style={S.label}>Remarques</label>
-            <textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} placeholder="Commentaires…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
-          </div>
+          {/* ─── ZONE 4 : MISSIONS & ARCHIVAGE ─── */}
+          <ZoneSection title="Missions" icon="💼">
+            {!form.is_mission_terminee && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={S.label}>Date Mission Active</label>
+                  <input type="date" value={form.date_mission} onChange={e => set('date_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+                </div>
+                <div>
+                  <label style={S.label}>Année</label>
+                  <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
+                    <option value={2026}>2026</option>
+                    <option value={2025}>2025</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', padding: '8px 12px', borderRadius: 8, background: form.is_mission_terminee ? 'rgba(239,68,68,0.10)' : 'var(--secondary)', border: `1.5px solid ${form.is_mission_terminee ? 'rgba(239,68,68,0.3)' : 'var(--border)'}` }}>
+                <input type="checkbox" checked={form.is_mission_terminee}
+                  onChange={e => set('is_mission_terminee', e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#EF4444', cursor: 'pointer' }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: form.is_mission_terminee ? '#DC2626' : 'var(--foreground)' }}>🏁 Mission terminée</span>
+              </label>
+            </div>
+            {form.is_mission_terminee && (
+              <div style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.08em' }}>🏁 Mission terminée</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={S.label}>Date fin de mission</label>
+                    <input type="date" value={form.date_fin_mission} onChange={e => set('date_fin_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+                  </div>
+                  <div>
+                    <label style={S.label}>Année</label>
+                    <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
+                      <option value={2026}>2026</option>
+                      <option value={2025}>2025</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>La date de mission active sera réactivée si tu décoches la case.</div>
+              </div>
+            )}
+
+            {/* Toggle Archivé — masque le candidat de la liste active */}
+            <div style={{ marginTop: 4, paddingTop: 10, borderTop: '1.5px dashed var(--border)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', padding: '8px 12px', borderRadius: 8, background: form.archive ? 'rgba(107,114,128,0.12)' : 'var(--secondary)', border: `1.5px solid ${form.archive ? 'rgba(107,114,128,0.35)' : 'var(--border)'}` }}>
+                <input type="checkbox" checked={form.archive}
+                  onChange={e => set('archive', e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#6B7280', cursor: 'pointer' }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: form.archive ? '#4B5563' : 'var(--foreground)' }}>📦 Archivé</span>
+                <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 'auto' }}>{form.archive ? 'Le candidat sera masqué de la liste active' : 'Cocher pour masquer le candidat'}</span>
+              </label>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 5 : REMARQUES ─── */}
+          <ZoneSection title="Remarques" icon="📝">
+            <textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} placeholder="Commentaires libres…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+          </ZoneSection>
+
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -734,109 +891,120 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={S.label}>Lier à un candidat TalentFlow</label>
-            <CandidatAutocomplete
-              value={form.candidat_nom_complet}
-              onChange={(nom, id, candidat) => setForm(f => ({
-                ...f,
-                candidat_nom_complet: nom,
-                candidat_id: id,
-                nom_prenom: candidat ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ') : f.nom_prenom,
-              }))}
-            />
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <div>
-            <label style={S.label}>Nom / Prénom *</label>
-            <input value={form.nom_prenom} onChange={e => set('nom_prenom', e.target.value)} placeholder="Prénom Nom" style={S.input} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* ─── ZONE 1 : CANDIDAT ─── */}
+          <ZoneSection title="Candidat" icon="👤">
             <div>
-              <label style={S.label}>Type de cas</label>
-              <select value={form.type_cas} onChange={e => set('type_cas', e.target.value as 'Accident' | 'Maladie')} style={{ ...S.input }}>
-                <option value="Accident">Accident</option>
-                <option value="Maladie">Maladie</option>
-              </select>
+              <label style={S.label}>Lier à un candidat TalentFlow</label>
+              <CandidatAutocomplete
+                value={form.candidat_nom_complet}
+                onChange={(nom, id, candidat) => setForm(f => ({
+                  ...f,
+                  candidat_nom_complet: nom,
+                  candidat_id: id,
+                  nom_prenom: candidat ? [candidat.nom, candidat.prenom].filter(Boolean).join(' ') : f.nom_prenom,
+                }))}
+              />
             </div>
             <div>
-              <label style={S.label}>Sous-type</label>
-              <input value={form.sous_type} onChange={e => set('sous_type', e.target.value)} placeholder="Ex: Professionnel, Sportif…" style={S.input} />
+              <label style={S.label}>Nom / Prénom *</label>
+              <input value={form.nom_prenom} onChange={e => set('nom_prenom', e.target.value)} placeholder="Nom Prénom" style={S.input} />
             </div>
-          </div>
+          </ZoneSection>
 
-          <div>
-            <label style={S.label}>Raison / Description</label>
-            <input value={form.raison} onChange={e => set('raison', e.target.value)} placeholder="Description du cas…" style={S.input} />
-          </div>
-
-          <div>
-            <label style={S.label}>N° Sinistre</label>
-            <input value={form.numero_sinistre} onChange={e => set('numero_sinistre', e.target.value)} placeholder="N° de sinistre" style={S.input} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Date début</label>
-              <input type="date" value={form.date_debut} onChange={e => set('date_debut', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
-            </div>
-            <div>
-              <label style={S.label}>Date fin</label>
-              <input type="date" value={form.date_fin} onChange={e => set('date_fin', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Assurance payée jusqu'au</label>
-              <input type="date" value={form.assurance_payee_jusqu_au} onChange={e => set('assurance_payee_jusqu_au', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+          {/* ─── ZONE 2 : CAS ─── */}
+          <ZoneSection title="Cas" icon="🏥">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Type de cas</label>
+                <select value={form.type_cas} onChange={e => set('type_cas', e.target.value as 'Accident' | 'Maladie')} style={{ ...S.input }}>
+                  <option value="Accident">Accident</option>
+                  <option value="Maladie">Maladie</option>
+                </select>
+              </div>
+              <div>
+                <label style={S.label}>Sous-type</label>
+                <input value={form.sous_type} onChange={e => set('sous_type', e.target.value)} placeholder="Ex: Professionnel, Sportif…" style={S.input} />
+              </div>
             </div>
             <div>
-              <label style={S.label}>Licenciement pour le</label>
-              <input type="date" value={form.licenciement_pour_le} onChange={e => set('licenciement_pour_le', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
-            </div>
-          </div>
-
-          <div>
-            <label style={S.label}>Décision</label>
-            <input value={form.decision} onChange={e => set('decision', e.target.value)} placeholder="Décision prise…" style={S.input} />
-          </div>
-
-          <div>
-            <label style={S.label}>Note interne</label>
-            <textarea value={form.note} onChange={e => set('note', e.target.value)} placeholder="Note…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
-          </div>
-
-          <div>
-            <label style={S.label}>Remarque</label>
-            <textarea value={form.remarque} onChange={e => set('remarque', e.target.value)} placeholder="Remarques…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Couleur alerte</label>
-              <select value={form.couleur} onChange={e => set('couleur', e.target.value as 'normal' | 'jaune' | 'rouge')} style={{ ...S.input }}>
-                <option value="normal">Normal</option>
-                <option value="jaune">Jaune (attention)</option>
-                <option value="rouge">Rouge (urgent)</option>
-              </select>
+              <label style={S.label}>Raison / Description</label>
+              <input value={form.raison} onChange={e => set('raison', e.target.value)} placeholder="Description du cas…" style={S.input} />
             </div>
             <div>
-              <label style={S.label}>Année</label>
-              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
-                <option value={2026}>2026</option>
-                <option value={2025}>2025</option>
-              </select>
+              <label style={S.label}>N° Sinistre</label>
+              <input value={form.numero_sinistre} onChange={e => set('numero_sinistre', e.target.value)} placeholder="N° de sinistre" style={S.input} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                <input type="checkbox" checked={form.termine} onChange={e => set('termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
-                Cas terminé
-              </label>
+          </ZoneSection>
+
+          {/* ─── ZONE 3 : DATES ─── */}
+          <ZoneSection title="Dates" icon="📅">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Date début</label>
+                <input type="date" value={form.date_debut} onChange={e => set('date_debut', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
+              <div>
+                <label style={S.label}>Date fin</label>
+                <input type="date" value={form.date_fin} onChange={e => set('date_fin', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
             </div>
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Assurance payée jusqu'au</label>
+                <input type="date" value={form.assurance_payee_jusqu_au} onChange={e => set('assurance_payee_jusqu_au', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
+              <div>
+                <label style={S.label}>Licenciement pour le</label>
+                <input type="date" value={form.licenciement_pour_le} onChange={e => set('licenciement_pour_le', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 4 : DÉCISION & STATUT ─── */}
+          <ZoneSection title="Décision & Statut" icon="✅">
+            <div>
+              <label style={S.label}>Décision</label>
+              <input value={form.decision} onChange={e => set('decision', e.target.value)} placeholder="Décision prise…" style={S.input} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Couleur alerte</label>
+                <select value={form.couleur} onChange={e => set('couleur', e.target.value as 'normal' | 'jaune' | 'rouge')} style={{ ...S.input }}>
+                  <option value="normal">Normal</option>
+                  <option value="jaune">Jaune (attention)</option>
+                  <option value="rouge">Rouge (urgent)</option>
+                </select>
+              </div>
+              <div>
+                <label style={S.label}>Année</label>
+                <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
+                  <option value={2026}>2026</option>
+                  <option value={2025}>2025</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
+                  <input type="checkbox" checked={form.termine} onChange={e => set('termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: 'var(--primary)', cursor: 'pointer' }} />
+                  Cas terminé
+                </label>
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 5 : REMARQUES & NOTES ─── */}
+          <ZoneSection title="Remarques & Notes" icon="📝">
+            <div>
+              <label style={S.label}>Note interne</label>
+              <textarea value={form.note} onChange={e => set('note', e.target.value)} placeholder="Note interne (visible uniquement aux secrétaires)…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+            </div>
+            <div>
+              <label style={S.label}>Remarque</label>
+              <textarea value={form.remarque} onChange={e => set('remarque', e.target.value)} placeholder="Remarques générales…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+            </div>
+          </ZoneSection>
+
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -851,133 +1019,6 @@ function AccidentModal({ item, onClose, onSaved }: { item?: SecretariatAccident 
   )
 }
 
-// ─── Modal Loyer ──────────────────────────────────────────────────────────────
-
-const EMPTY_LOYER_FORM = {
-  candidat_id: null as string | null,
-  candidat_nom_complet: '',
-  nom_prenom: '',
-  adresse: '',
-  montant_loyer: '',
-  date_debut: '',
-  date_fin: '',
-  remarques: '',
-  annee: new Date().getFullYear(),
-}
-
-function LoyerModal({ item, onClose, onSaved }: { item?: SecretariatLoyer | null; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState(() => item ? {
-    candidat_id: item.candidat_id,
-    candidat_nom_complet: item.nom_prenom || '',
-    nom_prenom: item.nom_prenom || '',
-    adresse: item.adresse || '',
-    montant_loyer: item.montant_loyer != null ? String(item.montant_loyer) : '',
-    date_debut: item.date_debut || '',
-    date_fin: item.date_fin || '',
-    remarques: item.remarques || '',
-    annee: item.annee || new Date().getFullYear(),
-  } : { ...EMPTY_LOYER_FORM, annee: new Date().getFullYear() })
-  const [saving, setSaving] = useState(false)
-  const set = (k: keyof typeof form, v: any) => setForm(f => ({ ...f, [k]: v }))
-
-  const handleSave = async () => {
-    if (!form.nom_prenom) { toast.error('Nom / Prénom requis'); return }
-    setSaving(true)
-    try {
-      const payload = {
-        candidat_id: form.candidat_id || null,
-        nom_prenom: form.nom_prenom,
-        adresse: form.adresse || null,
-        montant_loyer: form.montant_loyer !== '' ? Number(form.montant_loyer) : null,
-        date_debut: form.date_debut || null,
-        date_fin: form.date_fin || null,
-        remarques: form.remarques || null,
-        annee: form.annee,
-      }
-      const url = item ? `/api/secretariat/loyers/${item.id}` : '/api/secretariat/loyers'
-      const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast.success(item ? 'Loyer modifié' : 'Loyer créé')
-      onSaved(); onClose()
-    } catch (e: any) { toast.error(e.message) }
-    finally { setSaving(false) }
-  }
-
-  if (typeof window === 'undefined') return null
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier le loyer' : 'Nouveau loyer'}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={S.label}>Lier à un candidat TalentFlow</label>
-            <CandidatAutocomplete
-              value={form.candidat_nom_complet}
-              onChange={(nom, id, candidat) => setForm(f => ({
-                ...f,
-                candidat_nom_complet: nom,
-                candidat_id: id,
-                nom_prenom: candidat ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ') : f.nom_prenom,
-              }))}
-            />
-          </div>
-
-          <div>
-            <label style={S.label}>Nom / Prénom *</label>
-            <input value={form.nom_prenom} onChange={e => set('nom_prenom', e.target.value)} placeholder="Prénom Nom" style={S.input} />
-          </div>
-
-          <div>
-            <label style={S.label}>Adresse</label>
-            <input value={form.adresse} onChange={e => set('adresse', e.target.value)} placeholder="Adresse complète" style={S.input} />
-          </div>
-
-          <div>
-            <label style={S.label}>Montant loyer (CHF/mois)</label>
-            <input type="number" value={form.montant_loyer} onChange={e => set('montant_loyer', e.target.value)} placeholder="0.00" step="0.01" style={S.input} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={S.label}>Date début</label>
-              <input type="date" value={form.date_debut} onChange={e => set('date_debut', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
-            </div>
-            <div>
-              <label style={S.label}>Date fin</label>
-              <input type="date" value={form.date_fin} onChange={e => set('date_fin', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} />
-            </div>
-          </div>
-
-          <div>
-            <label style={S.label}>Année</label>
-            <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input }}>
-              <option value={2026}>2026</option>
-              <option value={2025}>2025</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={S.label}>Remarques</label>
-            <textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} placeholder="Commentaires…" rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, background: 'var(--primary)', border: 'none', color: 'var(--primary-foreground)', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {saving && <Loader2 size={13} />}{item ? 'Modifier' : 'Créer'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  )
-}
 
 // ─── Modal ALFA ──────────────────────────────────────────────────────────────
 
@@ -989,41 +1030,41 @@ const EMPTY_ALFA_FORM = {
   nbr_enfants: '',
   montant_chf: '',
   bareme_is: '',
-  date_debut_alfa: '',
-  date_fin_alfa: '',
-  date_radiation_caf: '',
-  radiation_recue: '',
-  mere_touche: '',
+  dates_debut_alfa: [''] as string[],
+  dates_fin_alfa: [''] as string[],
+  dates_radiation_caf: [''] as string[],
+  dates_reactivation: [''] as string[],
+  dates_radiation_recue: [''] as string[],
+  mere_touche: '' as string,
   remarques: '',
   demande_envoyee: '',
-  reactivation_envoyee: '',
   lieu_enfants: '',
   consimo: '',
-  termine: false,
+  statut_alfa: 'en_cours' as 'en_cours' | 'termine' | 'raf',
   annee: new Date().getFullYear(),
 }
 
 function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState(() => item ? {
     candidat_id: item.candidat_id,
-    candidat_nom_complet: [item.prenom, item.nom].filter(Boolean).join(' '),
+    candidat_nom_complet: [item.nom, item.prenom].filter(Boolean).join(' '),
     nom: item.nom || '',
     prenom: item.prenom || '',
     numero_avs: item.numero_avs || '',
     nbr_enfants: item.nbr_enfants != null ? String(item.nbr_enfants) : '',
     montant_chf: item.montant_chf != null ? String(item.montant_chf) : '',
     bareme_is: item.bareme_is || '',
-    date_debut_alfa: item.date_debut_alfa || '',
-    date_fin_alfa: item.date_fin_alfa || '',
-    date_radiation_caf: item.date_radiation_caf || '',
-    radiation_recue: item.radiation_recue || '',
+    dates_debut_alfa: parseDates(item.date_debut_alfa),
+    dates_fin_alfa: parseDates(item.date_fin_alfa),
+    dates_radiation_caf: parseDates(item.date_radiation_caf),
+    dates_reactivation: parseDates(item.reactivation_envoyee),
+    dates_radiation_recue: parseDates(item.radiation_recue),
     mere_touche: item.mere_touche || '',
     remarques: item.remarques || '',
     demande_envoyee: item.demande_envoyee || '',
-    reactivation_envoyee: item.reactivation_envoyee || '',
     lieu_enfants: item.lieu_enfants || '',
     consimo: item.consimo || '',
-    termine: item.termine || false,
+    statut_alfa: (item.raf ? 'raf' : item.termine ? 'termine' : 'en_cours') as 'en_cours' | 'termine' | 'raf',
     annee: item.annee || new Date().getFullYear(),
   } : { ...EMPTY_ALFA_FORM, annee: new Date().getFullYear() })
   const [saving, setSaving] = useState(false)
@@ -1040,24 +1081,26 @@ function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; 
         nbr_enfants: form.nbr_enfants !== '' ? Number(form.nbr_enfants) : null,
         montant_chf: form.montant_chf !== '' ? Number(form.montant_chf) : null,
         bareme_is: form.bareme_is || null,
-        date_debut_alfa: form.date_debut_alfa || null,
-        date_fin_alfa: form.date_fin_alfa || null,
-        date_radiation_caf: form.date_radiation_caf || null,
-        radiation_recue: form.radiation_recue || null,
+        date_debut_alfa: joinDates(form.dates_debut_alfa),
+        date_fin_alfa: joinDates(form.dates_fin_alfa),
+        date_radiation_caf: joinDates(form.dates_radiation_caf),
+        radiation_recue: joinDates(form.dates_radiation_recue),
         mere_touche: form.mere_touche || null,
         remarques: form.remarques || null,
         demande_envoyee: form.demande_envoyee || null,
-        reactivation_envoyee: form.reactivation_envoyee || null,
+        reactivation_envoyee: joinDates(form.dates_reactivation),
         lieu_enfants: form.lieu_enfants || null,
         consimo: form.consimo || null,
-        termine: form.termine,
+        termine: form.statut_alfa === 'termine',
+        raf: form.statut_alfa === 'raf',
         annee: form.annee,
       }
-      const url = item ? `/api/secretariat/alfa/${item.id}` : '/api/secretariat/alfa'
-      const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const isUpdate = !!item?.id
+      const url = isUpdate ? `/api/secretariat/alfa/${item!.id}` : '/api/secretariat/alfa'
+      const res = await fetch(url, { method: isUpdate ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast.success(item ? 'ALFA modifié' : 'ALFA créé')
+      toast.success(isUpdate ? 'ALFA modifié' : 'ALFA créé')
       onSaved(); onClose()
     } catch (e: any) { toast.error(e.message) }
     finally { setSaving(false) }
@@ -1068,75 +1111,126 @@ function AlfaModal({ item, onClose, onSaved }: { item?: SecretariatAlfa | null; 
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier ALFA' : 'Nouveau suivi ALFA'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item?.id ? 'Modifier ALFA' : 'Nouveau suivi ALFA'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={S.label}>Lier à un candidat TalentFlow</label>
-            <CandidatAutocomplete
-              value={form.candidat_nom_complet}
-              onChange={(nom, id, candidat) => setForm(f => ({
-                ...f, candidat_nom_complet: nom, candidat_id: id,
-                nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
-              }))}
-            />
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} placeholder="756.XXXX.XXXX.XX" style={S.input} /></div>
-            <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Montant CHF</label><input type="number" step="0.01" value={form.montant_chf} onChange={e => set('montant_chf', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Barème IS</label><input value={form.bareme_is} onChange={e => set('bareme_is', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Date début ALFA</label><input type="date" value={form.date_debut_alfa} onChange={e => set('date_debut_alfa', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
-            <div><label style={S.label}>Date fin ALFA</label><input type="date" value={form.date_fin_alfa} onChange={e => set('date_fin_alfa', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Radiation CAF (date)</label><input type="date" value={form.date_radiation_caf} onChange={e => set('date_radiation_caf', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
-            <div><label style={S.label}>Radiation reçue</label><input value={form.radiation_recue} onChange={e => set('radiation_recue', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Mère touche</label><input value={form.mere_touche} onChange={e => set('mere_touche', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Lieu enfants</label><input value={form.lieu_enfants} onChange={e => set('lieu_enfants', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Demande envoyée</label><input value={form.demande_envoyee} onChange={e => set('demande_envoyee', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Réactivation envoyée</label><input value={form.reactivation_envoyee} onChange={e => set('reactivation_envoyee', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div><label style={S.label}>Consimo</label><input value={form.consimo} onChange={e => set('consimo', e.target.value)} style={S.input} /></div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* ─── ZONE 1 : CANDIDAT ─── */}
+          <ZoneSection title="Candidat" icon="👤">
             <div>
-              <label style={S.label}>Année</label>
-              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={S.input}>
-                <option value={2026}>2026</option><option value={2025}>2025</option>
-              </select>
+              <label style={S.label}>Lier à un candidat TalentFlow</label>
+              <CandidatAutocomplete
+                value={form.candidat_nom_complet}
+                onChange={(nom, id, candidat) => setForm(f => ({
+                  ...f, candidat_nom_complet: nom, candidat_id: id,
+                  nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
+                }))}
+              />
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-                <input type="checkbox" checked={form.termine} onChange={e => set('termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: '#22C55E', cursor: 'pointer' }} />
-                Terminé
-              </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
+              <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
             </div>
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} placeholder="756.XXXX.XXXX.XX" style={S.input} /></div>
+              <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
+            </div>
+          </ZoneSection>
 
-          <div><label style={S.label}>Remarques</label><textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} /></div>
+          {/* ─── ZONE 2 : MONTANTS ─── */}
+          <ZoneSection title="Montants" icon="💰">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>Montant CHF</label><input type="number" step="0.01" value={form.montant_chf} onChange={e => set('montant_chf', e.target.value)} style={S.input} /></div>
+              <div><label style={S.label}>Barème IS</label><input value={form.bareme_is} onChange={e => set('bareme_is', e.target.value)} style={S.input} /></div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 3 : DATES ALFA ─── */}
+          <ZoneSection title="Dates ALFA" icon="📅">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Dates début ALFA</label>
+                <MultiDateInput values={form.dates_debut_alfa} onChange={v => set('dates_debut_alfa', v)} />
+              </div>
+              <div>
+                <label style={S.label}>Dates fin ALFA</label>
+                <MultiDateInput values={form.dates_fin_alfa} onChange={v => set('dates_fin_alfa', v)} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Dates radiation CAF</label>
+                <MultiDateInput values={form.dates_radiation_caf} onChange={v => set('dates_radiation_caf', v)} />
+              </div>
+              <div>
+                <label style={S.label}>Dates radiation reçue</label>
+                <MultiDateInput values={form.dates_radiation_recue} onChange={v => set('dates_radiation_recue', v)} />
+              </div>
+            </div>
+            <div>
+              <label style={S.label}>Dates réactivation envoyée</label>
+              <MultiDateInput values={form.dates_reactivation} onChange={v => set('dates_reactivation', v)} />
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 4 : ENFANTS / MÈRE ─── */}
+          <ZoneSection title="Enfants & Mère" icon="👨‍👩‍👧">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Mère touche</label>
+                <select value={form.mere_touche} onChange={e => set('mere_touche', e.target.value)} style={S.input}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="OUI">OUI</option>
+                  <option value="NON">NON</option>
+                </select>
+              </div>
+              <div>
+                <label style={S.label}>Lieu enfants (un par ligne)</label>
+                <textarea value={form.lieu_enfants} onChange={e => set('lieu_enfants', e.target.value)} placeholder={"Ex: 1 enfant PT\n2 AFRIQUE"} rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 5 : DÉCISIONS & STATUT ─── */}
+          <ZoneSection title="Décisions & Statut" icon="✅">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>Demande envoyée</label><input value={form.demande_envoyee} onChange={e => set('demande_envoyee', e.target.value)} style={S.input} /></div>
+              <div><label style={S.label}>Consimo</label><input value={form.consimo} onChange={e => set('consimo', e.target.value)} placeholder="Décision Consimo" style={S.input} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, alignItems: 'flex-end' }}>
+              <div>
+                <label style={S.label}>Année</label>
+                <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={S.input}>
+                  <option value={2026}>2026</option><option value={2025}>2025</option>
+                </select>
+              </div>
+              <div>
+                <div style={S.label}>Statut</div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {([
+                    { key: 'en_cours', label: '● En cours', bg: 'rgba(239,68,68,0.12)', color: '#EF4444', border: 'rgba(239,68,68,0.3)' },
+                    { key: 'termine', label: '✓ Terminé', bg: 'rgba(34,197,94,0.12)', color: '#22C55E', border: 'rgba(34,197,94,0.3)' },
+                    { key: 'raf', label: '⏳ RAF', bg: 'rgba(234,179,8,0.12)', color: '#CA8A04', border: 'rgba(234,179,8,0.3)' },
+                  ] as const).map(opt => (
+                    <button key={opt.key} type="button" onClick={() => set('statut_alfa', opt.key)} style={{
+                      padding: '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      background: form.statut_alfa === opt.key ? opt.bg : 'var(--secondary)',
+                      color: form.statut_alfa === opt.key ? opt.color : 'var(--muted)',
+                      border: `1.5px solid ${form.statut_alfa === opt.key ? opt.border : 'var(--border)'}`,
+                    }}>{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </ZoneSection>
+
+          {/* ─── ZONE 6 : REMARQUES ─── */}
+          <ZoneSection title="Remarques" icon="📝">
+            <textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} placeholder="Commentaires libres…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+          </ZoneSection>
+
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -1164,7 +1258,7 @@ const EMPTY_ALFA_PAIEMENT_FORM = {
   montant_alfa_paye: '',
   annee_periode: '',
   alfa_dernier_mois: '',
-  date_fin_mission: '',
+  dates_fin_mission: [{ date: '', paye: false }] as Array<{ date: string; paye: boolean }>,
   statut_termine: false,
   dernier_mois_paye: '',
   prochain_mois_paye: '',
@@ -1175,7 +1269,7 @@ const EMPTY_ALFA_PAIEMENT_FORM = {
 function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaPaiement | null; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState(() => item ? {
     candidat_id: item.candidat_id,
-    candidat_nom_complet: [item.prenom, item.nom].filter(Boolean).join(' '),
+    candidat_nom_complet: [item.nom, item.prenom].filter(Boolean).join(' '),
     nom: item.nom || '',
     prenom: item.prenom || '',
     numero_avs: item.numero_avs || '',
@@ -1185,7 +1279,7 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
     montant_alfa_paye: item.montant_alfa_paye != null ? String(item.montant_alfa_paye) : '',
     annee_periode: item.annee_periode || '',
     alfa_dernier_mois: item.alfa_dernier_mois || '',
-    date_fin_mission: item.date_fin_mission || '',
+    dates_fin_mission: parseDatesPaye(item.dates_fin_mission || (item.date_fin_mission || null)),
     statut_termine: item.statut_termine || false,
     dernier_mois_paye: item.dernier_mois_paye || '',
     prochain_mois_paye: item.prochain_mois_paye || '',
@@ -1199,6 +1293,12 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
     if (!form.nom) { toast.error('Nom requis'); return }
     setSaving(true)
     try {
+      const finMissionRaw = joinDatesPaye(form.dates_fin_mission)
+      const finMissionPairs = form.dates_fin_mission.filter(x => x.date && x.date.trim())
+      const firstFinMission = finMissionPairs[0]?.date || null
+      const allPaiementsTermines = finMissionPairs.length > 0 && finMissionPairs.every(p => p.paye)
+      // Sync vers suivi ALFA = juste la 1ère date sans flag (le suivi ne gère pas le flag paye)
+      const finMissionDatesOnly = finMissionPairs.map(p => p.date).join(',') || null
       const payload = {
         candidat_id: form.candidat_id || null,
         nom: form.nom, prenom: form.prenom || null,
@@ -1209,18 +1309,40 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
         montant_alfa_paye: form.montant_alfa_paye !== '' ? Number(form.montant_alfa_paye) : null,
         annee_periode: form.annee_periode || null,
         alfa_dernier_mois: form.alfa_dernier_mois || null,
-        date_fin_mission: form.date_fin_mission || null,
-        statut_termine: form.statut_termine,
+        dates_fin_mission: finMissionRaw,
+        date_fin_mission: firstFinMission, // rétrocompat 1ère date
+        // statut_termine est désormais dérivé : true ssi tous les paiements sont cochés
+        statut_termine: allPaiementsTermines,
         dernier_mois_paye: form.dernier_mois_paye || null,
         prochain_mois_paye: form.prochain_mois_paye || null,
         remarques: form.remarques || null,
         annee: form.annee,
       }
-      const url = item ? `/api/secretariat/alfa-paiements/${item.id}` : '/api/secretariat/alfa-paiements'
-      const res = await fetch(url, { method: item ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const isUpdate = !!item?.id
+      const url = isUpdate ? `/api/secretariat/alfa-paiements/${item!.id}` : '/api/secretariat/alfa-paiements'
+      const res = await fetch(url, { method: isUpdate ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast.success(item ? 'Paiement modifié' : 'Paiement créé')
+
+      // Sync vers suivi ALFA du même candidat (si candidat_id et dates fin mission)
+      if (form.candidat_id && finMissionDatesOnly) {
+        try {
+          const alfaRes = await fetch(`/api/secretariat/alfa?annee=${form.annee}`)
+          if (alfaRes.ok) {
+            const alfaData = await alfaRes.json()
+            const matchingAlfa = (alfaData.alfa || []).find((a: any) => a.candidat_id === form.candidat_id)
+            if (matchingAlfa) {
+              await fetch(`/api/secretariat/alfa/${matchingAlfa.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date_fin_alfa: finMissionDatesOnly }),
+              })
+            }
+          }
+        } catch { /* sync best-effort, on ignore les erreurs */ }
+      }
+
+      toast.success(isUpdate ? 'Paiement modifié' : 'Paiement créé')
       onSaved(); onClose()
     } catch (e: any) { toast.error(e.message) }
     finally { setSaving(false) }
@@ -1231,65 +1353,97 @@ function AlfaPaiementModal({ item, onClose, onSaved }: { item?: SecretariatAlfaP
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
       <div style={{ ...S.card, padding: 24, width: '100%', maxWidth: 620, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item ? 'Modifier paiement ALFA' : 'Nouveau paiement ALFA'}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 22, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.01em', lineHeight: 1.2 }}>{item?.id ? 'Modifier paiement ALFA' : 'Nouveau paiement ALFA'}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={S.label}>Lier à un candidat TalentFlow</label>
-            <CandidatAutocomplete
-              value={form.candidat_nom_complet}
-              onChange={(nom, id, candidat) => setForm(f => ({
-                ...f, candidat_nom_complet: nom, candidat_id: id,
-                nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
-              }))}
-            />
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
-          </div>
+          {/* ─── ZONE 1 : CANDIDAT ─── */}
+          <ZoneSection title="Candidat" icon="👤">
+            <div>
+              <label style={S.label}>Lier à un candidat TalentFlow</label>
+              <CandidatAutocomplete
+                value={form.candidat_nom_complet}
+                onChange={(nom, id, candidat) => setForm(f => ({
+                  ...f, candidat_nom_complet: nom, candidat_id: id,
+                  nom: candidat?.nom || f.nom, prenom: candidat?.prenom || f.prenom,
+                }))}
+              />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>Nom *</label><input value={form.nom} onChange={e => set('nom', e.target.value)} style={S.input} /></div>
+              <div><label style={S.label}>Prénom</label><input value={form.prenom} onChange={e => set('prenom', e.target.value)} style={S.input} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} style={S.input} /></div>
+              <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
+            </div>
+          </ZoneSection>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>N° AVS</label><input value={form.numero_avs} onChange={e => set('numero_avs', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Nbr enfants</label><input type="number" value={form.nbr_enfants} onChange={e => set('nbr_enfants', e.target.value)} style={S.input} /></div>
-          </div>
+          {/* ─── ZONE 2 : MONTANTS (avec calculatrice) ─── */}
+          <ZoneSection title="Montants" icon="💰">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={S.label}>Droit CHF/mois <span style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 500 }}>(calc auto)</span></label>
+                <CalcInput value={form.droit_chf_mois} onChange={v => set('droit_chf_mois', v)} placeholder="Ex: 1500+200" />
+              </div>
+              <div>
+                <label style={S.label}>Montant ALFA payé <span style={{ fontSize: 9, color: 'var(--muted)', fontWeight: 500 }}>(calc auto)</span></label>
+                <CalcInput value={form.montant_alfa_paye} onChange={v => set('montant_alfa_paye', v)} placeholder="Ex: 1700-50*2" />
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--muted)', fontStyle: 'italic' }}>💡 Tu peux taper une opération (ex : <code>1500+200-50*2</code>) puis Tab ou Entrée pour calculer.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div><label style={S.label}>Période (année)</label><input value={form.annee_periode} onChange={e => set('annee_periode', e.target.value)} placeholder="Ex: 2026" style={S.input} /></div>
+              <div><label style={S.label}>Droit Décision ALFA jusqu'au</label><input type="date" value={form.date_validite_decision} onChange={e => set('date_validite_decision', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+            </div>
+          </ZoneSection>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Droit CHF/mois</label><input type="number" step="0.01" value={form.droit_chf_mois} onChange={e => set('droit_chf_mois', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Montant ALFA payé</label><input type="number" step="0.01" value={form.montant_alfa_paye} onChange={e => set('montant_alfa_paye', e.target.value)} style={S.input} /></div>
-          </div>
+          {/* ─── ZONE 3 : MOIS PAYÉS ─── */}
+          <ZoneSection title="Mois payés" icon="✅">
+            <div>
+              <label style={S.label}>Dernier mois payé (clique sur les mois cochés)</label>
+              <MonthYearPicker value={form.dernier_mois_paye} onChange={v => set('dernier_mois_paye', v)} years={[2024, 2025, 2026, 2027]} />
+            </div>
+            <div>
+              <label style={S.label}>Prochain mois à payer</label>
+              <MonthYearPicker value={form.prochain_mois_paye} onChange={v => set('prochain_mois_paye', v)} years={[2025, 2026, 2027]} />
+            </div>
+          </ZoneSection>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Période (année)</label><input value={form.annee_periode} onChange={e => set('annee_periode', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Validité décision</label><input type="date" value={form.date_validite_decision} onChange={e => set('date_validite_decision', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Dernier mois payé</label><input value={form.dernier_mois_paye} onChange={e => set('dernier_mois_paye', e.target.value)} style={S.input} /></div>
-            <div><label style={S.label}>Prochain mois à payer</label><input value={form.prochain_mois_paye} onChange={e => set('prochain_mois_paye', e.target.value)} style={S.input} /></div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={S.label}>Fin mission</label><input type="date" value={form.date_fin_mission} onChange={e => set('date_fin_mission', e.target.value)} style={{ ...S.input, colorScheme: 'inherit' }} /></div>
+          {/* ─── ZONE 4 : FIN MISSION & PAIEMENTS ─── */}
+          <ZoneSection title="Fin mission & Paiements" icon="🏁">
+            <div>
+              <label style={S.label}>Dates fin de mission (1 ou plusieurs, avec flag paiement par date)</label>
+              <MultiDatePaiementInput values={form.dates_fin_mission} onChange={v => set('dates_fin_mission', v)} />
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>💡 Coche "Payé" sur chaque date dès que le paiement est effectué. Le statut global passe en "Terminé" quand toutes les dates sont payées. La 1ère date est synchronisée vers le suivi ALFA du même candidat.</div>
+            </div>
             <div>
               <label style={S.label}>Année</label>
-              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={S.input}>
+              <select value={form.annee} onChange={e => set('annee', Number(e.target.value))} style={{ ...S.input, maxWidth: 200 }}>
                 <option value={2026}>2026</option><option value={2025}>2025</option>
               </select>
             </div>
-          </div>
+            {(() => {
+              const pairs = form.dates_fin_mission.filter(x => x.date)
+              const totalPayes = pairs.filter(p => p.paye).length
+              const total = pairs.length
+              const allPaid = total > 0 && totalPayes === total
+              if (total === 0) return null
+              return (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: allPaid ? 'rgba(34,197,94,0.10)' : 'rgba(234,179,8,0.08)', border: `1.5px solid ${allPaid ? 'rgba(34,197,94,0.3)' : 'rgba(234,179,8,0.25)'}`, fontSize: 12, fontWeight: 700, color: allPaid ? '#16A34A' : '#CA8A04' }}>
+                  {allPaid ? `✓ Tous les paiements sont effectués (${totalPayes}/${total})` : `⏳ ${totalPayes}/${total} paiement${total > 1 ? 's' : ''} effectué${totalPayes > 1 ? 's' : ''}`}
+                </div>
+              )
+            })()}
+          </ZoneSection>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none', fontSize: 13, color: 'var(--foreground)' }}>
-              <input type="checkbox" checked={form.statut_termine} onChange={e => set('statut_termine', e.target.checked)} style={{ width: 15, height: 15, accentColor: '#22C55E', cursor: 'pointer' }} />
-              Terminé
-            </label>
-          </div>
+          {/* ─── ZONE 5 : REMARQUES ─── */}
+          <ZoneSection title="Remarques" icon="📝">
+            <textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} placeholder="Commentaires libres…" rows={3} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} />
+          </ZoneSection>
 
-          <div><label style={S.label}>Remarques</label><textarea value={form.remarques} onChange={e => set('remarques', e.target.value)} rows={2} style={{ ...S.input, resize: 'vertical', fontFamily: 'inherit' }} /></div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -1331,23 +1485,269 @@ function DeleteModal({ label, onConfirm, onClose }: { label: string; onConfirm: 
   )
 }
 
-// ─── CandidatsTable ───────────────────────────────────────────────────────────
+// ─── MultiDateInput ───────────────────────────────────────────────────────────
 
-function DocBadge({ ok, label }: { ok: boolean; label: string }) {
+function MultiDateInput({ values, onChange }: { values: string[]; onChange: (dates: string[]) => void }) {
+  const addDate = () => onChange([...values, ''])
+  const removeDate = (i: number) => onChange(values.filter((_, idx) => idx !== i))
+  const updateDate = (i: number, v: string) => onChange(values.map((d, idx) => idx === i ? v : d))
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 3,
-      padding: '2px 6px', borderRadius: 99, fontSize: 10, fontWeight: 700,
-      background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
-      color: ok ? '#22C55E' : 'var(--muted)',
-      border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`,
-    }}>
-      {ok ? '✓' : '·'} {label}
-    </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {values.map((d, i) => (
+        <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input type="date" value={d} onChange={e => updateDate(i, e.target.value)} style={{ ...S.input, flex: 1, colorScheme: 'inherit' }} />
+          {values.length > 1 && (
+            <button onClick={() => removeDate(i)} type="button" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      ))}
+      <button onClick={addDate} type="button" style={{ padding: '4px 10px', borderRadius: 6, background: 'none', border: '1.5px dashed var(--border)', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+        <Plus size={11} /> Ajouter une date
+      </button>
+    </div>
   )
 }
 
-function PermisBadge({ genre, dateEcheance }: { genre: string | null; dateEcheance: string | null }) {
+// Parser sécurisé pour expressions math (ex: 1500+200-50*2)
+// Accepte: chiffres, +-*/.,() et espaces. Refuse tout le reste.
+function evalMathExpression(expr: string): number | null {
+  if (!expr) return null
+  const sanitized = expr.replace(/,/g, '.').replace(/\s+/g, '')
+  if (!/^[\d+\-*/.()]+$/.test(sanitized)) return null
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`"use strict"; return (${sanitized})`)()
+    if (typeof result !== 'number' || !isFinite(result)) return null
+    return Math.round(result * 100) / 100
+  } catch { return null }
+}
+
+// Champ avec calcul direct : tape `1500+200-50*2` puis blur ou Enter → calcule.
+function CalcInput({ value, onChange, placeholder, style }: { value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
+  const [draft, setDraft] = useState(value)
+  const [error, setError] = useState(false)
+  useEffect(() => { setDraft(value) }, [value])
+  const compute = () => {
+    if (!draft.trim()) { onChange(''); setError(false); return }
+    if (/^-?[\d.]+$/.test(draft.trim())) { onChange(draft.trim()); setError(false); return }
+    const result = evalMathExpression(draft)
+    if (result === null) { setError(true); return }
+    setError(false)
+    setDraft(String(result))
+    onChange(String(result))
+  }
+  return (
+    <input
+      value={draft}
+      onChange={e => { setDraft(e.target.value); setError(false) }}
+      onBlur={compute}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); compute() } }}
+      placeholder={placeholder || '1500+200…'}
+      title="Tu peux taper une expression math (ex: 1500+200-50*2)"
+      style={{ ...S.input, ...style, borderColor: error ? 'var(--destructive)' : (style as any)?.borderColor }}
+    />
+  )
+}
+
+// Calendrier mois/année multi-coche (stocke 'YYYY-MM,YYYY-MM,...').
+function MonthYearPicker({ value, onChange, years, label }: { value: string; onChange: (v: string) => void; years?: number[]; label?: string }) {
+  const selected = new Set((value || '').split(',').map(s => s.trim()).filter(Boolean))
+  const yrs = years || [2025, 2026, 2027]
+  const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+  const toggle = (key: string) => {
+    const next = new Set(selected)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    const ordered = Array.from(next).sort()
+    onChange(ordered.join(','))
+  }
+  return (
+    <div style={{ border: '1.5px solid var(--border)', borderRadius: 8, padding: 8, background: 'var(--card)' }}>
+      {label && <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{label}</div>}
+      {yrs.map(y => (
+        <div key={y} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)', width: 38 }}>{y}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 2, flex: 1 }}>
+            {mois.map((m, i) => {
+              const key = `${y}-${String(i + 1).padStart(2, '0')}`
+              const active = selected.has(key)
+              return (
+                <button key={key} type="button" onClick={() => toggle(key)} style={{
+                  padding: '4px 0', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                  background: active ? 'rgba(34,197,94,0.18)' : 'var(--secondary)',
+                  color: active ? '#16A34A' : 'var(--muted)',
+                  border: `1.5px solid ${active ? 'rgba(34,197,94,0.5)' : 'var(--border)'}`,
+                }} title={`${m} ${y}`}>{m}</button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {selected.size > 0 && (
+        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4 }}>
+          {selected.size} mois sélectionné{selected.size > 1 ? 's' : ''} — <button type="button" onClick={() => onChange('')} style={{ background: 'none', border: 'none', color: 'var(--destructive)', fontSize: 10, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Tout désélectionner</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Affiche les mois sélectionnés comme pills vertes
+function MonthsDisplay({ raw }: { raw: string | null }) {
+  if (!raw) return <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>
+  const parts = raw.split(',').map(s => s.trim()).filter(Boolean)
+  if (parts.length === 0) return <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>
+  const moisCourts = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+      {parts.map(p => {
+        const [y, m] = p.split('-')
+        const idx = parseInt(m, 10) - 1
+        const label = (idx >= 0 && idx < 12) ? `${moisCourts[idx]} ${y?.slice(2) || ''}` : p
+        return (
+          <span key={p} style={{ padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>
+            ✓ {label}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function MultiDatesDisplay({ raw }: { raw: string | null }) {
+  if (!raw) return <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>
+  const parts = raw.split(',').map(d => d.trim()).filter(Boolean)
+  if (parts.length === 0) return <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {parts.map((d, i) => (
+        <span key={i} style={{ fontSize: 10, whiteSpace: 'nowrap', color: 'var(--foreground)' }}>{formatDate(d)}</span>
+      ))}
+    </div>
+  )
+}
+
+// Parser tolerant pour dates avec flag paiement (format 'YYYY-MM-DD:1,YYYY-MM-DD:0')
+// Tolère ancien format 'YYYY-MM-DD,YYYY-MM-DD' (paye=false par défaut).
+function parseDatesPaye(val: string | null): Array<{ date: string; paye: boolean }> {
+  if (!val) return [{ date: '', paye: false }]
+  const parts = val.split(',').map(s => s.trim()).filter(Boolean)
+  if (parts.length === 0) return [{ date: '', paye: false }]
+  return parts.map(p => {
+    const [date, flag] = p.split(':')
+    return { date: (date || '').trim(), paye: flag === '1' || flag === 'true' }
+  })
+}
+function joinDatesPaye(arr: Array<{ date: string; paye: boolean }>): string | null {
+  const clean = arr.filter(x => x.date && x.date.trim())
+  if (clean.length === 0) return null
+  return clean.map(x => `${x.date}:${x.paye ? '1' : '0'}`).join(',')
+}
+
+// Composant : multi-dates fin de mission avec checkbox "paiement terminé" par date
+function MultiDatePaiementInput({ values, onChange }: { values: Array<{ date: string; paye: boolean }>; onChange: (v: Array<{ date: string; paye: boolean }>) => void }) {
+  const addDate = () => onChange([...values, { date: '', paye: false }])
+  const removeDate = (i: number) => onChange(values.filter((_, idx) => idx !== i))
+  const updateDate = (i: number, date: string) => onChange(values.map((v, idx) => idx === i ? { ...v, date } : v))
+  const togglePaye = (i: number) => onChange(values.map((v, idx) => idx === i ? { ...v, paye: !v.paye } : v))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {values.map((v, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: 6, borderRadius: 6, background: v.paye ? 'rgba(34,197,94,0.06)' : 'var(--secondary)', border: `1.5px solid ${v.paye ? 'rgba(34,197,94,0.25)' : 'var(--border)'}` }}>
+          <input type="date" value={v.date} onChange={e => updateDate(i, e.target.value)} style={{ ...S.input, flex: 1, colorScheme: 'inherit', padding: '4px 8px' }} />
+          <button type="button" onClick={() => togglePaye(i)} title={v.paye ? 'Marquer comme non payé' : 'Marquer comme payé'} style={{
+            padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 800, cursor: 'pointer', flexShrink: 0,
+            background: v.paye ? '#16A34A' : 'var(--secondary)',
+            color: v.paye ? '#fff' : 'var(--muted)',
+            border: `1.5px solid ${v.paye ? '#16A34A' : 'var(--border)'}`,
+            display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+          }}>
+            {v.paye ? '✓ Payé' : '○ Non payé'}
+          </button>
+          {values.length > 1 && (
+            <button onClick={() => removeDate(i)} type="button" style={{ padding: '4px 6px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      ))}
+      <button onClick={addDate} type="button" style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'var(--secondary)', color: 'var(--primary)', border: '1.5px dashed var(--primary)', display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+        <Plus size={11} /> Ajouter une date fin de mission
+      </button>
+    </div>
+  )
+}
+
+// Affichage dans la liste — pills date + ✓ Payé / ○ Non payé
+function MultiDatesPaiementDisplay({ raw }: { raw: string | null }) {
+  const pairs = parseDatesPaye(raw).filter(p => p.date)
+  if (pairs.length === 0) return <span style={{ color: 'var(--muted)', fontSize: 10 }}>—</span>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {pairs.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 10, whiteSpace: 'nowrap', color: 'var(--foreground)', fontWeight: 600 }}>{formatDate(p.date)}</span>
+          <span style={{ padding: '0 5px', borderRadius: 4, fontSize: 9, fontWeight: 800, background: p.paye ? 'rgba(34,197,94,0.18)' : 'rgba(239,68,68,0.10)', color: p.paye ? '#16A34A' : '#DC2626', border: `1px solid ${p.paye ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.25)'}`, whiteSpace: 'nowrap' }}>
+            {p.paye ? '✓ Payé' : '○ Non payé'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function parseDates(val: string | null): string[] {
+  if (!val) return ['']
+  const parts = val.split(',').map(d => d.trim()).filter(Boolean)
+  return parts.length > 0 ? parts : ['']
+}
+
+function joinDates(arr: string[]): string | null {
+  const clean = arr.filter(d => d.trim())
+  return clean.length > 0 ? clean.join(', ') : null
+}
+
+// ─── CandidatsTable ───────────────────────────────────────────────────────────
+
+function DocBadge({ ok, label, note }: { ok: boolean; label: string; note?: string | null }) {
+  const [showTip, setShowTip] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  const [tipPos, setTipPos] = useState({ top: 0, left: 0 })
+
+  const handleEnter = () => {
+    if (!note) return
+    if (ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setTipPos({ top: r.top - 4, left: r.left + r.width / 2 })
+    }
+    setShowTip(true)
+  }
+
+  return (
+    <>
+      <span ref={ref} onMouseEnter={handleEnter} onMouseLeave={() => setShowTip(false)} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 3,
+        padding: '2px 6px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+        background: ok ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
+        color: ok ? '#22C55E' : 'var(--muted)',
+        border: `1px solid ${ok ? 'rgba(34,197,94,0.3)' : 'var(--border)'}`,
+        cursor: note ? 'help' : 'default',
+      }}>
+        {ok ? '✓' : '·'} {label}{note && <span style={{ fontSize: 8, opacity: 0.7 }}>ⓘ</span>}
+      </span>
+      {showTip && note && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', top: tipPos.top - 36, left: tipPos.left, transform: 'translateX(-50%)', zIndex: 99999, background: 'var(--foreground)', color: 'var(--background)', padding: '5px 10px', borderRadius: 8, fontSize: 11, maxWidth: 220, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', pointerEvents: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+          {note}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
+function PermisBadge({ genre, dateEcheance, note }: { genre: string | null; dateEcheance: string | null; note?: string | null }) {
   const color = getPermisColor(dateEcheance)
   const colorMap = {
     green: { bg: 'rgba(34,197,94,0.12)', fg: '#22C55E', border: 'rgba(34,197,94,0.3)' },
@@ -1356,32 +1756,43 @@ function PermisBadge({ genre, dateEcheance }: { genre: string | null; dateEchean
     gray: { bg: 'rgba(100,116,139,0.08)', fg: 'var(--muted)', border: 'var(--border)' },
   }
   const c = colorMap[color]
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {genre && <span style={{ padding: '2px 7px', borderRadius: 99, background: c.bg, color: c.fg, fontSize: 11, fontWeight: 700, border: `1px solid ${c.border}`, display: 'inline-block' }}>{genre}</span>}
-      {dateEcheance && <span style={{ fontSize: 12, color: c.fg, fontWeight: 700 }}>{formatDate(dateEcheance)}</span>}
-      {!genre && !dateEcheance && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
-    </div>
-  )
-}
-
-function StatutIndicateur({ statut }: { statut: 'ok' | 'warning' | 'urgent' }) {
-  const map = {
-    ok: { color: 'var(--success)', label: 'OK' },
-    warning: { color: 'var(--warning)', label: '!' },
-    urgent: { color: 'var(--destructive)', label: '!!' },
+  const [showTip, setShowTip] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const [tipPos, setTipPos] = useState({ top: 0, left: 0 })
+  const handleEnter = () => {
+    if (!note) return
+    if (ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setTipPos({ top: r.top - 4, left: r.left + r.width / 2 })
+    }
+    setShowTip(true)
   }
-  const c = map[statut]
   return (
-    <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} title={c.label} />
+    <>
+      <div ref={ref} onMouseEnter={handleEnter} onMouseLeave={() => setShowTip(false)} style={{ display: 'flex', flexDirection: 'column', gap: 2, cursor: note ? 'help' : 'default' }}>
+        {genre && <span style={{ padding: '2px 7px', borderRadius: 99, background: c.bg, color: c.fg, fontSize: 11, fontWeight: 700, border: `1px solid ${c.border}`, display: 'inline-flex', alignItems: 'center', gap: 3 }}>{genre}{note && <span style={{ fontSize: 8, opacity: 0.7 }}>ⓘ</span>}</span>}
+        {dateEcheance && <span style={{ fontSize: 12, color: c.fg, fontWeight: 700 }}>{formatDate(dateEcheance)}</span>}
+        {!genre && !dateEcheance && <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
+      </div>
+      {showTip && note && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', top: tipPos.top - 36, left: tipPos.left, transform: 'translateX(-50%)', zIndex: 99999, background: 'var(--foreground)', color: 'var(--background)', padding: '5px 10px', borderRadius: 8, fontSize: 11, maxWidth: 220, boxShadow: '0 4px 16px rgba(0,0,0,0.25)', pointerEvents: 'none', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>
+          {note}
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
-function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
+function CandidatsTable({ candidats, onEdit, onDelete, onColorChange, alfaCandidatIds, onGoToAlfa, onCreateAlfa, onToggleArchive }: {
   candidats: SecretariatCandidat[]
   onEdit: (c: SecretariatCandidat) => void
   onDelete: (c: SecretariatCandidat) => void
   onColorChange: (id: string, color: string) => void
+  alfaCandidatIds: Set<string>
+  onGoToAlfa: () => void
+  onCreateAlfa: (c: SecretariatCandidat) => void
+  onToggleArchive: (c: SecretariatCandidat) => void
 }) {
   const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
 
@@ -1397,11 +1808,9 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
 
   const getVal = (c: SecretariatCandidat, col: string): string => {
-    if (col === 'nom') return `${c.prenom} ${c.nom}`.trim()
+    if (col === 'nom') return `${c.nom} ${c.prenom}`.trim()
     if (col === 'permis') return c.genre_permis || '—'
     if (col === 'enfants') return c.enfants_charge === 'oui' ? 'Oui' : c.enfants_charge === 'non' ? 'Non' : '?'
-    if (col === 'statut') { const s = getLigneStatut(c); return s === 'ok' ? 'OK' : s === 'warning' ? 'Attention' : 'Urgent' }
-    if (col === 'docs') return c.docs_manquants ? 'Manquants' : 'Complet'
     return ''
   }
 
@@ -1418,8 +1827,8 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
   const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid var(--border)' }}>
             <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
@@ -1427,21 +1836,30 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
             <SortableHeader label="Permis" sortDir={sort.col === 'permis' ? sort.dir : null} onSort={() => toggleSort('permis')} style={thStyle} />
             <SortableHeader label="Enfants" sortDir={sort.col === 'enfants' ? sort.dir : null} onSort={() => toggleSort('enfants')} style={thStyle} />
             <th style={thStyle}>Documents</th>
+            <th style={thStyle}>Mission</th>
             <th style={thStyle}>Remarques</th>
-            <th style={thStyle}>Fin mission</th>
-            <SortableHeader label="Docs manq." sortDir={sort.col === 'docs' ? sort.dir : null} onSort={() => toggleSort('docs')} style={thStyle} />
-            <SortableHeader label="Statut" sortDir={sort.col === 'statut' ? sort.dir : null} onSort={() => toggleSort('statut')} style={thStyle} />
             <th style={thStyle}></th>
           </tr>
         </thead>
         <tbody>
           {displayed.map(c => {
-            const statut = getLigneStatut(c)
             const telCleaned = cleanPhone(c.tel || null)
-            const rowBg = ROW_COLORS.find(rc => rc.key === (c.couleur || ''))?.bg || 'transparent'
+            const isMissionTerminee = !!c.is_mission_terminee
+            const isArchive = !!c.archive
+            const userColor = ROW_COLORS.find(rc => rc.key === (c.couleur || ''))?.bg
+            const rowBg = userColor || (isArchive ? 'rgba(107,114,128,0.08)' : isMissionTerminee ? '#FEE2E2' : 'transparent')
+            const hasAlfa = c.candidat_id ? alfaCandidatIds.has(c.candidat_id) : false
+            const typeDemandeLabel = c.type_demande === 'renouvellement' ? '🔄 Renouv.'
+              : c.type_demande === 'changement_employeur' ? '🔁 Chgmt empl.'
+              : c.type_demande === 'premiere' ? '✨ 1ère Dem.'
+              : null
+            const typeDemandeColor = c.type_demande === 'renouvellement' ? { bg: 'rgba(99,102,241,0.10)', fg: '#6366F1', border: 'rgba(99,102,241,0.25)' }
+              : c.type_demande === 'changement_employeur' ? { bg: 'rgba(234,179,8,0.10)', fg: '#CA8A04', border: 'rgba(234,179,8,0.25)' }
+              : c.type_demande === 'premiere' ? { bg: 'rgba(34,197,94,0.10)', fg: '#16A34A', border: 'rgba(34,197,94,0.25)' }
+              : null
             return (
-              <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: rowBg }}
-                onMouseEnter={e => { if (!c.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
+              <tr key={c.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: rowBg, opacity: isArchive ? 0.65 : 1 }}
+                onMouseEnter={e => { if (!c.couleur && !isMissionTerminee && !isArchive) e.currentTarget.style.background = 'var(--secondary)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
                 <td style={{ padding: '10px 10px' }}>
@@ -1452,8 +1870,8 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                     }
                     <div>
                       {c.candidat_id
-                        ? <a href={`/candidats/${c.candidat_id}?from=secretariat`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{c.prenom} {c.nom}</a>
-                        : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.prenom} {c.nom}</span>
+                        ? <a href={`/candidats/${c.candidat_id}?from=secretariat`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{c.nom} {c.prenom}</a>
+                        : <span style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{c.nom} {c.prenom}</span>
                       }
                       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
                         {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><WaIcon size={9} /> WA</a>}
@@ -1466,28 +1884,80 @@ function CandidatsTable({ candidats, onEdit, onDelete, onColorChange }: {
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
                     {c.suisse && <span style={{ padding: '2px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: 'rgba(220,38,38,0.1)', color: 'var(--destructive)', border: '1px solid rgba(220,38,38,0.25)', whiteSpace: 'nowrap' }}>🇨🇭 CH</span>}
-                    <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} />
+                    <PermisBadge genre={c.genre_permis} dateEcheance={c.date_echeance_permis} note={c.permis_note} />
+                    {(c.lieu_demande || c.date_demande) && (
+                      <span style={{ fontSize: 10, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                        {c.lieu_demande ? `📍 ${c.lieu_demande}` : ''}
+                        {c.lieu_demande && c.date_demande ? ' · ' : ''}
+                        {c.date_demande ? formatDate(c.date_demande) : ''}
+                      </span>
+                    )}
+                    {typeDemandeLabel && typeDemandeColor && (
+                      <span style={{ padding: '1px 6px', borderRadius: 99, fontSize: 9, fontWeight: 800, background: typeDemandeColor.bg, color: typeDemandeColor.fg, border: `1px solid ${typeDemandeColor.border}`, whiteSpace: 'nowrap' }}>{typeDemandeLabel}</span>
+                    )}
                   </div>
                 </td>
                 <td style={{ padding: '10px 10px', textAlign: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: c.enfants_charge === 'oui' ? '#22C55E' : c.enfants_charge === 'non' ? 'var(--muted)' : '#F59E0B' }}>
-                    {c.enfants_charge === 'oui' ? '👶 Oui' : c.enfants_charge === 'non' ? 'Non' : '?'}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: c.enfants_charge === 'oui' ? '#22C55E' : c.enfants_charge === 'oui_pas_a_charge' ? '#9CA3AF' : c.enfants_charge === 'non' ? 'var(--muted)' : '#F59E0B', whiteSpace: 'nowrap' }}>
+                      {c.enfants_charge === 'oui' ? '👶 Oui'
+                        : c.enfants_charge === 'oui_pas_a_charge' ? '👶 Pas à charge'
+                        : c.enfants_charge === 'non' ? 'Non'
+                        : '?'}
+                    </span>
+                    {c.enfants_charge === 'oui' && (
+                      <button
+                        onClick={() => hasAlfa ? onGoToAlfa() : onCreateAlfa(c)}
+                        title={hasAlfa ? 'Voir onglet ALFA' : 'Créer fiche ALFA pré-remplie'}
+                        style={{ padding: '1px 6px', borderRadius: 5, fontSize: 9, fontWeight: 800, cursor: 'pointer', background: hasAlfa ? 'rgba(99,102,241,0.12)' : 'rgba(234,179,8,0.12)', color: hasAlfa ? '#6366F1' : '#CA8A04', border: `1px solid ${hasAlfa ? 'rgba(99,102,241,0.3)' : 'rgba(234,179,8,0.3)'}` }}>
+                        {hasAlfa ? '✓ ALFA' : '+ ALFA'}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                    <DocBadge ok={c.has_cv} label="CV" /><DocBadge ok={c.has_cm} label="CM" /><DocBadge ok={!!c.carte_id} label="ID" /><DocBadge ok={!!c.numero_avs} label="AVS" /><DocBadge ok={!!c.iban} label="IBAN" /><DocBadge ok={c.has_docs_clients} label="Docs Client" />
+                    <DocBadge ok={c.has_cv} label="CV" />
+                    <DocBadge ok={c.has_cm} label="CM" />
+                    <DocBadge ok={!!c.carte_id} label="ID" />
+                    <DocBadge ok={!!c.numero_avs} label="AVS" />
+                    <DocBadge ok={!!c.iban} label="IBAN" />
+                    <DocBadge ok={c.has_docs_clients} label="Docs Client" note={c.docs_clients_note} />
+                    <DocBadge ok={c.mappe} label="Mappe" />
+                    <DocBadge ok={!!c.has_permis_conduire} label="Permis C." />
+                  </div>
+                </td>
+                <td style={{ padding: '10px 10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    {isArchive && (
+                      <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: '#6B7280', color: '#fff', whiteSpace: 'nowrap' }}>📦 Archivé</span>
+                    )}
+                    {isMissionTerminee ? (
+                      <>
+                        <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: '#DC2626', color: '#fff', whiteSpace: 'nowrap' }}>🏁 Mission terminée</span>
+                        {c.date_fin_mission && <span style={{ fontSize: 11, fontWeight: 700, color: '#7F1D1D', whiteSpace: 'nowrap' }}>Fin : {formatDate(c.date_fin_mission)}</span>}
+                      </>
+                    ) : c.date_mission ? (
+                      <>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>📅 {formatDate(c.date_mission)}</span>
+                        <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.12)', color: '#16A34A', border: '1px solid rgba(34,197,94,0.25)', whiteSpace: 'nowrap' }}>● Active</span>
+                      </>
+                    ) : !isArchive ? (
+                      <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
+                    ) : null}
                   </div>
                 </td>
                 <td style={{ padding: '10px 10px', maxWidth: 200 }}>
                   {c.remarques ? <div title={c.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{c.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
                 </td>
-                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{formatDate(c.mission_terminee)}</span></td>
-                <td style={{ padding: '10px 10px', textAlign: 'center' }}>{c.docs_manquants ? <span title={c.docs_manquants} style={{ cursor: 'help', fontSize: 16 }}>⚠️</span> : <span style={{ color: 'var(--success)', fontSize: 14 }}>✓</span>}</td>
-                <td style={{ padding: '10px 10px', textAlign: 'center' }}><StatutIndicateur statut={statut} /></td>
                 <td style={{ padding: '10px 10px' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <ColorPicker currentColor={c.couleur || null} onChange={color => onColorChange(c.id, color)} />
+                    <button onClick={() => onToggleArchive(c)}
+                      title={isArchive ? 'Désarchiver' : 'Archiver'}
+                      style={{ padding: '5px 8px', borderRadius: 6, background: isArchive ? 'rgba(107,114,128,0.18)' : 'none', border: `1.5px solid ${isArchive ? 'rgba(107,114,128,0.4)' : 'var(--border)'}`, color: isArchive ? '#4B5563' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: 12 }}>
+                      📦
+                    </button>
                     <button onClick={() => onEdit(c)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
                     <button onClick={() => onDelete(c)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                   </div>
@@ -1621,98 +2091,6 @@ function AccidentsTable({ accidents, onEdit, onDelete, onColorChange, onArchive 
   )
 }
 
-// ─── LoyersTable ──────────────────────────────────────────────────────────────
-
-function LoyersTable({ loyers, onEdit, onDelete, onColorChange }: { loyers: SecretariatLoyer[]; onEdit: (l: SecretariatLoyer) => void; onDelete: (l: SecretariatLoyer) => void; onColorChange: (id: string, color: string) => void }) {
-  const [sort, setSort] = useState<{ col: string; dir: SortDir }>({ col: '', dir: null })
-
-  if (loyers.length === 0) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--muted)' }}>
-        <Home size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-        <div style={{ fontSize: 14 }}>Aucun loyer pour cette année</div>
-      </div>
-    )
-  }
-
-  const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
-
-  let displayed = [...loyers]
-  if (sort.dir && sort.col) {
-    displayed.sort((a, b) => {
-      let va = '', vb = ''
-      if (sort.col === 'nom') { va = (a.nom_prenom || '').toLowerCase(); vb = (b.nom_prenom || '').toLowerCase() }
-      if (sort.col === 'montant') { return sort.dir === 'desc' ? (b.montant_loyer || 0) - (a.montant_loyer || 0) : (a.montant_loyer || 0) - (b.montant_loyer || 0) }
-      return sort.dir === 'desc' ? vb.localeCompare(va, 'fr') : va.localeCompare(vb, 'fr')
-    })
-  }
-
-  const thStyle: React.CSSProperties = { padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }
-
-  return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid var(--border)' }}>
-            <SortableHeader label="Candidat" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
-            <th style={thStyle}>Adresse</th>
-            <SortableHeader label="Montant/mois" sortDir={sort.col === 'montant' ? sort.dir : null} onSort={() => toggleSort('montant')} style={thStyle} />
-            <th style={thStyle}>Début</th>
-            <th style={thStyle}>Fin</th>
-            <th style={thStyle}>Remarques</th>
-            <th style={thStyle}></th>
-          </tr>
-        </thead>
-        <tbody>
-          {displayed.map(l => {
-            const telCleaned = cleanPhone(l.tel || null)
-            const rowBg = ROW_COLORS.find(c => c.key === (l.couleur || ''))?.bg || 'transparent'
-            return (
-              <tr key={l.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.15s', background: rowBg }}
-                onMouseEnter={e => { if (!l.couleur) e.currentTarget.style.background = 'var(--secondary)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
-              >
-                <td style={{ padding: '10px 10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {l.photo_url && l.photo_url !== 'checked'
-                      ? <Image src={l.photo_url} alt="" width={44} height={44} unoptimized style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{(l.nom_prenom || '?').split(' ').slice(0, 2).map((w: string) => w[0] || '').join('').toUpperCase()}</div>
-                    }
-                    <div>
-                      {l.candidat_id
-                        ? <a href={`/candidats/${l.candidat_id}?from=secretariat`} style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', textDecoration: 'none' }} title="Voir fiche">{l.nom_prenom}</a>
-                        : <div style={{ fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>{l.nom_prenom}</div>
-                      }
-                      <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
-                        {telCleaned && <a href={`https://wa.me/${telCleaned}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(37,211,102,0.1)', color: '#25D366', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><WaIcon size={10} /> WA</a>}
-                        {l.email && <a href={`mailto:${l.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', color: '#6366F1', fontSize: 9, fontWeight: 600, textDecoration: 'none' }}><Mail size={8} /> Mail</a>}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12 }}>{l.adresse || '—'}</span></td>
-                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 13, fontWeight: 700 }}>{l.montant_loyer != null ? formatCHF(l.montant_loyer) : '—'}</span></td>
-                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(l.date_debut)}</span></td>
-                <td style={{ padding: '10px 10px' }}><span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(l.date_fin)}</span></td>
-                <td style={{ padding: '10px 10px', maxWidth: 200 }}>
-                  {l.remarques ? <div title={l.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }} style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }}>{l.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>}
-                </td>
-                <td style={{ padding: '10px 10px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <ColorPicker currentColor={l.couleur || null} onChange={color => onColorChange(l.id, color)} />
-                    <button onClick={() => onEdit(l)} title="Modifier" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Pencil size={13} /></button>
-                    <button onClick={() => onDelete(l)} title="Supprimer" style={{ padding: '5px 8px', borderRadius: 6, background: 'none', border: '1.5px solid rgba(239,68,68,0.3)', color: 'var(--destructive)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 // ─── AlfaTable ────────────────────────────────────────────────────────────────
 
 function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: SecretariatAlfa[]; onEdit: (a: SecretariatAlfa) => void; onDelete: (a: SecretariatAlfa) => void; onColorChange: (id: string, color: string) => void }) {
@@ -1725,10 +2103,10 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
 
   const getVal = (a: SecretariatAlfa, col: string): string => {
-    if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
+    if (col === 'nom') return `${a.nom} ${a.prenom}`.trim()
     if (col === 'lieu') return a.lieu_enfants || ''
     if (col === 'consimo') return a.consimo || ''
-    if (col === 'termine') return a.termine ? 'Terminé' : 'En cours'
+    if (col === 'termine') return a.raf ? 'RAF' : a.termine ? 'Terminé' : 'En cours'
     if (col === 'mere') return a.mere_touche || ''
     return ''
   }
@@ -1748,11 +2126,11 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
   const tdStyle: React.CSSProperties = { padding: '6px 6px', fontSize: 11, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle', whiteSpace: 'nowrap' }
 
   return (
-    <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', minWidth: 1400, borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <SortableHeader label="Prénom Nom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
+            <SortableHeader label="Nom Prénom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
             <th style={thStyle}>Enf.</th>
             <th style={thStyle}>Barème IS</th>
             <th style={thStyle}>Début</th>
@@ -1771,31 +2149,33 @@ function AlfaTable({ rows, onEdit, onDelete, onColorChange }: { rows: Secretaria
         </thead>
         <tbody>
           {displayed.map(a => (
-            <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
+            <tr key={a.id} style={{ background: a.couleur ? (ROW_COLORS.find(c => c.key === a.couleur)?.bg || 'transparent') : (a.raf ? 'rgba(234,179,8,0.08)' : a.termine ? 'rgba(34,197,94,0.10)' : 'transparent') }}>
               <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                 <div>
                   {a.candidat_id
-                    ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
-                    : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.prenom} {a.nom}</span>
+                    ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 12, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.nom} {a.prenom}</a>
+                    : <span style={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }} onClick={() => onEdit(a)} title="Modifier">{a.nom} {a.prenom}</span>
                   }
                   {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
                 </div>
               </td>
               <td style={{ ...tdStyle, textAlign: 'center' }}><span style={{ fontWeight: 700 }}>{a.nbr_enfants ?? '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.bareme_is || '—'}</span></td>
-              <td style={tdStyle}>{formatDate(a.date_debut_alfa)}</td>
-              <td style={tdStyle}>{formatDate(a.date_fin_alfa)}</td>
-              <td style={tdStyle}>{formatDate(a.date_radiation_caf)}</td>
-              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.radiation_recue || '—'}</span></td>
+              <td style={tdStyle}><MultiDatesDisplay raw={a.date_debut_alfa} /></td>
+              <td style={tdStyle}><MultiDatesDisplay raw={a.date_fin_alfa} /></td>
+              <td style={tdStyle}><MultiDatesDisplay raw={a.date_radiation_caf} /></td>
+              <td style={tdStyle}><MultiDatesDisplay raw={a.radiation_recue} /></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.mere_touche || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.demande_envoyee || '—'}</span></td>
-              <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.reactivation_envoyee || '—'}</span></td>
+              <td style={tdStyle}><MultiDatesDisplay raw={a.reactivation_envoyee} /></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.lieu_enfants || '—'}</span></td>
               <td style={tdStyle}><span style={{ fontSize: 10 }}>{a.consimo || '—'}</span></td>
               <td style={{ ...tdStyle, textAlign: 'center' }}>
-                {a.termine
-                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
-                  : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(99,102,241,0.12)', color: '#818CF8', whiteSpace: 'nowrap' }}>● En cours</span>
+                {a.raf
+                  ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(234,179,8,0.15)', color: '#CA8A04', border: '1px solid rgba(234,179,8,0.3)', whiteSpace: 'nowrap' }}>⏳ RAF</span>
+                  : a.termine
+                    ? <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: 'var(--success)', border: '1px solid rgba(34,197,94,0.3)', whiteSpace: 'nowrap' }}>✓ Terminé</span>
+                    : <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700, background: 'rgba(239,68,68,0.12)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', whiteSpace: 'nowrap' }}>● En cours</span>
                 }
               </td>
               <td style={{ ...tdStyle, maxWidth: 160 }}>
@@ -1832,7 +2212,7 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
   const toggleSort = (col: string) => setSort(prev => prev.col === col ? { col, dir: prev.dir === 'asc' ? 'desc' : prev.dir === 'desc' ? null : 'asc' } : { col, dir: 'asc' })
 
   const getVal = (a: SecretariatAlfaPaiement, col: string): string => {
-    if (col === 'nom') return `${a.prenom} ${a.nom}`.trim()
+    if (col === 'nom') return `${a.nom} ${a.prenom}`.trim()
     if (col === 'statut') return a.statut_termine ? 'Terminé' : 'En cours'
     if (col === 'periode') return a.annee_periode || '—'
     return ''
@@ -1853,8 +2233,8 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
   const tdStyle: React.CSSProperties = { padding: '9px 10px', fontSize: 12, color: 'var(--foreground)', borderBottom: '1px solid var(--border)', verticalAlign: 'middle' }
 
   return (
-    <div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <table style={{ width: '100%', minWidth: 1280, borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             <SortableHeader label="Nom / Prénom" sortDir={sort.col === 'nom' ? sort.dir : null} onSort={() => toggleSort('nom')} style={thStyle} />
@@ -1879,12 +2259,12 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {(a as any).photo_url && (a as any).photo_url !== 'checked'
                       ? <Image src={(a as any).photo_url} alt="" width={44} height={44} unoptimized style={{ borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.prenom || '')[0] || ''}${(a.nom || '')[0] || ''}`.toUpperCase()}</div>
+                      : <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--primary)', flexShrink: 0 }}>{`${(a.nom || '')[0] || ''}${(a.prenom || '')[0] || ''}`.toUpperCase()}</div>
                     }
                     <div>
                       {a.candidat_id
-                        ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.prenom} {a.nom}</a>
-                        : <span style={{ fontWeight: 700, fontSize: 13 }}>{a.prenom} {a.nom}</span>
+                        ? <a href={`/candidats/${a.candidat_id}?from=secretariat`} style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)', textDecoration: 'none' }} title="Voir fiche">{a.nom} {a.prenom}</a>
+                        : <span style={{ fontWeight: 700, fontSize: 13 }}>{a.nom} {a.prenom}</span>
                       }
                       {a.numero_avs && <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{a.numero_avs}</div>}
                     </div>
@@ -1894,9 +2274,9 @@ function AlfaPaiementsTable({ rows, onEdit, onDelete, onColorChange }: { rows: S
                 <td style={tdStyle}>{a.droit_chf_mois != null ? <span style={{ fontWeight: 700, color: 'var(--info)' }}>{formatCHF(a.droit_chf_mois)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                 <td style={tdStyle}>{a.montant_alfa_paye != null ? <span style={{ fontWeight: 700, color: 'var(--success)' }}>{formatCHF(a.montant_alfa_paye)}</span> : <span style={{ color: 'var(--muted)' }}>—</span>}</td>
                 <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.annee_periode || '—'}</span></td>
-                <td style={tdStyle}><span style={{ fontSize: 11 }}>{a.dernier_mois_paye || '—'}</span></td>
-                <td style={tdStyle}><span style={{ fontSize: 11, color: a.prochain_mois_paye ? '#F59E0B' : 'var(--muted)', fontWeight: a.prochain_mois_paye ? 700 : 400 }}>{a.prochain_mois_paye || '—'}</span></td>
-                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatDate(a.date_fin_mission)}</td>
+                <td style={tdStyle}><MonthsDisplay raw={a.dernier_mois_paye} /></td>
+                <td style={tdStyle}><MonthsDisplay raw={a.prochain_mois_paye} /></td>
+                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}><MultiDatesPaiementDisplay raw={a.dates_fin_mission || a.date_fin_mission} /></td>
                 <td style={{ ...tdStyle, maxWidth: 200 }}>
                   {a.remarques ? <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', lineHeight: 1.4 }} title={a.remarques} onClick={e => { const el = e.currentTarget; if (el.style.whiteSpace === 'normal') { el.style.whiteSpace = 'nowrap'; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis' } else { el.style.whiteSpace = 'normal'; el.style.overflow = 'visible'; el.style.textOverflow = 'unset' } }}>{a.remarques}</div> : <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
                 </td>
@@ -2079,6 +2459,209 @@ function TabBtn({ active, onClick, children, count }: { active: boolean; onClick
   )
 }
 
+// ─── Panneau filtres avancés candidats ────────────────────────────────────────
+
+type AdvFilters = {
+  permis: string[]
+  enfants: string[]
+  type_demande: string[]
+  has_cv: 'tous' | 'oui' | 'non'
+  has_cm: 'tous' | 'oui' | 'non'
+  has_docs_clients: 'tous' | 'oui' | 'non'
+  has_permis_conduire: 'tous' | 'oui' | 'non'
+  mappe: 'tous' | 'oui' | 'non'
+  has_avs: 'tous' | 'oui' | 'non'
+  has_iban: 'tous' | 'oui' | 'non'
+  suisse: 'tous' | 'oui' | 'non'
+  has_quadrigis: 'tous' | 'oui' | 'non'
+}
+
+function AdvancedFiltersPanel({ filters, setFilters }: { filters: AdvFilters; setFilters: React.Dispatch<React.SetStateAction<AdvFilters>> }) {
+  const toggleArray = (key: 'permis' | 'enfants' | 'type_demande', value: string) => {
+    setFilters(f => {
+      const arr = f[key]
+      const next = arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]
+      return { ...f, [key]: next }
+    })
+  }
+  const setBool = (key: keyof AdvFilters, value: 'tous' | 'oui' | 'non') => {
+    setFilters(f => ({ ...f, [key]: value }))
+  }
+
+  const PERMIS_OPTIONS = ['L', 'B', 'B réfugié', 'B (marié CH/C)', 'C', 'F', 'G', 'N', 'S', 'IMES']
+  const ENFANTS_OPTIONS: { key: string; label: string }[] = [
+    { key: 'oui', label: '👶 Oui' },
+    { key: 'oui_pas_a_charge', label: 'Pas à charge' },
+    { key: 'non', label: 'Non' },
+    { key: '?', label: '? Inconnu' },
+  ]
+  const TYPE_DEMANDE_OPTIONS: { key: string; label: string }[] = [
+    { key: 'renouvellement', label: '🔄 Renouvellement' },
+    { key: 'changement_employeur', label: '🔁 Changement empl.' },
+    { key: 'premiere', label: '✨ 1ère Demande' },
+  ]
+  const BOOL_FIELDS: { key: keyof AdvFilters; label: string }[] = [
+    { key: 'has_cv', label: 'CV' },
+    { key: 'has_cm', label: 'CM' },
+    { key: 'has_docs_clients', label: 'Docs Clients' },
+    { key: 'mappe', label: 'Mappe' },
+    { key: 'has_permis_conduire', label: 'Permis conduire' },
+    { key: 'has_avs', label: 'AVS' },
+    { key: 'has_iban', label: 'IBAN' },
+    { key: 'suisse', label: '🇨🇭 Suisse' },
+    { key: 'has_quadrigis', label: 'N° Quadrigis' },
+  ]
+
+  const renderPills = (options: { key: string; label: string }[] | string[], selected: string[], onToggle: (k: string) => void) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {options.map(opt => {
+        const key = typeof opt === 'string' ? opt : opt.key
+        const label = typeof opt === 'string' ? opt : opt.label
+        const active = selected.includes(key)
+        return (
+          <button key={key} onClick={() => onToggle(key)} style={{
+            padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            background: active ? 'var(--primary-soft)' : 'var(--secondary)',
+            color: active ? 'var(--primary)' : 'var(--muted)',
+            border: `1.5px solid ${active ? 'var(--primary)' : 'var(--border)'}`,
+          }}>{label}</button>
+        )
+      })}
+    </div>
+  )
+
+  // Toggle compact tri-state (cycle tous → oui → non → tous)
+  const cycleTriState = (key: keyof AdvFilters) => {
+    const cur = filters[key] as 'tous' | 'oui' | 'non'
+    const next = cur === 'tous' ? 'oui' : cur === 'oui' ? 'non' : 'tous'
+    setBool(key, next)
+  }
+
+  return (
+    <div style={{ background: 'var(--card)', border: '1.5px solid var(--border)', borderRadius: 10, padding: 12, marginTop: 8 }}>
+      {/* Ligne 1 : 3 catégories pills côte à côte */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Type de permis</div>
+          {renderPills(PERMIS_OPTIONS, filters.permis, k => toggleArray('permis', k))}
+        </div>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Enfants à charge</div>
+          {renderPills(ENFANTS_OPTIONS, filters.enfants, k => toggleArray('enfants', k))}
+        </div>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Type de demande</div>
+          {renderPills(TYPE_DEMANDE_OPTIONS, filters.type_demande, k => toggleArray('type_demande', k))}
+        </div>
+      </div>
+
+      {/* Ligne 2 : Documents & flags en grid serré, click = cycle tous→oui→non */}
+      <div>
+        <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Documents & flags <span style={{ fontWeight: 500, fontSize: 9 }}>(clic pour cycler — / ✓ / ✗)</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 4 }}>
+          {BOOL_FIELDS.map(f => {
+            const val = filters[f.key] as 'tous' | 'oui' | 'non'
+            const palette = val === 'oui' ? { bg: 'rgba(34,197,94,0.12)', fg: '#16A34A', border: 'rgba(34,197,94,0.4)', icon: '✓' }
+              : val === 'non' ? { bg: 'rgba(239,68,68,0.12)', fg: '#DC2626', border: 'rgba(239,68,68,0.4)', icon: '✗' }
+              : { bg: 'var(--secondary)', fg: 'var(--muted)', border: 'var(--border)', icon: '—' }
+            return (
+              <button key={f.key as string} onClick={() => cycleTriState(f.key)} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: '5px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: palette.bg, color: palette.fg, border: `1.5px solid ${palette.border}`,
+              }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.label}</span>
+                <span style={{ fontWeight: 800, flexShrink: 0 }}>{palette.icon}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Popup persistant fin ALFA caisse ─────────────────────────────────────────
+
+function FinAlfaCaissePopup() {
+  const queryClient = useQueryClient()
+  const { data: alertes = [], refetch } = useQuery<any[]>({
+    queryKey: ['secretariat-fin-alfa-actives'],
+    queryFn: async () => {
+      const res = await fetch('/api/secretariat/notifications/fin-alfa-actives')
+      if (!res.ok) return []
+      const d = await res.json()
+      return d.alertes || []
+    },
+    refetchInterval: 60_000, // poll chaque minute
+  })
+
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const visible = alertes.filter(a => !dismissed.has(a.id))
+  if (visible.length === 0) return null
+  const current = visible[0]
+
+  const handleConfirmer = () => {
+    // Confirme — popup se ferme mais l'alerte reste active dans la cloche.
+    setDismissed(prev => new Set(prev).add(current.id))
+  }
+
+  const handleCestFait = async () => {
+    try {
+      const res = await fetch(`/api/secretariat/notifications/${current.id}/cest-fait`, { method: 'PATCH' })
+      if (!res.ok) throw new Error('Erreur')
+      toast.success('Alerte archivée — ' + current.titre.replace(/^🚨\s*/, ''))
+      setDismissed(prev => new Set(prev).add(current.id))
+      refetch()
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+      queryClient.invalidateQueries({ queryKey: ['secretariat-notifications'] })
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  if (typeof window === 'undefined') return null
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ ...S.card, padding: 28, width: '100%', maxWidth: 540, border: '2px solid #DC2626', boxShadow: '0 24px 64px rgba(220,38,38,0.35)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={28} color="#DC2626" />
+          </div>
+          <div>
+            <h2 style={{ margin: 0, fontFamily: 'var(--font-instrument-serif), Georgia, serif', fontSize: 24, fontWeight: 400, color: '#7F1D1D', letterSpacing: '-0.01em', lineHeight: 1.1 }}>Alerte fin ALFA</h2>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Annonce à transmettre à la caisse</div>
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1.5px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', marginBottom: 6 }}>{current.titre.replace(/^🚨\s*/, '')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--foreground)', lineHeight: 1.5 }}>{current.message}</div>
+        </div>
+
+        {visible.length > 1 && (
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14, padding: '6px 10px', background: 'var(--secondary)', borderRadius: 6 }}>
+            ℹ️ {visible.length - 1} autre{visible.length > 2 ? 's' : ''} alerte{visible.length > 2 ? 's' : ''} en attente après celle-ci.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={handleConfirmer} style={{
+            padding: '10px 18px', borderRadius: 8, background: 'var(--secondary)', border: '1.5px solid var(--border)', color: 'var(--foreground)', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+          }}>Confirmer (rappeler plus tard)</button>
+          <button onClick={handleCestFait} style={{
+            padding: '10px 20px', borderRadius: 8, background: '#16A34A', border: 'none', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+          }}>
+            <CheckCircle2 size={15} /> C'est Fait — Archiver
+          </button>
+        </div>
+
+        <div style={{ marginTop: 12, fontSize: 10, color: 'var(--muted)', textAlign: 'center' }}>
+          ⚠️ « Confirmer » ferme ce popup mais l'alerte reste active jusqu'à « C'est Fait ».
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function SecretariatPageWrapper() {
@@ -2114,7 +2697,7 @@ function SecretariatPage() {
   }, [])
 
   // State principaux
-  const [activeTab, setActiveTab] = useState<'candidats' | 'alfa' | 'accidents' | 'loyers'>('candidats')
+  const [activeTab, setActiveTab] = useState<'candidats' | 'alfa' | 'accidents'>('candidats')
   const [alfaView, setAlfaView] = useState<'suivi' | 'apayer'>('suivi')
   const [annee, setAnnee] = useState(new Date().getFullYear())
   const [showNotifs, setShowNotifs] = useState(false)
@@ -2130,10 +2713,44 @@ function SecretariatPage() {
   const [accidentType, setAccidentType] = useState<'tous' | 'Accident' | 'Maladie'>('tous')
 
   // Filtre candidats (permis urgents / surveillance / docs manquants)
-  const [candidatFiltre, setCandidatFiltre] = useState<'tous' | 'permis_urgent' | 'permis_surveillance' | 'docs_manquants'>('tous')
+  const [candidatFiltre, setCandidatFiltre] = useState<'tous' | 'permis_urgent'>('tous')
+
+  // Filtre mission terminée / actifs
+  const [missionFiltre, setMissionFiltre] = useState<'tous' | 'actifs' | 'termines' | 'archives'>('tous')
+
+  // Filtre docs complet / incomplet
+  const [docsFiltre, setDocsFiltre] = useState<'tous' | 'complet' | 'incomplet'>('tous')
+
+  // ─── Filtres avancés candidats (sous-panneau dépliable) ─────────────────────
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [advFilters, setAdvFilters] = useState({
+    permis: [] as string[],          // ['L','B','B réfugié',...]
+    enfants: [] as string[],         // ['oui','oui_pas_a_charge','non','?']
+    type_demande: [] as string[],    // ['renouvellement','changement_employeur','premiere']
+    has_cv: 'tous' as 'tous' | 'oui' | 'non',
+    has_cm: 'tous' as 'tous' | 'oui' | 'non',
+    has_docs_clients: 'tous' as 'tous' | 'oui' | 'non',
+    has_permis_conduire: 'tous' as 'tous' | 'oui' | 'non',
+    mappe: 'tous' as 'tous' | 'oui' | 'non',
+    has_avs: 'tous' as 'tous' | 'oui' | 'non',
+    has_iban: 'tous' as 'tous' | 'oui' | 'non',
+    suisse: 'tous' as 'tous' | 'oui' | 'non',
+    has_quadrigis: 'tous' as 'tous' | 'oui' | 'non',
+  })
+  const advCount = advFilters.permis.length + advFilters.enfants.length + advFilters.type_demande.length
+    + (advFilters.has_cv !== 'tous' ? 1 : 0) + (advFilters.has_cm !== 'tous' ? 1 : 0)
+    + (advFilters.has_docs_clients !== 'tous' ? 1 : 0) + (advFilters.has_permis_conduire !== 'tous' ? 1 : 0)
+    + (advFilters.mappe !== 'tous' ? 1 : 0) + (advFilters.has_avs !== 'tous' ? 1 : 0)
+    + (advFilters.has_iban !== 'tous' ? 1 : 0) + (advFilters.suisse !== 'tous' ? 1 : 0)
+    + (advFilters.has_quadrigis !== 'tous' ? 1 : 0)
+  const resetAdvFilters = () => setAdvFilters({
+    permis: [], enfants: [], type_demande: [],
+    has_cv: 'tous', has_cm: 'tous', has_docs_clients: 'tous', has_permis_conduire: 'tous',
+    mappe: 'tous', has_avs: 'tous', has_iban: 'tous', suisse: 'tous', has_quadrigis: 'tous',
+  })
 
   // Filtre ALFA terminé / en cours
-  const [alfaTermine, setAlfaTermine] = useState<'tous' | 'en_cours' | 'termine'>('tous')
+  const [alfaTermine, setAlfaTermine] = useState<'tous' | 'en_cours' | 'termine' | 'raf'>('tous')
 
   // Tri ALFA A-Z
   const [alfaSort, setAlfaSort] = useState<'default' | 'az' | 'za'>('default')
@@ -2145,7 +2762,7 @@ function SecretariatPage() {
     urlParamsApplied.current = true
 
     const tab = searchParams.get('tab')
-    if (tab === 'candidats' || tab === 'alfa' || tab === 'accidents' || tab === 'loyers') {
+    if (tab === 'candidats' || tab === 'alfa' || tab === 'accidents') {
       setActiveTab(tab)
     }
 
@@ -2153,7 +2770,7 @@ function SecretariatPage() {
     if (tab === 'accidents' && filtre === 'en_cours') {
       setAccidentStatut('en_cours')
     }
-    if (tab === 'candidats' && (filtre === 'permis_urgent' || filtre === 'permis_surveillance' || filtre === 'docs_manquants')) {
+    if (tab === 'candidats' && filtre === 'permis_urgent') {
       setCandidatFiltre(filtre)
     }
 
@@ -2183,17 +2800,6 @@ function SecretariatPage() {
       if (!res.ok) throw new Error('Erreur chargement accidents')
       const d = await res.json()
       return d.accidents || []
-    },
-    enabled: roleChecked,
-  })
-
-  const { data: loyers = [], isLoading: loadingLoyers } = useQuery<SecretariatLoyer[]>({
-    queryKey: ['secretariat-loyers', annee],
-    queryFn: async () => {
-      const res = await fetch(`/api/secretariat/loyers?annee=${annee}`)
-      if (!res.ok) throw new Error('Erreur chargement loyers')
-      const d = await res.json()
-      return d.loyers || []
     },
     enabled: roleChecked,
   })
@@ -2257,45 +2863,21 @@ function SecretariatPage() {
     const today = new Date()
     const batch: Array<{ type: string; titre: string; message: string; candidat_id: string | null; reference_id: string; reference_table: string; urgence: string }> = []
 
-    // Permis urgents (<30j)
+    // Permis urgents (<14j)
     for (const c of candidatsList) {
       if (!c.date_echeance_permis) continue
       const jours = Math.floor((new Date(c.date_echeance_permis).getTime() - today.getTime()) / 86400000)
-      if (jours >= 0 && jours < 30) {
+      if (jours >= 0 && jours < 14) {
         batch.push({
           type: 'permis_urgent',
-          titre: `🔴 Permis urgent : ${c.prenom} ${c.nom}`,
+          titre: `🔴 Permis urgent : ${c.nom} ${c.prenom}`,
           message: `Le permis ${c.genre_permis || ''} expire le ${formatDate(c.date_echeance_permis)} (dans ${jours} jour${jours !== 1 ? 's' : ''}).`,
           candidat_id: c.candidat_id,
           reference_id: `permis_${c.id}`,
           reference_table: 'secretariat_candidats',
           urgence: 'urgente',
         })
-      } else if (jours >= 30 && jours < 90) {
-        batch.push({
-          type: 'permis_surveillance',
-          titre: `⚠️ Permis à surveiller : ${c.prenom} ${c.nom}`,
-          message: `Le permis ${c.genre_permis || ''} expire le ${formatDate(c.date_echeance_permis)} (dans ${jours} jours).`,
-          candidat_id: c.candidat_id,
-          reference_id: `permis_surv_${c.id}`,
-          reference_table: 'secretariat_candidats',
-          urgence: 'normale',
-        })
       }
-    }
-
-    // Docs manquants
-    for (const c of candidatsList) {
-      if (!c.docs_manquants) continue
-      batch.push({
-        type: 'doc_manquant',
-        titre: `📋 Docs manquants : ${c.prenom} ${c.nom}`,
-        message: `Documents manquants : ${c.docs_manquants}`,
-        candidat_id: c.candidat_id,
-        reference_id: `doc_${c.id}`,
-        reference_table: 'secretariat_candidats',
-        urgence: 'normale',
-      })
     }
 
     // Sinistres en cours >30j
@@ -2341,21 +2923,43 @@ function SecretariatPage() {
 
   const q = searchQuery.toLowerCase().trim()
 
+  const alfaCandidatIds = new Set(alfa.map(a => a.candidat_id).filter(Boolean) as string[])
+
   const filteredCandidats = candidats.filter(c => {
-    if (q && !`${c.prenom} ${c.nom}`.toLowerCase().includes(q) && !(c.numero_quadrigis || '').toLowerCase().includes(q)) return false
+    if (q && !`${c.nom} ${c.prenom}`.toLowerCase().includes(q) && !(c.numero_quadrigis || '').toLowerCase().includes(q)) return false
+    // Archivés : masqués sauf si filtre = 'archives'
+    if (missionFiltre === 'archives') {
+      if (!c.archive) return false
+    } else {
+      if (c.archive) return false
+      if (missionFiltre === 'actifs' && !!c.is_mission_terminee) return false
+      if (missionFiltre === 'termines' && !c.is_mission_terminee) return false
+    }
+    const docsComplet = c.has_cv && c.has_cm && c.has_docs_clients && c.has_permis_conduire && c.mappe
+    if (docsFiltre === 'complet' && !docsComplet) return false
+    if (docsFiltre === 'incomplet' && docsComplet) return false
     if (candidatFiltre === 'permis_urgent') {
       if (!c.date_echeance_permis) return false
       const j = Math.floor((new Date(c.date_echeance_permis).getTime() - Date.now()) / 86400000)
-      return j >= 0 && j < 30
+      if (!(j >= 0 && j < 14)) return false
     }
-    if (candidatFiltre === 'permis_surveillance') {
-      if (!c.date_echeance_permis) return false
-      const j = Math.floor((new Date(c.date_echeance_permis).getTime() - Date.now()) / 86400000)
-      return j >= 30 && j < 90
+    // Filtres avancés
+    if (advFilters.permis.length > 0 && !advFilters.permis.includes(c.genre_permis || '')) return false
+    if (advFilters.enfants.length > 0 && !advFilters.enfants.includes(c.enfants_charge || '?')) return false
+    if (advFilters.type_demande.length > 0 && !advFilters.type_demande.includes(c.type_demande || '')) return false
+    const checkBool = (filter: 'tous' | 'oui' | 'non', val: boolean) => {
+      if (filter === 'tous') return true
+      return filter === 'oui' ? !!val : !val
     }
-    if (candidatFiltre === 'docs_manquants') {
-      return !!c.docs_manquants
-    }
+    if (!checkBool(advFilters.has_cv, c.has_cv)) return false
+    if (!checkBool(advFilters.has_cm, c.has_cm)) return false
+    if (!checkBool(advFilters.has_docs_clients, c.has_docs_clients)) return false
+    if (!checkBool(advFilters.has_permis_conduire, c.has_permis_conduire)) return false
+    if (!checkBool(advFilters.mappe, c.mappe)) return false
+    if (!checkBool(advFilters.has_avs, !!c.numero_avs)) return false
+    if (!checkBool(advFilters.has_iban, !!c.iban)) return false
+    if (!checkBool(advFilters.suisse, c.suisse)) return false
+    if (!checkBool(advFilters.has_quadrigis, !!c.numero_quadrigis)) return false
     return true
   })
 
@@ -2366,14 +2970,11 @@ function SecretariatPage() {
     return !q || (a.nom_prenom || '').toLowerCase().includes(q) || (a.raison || '').toLowerCase().includes(q) || (a.numero_sinistre || '').toLowerCase().includes(q)
   })
 
-  const filteredLoyers = loyers.filter(l =>
-    !q || (l.nom_prenom || '').toLowerCase().includes(q) || (l.adresse || '').toLowerCase().includes(q)
-  )
-
   const filteredAlfa = alfa.filter(a => {
     if (q && !`${a.nom} ${a.prenom}`.toLowerCase().includes(q) && !(a.remarques || '').toLowerCase().includes(q)) return false
-    if (alfaTermine === 'en_cours' && a.termine) return false
+    if (alfaTermine === 'en_cours' && (a.termine || a.raf)) return false
     if (alfaTermine === 'termine' && !a.termine) return false
+    if (alfaTermine === 'raf' && !a.raf) return false
     return true
   }).sort((a, b) => {
     if (alfaSort === 'az') return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr')
@@ -2402,7 +3003,7 @@ function SecretariatPage() {
       else if (activeTab === 'accidents') url = `/api/secretariat/accidents/${deleteItem.id}`
       else if (activeTab === 'alfa' && alfaView === 'suivi') url = `/api/secretariat/alfa/${deleteItem.id}`
       else if (activeTab === 'alfa' && alfaView === 'apayer') url = `/api/secretariat/alfa-paiements/${deleteItem.id}`
-      else url = `/api/secretariat/loyers/${deleteItem.id}`
+      else return
 
       const res = await fetch(url, { method: 'DELETE' })
       if (!res.ok) {
@@ -2446,7 +3047,7 @@ function SecretariatPage() {
       else if (activeTab === 'accidents') { apiBase = 'accidents'; qKey = 'secretariat-accidents' }
       else if (activeTab === 'alfa' && alfaView === 'suivi') { apiBase = 'alfa'; qKey = 'secretariat-alfa' }
       else if (activeTab === 'alfa' && alfaView === 'apayer') { apiBase = 'alfa-paiements'; qKey = 'secretariat-alfa-paiements' }
-      else { apiBase = 'loyers'; qKey = 'secretariat-loyers' }
+      else return
       const res = await fetch(`/api/secretariat/${apiBase}/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -2483,8 +3084,7 @@ function SecretariatPage() {
 
   const isLoading = activeTab === 'candidats' ? loadingCandidats
     : activeTab === 'accidents' ? loadingAccidents
-    : activeTab === 'alfa' ? (alfaView === 'apayer' ? loadingAlfaPaiements : loadingAlfa)
-    : loadingLoyers
+    : (alfaView === 'apayer' ? loadingAlfaPaiements : loadingAlfa)
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -2495,9 +3095,9 @@ function SecretariatPage() {
         <div>
           <h1 className="d-page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <ClipboardList size={22} color="var(--primary)" />
-            Secrétariat
+            Administration
           </h1>
-          <p className="d-page-sub">Suivi documents, accidents &amp; loyers</p>
+          <p className="d-page-sub">Suivi documents, accidents &amp; ALFA</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {/* Historique modifications */}
@@ -2531,7 +3131,7 @@ function SecretariatPage() {
 
       {/* Panel notifications */}
       {showNotifs && (() => {
-        const AUTO_TYPES = ['permis_urgent', 'permis_surveillance', 'doc_manquant', 'sinistre_suivi']
+        const AUTO_TYPES = ['permis_urgent', 'sinistre_suivi', 'fin_alfa_caisse']
         const autoNotifs = notifications.filter(n => AUTO_TYPES.includes(n.type))
         const messageNotifs = notifications.filter(n => !AUTO_TYPES.includes(n.type))
         const autoNonLues = autoNotifs.filter(n => !n.lue).length
@@ -2539,9 +3139,8 @@ function SecretariatPage() {
 
         const ICON_MAP: Record<string, React.ReactNode> = {
           permis_urgent: <AlertTriangle size={13} color="var(--destructive)" />,
-          permis_surveillance: <AlertTriangle size={13} color="#CA8A04" />,
-          doc_manquant: <FileText size={13} color="var(--info)" />,
           sinistre_suivi: <AlertCircle size={13} color="#8B5CF6" />,
+          fin_alfa_caisse: <AlertTriangle size={13} color="#DC2626" />,
           message: <Mail size={13} color="var(--primary)" />,
           autre: <AlertTriangle size={13} color="var(--muted)" />,
         }
@@ -2554,14 +3153,6 @@ function SecretariatPage() {
           } else if (notif.type === 'permis_urgent') {
             setActiveTab('candidats')
             setCandidatFiltre('permis_urgent')
-            setShowNotifs(false)
-          } else if (notif.type === 'permis_surveillance') {
-            setActiveTab('candidats')
-            setCandidatFiltre('permis_surveillance')
-            setShowNotifs(false)
-          } else if (notif.type === 'doc_manquant') {
-            setActiveTab('candidats')
-            setCandidatFiltre('docs_manquants')
             setShowNotifs(false)
           } else if (notif.candidat_id) {
             router.push(`/candidats/${notif.candidat_id}?from=secretariat`)
@@ -2598,7 +3189,24 @@ function SecretariatPage() {
                 )}
               </div>
             </div>
-            {!notif.lue && (
+            {notif.type === 'fin_alfa_caisse' && !notif.traitee && (
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  try {
+                    await fetch(`/api/secretariat/notifications/${notif.id}/cest-fait`, { method: 'PATCH' })
+                    toast.success('Alerte archivée')
+                    refetchNotifs()
+                    queryClient.invalidateQueries({ queryKey: ['secretariat-notifs-count'] })
+                    queryClient.invalidateQueries({ queryKey: ['secretariat-fin-alfa-actives'] })
+                  } catch { toast.error('Erreur') }
+                }}
+                title="C'est fait — archiver"
+                style={{ padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700, background: '#16A34A', color: '#fff', border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <CheckCircle2 size={11} /> C'est fait
+              </button>
+            )}
+            {!notif.lue && notif.type !== 'fin_alfa_caisse' && (
               <button onClick={() => handleMarkNotifLue(notif)} title="Marquer comme lue"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 2, flexShrink: 0 }}>
                 <X size={13} />
@@ -2726,7 +3334,7 @@ function SecretariatPage() {
 
       {/* Tabs principaux */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null); setCandidatFiltre('tous') }} count={filteredCandidats.length}>
+        <TabBtn active={activeTab === 'candidats'} onClick={() => { setActiveTab('candidats'); setSearchQuery(''); setShowForm(false); setEditItem(null); setCandidatFiltre('tous'); setMissionFiltre('tous'); setDocsFiltre('tous'); resetAdvFilters() }} count={filteredCandidats.length}>
           <User size={14} /> Suivi Candidats
         </TabBtn>
         <TabBtn active={activeTab === 'alfa'} onClick={() => { setActiveTab('alfa'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAlfa.length + filteredAlfaPaiements.length}>
@@ -2734,9 +3342,6 @@ function SecretariatPage() {
         </TabBtn>
         <TabBtn active={activeTab === 'accidents'} onClick={() => { setActiveTab('accidents'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredAccidents.length}>
           <AlertCircle size={14} /> Accidents &amp; Maladies
-        </TabBtn>
-        <TabBtn active={activeTab === 'loyers'} onClick={() => { setActiveTab('loyers'); setSearchQuery(''); setShowForm(false); setEditItem(null) }} count={filteredLoyers.length}>
-          <Home size={14} /> Loyer
         </TabBtn>
       </div>
 
@@ -2766,21 +3371,19 @@ function SecretariatPage() {
         </div>
       )}
 
-      {/* Sous-tabs année (pas sur Loyer) */}
-      {activeTab !== 'loyers' && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
-          {[2026, 2025].map(y => (
-            <button key={y} onClick={() => setAnnee(y)} style={{
-              padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              background: annee === y ? 'var(--foreground)' : 'var(--secondary)',
-              color: annee === y ? 'var(--background)' : 'var(--muted)',
-              border: annee === y ? '1.5px solid var(--foreground)' : '1.5px solid var(--border)',
-            }}>
-              {y}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Sous-tabs année */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+        {[2026, 2025].map(y => (
+          <button key={y} onClick={() => setAnnee(y)} style={{
+            padding: '5px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            background: annee === y ? 'var(--foreground)' : 'var(--secondary)',
+            color: annee === y ? 'var(--background)' : 'var(--muted)',
+            border: annee === y ? '1.5px solid var(--foreground)' : '1.5px solid var(--border)',
+          }}>
+            {y}
+          </button>
+        ))}
+      </div>
 
       {/* Filtres accidents */}
       {activeTab === 'accidents' && (
@@ -2812,34 +3415,106 @@ function SecretariatPage() {
       {activeTab === 'alfa' && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            {(['tous', 'en_cours', 'termine'] as const).map(s => (
-              <button key={s} onClick={() => setAlfaTermine(s)} style={{
-                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                background: alfaTermine === s ? (s === 'termine' ? 'rgba(34,197,94,0.15)' : 'var(--primary)') : 'var(--secondary)',
-                color: alfaTermine === s ? (s === 'termine' ? '#16A34A' : '#fff') : 'var(--muted)',
-                border: `1.5px solid ${alfaTermine === s ? (s === 'termine' ? 'rgba(34,197,94,0.4)' : 'var(--primary)') : 'var(--border)'}`,
-              }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? 'En cours' : 'Terminé'}</button>
-            ))}
+            {(['tous', 'en_cours', 'termine', 'raf'] as const).map(s => {
+              const palette = s === 'termine' ? { bg: 'rgba(34,197,94,0.15)', fg: '#16A34A', border: 'rgba(34,197,94,0.4)' }
+                : s === 'raf' ? { bg: 'rgba(234,179,8,0.15)', fg: '#CA8A04', border: 'rgba(234,179,8,0.4)' }
+                : s === 'en_cours' ? { bg: 'rgba(239,68,68,0.12)', fg: '#DC2626', border: 'rgba(239,68,68,0.3)' }
+                : { bg: 'var(--primary)', fg: '#fff', border: 'var(--primary)' }
+              const active = alfaTermine === s
+              return (
+                <button key={s} onClick={() => setAlfaTermine(s)} style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  background: active ? palette.bg : 'var(--secondary)',
+                  color: active ? palette.fg : 'var(--muted)',
+                  border: `1.5px solid ${active ? palette.border : 'var(--border)'}`,
+                }}>{s === 'tous' ? 'Tous' : s === 'en_cours' ? '● En cours' : s === 'termine' ? '✓ Terminé' : '⏳ RAF'}</button>
+              )
+            })}
           </div>
         </div>
       )}
 
       {/* Filtres candidats — pills */}
       {activeTab === 'candidats' && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-          {([
-            { key: 'tous', label: 'Tous' },
-            { key: 'permis_urgent', label: '🔴 Permis urgents (<30j)' },
-            { key: 'permis_surveillance', label: '🟡 Permis à renouveler (<90j)' },
-            { key: 'docs_manquants', label: '📋 Docs manquants' },
-          ] as const).map(f => (
-            <button key={f.key} onClick={() => setCandidatFiltre(f.key)} style={{
-              padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              background: candidatFiltre === f.key ? 'var(--primary)' : 'var(--secondary)',
-              color: candidatFiltre === f.key ? 'var(--primary-foreground)' : 'var(--muted)',
-              border: `1.5px solid ${candidatFiltre === f.key ? 'var(--primary)' : 'var(--border)'}`,
-            }}>{f.label}</button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 2 }}>Mission</span>
+            {([
+              { key: 'tous', label: 'Tous' },
+              { key: 'actifs', label: '🟢 Actifs' },
+              { key: 'termines', label: '🔴 Terminée' },
+              { key: 'archives', label: '📦 Archivés' },
+            ] as const).map(f => {
+              const palette = f.key === 'termines' ? { bg: 'rgba(239,68,68,0.15)', fg: '#DC2626', border: 'rgba(239,68,68,0.4)' }
+                : f.key === 'actifs' ? { bg: 'rgba(34,197,94,0.15)', fg: '#16A34A', border: 'rgba(34,197,94,0.4)' }
+                : f.key === 'archives' ? { bg: 'rgba(107,114,128,0.18)', fg: '#4B5563', border: 'rgba(107,114,128,0.4)' }
+                : { bg: 'var(--primary)', fg: 'var(--primary-foreground)', border: 'var(--primary)' }
+              const active = missionFiltre === f.key
+              return (
+                <button key={f.key} onClick={() => setMissionFiltre(f.key)} style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  background: active ? palette.bg : 'var(--secondary)',
+                  color: active ? palette.fg : 'var(--muted)',
+                  border: `1.5px solid ${active ? palette.border : 'var(--border)'}`,
+                }}>{f.label}</button>
+              )
+            })}
+            <span style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: 2 }}>Docs</span>
+            {([
+              { key: 'tous', label: 'Tous' },
+              { key: 'complet', label: '✓ Complet' },
+              { key: 'incomplet', label: '✗ Incomplet' },
+            ] as const).map(f => (
+              <button key={f.key} onClick={() => setDocsFiltre(f.key)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: docsFiltre === f.key ? (f.key === 'complet' ? 'rgba(34,197,94,0.15)' : f.key === 'incomplet' ? 'rgba(239,68,68,0.15)' : 'var(--primary)') : 'var(--secondary)',
+                color: docsFiltre === f.key ? (f.key === 'complet' ? '#16A34A' : f.key === 'incomplet' ? '#DC2626' : 'var(--primary-foreground)') : 'var(--muted)',
+                border: `1.5px solid ${docsFiltre === f.key ? (f.key === 'complet' ? 'rgba(34,197,94,0.4)' : f.key === 'incomplet' ? 'rgba(239,68,68,0.4)' : 'var(--primary)') : 'var(--border)'}`,
+              }}>{f.label}</button>
+            ))}
+            <span style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 4px' }} />
+            {([
+              { key: 'tous', label: 'Tous' },
+              { key: 'permis_urgent', label: '🔴 Permis urgents (<14j)' },
+            ] as const).map(f => (
+              <button key={f.key} onClick={() => setCandidatFiltre(f.key)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: candidatFiltre === f.key ? 'var(--primary)' : 'var(--secondary)',
+                color: candidatFiltre === f.key ? 'var(--primary-foreground)' : 'var(--muted)',
+                border: `1.5px solid ${candidatFiltre === f.key ? 'var(--primary)' : 'var(--border)'}`,
+              }}>{f.label}</button>
+            ))}
+          </div>
+
+          {/* Bouton filtres avancés (toggle) */}
+          {activeTab === 'candidats' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <button onClick={() => setShowAdvanced(v => !v)} style={{
+                padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                background: showAdvanced || advCount > 0 ? 'var(--primary-soft)' : 'var(--secondary)',
+                color: showAdvanced || advCount > 0 ? 'var(--primary)' : 'var(--muted)',
+                border: `1.5px solid ${showAdvanced || advCount > 0 ? 'var(--primary)' : 'var(--border)'}`,
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}>
+                <Filter size={11} />
+                Filtres avancés
+                {advCount > 0 && <span style={{ padding: '0 6px', borderRadius: 99, background: 'var(--primary)', color: 'var(--primary-foreground)', fontSize: 10, fontWeight: 800 }}>{advCount}</span>}
+                {showAdvanced ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+              </button>
+              {advCount > 0 && (
+                <button onClick={resetAdvFilters} style={{
+                  padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  background: 'none', color: 'var(--destructive)', border: '1.5px solid rgba(239,68,68,0.3)',
+                }}>Réinitialiser</button>
+              )}
+            </div>
+          )}
+
+          {/* Panneau filtres avancés (collapsible) */}
+          {activeTab === 'candidats' && showAdvanced && (
+            <AdvancedFiltersPanel filters={advFilters} setFilters={setAdvFilters} />
+          )}
         </div>
       )}
 
@@ -2870,7 +3545,6 @@ function SecretariatPage() {
           {activeTab === 'alfa' && alfaView === 'suivi' && `${filteredAlfa.length} entrée${filteredAlfa.length !== 1 ? 's' : ''}`}
           {activeTab === 'alfa' && alfaView === 'apayer' && `${filteredAlfaPaiements.length} paiement${filteredAlfaPaiements.length !== 1 ? 's' : ''}`}
           {activeTab === 'accidents' && `${filteredAccidents.length} cas`}
-          {activeTab === 'loyers' && `${filteredLoyers.length} loyer${filteredLoyers.length !== 1 ? 's' : ''}`}
         </div>
       </div>
 
@@ -2889,6 +3563,41 @@ function SecretariatPage() {
                 onEdit={c => { setEditItem(c); setShowForm(true) }}
                 onDelete={c => setDeleteItem(c)}
                 onColorChange={handleColorChange}
+                alfaCandidatIds={alfaCandidatIds}
+                onGoToAlfa={() => setActiveTab('alfa')}
+                onCreateAlfa={c => {
+                  // Pré-remplit le modal ALFA avec les infos du candidat
+                  const prefill: Partial<SecretariatAlfa> = {
+                    candidat_id: c.candidat_id,
+                    nom: c.nom,
+                    prenom: c.prenom,
+                    numero_avs: c.numero_avs,
+                    annee: c.annee,
+                    photo_url: c.photo_url,
+                    tel: c.tel,
+                    email: c.email,
+                  } as Partial<SecretariatAlfa>
+                  setActiveTab('alfa')
+                  setAlfaView('suivi')
+                  setEditItem(prefill)
+                  setShowForm(true)
+                }}
+                onToggleArchive={async c => {
+                  const newVal = !c.archive
+                  try {
+                    const res = await fetch(`/api/secretariat/candidats/${c.id}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        archive: newVal,
+                        archived_at: newVal ? new Date().toISOString() : null,
+                      }),
+                    })
+                    if (!res.ok) throw new Error('Erreur')
+                    toast.success(newVal ? `📦 ${c.nom} ${c.prenom} archivé` : `${c.nom} ${c.prenom} désarchivé`)
+                    queryClient.invalidateQueries({ queryKey: ['secretariat-candidats', annee] })
+                  } catch (e: any) { toast.error(e.message || 'Erreur') }
+                }}
               />
             )}
             {activeTab === 'alfa' && alfaView === 'suivi' && (
@@ -2916,14 +3625,6 @@ function SecretariatPage() {
                 onArchive={handleArchive}
               />
             )}
-            {activeTab === 'loyers' && (
-              <LoyersTable
-                loyers={filteredLoyers}
-                onEdit={l => { setEditItem(l); setShowForm(true) }}
-                onDelete={l => setDeleteItem(l)}
-                onColorChange={handleColorChange}
-              />
-            )}
           </div>
         )}
       </div>
@@ -2938,13 +3639,6 @@ function SecretariatPage() {
       )}
       {showForm && activeTab === 'accidents' && (
         <AccidentModal
-          item={editItem}
-          onClose={() => { setShowForm(false); setEditItem(null) }}
-          onSaved={handleSaved}
-        />
-      )}
-      {showForm && activeTab === 'loyers' && (
-        <LoyerModal
           item={editItem}
           onClose={() => { setShowForm(false); setEditItem(null) }}
           onSaved={handleSaved}
@@ -2976,17 +3670,18 @@ function SecretariatPage() {
         />
       )}
 
+      {/* Popup persistant fin ALFA caisse — s'affiche tant que pas archivé */}
+      <FinAlfaCaissePopup />
+
       {/* Modal suppression */}
       {deleteItem && (
         <DeleteModal
           label={
             activeTab === 'candidats'
-              ? `${(deleteItem as SecretariatCandidat).prenom} ${(deleteItem as SecretariatCandidat).nom}`
+              ? `${(deleteItem as SecretariatCandidat).nom} ${(deleteItem as SecretariatCandidat).prenom}`
               : activeTab === 'alfa'
-              ? `${(deleteItem as SecretariatAlfa).prenom || ''} ${(deleteItem as SecretariatAlfa).nom}`
-              : activeTab === 'accidents'
-              ? (deleteItem as SecretariatAccident).nom_prenom
-              : (deleteItem as SecretariatLoyer).nom_prenom
+              ? `${(deleteItem as SecretariatAlfa).nom} ${(deleteItem as SecretariatAlfa).prenom || ''}`
+              : (deleteItem as SecretariatAccident).nom_prenom
           }
           onConfirm={handleDeleteConfirm}
           onClose={() => setDeleteItem(null)}

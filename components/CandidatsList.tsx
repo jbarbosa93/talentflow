@@ -1312,9 +1312,19 @@ export default function CandidatsList() {
           if (viewedSet.has(c.id)) return null
           const manuel = getRecentlyUpdatedEntry(c.id)
           const onedriveType = (c as any).onedrive_change_type as ('nouveau' | 'reactive' | 'mis_a_jour' | null) | undefined
-          const type = manuel?.type ?? onedriveType ?? null
-          if (!type) return null
-          const style = getBadgeStyleForType(type)
+          let effectiveType = manuel?.type ?? onedriveType ?? null
+          // Fallback v1.9.96-style : si pas de type explicite mais last_import_at > created_at + 1j
+          // → dériver "mis_a_jour" pour expliquer visuellement pourquoi le badge rouge est présent.
+          if (!effectiveType) {
+            const lastImport = (c as any).last_import_at as string | null | undefined
+            const createdAt = (c as any).created_at as string | null | undefined
+            if (lastImport && createdAt && Date.now() - new Date(lastImport).getTime() < 30 * 24 * 60 * 60 * 1000) {
+              const diffMs = new Date(lastImport).getTime() - new Date(createdAt).getTime()
+              if (diffMs > 24 * 60 * 60 * 1000) effectiveType = 'mis_a_jour'
+            }
+          }
+          if (!effectiveType) return null
+          const style = getBadgeStyleForType(effectiveType)
           const titleExtra = manuel ? ` — ${relativeMinutes(manuel.ts)}` : ' (OneDrive)'
           return (
             <span
@@ -1508,6 +1518,26 @@ export default function CandidatsList() {
               {(c as any).distance_km < 1 ? '<1 km' : `${Math.round((c as any).distance_km)} km`}
             </span>
           )}
+        </div>
+
+        {/* Colonne TÉLÉPHONE */}
+        <div style={{ flex: '0 0 130px', minWidth: 0, overflow: 'hidden' }}>
+          {c.telephone ? (
+            <span
+              title={c.telephone}
+              style={{
+                fontSize: 12, color: 'var(--muted)',
+                display: 'flex', alignItems: 'center', gap: 4,
+                overflow: 'hidden', whiteSpace: 'nowrap', minWidth: 0,
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+              }}
+            >
+              <Phone size={11} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {c.telephone}
+              </span>
+            </span>
+          ) : <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>}
         </div>
 
         {/* v1.9.127 — Colonne ÂGE (largeur fixe, collée à Lieu) */}
@@ -3120,6 +3150,7 @@ export default function CandidatsList() {
                 <span style={{ flex: '0 0 56px' }} />
                 <span style={{ flex: '0 0 260px', ...headerCellStyle }}>Nom</span>
                 <span style={{ flex: '0 0 150px', ...headerCellStyle }}>Lieu</span>
+                <span style={{ flex: '0 0 130px', ...headerCellStyle }}>Téléphone</span>
                 <span style={{ flex: '0 0 80px', ...headerCellStyle }}>Âge</span>
                 <span style={{ flex: 1 }} />
                 <span style={{ flex: '0 0 110px', ...headerCellStyleCenter }}>Évaluation</span>

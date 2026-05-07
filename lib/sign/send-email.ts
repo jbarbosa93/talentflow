@@ -1,0 +1,250 @@
+// TalentFlow Sign — Envoi email via Resend
+// v2.2.0 — Phase 3
+//
+// Pattern repo : fetch direct https://api.resend.com/emails (pas de SDK npm).
+// Cohérent avec app/(dashboard)/api/annonces/france-travail, /api/auth/welcome, etc.
+
+import {
+  buildSignInviteHtml, buildSignInviteText,
+  buildSignReminderHtml, buildSignReminderText,
+  type SignEmailParams,
+} from './email-templates'
+
+const FROM_DEFAULT = 'TalentFlow Sign <noreply@talent-flow.ch>'
+
+export interface SendEmailResult {
+  ok: boolean
+  id?: string
+  error?: string
+}
+
+/**
+ * Envoie un email d'invitation à signer (HTML + plain text fallback).
+ * Pas de throw — retourne un résultat structuré pour ne pas bloquer
+ * l'envoi des autres destinataires en cas d'erreur ponctuelle.
+ */
+export async function sendSignInviteEmail(
+  to: string,
+  params: SignEmailParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    return { ok: false, error: 'RESEND_API_KEY manquant' }
+  }
+  if (!to) {
+    return { ok: false, error: 'destinataire vide' }
+  }
+
+  const subject = `${params.envelopeTitle} — Document à ${params.recipientRole === 'Copie' || params.recipientRole === 'cc' ? 'consulter' : 'signer'}`
+  const html = buildSignInviteHtml(params)
+  const text = buildSignInviteText(params)
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [to],
+        // Reply-to vers l'expéditeur si fourni → le destinataire peut répondre directement
+        reply_to: params.senderEmail ? [params.senderEmail] : undefined,
+        subject,
+        html,
+        text,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      console.error('[sign/send-email] Resend error', r.status, err)
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    console.error('[sign/send-email] exception', e)
+    return { ok: false, error: msg }
+  }
+}
+
+/**
+ * Envoie un email de RAPPEL (reminder) au destinataire — Phase 3.
+ * Identique à sendSignInviteEmail mais avec sujet "Rappel : ..." et template reminder.
+ */
+export async function sendSignReminderEmail(
+  to: string,
+  params: SignEmailParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!to) return { ok: false, error: 'destinataire vide' }
+
+  const subject = `Rappel : ${params.envelopeTitle} — Document en attente de signature`
+  const html = buildSignReminderHtml(params)
+  const text = buildSignReminderText(params)
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [to],
+        reply_to: params.senderEmail ? [params.senderEmail] : undefined,
+        subject,
+        html,
+        text,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      console.error('[sign/send-email] Resend reminder error', r.status, err)
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    console.error('[sign/send-email] reminder exception', e)
+    return { ok: false, error: msg }
+  }
+}
+
+// ─── Phase 4c — Email de finalisation avec PDFs signés en attachement ───
+
+export interface SignCompletedEmailParams {
+  recipientName: string
+  envelopeTitle: string
+  senderName: string
+  senderEmail?: string
+  signedAt: Date
+  /** Liste des PDFs signés à attacher (filename + content base64) */
+  attachments: { filename: string; content: string }[]
+}
+
+/**
+ * Envoie un email de confirmation de signature avec les PDFs signés en pièces jointes.
+ * Utilisé pour : tous les destinataires + admin L-Agence après finalize.
+ */
+export async function sendSignCompletedEmail(
+  to: string,
+  params: SignCompletedEmailParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!to) return { ok: false, error: 'destinataire vide' }
+
+  const dateStr = params.signedAt.toLocaleDateString('fr-CH', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  })
+  const timeStr = params.signedAt.toLocaleTimeString('fr-CH', {
+    hour: '2-digit', minute: '2-digit',
+  })
+
+  const subject = `Documents signés — ${params.envelopeTitle}`
+  const html = buildCompletedHtml(params, dateStr, timeStr)
+  const text = buildCompletedText(params, dateStr, timeStr)
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [to],
+        reply_to: params.senderEmail ? [params.senderEmail] : undefined,
+        subject,
+        html,
+        text,
+        attachments: params.attachments,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      console.error('[sign/send-email] Resend completed error', r.status, err)
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    console.error('[sign/send-email] completed exception', e)
+    return { ok: false, error: msg }
+  }
+}
+
+function buildCompletedHtml(p: SignCompletedEmailParams, dateStr: string, timeStr: string): string {
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Emplois fixes &amp; temporaires</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:#D1FAE5;color:#059669;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        ✓ Signé électroniquement
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:24px;font-weight:400;color:#1C1A14;margin:0 0 14px;line-height:1.25;">
+        Bonjour ${escapeHtml(p.recipientName.split(/\s+/)[0] || p.recipientName)},
+      </h1>
+      <p style="font-size:14.5px;color:#374151;line-height:1.6;margin:0 0 16px;">
+        Vos documents <strong>${escapeHtml(p.envelopeTitle)}</strong> ont été signés électroniquement avec succès.
+      </p>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 18px;">
+        Une copie complète signée est jointe à cet email (${p.attachments.length} document${p.attachments.length > 1 ? 's' : ''}).
+      </p>
+      <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:20px 0;">
+        <div style="font-size:11px;color:#6B7280;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Détails signature</div>
+        <div style="font-size:13px;color:#1C1A14;line-height:1.7;">
+          <strong>Date :</strong> ${dateStr} à ${timeStr}<br>
+          <strong>Signé par :</strong> ${escapeHtml(p.recipientName)}<br>
+          <strong>Plateforme :</strong> TalentFlow Sign · Conforme ZertES
+        </div>
+      </div>
+      <p style="font-size:13px;color:#6B7280;line-height:1.6;margin:18px 0 0;">
+        Conservez cet email et les pièces jointes — ils constituent la preuve de votre signature.
+        Pour toute question, contactez ${escapeHtml(p.senderName)}${p.senderEmail ? ` (<a href="mailto:${escapeHtml(p.senderEmail)}" style="color:#A16207;">${escapeHtml(p.senderEmail)}</a>)` : ''}.
+      </p>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      ${escapeHtml(p.senderName)} · Sécurisé par TalentFlow Sign
+    </p>
+  </div>
+</body></html>`
+}
+
+function buildCompletedText(p: SignCompletedEmailParams, dateStr: string, timeStr: string): string {
+  return [
+    `Bonjour ${p.recipientName.split(/\s+/)[0] || p.recipientName},`,
+    '',
+    `Vos documents "${p.envelopeTitle}" ont été signés électroniquement avec succès.`,
+    `Une copie complète signée est jointe à cet email (${p.attachments.length} document${p.attachments.length > 1 ? 's' : ''}).`,
+    '',
+    'Détails signature :',
+    `  Date : ${dateStr} à ${timeStr}`,
+    `  Signé par : ${p.recipientName}`,
+    '  Plateforme : TalentFlow Sign · Conforme ZertES',
+    '',
+    'Conservez cet email et les pièces jointes — ils constituent la preuve de votre signature.',
+    `${p.senderName}${p.senderEmail ? ` · ${p.senderEmail}` : ''}`,
+  ].join('\n')
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}

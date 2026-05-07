@@ -548,6 +548,7 @@ function MatchingPageInner() {
           display: 'flex',
           flexDirection: 'column',
           gap: 8,
+          overflowX: 'auto',
         }}>
           {matching.results.map((r, idx) => (
             <CandidatMatchCard
@@ -632,6 +633,7 @@ function CandidatMatchCard({ result, rank, selected, onToggle, cvHoverHook }: { 
         cursor: 'pointer',
         transition: 'all 0.15s',
         display: 'flex', alignItems: 'center', gap: 14,
+        minWidth: 580,
         fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
       } as React.CSSProperties}>
 

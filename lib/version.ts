@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.18'
+export const APP_VERSION = '2.1.19'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.19',
+    date: '2026-05-07',
+    label: 'Pack 5 bugs UX + Secrétariat v2 + TalentFlow Sign base structure (Phase 1)',
+    features: [
+      'LISTE CLIENTS — Ajout flèches de pagination (←/→) dans le header, identiques à la liste candidats. Le simple "· Page X / Y" est remplacé par boutons ChevronLeft/ChevronRight désactivés aux extrêmes.',
+      'MATCHING IA — Scroll horizontal ajouté sur le container résultats + minWidth 580px sur les cards candidats. La liste ne se coupe plus sur petit écran.',
+      'LISTE CANDIDATS — Nouvelle colonne "Téléphone" (130px, avec icône Phone, ellipsis si long) entre Lieu et Âge.',
+      'LISTE CANDIDATS — Badges colorés (🟢 Nouveau / 🟡 Réactivé / 🔵 Actualisé) : fallback ajouté quand `onedrive_change_type` et localStorage sont null mais `last_import_at > created_at + 1j` (candidats mis à jour avant la feature badge).',
+      'FICHE CANDIDAT — Panel Infos (mode Modifier) rendu en `position: absolute` overlay au lieu d\'enfant flex. Le viewer CV ne se déplace plus vers la droite à l\'édition.',
+      'PIPELINE MODAL — `overflow: hidden` supprimé du wrapper modal "Ajouter au Pipeline". Le dropdown métier `<select>` ne se fait plus clipper dans Chrome.',
+      'SECRÉTARIAT — Refonte complète du dashboard secrétariat : nouveau module Administration v2 avec navigation par onglets, gestion candidats, accidents, ALFA, paiements, loyers, notifications améliorées.',
+      'SECRÉTARIAT API — Endpoints `/notifications/[id]/cest-fait` et `/notifications/fin-alfa-actives` pour marquer notifications et gérer les fins ALFA.',
+      'NORMALISATION — Fix téléphones France : `inferPaysFromLocalisation` détecte maintenant les CP 5 chiffres (France) avant les mots-clés. `normalizeTelephone` : règle unifiée "pays localisation = seul arbitre" pour ambiguïté CH/FR.',
+      'SIDEBAR — Renommage "Secrétariat" → "Administration" + nouvelle entrée "Signatures" (icône FileSignature, cachée pour Secrétaire).',
+      'SIGN PHASE 1 — Base de données (4 tables : sign_templates, sign_envelopes, sign_tokens, sign_audit_log) + pages structure (`/sign`, `/sign/templates`, `/sign/[id]`) + page publique `/sign/[token]` (viewer PDF "en cours de finalisation") + section dans fiche candidat. Workflow de signature électronique complet en Phase 2.',
+    ],
+  },
   {
     version: '2.1.18',
     date: '2026-05-05',

@@ -1613,12 +1613,23 @@ export default function CandidatDetailPage() {
       })()}
 
       {/* ── Grid 3 colonnes ── */}
-      <div className="candidat-grid" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', minWidth: 0 }}>
+      <div className="candidat-grid" style={{ display: 'flex', gap: 16, alignItems: 'flex-start', minWidth: 0, position: 'relative' }}>
 
         {/* ══ COLONNE 1 — Infos candidat ══
             v1.9.127 — Visible UNIQUEMENT en édition (formulaires nom/prenom/email/etc.).
             En lecture, on ne montre que le banner V2 + CV viewer (immersif). */}
-        <div className="candidat-col-info" style={{ width: 240, flexShrink: 0, display: isEditing ? 'flex' : 'none', flexDirection: 'column', gap: 12 }}>
+        {/* position:absolute — le CV viewer ne se déplace plus quand on ouvre l'édition */}
+        <div className="candidat-col-info" style={{
+          position: 'absolute', left: 0, top: 0, zIndex: 20,
+          width: 256, flexShrink: 0,
+          display: isEditing ? 'flex' : 'none',
+          flexDirection: 'column', gap: 12,
+          background: 'var(--card)',
+          borderRight: '1px solid var(--border)',
+          boxShadow: '4px 0 20px rgba(0,0,0,0.12)',
+          maxHeight: 'calc(100vh - 120px)',
+          overflowY: 'auto',
+        }}>
 
           {/* Identité — v1.9.127 TOUJOURS cachée. Tous les champs éditables sont inline dans le banner V2. */}
           <div className="neo-card-soft" style={{ padding: 18, display: 'none' }}>
@@ -3511,10 +3522,9 @@ function PipelineActionsModal({ candidat, onClose, onSaved }: {
       <div onClick={e => e.stopPropagation()} style={{
         background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16,
         width: 460, maxWidth: '92vw', boxShadow: '0 24px 64px -16px rgba(0,0,0,0.45)',
-        overflow: 'hidden',
       }}>
         {/* Header serif v2 */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 12px', borderBottom: '1px solid var(--border)', borderRadius: '16px 16px 0 0' }}>
           <h2 style={{
             margin: 0,
             fontFamily: 'var(--font-instrument-serif), "Instrument Serif", Georgia, serif',

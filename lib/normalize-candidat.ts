@@ -37,6 +37,9 @@ function inferPaysFromLocalisation(loc?: string | null): string {
   if (!loc) return 'Suisse'
   const l = loc.toLowerCase()
   if (l.includes('france')) return 'France'
+  // Les NPA suisses sont sur 4 chiffres (1000–9999).
+  // Un code postal à 5 chiffres indique la France (57000 Metz, 74500 Évian…).
+  if (/\b\d{5}\b/.test(l)) return 'France'
   if (l.includes('portugal')) return 'Portugal'
   if (l.includes('espagne') || l.includes('spain')) return 'Espagne'
   if (l.includes('italie') || l.includes('italia')) return 'Italie'
@@ -111,18 +114,12 @@ export function normalizeTelephone(tel: string, paysDefaut = 'Suisse'): string |
     // Autre 00XX — retourner avec + sans reformatage
     return '+' + digits.slice(2)
   } else if (digits.startsWith('0')) {
-    // Numéro local avec 0 initial
+    // Numéro local sans indicatif — impossible à distinguer CH vs FR sans contexte.
+    // Ex: 079XXXXXXX = mobile suisse OU français, 06XXXXXXXX = français OU Basel landline.
+    // Règle : le pays de la localisation tranche. Si un frontalier a un numéro suisse,
+    // il doit l'écrire avec +41 sur son CV pour éviter toute ambiguïté.
     local = digits.slice(1)
-    // 076-079 = mobile suisse ; 02x-09x landline suisse ou mobile français
-    const isFranceMobile = /^[67]/.test(local) && paysDefaut === 'France'
-    const isSwissMobile  = /^7[6-9]/.test(local)
-    if (isSwissMobile || paysDefaut !== 'France') {
-      country = '41'
-    } else if (isFranceMobile) {
-      country = '33'
-    } else {
-      country = '41' // Suisse par défaut
-    }
+    country = paysDefaut === 'France' ? '33' : '41'
   } else {
     // Numéro sans 0 ni + — inférer pays
     local = digits

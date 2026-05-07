@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Users, Briefcase, KanbanSquare,
   Sparkles, Settings, Calendar, Mail, Plug, UserCheck, Shield,
   Upload, Loader2, X, Wrench, Building2, Activity, TrendingUp, ClipboardList,
+  FileSignature,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -28,8 +29,9 @@ const NAV_ITEMS = [
   { href: '/missions',     label: 'Missions',         icon: TrendingUp,      adminOnly: true },
   { href: '/pipeline',     label: 'Pipeline',         icon: KanbanSquare,    hideForSecretaire: true },
   { href: '/messages',     label: 'Envois',           icon: Mail,            hideForSecretaire: true },
+  { href: '/sign',         label: 'Signatures',       icon: FileSignature,   hideForSecretaire: true },
   { href: '/matching',     label: 'Matching IA',      icon: Sparkles,        hideForSecretaire: true, beta: true },
-  { href: '/secretariat',  label: 'Secrétariat',      icon: ClipboardList,   secretaireVisible: true },
+  { href: '/secretariat',  label: 'Administration',   icon: ClipboardList,   secretaireVisible: true },
 ]
 
 const FOOTER_ITEMS = [

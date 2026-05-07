@@ -37,7 +37,7 @@ const BREADCRUMB_MAP: Record<string, { parent: string; page: string }> = {
   '/entretiens':               { parent: 'Travail',       page: 'Entretiens' },
   '/messages':                 { parent: 'Travail',       page: 'Envois' },
   '/activites':                { parent: 'Travail',       page: 'Activité' },
-  '/secretariat':              { parent: 'Configuration', page: 'Secrétariat' },
+  '/secretariat':              { parent: 'Configuration', page: 'Administration' },
   '/integrations':             { parent: 'Configuration', page: 'Intégrations' },
   '/outils':                   { parent: 'Configuration', page: 'Outils' },
   '/parametres':               { parent: 'Configuration', page: 'Paramètres' },
@@ -243,8 +243,8 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
           }}
           transition={{ duration: 0.15 }}
         >
-          <div style={{ padding: '0 10px 0 12px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Search size={14} style={{ color: 'var(--muted)' }} />
+          <div style={{ padding: '0 8px 0 14px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <Search size={15} style={{ color: 'var(--muted)' }} />
           </div>
           <input
             ref={inputRef}
@@ -258,7 +258,7 @@ export function TopBar({ onMenuClick, onToggleDesktop, desktopCollapsed }: { onM
               if (e.key === 'Escape') clearSearch()
             }}
             placeholder="Rechercher un candidat, compétence, métier..."
-            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--foreground)', padding: '9px 0', fontFamily: 'var(--font-body)' }}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--foreground)', padding: '9px 6px 9px 4px', fontFamily: 'var(--font-body)' }}
           />
           <AnimatePresence mode="wait">
             {aiSearching && (

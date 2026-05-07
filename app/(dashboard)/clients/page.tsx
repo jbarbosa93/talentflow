@@ -1003,9 +1003,48 @@ export default function ClientsPage() {
           </select>
           <span style={{ fontWeight: 500 }}>/ {total.toLocaleString('fr-CH')}</span>
           {totalPages > 1 && (
-            <span style={{ fontWeight: 600, marginLeft: 6, color: 'var(--foreground)' }}>
-              · Page {page} / {totalPages}
-            </span>
+            <>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                title="Page précédente"
+                style={{
+                  width: 24, height: 24, borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page <= 1 ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page <= 1 ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  marginLeft: 6, transition: 'all 0.12s',
+                }}
+              >
+                <ChevronLeft size={12} />
+              </button>
+              <span style={{
+                fontSize: 11.5, fontWeight: 600, color: 'var(--muted-foreground)',
+                fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em',
+                fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                whiteSpace: 'nowrap',
+              }}>
+                Page {page} / {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                title="Page suivante"
+                style={{
+                  width: 24, height: 24, borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: page >= totalPages ? 'var(--border)' : 'var(--muted-foreground)',
+                  cursor: page >= totalPages ? 'default' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.12s',
+                }}
+              >
+                <ChevronRight size={12} />
+              </button>
+            </>
           )}
         </div>
 

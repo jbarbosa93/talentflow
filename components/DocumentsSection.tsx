@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import type { CandidatDocument, DocumentType } from '@/types/database'
+import CandidatSignSection from '@/components/sign/CandidatSignSection'
 
 interface DocumentsPanelProps {
   open: boolean
@@ -895,6 +896,9 @@ export default function DocumentsPanel({ open, onClose, candidatId, candidatName
               <p style={{ fontSize: 12, margin: 0 }}>Cliquez sur le bouton ci-dessus pour ajouter un document</p>
             </div>
           )}
+
+          {/* v2.2.0 — Section Signatures électroniques (TalentFlow Sign) */}
+          <CandidatSignSection candidatId={candidatId} candidatName={candidatName} />
         </div>
       </div>
 
