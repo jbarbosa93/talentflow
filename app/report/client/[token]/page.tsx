@@ -340,26 +340,67 @@ export default function PublicClientReportPage({
             />
           </div>
         ) : activeDoc ? (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <PublicPdfViewer
-              key={fileUrl}
-              url={fileUrl}
-              renderPageOverlay={(pageNum, sizePx) => (
-                <PublicFieldsLayer
-                  page={pageNum}
-                  sizePx={sizePx}
-                  fields={activeDoc.fields || []}
-                  values={values}
-                  onValueChange={handleFieldChange}
-                  signatureDataUrl={signatureDataUrl}
-                  onRequestSignature={() => setSignaturePadOpen(true)}
-                  recipientColor={recipientPalette}
-                  autoFill={autoFill}
-                  currentRecipientOrder={2}
+          // v2.3.x — Pattern aligné sur Sign : pas de flex column wrapper interne (décale les
+          // coords des fields). Desktop : card centrée max 1100. Mobile : pleine largeur.
+          isMobile ? (
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              <PublicPdfViewer
+                key={fileUrl}
+                url={fileUrl}
+                renderPageOverlay={(pageNum, sizePx) => (
+                  <PublicFieldsLayer
+                    page={pageNum}
+                    sizePx={sizePx}
+                    fields={activeDoc.fields || []}
+                    values={values}
+                    onValueChange={handleFieldChange}
+                    signatureDataUrl={signatureDataUrl}
+                    onRequestSignature={() => setSignaturePadOpen(true)}
+                    recipientColor={recipientPalette}
+                    autoFill={autoFill}
+                    currentRecipientOrder={2}
+                  />
+                )}
+              />
+            </div>
+          ) : (
+            <div style={{
+              flex: 1, overflow: 'hidden', position: 'relative',
+              padding: '16px 24px 24px',
+              background: '#F3F4F6',
+            }}>
+              <div style={{
+                width: '100%', height: '100%',
+                maxWidth: 1100,
+                margin: '0 auto',
+                background: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                border: '1px solid #E5E7EB',
+                overflow: 'hidden',
+                position: 'relative',
+              }}>
+                <PublicPdfViewer
+                  key={fileUrl}
+                  url={fileUrl}
+                  renderPageOverlay={(pageNum, sizePx) => (
+                    <PublicFieldsLayer
+                      page={pageNum}
+                      sizePx={sizePx}
+                      fields={activeDoc.fields || []}
+                      values={values}
+                      onValueChange={handleFieldChange}
+                      signatureDataUrl={signatureDataUrl}
+                      onRequestSignature={() => setSignaturePadOpen(true)}
+                      recipientColor={recipientPalette}
+                      autoFill={autoFill}
+                      currentRecipientOrder={2}
+                    />
+                  )}
                 />
-              )}
-            />
-          </div>
+              </div>
+            </div>
+          )
         ) : null}
       </main>
 

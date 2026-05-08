@@ -57,6 +57,7 @@ export async function GET(
   const wizardSteps = Array.isArray(tplExtra.wizard_steps) ? tplExtra.wizard_steps : []
 
   // Pré-fill candidat (pour affichage nom collaborateur en haut du PDF + UI)
+  // v2.3.x — Priorité : candidat lié en DB > candidat_name saisi manuellement sur le lien
   let candidat: { prenom: string | null; nom: string | null; email: string | null } | null = null
   if (link.candidat_id) {
     try {
@@ -68,6 +69,14 @@ export async function GET(
         .maybeSingle()
       candidat = data as { prenom: string | null; nom: string | null; email: string | null } | null
     } catch { /* silent */ }
+  }
+  if (!candidat && link.candidat_name && link.candidat_name.trim()) {
+    const parts = link.candidat_name.trim().split(/\s+/)
+    candidat = {
+      prenom: parts[0] || null,
+      nom: parts.slice(1).join(' ') || null,
+      email: null,
+    }
   }
 
   const weekDates = getWeekDates(submission.week_start)

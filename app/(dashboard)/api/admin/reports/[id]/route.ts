@@ -52,6 +52,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (typeof body.title === 'string' && body.title.trim()) {
       update.title = body.title.trim()
     }
+    if (body.candidat_name !== undefined) {
+      // v2.3.x — Permet update du nom candidat saisi (correction typo, ajout de nom à un lien existant)
+      update.candidat_name = body.candidat_name?.trim() || null
+    }
     if (body.client_name !== undefined) {
       update.client_name = body.client_name?.trim() || null
     }

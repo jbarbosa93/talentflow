@@ -61,8 +61,14 @@ export default function ReportLinkDetailPage({
 
   const handleSendWhatsApp = () => {
     if (!link) return
-    const candName = (link.title || '').split(' — ')[0] || 'Bonjour'
-    const msg = `Bonjour ${candName.replace(/^Rapport\s+/, '').split(' ')[0] || ''} 👋\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    // v2.3.x — Utilise candidat_name (source unique) ; fallback : title nettoyé du préfixe
+    // "Rapport [d'heures] -" puis split sur séparateur (—/–/-) pour isoler le nom candidat.
+    // Plus jamais de "Bonjour d'heures".
+    const fullName = link.candidat_name
+      || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
+    const firstName = fullName.split(/\s+/)[0] || ''
+    const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
+    const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
   }
 

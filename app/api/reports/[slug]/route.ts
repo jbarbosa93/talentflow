@@ -44,6 +44,9 @@ export async function GET(
   const wizardSteps = Array.isArray(tplExtra.wizard_steps) ? tplExtra.wizard_steps : []
 
   // Récup candidat lié pour pré-fill (collaborateur name)
+  // v2.3.x — Priorité : (a) candidat lié en DB (candidat_id) → fetch fiche complète,
+  //                     (b) sinon candidat_name saisi manuellement sur le lien → split en prenom/nom.
+  // Source unique côté front : `candidat.prenom + candidat.nom` qui alimente l'autoFill PublicFieldsLayer.
   let candidat: { prenom: string | null; nom: string | null; email: string | null } | null = null
   if (link.candidat_id) {
     try {
@@ -55,6 +58,16 @@ export async function GET(
         .maybeSingle()
       candidat = data as { prenom: string | null; nom: string | null; email: string | null } | null
     } catch { /* silent */ }
+  }
+
+  // Fallback : si pas de candidat lié OU fetch raté, utilise candidat_name du lien (split)
+  if (!candidat && link.candidat_name && link.candidat_name.trim()) {
+    const parts = link.candidat_name.trim().split(/\s+/)
+    candidat = {
+      prenom: parts[0] || null,
+      nom: parts.slice(1).join(' ') || null,
+      email: null,
+    }
   }
 
   // Submissions existantes (pour bloquer les semaines déjà soumises ET montrer l'historique)

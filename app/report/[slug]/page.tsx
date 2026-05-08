@@ -593,23 +593,18 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             />
           </div>
         ) : activeDoc ? (
-          // Desktop : centré avec max-width + padding latéral pour respirer.
-          // Mobile : pleine largeur.
-          <div style={{
-            flex: 1, overflow: 'hidden', position: 'relative',
-            display: 'flex', justifyContent: 'center',
-            padding: isMobile ? 0 : '16px 24px 24px',
-          }}>
-            <div style={{
-              flex: 1, minWidth: 0,
-              maxWidth: isMobile ? '100%' : 1100,
-              background: isMobile ? 'transparent' : '#fff',
-              borderRadius: isMobile ? 0 : 12,
-              boxShadow: isMobile ? 'none' : '0 4px 16px rgba(0,0,0,0.06)',
-              border: isMobile ? 'none' : '1px solid #E5E7EB',
-              overflow: 'hidden',
-              display: 'flex', flexDirection: 'column',
-            }}>
+          // v2.3.x — Bug 2 fix : aligné EXACTEMENT sur le pattern Sign /sign/v/[token]
+          //   (`flex: 1; overflow: hidden; position: relative`) sans flex column wrapper qui
+          //   décalait l'overlay. Sur desktop on garde une card visuelle via background +
+          //   shadow appliqués au wrapper externe (et pas via un sous-wrapper flex).
+          //
+          //   Mobile : PublicPdfViewer en enfant direct, plein écran, comme Sign.
+          //   Desktop : padding latéral + container max 1100 centré, mais SANS display:flex
+          //             interne (le PublicPdfViewer mesure son containerWidth via
+          //             ResizeObserver — le contraindre dans un flex column casse la mesure
+          //             initiale et décale les coords des fields qui sont en x*sizePx.width).
+          isMobile ? (
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
               <PublicPdfViewer
                 key={fileUrl}
                 url={fileUrl}
@@ -630,7 +625,44 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                 ) : undefined}
               />
             </div>
-          </div>
+          ) : (
+            <div style={{
+              flex: 1, overflow: 'hidden', position: 'relative',
+              padding: '16px 24px 24px',
+            }}>
+              <div style={{
+                width: '100%', height: '100%',
+                maxWidth: 1100,
+                margin: '0 auto',
+                background: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                border: '1px solid #E5E7EB',
+                overflow: 'hidden',
+                position: 'relative',
+              }}>
+                <PublicPdfViewer
+                  key={fileUrl}
+                  url={fileUrl}
+                  scrollToPage={scrollToPage}
+                  renderPageOverlay={!isLockedWeek ? (pageNum, sizePx) => (
+                    <PublicFieldsLayer
+                      page={pageNum}
+                      sizePx={sizePx}
+                      fields={activeDoc.fields || []}
+                      values={values}
+                      onValueChange={handleFieldChange}
+                      signatureDataUrl={signatureDataUrl}
+                      onRequestSignature={() => setSignaturePadOpen(true)}
+                      recipientColor={recipientPalette}
+                      autoFill={autoFill}
+                      currentRecipientOrder={1}
+                    />
+                  ) : undefined}
+                />
+              </div>
+            </div>
+          )
         ) : (
           <div style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',

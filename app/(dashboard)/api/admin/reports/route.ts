@@ -101,9 +101,21 @@ export async function POST(req: NextRequest) {
 
     const slug = await generateSlug(candidatPrenom, candidatNom)
 
+    // v2.3.x — Stocke le nom complet du candidat. 3 sources :
+    //   1. body.candidat_name explicite (saisie UI, prioritaire)
+    //   2. concat candidat lié (candidatPrenom + candidatNom) si candidat_id présent
+    //   3. fallback null
+    let candidatNameStored: string | null = null
+    if (typeof body.candidat_name === 'string' && body.candidat_name.trim()) {
+      candidatNameStored = body.candidat_name.trim()
+    } else if (candidatPrenom || candidatNom) {
+      candidatNameStored = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim() || null
+    }
+
     const insertPayload = {
       slug,
       candidat_id: body.candidat_id || null,
+      candidat_name: candidatNameStored,
       template_id: body.template_id,
       title: body.title.trim(),
       client_name: body.client_name?.trim() || null,

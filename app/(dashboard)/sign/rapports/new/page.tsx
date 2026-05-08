@@ -79,11 +79,16 @@ export default function NewReportLinkPage() {
     if (err) { toast.error(err); return }
     setSubmitting(true)
     try {
+      // v2.3.x — Stocke le nom complet du candidat (source unique pour pré-remplir
+      // les fields auto-fill firstname/lastname/fullname du PDF, même si candidat_id IS NULL).
+      const candidatNameToSend = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim() || null
+
       const r = await fetch('/api/admin/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           candidat_id: candidatId,
+          candidat_name: candidatNameToSend,
           template_id: templateId,
           title: title.trim(),
           client_name: clientName.trim(),

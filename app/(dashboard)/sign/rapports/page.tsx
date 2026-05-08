@@ -120,8 +120,14 @@ export default function ReportsListPage() {
 
   const handleSendWhatsApp = (link: ReportLink) => {
     const url = `${window.location.origin}/report/${link.slug}`
-    const candName = link.title || ''
-    const msg = `Bonjour ${candName.split(' ')[0] || ''} 👋\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    // v2.3.x — Utilise candidat_name (source unique) ; fallback nom DB chargé en parallèle ;
+    // dernier recours : title nettoyé du préfixe "Rapport". Plus jamais de "Bonjour d'heures".
+    const fullName = link.candidat_name
+      || candidateNameByLink[link.id]
+      || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
+    const firstName = fullName.split(/\s+/)[0] || ''
+    const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
+    const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
   }
 

@@ -28,6 +28,10 @@ export interface ReportLink {
   id: string
   slug: string
   candidat_id: string | null
+  /** v2.3.x — Nom complet du candidat saisi à la création.
+   *  Source de vérité pour le pré-remplissage des fields auto-fill firstname/lastname/fullname,
+   *  même quand le candidat n'est pas lié à la table candidats (candidat_id NULL). */
+  candidat_name: string | null
   template_id: string | null
   title: string
   client_name: string | null
