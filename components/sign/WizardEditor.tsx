@@ -17,13 +17,25 @@
 // l'ensemble via PATCH /api/sign/templates/[id].
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
+// v2.2.4 fix v4 — dnd-kit (lib moderne, Pointer Events, pas de race condition HTML5)
+import {
+  DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+// v2.2.4 — Composant partagé Mode Wizard ↔ Mode Document pour éditer les options Formule
+import FieldFormulaOptions from './FieldFormulaOptions'
 import {
   Save, RefreshCw, Plus, Trash2, ChevronUp, ChevronDown,
   ListChecks, FileText, Loader2, GripVertical, Edit3, X as XIcon,
   Eye, EyeOff, AlertTriangle, Info, Settings2, Sparkles, Smartphone, Copy,
-  Users,
+  Users, ArrowRightLeft,
 } from 'lucide-react'
 
 const WizardPreview = dynamic(() => import('./WizardPreview'), { ssr: false })
@@ -436,12 +448,23 @@ export default function WizardEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
+      // v2.2.4 — Cleanup : retire les fieldIds orphelins (= ids qui pointent vers
+      // des fields supprimés en Mode Document). Évite que le compteur reste à
+      // "5 champs" alors que seulement 2 sont rendus.
+      const validFieldIds = new Set<string>()
+      for (const d of documents) {
+        for (const f of (d.fields || [])) validFieldIds.add(f.id)
+      }
+      const cleanedSteps = steps.map(s => ({
+        ...s,
+        fieldIds: s.fieldIds.filter(id => validFieldIds.has(id)),
+      }))
       const r = await fetch(`/api/sign/templates/${templateId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wizard_enabled: enabled,
-          wizard_steps: steps,
+          wizard_steps: cleanedSteps,
           documents,
           // v2.2.2 — Persiste aussi le schema des rôles édité depuis le toolbar
           recipients_schema: localSchema,
@@ -458,6 +481,15 @@ export default function WizardEditor({
       setSaving(false)
     }
   }
+
+  // v2.2.4 — Mémorise l'id du step actif dans sessionStorage pour permettre au
+  // TemplateEditor (Mode Document) de placer les nouveaux fields dans LE BON step
+  // (= celui que l'admin était en train de regarder, pas le 1er aveuglément).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const s = steps[selectedStepIdx]
+    if (s?.id) sessionStorage.setItem('sign:active-step-id', s.id)
+  }, [selectedStepIdx, steps])
 
   // v2.2.1 — selectedStepIdx pointe dans `steps` (global), mais on l'expose via visibleSteps
   // Si le step actif n'est plus dans le rôle courant, retombe sur le 1er du rôle
@@ -648,8 +680,9 @@ export default function WizardEditor({
         </div>
       )}
 
-      {/* Layout principal : éditeur (steps + detail) + preview optionnel */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 500, overflow: 'hidden' }}>
+      {/* Layout principal : éditeur (steps + detail) + preview optionnel.
+          v2.2.4 — overflow:visible pour que le preview sticky fonctionne. */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 500, alignItems: 'flex-start' }}>
         {/* Bloc éditeur : steps list + step detail */}
         <div style={{ display: 'flex', flex: 1, minWidth: 0, overflow: 'hidden' }}>
         {/* Sidebar steps list */}
@@ -714,11 +747,26 @@ export default function WizardEditor({
                     }}>
                       {s.title}
                     </div>
-                    <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 1 }}>
-                      {s.fieldIds.length} champ{s.fieldIds.length > 1 ? 's' : ''}
-                      {s.isAutoFillStep && ' · auto-fill'}
-                      {s.isSignatureStep && ' · signature'}
-                    </div>
+                    {/* v2.2.4 — Compteur : valides (id existe dans documents) / total fieldIds.
+                        Si différent, l'admin sait qu'il y a des références orphelines. */}
+                    {(() => {
+                      const valid = s.fieldIds.filter(id => fieldIndex.has(id)).length
+                      const total = s.fieldIds.length
+                      const hasOrphans = valid !== total
+                      return (
+                        <div style={{
+                          fontSize: 10.5,
+                          color: hasOrphans ? '#A16207' : 'var(--muted)',
+                          marginTop: 1,
+                          fontWeight: hasOrphans ? 600 : 'normal',
+                        }}>
+                          {hasOrphans ? `${valid} / ${total}` : valid} champ{valid > 1 ? 's' : ''}
+                          {hasOrphans && ' (⚠️ orphelins)'}
+                          {s.isAutoFillStep && ' · auto-fill'}
+                          {s.isSignatureStep && ' · signature'}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </button>
               )
@@ -737,6 +785,7 @@ export default function WizardEditor({
               step={selectedStep}
               stepIdx={selectedStepIdx}
               totalSteps={steps.length}
+              allSteps={steps}
               fieldIndex={fieldIndex}
               allRecipientFields={allRecipientFields}
               documents={documents}
@@ -751,13 +800,41 @@ export default function WizardEditor({
               onRemoveFieldFromStep={(fid) => removeFieldFromStep(selectedStepIdx, fid)}
               onAddFieldToStep={(fid) => addFieldToStep(selectedStepIdx, fid)}
               onDuplicateField={(fid) => duplicateFieldInStep(selectedStepIdx, fid)}
+              onMoveFieldToStep={(fid, targetIdx) => addFieldToStep(targetIdx, fid)}
+              onDeleteFields={(ids) => {
+                // v2.2.4 — Supprime définitivement des fields de documents[].fields[].
+                // Aussi nettoie les références dans wizard_steps (au cas où).
+                const idSet = new Set(ids)
+                setDocuments(prev => prev.map(d => ({
+                  ...d,
+                  fields: (d.fields || []).filter(f => !idSet.has(f.id)),
+                })))
+                setSteps(prev => prev.map(s => ({
+                  ...s,
+                  fieldIds: s.fieldIds.filter(id => !idSet.has(id)),
+                })))
+                markDirty()
+                toast.success(`${ids.length} champ${ids.length > 1 ? 's supprimés' : ' supprimé'}`)
+              }}
             />
           )}
         </div>
         </div>
-        {/* Panneau preview live (à droite) */}
+        {/* Panneau preview live (à droite) — v2.2.4 : sticky pour suivre le scroll
+            de la page. Reste visible en haut du viewport quand l'admin scroll dans la
+            liste des champs/options. */}
         {previewOpen && (
-          <div style={{ width: 480, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{
+            width: 380,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            position: 'sticky',
+            top: 16,
+            alignSelf: 'flex-start',
+            maxHeight: 'calc(100vh - 32px)',
+          }}>
             <WizardPreview
               steps={steps}
               documents={documents}
@@ -779,6 +856,8 @@ interface StepDetailProps {
   step: WizardStep
   stepIdx: number
   totalSteps: number
+  /** v2.2.4 — Tous les steps pour calculer les fields orphelins du wizard */
+  allSteps: WizardStep[]
   fieldIndex: Map<string, { field: SignField; docIdx: number; fieldIdx: number }>
   allRecipientFields: SignField[]
   documents: SignDocument[]
@@ -793,23 +872,169 @@ interface StepDetailProps {
   onRemoveFieldFromStep: (fieldId: string) => void
   onAddFieldToStep: (fieldId: string) => void
   onDuplicateField: (fieldId: string) => void
+  /** v2.2.4 — Déplacer un field vers une autre étape du même rôle */
+  onMoveFieldToStep: (fieldId: string, targetStepIdx: number) => void
+  /** v2.2.4 — Supprimer définitivement des fields de documents[] (= du PDF entièrement) */
+  onDeleteFields?: (fieldIds: string[]) => void
 }
 
 function StepDetail({
-  step, stepIdx, totalSteps, fieldIndex, allRecipientFields, documents,
+  step, stepIdx, totalSteps, allSteps, fieldIndex, allRecipientFields, documents,
   onUpdateStep, onMoveStep, onDeleteStep, onMergeNext, onSplitAt,
   onUpdateField, onMoveFieldInStep, onReorderFieldInStep, onRemoveFieldFromStep, onAddFieldToStep,
-  onDuplicateField,
+  onDuplicateField, onMoveFieldToStep, onDeleteFields,
 }: StepDetailProps) {
   const [showAddPicker, setShowAddPicker] = useState(false)
-  const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null)
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  // v2.2.4 fix v4 — DnD via dnd-kit (Pointer Events, fiable, pas de race condition).
+  // PointerSensor avec activationConstraint distance=8 → click sur input/boutons
+  // n'active pas le drag tant que le user n'a pas bougé de 8px.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
   const stepFields = step.fieldIds.map(id => fieldIndex.get(id)?.field).filter(Boolean) as SignField[]
   const usedIds = new Set(step.fieldIds)
   const availableFields = allRecipientFields.filter(f => !usedIds.has(f.id))
 
+  // v2.2.4 — Champs orphelins : présents sur le PDF mais dans AUCUN step du wizard.
+  // Exclut les types auto-fill (signature, fullname, email, etc.) qui n'ont pas
+  // besoin d'apparaître dans le wizard candidat (remplis automatiquement).
+  const allUsedInWizard = new Set<string>()
+  for (const s of allSteps) {
+    for (const fid of s.fieldIds) allUsedInWizard.add(fid)
+  }
+  // v2.2.4 fix v2 — Skip aussi signature/initial : elles sont gérées par les
+  // steps `isSignatureStep` (auto-rendu candidat) et n'apparaissent pas dans
+  // `step.fieldIds` explicitement → faux positifs orphelins.
+  // Garde les fields type=company/title (vraies données saisies par candidat).
+  const AUTO_FILL_TYPES = new Set(['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'])
+  const orphanFields = allRecipientFields.filter(f =>
+    !allUsedInWizard.has(f.id) && !AUTO_FILL_TYPES.has(f.type)
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* v2.2.4 — Bandeau "champs orphelins" : présents sur le PDF mais dans aucun step du wizard.
+          Permet d'ajouter en masse au step actif d'un seul clic. */}
+      {orphanFields.length > 0 && (
+        <div style={{
+          padding: '10px 12px',
+          background: 'rgba(234,179,8,0.10)',
+          border: '1px solid rgba(234,179,8,0.40)',
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          flexWrap: 'wrap',
+          fontSize: 12,
+          color: '#A16207',
+          lineHeight: 1.5,
+        }}>
+          <span style={{ fontSize: 16, marginTop: 2 }}>⚠️</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div>
+              <strong>{orphanFields.length} champ{orphanFields.length > 1 ? 's' : ''}</strong> du PDF
+              {orphanFields.length > 1 ? ' sont présents' : ' est présent'} mais
+              {orphanFields.length > 1 ? ' n\'apparaissent' : ' n\'apparaît'} dans <strong>aucune étape</strong> du wizard candidat.
+            </div>
+            {/* v2.2.4 — Liste des orphelins (max 5 affichés, "...+N autres" si plus). */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+              {orphanFields.slice(0, 5).map(f => {
+                const lbl = (f.tooltip || '').trim() || (f.label || '').trim() || `(${f.type})`
+                const lblShort = lbl.length > 28 ? lbl.slice(0, 27) + '…' : lbl
+                // v2.2.4 — Diagnostic complet pour debug : pourquoi le field n'est pas visible ?
+                const isHidden = f.metadata?.hidden === true
+                const xPct = Math.round((f.x || 0) * 100)
+                const yPct = Math.round((f.y || 0) * 100)
+                const wPct = Math.round((f.width || 0) * 100)
+                const hPct = Math.round((f.height || 0) * 100)
+                const tooltip = [
+                  `Type: ${f.type}`,
+                  `Page: ${f.page || 1}`,
+                  `Position: x=${xPct}% y=${yPct}% taille ${wPct}×${hPct}%`,
+                  `Rôle (recipientOrder): ${f.recipientOrder ?? '?'}`,
+                  f.wizardSection ? `Section: ${f.wizardSection}` : null,
+                  isHidden ? '⚠️ metadata.hidden=true (caché du rendu)' : null,
+                  `ID: ${f.id}`,
+                ].filter(Boolean).join('\n')
+                return (
+                  <span
+                    key={f.id}
+                    title={tooltip}
+                    style={{
+                      padding: '2px 8px',
+                      background: isHidden ? 'rgba(220,38,38,0.15)' : 'rgba(234,179,8,0.18)',
+                      border: `1px solid ${isHidden ? 'rgba(220,38,38,0.5)' : 'rgba(234,179,8,0.40)'}`,
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: isHidden ? '#7F1D1D' : '#713F12',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 9, opacity: 0.7 }}>{f.type}</span>
+                    {lblShort}
+                    {isHidden && <span style={{ fontSize: 9, marginLeft: 2 }}>🚫hidden</span>}
+                  </span>
+                )
+              })}
+              {orphanFields.length > 5 && (
+                <span style={{ fontSize: 11, fontStyle: 'italic', color: '#A16207', alignSelf: 'center' }}>
+                  +{orphanFields.length - 5} autre{orphanFields.length - 5 > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => {
+                // Ajoute tous les orphelins au step courant
+                const newFieldIds = [...step.fieldIds, ...orphanFields.map(f => f.id)]
+                onUpdateStep({ fieldIds: newFieldIds })
+                toast.success(`${orphanFields.length} champ${orphanFields.length > 1 ? 's ajoutés' : ' ajouté'} à cette étape`)
+              }}
+              style={{
+                padding: '5px 12px',
+                fontSize: 11.5, fontWeight: 700,
+                background: '#EAB308', color: '#1C1A14',
+                border: 'none', borderRadius: 6, cursor: 'pointer',
+                fontFamily: 'inherit', flexShrink: 0,
+              }}
+              title="Ajoute tous les champs orphelins à cette étape (tu pourras réordonner ensuite)"
+            >
+              + Ajouter à cette étape
+            </button>
+            {/* v2.2.4 — Bouton supprimer définitivement (du PDF entièrement) */}
+            {onDeleteFields && (
+              <button
+                type="button"
+                onClick={() => {
+                  const list = orphanFields.map(f => `• ${f.tooltip || f.label || f.type}`).join('\n')
+                  if (!confirm(`Supprimer définitivement ces ${orphanFields.length} champ${orphanFields.length > 1 ? 's' : ''} du PDF ?\n\n${list}\n\nCette action est annulable avec Cmd+Z après enregistrement.`)) return
+                  onDeleteFields(orphanFields.map(f => f.id))
+                }}
+                style={{
+                  padding: '5px 12px',
+                  fontSize: 11.5, fontWeight: 700,
+                  background: 'var(--card)',
+                  color: '#DC2626',
+                  border: '1px solid #DC2626',
+                  borderRadius: 6, cursor: 'pointer',
+                  fontFamily: 'inherit', flexShrink: 0,
+                }}
+                title="Supprimer ces champs du PDF (irréversible sauf annulation immédiate)"
+              >
+                🗑 Supprimer
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Step controls */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button onClick={() => onMoveStep(-1)} disabled={stepIdx === 0} className="neo-btn-ghost neo-btn-sm" title="Monter">
@@ -987,39 +1212,38 @@ function StepDetail({
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {stepFields.map((f, i) => {
-            const isDraggingThis = dragSrcIdx === i
-            const isDragOver = dragOverIdx === i && dragSrcIdx !== null && dragSrcIdx !== i
-            return (
-              <div
-                key={f.id}
-                draggable
-                onDragStart={() => setDragSrcIdx(i)}
-                onDragOver={e => {
-                  if (dragSrcIdx !== null && dragSrcIdx !== i) {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                    if (dragOverIdx !== i) setDragOverIdx(i)
-                  }
-                }}
-                onDragLeave={() => { if (dragOverIdx === i) setDragOverIdx(null) }}
-                onDrop={e => {
-                  e.preventDefault()
-                  if (dragSrcIdx !== null && dragSrcIdx !== i) onReorderFieldInStep(dragSrcIdx, i)
-                  setDragSrcIdx(null)
-                  setDragOverIdx(null)
-                }}
-                onDragEnd={() => { setDragSrcIdx(null); setDragOverIdx(null) }}
-                style={{
-                  opacity: isDraggingThis ? 0.4 : 1,
-                  borderRadius: 8,
-                  outline: isDragOver ? '2px solid var(--primary)' : 'none',
-                  outlineOffset: 2,
-                  transition: 'opacity 0.15s, outline 0.15s',
-                }}
-              >
-                <FieldEditor
+        {/* v2.2.4 fix v4 — DnD via dnd-kit. PointerSensor + verticalListSortingStrategy.
+            Le drag handle est ⋮⋮ dans FieldEditor (via useSortable listeners passés en prop). */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(e: DragEndEvent) => {
+            const { active, over } = e
+            if (!over || active.id === over.id) return
+            // v2.2.4 fix v5 — Indices dans step.fieldIds (PAS dans stepFields filtré
+            // qui peut avoir moins d'éléments à cause des orphelins). Bug avant : le
+            // reorder déplaçait le mauvais id → field semblait revenir à sa position.
+            const fromIdx = step.fieldIds.indexOf(String(active.id))
+            const toIdx = step.fieldIds.indexOf(String(over.id))
+            if (fromIdx < 0 || toIdx < 0) return
+            onReorderFieldInStep(fromIdx, toIdx)
+            // v2.2.4 — Auto-section : si le field cible a une wizardSection,
+            // l'appliquer au field draggé. Permet "drop dans la carte Mardi → field
+            // devient Mardi" en mode Cartes par section.
+            const targetField = fieldIndex.get(String(over.id))?.field
+            const draggedField = fieldIndex.get(String(active.id))?.field
+            if (targetField?.wizardSection && draggedField
+                && draggedField.wizardSection !== targetField.wizardSection) {
+              onUpdateField(String(active.id), { wizardSection: targetField.wizardSection })
+              toast.success(`Champ déplacé vers la section « ${targetField.wizardSection} »`)
+            }
+          }}
+        >
+          <SortableContext items={stepFields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {stepFields.map((f, i) => (
+                <SortableFieldRow
+                  key={f.id}
                   field={f}
                   fieldIdxInStep={i}
                   totalFieldsInStep={stepFields.length}
@@ -1028,12 +1252,54 @@ function StepDetail({
                   onRemove={() => onRemoveFieldFromStep(f.id)}
                   onSplitAfter={() => onSplitAt(i + 1)}
                   onDuplicate={() => onDuplicateField(f.id)}
+                  availableTargetSteps={allSteps
+                    .map((s, idx) => ({ ...s, idx }))
+                    .filter(s => s.idx !== stepIdx && (s.recipientOrder ?? 1) === (step.recipientOrder ?? 1))}
+                  onMoveToStep={(targetIdx) => onMoveFieldToStep(f.id, targetIdx)}
                 />
-              </div>
-            )
-          })}
-        </div>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// SortableFieldRow — v2.2.4 fix v4 : wrapper dnd-kit autour de FieldEditor
+// ───────────────────────────────────────────────────────────────────────
+interface SortableFieldRowProps {
+  field: SignField
+  fieldIdxInStep: number
+  totalFieldsInStep: number
+  allRecipientFields: SignField[]
+  onUpdate: (patch: Partial<SignField>) => void
+  onRemove: () => void
+  onSplitAfter: () => void
+  onDuplicate: () => void
+  availableTargetSteps?: { id: string; title: string; idx: number }[]
+  onMoveToStep?: (targetStepIdx: number) => void
+}
+
+function SortableFieldRow(props: SortableFieldRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.field.id,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    // L'opacité du source pendant le drag (DragOverlay rend la "fantome" à la souris)
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {/* listeners + attributes sont passés au handle ⋮⋮ via FieldEditor.dragHandleProps */}
+      <FieldEditor
+        {...props}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
     </div>
   )
 }
@@ -1050,15 +1316,54 @@ interface FieldEditorProps {
   onRemove: () => void
   onSplitAfter: () => void
   onDuplicate: () => void
+  /** v2.2.4 fix v4 — Props dnd-kit (listeners + attributes) à appliquer sur le drag handle ⋮⋮ */
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>
+  /** v2.2.4 — Steps disponibles pour déplacer ce field (autres étapes du même rôle) */
+  availableTargetSteps?: { id: string; title: string; idx: number }[]
+  /** v2.2.4 — Callback : déplace ce field vers une autre étape */
+  onMoveToStep?: (targetStepIdx: number) => void
 }
 
 function FieldEditor({
   field, fieldIdxInStep, totalFieldsInStep, allRecipientFields,
-  onUpdate, onRemove, onSplitAfter, onDuplicate,
+  onUpdate, onRemove, onSplitAfter, onDuplicate, dragHandleProps,
+  availableTargetSteps, onMoveToStep,
 }: FieldEditorProps) {
+  const [movePopoverOpen, setMovePopoverOpen] = useState(false)
+  const [moveAnchorRect, setMoveAnchorRect] = useState<DOMRect | null>(null)
+  const moveBtnRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!movePopoverOpen) return
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      if (!t.closest('[data-move-popover]') && !moveBtnRef.current?.contains(t)) {
+        setMovePopoverOpen(false)
+      }
+    }
+    const id = setTimeout(() => document.addEventListener('mousedown', onClick), 0)
+    return () => { clearTimeout(id); document.removeEventListener('mousedown', onClick) }
+  }, [movePopoverOpen])
+  const openMovePopover = () => {
+    if (moveBtnRef.current) {
+      setMoveAnchorRect(moveBtnRef.current.getBoundingClientRect())
+    }
+    setMovePopoverOpen(o => !o)
+  }
   const [expanded, setExpanded] = useState(false)
   const isAutoFill = ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(field.type)
   const isSig = field.type === 'signature' || field.type === 'initial'
+  // v2.2.4 — Détecte les fields qui n'ont pas de coords valides sur le PDF
+  // (généralement créés par l'IA dans wizard_steps sans placement visuel).
+  // Ces fields apparaissent dans le wizard candidat mais PAS sur le rapport stampé.
+  // Détection large : width OU height trop petite OU x ET y nuls.
+  const isPlacedOnPdf = (field.width || 0) > 0.01
+    && (field.height || 0) > 0.005
+    && ((field.x || 0) > 0.001 || (field.y || 0) > 0.001)
+  const needsPlacement = !isPlacedOnPdf
+  // v2.2.4 — Pour les fields formula : on affiche TOUJOURS l'info de placement
+  // (l'admin doit pouvoir vérifier rapidement que le total apparaîtra bien sur le PDF)
+  const isFormula = field.type === 'formula'
+  const showPlacementInfo = needsPlacement || isFormula
 
   return (
     <div style={{
@@ -1069,7 +1374,27 @@ function FieldEditor({
     }}>
       {/* Compact header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
-        <GripVertical size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+        {/* v2.2.4 fix v4 — Drag handle dnd-kit. listeners+attributes via dragHandleProps. */}
+        <span
+          {...dragHandleProps}
+          title="Glisse pour réordonner"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 22, height: 22,
+            color: 'var(--muted)',
+            cursor: 'grab',
+            flexShrink: 0,
+            borderRadius: 4,
+            userSelect: 'none',
+            touchAction: 'none',  // évite scroll page sur mobile pendant drag
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2, rgba(0,0,0,0.04))' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <GripVertical size={14} />
+        </span>
         <input
           type="text"
           value={field.tooltip || ''}
@@ -1087,6 +1412,89 @@ function FieldEditor({
           }}
         />
         <span className="neo-badge neo-badge-gray" style={{ fontSize: 10, flexShrink: 0 }}>{field.type}</span>
+        {/* v2.2.4 — Bouton "Déplacer vers étape" (visible si autres steps du même rôle) */}
+        {availableTargetSteps && availableTargetSteps.length > 0 && (
+          <>
+            <button
+              ref={moveBtnRef}
+              onClick={openMovePopover}
+              className="neo-btn-ghost"
+              style={{ padding: 4 }}
+              title="Déplacer vers une autre étape"
+            >
+              <ArrowRightLeft size={12} />
+            </button>
+            {/* v2.2.4 — Popover via createPortal pour échapper au overflow:hidden parent.
+                v2.2.4 fix — Flip vers le haut si pas assez de place en bas. */}
+            {movePopoverOpen && moveAnchorRect && typeof window !== 'undefined' && (() => {
+              const POPOVER_HEIGHT_EST = Math.min(60 + (availableTargetSteps?.length || 0) * 38, 360)
+              const spaceBelow = window.innerHeight - moveAnchorRect.bottom
+              const spaceAbove = moveAnchorRect.top
+              const placeAbove = spaceBelow < POPOVER_HEIGHT_EST + 16 && spaceAbove > spaceBelow
+              return createPortal(
+              <div
+                data-move-popover
+                style={{
+                  position: 'fixed',
+                  top: placeAbove ? Math.max(8, moveAnchorRect.top - POPOVER_HEIGHT_EST - 4) : moveAnchorRect.bottom + 4,
+                  // Positionne à droite du bouton (right-align). Math.max(8) évite déborder à gauche.
+                  left: Math.max(8, moveAnchorRect.right - 240),
+                  maxHeight: Math.min(360, placeAbove ? spaceAbove - 16 : spaceBelow - 16),
+                  overflowY: 'auto',
+                  zIndex: 9999,
+                  minWidth: 240,
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.22)',
+                  padding: 6,
+                  fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+                }}
+              >
+                <div style={{
+                  fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', color: 'var(--muted)',
+                  padding: '6px 10px 4px',
+                }}>
+                  Déplacer vers
+                </div>
+                {availableTargetSteps.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      onMoveToStep?.(s.idx)
+                      setMovePopoverOpen(false)
+                      toast.success(`Déplacé vers « ${s.title} »`)
+                    }}
+                    style={{
+                      width: '100%', textAlign: 'left',
+                      padding: '8px 10px',
+                      background: 'transparent', border: 'none',
+                      borderRadius: 6, cursor: 'pointer',
+                      fontSize: 12.5, color: 'var(--foreground)',
+                      fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2, rgba(0,0,0,0.04))' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span style={{
+                      width: 18, height: 18, borderRadius: 999,
+                      background: 'var(--surface-2, rgba(0,0,0,0.06))',
+                      color: 'var(--muted)', fontSize: 10, fontWeight: 700,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>{s.idx + 1}</span>
+                    <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</span>
+                  </button>
+                ))}
+              </div>,
+              document.body
+            )
+            })()}
+          </>
+        )}
         <button
           onClick={onDuplicate}
           className="neo-btn-ghost"
@@ -1098,10 +1506,65 @@ function FieldEditor({
         <button onClick={() => setExpanded(e => !e)} className="neo-btn-ghost" style={{ padding: 4 }} title="Options avancées">
           <Settings2 size={12} />
         </button>
-        <button onClick={onRemove} className="neo-btn-ghost" style={{ padding: 4, color: '#DC2626' }} title="Retirer du wizard">
+        <button onClick={onRemove} className="neo-btn-ghost" style={{ padding: 4, color: '#DC2626' }} title="Retirer ce champ de l'étape (le champ RESTE sur le PDF — pour le supprimer définitivement, va en Mode Document)">
           <XIcon size={12} />
         </button>
       </div>
+
+      {/* v2.2.4 — Bandeau placement : warning si pas placé OU info+bouton "centrer" pour les formula. */}
+      {showPlacementInfo && (
+        <div style={{
+          padding: '8px 12px',
+          background: needsPlacement ? 'rgba(234,179,8,0.10)' : 'rgba(74,144,226,0.08)',
+          borderTop: `1px solid ${needsPlacement ? 'rgba(234,179,8,0.35)' : 'rgba(74,144,226,0.25)'}`,
+          fontSize: 11.5,
+          color: needsPlacement ? '#A16207' : '#1E40AF',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          lineHeight: 1.4,
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 14 }}>{needsPlacement ? '⚠️' : '📍'}</span>
+          <span style={{ flex: 1, minWidth: 200 }}>
+            {needsPlacement ? (
+              <>Ce champ apparaît dans le wizard mais <strong>pas sur le PDF stampé</strong> (pas de position définie).</>
+            ) : (
+              <>Position sur le PDF : <strong>page {field.page || 1}</strong> · x={Math.round((field.x || 0) * 100)}% · y={Math.round((field.y || 0) * 100)}% · taille {Math.round((field.width || 0) * 100)}×{Math.round((field.height || 0) * 100)}%</>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              // Centre au milieu de la page 1 avec une taille raisonnable
+              onUpdate({
+                page: 1,
+                x: 0.4,
+                y: 0.4,
+                width: 0.18,
+                height: 0.025,
+              })
+              toast.success(needsPlacement
+                ? 'Champ placé au centre de la page 1 — ajuste sa position en Mode Document'
+                : 'Champ replacé au centre de la page 1')
+            }}
+            style={{
+              padding: '4px 10px',
+              fontSize: 11, fontWeight: 700,
+              background: needsPlacement ? '#EAB308' : 'var(--card)',
+              color: needsPlacement ? '#1C1A14' : '#1E40AF',
+              border: needsPlacement ? 'none' : '1px solid #4A90E2',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              flexShrink: 0,
+            }}
+            title={needsPlacement ? 'Donne une position par défaut au champ pour qu\'il apparaisse sur le PDF' : 'Remet le champ au centre de la page 1 (puis ajuste en Mode Document)'}
+          >
+            {needsPlacement ? '📍 Placer sur le PDF' : '📍 Recentrer'}
+          </button>
+        </div>
+      )}
 
       {expanded && (
         <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1215,9 +1678,9 @@ function FieldEditor({
             />
           )}
 
-          {/* v2.2.1 — Éditeur formule (calcul auto) */}
+          {/* v2.2.4 — Éditeur formule via composant partagé (cohérence Mode Wizard ↔ Mode Document) */}
           {field.type === 'formula' && (
-            <FormulaEditor
+            <FieldFormulaOptions
               field={field}
               allRecipientFields={allRecipientFields}
               onUpdate={onUpdate}
@@ -1522,134 +1985,8 @@ function AttachmentsEditor({
   )
 }
 
-// ─── FormulaEditor — édition d'un champ formula ────────────────────
-function FormulaEditor({
-  field, allRecipientFields, onUpdate,
-}: {
-  field: SignField
-  allRecipientFields: SignField[]
-  onUpdate: (patch: Partial<SignField>) => void
-}) {
-  // v2.2.2 — Inclut checkbox (compte true=1, false=0) en plus de number/text/formula.
-  // Permet de créer une formule "Nombre de cases cochées" (sum sur N checkboxes).
-  const eligibleFields = allRecipientFields.filter(f =>
-    f.id !== field.id &&
-    (f.type === 'number' || f.type === 'text' || f.type === 'formula' || f.type === 'checkbox')
-  )
-  const sourceIds = field.formulaSourceIds || []
-  const op = field.formulaOp || 'sum'
-
-  const toggleSource = (id: string) => {
-    const next = sourceIds.includes(id)
-      ? sourceIds.filter(x => x !== id)
-      : [...sourceIds, id]
-    onUpdate({ formulaSourceIds: next })
-  }
-
-  const opLabel: Record<NonNullable<SignField['formulaOp']>, string> = {
-    sum: 'Somme (a + b + c)',
-    sub: 'Soustraction (a - b - c)',
-    mul: 'Multiplication (a × b × c)',
-    avg: 'Moyenne',
-    min: 'Minimum',
-    max: 'Maximum',
-  }
-
-  return (
-    <>
-      <div>
-        <label style={editLabelSmall}>Opération</label>
-        <select
-          value={op}
-          onChange={e => onUpdate({ formulaOp: e.target.value as SignField['formulaOp'] })}
-          style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
-        >
-          {(['sum', 'sub', 'mul', 'avg', 'min', 'max'] as const).map(o => (
-            <option key={o} value={o}>{opLabel[o]}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label style={editLabelSmall}>Champs sources ({sourceIds.length} sélectionné{sourceIds.length > 1 ? 's' : ''})</label>
-        {eligibleFields.length === 0 ? (
-          <div style={{ fontSize: 11.5, color: 'var(--muted)', fontStyle: 'italic', padding: 8 }}>
-            Aucun champ Nombre / Texte / Case à cocher disponible. Ajoute d&apos;abord des champs sources dans cette étape.
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: 4,
-            maxHeight: 220, overflowY: 'auto',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 6,
-            background: 'var(--card)',
-          }}>
-            {eligibleFields.map(f => {
-              const checked = sourceIds.includes(f.id)
-              const orderIdx = sourceIds.indexOf(f.id)
-              return (
-                <label
-                  key={f.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 8px',
-                    background: checked ? 'var(--primary-soft)' : 'transparent',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleSource(f.id)}
-                    style={{ width: 14, height: 14, accentColor: 'var(--primary)', cursor: 'pointer' }}
-                  />
-                  {checked && (
-                    <span style={{
-                      minWidth: 18, height: 18, padding: '0 4px',
-                      borderRadius: 999, background: 'var(--primary)', color: 'var(--primary-foreground)',
-                      fontSize: 10, fontWeight: 700,
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {orderIdx + 1}
-                    </span>
-                  )}
-                  <span style={{ flex: 1, color: 'var(--foreground)' }}>
-                    {f.tooltip || f.label || `(${f.type})`}
-                  </span>
-                  <span className="neo-badge neo-badge-gray" style={{ fontSize: 9 }}>{f.type}</span>
-                </label>
-              )
-            })}
-          </div>
-        )}
-        <div style={{ fontSize: 10.5, color: 'var(--muted)', marginTop: 4, lineHeight: 1.4 }}>
-          Le résultat se met à jour automatiquement quand le candidat tape ses valeurs.
-          <br />
-          💡 Les <strong>cases à cocher</strong> comptent comme 1 (cochée) ou 0 (non cochée). Avec opération <em>Somme</em>, tu obtiens le <strong>nombre de cases cochées</strong>.
-        </div>
-      </div>
-
-      <div>
-        <label style={editLabelSmall}>Nombre de décimales</label>
-        <select
-          value={String(field.formulaDecimals ?? 2)}
-          onChange={e => onUpdate({ formulaDecimals: Number(e.target.value) })}
-          style={{ ...editInputStyle, padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
-        >
-          <option value="0">0 (entier)</option>
-          <option value="1">1 décimale</option>
-          <option value="2">2 décimales (défaut)</option>
-          <option value="3">3 décimales</option>
-        </select>
-      </div>
-    </>
-  )
-}
+// v2.2.4 — FormulaEditor interne supprimé (déplacé dans FieldFormulaOptions.tsx
+// pour partage entre Mode Wizard et Mode Document).
 
 // ─── DisplayModeBtn — toggle Liste / Cartes ──────────────────────────
 function DisplayModeBtn({

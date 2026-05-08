@@ -248,3 +248,137 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+// ─── Phase 4c — Notif sender après chaque signature ─────────────────────
+
+export interface SignerSignedNotifyParams {
+  /** Email de l'admin qui a créé l'enveloppe */
+  to: string
+  /** Nom de l'enveloppe */
+  envelopeTitle: string
+  /** Nom du signataire qui vient de signer */
+  signerName: string
+  /** Email du signataire qui vient de signer */
+  signerEmail: string
+  /** Date/heure de la signature */
+  signedAt: Date
+  /** Nom du PROCHAIN signataire attendu (null si tous ont signé) */
+  nextSignerName: string | null
+  /** Lien vers la page dashboard de l'enveloppe */
+  envelopeUrl: string
+}
+
+/**
+ * Notif au sender (admin créateur) après CHAQUE signature.
+ * Body : "✅ {signer} a signé. En attente de {next}." OU "✅ Tous ont signé."
+ */
+export async function sendSignerSignedNotificationEmail(
+  params: SignerSignedNotifyParams,
+): Promise<SendEmailResult> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!params.to) return { ok: false, error: 'destinataire vide' }
+
+  const isCompleted = !params.nextSignerName
+  const subject = isCompleted
+    ? `✅ Toutes les signatures sont collectées — ${params.envelopeTitle}`
+    : `✍️ ${params.signerName} a signé — ${params.envelopeTitle}`
+
+  const html = buildSignerSignedHtml(params, isCompleted)
+  const text = buildSignerSignedText(params, isCompleted)
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: FROM_DEFAULT,
+        to: [params.to],
+        subject,
+        html,
+        text,
+      }),
+    })
+    if (!r.ok) {
+      const err = await r.text()
+      return { ok: false, error: `Resend ${r.status}: ${err.slice(0, 200)}` }
+    }
+    const data = await r.json() as { id?: string }
+    return { ok: true, id: data.id }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur réseau'
+    return { ok: false, error: msg }
+  }
+}
+
+function buildSignerSignedHtml(p: SignerSignedNotifyParams, isCompleted: boolean): string {
+  const dateStr = p.signedAt.toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' })
+  const timeStr = p.signedAt.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+  const badgeBg = isCompleted ? '#D1FAE5' : '#FEF3C7'
+  const badgeColor = isCompleted ? '#059669' : '#A16207'
+  const badgeLabel = isCompleted ? '✓ Toutes les signatures' : '✓ Une signature reçue'
+  const headline = isCompleted
+    ? `Toutes les parties ont signé l'enveloppe.`
+    : `${escapeHtml(p.signerName)} vient de signer.`
+  const subline = isCompleted
+    ? `L'enveloppe est complète. Les PDFs signés ont été envoyés à tous les destinataires.`
+    : `En attente de la signature de <strong>${escapeHtml(p.nextSignerName || '')}</strong>.`
+
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">TalentFlow Sign</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;box-shadow:0 4px 16px rgba(0,0,0,0.04);">
+      <div style="display:inline-block;background:${badgeBg};color:${badgeColor};padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        ${badgeLabel}
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 10px;line-height:1.3;">
+        ${headline}
+      </h1>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 18px;">
+        ${subline}
+      </p>
+      <div style="background:#FAFAF7;border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:16px 0;">
+        <div style="font-size:11px;color:#6B7280;letter-spacing:0.05em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Détails</div>
+        <div style="font-size:13px;color:#1C1A14;line-height:1.7;">
+          <strong>Enveloppe :</strong> ${escapeHtml(p.envelopeTitle)}<br>
+          <strong>Signataire :</strong> ${escapeHtml(p.signerName)} (${escapeHtml(p.signerEmail)})<br>
+          <strong>Signé le :</strong> ${dateStr} à ${timeStr}
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:22px;">
+        <a href="${p.envelopeUrl}"
+           style="display:inline-block;background:#EAB308;color:#1C1A14;padding:12px 22px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;border:1px solid #1C1A14;">
+          Voir l'enveloppe →
+        </a>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      Notification automatique TalentFlow Sign
+    </p>
+  </div>
+</body></html>`
+}
+
+function buildSignerSignedText(p: SignerSignedNotifyParams, isCompleted: boolean): string {
+  const dateStr = p.signedAt.toLocaleDateString('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' })
+  const timeStr = p.signedAt.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+  return [
+    isCompleted
+      ? `Toutes les parties ont signé l'enveloppe « ${p.envelopeTitle} ».`
+      : `${p.signerName} vient de signer « ${p.envelopeTitle} ».`,
+    '',
+    isCompleted
+      ? `L'enveloppe est complète. Les PDFs signés ont été envoyés à tous les destinataires.`
+      : `En attente de la signature de ${p.nextSignerName || '—'}.`,
+    '',
+    `Signataire : ${p.signerName} (${p.signerEmail})`,
+    `Signé le : ${dateStr} à ${timeStr}`,
+    '',
+    `Voir l'enveloppe : ${p.envelopeUrl}`,
+  ].join('\n')
+}

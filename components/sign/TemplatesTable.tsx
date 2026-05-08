@@ -11,10 +11,10 @@ import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Star, MoreVertical, Edit3, Copy, Trash2, Sparkles,
-  FolderOpen, Loader2, FileText,
+  FolderOpen, Loader2, FileText, ClipboardList, Tag, Check, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { SignTemplate } from '@/lib/sign/types'
+import type { SignTemplate, SignTemplateKind } from '@/lib/sign/types'
 
 interface Props {
   templates: SignTemplate[]
@@ -132,6 +132,7 @@ function TemplateRow({
   }
 
   const [busy, setBusy] = useState<string | null>(null)
+  const tplKind: SignTemplateKind = (tpl.kind === 'report' ? 'report' : 'envelope')
   const handleEdit = () => router.push(`/sign/templates/${tpl.id}/edit`)
   const handleDuplicate = async () => {
     setBusy('dup')
@@ -144,6 +145,7 @@ function TemplateRow({
           description: tpl.description,
           documents: tpl.documents,
           recipients_schema: tpl.recipients_schema,
+          kind: tplKind,
         }),
       })
       const d = await r.json()
@@ -159,6 +161,26 @@ function TemplateRow({
       const r = await fetch(`/api/sign/templates/${tpl.id}`, { method: 'DELETE' })
       if (!r.ok) throw new Error('Erreur')
       toast.success('Supprimé')
+      onChange()
+    } catch (e: any) { toast.error(e.message) } finally { setBusy(null) }
+  }
+  // v2.2.6 Phase 5 — Convertir le template entre 'envelope' (Mappe/Contrat) et 'report' (Rapport hebdo).
+  const handleChangeKind = async (newKind: SignTemplateKind) => {
+    if (tplKind === newKind) return
+    const label = newKind === 'report' ? 'Rapport d\'heures' : 'Mappe / Contrat (envelope)'
+    if (!confirm(`Changer le type vers « ${label} » ?`)) return
+    setBusy('kind')
+    try {
+      const r = await fetch(`/api/sign/templates/${tpl.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: newKind }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur')
+      }
+      toast.success(`Type changé : ${label}`)
       onChange()
     } catch (e: any) { toast.error(e.message) } finally { setBusy(null) }
   }
@@ -209,6 +231,24 @@ function TemplateRow({
           }}
         >
           {tpl.name}
+          {tplKind === 'report' && (
+            <span style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: 999,
+              background: '#FEF3C7',
+              color: '#A16207',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              flexShrink: 0,
+              letterSpacing: '0.04em',
+            }} title="Type : Rapport d'heures hebdomadaire">
+              <ClipboardList size={9} />
+              Rapport
+            </span>
+          )}
           {isDocusignImport && (
             <span style={{
               fontSize: 9.5,
@@ -255,6 +295,8 @@ function TemplateRow({
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
+          onChangeKind={handleChangeKind}
+          currentKind={tplKind}
           busy={busy}
         />
       </div>
@@ -264,9 +306,14 @@ function TemplateRow({
 
 // ─── Action menu ⋮ ──────────────────────────────────────────────────
 function TplActionMenu({
-  onEdit, onDuplicate, onDelete, busy,
+  onEdit, onDuplicate, onDelete, onChangeKind, currentKind, busy,
 }: {
-  onEdit: () => void; onDuplicate: () => void; onDelete: () => void; busy: string | null
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onChangeKind: (k: SignTemplateKind) => void
+  currentKind: SignTemplateKind
+  busy: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -338,6 +385,22 @@ function TplActionMenu({
         >
           <MenuItem icon={Edit3} label="Modifier" onClick={() => { setOpen(false); onEdit() }} />
           <MenuItem icon={Copy} label="Dupliquer" onClick={() => { setOpen(false); onDuplicate() }} />
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
+          {/* v2.2.6 Phase 5 — Convertir le template entre types */}
+          {currentKind === 'envelope' ? (
+            <MenuItem
+              icon={ClipboardList}
+              label="Convertir en Rapport"
+              onClick={() => { setOpen(false); onChangeKind('report') }}
+            />
+          ) : (
+            <MenuItem
+              icon={Tag}
+              label="Convertir en Mappe / Contrat"
+              onClick={() => { setOpen(false); onChangeKind('envelope') }}
+            />
+          )}
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
           <MenuItem icon={Trash2} label="Supprimer" onClick={() => { setOpen(false); onDelete() }} danger />
         </div>,
         document.body,

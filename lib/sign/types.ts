@@ -150,6 +150,9 @@ export const FONT_COLORS: { value: string; label: string; hex: string }[] = [
 export const DATE_FORMATS: { value: string; label: string }[] = [
   { value: 'dd/MM/yyyy',  label: 'jj/mm/aaaa (31/12/2026)' },
   { value: 'dd.MM.yyyy',  label: 'jj.mm.aaaa (31.12.2026) — Suisse' },
+  // v2.2.4 — Formats courts sans année (utiles pour rapports d'heures, cellules étroites)
+  { value: 'dd.MM',       label: 'jj.mm (31.12) — court Suisse' },
+  { value: 'dd/MM',       label: 'jj/mm (31/12) — court' },
   { value: 'yyyy-MM-dd',  label: 'aaaa-mm-jj (2026-12-31) — ISO' },
   { value: 'd MMMM yyyy', label: '31 décembre 2026 — long' },
   { value: 'MM/dd/yyyy',  label: 'mm/jj/aaaa (12/31/2026) — US' },
@@ -241,6 +244,8 @@ export interface SignRecipientSchema {
   preferredViewMode?: SignViewMode
 }
 
+export type SignDeliveryChannel = 'email' | 'whatsapp' | 'both'
+
 export interface SignRecipient {
   /** Nom complet (= "firstName lastName" ou saisie libre) — utilisé pour affichage + emails. */
   name: string
@@ -249,6 +254,9 @@ export interface SignRecipient {
   /** v2.2.1 — Nom séparé. Utilisé pour pré-remplir les fields auto-fill `lastname`. */
   lastName?: string
   email: string
+  /** v2.2.5 Phase 4d — Numéro WhatsApp E.164 (+41791234567). Obligatoire si
+   *  delivery_channel='whatsapp' ou 'both'. Persisté aussi dans sign_tokens.recipient_phone. */
+  phone?: string | null
   /** 'signer' | 'cc' | string (legacy) — détermine si la personne doit signer ou recevoir une copie */
   role?: string
   /** v2.2.1 — Libellé fonctionnel libre (ex: "Candidat", "Consultant", "RH"). Pour info, pas pour logique. */
@@ -261,6 +269,8 @@ export interface SignRecipient {
   preferredViewMode?: SignViewMode
 }
 
+export type SignTemplateKind = 'envelope' | 'report'
+
 export interface SignTemplate {
   id: string
   name: string
@@ -270,6 +280,9 @@ export interface SignTemplate {
   created_by: string | null
   created_at: string
   updated_at: string
+  /** Phase 5 — 'envelope' (Sign classique) ou 'report' (rapport hebdo récurrent
+   *  avec PDF L-Agence + 2 signataires fixes Candidat+Client). */
+  kind?: SignTemplateKind
 }
 
 export interface SignEnvelope {
@@ -286,6 +299,13 @@ export interface SignEnvelope {
   completed_at: string | null
   created_at: string
   updated_at: string
+  /** v2.2.5 Phase 4d — Canal d'envoi du lien de signature.
+   *  'email' (défaut), 'whatsapp', ou 'both'. Si non-email, tous les recipients
+   *  doivent avoir un phone E.164. */
+  delivery_channel?: SignDeliveryChannel
+  /** v2.2.5 Phase 4b — Liste des PDFs finaux stampés persistés post-completed.
+   *  Source pour /api/sign/download/[envelopeId] et /api/sign/download/public/[token]. */
+  signed_pdf_paths?: { name: string; path: string; sha256: string }[]
 }
 
 export interface SignToken {
@@ -307,6 +327,8 @@ export interface SignToken {
   signed_at?: string | null
   signed_ip?: string | null
   field_values?: Record<string, unknown>
+  // v2.2.5 Phase 4d — WhatsApp delivery
+  recipient_phone?: string | null
 }
 
 export interface SignAuditEntry {
@@ -381,7 +403,11 @@ export const FIELD_TYPE_LABELS: Record<SignFieldType, string> = {
   // Signature
   signature:  'Signature',
   initial:    'Paraphe',
-  date:       'Date de signature',
+  // v2.2.4 — Renommé "Date de signature" → "Date" (utilisable comme cellule date
+  // normale. L'auto-fill date-du-jour est uniquement actif si metadata.tabType==='datesigned'
+  // (legacy DocuSign import) — sinon c'est un date input normal saisissable + auto-fill
+  // par wizardSection si "Lundi"/"Mardi"/etc. configuré.
+  date:       'Date',
   // Coordonnées
   firstname:  'Prénom',
   lastname:   'Nom',
@@ -402,9 +428,11 @@ export const FIELD_TYPE_LABELS: Record<SignFieldType, string> = {
 
 // Catégories pour la toolbar de l'éditeur
 export const FIELD_TYPE_CATEGORIES: { key: string; label: string; types: SignFieldType[] }[] = [
-  { key: 'signature',  label: 'Signature',   types: ['signature', 'initial', 'date'] },
+  // v2.2.4 — date déplacé dans Entrées (utilisé comme cellule date saisissable
+  // dans la majorité des cas, ex: rapports d'heures jour par jour).
+  { key: 'signature',  label: 'Signature',   types: ['signature', 'initial'] },
   { key: 'identity',   label: 'Coordonnées', types: ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'] },
-  { key: 'entries',    label: 'Entrées',     types: ['text', 'number', 'checkbox', 'select', 'annotation'] },
+  { key: 'entries',    label: 'Entrées',     types: ['text', 'number', 'date', 'checkbox', 'select', 'annotation'] },
   { key: 'other',      label: 'Autre',       types: ['formula', 'attachment'] },
 ]
 

@@ -8,7 +8,7 @@ import { requireAuth } from '@/lib/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { generateTokensForEnvelope } from '@/lib/sign/tokens'
-import { sendSignInviteEmail } from '@/lib/sign/send-email'
+import { dispatchInvite } from '@/lib/sign/sequential'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
 import type { SignEnvelope, SignRecipient } from '@/lib/sign/types'
 
@@ -64,24 +64,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const senderName = meta?.entreprise?.trim() || 'L-Agence SA'
   const senderEmail = user?.email || undefined
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+  let dispatchMeta: unknown = undefined
   if (tokens[0]) {
     const tok = tokens[0]
-    await sendSignInviteEmail(firstPending.email, {
-      recipientName: firstPending.name,
-      recipientRole: firstPending.role === 'cc' ? 'Copie' : 'Signataire',
-      senderName,
-      senderEmail,
-      envelopeTitle: envelope.title,
-      message: envelope.message,
-      signUrl: `${appUrl}/sign/v/${tok.token}`,
-      expiresAt: tok.expires_at,
+    const dispatch = await dispatchInvite({
+      envelope,
+      recipient: firstPending,
+      token: tok,
+      sender: { name: senderName, email: senderEmail },
     })
+    dispatchMeta = dispatch
   }
 
   await logAuditEvent(id, 'sent', {
     ip: extractIp(req),
-    metadata: { triggered_by: 'relaunch' },
+    recipientEmail: firstPending.email,
+    metadata: {
+      triggered_by: 'relaunch',
+      channel: envelope.delivery_channel || 'email',
+      dispatch: dispatchMeta,
+    },
   })
 
   return NextResponse.json({ ok: true, tokensCreated: tokens.length })

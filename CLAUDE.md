@@ -23,6 +23,28 @@
 
 ---
 
+## MODÈLE À UTILISER
+
+Avant chaque tâche, choisir le modèle selon la complexité :
+
+| Tâche | Modèle | Pourquoi |
+|---|---|---|
+| Bug fix ciblé, correction CSS, typo, rename | claude-haiku-4-5 | Rapide, pas besoin de raisonnement profond |
+| Nouveau composant UI, route API simple, refacto isolé | claude-sonnet-4-5 | Bon équilibre vitesse/qualité |
+| Architecture nouvelle (nouveau module, migration DB complexe, refacto multi-fichiers, logique métier critique) | claude-sonnet-4-5 | Raisonnement étendu activé |
+| Audit complet, plan technique multi-phases, décisions irréversibles (migrations prod, breaking changes) | claude-opus-4-5 | Analyse maximale |
+
+### Règle automatique
+Avant de commencer TOUTE tâche, afficher EN UNE LIGNE :
+`[Modèle: {nom}] [Effort: {faible|moyen|élevé}] [Impact: {fichiers touchés}]`
+
+Exemple :
+`[Modèle: Sonnet] [Effort: moyen] [Impact: 3 fichiers — RecipientCard, AdvancedOptions, types.ts]`
+
+Si la tâche demandée dépasse le modèle recommandé (ex: bug fix qui révèle une architecture à revoir) → signaler et proposer de monter en modèle avant de continuer.
+
+---
+
 ## Règles de workflow — Modifications & Déploiement
 
 ### RÈGLE — Avant chaque modification de code
@@ -93,7 +115,7 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.1.20 prod (Sign Pack 1 rôle suivant voit le rapport rempli + autocomplete /sign/new + suggestion contact client + fix pipeline modal métiers)** — 08/05/2026
+**2.3.0 prod (TalentFlow Sign complet Phase 4a/b/c/d + nouveau module TalentFlow Rapports)** — 08/05/2026
 
 ---
 
@@ -399,6 +421,20 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
 **36. Bandeau "Actualisé" pending-validation** (v1.9.106) — `pending-validation/route.ts` L161-180 ajoute `onedrive_change_type:'mis_a_jour'` + `onedrive_change_at` au payload. Cohérent cv/parse cvUpdated, onedrive/sync update, candidats/[id] onCvChange.
+
+**52. RAPPORTS — Réutilisation totale composants Sign** (v2.3.0) — Le module Rapports n'a PAS de viewer/wizard/signature custom. Tout est mutualisé avec Sign : `PublicPdfViewer` (PDF zoomable), `PublicFieldsLayer` (overlay fields cliquables read-only via `currentRecipientOrder`), `SignWizard` (mode pas-à-pas pré-construit depuis `wizard_steps` du template), `SignaturePad` (canvas/typed mobile-friendly). Côté lib : `lib/report/pdf-generator.ts` réutilise `lib/sign/pdf-stamp.ts` + `lib/sign/storage.ts` (préfixe `signed/reports/{linkId}/{submissionId}/`). Côté template : `sign_templates.kind='report'` (pas de table séparée). Si modif d'un de ces composants pour Sign, le rapport en bénéficie auto. **NE PAS dupliquer** ces composants dans `components/report/` même si tentation.
+
+**51. RAPPORTS — Slug permanent (vs token éphémère)** (v2.3.0) — Différence cruciale Sign vs Reports : Sign utilise des `sign_tokens` à TTL configurable (7-30j), Rapports utilise un `slug` permanent jamais réutilisé même après révocation. Format : `{prenom}-{nom}-lagence-{4chars}` via `lib/report/slug.ts` (retry 5x sur collision). Sécurité : page publique vérifie `link.status === 'active'` à chaque GET. Le slug peut donc se balader en clair dans WhatsApp/email — c'est par design. UNIQUE constraint en DB. **Le client_token (côté signature client)** lui est éphémère et UUID DEFAULT en DB : 2h en mode présentiel (QR), 7j en mode envoi distant (`CLIENT_TOKEN_TTL_MS` dans `lib/report/types.ts`).
+
+**50. Routes API publiques vs dashboard — namespace strict** (v2.3.0) — Next.js Route Groups `(dashboard)` ne changent PAS l'URL. Donc `app/api/reports/[slug]/route.ts` (publique) ET `app/(dashboard)/api/reports/[slug]/route.ts` (dashboard) résolvent au même URL `/api/reports/[slug]` → CONFLIT (Next ignore l'une des 2 silencieusement, lesquelle dépend de l'ordre alphabétique). **Convention** : routes dashboard sous `/api/admin/...` (namespace distinct), routes publiques sous `/api/...`. Dans `(dashboard)/api/admin/reports/[id]/route.ts` on peut utiliser `[id]` même si la publique utilise `[slug]` car les chemins URL sont différents (`/api/admin/reports/...` vs `/api/reports/...`). À retenir : tout nouveau module avec partie publique + partie dashboard → 2 namespaces séparés (`/api/X/...` vs `/api/admin/X/...`).
+
+**49. Sign — bucket Storage `talentflow-sign` partagé** (v2.3.0) — UN SEUL bucket privé pour TOUTES les opérations Sign + Reports. Préfixes hiérarchiques :
+- `templates/{tplId}/{ts}_{file}.pdf` — PDFs source uploadés à la création template
+- `envelopes/{envelopeId}/{ts}_{file}.pdf` — PDFs custom d'une enveloppe (ad-hoc, sans template)
+- `signed/{envelopeId}/{ts}_{file}.pdf` — PDFs finaux stampés post-signature Sign
+- `signed/reports/{linkId}/{submissionId}/{ts}_{file}.pdf` — PDFs finaux stampés post-signature Rapport
+
+Service role only (RLS bloque l'accès public direct). Accès via routes proxy : `/api/sign/document/[token]` (Sign) ou `/api/reports/[slug]/document` (Rapport candidat) ou `/api/reports/client/[token]/document` (Rapport client). Tous vérifient que le path demandé appartient bien au template/envelope avant le download. **NE PAS** créer un nouveau bucket pour un nouveau module qui s'intègre à Sign — utiliser un préfixe.
 
 **48. Tri server-side obligatoire avec pagination** (v2.1.9) — Le sélecteur "Plus récents / A→Z / Z→A" sur `/clients` ne triait QUE la page courante (20 résultats) côté front, après que `/api/clients` ait trié par `nom_entreprise ASC` par défaut. Résultat : un nouveau client (Z Truc Sàrl, page 62) restait invisible en mode "Plus récents". **Règle générale** : dès que la pagination est server-side (LIMIT/OFFSET sur Supabase), le tri DOIT l'être aussi. Tri client-only = ne fonctionne que pour les éléments DÉJÀ dans la page renvoyée. Fix : param `?sort=recent|az|za` à l'API + propagation via hook (`filters.sort` dans queryKey → refetch automatique). Vérifier les autres listes paginées (candidats, missions, offres) si même piège.
 

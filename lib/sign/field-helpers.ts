@@ -6,6 +6,58 @@
 import type { SignField, SignFieldType, SignFieldCondition } from './types'
 
 /**
+ * v2.2.4 — Mapping nom de jour → offset depuis lundi (0 = lundi, 6 = dimanche).
+ * Utilisé pour auto-remplir un field type=date selon sa wizardSection ("Lundi", "Mardi"…).
+ */
+export const DAY_OFFSETS: Record<string, number> = {
+  lundi: 0,
+  mardi: 1,
+  mercredi: 2,
+  jeudi: 3,
+  vendredi: 4,
+  samedi: 5,
+  dimanche: 6,
+}
+
+/**
+ * v2.2.4 — Si la wizardSection est un nom de jour, retourne l'offset (0-6) depuis
+ * le lundi. Sinon retourne null. Insensible à la casse, accepte "Lundi 04.05".
+ */
+export function getDayOffsetFromSection(section: string | undefined | null): number | null {
+  if (!section) return null
+  const key = section.trim().toLowerCase().split(/\s+/)[0]  // "Lundi 04.05" → "lundi"
+  return key in DAY_OFFSETS ? DAY_OFFSETS[key] : null
+}
+
+/**
+ * v2.2.4 — Calcule la date ISO (YYYY-MM-DD) du jour Lundi+offset à partir
+ * de la weekStartDate (qui doit être un lundi en ISO).
+ */
+export function dateForDayOfWeek(weekStartDateIso: string, dayOffset: number): string | null {
+  if (!weekStartDateIso || dayOffset < 0 || dayOffset > 6) return null
+  const d = new Date(weekStartDateIso + 'T00:00:00')
+  if (isNaN(d.getTime())) return null
+  d.setDate(d.getDate() + dayOffset)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * v2.2.4 — Détecte si un field "ressemble" à un champ Société cliente.
+ * Permet de pré-remplir avec context_data.companyName même si l'admin a configuré
+ * le field en type=title (Fonction) ou text au lieu de type=company.
+ * Heuristique : tooltip/label contient entreprise / société / raison sociale / nom du client.
+ */
+export function looksLikeCompanyField(field: SignField): boolean {
+  if (field.type === 'company') return true
+  if (field.type !== 'title' && field.type !== 'text') return false
+  const txt = `${field.tooltip || ''} ${field.label || ''}`.toLowerCase()
+  return /(entreprise|soci[ée]t[ée]|raison\s*sociale|nom\s*du\s*client|cliente)/.test(txt)
+}
+
+/**
  * Détecte si un field text devrait être rendu comme date picker.
  * Heuristique : tooltip / label contient "date" + (naissance|expiration|début|fin|...).
  */

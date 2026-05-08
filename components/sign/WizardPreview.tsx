@@ -74,10 +74,10 @@ export default function WizardPreview({ steps, documents, onClose, syncStepIdx, 
     setResetKey(k => k + 1)
   }
 
-  // Dimensions device frame
+  // Dimensions device frame — v2.2.4 réduit pour ne pas surcharger la colonne droite
   const isMobile = device === 'mobile'
-  const frameW = isMobile ? 375 : 1024
-  const frameH = isMobile ? 750 : 640
+  const frameW = isMobile ? 320 : 900
+  const frameH = isMobile ? 580 : 540
 
   return (
     <div style={{

@@ -6,7 +6,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { generateTokensForEnvelope } from '@/lib/sign/tokens'
 import { logAuditEvent, extractIp } from '@/lib/sign/audit'
-import { sendSignInviteEmail } from '@/lib/sign/send-email'
+import { dispatchInvite } from '@/lib/sign/sequential'
 import type { SignEnvelope, SignRecipient } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
@@ -35,6 +35,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   if (!Array.isArray(env.recipients) || env.recipients.length === 0) {
     return NextResponse.json({ error: 'Aucun destinataire' }, { status: 400 })
+  }
+
+  // v2.2.5 Phase 4d — Validation : si canal whatsapp/both, tous les recipients
+  // (signers + cc) doivent avoir un phone E.164 valide.
+  const channel = env.delivery_channel || 'email'
+  if (channel === 'whatsapp' || channel === 'both') {
+    const missing = (env.recipients as SignRecipient[])
+      .filter(r => !r.phone || !/^\+\d{10,15}$/.test(r.phone))
+      .map(r => r.name || r.email)
+    if (missing.length > 0) {
+      return NextResponse.json({
+        error: `Numéro WhatsApp manquant ou invalide pour : ${missing.join(', ')}`,
+      }, { status: 400 })
+    }
   }
 
   // Récup info expéditeur (utilisateur authentifié).
@@ -77,30 +91,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const ttlDays = (env as unknown as { expires_in_days?: number | null }).expires_in_days || undefined
   const tokens = await generateTokensForEnvelope(id, recipientsToSendNow, ttlDays || undefined)
 
-  // Base URL pour les liens (configurable via env, fallback localhost dev)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
-
-  // Envoi email pour chaque destinataire (Resend)
+  // Envoi par dispatchInvite (gère email + whatsapp selon channel)
   const recipientByEmail = new Map<string, SignRecipient>()
   ;(env.recipients as SignRecipient[]).forEach(r => {
     recipientByEmail.set(r.email.toLowerCase().trim(), r)
   })
 
-  const emailResults = await Promise.all(tokens.map(async t => {
+  const dispatchResults = await Promise.all(tokens.map(async t => {
     const r = recipientByEmail.get(t.recipient_email.toLowerCase().trim())
-    const role = r?.role === 'cc' ? 'Copie' : 'Signataire'
-    const signUrl = `${appUrl}/sign/v/${t.token}`
+    if (!r) return { email: t.recipient_email, ok: false, error: 'recipient introuvable' }
 
-    const result = await sendSignInviteEmail(t.recipient_email, {
-      recipientName: t.recipient_name,
-      recipientRole: role,
-      senderName,
-      senderEmail,
-      envelopeTitle: env.title,
-      message: env.message,
-      signUrl,
+    const dispatch = await dispatchInvite({
+      envelope: env,
+      recipient: r,
+      token: t,
+      sender: { name: senderName, email: senderEmail },
       documentsCount,
-      expiresAt: t.expires_at,
     })
 
     // Audit log par destinataire
@@ -108,18 +114,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       recipientEmail: t.recipient_email,
       ip: extractIp(req),
       metadata: {
-        emailSent: result.ok,
-        resendId: result.id,
-        error: result.error,
-        role,
+        channel,
+        email: dispatch.email,
+        whatsapp: dispatch.whatsapp,
+        role: r.role === 'cc' ? 'Copie' : 'Signataire',
       },
     })
 
-    return { email: t.recipient_email, ok: result.ok, error: result.error }
+    // OK si au moins un canal a réussi (cas 'both' tolère 1/2)
+    const ok = (dispatch.email?.ok ?? false) || (dispatch.whatsapp?.ok ?? false)
+    const error = !ok
+      ? (dispatch.email?.error || dispatch.whatsapp?.error || 'Aucun canal n’a abouti')
+      : undefined
+    return { email: t.recipient_email, ok, error }
   }))
 
-  const sentOk = emailResults.filter(r => r.ok).length
-  const sentErr = emailResults.filter(r => !r.ok)
+  const sentOk = dispatchResults.filter(r => r.ok).length
+  const sentErr = dispatchResults.filter(r => !r.ok)
 
   // Bascule status + sent_at (même si certains emails ont échoué, l'enveloppe est partie)
   const { error: updErr } = await supabase

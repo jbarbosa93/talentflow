@@ -36,12 +36,29 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
   const [typedValue, setTypedValue] = useState(defaultName || '')
   const [hasDrawn, setHasDrawn] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // v2.2.5 Phase 4d — Optim mobile : canvas pleine largeur + boutons 48px + hint tactile.
+  // Détection : <700px ou pointeur tactile primaire (sans hover).
+  const [isMobile, setIsMobile] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const drawingRef = useRef(false)
   const lastPointRef = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => setMounted(true), [])
+
+  useEffect(() => {
+    const check = () => {
+      const narrow = typeof window !== 'undefined' && window.innerWidth < 700
+      const touch = typeof window !== 'undefined'
+        && window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+      setIsMobile(!!(narrow || touch))
+    }
+    check()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', check)
+      return () => window.removeEventListener('resize', check)
+    }
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -193,12 +210,13 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
       <div
         style={{
           width: '100%',
-          maxWidth: 640,
-          maxHeight: '92vh',
+          maxWidth: isMobile ? '100%' : 640,
+          maxHeight: isMobile ? '100vh' : '92vh',
+          height: isMobile ? '100%' : 'auto',
           background: '#fff',
-          borderRadius: 16,
-          border: '1px solid #E5E7EB',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+          borderRadius: isMobile ? 0 : 16,
+          border: isMobile ? 'none' : '1px solid #E5E7EB',
+          boxShadow: isMobile ? 'none' : '0 24px 64px rgba(0,0,0,0.30)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -259,8 +277,10 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
         <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
           {tab === 'draw' ? (
             <>
-              <p style={{ margin: '0 0 12px 0', fontSize: 12.5, color: '#6B7280' }}>
-                Tracez votre signature avec le doigt, le stylet ou la souris dans la zone ci-dessous :
+              <p style={{ margin: '0 0 12px 0', fontSize: isMobile ? 14 : 12.5, color: '#6B7280' }}>
+                {isMobile
+                  ? <>✍️ <strong>Signez avec votre doigt</strong> dans la zone ci-dessous :</>
+                  : <>Tracez votre signature avec la souris ou le stylet dans la zone ci-dessous :</>}
               </p>
               <div
                 style={{
@@ -268,7 +288,8 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
                   border: '2px dashed #E5E7EB',
                   borderRadius: 12,
                   background: '#fff',
-                  height: 220,
+                  // v2.2.5 — canvas plus grand sur mobile (full width, hauteur ↑)
+                  height: isMobile ? 280 : 220,
                   overflow: 'hidden',
                 }}
               >
@@ -324,16 +345,19 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
                 disabled={!hasDrawn}
                 style={{
                   marginTop: 10,
-                  padding: '6px 12px',
-                  fontSize: 12, fontWeight: 600,
-                  border: '1px solid #E5E7EB', borderRadius: 6,
+                  // v2.2.5 mobile : 48px de hauteur tactile + font 14px
+                  padding: isMobile ? '0 16px' : '6px 12px',
+                  height: isMobile ? 44 : undefined,
+                  fontSize: isMobile ? 14 : 12,
+                  fontWeight: 600,
+                  border: '1px solid #E5E7EB', borderRadius: 8,
                   background: '#fff', color: hasDrawn ? '#dc2626' : '#9CA3AF',
                   cursor: hasDrawn ? 'pointer' : 'not-allowed',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   fontFamily: 'inherit',
                 }}
               >
-                <Trash2 size={12} />
+                <Trash2 size={isMobile ? 14 : 12} />
                 Effacer
               </button>
             </>
@@ -351,7 +375,9 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
                 style={{
                   width: '100%',
                   padding: '12px 14px',
-                  fontSize: 14,
+                  // v2.2.5 — 16px min sur mobile (évite zoom auto iOS)
+                  fontSize: isMobile ? 16 : 14,
+                  height: isMobile ? 48 : undefined,
                   border: '1px solid #E5E7EB',
                   borderRadius: 8,
                   background: '#FAFAF7',
@@ -411,19 +437,26 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Footer — v2.2.5 mobile : boutons 48px hauteur (cible tactile iOS HIG) */}
         <div style={{
-          padding: '12px 20px',
+          padding: isMobile ? '14px 16px' : '12px 20px',
+          paddingBottom: isMobile ? 'max(14px, env(safe-area-inset-bottom, 14px))' : 12,
           borderTop: '1px solid #E5E7EB',
           background: '#FAFAF7',
-          display: 'flex', justifyContent: 'flex-end', gap: 8,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: isMobile ? 10 : 8,
         }}>
           <button
             type="button"
             onClick={onClose}
             disabled={submitting}
             style={{
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
+              flex: isMobile ? 1 : undefined,
+              padding: isMobile ? '0 16px' : '10px 16px',
+              height: isMobile ? 48 : undefined,
+              fontSize: isMobile ? 15 : 13,
+              fontWeight: 600,
               border: '1px solid #E5E7EB', borderRadius: 8,
               background: '#fff', color: '#1C1A14', cursor: 'pointer',
               fontFamily: 'inherit',
@@ -436,15 +469,19 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
             onClick={handleAdopt}
             disabled={submitting || (tab === 'draw' && !hasDrawn) || (tab === 'type' && !typedValue.trim())}
             style={{
-              padding: '10px 18px', fontSize: 13, fontWeight: 700,
+              flex: isMobile ? 2 : undefined,
+              padding: isMobile ? '0 18px' : '10px 18px',
+              height: isMobile ? 48 : undefined,
+              fontSize: isMobile ? 15 : 13,
+              fontWeight: 700,
               border: '1px solid #1C1A14', borderRadius: 8,
               background: '#f59e0b', color: '#000', cursor: 'pointer',
               fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               opacity: ((tab === 'draw' && !hasDrawn) || (tab === 'type' && !typedValue.trim())) ? 0.4 : 1,
             }}
           >
-            <Check size={14} />
+            <Check size={isMobile ? 16 : 14} />
             Adopter et signer
           </button>
         </div>

@@ -9,9 +9,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   GripVertical, Trash2, Search, User, X, ChevronUp, ChevronDown,
-  PenLine, Eye,
+  PenLine, Eye, MessageCircle,
 } from 'lucide-react'
 import { RECIPIENT_COLORS, type SignRecipient } from '@/lib/sign/types'
+import { normalizePhoneE164, isE164 } from '@/lib/sign/phone-format'
 
 export type RecipientCandidat = SignRecipient & { candidat_id?: string | null }
 
@@ -38,11 +39,14 @@ interface Props {
   onRemove: () => void
   /** Drag interne au parent : appelle ça quand on drop sur cette card */
   onDropTo: (fromIdx: number, toIdx: number) => void
+  /** v2.2.5 Phase 4d — Si true, le champ phone est mis en avant + obligatoire
+   *  (le canal d'envoi est whatsapp ou both). */
+  requirePhone?: boolean
 }
 
 export default function RecipientCard({
   idx, total, recipient, showOrder, draggable, dragSrcIdx, setDragSrcIdx,
-  onUpdate, onMove, onRemove, onDropTo,
+  onUpdate, onMove, onRemove, onDropTo, requirePhone,
 }: Props) {
   const palette = RECIPIENT_COLORS[idx % RECIPIENT_COLORS.length]
   const isCC = recipient.role === 'cc'
@@ -118,11 +122,14 @@ export default function RecipientCard({
               if (candidat) {
                 const fn = candidat.prenom || firstName
                 const ln = candidat.nom || ''
+                // v2.2.5 — Pré-remplit le phone si le candidat en a un (E.164)
+                const candPhone = candidat.telephone ? normalizePhoneE164(candidat.telephone) : null
                 onUpdate({
                   firstName: fn,
                   lastName: ln,
                   name: [fn, ln].filter(Boolean).join(' ').trim() || fn,
                   email: candidat.email || recipient.email,
+                  phone: candPhone || recipient.phone,
                   candidat_id: candidat.id,
                 })
               } else {
@@ -167,6 +174,14 @@ export default function RecipientCard({
           placeholder="email@example.com"
           className="neo-input"
           style={{ height: 38, fontSize: 13 }}
+        />
+
+        {/* v2.2.5 Phase 4d — Numéro WhatsApp (E.164) */}
+        <PhoneInput
+          value={recipient.phone || ''}
+          required={!!requirePhone}
+          color={palette.stroke}
+          onChange={phone => onUpdate({ phone })}
         />
 
         {/* Action select + buttons */}
@@ -255,6 +270,109 @@ const iconBtnStyle = (disabled: boolean): React.CSSProperties => ({
   opacity: disabled ? 0.3 : 1,
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
 })
+
+// ─── PhoneInput — saisie flexible, normalisation E.164 onBlur ───────────
+//
+// v2.2.5 Phase 4d — accepte saisie libre (+41 79 123 45 67, 0791234567, …),
+// normalise en E.164 strict au blur. Affiche un état visuel :
+//   - Vide (pas requis)              → border neutre
+//   - Vide (requis)                  → border orange + helper "Requis pour WhatsApp"
+//   - Rempli mais pas E.164 valide   → border rouge + helper "Format invalide"
+//   - Rempli E.164 valide            → border verte + ✓
+//
+// Exporté pour réutilisation dans RoleFixedRecipients (mode template /sign/new).
+export function PhoneInput({
+  value, required, color, onChange,
+}: {
+  value: string
+  required: boolean
+  color: string
+  onChange: (phone: string | null) => void
+}) {
+  const [raw, setRaw] = useState(value)
+  const [touched, setTouched] = useState(false)
+
+  // Sync externe (ex: pré-remplissage candidat lié) → on resync l'affichage
+  useEffect(() => { setRaw(value) }, [value])
+
+  const valid = isE164(raw)
+  const empty = !raw.trim()
+  const showError = touched && (
+    (required && empty) || (!empty && !valid)
+  )
+  const showSuccess = !empty && valid
+
+  const borderColor = showError
+    ? 'var(--destructive)'
+    : showSuccess
+      ? '#15803D'
+      : required && empty
+        ? '#F5A623'
+        : 'var(--border)'
+
+  const helperText = showError
+    ? (empty ? 'Requis pour WhatsApp' : 'Format invalide (utilisez +41…)')
+    : (required && empty ? 'Requis pour WhatsApp' : null)
+
+  return (
+    <div>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        height: 38,
+        padding: '0 10px',
+        background: 'var(--surface-2)',
+        border: `1px solid ${borderColor}`,
+        borderRadius: 8,
+        transition: 'border-color 0.15s',
+      }}>
+        <MessageCircle size={14} style={{ color, flexShrink: 0 }} />
+        <input
+          type="tel"
+          value={raw}
+          onChange={e => setRaw(e.target.value)}
+          onBlur={() => {
+            setTouched(true)
+            const normalized = normalizePhoneE164(raw)
+            if (normalized) {
+              setRaw(normalized)
+              onChange(normalized)
+            } else if (!raw.trim()) {
+              onChange(null)
+            } else {
+              // Garde la saisie raw pour que l'user voie l'erreur, mais ne propage pas
+              onChange(null)
+            }
+          }}
+          placeholder={required ? '+41 79 123 45 67 (requis)' : '+41 79 123 45 67 (optionnel)'}
+          style={{
+            flex: 1,
+            border: 'none',
+            background: 'transparent',
+            fontSize: 13,
+            outline: 'none',
+            fontFamily: 'inherit',
+            color: 'var(--foreground)',
+          }}
+        />
+        {showSuccess && (
+          <span style={{ fontSize: 11, color: '#15803D', fontWeight: 700 }}>✓</span>
+        )}
+      </div>
+      {helperText && (
+        <div style={{
+          fontSize: 10.5,
+          color: showError ? 'var(--destructive)' : '#A16207',
+          marginTop: 3,
+          marginLeft: 4,
+        }}>
+          {helperText}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Helpers split nom complet → prénom / nom ─────────────────────────
 function deriveFirstName(fullName: string): string {

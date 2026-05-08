@@ -30,6 +30,7 @@ const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: 
 import PublicFieldsLayer, { areAllRequiredFieldsFilled, isFieldFilledExt } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
+import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -198,9 +199,56 @@ export default function PublicSignPage({ params }: PageProps) {
           // Phase 4a-bis — rehydrate les valeurs des champs déjà saisies
           // v2.2.3 Pack 1 — Merge AUSSI les valeurs des signers précédents (read-only).
           // Le destinataire courant ne peut pas les modifier mais doit les VOIR.
+          //
+          // v2.2.4 — Pré-fill auto depuis context_data :
+          //   1. Si un field date "début semaine" existe → injecte weekStartDate
+          //   2. Si un field date a une wizardSection = nom de jour (Lundi, Mardi…)
+          //      → injecte la date calculée (weekStartDate + offset jour)
+          // Le candidat peut toujours override.
+          const ctxAutoFill: Record<string, unknown> = {}
+          const ctxWeekStart = (d.envelope as { context_data?: { weekStartDate?: string | null } | null } | undefined)?.context_data?.weekStartDate
+          if (ctxWeekStart && typeof ctxWeekStart === 'string') {
+            for (const doc of (d.documents || [])) {
+              for (const f of (doc.fields || [])) {
+                if (f.type !== 'date') continue
+                const txt = `${f.tooltip || ''} ${f.label || ''}`.toLowerCase()
+                // 1. Field "début semaine" → injecte la date du lundi
+                if (/(d[ée]but.*(semaine)|semaine.*d[ée]but|lundi.*semaine)/.test(txt)) {
+                  ctxAutoFill[f.id] = ctxWeekStart
+                  continue
+                }
+                // 2. Field avec wizardSection = nom de jour → injecte la date du jour
+                const dayOffset = getDayOffsetFromSection(f.wizardSection)
+                if (dayOffset !== null) {
+                  const dayDate = dateForDayOfWeek(ctxWeekStart, dayOffset)
+                  if (dayDate) ctxAutoFill[f.id] = dayDate
+                }
+              }
+            }
+          }
+          // v2.2.4 — Backup localStorage : merge si plus récent que la DB
+          // (cas typique : candidat ferme le tab pendant le debounce 600ms → DB n'a
+          // pas reçu les dernières saisies, mais localStorage si).
+          let localBackup: Record<string, unknown> = {}
+          try {
+            if (typeof window !== 'undefined') {
+              const raw = window.localStorage.getItem(`sign:${token}:fieldValues`)
+              if (raw) {
+                const parsed = JSON.parse(raw) as { values?: Record<string, unknown>; savedAt?: number }
+                if (parsed?.values && typeof parsed.values === 'object') {
+                  localBackup = parsed.values
+                }
+              }
+            }
+          } catch { /* parse error, silent */ }
+
           const merged: Record<string, unknown> = {
+            ...ctxAutoFill,
             ...(d.previousFieldValues || {}),
             ...(d.recipient?.field_values || {}),
+            // localBackup en DERNIER (priorité max) : ce sont les dernières saisies
+            // potentiellement non sync DB encore.
+            ...localBackup,
           }
           if (Object.keys(merged).length > 0) {
             setFieldValues(merged)
@@ -331,7 +379,24 @@ export default function PublicSignPage({ params }: PageProps) {
     }, 350)
   }, [nextFieldsQueue, documents, signatureDataUrl, activeDocIdx])
 
+  // v2.2.4 — Sauvegarde localStorage immédiate (zéro latency) + DB en debounce.
+  // Permet au candidat de reprendre où il était même si le réseau coupe pendant le
+  // debounce (sinon les 600 dernières ms de saisie sont perdues).
+  const saveLocalBackup = useCallback((values: Record<string, unknown>) => {
+    try {
+      if (typeof window !== 'undefined' && token) {
+        window.localStorage.setItem(
+          `sign:${token}:fieldValues`,
+          JSON.stringify({ values, savedAt: Date.now() })
+        )
+      }
+    } catch { /* quota exceeded, silent */ }
+  }, [token])
+
   const syncFieldValues = useCallback((values: Record<string, unknown>) => {
+    // 1. Backup local immédiat
+    saveLocalBackup(values)
+    // 2. Sync DB debounce
     if (fieldSyncTimerRef.current) clearTimeout(fieldSyncTimerRef.current)
     fieldSyncTimerRef.current = setTimeout(async () => {
       try {
@@ -344,7 +409,7 @@ export default function PublicSignPage({ params }: PageProps) {
         console.warn('[sign/v] sync field_values error', e)
       }
     }, 600)
-  }, [token])
+  }, [token, saveLocalBackup])
 
   const handleFieldChange = useCallback((fieldId: string, value: unknown) => {
     setFieldValues(prev => {
@@ -622,6 +687,13 @@ export default function PublicSignPage({ params }: PageProps) {
       const d = await r.json()
       if (!r.ok || !d.ok) throw new Error(d.error || 'Erreur')
       setCompleted(true)
+      // v2.2.4 — Clear backup localStorage après finalize (signature OK → données en DB sûrement)
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(`sign:${token}:fieldValues`)
+          window.sessionStorage.removeItem(`sign:${token}:currentStepIdx`)
+        }
+      } catch { /* silent */ }
       toast.success(d.completed
         ? 'Document signé par tous les destinataires !'
         : 'Votre signature a été enregistrée'
@@ -721,40 +793,45 @@ export default function PublicSignPage({ params }: PageProps) {
 
       {/* Main viewer */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        {/* Top bar — v2.2.3 : padding-top renforcé sur mobile pour éviter le chevauchement
-            avec le bouton "Outlook" / barre système iOS qui flotte au-dessus. */}
+        {/* Top bar — v2.2.4 : header compact sur mobile pour éviter wrap des boutons.
+            Padding latéral 8px et gap 6px (gain ~20px), padding-top safe-area pour éviter
+            le chevauchement avec la barre Outlook/iOS. */}
         <header style={{
           flexShrink: 0,
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: isMobile ? '16px 12px 12px' : '12px 16px',
-          paddingTop: isMobile ? 'max(16px, env(safe-area-inset-top, 16px))' : 12,
+          display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10,
+          padding: isMobile ? '14px 8px 10px' : '12px 16px',
+          paddingTop: isMobile ? 'max(14px, env(safe-area-inset-top, 14px))' : 12,
           background: '#fff',
           borderBottom: '1px solid #E5E7EB',
-          minHeight: isMobile ? 64 : 56,
+          minHeight: isMobile ? 60 : 56,
         }}>
           {isMobile && (
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
               style={{
-                width: 36, height: 36, borderRadius: 8,
+                width: 32, height: 32, borderRadius: 8,
                 border: '1px solid #E5E7EB', background: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0,
               }}
               aria-label="Ouvrir le menu"
             >
-              <MenuIcon size={18} />
+              <MenuIcon size={16} />
             </button>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: '#A16207', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              <FileSignature size={11} />
-              Document à signer
-            </div>
+            {/* v2.2.4 — Sous-titre "Document à signer" caché sur mobile pour gagner
+                de la place horizontale (le titre h1 a déjà le contexte). */}
+            {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: '#A16207', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <FileSignature size={11} />
+                Document à signer
+              </div>
+            )}
             <h1 style={{
-              margin: 0, marginTop: 2,
-              fontSize: isMobile ? 15 : 17,
+              margin: 0, marginTop: isMobile ? 0 : 2,
+              fontSize: isMobile ? 14 : 17,
               fontWeight: 700,
               color: '#1C1A14',
               lineHeight: 1.2,
@@ -764,7 +841,7 @@ export default function PublicSignPage({ params }: PageProps) {
             </h1>
           </div>
 
-          {/* Toggle Mode Wizard ↔ Document — visible uniquement si wizard activé ET le rôle courant a des steps */}
+          {/* Toggle Mode Wizard ↔ Document — v2.2.4 : icône seule sur mobile pour gagner de la place */}
           {hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder).length > 0 && (
             <button
               type="button"
@@ -772,23 +849,26 @@ export default function PublicSignPage({ params }: PageProps) {
               title={viewMode === 'wizard' ? 'Voir le document complet' : 'Voir le mode wizard guidé'}
               style={{
                 flexShrink: 0,
-                padding: isMobile ? '6px 10px' : '7px 12px',
+                padding: isMobile ? 0 : '7px 12px',
+                width: isMobile ? 32 : undefined,
+                height: isMobile ? 32 : undefined,
                 fontSize: 11.5,
                 fontWeight: 600,
                 border: '1px solid #E5E7EB',
-                borderRadius: 999,
+                borderRadius: isMobile ? 8 : 999,
                 background: '#fff',
                 color: '#6B7280',
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 display: 'inline-flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 5,
                 whiteSpace: 'nowrap',
               }}
             >
-              {viewMode === 'wizard' ? <FileText size={11} /> : <ListChecks size={11} />}
-              {viewMode === 'wizard' ? 'Document' : 'Wizard'}
+              {viewMode === 'wizard' ? <FileText size={isMobile ? 14 : 11} /> : <ListChecks size={isMobile ? 14 : 11} />}
+              {!isMobile && (viewMode === 'wizard' ? 'Document' : 'Wizard')}
             </button>
           )}
 

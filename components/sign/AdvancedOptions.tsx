@@ -8,16 +8,21 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, Bell, Clock, MessageCircle, Mail, CalendarDays } from 'lucide-react'
+import { ChevronDown, ChevronUp, Bell, Clock, MessageCircle, Mail } from 'lucide-react'
 
 export interface AdvancedOptionsValue {
   reminderFrequencyDays: number | null  // null/0 = pas de rappels
   expiresInDays: number                 // override TTL token (default 30)
   expiryWarningDays: number | null      // alerte X jours avant
-  channel: 'email' | 'whatsapp'
-  /** v2.2.1 — Date de début de semaine (lundi) pour les rapports d'heures.
-   *  Format ISO YYYY-MM-DD. Null = pas applicable. */
-  weekStartDate: string | null
+  /** v2.2.5 Phase 4d — 'email' (Resend), 'whatsapp' (Meta Cloud), 'both' (les deux). */
+  channel: 'email' | 'whatsapp' | 'both'
+  /** v2.2.5 — weekStartDate retiré (déplacé dans le wizard candidat). Champ
+   *  conservé optionnel pour compatibilité avec brouillons existants. */
+  weekStartDate?: string | null
+  /** v2.2.4 — Nom de la société cliente (rapports d'heures, contrats…) injecté
+   *  dans les fields type=company du template. Si le template a un champ company
+   *  et que cette valeur est vide, l'envoi est bloqué (companyRequired=true). */
+  companyName: string | null
 }
 
 export const DEFAULT_OPTIONS: AdvancedOptionsValue = {
@@ -25,12 +30,15 @@ export const DEFAULT_OPTIONS: AdvancedOptionsValue = {
   expiresInDays: 30,
   expiryWarningDays: null,
   channel: 'email',
-  weekStartDate: null,
+  companyName: null,
 }
 
 interface Props {
   value: AdvancedOptionsValue
   onChange: (v: AdvancedOptionsValue) => void
+  /** v2.2.4 — Si true, le champ "Nom de la société" est mis en avant + obligatoire
+   *  (le bouton Envoyer parent vérifiera que companyName est rempli avant submit). */
+  companyRequired?: boolean
 }
 
 const EXPIRY_PRESETS = [
@@ -52,9 +60,12 @@ const WARNING_PRESETS = [
   { value: 3, label: '3 jours avant' },
 ]
 
-export default function AdvancedOptions({ value, onChange }: Props) {
-  const [open, setOpen] = useState(false)
+export default function AdvancedOptions({ value, onChange, companyRequired }: Props) {
+  // v2.2.4 — Si companyRequired et companyName vide → ouvre le panneau auto pour
+  // que l'admin voie immédiatement le champ obligatoire.
+  const [open, setOpen] = useState(!!(companyRequired && !value.companyName))
   const isCustomExpiry = ![7, 14, 30].includes(value.expiresInDays)
+  const companyMissing = !!companyRequired && !(value.companyName && value.companyName.trim())
 
   const expiryDate = useMemo(() => {
     const d = new Date()
@@ -97,8 +108,7 @@ export default function AdvancedOptions({ value, onChange }: Props) {
           {' · '}
           Expire dans {value.expiresInDays}j
           {' · '}
-          {value.channel === 'email' ? '📧 Email' : '💬 WhatsApp'}
-          {value.weekStartDate && ` · 📅 Sem. du ${new Date(value.weekStartDate + 'T00:00:00').toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })}`}
+          {value.channel === 'email' ? '📧 Email' : value.channel === 'whatsapp' ? '💬 WhatsApp' : '📧 + 💬 Email + WhatsApp'}
         </span>
         <span style={{ flex: 1 }} />
         {open ? <ChevronUp size={16} style={{ color: 'var(--muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--muted)' }} />}
@@ -111,6 +121,32 @@ export default function AdvancedOptions({ value, onChange }: Props) {
           borderTop: '1px solid var(--border)',
           paddingTop: 18,
         }}>
+          {/* v2.2.4 — Nom de la société cliente (obligatoire si template a un field type=company) */}
+          {companyRequired && (
+            <Section icon={Bell} title="Société cliente *">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input
+                  type="text"
+                  value={value.companyName || ''}
+                  onChange={e => onChange({ ...value, companyName: e.target.value || null })}
+                  placeholder="Ex: L-Agence SA, Construction Dupont Sàrl…"
+                  className="neo-input"
+                  style={{
+                    height: 40,
+                    fontSize: 14,
+                    border: companyMissing ? '1.5px solid #DC2626' : '1px solid var(--border)',
+                    background: companyMissing ? 'rgba(220,38,38,0.05)' : 'var(--card)',
+                  }}
+                />
+                <div style={{ fontSize: 11.5, color: companyMissing ? '#DC2626' : 'var(--muted)', lineHeight: 1.5 }}>
+                  {companyMissing
+                    ? '⚠️ Obligatoire : ce template contient un champ « Société » qui sera pré-rempli avec cette valeur. Sans cela, le candidat verra un tiret.'
+                    : 'Ce nom remplira automatiquement les champs de type « Société » dans le rapport.'}
+                </div>
+              </div>
+            </Section>
+          )}
+
           {/* Rappels automatiques */}
           <Section icon={Bell} title="Rappels automatiques">
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 12, cursor: 'pointer', fontSize: 13, lineHeight: 1.5 }}>
@@ -204,64 +240,8 @@ export default function AdvancedOptions({ value, onChange }: Props) {
             </div>
           </Section>
 
-          {/* Contexte rapport heures — date début semaine */}
-          <Section icon={CalendarDays} title="Date de début de semaine (rapports d'heures)">
-            <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 }}>
-              Si tu envoies un rapport d&apos;heures, choisis le <strong>lundi de la semaine concernée</strong>.
-              Le candidat verra alors les jours avec leur date (ex: « Lundi 04.05.2026 »).
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <input
-                type="date"
-                value={value.weekStartDate || ''}
-                onChange={e => onChange({ ...value, weekStartDate: e.target.value || null })}
-                style={{
-                  height: 38,
-                  padding: '0 12px',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  background: 'var(--card)',
-                  color: 'var(--foreground)',
-                  fontSize: 13,
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  colorScheme: 'light dark',
-                }}
-              />
-              {value.weekStartDate && (() => {
-                const d = new Date(value.weekStartDate + 'T00:00:00')
-                const isMonday = d.getDay() === 1
-                const weekEnd = new Date(d)
-                weekEnd.setDate(d.getDate() + 6)
-                return (
-                  <div style={{
-                    fontSize: 11.5,
-                    color: isMonday ? 'var(--success)' : 'var(--warning)',
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                  }}>
-                    {isMonday
-                      ? `✓ Du lundi ${d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit' })} au dimanche ${weekEnd.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
-                      : `⚠️ Cette date n'est pas un lundi (jour: ${d.toLocaleDateString('fr-CH', { weekday: 'long' })})`
-                    }
-                  </div>
-                )
-              })()}
-              {value.weekStartDate && (
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...value, weekStartDate: null })}
-                  style={{
-                    padding: '4px 10px', fontSize: 11,
-                    border: '1px solid var(--border)', borderRadius: 6,
-                    background: 'transparent', color: 'var(--muted)',
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  Effacer
-                </button>
-              )}
-            </div>
-          </Section>
+          {/* v2.2.5 — weekStartDate retiré : la semaine est saisie par le candidat
+              dans son wizard via le champ "Date de début de semaine" du template. */}
 
           {/* Canal */}
           <Section icon={Mail} title="Canal d'envoi">
@@ -270,19 +250,25 @@ export default function AdvancedOptions({ value, onChange }: Props) {
                 active={value.channel === 'email'}
                 icon={Mail}
                 label="Email"
-                description="Envoi via Resend (par défaut)"
+                description="Envoi via Resend"
                 onClick={() => onChange({ ...value, channel: 'email' })}
               />
               <ChannelOption
                 active={value.channel === 'whatsapp'}
                 icon={MessageCircle}
                 label="WhatsApp"
-                description="Lien wa.me proposé après création"
-                badge="Bientôt"
+                description="Envoi auto via Meta Cloud API"
                 onClick={() => onChange({ ...value, channel: 'whatsapp' })}
               />
+              <ChannelOption
+                active={value.channel === 'both'}
+                icon={Mail}
+                label="Email + WhatsApp"
+                description="Les deux canaux en parallèle"
+                onClick={() => onChange({ ...value, channel: 'both' })}
+              />
             </div>
-            {value.channel === 'whatsapp' && (
+            {(value.channel === 'whatsapp' || value.channel === 'both') && (
               <div style={{
                 marginTop: 10,
                 padding: '8px 12px',
@@ -292,7 +278,7 @@ export default function AdvancedOptions({ value, onChange }: Props) {
                 color: 'var(--info)',
                 lineHeight: 1.5,
               }}>
-                ℹ️ L&apos;envoi automatique WhatsApp arrive bientôt. En attendant, l&apos;email sera envoyé et tu pourras cliquer sur le bouton <strong>WhatsApp vert</strong> sur la page détail pour ouvrir wa.me avec un lien pré-rempli.
+                ℹ️ Tous les destinataires devront avoir un <strong>numéro WhatsApp</strong> (E.164, ex&nbsp;: +41&nbsp;79&nbsp;123&nbsp;45&nbsp;67) renseigné dans leur card. Sinon l&apos;envoi sera bloqué.
               </div>
             )}
           </Section>

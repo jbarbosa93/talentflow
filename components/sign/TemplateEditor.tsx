@@ -20,6 +20,8 @@ import type {
   SignRecipientSchema, SignFieldCondition, SignConditionOperator, SignConditionAction,
 } from '@/lib/sign/types'
 import type { WizardStep } from '@/lib/sign/wizard-builder'
+// v2.2.4 — Composant partagé Mode Wizard ↔ Mode Document pour éditer les options Formule
+import FieldFormulaOptions from './FieldFormulaOptions'
 import {
   RECIPIENT_COLORS, FIELD_TYPE_LABELS, FIELD_TYPE_CATEGORIES,
   CONDITION_OPERATOR_LABELS, CONDITION_ACTION_LABELS,
@@ -41,9 +43,11 @@ interface Props {
   setDocuments: React.Dispatch<React.SetStateAction<SignDocument[]>>
   recipientsSchema: SignRecipientSchema[]
   setRecipientsSchema: React.Dispatch<React.SetStateAction<SignRecipientSchema[]>>
-  // wizard_steps + wizard_enabled : transmis pour persister au save (atomic),
-  // pas modifiés depuis ce panneau (read-only)
+  // wizard_steps + wizard_enabled : transmis pour persister au save (atomic).
+  // setWizardSteps optionnel pour permettre l'auto-ajout d'un nouveau field au
+  // step matching son recipientOrder (v2.2.4).
   wizardSteps: WizardStep[]
+  setWizardSteps?: React.Dispatch<React.SetStateAction<WizardStep[]>>
   wizardEnabled: boolean
   /** v2.2.2 — Counter incrémenté par le parent à chaque fetch successful. Trigger reset dirty. */
   serverVersion?: number
@@ -81,7 +85,7 @@ export default function TemplateEditor({
   templateId, templateName,
   documents: docs, setDocuments: setDocs,
   recipientsSchema: recipients, setRecipientsSchema: setRecipients,
-  wizardSteps, wizardEnabled, serverVersion = 0, onSaved,
+  wizardSteps, setWizardSteps, wizardEnabled, serverVersion = 0, onSaved,
 }: Props) {
   const router = useRouter()
 
@@ -124,23 +128,199 @@ export default function TemplateEditor({
     return `/api/sign/templates/${templateId}/file?path=${encodeURIComponent(activeDoc.storage_path)}`
   }, [activeDoc, templateId])
 
-  // Update doc fields
-  const updateDocFields = (newFields: SignField[]) => {
-    setDocs(prev => prev.map((d, i) => i === activeDocIdx ? { ...d, fields: newFields } : d))
-    setDirty(true)
+  // v2.2.4 — Zoom du PDF (50% à 200%, défaut 100%). Multiplie PDF_TARGET_WIDTH.
+  const [zoom, setZoom] = useState(1.0)
+  const zoomedWidth = Math.round(PDF_TARGET_WIDTH * zoom)
+  const ZOOM_MIN = 0.5
+  const ZOOM_MAX = 2.0
+  const ZOOM_STEP = 0.1
+  const zoomIn = () => setZoom(z => Math.min(ZOOM_MAX, Math.round((z + ZOOM_STEP) * 10) / 10))
+  const zoomOut = () => setZoom(z => Math.max(ZOOM_MIN, Math.round((z - ZOOM_STEP) * 10) / 10))
+  const zoomReset = () => setZoom(1.0)
+
+  // v2.2.4 — Toggle affichage des badges wizardSection au-dessus de chaque field.
+  // Persisté en localStorage pour conserver la préférence entre sessions.
+  const [showSectionBadges, setShowSectionBadges] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    return window.localStorage.getItem('sign:showSectionBadges') !== '0'
+  })
+  const toggleSectionBadges = () => {
+    setShowSectionBadges(v => {
+      const next = !v
+      try { window.localStorage.setItem('sign:showSectionBadges', next ? '1' : '0') } catch {}
+      return next
+    })
   }
 
-  // v2.2.1 — Shift bulk : décale tous les fields du doc actif d'un offset normalisé.
-  // Utile pour corriger un décalage uniforme (ex: champs générés par l'IA légèrement off).
-  const shiftAllFields = (deltaX: number, deltaY: number) => {
-    if (!activeDoc) return
-    const newFields = (activeDoc.fields || []).map(f => ({
-      ...f,
-      x: Math.max(0, Math.min(1 - f.width, f.x + deltaX)),
-      y: Math.max(0, Math.min(1 - f.height, f.y + deltaY)),
-    }))
-    updateDocFields(newFields)
+  // v2.2.4 — Undo / Redo (Cmd+Z / Cmd+Shift+Z) sur les modifications Mode Document.
+  // Stack snapshots des docs avant chaque modif user. Limité à 50 entrées (mémoire).
+  const HISTORY_MAX = 50
+  const [past, setPast] = useState<SignDocument[][]>([])
+  const [future, setFuture] = useState<SignDocument[][]>([])
+  const docsRef = useRef<SignDocument[]>(docs)
+  useEffect(() => { docsRef.current = docs }, [docs])
+
+  /** Pousse l'état COURANT dans past avant la modif. Appelé par les wrappers
+   *  updateDocFields / setRecipients tracked. NE PAS appeler pour le sync parent. */
+  const pushHistory = () => {
+    setPast(p => {
+      const next = [...p, docsRef.current.map(d => ({ ...d, fields: [...(d.fields || [])] }))]
+      return next.length > HISTORY_MAX ? next.slice(-HISTORY_MAX) : next
+    })
+    setFuture([])
   }
+  const undo = () => {
+    if (past.length === 0) return
+    const prev = past[past.length - 1]
+    setPast(p => p.slice(0, -1))
+    setFuture(f => [...f, docsRef.current])
+    setDocs(prev)
+    setDirty(true)
+  }
+  const redo = () => {
+    if (future.length === 0) return
+    const next = future[future.length - 1]
+    setFuture(f => f.slice(0, -1))
+    setPast(p => [...p, docsRef.current])
+    setDocs(next)
+    setDirty(true)
+  }
+  // v2.2.4 — Clipboard local pour copier-coller des fields entre sélections / pages.
+  // Stocke un snapshot des fields au Cmd+C (avec leurs configs originales). Au Cmd+V,
+  // on génère de nouveaux UUIDs + un offset visuel pour ne pas se superposer à la source.
+  const clipboardRef = useRef<SignField[]>([])
+
+  // Raccourcis clavier — actifs uniquement quand le focus n'est pas dans un input
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const isCmd = e.metaKey || e.ctrlKey
+      if (!isCmd) return
+      const key = e.key.toLowerCase()
+
+      // v2.2.4 — Undo / Redo
+      if (key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+        return
+      }
+
+      // v2.2.4 — Copier (Cmd+C)
+      if (key === 'c' && selectedIds.length > 0) {
+        const sel = (activeDoc?.fields || []).filter(f => selectedIds.includes(f.id))
+        if (sel.length === 0) return
+        e.preventDefault()
+        clipboardRef.current = sel.map(f => ({ ...f }))
+        toast.success(`${sel.length} champ${sel.length > 1 ? 's' : ''} copié${sel.length > 1 ? 's' : ''}`)
+        return
+      }
+
+      // v2.2.4 — Coller (Cmd+V)
+      if (key === 'v' && clipboardRef.current.length > 0) {
+        e.preventDefault()
+        const offset = 0.02  // décale légèrement pour ne pas superposer
+        const newFields: SignField[] = clipboardRef.current.map(f => ({
+          ...f,
+          id: genId(),
+          page: activePage,  // colle sur la page courante (utile cross-page)
+          x: Math.max(0, Math.min(1 - f.width, f.x + offset)),
+          y: Math.max(0, Math.min(1 - f.height, f.y + offset)),
+          // Reset groupId : la copie n'hérite pas du groupe source (sinon comptage cassé)
+          groupId: undefined,
+        }))
+        const all = [...(activeDoc?.fields || []), ...newFields]
+        updateDocFields(all)
+        setSelectedIds(newFields.map(f => f.id))
+        toast.success(`${newFields.length} champ${newFields.length > 1 ? 's' : ''} collé${newFields.length > 1 ? 's' : ''}`)
+        return
+      }
+
+      // v2.2.4 — Dupliquer (Cmd+D) — copy + paste en une touche
+      if (key === 'd' && selectedIds.length > 0) {
+        const sel = (activeDoc?.fields || []).filter(f => selectedIds.includes(f.id))
+        if (sel.length === 0) return
+        e.preventDefault()  // évite Cmd+D du navigateur (ajouter aux favoris)
+        const offset = 0.02
+        const newFields: SignField[] = sel.map(f => ({
+          ...f,
+          id: genId(),
+          x: Math.max(0, Math.min(1 - f.width, f.x + offset)),
+          y: Math.max(0, Math.min(1 - f.height, f.y + offset)),
+          groupId: undefined,
+        }))
+        const all = [...(activeDoc?.fields || []), ...newFields]
+        updateDocFields(all)
+        setSelectedIds(newFields.map(f => f.id))
+        toast.success(`${newFields.length} champ${newFields.length > 1 ? 's' : ''} dupliqué${newFields.length > 1 ? 's' : ''}`)
+        return
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [past, future, selectedIds, activeDoc, activePage])
+
+  // Update doc fields — v2.2.4 : pousse l'état dans history avant modif.
+  // v2.2.4 — Auto-ajout au wizard : quand on CRÉE un nouveau field (length augmente),
+  // on l'ajoute auto au 1er step du wizard qui matche son recipientOrder, pour éviter
+  // les fields orphelins (placés sur PDF mais invisibles côté candidat).
+  const updateDocFields = (newFields: SignField[]) => {
+    pushHistory()
+    const prevFields = activeDoc?.fields || []
+    setDocs(prev => prev.map((d, i) => i === activeDocIdx ? { ...d, fields: newFields } : d))
+    setDirty(true)
+    // Détection de fields ajoutés (compare ids prev vs new)
+    if (setWizardSteps && newFields.length > prevFields.length) {
+      const prevIds = new Set(prevFields.map(f => f.id))
+      const addedFields = newFields.filter(f => !prevIds.has(f.id))
+      if (addedFields.length === 0) return
+      // v2.2.4 — Priorité d'ajout intelligente :
+      //   1. Le step actif dans WizardEditor (sessionStorage 'sign:active-step-id')
+      //      mémorisé à chaque sélection de step côté Mode Wizard.
+      //   2. Sinon : le DERNIER step matching le rôle (les nouveaux fields sont
+      //      en général ajoutés en fin, plus logique que le 1er aveugle).
+      const activeStepId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('sign:active-step-id') || null
+        : null
+      let toastedStepTitle: string | null = null
+      let toastedCount = 0
+      setWizardSteps(prev => {
+        const next = prev.slice()
+        for (const newF of addedFields) {
+          // v2.2.4 fix — Skip seulement les VRAIS auto-fill (firstname/lastname/fullname/email
+          // remplis automatiquement depuis le profil destinataire). Signature/initial restent
+          // dans le wizard car le candidat doit interagir pour signer.
+          if (['firstname', 'lastname', 'fullname', 'email'].includes(newF.type)) continue
+          const order = newF.recipientOrder ?? 1
+          // 1. Tente le step actif (s'il existe ET matche le rôle du field)
+          let stepIdx = -1
+          if (activeStepId) {
+            const candidate = next.findIndex(s => s.id === activeStepId && (s.recipientOrder ?? 1) === order)
+            if (candidate >= 0) stepIdx = candidate
+          }
+          // 2. Sinon : DERNIER step matching le rôle
+          if (stepIdx < 0) {
+            for (let i = next.length - 1; i >= 0; i--) {
+              if ((next[i].recipientOrder ?? 1) === order) { stepIdx = i; break }
+            }
+          }
+          if (stepIdx < 0) continue
+          if (next[stepIdx].fieldIds.includes(newF.id)) continue
+          next[stepIdx] = { ...next[stepIdx], fieldIds: [...next[stepIdx].fieldIds, newF.id] }
+          if (!toastedStepTitle) toastedStepTitle = next[stepIdx].title
+          toastedCount++
+        }
+        return next
+      })
+      if (toastedCount > 0 && toastedStepTitle) {
+        toast.success(`${toastedCount} champ${toastedCount > 1 ? 's' : ''} ajouté${toastedCount > 1 ? 's' : ''} à l'étape « ${toastedStepTitle} »`, { duration: 3500 })
+      }
+    }
+  }
+
+
 
   // Update une recipient
   const updateRecipient = (idx: number, patch: Partial<SignRecipientSchema>) => {
@@ -295,6 +475,7 @@ export default function TemplateEditor({
                   if (e.key === 'Enter') {
                     const trimmed = renameDraft.trim()
                     if (trimmed) {
+                      pushHistory()
                       setDocs(prev => prev.map((d, i) => i === activeDocIdx ? { ...d, name: trimmed } : d))
                       setDirty(true)
                     }
@@ -309,6 +490,7 @@ export default function TemplateEditor({
                 onClick={() => {
                   const trimmed = renameDraft.trim()
                   if (trimmed) {
+                    pushHistory()
                     setDocs(prev => prev.map((d, i) => i === activeDocIdx ? { ...d, name: trimmed } : d))
                     setDirty(true)
                   }
@@ -385,12 +567,107 @@ export default function TemplateEditor({
           </div>
         </div>
 
+        {/* v2.2.4 — Toolbar zoom + Undo/Redo au-dessus du PDF */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '6px 8px',
+          marginBottom: 8,
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          width: 'fit-content',
+        }}>
+          <button
+            type="button"
+            onClick={zoomOut}
+            disabled={zoom <= ZOOM_MIN}
+            title="Réduire"
+            style={zoomBtnStyle(zoom <= ZOOM_MIN)}
+          >−</button>
+          <button
+            type="button"
+            onClick={zoomReset}
+            title="Réinitialiser à 100%"
+            style={{
+              padding: '4px 10px',
+              fontSize: 12,
+              fontWeight: 700,
+              border: '1px solid var(--border)',
+              background: zoom === 1.0 ? 'var(--card)' : 'var(--surface, var(--card))',
+              color: 'var(--foreground)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              minWidth: 56,
+            }}
+          >{Math.round(zoom * 100)}%</button>
+          <button
+            type="button"
+            onClick={zoomIn}
+            disabled={zoom >= ZOOM_MAX}
+            title="Agrandir"
+            style={zoomBtnStyle(zoom >= ZOOM_MAX)}
+          >+</button>
+          {/* Séparateur */}
+          <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+          {/* v2.2.4 — Undo / Redo */}
+          <button
+            type="button"
+            onClick={undo}
+            disabled={past.length === 0}
+            title={`Annuler (Cmd+Z)${past.length > 0 ? ` — ${past.length} étape${past.length > 1 ? 's' : ''}` : ''}`}
+            style={zoomBtnStyle(past.length === 0)}
+            aria-label="Annuler"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7v6h6" />
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6.7 3L3 13" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={future.length === 0}
+            title={`Refaire (Cmd+Shift+Z)${future.length > 0 ? ` — ${future.length} étape${future.length > 1 ? 's' : ''}` : ''}`}
+            style={zoomBtnStyle(future.length === 0)}
+            aria-label="Refaire"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 7v6h-6" />
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3L21 13" />
+            </svg>
+          </button>
+          {/* Séparateur */}
+          <span style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+          {/* v2.2.4 — Toggle "Afficher sections" sur les fields Konva */}
+          <button
+            type="button"
+            onClick={toggleSectionBadges}
+            title={showSectionBadges ? 'Masquer les badges section au-dessus des champs' : 'Afficher les badges section'}
+            style={{
+              padding: '4px 10px',
+              fontSize: 11.5, fontWeight: 700,
+              border: showSectionBadges ? '1px solid #1C1A14' : '1px solid var(--border)',
+              background: showSectionBadges ? '#EAB308' : 'var(--card)',
+              color: showSectionBadges ? '#1C1A14' : 'var(--foreground)',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            🏷 Sections
+          </button>
+        </div>
+
         {/* PDF + overlay */}
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <PDFViewer
             fileUrl={fileUrl}
             page={activePage}
-            width={PDF_TARGET_WIDTH}
+            width={zoomedWidth}
             onLoadSuccess={n => setNumPages(n)}
             onPageRendered={info => setRenderInfo(info)}
           />
@@ -416,6 +693,7 @@ export default function TemplateEditor({
                 activeTool={activeTool}
                 activeRecipientOrder={activeRecipientOrder}
                 genId={genId}
+                showSectionBadges={showSectionBadges}
               />
             </div>
           )}
@@ -460,9 +738,49 @@ export default function TemplateEditor({
           </div>
         </div>
 
+        {/* v2.2.4 — Champ(s) sélectionné(s) en HAUT pour éviter de scroller à chaque sélection */}
+        {selectedIds.length > 0 && (
+          <SelectedFieldsPanel
+            selectedIds={selectedIds}
+            fields={fields}
+            recipients={recipients}
+            onPatch={patchField}
+            onPatchMany={patchFields}
+            onDelete={handleDeleteSelected}
+            onGroupCheckboxes={handleGroupCheckboxes}
+            onUngroup={handleUngroup}
+            onPatchAllInGroup={patchAllInGroup}
+            wizardSteps={wizardSteps}
+            setWizardSteps={setWizardSteps}
+          />
+        )}
+
         {/* Tools — catégorisés style DocuSign */}
         <div className="neo-card-soft" style={{ padding: 14 }}>
           <SectionTitle>Champs à placer</SectionTitle>
+          {/* v2.2.4 — Bandeau "Outil actif" pour que l'admin sache immédiatement quel
+              outil est sélectionné (avant : juste un highlight pâle sur le bouton) */}
+          {activeTool && (() => {
+            const Icon = TOOL_ICONS[activeTool] || Type
+            return (
+              <div style={{
+                marginBottom: 12,
+                padding: '8px 10px',
+                background: '#EAB308',
+                color: '#1C1A14',
+                borderRadius: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <Icon size={14} />
+                <span style={{ flex: 1 }}>Outil actif : <strong>{FIELD_TYPE_LABELS[activeTool]}</strong></span>
+                <span style={{ fontSize: 10.5, fontWeight: 600, opacity: 0.7, whiteSpace: 'nowrap' }}>Cliquez sur le PDF</span>
+              </div>
+            )
+          })()}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {FIELD_TYPE_CATEGORIES.map(cat => (
               <div key={cat.key}>
@@ -494,10 +812,13 @@ export default function TemplateEditor({
                           justifyContent: 'flex-start',
                           fontSize: 11.5,
                           padding: '5px 8px',
-                          background: active ? 'var(--primary-soft)' : undefined,
-                          borderColor: active ? 'var(--primary)' : undefined,
-                          color: active ? 'var(--primary)' : 'var(--foreground)',
-                          fontWeight: active ? 700 : 500,
+                          // v2.2.4 — Highlight fort en jaune brand quand actif (avant : pâle, peu visible)
+                          background: active ? '#EAB308' : undefined,
+                          borderColor: active ? '#1C1A14' : undefined,
+                          borderWidth: active ? 1.5 : undefined,
+                          color: active ? '#1C1A14' : 'var(--foreground)',
+                          fontWeight: active ? 800 : 500,
+                          boxShadow: active ? '0 0 0 3px rgba(234,179,8,0.25)' : undefined,
                         }}
                       >
                         <Icon size={12} />
@@ -521,12 +842,8 @@ export default function TemplateEditor({
           )}
         </div>
 
-        {/* v2.2.1 — Recalibrer position bulk : décale TOUS les fields du doc actif
-            d'un offset uniforme. Fix le décalage de l'IA en quelques clics. */}
-        <RecalibratePanel
-          fieldCount={(activeDoc?.fields || []).length}
-          onShift={shiftAllFields}
-        />
+        {/* v2.2.4 — RecalibratePanel supprimé (peu utilisé en pratique).
+            Pour décaler tous les fields, utilise la sélection lasso + drag, ou Cmd+Z. */}
 
         {/* Recipients — v2.2.2 : édition inline (renommer / type / supprimer / ajouter) */}
         <div className="neo-card-soft" style={{ padding: 14 }}>
@@ -628,6 +945,7 @@ export default function TemplateEditor({
                         }
                         if (fieldCount > 0 && !confirm(`Le rôle "${r.roleName || `Rôle ${r.order}`}" a ${fieldCount} champ(s). Les supprimer aussi ?`)) return
                         // Retire le rôle ET les fields qui lui sont assignés
+                        if (fieldCount > 0) pushHistory()
                         setRecipients(prev => prev.filter((_, i) => i !== idx))
                         if (fieldCount > 0) {
                           setDocs(prev => prev.map(d => ({
@@ -685,20 +1003,8 @@ export default function TemplateEditor({
           </div>
         </div>
 
-        {/* Field(s) selected — édition rapide */}
-        {selectedIds.length > 0 && (
-          <SelectedFieldsPanel
-            selectedIds={selectedIds}
-            fields={fields}
-            recipients={recipients}
-            onPatch={patchField}
-            onPatchMany={patchFields}
-            onDelete={handleDeleteSelected}
-            onGroupCheckboxes={handleGroupCheckboxes}
-            onUngroup={handleUngroup}
-            onPatchAllInGroup={patchAllInGroup}
-          />
-        )}
+        {/* v2.2.4 — SelectedFieldsPanel déplacé en haut (juste après le bandeau actions)
+            pour éviter de scroller à chaque sélection. */}
 
         {/* Page courante : résumé champs */}
         <div className="neo-card-soft" style={{ padding: 14 }}>
@@ -720,6 +1026,7 @@ export default function TemplateEditor({
 function SelectedFieldsPanel({
   selectedIds, fields, recipients, onPatch, onPatchMany, onDelete,
   onGroupCheckboxes, onUngroup, onPatchAllInGroup,
+  wizardSteps, setWizardSteps,
 }: {
   selectedIds: string[]
   fields: SignField[]
@@ -730,11 +1037,23 @@ function SelectedFieldsPanel({
   onGroupCheckboxes: (rule: 'SelectAtLeast' | 'SelectAtMost' | 'SelectExactly', count: number, label?: string) => void
   onUngroup: (id: string) => void
   onPatchAllInGroup: (groupId: string, patch: Partial<SignField>) => void
+  /** v2.2.4 — wizardSteps pour détecter les fields orphelins du wizard candidat */
+  wizardSteps?: WizardStep[]
+  setWizardSteps?: React.Dispatch<React.SetStateAction<WizardStep[]>>
 }) {
   const set = new Set(selectedIds)
   const selectedFields = fields.filter(f => set.has(f.id))
   const isMulti = selectedFields.length > 1
   const allCheckboxes = selectedFields.length >= 2 && selectedFields.every(f => f.type === 'checkbox')
+
+  // v2.2.4 — Helper : un field est-il référencé dans un step du wizard ?
+  const wizardFieldIds = new Set<string>()
+  for (const s of (wizardSteps || [])) {
+    for (const fid of s.fieldIds) wizardFieldIds.add(fid)
+  }
+  // v2.2.4 fix v2 — Skip signature/initial aussi (gérées par les steps
+  // `isSignatureStep`, n'apparaissent pas dans fieldIds → faux positifs orphelins).
+  const isAutoFillType = (t: string) => ['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'].includes(t)
 
   // Si 1 seul champ → édition complète
   if (!isMulti) {
@@ -742,9 +1061,59 @@ function SelectedFieldsPanel({
     if (!f) return null
     const isText = f.type === 'text'
     const isInGroup = !!f.groupId
+    // v2.2.4 — Field est orphelin du wizard ? (pas auto-fill, pas dans un step)
+    const isOrphan = !isAutoFillType(f.type) && !wizardFieldIds.has(f.id) && (wizardSteps || []).length > 0
+    const addToFirstMatchingStep = () => {
+      if (!setWizardSteps) return
+      const order = f.recipientOrder ?? 1
+      let addedToTitle: string | null = null
+      setWizardSteps(prev => {
+        const next = prev.slice()
+        const idx = next.findIndex(s => (s.recipientOrder ?? 1) === order)
+        if (idx < 0) return prev
+        if (next[idx].fieldIds.includes(f.id)) return prev
+        next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
+        addedToTitle = next[idx].title
+        return next
+      })
+      if (addedToTitle) toast.success(`Ajouté à l'étape « ${addedToTitle} »`)
+    }
     return (
       <div className="neo-card-soft" style={{ padding: 14 }}>
         <SectionTitle>Champ sélectionné</SectionTitle>
+        {isOrphan && (
+          <div style={{
+            margin: '4px 0 12px',
+            padding: '8px 10px',
+            background: 'rgba(234,179,8,0.10)',
+            border: '1px solid rgba(234,179,8,0.35)',
+            borderRadius: 8,
+            fontSize: 11.5,
+            color: '#A16207',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+            lineHeight: 1.4,
+          }}>
+            <span style={{ fontSize: 14 }}>⚠️</span>
+            <span style={{ flex: 1, minWidth: 140 }}>
+              Ce champ n&apos;est <strong>pas affiché dans le wizard candidat</strong>.
+            </span>
+            <button
+              type="button"
+              onClick={addToFirstMatchingStep}
+              style={{
+                padding: '3px 9px', fontSize: 11, fontWeight: 700,
+                background: '#EAB308', color: '#1C1A14',
+                border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+              title="Ajoute ce champ à la 1re étape du wizard correspondant à son rôle"
+            >
+              + Ajouter au wizard
+            </button>
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Field label="Libellé">
             <input
@@ -816,6 +1185,63 @@ function SelectedFieldsPanel({
             />
             Champ obligatoire
           </label>
+
+          {/* v2.2.4 — Section d'affichage wizard (cohérence avec Mode Wizard).
+              Permet de savoir/changer à quelle section/jour ce field appartient
+              directement depuis Mode Document. */}
+          <Field label="Section d'affichage (wizard)">
+            {(() => {
+              const knownSections = Array.from(new Set(
+                fields
+                  .filter(ff => ff.recipientOrder === f.recipientOrder)
+                  .map(ff => (ff.wizardSection || '').trim())
+                  .filter(s => s !== '')
+              )).sort((a, b) => a.localeCompare(b, 'fr'))
+              const datalistId = `sections-doc-${f.id}`
+              return (
+                <>
+                  <input
+                    type="text"
+                    list={datalistId}
+                    className="neo-input"
+                    value={f.wizardSection || ''}
+                    onChange={e => onPatch(f.id, { wizardSection: e.target.value || undefined })}
+                    placeholder={knownSections.length > 0
+                      ? 'Choisis ou tape (Lundi, Mardi, Total…)'
+                      : 'Ex : Lundi, Mardi, Total…'}
+                  />
+                  <datalist id={datalistId}>
+                    {knownSections.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                  {knownSections.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                      {knownSections.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => onPatch(f.id, { wizardSection: s })}
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: 10.5,
+                            border: '1px solid var(--border)',
+                            background: f.wizardSection === s ? 'var(--primary-soft)' : 'var(--card)',
+                            color: f.wizardSection === s ? 'var(--accent-foreground)' : 'var(--muted)',
+                            borderRadius: 999,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            fontWeight: f.wizardSection === s ? 700 : 500,
+                          }}
+                          title={`Réutiliser la section "${s}"`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </Field>
 
           {isText && (
             <>
@@ -1441,17 +1867,50 @@ function TypeSpecificOptions({
 
       {/* DATE */}
       {t === 'date' && (
-        <Field label="Format d'affichage">
-          <select
-            className="neo-input"
-            value={field.dateFormat || 'dd.MM.yyyy'}
-            onChange={e => onPatch({ dateFormat: e.target.value })}
-          >
-            {DATE_FORMATS.map(f => (
-              <option key={f.value} value={f.value}>{f.label}</option>
-            ))}
-          </select>
-        </Field>
+        <>
+          <Field label="Format d'affichage">
+            <select
+              className="neo-input"
+              value={field.dateFormat || 'dd.MM.yyyy'}
+              onChange={e => onPatch({ dateFormat: e.target.value })}
+            >
+              {DATE_FORMATS.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </Field>
+          {/* v2.2.4 — Toggle "Date de signature" : auto-fill avec date du jour de signature.
+              Stocké via metadata.tabType='datesigned' (compat DocuSign legacy). */}
+          <label style={checkboxLabelStyle}>
+            <input
+              type="checkbox"
+              checked={field.metadata?.tabType === 'datesigned'}
+              onChange={e => {
+                const next = { ...(field.metadata || {}) }
+                if (e.target.checked) next.tabType = 'datesigned'
+                else delete next.tabType
+                onPatch({ metadata: Object.keys(next).length > 0 ? next : undefined })
+              }}
+            />
+            <span>
+              <strong>Date de signature</strong> — remplie auto avec la date du jour quand le candidat signe (lecture seule)
+            </span>
+          </label>
+        </>
+      )}
+
+      {/* v2.2.4 — FORMULE : options opération + sources + décimales (cohérence avec Mode Wizard) */}
+      {t === 'formula' && (
+        <details style={{ marginTop: 4 }} open>
+          <summary style={summaryStyle}>Options Formule</summary>
+          <div style={detailsBodyStyle}>
+            <FieldFormulaOptions
+              field={field}
+              allRecipientFields={allFields.filter(ff => ff.recipientOrder === field.recipientOrder)}
+              onUpdate={onPatch}
+            />
+          </div>
+        </details>
       )}
 
       {/* FORMATAGE — police, taille, style, couleur */}
@@ -1960,84 +2419,8 @@ const checkboxLabelStyle: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-// ─── RecalibratePanel — décale tous les fields du doc d'un offset uniforme ──────
-// v2.2.1 — Pour corriger un décalage de coords généré par l'IA en quelques clics.
-function RecalibratePanel({
-  fieldCount, onShift,
-}: {
-  fieldCount: number
-  onShift: (deltaX: number, deltaY: number) => void
-}) {
-  // Step en pourcentage de page : 0.005 = ~5pt sur A4 (≈ 1mm)
-  const STEP_FINE = 0.005
-  const STEP_MEDIUM = 0.015
-
-  if (fieldCount === 0) return null
-
-  return (
-    <div className="neo-card-soft" style={{ padding: 14 }}>
-      <SectionTitle>Recalibrer position</SectionTitle>
-      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.4, marginBottom: 10 }}>
-        Décale <strong>tous les {fieldCount} champs</strong> du document si l&apos;IA les a placés
-        légèrement décalés.
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, maxWidth: 180, margin: '0 auto' }}>
-        {/* Row haut */}
-        <div />
-        <ShiftBtn label="↑" onClick={() => onShift(0, -STEP_FINE)} title="1 ligne vers le haut (fin)" />
-        <div />
-        {/* Row milieu */}
-        <ShiftBtn label="←" onClick={() => onShift(-STEP_FINE, 0)} title="Vers la gauche (fin)" />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--muted)' }}>
-          fin
-        </div>
-        <ShiftBtn label="→" onClick={() => onShift(STEP_FINE, 0)} title="Vers la droite (fin)" />
-        {/* Row bas */}
-        <div />
-        <ShiftBtn label="↓" onClick={() => onShift(0, STEP_FINE)} title="1 ligne vers le bas (fin)" />
-        <div />
-      </div>
-      <div style={{ display: 'flex', gap: 4, marginTop: 8, justifyContent: 'center' }}>
-        <ShiftBtn label="↑↑" onClick={() => onShift(0, -STEP_MEDIUM)} title="Beaucoup vers le haut" small />
-        <ShiftBtn label="↓↓" onClick={() => onShift(0, STEP_MEDIUM)} title="Beaucoup vers le bas" small />
-        <ShiftBtn label="←←" onClick={() => onShift(-STEP_MEDIUM, 0)} title="Beaucoup à gauche" small />
-        <ShiftBtn label="→→" onClick={() => onShift(STEP_MEDIUM, 0)} title="Beaucoup à droite" small />
-      </div>
-      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 8, textAlign: 'center', fontStyle: 'italic' }}>
-        Ctrl+Z (Cmd+Z) pour annuler
-      </div>
-    </div>
-  )
-}
-
-function ShiftBtn({
-  label, onClick, title, small,
-}: { label: string; onClick: () => void; title: string; small?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      style={{
-        height: small ? 28 : 36,
-        padding: '0 8px',
-        border: '1px solid var(--border)',
-        background: 'var(--card)',
-        borderRadius: 8,
-        color: 'var(--foreground)',
-        cursor: 'pointer',
-        fontSize: small ? 11 : 14,
-        fontWeight: 700,
-        fontFamily: 'inherit',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {label}
-    </button>
-  )
-}
+// v2.2.4 — RecalibratePanel + ShiftBtn supprimés (peu utilisés en pratique).
+// L'admin peut décaler tous les champs via lasso-sélection + drag.
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -2105,4 +2488,22 @@ function fieldsTotalCount(docs: SignDocument[]): number {
 
 function countFieldsForRecipient(docs: SignDocument[], order: number): number {
   return docs.reduce((acc, d) => acc + (d.fields?.filter(f => f.recipientOrder === order).length || 0), 0)
+}
+
+// v2.2.4 — style des boutons zoom +/-
+function zoomBtnStyle(disabled: boolean): React.CSSProperties {
+  return {
+    width: 28, height: 28,
+    fontSize: 16, fontWeight: 700,
+    border: "1px solid var(--border)",
+    background: "var(--card)",
+    color: disabled ? "var(--muted)" : "var(--foreground)",
+    borderRadius: 6,
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontFamily: "inherit",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: disabled ? 0.5 : 1,
+  }
 }

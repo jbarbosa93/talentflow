@@ -5,7 +5,7 @@
 import { useEffect, useState, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3 } from 'lucide-react'
+import { ChevronLeft, Send, Trash2, Loader2, Mail, Copy, Check, Bell, MessageCircle, Download, RotateCw, Ban, Edit3, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import EnvelopeStatusBadge from '@/components/sign/EnvelopeStatusBadge'
 import EnvelopeCategoryIcon from '@/components/sign/EnvelopeCategoryIcon'
@@ -109,31 +109,64 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
     }
   }
 
-  const [downloading, setDownloading] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
+  /**
+   * v2.2.5 Phase 4c — Télécharge tous les PDFs signés.
+   * Utilise /api/sign/download/[envelopeId] qui s'appuie sur signed_pdf_paths
+   * (déterministe + hash SHA-256 par doc) au lieu de lister le bucket.
+   * - 1 doc  → PDF inline (Content-Disposition: attachment)
+   * - N docs → ZIP DEFLATE
+   */
   const handleDownload = async () => {
     if (!envelope) return
-    setDownloading(true)
+    setDownloading('all')
     try {
-      const r = await fetch('/api/sign/envelopes/bulk-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [envelope.id] }),
-      })
+      const r = await fetch(`/api/sign/download/${envelope.id}`)
       if (!r.ok) {
-        const d = await r.json()
-        throw new Error(d.error || 'Erreur')
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur téléchargement')
       }
+      // Utilise le filename renvoyé par le serveur (Content-Disposition)
       const blob = await r.blob()
+      const cd = r.headers.get('Content-Disposition') || ''
+      const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      const fallback = `${envelope.title.replace(/[^\w\-.]/g, '_')}.${blob.type === 'application/zip' ? 'zip' : 'pdf'}`
+      const filename = m?.[1] ? decodeURIComponent(m[1]) : fallback
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${envelope.title.replace(/[^\w\-.]/g, '_')}.zip`
+      a.download = filename
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (e: any) {
       toast.error(e.message || 'Erreur téléchargement')
     } finally {
-      setDownloading(false)
+      setDownloading(null)
+    }
+  }
+
+  /** v2.2.5 Phase 4c — Télécharge UN seul PDF signé via ?doc=index */
+  const handleDownloadDoc = async (idx: number, name: string) => {
+    if (!envelope) return
+    setDownloading(`doc-${idx}`)
+    try {
+      const r = await fetch(`/api/sign/download/${envelope.id}?doc=${idx}`)
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur téléchargement')
+      }
+      const blob = await r.blob()
+      const filename = name.endsWith('.pdf') ? name : `${name}.pdf`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur téléchargement')
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -241,6 +274,12 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
     )
   }
 
+  // v2.2.5 Phase 4c — PDFs signés persistés (bouton "Télécharger" + section "Documents signés")
+  const signedPdfPaths = (envelope as unknown as {
+    signed_pdf_paths?: { name: string; path: string; sha256: string }[] | null
+  }).signed_pdf_paths || []
+  const hasSignedPdfs = envelope.status === 'completed' && signedPdfPaths.length > 0
+
   return (
     <div className="d-page" style={{ fontFamily: 'var(--font-jakarta), system-ui, sans-serif' }}>
       {/* Bouton retour */}
@@ -335,16 +374,16 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
               </button>
             </>
           )}
-          {envelope.status === 'completed' && (
+          {envelope.status === 'completed' && hasSignedPdfs && (
             <button
               type="button"
               onClick={handleDownload}
-              disabled={downloading}
+              disabled={!!downloading}
               className="neo-btn-yellow"
               style={{ opacity: downloading ? 0.6 : 1 }}
             >
-              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              Télécharger les PDFs signés
+              {downloading === 'all' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              {signedPdfPaths.length > 1 ? 'Télécharger tout (ZIP)' : 'Télécharger le PDF signé'}
             </button>
           )}
           {(envelope.status === 'expired' || envelope.status === 'declined' || envelope.status === 'cancelled') && (
@@ -521,6 +560,79 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
                           </button>
                         </div>
                       )}
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* v2.2.5 Phase 4c — Documents signés (visible uniquement si completed + paths) */}
+          {hasSignedPdfs && (
+            <Card title={`Documents signés (${signedPdfPaths.length})`}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {signedPdfPaths.map((doc, idx) => {
+                  const isLoading = downloading === `doc-${idx}`
+                  return (
+                    <div
+                      key={`${doc.path}-${idx}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 12px',
+                        border: '1px solid var(--border)',
+                        borderRadius: 10,
+                        background: 'var(--surface)',
+                      }}
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8,
+                        background: 'var(--success-soft, #D1FAE5)',
+                        color: 'var(--success, #059669)',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <FileText size={16} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {doc.name}
+                        </div>
+                        <div style={{
+                          fontSize: 10.5, color: 'var(--muted)',
+                          fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+                          marginTop: 2,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}
+                        title={`SHA-256 : ${doc.sha256}`}>
+                          SHA-256 · {doc.sha256.slice(0, 16)}…
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDoc(idx, doc.name)}
+                        disabled={!!downloading}
+                        title="Télécharger ce document"
+                        style={{
+                          width: 36, height: 36, borderRadius: 8,
+                          border: '1px solid var(--border)',
+                          background: 'var(--card)',
+                          color: 'var(--foreground)',
+                          cursor: downloading ? 'wait' : 'pointer',
+                          opacity: downloading && !isLoading ? 0.5 : 1,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {isLoading
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Download size={14} />}
+                      </button>
                     </div>
                   )
                 })}

@@ -5,7 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { requireAuth } from '@/lib/auth-guard'
 import { logAuditEvent } from '@/lib/sign/audit'
-import type { SignCategory, SignRecipient, SignStatus } from '@/lib/sign/types'
+import { normalizePhoneE164 } from '@/lib/sign/phone-format'
+import type { SignCategory, SignDeliveryChannel, SignRecipient, SignStatus } from '@/lib/sign/types'
+
+const VALID_CHANNELS: SignDeliveryChannel[] = ['email', 'whatsapp', 'both']
 
 const VALID_STATUS: SignStatus[] = ['draft', 'sent', 'in_progress', 'completed', 'expired', 'declined', 'cancelled']
 const VALID_CATEGORY: SignCategory[] = ['mappe', 'contrat', 'autres']
@@ -64,6 +67,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // v2.2.5 Phase 4d — delivery_channel + validation phones si non-email
+    const deliveryChannel: SignDeliveryChannel = (VALID_CHANNELS as string[]).includes(body.delivery_channel)
+      ? body.delivery_channel
+      : 'email'
+
+    // Normalise les phones (E.164) — mais reste tolérant à la création :
+    // la validation stricte est dans /api/sign/envelopes/[id]/send (au moment d'envoyer).
+    // Cela permet de sauvegarder un brouillon sans phones et de les ajouter plus tard.
+    const normalizedRecipients = recipients.map((r, idx) => {
+      const rawPhone = (r as { phone?: string }).phone
+      const phone = rawPhone ? normalizePhoneE164(rawPhone) : null
+      return {
+        name: r.name.trim(),
+        firstName: typeof r.firstName === 'string' ? r.firstName.trim() : undefined,
+        lastName: typeof r.lastName === 'string' ? r.lastName.trim() : undefined,
+        email: r.email.toLowerCase().trim(),
+        phone,
+        role: r.role || 'signer',
+        roleName: typeof r.roleName === 'string' ? r.roleName.trim() : undefined,
+        order: r.order ?? idx,
+        status: 'pending' as const,
+        signed_at: null,
+      }
+    })
+
     const server = await createServerClient()
     const { data: { user } } = await server.auth.getUser()
 
@@ -85,19 +113,10 @@ export async function POST(req: NextRequest) {
       candidate_id: body.candidate_id || null,
       status: 'draft',
       document_category: category,
-      recipients: recipients.map((r, idx) => ({
-        name: r.name.trim(),
-        firstName: typeof r.firstName === 'string' ? r.firstName.trim() : undefined,
-        lastName: typeof r.lastName === 'string' ? r.lastName.trim() : undefined,
-        email: r.email.toLowerCase().trim(),
-        role: r.role || 'signer',
-        roleName: typeof r.roleName === 'string' ? r.roleName.trim() : undefined,
-        order: r.order ?? idx,
-        status: 'pending',
-        signed_at: null,
-      })),
+      recipients: normalizedRecipients,
       message: body.message?.trim() || null,
       created_by: user?.id || null,
+      delivery_channel: deliveryChannel,
       expires_in_days: expiresInDays,
       reminder_frequency_days: reminderFreq,
       expiry_warning_days: expiryWarning,

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.20'
+export const APP_VERSION = '2.3.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,35 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.0',
+    date: '2026-05-08',
+    label: 'TalentFlow Sign complet (Phase 4a/b/c/d) + nouveau module TalentFlow Rapports',
+    features: [
+      'SIGN PHASE 4a — Signature canvas (drawn / typed avec police Caveat) sur page publique candidat. Modal SignaturePad portalisé + mobile-friendly (canvas 280px, boutons 48px, hint tactile, anti-zoom iOS 16px). Adoption signature persistée en DB (sign_tokens.signature_data_url + method). 1 signature appliquée à tous les champs signature/initial du destinataire.',
+      'SIGN PHASE 4b — Génération PDF signé final via `lib/sign/pdf-generator.ts` : download PDF source → hash SHA-256 (preuve ZertES) → multi-pass `stampPdf` (1 par recipient avec ses fields) → page certificat A4 (logo L-Agence + tableau signataires + IP + méthode + hash + footer ZertES RS 943.03 + eIDAS) → upload `signed/{envelopeId}/...` → persiste `sign_envelopes.signed_pdf_paths` jsonb [{name, path, sha256}].',
+      'SIGN PHASE 4c — Workflow séquentiel : extraction `triggerNextSigner` dans `lib/sign/sequential.ts` (parallel routing — attend que tous les signers du même order aient signé avant de déclencher le suivant). Notif email sender à chaque signature ("X a signé, en attente de Y" / final "Tous ont signé") via `sendSignerSignedNotificationEmail`. Routes download `/api/sign/download/[envelopeId]` (auth sender + ZIP DEFLATE si N docs) + `/api/sign/download/public/[token]` (lien email perpétuel post-signature). Section "Documents signés" sur page envelope avec hash SHA-256 visible + download par doc (?doc=N).',
+      'SIGN PHASE 4d — WhatsApp comme canal de livraison. Migration : `sign_envelopes.delivery_channel` (email|whatsapp|both) + `sign_tokens.recipient_phone` (E.164 strict). Wrapper `lib/sign/send-whatsapp.ts` au-dessus de `lib/whatsapp.ts` : invite/reminder/completed/notify-next. `lib/sign/phone-format.ts` (normalizePhoneE164 CH-friendly). RecipientCard avec PhoneInput E.164 (validation visuelle rouge/vert/orange). AdvancedOptions 3 options canal (Email / WhatsApp / Email + WhatsApp), validation pré-submit. `dispatchInvite()` envoie selon canal, dans envelopes/send/relaunch + finalize (séquentiel + completed).',
+      'SIGN — Refonte UI complète DocuSign-style. Page `/sign` avec mini-sidebar 5 sections (Tous / En cours / Complétés / Brouillons / Expirés-Refusés) + filtres avancés (date, statut, catégorie). TemplatesTable avec checkbox bulk + favoris + menu actions ⋮ (Modifier / Dupliquer / Convertir kind / Supprimer). Bulk-actions bar avec suppression parallèle.',
+      'SIGN — Page `/sign/new` full-screen pour création enveloppe (3 sections : Documents / Templates / Destinataires + RecipientsGroup avec drag & drop ordre signataires + AdvancedOptions accordéon).',
+      'SIGN — Importateur DocuSign JSON `/sign/templates/import` : extrait templates, fields positionnés (coords normalisées 0-1), recipientsSchema, listItems, conditions. Préfixe `[DocuSign]` + tooltip Sparkles sur les fields importés.',
+      'SIGN — Éditeur visuel template (`/sign/templates/[id]/edit`) : Konva + react-konva pour overlay interactif sur PDF (drag & drop fields, resize, sélection multiple lasso, multi-drag, undo/redo, copy/paste, zoom). Mode Wizard ↔ Mode Document avec state lifté au parent. WizardEditor avec @dnd-kit/sortable pour réordonner fields dans une étape.',
+      'SIGN — Wizard formulaire pas-à-pas (`SignWizard.tsx`) construit depuis `wizard_steps` jsonb du template. Auto-fill date par jour (Lundi→Dimanche via wizardSection + dateForDayOfWeek). Persistance currentStepIdx en sessionStorage. Backup localStorage immédiat des field_values (anti-perte de saisie).',
+      'SIGN — ConsentModal CGU ZertES bloquant pré-viewer (Phase 3) + audit log complet (created/sent/viewed/consented/signed/completed/declined/expired/reminded). Refresh-friendly via `terms_accepted_at` colonne.',
+      'SIGN — Email Resend design L-Agence (HTML + plain text) : invitation, rappel, complété (avec PDFs en pièces jointes via Resend attachments). Signature email per-user via auth.users.user_metadata.signature_html. Reply-to vers expéditeur si fourni.',
+      'SIGN — Routes complètes : `/api/sign/envelopes` (CRUD + send + relaunch + cancel + remind + tokens + audit + bulk-download), `/api/sign/templates` (CRUD + import DocuSign), `/api/sign/finalize` (signature + stamp + persist + notif + sequential), `/api/sign/sign-field` (sync field_values + adopt signature), `/api/sign/verify-token`, `/api/sign/document/[token]` (proxy PDF avec stamp envelopeId), `/api/sign/upload` (PDFs vers bucket talentflow-sign).',
+      'RAPPORTS — Nouveau module `/sign/rapports/*` (intégré dans Sign, pas de sidebar globale séparée — bouton "Rapports" dans la topbar de /sign à côté de "Templates"). Liens permanents par candidat (slug `prenom-nom-lagence-XXXX`). Réutilise `sign_templates` avec `kind=report` (modale création template propose 3 cards radio : Mappe / Contrat de travail / Rapport d\'heures).',
+      'RAPPORTS — Page candidat `/report/[slug]` : sélecteur semaine 8 dernières + courante avec badge statut par semaine, auto-fill dates par jour quand semaine change, auto-save localStorage immédiat + DB toutes les 30s. Réutilise `PublicPdfViewer` + `PublicFieldsLayer` (mode Document) + `SignWizard` (mode Wizard) + `SignaturePad` — full cohérence Sign. Desktop : topbar riche avec WeekSelector compact + boutons d\'envoi à droite (QR / Envoyer au client). Mobile : sticky bottom + auto-switch wizard.',
+      'RAPPORTS — 2 modes d\'envoi client : (a) **distant** = email/WhatsApp client avec lien `/report/client/{token}` (TTL 7j) selon `delivery_channel`, (b) **présentiel** = QR code modal (TTL 2h) que le client scanne avec son téléphone pour signer sur place. Lib `qrcode` npm, génération côté client en canvas.',
+      'RAPPORTS — Page client `/report/client/[token]` : PublicPdfViewer + PublicFieldsLayer avec `currentRecipientOrder=2` → champs candidat read-only, champs client éditables. Bandeau "X a soumis pour la semaine Y" + bouton "Valider et signer" sticky. Désactivé après signature (status=completed).',
+      'RAPPORTS — Pipeline finalisation : `lib/report/pdf-generator.ts` réutilise `stampPdf` Sign (multi-pass Candidat puis Client) + ajoute page certificat dédiée (rapport hebdo, semaine, slug, signataires, hash) → upload `signed/reports/{linkId}/{submissionId}/...` → persiste `report_submissions.signed_pdf_paths`. Notifications : email ADMIN_EMAIL avec PDF en PJ + WhatsApp client (lien public download) + email client.',
+      'RAPPORTS — Routes API : `/api/admin/reports/*` (dashboard, sender-only) séparées de `/api/reports/*` (publiques) — convention namespace pour éviter conflit Next.js sur `[slug]`. Routes admin : list/create/get/patch/delete/submissions/recent. Routes publiques : verify-link, save-draft (upsert), submit (signature candidat), document (stream PDF), client/[token] (verify+sign+document).',
+      'RAPPORTS — Cards `ReportLinkCard` : nom complet candidat affiché en headline (fetch `/api/candidats/[id]` parallèle), client en sous-titre. Menu actions ⋮ par statut : actif → Pause/Révoquer, paused → Réactiver/Révoquer, **revoked → Réactiver / Supprimer définitivement**. Boutons Copier le lien + WhatsApp deeplink.',
+      'RAPPORTS — Templates : conversion bidirectionnelle `kind` via menu actions `/sign/templates` ⋮ (Convertir en Rapport / en Mappe-Contrat). Bandeau info dans la modale création quand "Rapport d\'heures" sélectionné. Recipients_schema pré-rempli `[{Candidat, Client}]` avec preferredViewMode wizard/document.',
+      'DB — 7 nouvelles tables : `sign_templates`, `sign_envelopes`, `sign_tokens`, `sign_audit_log`, `report_links`, `report_submissions`, `report_audit_log` + extensions `sign_templates.kind` / `sign_envelopes.delivery_channel + signed_pdf_paths` / `sign_tokens.recipient_phone + signature_*` / RLS auth team partagée. Bucket Storage `talentflow-sign` avec préfixes `templates/` `envelopes/` `signed/` `signed/reports/{linkId}/`.',
+      'STACK — Nouvelles dépendances npm : `konva` + `react-konva` (éditeur visuel template), `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` (réordonnancement wizard steps + recipients), `qrcode` + `@types/qrcode` (mode présentiel rapport).',
+    ],
+  },
   {
     version: '2.1.20',
     date: '2026-05-08',

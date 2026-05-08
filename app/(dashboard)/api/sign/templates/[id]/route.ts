@@ -29,8 +29,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   try {
     const body = await req.json()
     const allowed: Record<string, unknown> = {}
-    for (const k of ['name', 'description', 'documents', 'recipients_schema', 'wizard_enabled', 'wizard_steps'] as const) {
-      if (k in body) allowed[k] = body[k]
+    // v2.2.6 Phase 5 — `kind` ajouté pour pouvoir convertir un template existant
+    // de 'envelope' à 'report' (ou inverse) depuis le menu actions /sign/templates.
+    for (const k of ['name', 'description', 'documents', 'recipients_schema', 'wizard_enabled', 'wizard_steps', 'kind'] as const) {
+      if (k in body) {
+        // Validation kind : doit être 'envelope' ou 'report'
+        if (k === 'kind' && body.kind !== 'envelope' && body.kind !== 'report') {
+          return NextResponse.json({ error: 'kind invalide (envelope|report)' }, { status: 400 })
+        }
+        allowed[k] = body[k]
+      }
     }
     if (Object.keys(allowed).length === 0) {
       return NextResponse.json({ error: 'Aucun champ à mettre à jour' }, { status: 400 })

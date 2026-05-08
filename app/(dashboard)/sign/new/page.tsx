@@ -14,7 +14,8 @@ import {
   MessageSquare, ListOrdered, Plus, Sparkles,
 } from 'lucide-react'
 import DocumentUploader from '@/components/sign/DocumentUploader'
-import { type RecipientCandidat, FirstNameAutocomplete } from '@/components/sign/RecipientCard'
+import { type RecipientCandidat, FirstNameAutocomplete, PhoneInput } from '@/components/sign/RecipientCard'
+import { normalizePhoneE164 } from '@/lib/sign/phone-format'
 import RecipientsGroup from '@/components/sign/RecipientsGroup'
 import AdvancedOptions, { DEFAULT_OPTIONS, type AdvancedOptionsValue } from '@/components/sign/AdvancedOptions'
 import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
@@ -132,6 +133,7 @@ function SignNewPage() {
         reminderFrequencyDays: env.reminder_frequency_days ?? prev.reminderFrequencyDays,
         expiryWarningDays: env.expiry_warning_days ?? prev.expiryWarningDays,
         weekStartDate: typeof ctx.weekStartDate === 'string' ? ctx.weekStartDate : prev.weekStartDate,
+        companyName: typeof ctx.companyName === 'string' ? ctx.companyName : prev.companyName,
       }))
     }).catch(() => toast.error('Erreur de chargement du brouillon'))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,6 +209,25 @@ function SignNewPage() {
 
   const isTemplateLocked = !!selectedTemplate
 
+  // v2.2.4 — Détecte si le template/document contient un field destiné à
+  // recevoir le nom d'une société cliente. Détection permissive :
+  //   - type === 'company' (cas idéal)
+  //   - OU type 'title'/'text' avec tooltip/label matchant entreprise/société/client/raison sociale
+  // Si oui → exige que l'admin renseigne `advanced.companyName` avant l'envoi.
+  const hasCompanyField = useMemo(() => {
+    const re = /(entreprise|soci[ée]t[ée]|raison\s*sociale|nom\s*du\s*client|cliente)/i
+    for (const d of documents) {
+      for (const f of (d.fields || [])) {
+        if (f.type === 'company') return true
+        if ((f.type === 'title' || f.type === 'text')
+            && re.test(`${f.tooltip || ''} ${f.label || ''}`)) {
+          return true
+        }
+      }
+    }
+    return false
+  }, [documents])
+
   // ── Recipients actions (RecipientsGroup gère ajout/suppression/réorga via drag&drop) ──
 
   // ── Validation ──
@@ -218,6 +239,20 @@ function SignNewPage() {
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     for (const r of recipients) {
       if (r.email && !emailRe.test(r.email)) return `Email invalide : "${r.email}"`
+    }
+    // v2.2.4 — Société obligatoire si template a un field company
+    if (hasCompanyField && !(advanced.companyName && advanced.companyName.trim())) {
+      return 'Renseigne le « Nom de la société cliente » dans Options avancées (le template contient un champ Société auto-rempli)'
+    }
+    // v2.2.5 Phase 4d — phone obligatoire si canal whatsapp/both
+    if (advanced.channel === 'whatsapp' || advanced.channel === 'both') {
+      const missing = recipients
+        .filter(r => r.name.trim() && r.email.trim())
+        .filter(r => !r.phone || !/^\+\d{10,15}$/.test(r.phone))
+        .map(r => r.name || r.email)
+      if (missing.length > 0) {
+        return `Numéro WhatsApp manquant ou invalide pour : ${missing.join(', ')}. Renseigne le téléphone (E.164) sur chaque destinataire ou choisis le canal Email seul.`
+      }
     }
     return null
   }
@@ -252,10 +287,15 @@ function SignNewPage() {
         expires_in_days: advanced.expiresInDays,
         reminder_frequency_days: advanced.reminderFrequencyDays,
         expiry_warning_days: advanced.expiryWarningDays,
-        // Contexte (week_start_date pour rapports heures, etc.)
-        context_data: advanced.weekStartDate
-          ? { weekStartDate: advanced.weekStartDate }
-          : null,
+        // v2.2.5 Phase 4d — canal d'envoi (email/whatsapp/both)
+        delivery_channel: advanced.channel,
+        // Contexte (week_start_date pour rapports heures, companyName pour fields type=company, etc.)
+        context_data: (() => {
+          const ctx: Record<string, string> = {}
+          if (advanced.weekStartDate) ctx.weekStartDate = advanced.weekStartDate
+          if (advanced.companyName && advanced.companyName.trim()) ctx.companyName = advanced.companyName.trim()
+          return Object.keys(ctx).length > 0 ? ctx : null
+        })(),
       }
       const isEditingDraft = !!draftIdParam
       const r = await fetch(
@@ -472,6 +512,7 @@ function SignNewPage() {
                 templateName={selectedTemplate.name}
                 templateRoleCount={templateRoleCount}
                 onSwitchToFreeMode={() => setUseTemplateRoles(false)}
+                requirePhone={advanced.channel === 'whatsapp' || advanced.channel === 'both'}
               />
             ) : (
               <>
@@ -518,6 +559,7 @@ function SignNewPage() {
                   recipients={recipients}
                   onChange={setRecipients}
                   orderEnabled={orderEnabled}
+                  requirePhone={advanced.channel === 'whatsapp' || advanced.channel === 'both'}
                 />
               </>
             )}
@@ -548,7 +590,7 @@ function SignNewPage() {
           </Section>
 
           {/* SECTION 5 : Options avancées */}
-          <AdvancedOptions value={advanced} onChange={setAdvanced} />
+          <AdvancedOptions value={advanced} onChange={setAdvanced} companyRequired={hasCompanyField} />
 
           <div style={{ height: 40 }} />
         </div>
@@ -615,7 +657,7 @@ function Field({
 // Affiche 1 carte par rôle du template (read-only role + saisie nom/email)
 // Pas d'ajout/suppression — la structure est fixée par le template.
 function RoleFixedRecipients({
-  recipients, onChange, templateName, templateRoleCount, onSwitchToFreeMode,
+  recipients, onChange, templateName, templateRoleCount, onSwitchToFreeMode, requirePhone,
 }: {
   recipients: any[]
   onChange: (r: any[]) => void
@@ -624,6 +666,8 @@ function RoleFixedRecipients({
    *  au-delà de cet index sont des CC libres (ajoutés par l'admin). */
   templateRoleCount: number
   onSwitchToFreeMode: () => void
+  /** v2.2.5 Phase 4d — propagé à PhoneInput pour exiger un phone E.164 */
+  requirePhone?: boolean
 }) {
   const updateRecipient = (idx: number, patch: any) =>
     onChange(recipients.map((r, i) => (i === idx ? { ...r, ...patch } : r)))
@@ -774,11 +818,13 @@ function RoleFixedRecipients({
                     if (candidat) {
                       const fn = candidat.prenom || firstName
                       const ln = candidat.nom || ''
+                      const candPhone = candidat.telephone ? normalizePhoneE164(candidat.telephone) : null
                       updateRecipient(idx, {
                         firstName: fn,
                         lastName: ln,
                         name: [fn, ln].filter(Boolean).join(' ').trim() || fn,
                         email: candidat.email || r.email,
+                        phone: candPhone || r.phone,
                         candidat_id: candidat.id,
                       })
                     } else {
@@ -816,6 +862,14 @@ function RoleFixedRecipients({
                   style={{ height: 38, fontSize: 13 }}
                 />
               </div>
+
+              {/* v2.2.5 Phase 4d — Phone WhatsApp (E.164) */}
+              <PhoneInput
+                value={r.phone || ''}
+                required={!!requirePhone}
+                color={palette.stroke}
+                onChange={phone => updateRecipient(idx, { phone })}
+              />
 
               {/* v2.2.3 — Bandeau "Ajouter comme contact de [Client]" si email match */}
               <ClientContactSuggestion

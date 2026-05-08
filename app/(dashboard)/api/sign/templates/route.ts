@@ -35,6 +35,22 @@ export async function POST(request: NextRequest) {
     const server = await createServerClient()
     const { data: { user } } = await server.auth.getUser()
 
+    // v2.2.6 Phase 5 — kind=envelope (défaut) ou 'report' (rapport hebdo).
+    // Si kind='report' et recipients_schema vide, on pré-remplit avec 2 rôles fixes
+    // (Candidat order=1, Client order=2) — c'est la structure obligatoire d'un rapport.
+    const kind: 'envelope' | 'report' = body.kind === 'report' ? 'report' : 'envelope'
+    const providedSchema = Array.isArray(body.recipients_schema) ? body.recipients_schema : []
+    const recipientsSchema = providedSchema.length > 0
+      ? providedSchema
+      : (kind === 'report'
+          ? [
+              { role: 'signer', order: 1, roleName: 'Candidat',
+                preferredViewMode: 'wizard' },
+              { role: 'signer', order: 2, roleName: 'Client',
+                preferredViewMode: 'document' },
+            ]
+          : [])
+
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('sign_templates' as any)
@@ -42,8 +58,9 @@ export async function POST(request: NextRequest) {
         name: body.name.trim(),
         description: body.description?.trim() || null,
         documents: body.documents ?? [],
-        recipients_schema: body.recipients_schema ?? [],
+        recipients_schema: recipientsSchema,
         created_by: user?.id || null,
+        kind,
       })
       .select()
       .single()

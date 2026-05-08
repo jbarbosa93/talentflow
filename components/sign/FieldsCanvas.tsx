@@ -20,6 +20,8 @@ interface Props {
   activeTool: SignFieldType | null
   activeRecipientOrder: number
   genId: () => string
+  /** v2.2.4 — Affichage des badges wizardSection au-dessus de chaque field (toggle UI). Défaut true. */
+  showSectionBadges?: boolean
 }
 
 const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
@@ -79,6 +81,7 @@ function colorFor(order: number) {
   return RECIPIENT_COLORS[idx % RECIPIENT_COLORS.length]
 }
 
+
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0
   if (n < 0) return 0
@@ -88,13 +91,41 @@ function clamp01(n: number): number {
 
 export default function FieldsCanvas({
   width, height, page, fields, onChange, selectedIds, onSelect,
-  activeTool, activeRecipientOrder, genId,
+  activeTool, activeRecipientOrder, genId, showSectionBadges = true,
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const selectedSet = new Set(selectedIds)
 
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
+
+  // v2.2.4 — Sélection lasso (drag rectangle sur le fond vide).
+  // Comme Figma/Photoshop : tu cliques sur le fond + drag → rectangle bleu →
+  // tous les fields touchés sont sélectionnés. Shift+drag = additif à la sélection courante.
+  const [lassoStart, setLassoStart] = useState<{ x: number; y: number } | null>(null)
+  const [lassoEnd, setLassoEnd] = useState<{ x: number; y: number } | null>(null)
+  const lassoBaseSelectionRef = useRef<string[]>([])  // sélection avant début du lasso (pour shift+drag)
+
+  // v2.2.4 — Ghost preview à la souris quand un outil est actif (DocuSeal-like).
+  // Le user voit où le field va atterrir avant de cliquer.
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null)
+  const handleStageMouseMoveGlobal = (e: KonvaEventObject<MouseEvent>) => {
+    // Aussi gère le lasso existing si dragging
+    if (lassoStart) {
+      handleStageMouseMove(e)
+      return
+    }
+    if (!activeTool) {
+      if (mousePos) setMousePos(null)
+      return
+    }
+    const pos = e.target.getStage()?.getPointerPosition()
+    if (!pos) return
+    setMousePos({ x: pos.x, y: pos.y })
+  }
+  const handleStageMouseLeaveGhost = () => {
+    if (mousePos) setMousePos(null)
+  }
 
   const handleStageClick = (e: KonvaEventObject<MouseEvent>) => {
     if (e.target === e.target.getStage()) {
@@ -121,9 +152,59 @@ export default function FieldsCanvas({
         onChange([...fields, newField])
         onSelect([newField.id])
       } else {
-        onSelect([])
+        // v2.2.4 — click simple sur fond : désélectionne SAUF si on vient de finir un lasso
+        // (handleStageMouseUp gère déjà la sélection lasso → ne pas écraser ici)
+        if (!lassoStart) onSelect([])
       }
     }
+  }
+
+  // v2.2.4 — Lasso start : mousedown sur fond vide (pas activeTool, pas sur field)
+  const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    if (activeTool) return  // mode placement actif → pas de lasso
+    if (e.target !== e.target.getStage()) return  // clicked on a field, not bg
+    const pos = e.target.getStage()?.getPointerPosition()
+    if (!pos) return
+    const evt = e.evt as MouseEvent
+    // Shift = additif (préserve sélection courante)
+    lassoBaseSelectionRef.current = (evt.shiftKey || evt.metaKey || evt.ctrlKey) ? [...selectedIds] : []
+    setLassoStart({ x: pos.x, y: pos.y })
+    setLassoEnd({ x: pos.x, y: pos.y })
+  }
+
+  const handleStageMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    if (!lassoStart) return
+    const pos = e.target.getStage()?.getPointerPosition()
+    if (!pos) return
+    setLassoEnd({ x: pos.x, y: pos.y })
+    // Calcule la sélection en temps réel pour feedback visuel
+    const x1 = Math.min(lassoStart.x, pos.x)
+    const y1 = Math.min(lassoStart.y, pos.y)
+    const x2 = Math.max(lassoStart.x, pos.x)
+    const y2 = Math.max(lassoStart.y, pos.y)
+    const insideIds: string[] = []
+    for (const f of visible) {
+      const fx = f.x * width, fy = f.y * height
+      const fw = f.width * width, fh = f.height * height
+      // AABB intersection
+      if (fx + fw >= x1 && fx <= x2 && fy + fh >= y1 && fy <= y2) {
+        insideIds.push(f.id)
+      }
+    }
+    // Fusionne avec la sélection de base (mode shift)
+    const baseSet = new Set(lassoBaseSelectionRef.current)
+    for (const id of insideIds) baseSet.add(id)
+    onSelect(Array.from(baseSet))
+  }
+
+  const handleStageMouseUp = () => {
+    if (!lassoStart) return
+    // Lasso très court (< 4px) = clic simple → désélectionne (déjà fait par handleStageClick)
+    if (lassoEnd && Math.hypot(lassoEnd.x - lassoStart.x, lassoEnd.y - lassoStart.y) < 4) {
+      onSelect(lassoBaseSelectionRef.current)
+    }
+    setLassoStart(null)
+    setLassoEnd(null)
   }
 
   const handleFieldClick = (id: string, ev: KonvaEventObject<MouseEvent>) => {
@@ -142,8 +223,73 @@ export default function FieldsCanvas({
     }
   }
 
+  // v2.2.4 — Multi-drag : mémorise positions initiales au dragStart pour calculer le delta.
+  const dragStartPosRef = useRef<{ leaderId: string; positions: Map<string, { x: number; y: number }> } | null>(null)
+
+  const handleDragStart = (id: string, e: KonvaEventObject<DragEvent>) => {
+    const node = e.target
+    // Si le field draggé est dans la sélection multi → mémorise positions de TOUS les selected
+    if (selectedIds.includes(id) && selectedIds.length > 1) {
+      const positions = new Map<string, { x: number; y: number }>()
+      for (const fid of selectedIds) {
+        const f = fields.find(x => x.id === fid)
+        if (f) positions.set(fid, { x: f.x * width, y: f.y * height })
+      }
+      // Ajoute aussi la position du leader (= position initiale, AVANT le drag commence)
+      positions.set(id, { x: node.x(), y: node.y() })
+      dragStartPosRef.current = { leaderId: id, positions }
+    } else {
+      dragStartPosRef.current = null
+    }
+  }
+
+  const handleDragMove = (id: string, e: KonvaEventObject<DragEvent>) => {
+    const ref = dragStartPosRef.current
+    if (!ref || ref.leaderId !== id) return
+    const node = e.target
+    const initial = ref.positions.get(id)
+    if (!initial) return
+    const dx = node.x() - initial.x
+    const dy = node.y() - initial.y
+    // Update visuellement les autres Group Konva nodes (pas de setState pour fluidité)
+    const stage = node.getStage()
+    if (!stage) return
+    for (const [otherId, pos] of ref.positions) {
+      if (otherId === id) continue
+      const otherNode = stage.findOne(`#fld-${otherId}`)
+      if (otherNode) {
+        otherNode.x(pos.x + dx)
+        otherNode.y(pos.y + dy)
+      }
+    }
+  }
+
   const handleDragEnd = (id: string, e: KonvaEventObject<DragEvent>) => {
     const node = e.target
+    const ref = dragStartPosRef.current
+    // Cas multi-drag : applique le delta à TOUS les selected fields
+    if (ref && ref.leaderId === id) {
+      const initial = ref.positions.get(id)
+      if (initial) {
+        const dx = node.x() - initial.x
+        const dy = node.y() - initial.y
+        // Commit en une seule passe
+        onChange(fields.map(f => {
+          const pos0 = ref.positions.get(f.id)
+          if (!pos0) return f
+          const newXPx = pos0.x + dx
+          const newYPx = pos0.y + dy
+          return {
+            ...f,
+            x: clamp01(newXPx / width),
+            y: clamp01(newYPx / height),
+          }
+        }))
+      }
+      dragStartPosRef.current = null
+      return
+    }
+    // Cas single-drag : juste le field draggé
     const xPx = node.x()
     const yPx = node.y()
     onChange(fields.map(f => f.id === id ? { ...f, x: clamp01(xPx / width), y: clamp01(yPx / height) } : f))
@@ -191,11 +337,15 @@ export default function FieldsCanvas({
       height={height}
       onClick={handleStageClick}
       onTap={handleStageClick as unknown as (e: KonvaEventObject<TouchEvent>) => void}
+      onMouseDown={handleStageMouseDown}
+      onMouseMove={handleStageMouseMoveGlobal}
+      onMouseUp={handleStageMouseUp}
+      onMouseLeave={handleStageMouseLeaveGhost}
       style={{
         position: 'absolute',
         top: 0,
         left: 0,
-        cursor: activeTool ? 'crosshair' : 'default',
+        cursor: activeTool ? 'crosshair' : (lassoStart ? 'crosshair' : 'default'),
       }}
     >
       {/* Layer 1 : champs */}
@@ -216,9 +366,12 @@ export default function FieldsCanvas({
               color={c}
               isSelected={isSelected}
               isHovered={isHovered}
+              showSectionBadges={showSectionBadges}
               onClick={ev => handleFieldClick(f.id, ev)}
               onMouseEnter={() => setHoveredId(f.id)}
               onMouseLeave={() => setHoveredId(prev => prev === f.id ? null : prev)}
+              onDragStart={ev => handleDragStart(f.id, ev)}
+              onDragMove={ev => handleDragMove(f.id, ev)}
               onDragEnd={ev => handleDragEnd(f.id, ev)}
               boundW={width}
               boundH={height}
@@ -262,6 +415,46 @@ export default function FieldsCanvas({
           )
         })}
       </Layer>
+
+      {/* v2.2.4 — Layer 3 : rectangle lasso de sélection (au-dessus de tout) */}
+      {lassoStart && lassoEnd && (
+        <Layer listening={false}>
+          <Rect
+            x={Math.min(lassoStart.x, lassoEnd.x)}
+            y={Math.min(lassoStart.y, lassoEnd.y)}
+            width={Math.abs(lassoEnd.x - lassoStart.x)}
+            height={Math.abs(lassoEnd.y - lassoStart.y)}
+            fill="rgba(74,144,226,0.12)"
+            stroke="#4A90E2"
+            strokeWidth={1}
+            dash={[4, 3]}
+          />
+        </Layer>
+      )}
+
+      {/* v2.2.4 — Layer 4 : ghost preview à la souris quand un outil est actif (DocuSeal-like) */}
+      {activeTool && mousePos && !lassoStart && (() => {
+        const def = DEFAULT_FIELD_SIZE_PCT[activeTool]
+        const wPx = def.w * width
+        const hPx = def.h * height
+        const c = colorFor(activeRecipientOrder)
+        return (
+          <Layer listening={false}>
+            <Rect
+              x={mousePos.x - wPx / 2}
+              y={mousePos.y - hPx / 2}
+              width={wPx}
+              height={hPx}
+              fill={c.fill}
+              stroke={c.stroke}
+              strokeWidth={1.5}
+              cornerRadius={3}
+              dash={[5, 3]}
+              opacity={0.85}
+            />
+          </Layer>
+        )
+      })()}
     </Stage>
   )
 }
@@ -275,23 +468,71 @@ interface FieldGroupProps {
   color: { stroke: string; fill: string; text: string; soft?: string; fillSolid?: string }
   isSelected: boolean
   isHovered: boolean
+  showSectionBadges: boolean
   onClick: (ev: KonvaEventObject<MouseEvent>) => void
   onMouseEnter: () => void
   onMouseLeave: () => void
+  onDragStart: (e: KonvaEventObject<DragEvent>) => void
+  onDragMove: (e: KonvaEventObject<DragEvent>) => void
   onDragEnd: (e: KonvaEventObject<DragEvent>) => void
   boundW: number
   boundH: number
 }
 
 function FieldGroup({
-  field, x, y, w, h, color, isSelected, isHovered,
-  onClick, onMouseEnter, onMouseLeave, onDragEnd,
+  field, x, y, w, h, color, isSelected, isHovered, showSectionBadges,
+  onClick, onMouseEnter, onMouseLeave, onDragStart, onDragMove, onDragEnd,
   boundW, boundH,
 }: FieldGroupProps) {
+  // v2.2.4 — Helper local : rend le badge wizardSection (utilisé dans toutes les
+  // branches type — checkbox/signature/select/text/etc.) pour cohérence visuelle.
+  const sectionBadge = showSectionBadges && field.wizardSection && field.wizardSection.trim() ? (() => {
+    const sectionText = field.wizardSection!.trim()
+    const sectionFontSize = Math.min(10, Math.max(8, h * 0.45))
+    const padX = 4, padY = 2
+    const estimatedWidth = sectionText.length * sectionFontSize * 0.55 + padX * 2
+    return (
+      <>
+        <Rect
+          x={0}
+          y={-sectionFontSize - padY * 2 - 2}
+          width={estimatedWidth}
+          height={sectionFontSize + padY * 2}
+          fill={color.stroke}
+          cornerRadius={3}
+          listening={false}
+          opacity={isHovered || isSelected ? 1 : 0.85}
+        />
+        <Text
+          x={padX}
+          y={-sectionFontSize - padY - 1}
+          text={sectionText}
+          fontSize={sectionFontSize}
+          fontFamily='"DM Sans", "Inter", system-ui, sans-serif'
+          fontStyle="bold"
+          fill="white"
+          listening={false}
+        />
+      </>
+    )
+  })() : null
   const cornerRadius = 3
   const strokeWidth = isSelected ? 1.7 : isHovered ? 1.3 : 1
   const dash = isSelected ? undefined : [3, 2]
-  const fontSize = Math.min(13, Math.max(8, h * 0.6))
+  // v2.2.4 — Si l'admin a explicitement défini field.fontSize via le panneau Formatage,
+  // on respecte cette valeur (× scale Konva si nécessaire). Sinon fallback auto-fit.
+  // field.fontSize est en POINTS (PDF). Konva travaille en pixels CSS, ratio ~0.95-1.0.
+  const fontSize = field.fontSize
+    ? Math.max(6, Math.min(h - 2, field.fontSize))
+    : Math.min(13, Math.max(8, h * 0.6))
+  // v2.2.4 — Bold / italic configurés via panneau formatage (avant : ignorés)
+  const fontStyle = `${field.bold ? 'bold' : ''} ${field.italic ? 'italic' : ''}`.trim() || 'normal'
+  // Couleur du texte rendu : utilise field.fontColor si défini (palette couleur du panneau)
+  const FONT_COLOR_MAP: Record<string, string> = {
+    Black: '#000000', Gray: '#6B7280', Blue: '#1E40AF',
+    Red: '#DC2626', Green: '#15803D', Orange: '#EA580C',
+  }
+  const customTextColor = field.fontColor ? (FONT_COLOR_MAP[field.fontColor] || field.fontColor) : null
   const isCheckbox = field.type === 'checkbox'
   // Signature et Paraphe : même rendu visuel (icône stylo + texte), juste placeholder différent
   const isSignature = field.type === 'signature' || field.type === 'initial'
@@ -302,13 +543,21 @@ function FieldGroup({
   const groupBadge = field.groupId ? (field.groupName || 'G') : null
 
   const baseGroupProps = {
+    // v2.2.4 — id Konva pour findOne lors du multi-drag (handleDragMove)
+    id: `fld-${field.id}`,
     x, y,
     draggable: true,
     onClick,
     onTap: onClick as unknown as (e: KonvaEventObject<TouchEvent>) => void,
     onMouseEnter,
     onMouseLeave,
+    onDragStart,
+    onDragMove,
     onDragEnd,
+    // Bound function désactivé en multi-drag : sinon le leader est clampé
+    // mais les autres dépassent et créent un décalage permanent.
+    // En single drag → clamp normal. En multi → laisse aller, le commit final
+    // applique clamp01 sur chaque field individuellement.
     dragBoundFunc: (pos: { x: number; y: number }) => ({
       x: Math.max(0, Math.min(boundW - w, pos.x)),
       y: Math.max(0, Math.min(boundH - h, pos.y)),
@@ -337,6 +586,8 @@ function FieldGroup({
             lineJoin="round"
           />
         )}
+        {/* v2.2.4 — Badge wizardSection (cohérence avec autres types) */}
+        {sectionBadge}
         {/* Badge "G" si membre d'un groupe */}
         {groupBadge && (
           <>
@@ -402,6 +653,7 @@ function FieldGroup({
           ellipsis
           wrap="none"
         />
+        {sectionBadge}
       </Group>
     )
   }
@@ -450,6 +702,7 @@ function FieldGroup({
           wrap="none"
           opacity={0.95}
         />
+        {sectionBadge}
       </Group>
     )
   }
@@ -493,6 +746,7 @@ function FieldGroup({
           ellipsis
           wrap="none"
         />
+        {sectionBadge}
       </Group>
     )
   }
@@ -509,6 +763,11 @@ function FieldGroup({
         dash={dash}
         cornerRadius={cornerRadius}
         opacity={isReadOnly ? 0.7 : 1}
+        // v2.2.4 — Ombre subtile au hover/select pour effet "élévation" DocuSeal-like
+        shadowColor={isSelected || isHovered ? color.stroke : undefined}
+        shadowBlur={isSelected ? 8 : isHovered ? 4 : 0}
+        shadowOpacity={isSelected ? 0.35 : isHovered ? 0.2 : 0}
+        shadowOffsetY={isSelected ? 2 : isHovered ? 1 : 0}
       />
       <Text
         x={6}
@@ -517,9 +776,15 @@ function FieldGroup({
         height={h}
         text={field.defaultValue && field.defaultValue.trim() ? field.defaultValue : placeholder}
         fontSize={fontSize}
-        fontStyle={field.defaultValue ? '600' : '500'}
-        fontFamily='"DM Sans", "Inter", system-ui, sans-serif'
-        fill={field.defaultValue ? color.text : color.text}
+        // v2.2.4 — Si l'admin a configuré bold/italic via panneau Formatage : applique-les
+        fontStyle={
+          field.bold || field.italic
+            ? `${field.bold ? 'bold' : ''} ${field.italic ? 'italic' : ''}`.trim()
+            : (field.defaultValue ? '600' : '500')
+        }
+        fontFamily={field.font ? `"${field.font}", "DM Sans", system-ui, sans-serif` : '"DM Sans", "Inter", system-ui, sans-serif'}
+        fill={customTextColor || color.text}
+        textDecoration={field.underline ? 'underline' : undefined}
         align="left"
         verticalAlign="middle"
         listening={false}
@@ -564,6 +829,7 @@ function FieldGroup({
           opacity={0.7}
         />
       )}
+      {sectionBadge}
     </Group>
   )
 }

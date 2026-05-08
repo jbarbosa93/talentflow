@@ -20,9 +20,11 @@ interface Props {
   onChange: (recipients: RecipientCandidat[]) => void
   /** Si false, mode "envoi simultané à tous" → 1 seule étape implicite (order=0 partout) */
   orderEnabled: boolean
+  /** v2.2.5 Phase 4d — propagé à chaque RecipientCard pour valider le phone */
+  requirePhone?: boolean
 }
 
-export default function RecipientsGroup({ recipients, onChange, orderEnabled }: Props) {
+export default function RecipientsGroup({ recipients, onChange, orderEnabled, requirePhone }: Props) {
   // Index local utilisé comme identifiant temporaire pendant le drag
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null)
   const [dragOverTarget, setDragOverTarget] = useState<DropTarget | null>(null)
@@ -121,6 +123,7 @@ export default function RecipientsGroup({ recipients, onChange, orderEnabled }: 
               onMove={() => {}}
               onRemove={() => removeRecipient(idx)}
               onDropTo={() => {}}
+              requirePhone={requirePhone}
             />
           ))}
         </div>
@@ -191,6 +194,7 @@ export default function RecipientsGroup({ recipients, onChange, orderEnabled }: 
                     onMove={() => {}}  // remplacé par DnD entre groupes
                     onRemove={() => removeRecipient(idx)}
                     onDropTo={() => {}}  // remplacé par DnD entre groupes
+                    requirePhone={requirePhone}
                   />
                 )
               })}

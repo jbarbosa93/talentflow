@@ -155,7 +155,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           const value = isAutoSign
             ? opts.autoFill.today
             : (typeof opts.fieldValues[f.id] === 'string' ? formatDate(opts.fieldValues[f.id] as string, f.dateFormat) : '')
-          if (value) drawTextInBox(page, value, xPts, yPtsBL, wPts, hPts, helv)
+          if (value) drawTextInBox(page, value, xPts, yPtsBL, wPts, hPts, helv, f)
           break
         }
 
@@ -182,7 +182,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
             const items = (f.metadata?.listItems as { text: string; value: string }[] | undefined) || []
             const item = items.find(i => i.value === v)
             const display = item?.text || v
-            drawTextInBox(page, display, xPts, yPtsBL, wPts, hPts, helv)
+            drawTextInBox(page, display, xPts, yPtsBL, wPts, hPts, helv, f)
           }
           break
         }
@@ -197,17 +197,25 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           let value = ''
           if (typeof explicit === 'string' && explicit.trim()) value = explicit
           else {
-            switch (f.type) {
-              case 'firstname': value = opts.autoFill.firstName; break
-              case 'lastname':  value = opts.autoFill.lastName;  break
-              case 'fullname':  value = opts.autoFill.fullName;  break
-              case 'email':     value = opts.autoFill.email;     break
-              case 'company':   value = opts.autoFill.companyName || ''; break
-              case 'title':     value = opts.autoFill.title || ''; break
-              default: value = ''
+            // v2.2.4 — Heuristique title→company si tooltip ressemble entreprise/société
+            const txt = `${f.tooltip || ''} ${f.label || ''}`.toLowerCase()
+            const titleLooksLikeCompany = f.type === 'title'
+              && /(entreprise|soci[ée]t[ée]|raison\s*sociale|nom\s*du\s*client|cliente)/.test(txt)
+            if (titleLooksLikeCompany) {
+              value = opts.autoFill.companyName || ''
+            } else {
+              switch (f.type) {
+                case 'firstname': value = opts.autoFill.firstName; break
+                case 'lastname':  value = opts.autoFill.lastName;  break
+                case 'fullname':  value = opts.autoFill.fullName;  break
+                case 'email':     value = opts.autoFill.email;     break
+                case 'company':   value = opts.autoFill.companyName || ''; break
+                case 'title':     value = opts.autoFill.title || ''; break
+                default: value = ''
+              }
             }
           }
-          if (value) drawTextInBox(page, value, xPts, yPtsBL, wPts, hPts, helv)
+          if (value) drawTextInBox(page, value, xPts, yPtsBL, wPts, hPts, helv, f)
           break
         }
 
@@ -215,7 +223,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
         case 'number': {
           const v = opts.fieldValues[f.id]
           if (v !== undefined && v !== null && String(v).trim()) {
-            drawTextInBox(page, String(v), xPts, yPtsBL, wPts, hPts, helv)
+            drawTextInBox(page, String(v), xPts, yPtsBL, wPts, hPts, helv, f)
           }
           break
         }
@@ -225,7 +233,7 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
           const computed = computeFormulaValue(f, opts.fieldValues)
           const formatted = formatFormulaValue(f, computed)
           if (formatted) {
-            drawTextInBox(page, formatted, xPts, yPtsBL, wPts, hPts, helv)
+            drawTextInBox(page, formatted, xPts, yPtsBL, wPts, hPts, helv, f)
           }
           break
         }
@@ -266,13 +274,25 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
 
 function drawTextInBox(
   page: any, text: string, x: number, y: number, w: number, h: number, font: PDFFont,
+  field?: SignField,
 ) {
-  let size = Math.min(h * 0.65, TEXT_FONT_SIZE_DEFAULT)
+  // v2.2.4 — Si l'admin a configuré field.fontSize via panneau Formatage,
+  // on l'utilise comme taille INITIALE. Sinon fallback auto-fit selon hauteur.
+  let size = field?.fontSize
+    ? Math.min(field.fontSize, h - 1)  // borné à la hauteur du field
+    : Math.min(h * 0.65, TEXT_FONT_SIZE_DEFAULT)
+  // Réduit si le texte dépasse la largeur (priorité fit > taille demandée)
   while (size > 6 && font.widthOfTextAtSize(text, size) > w - 4) size -= 0.5
   const textY = y + (h - size) / 2 + 1
+  // v2.2.4 — Couleur custom si field.fontColor défini
+  const colorMap: Record<string, [number, number, number]> = {
+    Black: [0, 0, 0], Gray: [0.42, 0.45, 0.5], Blue: [0.12, 0.25, 0.69],
+    Red: [0.86, 0.15, 0.15], Green: [0.08, 0.5, 0.24], Orange: [0.92, 0.35, 0.05],
+  }
+  const c = field?.fontColor && colorMap[field.fontColor] ? colorMap[field.fontColor] : [0, 0, 0]
   page.drawText(text, {
     x: x + 2, y: textY,
-    size, font, color: rgb(0, 0, 0),
+    size, font, color: rgb(c[0], c[1], c[2]),
   })
 }
 

@@ -1,8 +1,9 @@
 // TalentFlow Sign — Mini-sidebar secondaire pour la page /sign
-// v2.2.1 — Refonte UI inspirée DocuSign
+// v2.2.6 — Phase 5 : section RAPPORTS retirée (déplacée en topbar à côté de Templates)
 //
-// 5 sections principales (Tous / En cours / Complétés / Brouillons / Expirés-Refusés)
-// + section Dossiers placeholder ("Bientôt").
+// Sections :
+//   1. Enveloppes — filtres (Tous / En cours / Complétés / Brouillons / Expirés-Refusés)
+//   2. Dossiers   — placeholder ("Bientôt disponible")
 'use client'
 
 import { Inbox, Send, CheckCircle2, FileText, AlertTriangle, FolderClosed } from 'lucide-react'

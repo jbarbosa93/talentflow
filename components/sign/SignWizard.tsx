@@ -54,7 +54,7 @@ function enrichSection(section: string, weekStartDate?: string | null): string {
   }
 }
 import {
-  looksLikeDateField, looksLikeCountrySelect, EUROPEAN_COUNTRIES,
+  looksLikeDateField, looksLikeCountrySelect, looksLikeCompanyField, EUROPEAN_COUNTRIES,
   effectiveFieldState, computeFormulaValue, formatFormulaValue,
 } from '@/lib/sign/field-helpers'
 
@@ -112,8 +112,23 @@ export default function SignWizard({
   const hasPreviousValues = !!previousFieldValues && Object.keys(previousFieldValues).length > 0
   const showPrevRecap = hasPreviousValues && (allDocumentFields || []).length > 0
   const [openAttachment, setOpenAttachment] = useState<{ url: string; filename: string; label: string } | null>(null)
+  // v2.2.4 — Lecture initiale depuis sessionStorage : si le candidat avait été à
+  // l'étape 3 et a toggle vers Mode Document puis revient → reprend à l'étape 3
+  // (au lieu de revenir au début à chaque remount du wizard).
+  const initialIdx = (() => {
+    if (forceStepIdx !== undefined) return forceStepIdx
+    if (typeof window === 'undefined' || !token) return 0
+    try {
+      const raw = window.sessionStorage.getItem(`sign:${token}:currentStepIdx`)
+      if (raw) {
+        const n = Number(raw)
+        if (Number.isFinite(n) && n >= 0 && n <= steps.length) return n
+      }
+    } catch { /* silent */ }
+    return 0
+  })()
   // L'index courant : 0..steps.length-1 = step normale ; steps.length = step récap
-  const [currentIdx, setCurrentIdx] = useState(forceStepIdx ?? 0)
+  const [currentIdx, setCurrentIdx] = useState(initialIdx)
   const [validationError, setValidationError] = useState<string | null>(null)
 
   // Mode preview admin : sync avec l'étape sélectionnée dans l'éditeur
@@ -122,6 +137,17 @@ export default function SignWizard({
       setCurrentIdx(forceStepIdx)
     }
   }, [forceStepIdx, steps.length])
+
+  // v2.2.4 — Persiste l'index courant dans sessionStorage à chaque changement.
+  // Permet de revenir au même step après toggle Wizard ↔ Document.
+  // Pas de persist en mode preview admin (forceStepIdx contrôlé par l'éditeur).
+  useEffect(() => {
+    if (forceStepIdx !== undefined) return
+    if (typeof window === 'undefined' || !token) return
+    try {
+      window.sessionStorage.setItem(`sign:${token}:currentStepIdx`, String(currentIdx))
+    } catch { /* silent */ }
+  }, [currentIdx, forceStepIdx, token])
 
   // Map fieldId → field (résolution rapide)
   const fieldsByStepMap = useMemo(() => fieldsByStep(steps, documents), [steps, documents])
@@ -729,7 +755,9 @@ interface FieldRowProps {
 function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps) {
   const t = field.type as SignFieldType
   const label = humanLabel(field)
-  const isAutoFill = ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t)
+  // v2.2.4 — looksLikeCompanyField : type=title/text avec tooltip "société/entreprise" → traité comme company auto-fill
+  const isCompanyHeuristic = looksLikeCompanyField(field) && t !== 'company'
+  const isAutoFill = ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t) || isCompanyHeuristic
   const eff = allValues ? effectiveFieldState(field, allValues) : { visible: true, required: !!field.required }
   const isRequired = eff.required
 
@@ -742,7 +770,8 @@ function FieldRow({ field, value, onChange, autoFill, allValues }: FieldRowProps
 
   // Si c'est un auto-fill on l'affiche en lecture seule pré-rempli
   if (isAutoFill) {
-    const val = getAutoFillValue(t, autoFill, value)
+    // v2.2.4 — Si heuristique company match, on force le type effectif à 'company' pour getAutoFillValue
+    const val = getAutoFillValue(isCompanyHeuristic ? 'company' : t, autoFill, value)
     return (
       <div>
         <label style={labelStyle}>{label}{isRequired && <span style={{ color: '#DC2626', marginLeft: 4 }}>*</span>}</label>
@@ -1040,6 +1069,11 @@ function isFieldFilled(
   if (t === 'checkbox') return value === true || value === 'true'
   if (t === 'annotation') return true
   if (t === 'formula') return true  // calcul auto, toujours "rempli" même si 0
+  // v2.2.4 — Heuristique : title/text avec tooltip "société/entreprise" → traité comme company
+  if (looksLikeCompanyField(f) && t !== 'company') {
+    const auto = getAutoFillValue('company', autoFill, value)
+    return !!auto && auto.trim() !== ''
+  }
   if (['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t)) {
     const auto = getAutoFillValue(t, autoFill, value)
     return !!auto && auto.trim() !== ''
@@ -1126,8 +1160,9 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  minWidth: 0,                   // v2.2.4 — empêche input[type=date] de déborder sur iOS
   padding: '11px 13px',
-  fontSize: 15,                  // ≥16 sur mobile pour éviter zoom iOS — 15 OK avec font-size adaptatif
+  fontSize: 16,                  // v2.2.4 — 16 strict pour éviter le zoom auto iOS sur focus
   fontFamily: 'inherit',
   background: '#fff',
   border: '1px solid #D1D5DB',
@@ -1138,6 +1173,9 @@ const inputStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 8,
   boxSizing: 'border-box',
+  // v2.2.4 — annule le rendu natif iOS qui force un min-width supérieur sur input[type=date]
+  WebkitAppearance: 'none',
+  appearance: 'none',
 }
 
 const btnPrimary: React.CSSProperties = {

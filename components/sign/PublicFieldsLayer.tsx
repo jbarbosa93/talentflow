@@ -45,6 +45,10 @@ interface Props {
     fullName: string
     email: string
     today: string  // formatted
+    /** v2.2.4 — Nom de la société expéditrice (rempli auto pour fields type=company) */
+    companyName?: string
+    /** v2.2.4 — Fonction/poste candidat (rempli auto pour fields type=title) */
+    title?: string
   }
   /** v2.2.0 — id du champ "courant" (highlight pulsant + auto-focus). */
   currentFieldId?: string | null
@@ -527,6 +531,8 @@ function getAutoFillValue(t: SignFieldType, af: Props['autoFill'], explicit: unk
     case 'lastname':  return af.lastName
     case 'fullname':  return af.fullName
     case 'email':     return af.email
+    case 'company':   return af.companyName || ''
+    case 'title':     return af.title || ''
     default:          return typeof explicit === 'string' ? explicit : ''
   }
 }

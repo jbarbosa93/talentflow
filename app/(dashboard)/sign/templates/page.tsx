@@ -3,7 +3,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, Search, X, FolderCog, ChevronLeft, Loader2, FileJson } from 'lucide-react'
+import { Plus, Search, X, FolderCog, ChevronLeft, Loader2, FileJson, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import CreateTemplateModal from '@/components/sign/CreateTemplateModal'
 import DocusignImportModal from '@/components/sign/DocusignImportModal'
 import TemplatesTable from '@/components/sign/TemplatesTable'
@@ -46,6 +47,33 @@ export default function SignTemplatesPage() {
   const toggleAll = () => {
     if (selectedIds.length === filtered.length) setSelectedIds([])
     else setSelectedIds(filtered.map(t => t.id))
+  }
+
+  // v2.2.6 — Bulk actions : suppression de plusieurs templates en parallèle
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Supprimer définitivement ${selectedIds.length} template${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`)) return
+    setBulkDeleting(true)
+    try {
+      const results = await Promise.all(
+        selectedIds.map(id =>
+          fetch(`/api/sign/templates/${id}`, { method: 'DELETE' })
+            .then(r => ({ id, ok: r.ok }))
+            .catch(() => ({ id, ok: false }))
+        )
+      )
+      const okCount = results.filter(r => r.ok).length
+      const failCount = results.length - okCount
+      if (okCount > 0) toast.success(`${okCount} template${okCount > 1 ? 's supprimés' : ' supprimé'}`)
+      if (failCount > 0) toast.error(`${failCount} échec${failCount > 1 ? 's' : ''}`)
+      setSelectedIds([])
+      fetchData()
+    } catch {
+      toast.error('Erreur suppression bulk')
+    } finally {
+      setBulkDeleting(false)
+    }
   }
 
   return (
@@ -138,6 +166,45 @@ export default function SignTemplatesPage() {
           {filtered.length} template{filtered.length > 1 ? 's' : ''}
         </span>
       </div>
+
+      {/* v2.2.6 — Bulk actions bar (apparaît quand des templates sont sélectionnés) */}
+      {selectedIds.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '10px 14px',
+          marginBottom: 12,
+          background: 'var(--primary-soft)',
+          border: '1px solid var(--primary, #EAB308)',
+          borderRadius: 10,
+          fontSize: 13,
+        }}>
+          <span style={{ fontWeight: 700, color: 'var(--accent-foreground, #A16207)' }}>
+            {selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}
+          </span>
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={() => setSelectedIds([])}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ fontSize: 12 }}
+          >
+            <X size={13} />
+            Désélectionner
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="neo-btn-ghost neo-btn-sm"
+            style={{ fontSize: 12, color: 'var(--destructive)', borderColor: 'var(--destructive)' }}
+          >
+            {bulkDeleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            Supprimer
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="neo-empty">

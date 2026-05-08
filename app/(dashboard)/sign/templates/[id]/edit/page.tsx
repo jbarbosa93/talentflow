@@ -165,6 +165,7 @@ export default function TemplateEditPage({ params }: PageProps) {
               recipientsSchema={recipientsSchema}
               setRecipientsSchema={setRecipientsSchema}
               wizardSteps={wizardSteps}
+              setWizardSteps={setWizardSteps}
               wizardEnabled={wizardEnabled}
               serverVersion={serverVersion}
               onSaved={fetchTemplate}

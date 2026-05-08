@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, Upload, FileText, Trash2, FolderCog, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, Loader2, Upload, FileText, Trash2, FolderCog, GripVertical, ChevronUp, ChevronDown, Briefcase, ClipboardList, FileSignature } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SignDocument } from '@/lib/sign/types'
 
@@ -14,7 +14,19 @@ interface Props {
   onCreated: (templateId: string) => void
 }
 
+/** v2.2.6 Phase 5 — Type fonctionnel choisi à la création.
+ *  - 'mappe' / 'contrat' → kind='envelope' (envelope classique avec catégorie pré-remplie)
+ *  - 'report' → kind='report' (rapport hebdo récurrent — apparaît dans /sign/rapports/new) */
+type TemplateType = 'mappe' | 'contrat' | 'report'
+
+const TYPE_OPTIONS: { value: TemplateType; label: string; description: string; icon: typeof FileText }[] = [
+  { value: 'mappe',   label: 'Mappe',              description: 'Dossier d\'inscription candidat', icon: Briefcase },
+  { value: 'contrat', label: 'Contrat de travail', description: 'Contrat à signer client + candidat', icon: FileSignature },
+  { value: 'report',  label: 'Rapport d\'heures',  description: 'Rapport hebdomadaire récurrent', icon: ClipboardList },
+]
+
 export default function CreateTemplateModal({ open, onClose, onCreated }: Props) {
+  const [type, setType] = useState<TemplateType>('mappe')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [documents, setDocuments] = useState<SignDocument[]>([])
@@ -28,6 +40,7 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
 
   useEffect(() => {
     if (!open) return
+    setType('mappe')
     setName('')
     setDescription('')
     setDocuments([])
@@ -126,6 +139,13 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
     }
     setSubmitting(true)
     try {
+      // v2.2.6 Phase 5 — kind selon le type choisi.
+      // Pour 'report', l'API pré-remplit recipients_schema avec [Candidat, Client].
+      const kind: 'envelope' | 'report' = type === 'report' ? 'report' : 'envelope'
+      const recipientsSchema = type === 'report'
+        ? undefined  // l'API se charge du pré-remplissage Candidat+Client
+        : [{ role: 'Signataire', order: 0 }]
+
       const r = await fetch('/api/sign/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,7 +153,8 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
           name: name.trim(),
           description: description.trim() || null,
           documents,
-          recipients_schema: [{ role: 'Signataire', order: 0 }],
+          recipients_schema: recipientsSchema,
+          kind,
         }),
       })
       const data = await r.json()
@@ -211,7 +232,7 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
             <div>
               <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--foreground)' }}>Nouveau template</div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                Modèle réutilisable de PDFs + destinataires
+                Choisis le type de document puis ajoute les PDFs
               </div>
             </div>
           </div>
@@ -236,11 +257,84 @@ export default function CreateTemplateModal({ open, onClose, onCreated }: Props)
             minHeight: 0,
           }}
         >
+          {/* v2.2.6 Phase 5 — Sélecteur type de document (3 cards radio) */}
+          <div>
+            <label style={labelStyle}>Type de document</label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 8,
+            }}>
+              {TYPE_OPTIONS.map(opt => {
+                const Icon = opt.icon
+                const isActive = type === opt.value
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setType(opt.value)}
+                    style={{
+                      padding: '12px 10px',
+                      border: `1px solid ${isActive ? 'var(--primary, #EAB308)' : 'var(--border)'}`,
+                      borderRadius: 10,
+                      background: isActive ? 'var(--primary-soft)' : 'var(--card)',
+                      color: 'var(--foreground)',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      transition: 'all 0.15s',
+                      boxShadow: isActive ? '0 2px 8px rgba(234,179,8,0.15)' : 'none',
+                    }}
+                  >
+                    <Icon size={16} style={{ color: isActive ? 'var(--primary, #A16207)' : 'var(--muted)' }} />
+                    <div style={{
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: 'var(--foreground)',
+                      lineHeight: 1.2,
+                    }}>
+                      {opt.label}
+                    </div>
+                    <div style={{
+                      fontSize: 10.5,
+                      color: 'var(--muted)',
+                      lineHeight: 1.3,
+                    }}>
+                      {opt.description}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {type === 'report' && (
+              <div style={{
+                marginTop: 8,
+                padding: '8px 12px',
+                background: 'var(--info-soft)',
+                borderRadius: 8,
+                fontSize: 11.5,
+                color: 'var(--info)',
+                lineHeight: 1.5,
+              }}>
+                ℹ️ Ce template apparaîtra dans <strong>Rapports hebdomadaires</strong>.
+                Les rôles Candidat + Client sont pré-configurés. Tu peux uploader le PDF
+                directement ici ou plus tard depuis l&apos;éditeur.
+              </div>
+            )}
+          </div>
+
           <div>
             <label style={labelStyle}>Nom</label>
             <input
               type="text"
-              placeholder="Ex : Contrat CDI standard"
+              placeholder={
+                type === 'report' ? 'Ex : Rapport hebdomadaire L-Agence'
+                : type === 'contrat' ? 'Ex : Contrat CDI standard'
+                : 'Ex : Mappe candidat'
+              }
               value={name}
               onChange={e => setName(e.target.value)}
               className="neo-input"

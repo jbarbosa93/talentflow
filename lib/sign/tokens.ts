@@ -11,6 +11,8 @@ export interface GeneratedToken {
   recipient_email: string
   recipient_name: string
   expires_at: string
+  /** v2.2.5 Phase 4d — Phone E.164 si delivery_channel non-email */
+  recipient_phone?: string | null
 }
 
 /**
@@ -29,17 +31,19 @@ export async function generateTokensForEnvelope(
   const safeTtl = Number.isFinite(ttlDays) && ttlDays > 0 ? ttlDays : DEFAULT_TOKEN_TTL_DAYS
   const expiresAt = new Date(Date.now() + safeTtl * 24 * 60 * 60 * 1000).toISOString()
 
+  // v2.2.5 Phase 4d — propage recipient_phone si le destinataire en a un (E.164).
   const rows = recipients.map(r => ({
     envelope_id: envelopeId,
     recipient_email: r.email.toLowerCase().trim(),
     recipient_name: r.name.trim(),
     expires_at: expiresAt,
+    recipient_phone: r.phone || null,
   }))
 
   const { data, error } = await supabase
     .from('sign_tokens' as any)
     .insert(rows)
-    .select('token, recipient_email, recipient_name, expires_at')
+    .select('token, recipient_email, recipient_name, expires_at, recipient_phone')
 
   if (error) {
     throw new Error(`generateTokensForEnvelope: ${error.message}`)
