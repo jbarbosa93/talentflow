@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.2'
+export const APP_VERSION = '2.3.3'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.3',
+    date: '2026-05-08',
+    label: 'Rapports — 5 corrections UX post-tests (message post-envoi, aperçu onglet, totaux client, récap client, doublon email)',
+    features: [
+      'RAPPORTS BUG 1 — Message post-soumission candidat : carte centrée dans la page (✅ vert + "Merci pour votre rapport !" + "Il a été envoyé au client pour validation.") au lieu d\'un footer vert collé en bas. Early return propre avant le render principal.',
+      'RAPPORTS BUG 2 — Bouton Aperçu dans bandeau jaune : ouvre le PDF dans un nouvel onglet (`window.open(blobUrl, \'_blank\')`) au lieu de déclencher un téléchargement. Blob URL révoqué après 8s.',
+      'RAPPORTS BUG 3 — Total heures + repas manquants côté client : les champs `formula` (recipientOrder=1) ne sont jamais dans `field_values` car calculés côté client candidat. Fix : la route `/api/reports/client/[token]` calcule maintenant les formules avec `computeFormulaValue()` côté serveur et les injecte dans `previousFieldValues` → affichage correct en read-only côté client.',
+      'RAPPORTS BUG 4 — Récapitulatif SignWizard côté client supprimé : ajout du prop `hideRecap` sur le composant SignWizard côté page client. Aligné sur la page candidat qui avait déjà `hideRecap` depuis v2.3.1.',
+      'RAPPORTS BUG 5a — Doublon email admin/client : si `ADMIN_EMAIL === client_email` (cas tests fréquent João), l\'email admin est skippé (l\'email client 5b porte déjà la même info + PJ). Skip loggé `[REPORT SIGN] Skip admin email`. Bug 5b — Logs enrichis sur la génération PDF : affiche `base64Len` de chaque PJ + warning si 0 docs générés pour diagnostiquer les PJ manquantes.',
+    ],
+  },
   {
     version: '2.3.2',
     date: '2026-05-08',

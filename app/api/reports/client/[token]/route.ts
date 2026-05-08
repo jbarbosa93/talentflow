@@ -14,7 +14,7 @@ import { getSubmissionByToken, getReportLinkById, getTemplateForLink } from '@/l
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
+import { getDayOffsetFromSection, dateForDayOfWeek, computeFormulaValue } from '@/lib/sign/field-helpers'
 import type { SignField } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
@@ -141,6 +141,23 @@ export async function GET(
   const previousFieldValues: Record<string, unknown> = {
     ...resolvedCandidatValues,
     ...(submission.field_values || {}),
+  }
+
+  // v2.3.3 Bug 3 — Calculer les champs formula (recipientOrder=1) côté serveur.
+  // Ces champs (ex: Total heures, Total repas) sont calculés dynamiquement depuis
+  // les saisies candidat mais jamais inclus dans field_values (ils sont read-only
+  // côté formulaire candidat). Sans ce calcul, ils s'affichent vides côté client
+  // car PublicFieldsLayer ne calcule pas les formules en mode forceReadOnly.
+  for (const f of allFields) {
+    if (f.type !== 'formula') continue
+    if ((f.recipientOrder ?? 1) !== 1) continue
+    if (f.id in previousFieldValues) continue  // valeur persistée = prioritaire
+    try {
+      const computed = computeFormulaValue(f, previousFieldValues)
+      if (computed !== null && computed !== undefined) {
+        previousFieldValues[f.id] = computed
+      }
+    } catch { /* silent — champ formula invalide */ }
   }
 
   // Audit : on log la 1re consultation (pas chaque GET — détection grossière via metadata)

@@ -315,11 +315,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       }
       const blob = await r.blob()
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `Rapport-${weekStart}.pdf`
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // v2.3.3 Bug 2 — Ouvrir dans un nouvel onglet (pas télécharger)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 8000)
       toast.success(label)
     } catch (e: any) {
       toast.error(e.message || 'Erreur téléchargement')
@@ -366,6 +364,17 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   }
 
   if (!data?.template || !data?.link) return null
+
+  // v2.3.3 Bug 1 — Message post-soumission centré (carte, pas footer sticky)
+  if (submitted) {
+    return (
+      <CenteredCard>
+        <div style={iconWrap('#D1FAE5', '#059669')}><CheckCircle2 size={28} /></div>
+        <h1 style={titleStyle}>Merci pour votre rapport&nbsp;!</h1>
+        <p style={textStyle}>Il a été envoyé au client pour validation.</p>
+      </CenteredCard>
+    )
+  }
 
   // ─── État OK ────────────────────────────────────────────────────────
   const activeDoc = data.template.documents[activeDocIdx]
@@ -773,27 +782,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         </div>
       )}
 
-      {/* v2.3.x Bug 3a — État post-envoi : message d'attente client */}
-      {submitted && (
-        <div style={{
-          flexShrink: 0,
-          padding: '14px 16px',
-          paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
-          background: '#D1FAE5',
-          borderTop: '1px solid #6EE7B7',
-          color: '#065F46',
-          fontSize: 13.5, lineHeight: 1.5,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          textAlign: 'center',
-        }}>
-          <CheckCircle2 size={18} />
-          <span>
-            {/* v2.3.x Bug 2b — Message corrigé : PDF signé envoyé seulement APRÈS signature client */}
-            <strong>Votre rapport a été soumis et envoyé à votre client pour validation et signature.</strong>
-            {' '}Vous recevrez une copie complète une fois qu&apos;il aura signé.
-          </span>
-        </div>
-      )}
+      {/* v2.3.3 Bug 1 — Message post-envoi géré par early return (CenteredCard) au-dessus */}
 
       {/* v2.3.x Bug 2 — Dialog de confirmation après clic bouton */}
       {confirmOpen && (

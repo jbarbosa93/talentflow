@@ -108,7 +108,8 @@ export async function POST(
   }
 
   // 3. Génération PDF (best-effort)
-  console.log('[REPORT SIGN] Starting completion for submission:', submission.id)
+  console.log('[REPORT SIGN] Starting PDF generation for submission:', submission.id)
+  console.log('[REPORT SIGN] Template ID:', link.template_id || 'NONE')
   let stampedDocs: { name: string; path: string; sha256: string; pdfBase64: string }[] = []
   try {
     stampedDocs = await generateReportPdf({
@@ -118,8 +119,11 @@ export async function POST(
     })
     console.log('[REPORT SIGN] PDF generation result:', {
       docsCount: stampedDocs.length,
-      paths: stampedDocs.map(d => ({ name: d.name, sha256: d.sha256.slice(0, 12) })),
+      pdfSizes: stampedDocs.map(d => ({ name: d.name, base64Len: d.pdfBase64.length, sha256: d.sha256.slice(0, 12) })),
     })
+    if (stampedDocs.length === 0) {
+      console.warn('[REPORT SIGN] generateReportPdf returned 0 docs — PJ manquante dans les emails')
+    }
   } catch (e) {
     console.error('[REPORT SIGN] generateReportPdf FAILED', e)
   }
@@ -151,12 +155,23 @@ export async function POST(
     candidat_whatsapp?: { ok: boolean; error?: string }
   } = {}
 
-  // PDFs en pièce jointe si dispo (sinon les emails partent quand même sans PJ)
+  // v2.3.3 Bug 5b — PDFs en pièce jointe si dispo.
+  // Resend attend { filename: string; content: string (base64) }.
+  // Si génération PDF échoue : emails envoyés sans PJ (best-effort, lien dashboard inclus).
   const attachments = stampedDocs.length > 0
     ? stampedDocs.map(d => ({ filename: d.name, content: d.pdfBase64 }))
     : []
+  console.log('[REPORT SIGN] Attachments count:', attachments.length, '| Sizes:', attachments.map(a => a.content.length))
 
-  // 5a. Email admin (toujours envoyé)
+  // 5a. Email admin (envoyé sauf si admin_email === client_email pour éviter le doublon)
+  // v2.3.3 Bug 5a — João teste souvent avec son propre email comme client_email :
+  // dans ce cas il recevrait 2 emails identiques. Si destinataires identiques,
+  // l'email client (5b) porte le même contenu + PJ donc l'admin n'a pas besoin du sien.
+  const adminEmail = process.env.ADMIN_EMAIL
+  const skipAdminEmail = !!(adminEmail && link.client_email
+    && adminEmail.toLowerCase() === link.client_email.toLowerCase()
+    && (link.delivery_channel === 'email' || link.delivery_channel === 'both'))
+  if (!skipAdminEmail) {
   try {
     notifs.admin_email = await sendCompletedEmailToAdmin({
       candidateName,
@@ -174,6 +189,10 @@ export async function POST(
     const msg = e instanceof Error ? e.message : 'Erreur admin email'
     console.error('[reports/client/sign] admin email exception', msg)
     notifs.admin_email = { ok: false, error: msg }
+  }
+  } else {
+    console.log('[REPORT SIGN] Skip admin email (= client_email, doublon évité)')
+    notifs.admin_email = { ok: true }
   }
 
   // 5b. Email client (selon delivery_channel email/both + client_email présent)

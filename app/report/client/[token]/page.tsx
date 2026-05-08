@@ -340,6 +340,8 @@ export default function PublicClientReportPage({
               envelopeTitle={data.link.title}
               completed={false}
               finalizing={submitting}
+              // v2.3.3 Bug 4 — Pas de récapitulatif côté client (inutile, alourdit le flow)
+              hideRecap
               onFinalize={handleFinalize}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={token}
