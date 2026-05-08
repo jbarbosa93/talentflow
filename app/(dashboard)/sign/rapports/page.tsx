@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Plus, ChevronLeft, ClipboardList, Loader2, Search, FileText, X } from 'lucide-react'
 import { toast } from 'sonner'
 import ReportLinkCard from '@/components/report/ReportLinkCard'
@@ -11,6 +12,7 @@ import type { ReportLink, ReportSubmission } from '@/lib/report/types'
 import type { SignTemplate } from '@/lib/sign/types'
 
 export default function ReportsListPage() {
+  const router = useRouter()
   const [links, setLinks] = useState<ReportLink[]>([])
   const [lastByLink, setLastByLink] = useState<Record<string, ReportSubmission | null>>({})
   const [candidateNameByLink, setCandidateNameByLink] = useState<Record<string, string>>({})
@@ -344,6 +346,7 @@ export default function ReportsListPage() {
               onResume={l => handlePauseResume(l, 'active')}
               onRevoke={handleRevoke}
               onDelete={handleDelete}
+              onEdit={l => router.push(`/sign/rapports/${l.id}/edit`)}
             />
           ))}
         </div>

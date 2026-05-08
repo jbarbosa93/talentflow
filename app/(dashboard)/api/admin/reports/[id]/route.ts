@@ -59,6 +59,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (body.client_name !== undefined) {
       update.client_name = body.client_name?.trim() || null
     }
+    if (body.client_contact_name !== undefined) {
+      // v2.3.x — Update du nom contact client (peut être ajouté rétroactivement)
+      update.client_contact_name = body.client_contact_name?.trim() || null
+    }
     if (body.client_email !== undefined) {
       update.client_email = body.client_email?.toLowerCase().trim() || null
     }

@@ -14,6 +14,8 @@ import { getSubmissionByToken, getReportLinkById, getTemplateForLink } from '@/l
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getDayOffsetFromSection, dateForDayOfWeek } from '@/lib/sign/field-helpers'
+import type { SignField } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
 
@@ -81,6 +83,66 @@ export async function GET(
 
   const weekDates = getWeekDates(submission.week_start)
 
+  // v2.3.x — Bug 4 : résoudre côté serveur les fields auto-fill du candidat (recipient 1)
+  // pour que la page client puisse afficher dates/nom/entreprise en read-only.
+  // Le PublicFieldsLayer côté client utilise `autoFill` du CLIENT (pas du candidat),
+  // donc les fields type=firstname/lastname/fullname/email/company resterait vides
+  // sans cette résolution serveur. Pattern aligné sur Sign verify-token previousFieldValues.
+  const allFields: SignField[] = [
+    ...(template.documents || []).flatMap(d => d.fields || []),
+  ]
+  const resolvedCandidatValues: Record<string, unknown> = {}
+  const candidatFullName = candidat
+    ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim()
+    : ''
+  for (const field of allFields) {
+    if ((field.recipientOrder ?? 1) !== 1) continue  // candidat only
+    const fid = field.id
+    // Si déjà saisi par le candidat, on n'écrase pas (saisie manuelle prioritaire)
+    if (submission.field_values && fid in submission.field_values) continue
+
+    switch (field.type) {
+      case 'firstname':
+        if (candidat?.prenom) resolvedCandidatValues[fid] = candidat.prenom
+        break
+      case 'lastname':
+        if (candidat?.nom) resolvedCandidatValues[fid] = candidat.nom
+        break
+      case 'fullname':
+        if (candidatFullName) resolvedCandidatValues[fid] = candidatFullName
+        break
+      case 'email':
+        if (candidat?.email) resolvedCandidatValues[fid] = candidat.email
+        break
+      case 'company':
+        if (link.client_name) resolvedCandidatValues[fid] = link.client_name
+        break
+      case 'date': {
+        // Date du jour de signature candidat (datesigned)
+        if (field.metadata?.tabType === 'datesigned' && submission.candidate_signed_at) {
+          const d = new Date(submission.candidate_signed_at)
+          resolvedCandidatValues[fid] = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+          break
+        }
+        // Date d'un jour de la semaine (Lundi, Mardi, ...) via wizardSection
+        const dayOffset = getDayOffsetFromSection(field.wizardSection)
+        if (dayOffset !== null) {
+          const dayDate = dateForDayOfWeek(submission.week_start, dayOffset)
+          if (dayDate) resolvedCandidatValues[fid] = dayDate
+        }
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  // Merge final : auto-fill candidat (résolu) ⊕ saisies candidat (priorité)
+  const previousFieldValues: Record<string, unknown> = {
+    ...resolvedCandidatValues,
+    ...(submission.field_values || {}),
+  }
+
   // Audit : on log la 1re consultation (pas chaque GET — détection grossière via metadata)
   await logReportAudit({
     submissionId: submission.id,
@@ -101,10 +163,15 @@ export async function GET(
       status: submission.status,
       client_token_expires_at: submission.client_token_expires_at,
     },
+    /** v2.3.x — Auto-fill candidat résolu côté serveur + saisies candidat. À passer
+     *  comme `values` initiales au PublicFieldsLayer pour que les fields candidat
+     *  read-only s'affichent (dates jour, nom, entreprise). */
+    previousFieldValues,
     link: {
       id: link.id,
       title: link.title,
       client_name: link.client_name,
+      client_contact_name: link.client_contact_name,
     },
     candidat,
     template: {

@@ -17,7 +17,7 @@ import { getSubmissionByToken, getReportLinkById } from '@/lib/report/queries'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { generateReportPdf } from '@/lib/report/pdf-generator'
 import {
-  sendCompletedEmailToAdmin, sendCompletedWhatsAppToClient,
+  sendCompletedEmailToAdmin, sendCompletedEmailToClient, sendCompletedWhatsAppToClient,
 } from '@/lib/report/send-notifications'
 import { getWeekDates } from '@/lib/report/week-helpers'
 
@@ -124,19 +124,27 @@ export async function POST(
     .update({ status: 'completed' })
     .eq('id', submission.id)
 
-  // 5. Notifications
+  // 5. Notifications — v2.3.x bug 6 fix : envoie même si PDF KO (lien public reste utilisable)
   const candidateName = candidat
     ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() || (candidat.email || '')
-    : 'Le collaborateur'
+    : (link.candidat_name || 'Le collaborateur')
   const weekDates = getWeekDates(submission.week_start)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
+  const downloadUrl = `${appUrl}/report/client/${token}`
 
-  const notifs: { admin_email?: any; client_whatsapp?: any } = {}
-  if (stampedDocs.length > 0) {
-    const attachments = stampedDocs.map(d => ({
-      filename: d.name,
-      content: d.pdfBase64,
-    }))
+  const notifs: {
+    admin_email?: { ok: boolean; error?: string }
+    client_email?: { ok: boolean; error?: string }
+    client_whatsapp?: { ok: boolean; error?: string }
+  } = {}
+
+  // PDFs en pièce jointe si dispo (sinon les emails partent quand même sans PJ)
+  const attachments = stampedDocs.length > 0
+    ? stampedDocs.map(d => ({ filename: d.name, content: d.pdfBase64 }))
+    : []
+
+  // 5a. Email admin (toujours envoyé)
+  try {
     notifs.admin_email = await sendCompletedEmailToAdmin({
       candidateName,
       clientName: link.client_name || link.client_email || '',
@@ -144,20 +152,67 @@ export async function POST(
       attachments,
       reportLinkUrl: `${appUrl}/sign/rapports/${link.id}`,
     })
+    if (!notifs.admin_email.ok) {
+      console.error('[reports/client/sign] admin email FAILED:', notifs.admin_email.error)
+    } else {
+      console.log('[reports/client/sign] admin email sent OK')
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Erreur admin email'
+    console.error('[reports/client/sign] admin email exception', msg)
+    notifs.admin_email = { ok: false, error: msg }
+  }
 
-    if ((link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') && link.client_phone) {
-      // Lien public download par token (le client_token reste valide post-signature
-      // pour permettre re-download ; route /api/reports/client/[token]/download non
-      // implémentée ici — on pointe vers la page client qui sait télécharger).
-      const downloadUrl = `${appUrl}/report/client/${token}`
+  // 5b. Email client (selon delivery_channel email/both + client_email présent)
+  if ((link.delivery_channel === 'email' || link.delivery_channel === 'both') && link.client_email) {
+    try {
+      notifs.client_email = await sendCompletedEmailToClient({
+        to: link.client_email,
+        clientName: link.client_name || link.client_email,
+        clientContactName: link.client_contact_name,
+        candidateName,
+        weekLabel: weekDates.label,
+        attachments,
+      })
+      if (!notifs.client_email.ok) {
+        console.error('[reports/client/sign] client email FAILED:', notifs.client_email.error)
+      } else {
+        console.log('[reports/client/sign] client email sent OK to', link.client_email)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur client email'
+      console.error('[reports/client/sign] client email exception', msg)
+      notifs.client_email = { ok: false, error: msg }
+    }
+  } else if (link.delivery_channel === 'email' || link.delivery_channel === 'both') {
+    notifs.client_email = { ok: false, error: 'client_email manquant sur le lien' }
+    console.warn('[reports/client/sign] client_email manquant — skip notif client email')
+  }
+
+  // 5c. WhatsApp client (selon delivery_channel whatsapp/both + client_phone présent)
+  if ((link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') && link.client_phone) {
+    try {
       notifs.client_whatsapp = await sendCompletedWhatsAppToClient({
         phone: link.client_phone,
         clientName: link.client_name || link.client_phone,
+        clientContactName: link.client_contact_name,
         candidateName,
         weekLabel: weekDates.label,
         downloadUrl,
       })
+      if (!notifs.client_whatsapp.ok) {
+        console.error('[reports/client/sign] client WhatsApp FAILED:', notifs.client_whatsapp.error)
+      } else {
+        console.log('[reports/client/sign] client WhatsApp sent OK to', link.client_phone)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur WhatsApp client'
+      console.error('[reports/client/sign] client WhatsApp exception', msg)
+      notifs.client_whatsapp = { ok: false, error: msg }
     }
+  } else if (link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') {
+    notifs.client_whatsapp = { ok: false, error: 'client_phone manquant sur le lien' }
+    console.warn('[reports/client/sign] client_phone manquant — skip notif WhatsApp')
   }
 
   await logReportAudit({

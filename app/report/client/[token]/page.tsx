@@ -43,10 +43,13 @@ interface VerifyResponse {
     status: string
     client_token_expires_at: string | null
   }
-  link?: { id: string; title: string; client_name: string | null }
+  link?: { id: string; title: string; client_name: string | null; client_contact_name?: string | null }
   candidat?: { prenom: string | null; nom: string | null; email: string | null } | null
   template?: { id: string; name: string; documents: SignDocument[] }
   wizard?: { enabled: boolean; steps: WizardStep[] }
+  /** v2.3.x Bug 4 — Auto-fill candidat résolu côté serveur (firstname/lastname/dates jours/etc).
+   *  À merger comme valeurs initiales pour que les fields candidat read-only s'affichent. */
+  previousFieldValues?: Record<string, unknown>
   weekLabel?: string
 }
 
@@ -80,9 +83,15 @@ export default function PublicClientReportPage({
         setData(d)
         if (d.valid) {
           setState('ok')
-          // Pré-remplit avec les valeurs déjà saisies par le candidat (lecture
-          // seule pour le client mais il faut les passer pour qu'elles s'affichent).
-          if (d.submission?.field_values) setValues(d.submission.field_values)
+          // v2.3.x Bug 4 — Merge previousFieldValues (auto-fill candidat résolu serveur :
+          // firstname/lastname/fullname/email/company + dates jour/datesigned) ⊕
+          // submission.field_values (saisies candidat). Tout est exposé en read-only via
+          // PublicFieldsLayer grâce à currentRecipientOrder=2.
+          const merged: Record<string, unknown> = {
+            ...(d.previousFieldValues || {}),
+            ...(d.submission?.field_values || {}),
+          }
+          if (Object.keys(merged).length > 0) setValues(merged)
         }
         else if (d.reason === 'expired') setState('expired')
         else if (d.reason === 'already_signed') setState('signed')
@@ -334,7 +343,7 @@ export default function PublicClientReportPage({
               onFinalize={handleFinalize}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={token}
-              previousFieldValues={data.submission.field_values}
+              previousFieldValues={{ ...(data.previousFieldValues || {}), ...(data.submission.field_values || {}) }}
               previousSignerLabel={candidateFullName || 'Collaborateur'}
               allDocumentFields={activeDoc?.fields || []}
             />

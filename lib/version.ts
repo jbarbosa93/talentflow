@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.0'
+export const APP_VERSION = '2.3.1'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.1',
+    date: '2026-05-08',
+    label: 'Rapports — 7 corrections + nouvelle page édition lien',
+    features: [
+      'RAPPORTS BUG 4 — Page client : dates jours (Lundi 04.05, Mardi 05.05…) + nom collaborateur + entreprise n\'apparaissaient pas. L\'API `/api/reports/client/[token]` résout maintenant côté serveur tous les fields candidat auto-fill (firstname/lastname/fullname/email/company/dates par jour via wizardSection/datesigned) en valeurs concrètes injectées dans `previousFieldValues`. La page client merge avec submission.field_values → PublicFieldsLayer affiche tout en read-only vert (filtre `currentRecipientOrder=2`). SignWizard reçoit `previousFieldValues` mergé pour cohérence wizard+document.',
+      'RAPPORTS BUG 6 — Email/WhatsApp final non envoyés au signing client (CRITIQUE). Refonte complète POST `/api/reports/client/[token]/sign` : 3 notifs au lieu de 2 (admin + **client email NOUVEAU** + client WhatsApp), envoi même si génération PDF échoue (lien public reste utilisable, juste pas de PJ), `console.log/error` explicite à chaque étape (`OK to ...` / `FAILED: ...`). Nouvelle fonction `sendCompletedEmailToClient` dans send-notifications.ts.',
+      'RAPPORTS BUG 2 — Suppression de l\'étape récap finale du SignWizard. Nouveau prop `hideRecap` + `finalizeButtonLabel` sur SignWizard (totalSteps -1, pas de RecapStep, dernier "Suivant" → onFinalize direct). Sur la page candidat : remplacé par un dialog modal `ConfirmDialog` (titre "Confirmer l\'envoi ?" + résumé semaine + ✓ signé + boutons Annuler/Confirmer).',
+      'RAPPORTS BUG 3a — Message post-signature corrigé : "Une copie signée vous a été envoyée par email" (FAUX) → "Votre rapport a été envoyé à votre client pour validation. Vous serez notifié une fois qu\'il aura signé." Nouveau state `submitted` + bandeau vert sticky bottom.',
+      'RAPPORTS BUG 3b — Boutons d\'envoi toujours visibles en footer sticky bottom (mobile + desktop, mode wizard + document). 2 boutons : `🤝 Faire signer maintenant` (ghost) + `📤 Envoyer au client` (jaune brand). Désactivés si `!canFinalize` avec helper "Remplis tous les champs et signe d\'abord". Boutons retirés du header desktop (déduplication).',
+      'RAPPORTS FEATURE 5 — Nouveau champ `client_contact_name` (texte libre, optionnel). Migration DB ALTER `report_links` + types + UI new page (champ après "Nom entreprise" avec hint) + 4 routes API (POST/PATCH/GET candidat/GET client). Helper `pickGreetingName()` mutualisé dans send-notifications.ts : prioritaire sur clientName pour la salutation. Plus jamais "Bonjour {entreprise}" ni "Bonjour undefined" — toujours le contact name si présent.',
+      'RAPPORTS FEATURE 7 — Bouton "Modifier" dans menu actions ⋮ des liens (composant ReportLinkCard prop `onEdit`). Nouvelle page `app/(dashboard)/sign/rapports/[id]/edit/page.tsx` : formulaire pré-rempli (titre, candidat_name éditable, client/contact/email/phone, canal, statut). Candidat lié + template restent lecture seule (pour changer : supprimer + recréer). PATCH `/api/admin/reports/[id]`.',
+    ],
+  },
   {
     version: '2.3.0',
     date: '2026-05-08',

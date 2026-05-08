@@ -149,6 +149,7 @@ export async function POST(
         const r = await sendClientInviteEmail({
           to: link.client_email,
           clientName: link.client_name || link.client_email,
+          clientContactName: link.client_contact_name,
           candidateName,
           weekLabel: weekDates.label,
           signUrl,
@@ -164,6 +165,7 @@ export async function POST(
         const r = await sendClientInviteWhatsApp({
           phone: link.client_phone,
           clientName: link.client_name || link.client_phone,
+          clientContactName: link.client_contact_name,
           candidateName,
           weekLabel: weekDates.label,
           signUrl,

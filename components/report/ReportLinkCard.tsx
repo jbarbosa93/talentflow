@@ -3,7 +3,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Calendar, Copy, MessageCircle, MoreVertical, Pause, Play, Trash2, User } from 'lucide-react'
+import { Calendar, Copy, Edit3, MessageCircle, MoreVertical, Pause, Play, Trash2, User } from 'lucide-react'
 import { useState } from 'react'
 import { REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission } from '@/lib/report/types'
 
@@ -21,10 +21,12 @@ interface Props {
   onDelete?: (link: ReportLink) => void
   onCopyLink?: (link: ReportLink) => void
   onSendWhatsApp?: (link: ReportLink) => void
+  /** v2.3.x Feature 7 — Edition du lien (titre, client, canal, contact, etc.) */
+  onEdit?: (link: ReportLink) => void
 }
 
 export default function ReportLinkCard({
-  link, candidateName, lastSubmission, onPause, onResume, onRevoke, onDelete, onCopyLink, onSendWhatsApp,
+  link, candidateName, lastSubmission, onPause, onResume, onRevoke, onDelete, onCopyLink, onSendWhatsApp, onEdit,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false)
   const isPaused = link.status === 'paused'
@@ -115,6 +117,15 @@ export default function ReportLinkCard({
                 flexDirection: 'column',
                 gap: 2,
               }}>
+                {/* v2.3.x Feature 7 — Modifier (titre, client, canal, contact) */}
+                {!isRevoked && onEdit && (
+                  <>
+                    <MenuItem icon={<Edit3 size={13} />} onClick={() => { setMenuOpen(false); onEdit(link) }}>
+                      Modifier
+                    </MenuItem>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
+                  </>
+                )}
                 {!isRevoked && (isPaused
                   ? <MenuItem icon={<Play size={13} />} onClick={() => { setMenuOpen(false); onResume?.(link) }}>Réactiver</MenuItem>
                   : <MenuItem icon={<Pause size={13} />} onClick={() => { setMenuOpen(false); onPause?.(link) }}>Mettre en pause</MenuItem>)}

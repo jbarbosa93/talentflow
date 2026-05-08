@@ -99,6 +99,13 @@ interface Props {
   previousSignerLabel?: string
   /** v2.2.3 Pack 1 — Tous les fields du doc (incluant ceux des autres rôles). Pour récap. */
   allDocumentFields?: SignField[]
+  /** v2.3.x Bug 2 — Si true, ne rend PAS l'étape RecapStep finale. La dernière étape
+   *  affiche directement le bouton "Confirmer et envoyer →" qui appelle onFinalize.
+   *  Utilisé par les Rapports : la confirmation se fait dans un dialog modal côté page. */
+  hideRecap?: boolean
+  /** v2.3.x Bug 2 — Label custom du bouton final (par défaut "Terminer la signature").
+   *  Ex: "Confirmer et envoyer" pour les rapports. */
+  finalizeButtonLabel?: string
 }
 
 export default function SignWizard({
@@ -106,7 +113,7 @@ export default function SignWizard({
   onRequestSignature, autoFill, recipientName, envelopeTitle,
   completed, finalizing, onFinalize, onSwitchToDocumentMode, token, forceStepIdx,
   contextData, previousFieldValues, previousSignerNames, previousSignerLabel,
-  allDocumentFields,
+  allDocumentFields, hideRecap, finalizeButtonLabel,
 }: Props) {
   // v2.2.3 Pack 1 — Détecte s'il y a des valeurs précédentes à montrer en récap
   const hasPreviousValues = !!previousFieldValues && Object.keys(previousFieldValues).length > 0
@@ -152,8 +159,11 @@ export default function SignWizard({
   // Map fieldId → field (résolution rapide)
   const fieldsByStepMap = useMemo(() => fieldsByStep(steps, documents), [steps, documents])
 
-  const totalSteps = steps.length + 1  // +1 pour récap final
-  const isRecapStep = currentIdx >= steps.length
+  // v2.3.x Bug 2 — Si hideRecap, pas de step récap finale (totalSteps = steps.length).
+  // La dernière vraie étape affiche directement le CTA finalize.
+  const totalSteps = hideRecap ? steps.length : steps.length + 1
+  const isRecapStep = !hideRecap && currentIdx >= steps.length
+  const isLastStep = currentIdx === steps.length - 1
   const currentStep: WizardStep | null = isRecapStep ? null : steps[currentIdx]
   const stepFields = currentStep ? (fieldsByStepMap.get(currentStep.id) || []) : []
 
@@ -183,6 +193,12 @@ export default function SignWizard({
 
   const handleNext = () => {
     if (!validateCurrentStep()) return
+    // v2.3.x Bug 2 — En mode hideRecap, sur la dernière étape, "Suivant" déclenche
+    // directement la finalisation au lieu d'avancer vers une RecapStep inexistante.
+    if (hideRecap && isLastStep) {
+      onFinalize()
+      return
+    }
     setCurrentIdx(i => Math.min(i + 1, totalSteps - 1))
   }
   const handlePrev = () => {
@@ -386,8 +402,14 @@ export default function SignWizard({
           </button>
         ) : (
           <button type="button" onClick={handleNext} style={btnPrimary}>
-            {currentStep?.isSignatureStep ? 'Vérifier' : 'Suivant'}
-            <ChevronRight size={16} />
+            {/* v2.3.x Bug 2 — Label adapté en mode hideRecap sur la dernière étape */}
+            {hideRecap && isLastStep
+              ? (finalizing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />)
+              : null}
+            {hideRecap && isLastStep
+              ? (finalizeButtonLabel || 'Confirmer et envoyer')
+              : (currentStep?.isSignatureStep ? 'Vérifier' : 'Suivant')}
+            {!(hideRecap && isLastStep) && <ChevronRight size={16} />}
           </button>
         )}
       </footer>

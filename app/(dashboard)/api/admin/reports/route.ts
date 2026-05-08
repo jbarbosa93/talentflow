@@ -119,6 +119,10 @@ export async function POST(req: NextRequest) {
       template_id: body.template_id,
       title: body.title.trim(),
       client_name: body.client_name?.trim() || null,
+      // v2.3.x — Nom du contact client (texte libre, prioritaire pour la salutation emails/WA)
+      client_contact_name: typeof body.client_contact_name === 'string' && body.client_contact_name.trim()
+        ? body.client_contact_name.trim()
+        : null,
       client_email: body.client_email?.toLowerCase().trim() || null,
       client_phone: clientPhone,
       status: 'active' as const,

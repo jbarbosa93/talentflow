@@ -75,6 +75,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
   const [qrCodeExpires, setQrCodeExpires] = useState<Date | null>(null)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  // v2.3.x Bug 2 — Dialog de confirmation après clic bouton (Q1=a)
+  const [confirmMode, setConfirmMode] = useState<'remote' | 'present' | null>(null)
+  // v2.3.x Bug 3a — État "envoyé" post-confirmation pour message correct
+  const [submitted, setSubmitted] = useState<'remote' | 'present' | null>(null)
 
   // Mode Wizard / Document : auto-switch mobile → wizard, desktop → document
   const [isMobile, setIsMobile] = useState(false)
@@ -229,14 +233,25 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     toast.success('Signature adoptée — appliquée à tous les champs signature')
   }
 
-  // ─── Submit ───
-  const handleSubmit = async (mode: 'remote' | 'present') => {
+  // ─── Click bouton (ouvre le dialog de confirmation Bug 2) ───
+  const handleClickSubmit = (mode: 'remote' | 'present') => {
     if (!signatureDataUrl) {
       toast.error('Signe le rapport avant de l\'envoyer (clique sur le champ Signature dans le document)')
       setSignaturePadOpen(true)
       return
     }
+    if (!canFinalize) {
+      toast.error('Remplis tous les champs avant d\'envoyer')
+      return
+    }
+    setConfirmMode(mode)
+  }
+
+  // ─── Submit (déclenché depuis le dialog après confirmation) ───
+  const handleSubmit = async (mode: 'remote' | 'present') => {
+    if (!signatureDataUrl) return  // safety
     setSubmitting(mode)
+    setConfirmMode(null)
     try {
       const r = await fetch(`/api/reports/${slug}/submit`, {
         method: 'POST',
@@ -252,8 +267,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       if (!r.ok) throw new Error(d.error || 'Erreur soumission')
       // Cleanup localStorage
       try { localStorage.removeItem(`tf_report_draft_${slug}_${weekStart}`) } catch {}
+      // v2.3.x Bug 3a — Message correct post-envoi
+      setSubmitted(mode)
       if (mode === 'remote') {
-        toast.success('Rapport envoyé au client')
+        toast.success('Rapport envoyé à votre client pour validation')
       } else {
         const url = `${window.location.origin}/report/client/${d.client_token}`
         setQrCodeUrl(url)
@@ -462,55 +479,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </button>
         )}
 
-        {/* Boutons d'envoi DESKTOP — directement dans le header (pas en bas) */}
-        {!isLockedWeek && !isMobile && viewMode === 'document' && (
-          <>
-            <button
-              type="button"
-              onClick={() => handleSubmit('present')}
-              disabled={submitting !== null || !canFinalize}
-              title={canFinalize ? 'Faire signer le client maintenant via QR code' : 'Remplis tous les champs et signe d\'abord'}
-              style={{
-                padding: '8px 14px',
-                fontSize: 12.5, fontWeight: 600,
-                border: '1px solid #E5E7EB',
-                borderRadius: 8,
-                background: '#fff', color: '#1C1A14',
-                cursor: submitting !== null || !canFinalize ? 'not-allowed' : 'pointer',
-                opacity: submitting !== null || !canFinalize ? 0.5 : 1,
-                fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              {submitting === 'present' ? <Loader2 size={13} className="animate-spin" /> : <QrCode size={13} />}
-              QR code
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSubmit('remote')}
-              disabled={submitting !== null || !canFinalize}
-              title={canFinalize ? 'Envoyer au client par email/WhatsApp' : 'Remplis tous les champs et signe d\'abord'}
-              style={{
-                padding: '8px 16px',
-                fontSize: 12.5, fontWeight: 700,
-                border: '1px solid #1C1A14',
-                borderRadius: 8,
-                background: '#EAB308', color: '#1C1A14',
-                cursor: submitting !== null || !canFinalize ? 'not-allowed' : 'pointer',
-                opacity: submitting !== null || !canFinalize ? 0.5 : 1,
-                fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              {submitting === 'remote' ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-              Envoyer au client
-            </button>
-          </>
-        )}
+        {/* v2.3.x Bug 3b — Boutons d'envoi déplacés dans un footer sticky bottom toujours visible
+            (mobile + desktop, mode wizard + document). Voir bloc footer plus bas. */}
       </header>
 
       {/* Mobile : WeekSelector sous le header */}
@@ -583,9 +553,12 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               autoFill={autoFill}
               recipientName={candidateFullName || 'Collaborateur'}
               envelopeTitle={data.link.title}
-              completed={isLockedWeek}
+              completed={isLockedWeek || !!submitted}
               finalizing={submitting !== null}
-              onFinalize={() => handleSubmit('remote')}
+              // v2.3.x Bug 2 — Pas de RecapStep finale ; onFinalize ouvre le dialog confirmation
+              hideRecap
+              finalizeButtonLabel="Confirmer et envoyer"
+              onFinalize={() => handleClickSubmit('remote')}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={slug /* clé sessionStorage pour persistance step */}
               contextData={{ weekStartDate: weekStart }}
@@ -677,45 +650,209 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         )}
       </main>
 
-      {/* Boutons d'envoi sticky bottom — MOBILE UNIQUEMENT (sur desktop ils sont dans le header).
-          Masqués en mode Wizard (le wizard a son propre bouton finalize). */}
-      {!isLockedWeek && viewMode === 'document' && isMobile && (
+      {/* v2.3.x Bug 3b — Footer sticky bottom TOUJOURS visible (mobile + desktop, wizard + document)
+          Désactivé si !canFinalize (toolip), masqué si verrouillé ou déjà submitted. */}
+      {!isLockedWeek && !submitted && (
         <div style={{
           flexShrink: 0,
-          padding: '10px 14px',
-          paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))',
+          padding: isMobile ? '10px 14px' : '14px 24px',
+          paddingBottom: isMobile ? 'max(10px, env(safe-area-inset-bottom, 10px))' : 14,
           background: '#fff',
           borderTop: '1px solid #E5E7EB',
-          display: 'flex', flexDirection: 'column', gap: 8,
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 8 : 12,
+          alignItems: isMobile ? 'stretch' : 'center',
+          justifyContent: isMobile ? undefined : 'flex-end',
         }}>
-          <button
-            type="button"
-            onClick={() => handleSubmit('remote')}
-            disabled={submitting !== null || !canFinalize}
-            style={primaryBtnStyle(submitting === 'remote' || !canFinalize)}
-          >
-            {submitting === 'remote' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-            📤 Envoyer au client
-            <ArrowRight size={14} style={{ marginLeft: 'auto' }} />
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit('present')}
-            disabled={submitting !== null || !canFinalize}
-            style={secondaryBtnStyle(submitting === 'present' || !canFinalize)}
-          >
-            {submitting === 'present' ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
-            🤝 Faire signer maintenant (QR)
-          </button>
           {!canFinalize && (
-            <div style={{ fontSize: 11, color: '#A16207', textAlign: 'center' }}>
+            <div style={{
+              fontSize: 12, color: '#A16207',
+              flex: isMobile ? undefined : 1,
+              textAlign: isMobile ? 'center' : 'left',
+            }}>
               ⚠️ Remplis tous les champs et signe avant d&apos;envoyer
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => handleClickSubmit('present')}
+            disabled={submitting !== null || !canFinalize}
+            style={isMobile ? secondaryBtnStyle(submitting === 'present' || !canFinalize) : desktopSecondaryBtn(submitting === 'present' || !canFinalize)}
+          >
+            {submitting === 'present' ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
+            🤝 Faire signer maintenant
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClickSubmit('remote')}
+            disabled={submitting !== null || !canFinalize}
+            style={isMobile ? primaryBtnStyle(submitting === 'remote' || !canFinalize) : desktopPrimaryBtn(submitting === 'remote' || !canFinalize)}
+          >
+            {submitting === 'remote' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            📤 Envoyer au client
+            {isMobile && <ArrowRight size={14} style={{ marginLeft: 'auto' }} />}
+          </button>
         </div>
+      )}
+
+      {/* v2.3.x Bug 3a — État post-envoi : message d'attente client */}
+      {submitted === 'remote' && (
+        <div style={{
+          flexShrink: 0,
+          padding: '14px 16px',
+          paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+          background: '#D1FAE5',
+          borderTop: '1px solid #6EE7B7',
+          color: '#065F46',
+          fontSize: 13.5, lineHeight: 1.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          textAlign: 'center',
+        }}>
+          <CheckCircle2 size={18} />
+          <span>
+            <strong>Votre rapport a été envoyé à votre client pour validation.</strong>
+            {' '}Vous serez notifié une fois qu&apos;il aura signé.
+          </span>
+        </div>
+      )}
+
+      {/* v2.3.x Bug 2 — Dialog de confirmation après clic bouton */}
+      {confirmMode && (
+        <ConfirmDialog
+          mode={confirmMode}
+          weekLabel={weekDates.label}
+          clientName={data.link.client_name || ''}
+          onCancel={() => setConfirmMode(null)}
+          onConfirm={() => handleSubmit(confirmMode)}
+        />
       )}
     </div>
   )
+}
+
+// ─── Dialog de confirmation envoi (Bug 2) ─────────────────────────────
+
+function ConfirmDialog({
+  mode, weekLabel, clientName, onCancel, onConfirm,
+}: {
+  mode: 'remote' | 'present'
+  weekLabel: string
+  clientName: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onCancel}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 16,
+        fontFamily: 'inherit',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: 460, width: '100%',
+          background: '#fff',
+          borderRadius: 16, border: '1px solid #E5E7EB',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.30)',
+          padding: '28px 26px',
+        }}
+      >
+        <h2 style={{
+          margin: 0, marginBottom: 8,
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          fontSize: 22, fontWeight: 400, color: '#1C1A14',
+          letterSpacing: '-0.3px',
+        }}>
+          Confirmer l&apos;envoi&nbsp;?
+        </h2>
+        <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: '0 0 16px' }}>
+          {mode === 'remote'
+            ? <>Le rapport pour la <strong>{weekLabel}</strong> sera envoyé{clientName ? <> à <strong>{clientName}</strong></> : null} pour validation et signature.</>
+            : <>Affichage du QR code pour faire signer le client maintenant. Le rapport sera ensuite finalisé sur place.</>
+          }
+        </p>
+        <div style={{
+          padding: '10px 12px',
+          background: '#FAFAF7',
+          borderRadius: 10,
+          fontSize: 12.5, color: '#1C1A14',
+          marginBottom: 18,
+        }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', fontWeight: 600 }}>
+            <CheckCircle2 size={13} /> Rapport signé
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '10px 16px',
+              fontSize: 13, fontWeight: 600,
+              border: '1px solid #E5E7EB', borderRadius: 10,
+              background: '#fff', color: '#1C1A14',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            style={{
+              padding: '10px 18px',
+              fontSize: 13, fontWeight: 700,
+              border: '1px solid #1C1A14', borderRadius: 10,
+              background: '#EAB308', color: '#1C1A14',
+              cursor: 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <CheckCircle2 size={14} />
+            Confirmer et envoyer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Styles desktop boutons (à côté de mobile primaryBtnStyle/secondaryBtnStyle)
+function desktopPrimaryBtn(disabled: boolean): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    padding: '10px 18px',
+    fontSize: 13.5, fontWeight: 700,
+    border: '1px solid #1C1A14', borderRadius: 10,
+    background: '#EAB308', color: '#1C1A14',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit',
+    opacity: disabled ? 0.5 : 1,
+    minHeight: 42,
+    whiteSpace: 'nowrap',
+  }
+}
+function desktopSecondaryBtn(disabled: boolean): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 8,
+    padding: '10px 18px',
+    fontSize: 13.5, fontWeight: 600,
+    border: '1px solid #E5E7EB', borderRadius: 10,
+    background: '#fff', color: '#1C1A14',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontFamily: 'inherit',
+    opacity: disabled ? 0.5 : 1,
+    minHeight: 42,
+    whiteSpace: 'nowrap',
+  }
 }
 
 // ─── Helpers UI ────────────────────────────────────────────────────────

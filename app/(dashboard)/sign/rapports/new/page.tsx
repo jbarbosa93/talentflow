@@ -22,6 +22,8 @@ export default function NewReportLinkPage() {
   const [templateId, setTemplateId] = useState('')
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
+  // v2.3.x Feature 5 — Nom du contact client (texte libre, optionnel)
+  const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
@@ -92,6 +94,7 @@ export default function NewReportLinkPage() {
           template_id: templateId,
           title: title.trim(),
           client_name: clientName.trim(),
+          client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
           client_phone: clientPhone.trim() || null,
           delivery_channel: channel,
@@ -254,12 +257,23 @@ export default function NewReportLinkPage() {
               style={{ height: 42 }}
             />
           </Field>
-          <Field label="Nom du client *">
+          <Field label="Nom de l'entreprise cliente *">
             <input
               type="text"
               value={clientName}
               onChange={e => setClientName(e.target.value)}
               placeholder="Construction SA"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
+          {/* v2.3.x Feature 5 — Contact pour la salutation des emails/WA client */}
+          <Field label="Nom du contact client (optionnel)" hint="utilisé pour la salutation : Bonjour Marie, …">
+            <input
+              type="text"
+              value={clientContactName}
+              onChange={e => setClientContactName(e.target.value)}
+              placeholder="Ex: Marie Dupont ou Directeur RH"
               className="neo-input"
               style={{ height: 42 }}
             />
@@ -356,11 +370,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   )
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--foreground)', marginBottom: 4 }}>
         {label}
+        {hint && <span style={{ marginLeft: 6, fontWeight: 400, color: 'var(--muted)' }}>· {hint}</span>}
       </label>
       {children}
     </div>

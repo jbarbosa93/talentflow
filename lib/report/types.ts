@@ -35,6 +35,9 @@ export interface ReportLink {
   template_id: string | null
   title: string
   client_name: string | null
+  /** v2.3.x — Nom du contact client (texte libre). Utilisé pour la salutation dans
+   *  emails/WhatsApp envoyés au client. Distinct de `client_name` (entreprise). */
+  client_contact_name: string | null
   client_email: string | null
   client_phone: string | null
   status: ReportLinkStatus
