@@ -70,6 +70,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       const norm = body.client_phone ? normalizePhoneE164(body.client_phone) : null
       update.client_phone = norm
     }
+    if (body.candidat_phone !== undefined) {
+      // v2.3.x — Phone candidat (E.164 normalisé)
+      const norm = body.candidat_phone ? normalizePhoneE164(body.candidat_phone) : null
+      update.candidat_phone = norm
+    }
     if (typeof body.status === 'string' && (VALID_STATUS as string[]).includes(body.status)) {
       update.status = body.status
     }

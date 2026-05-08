@@ -19,6 +19,8 @@ export default function NewReportLinkPage() {
   const [candidatId, setCandidatId] = useState<string | null>(null)
   const [candidatPrenom, setCandidatPrenom] = useState('')
   const [candidatNom, setCandidatNom] = useState('')
+  // v2.3.x Bug 8c — Phone candidat (E.164, optionnel)
+  const [candidatPhone, setCandidatPhone] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
@@ -56,6 +58,10 @@ export default function NewReportLinkPage() {
       setCandidatId(candidat.id)
       setCandidatPrenom(candidat.prenom || firstName)
       setCandidatNom(candidat.nom || '')
+      // v2.3.x Bug 8c — Pré-remplit phone si candidat lié en a un (E.164)
+      if (candidat.telephone && !candidatPhone) {
+        setCandidatPhone(candidat.telephone)
+      }
     } else {
       setCandidatId(null)
       setCandidatPrenom(firstName)
@@ -91,6 +97,7 @@ export default function NewReportLinkPage() {
         body: JSON.stringify({
           candidat_id: candidatId,
           candidat_name: candidatNameToSend,
+          candidat_phone: candidatPhone.trim() || null,
           template_id: templateId,
           title: title.trim(),
           client_name: clientName.trim(),
@@ -150,6 +157,17 @@ export default function NewReportLinkPage() {
               isLinked={!!candidatId}
               onChange={handleCandidat}
               onUnlink={() => { setCandidatId(null) }}
+            />
+          </Field>
+          {/* v2.3.x Bug 8c — Phone candidat (optionnel) pour notif WA + deep link wa.me */}
+          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour le deep link partage + notif post-signature">
+            <input
+              type="tel"
+              value={candidatPhone}
+              onChange={e => setCandidatPhone(e.target.value)}
+              placeholder="+41 79 123 45 67"
+              className="neo-input"
+              style={{ height: 42 }}
             />
           </Field>
           {candidatId ? (

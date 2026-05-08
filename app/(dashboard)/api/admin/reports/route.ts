@@ -112,10 +112,16 @@ export async function POST(req: NextRequest) {
       candidatNameStored = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim() || null
     }
 
+    // v2.3.x Bug 8c — Phone candidat (E.164 normalisé, optionnel)
+    const candidatPhoneNorm = body.candidat_phone
+      ? normalizePhoneE164(body.candidat_phone)
+      : null
+
     const insertPayload = {
       slug,
       candidat_id: body.candidat_id || null,
       candidat_name: candidatNameStored,
+      candidat_phone: candidatPhoneNorm,
       template_id: body.template_id,
       title: body.title.trim(),
       client_name: body.client_name?.trim() || null,

@@ -24,6 +24,8 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
   // Form state
   const [title, setTitle] = useState('')
   const [candidatNameField, setCandidatNameField] = useState('')
+  // v2.3.x Bug 8c
+  const [candidatPhoneField, setCandidatPhoneField] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
@@ -40,6 +42,7 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
         setLink(l)
         setTitle(l.title || '')
         setCandidatNameField(l.candidat_name || '')
+        setCandidatPhoneField(l.candidat_phone || '')
         setClientName(l.client_name || '')
         setClientContactName(l.client_contact_name || '')
         setClientEmail(l.client_email || '')
@@ -82,6 +85,7 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           title: title.trim(),
           candidat_name: candidatNameField.trim() || null,
+          candidat_phone: candidatPhoneField.trim() || null,
           client_name: clientName.trim(),
           client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
@@ -180,6 +184,17 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
               value={candidatNameField}
               onChange={e => setCandidatNameField(e.target.value)}
               placeholder="Ex: Joao Barbosa"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
+          {/* v2.3.x Bug 8c — Phone candidat (notif WA + deep link wa.me) */}
+          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour notif post-signature + deep link partage">
+            <input
+              type="tel"
+              value={candidatPhoneField}
+              onChange={e => setCandidatPhoneField(e.target.value)}
+              placeholder="+41 79 123 45 67"
               className="neo-input"
               style={{ height: 42 }}
             />

@@ -122,15 +122,23 @@ export default function ReportsListPage() {
 
   const handleSendWhatsApp = (link: ReportLink) => {
     const url = `${window.location.origin}/report/${link.slug}`
-    // v2.3.x — Utilise candidat_name (source unique) ; fallback nom DB chargé en parallèle ;
-    // dernier recours : title nettoyé du préfixe "Rapport". Plus jamais de "Bonjour d'heures".
     const fullName = link.candidat_name
       || candidateNameByLink[link.id]
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
     const firstName = fullName.split(/\s+/)[0] || ''
     const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
     const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+    // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible
+    const phoneDigits = link.candidat_phone
+      ? link.candidat_phone.replace(/\D/g, '')
+      : ''
+    const waUrl = phoneDigits
+      ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    if (!phoneDigits) {
+      toast.warning('Pas de WhatsApp candidat configuré — choisis le contact dans WhatsApp')
+    }
+    window.open(waUrl, '_blank', 'noopener,noreferrer')
   }
 
   const handlePauseResume = async (link: ReportLink, newStatus: 'active' | 'paused') => {

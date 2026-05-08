@@ -17,7 +17,8 @@ import { getSubmissionByToken, getReportLinkById } from '@/lib/report/queries'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { generateReportPdf } from '@/lib/report/pdf-generator'
 import {
-  sendCompletedEmailToAdmin, sendCompletedEmailToClient, sendCompletedWhatsAppToClient,
+  sendCompletedEmailToAdmin, sendCompletedEmailToClient,
+  sendCompletedWhatsAppToClient, sendCompletedWhatsAppToCandidat,
 } from '@/lib/report/send-notifications'
 import { getWeekDates } from '@/lib/report/week-helpers'
 
@@ -107,6 +108,7 @@ export async function POST(
   }
 
   // 3. Génération PDF (best-effort)
+  console.log('[REPORT SIGN] Starting completion for submission:', submission.id)
   let stampedDocs: { name: string; path: string; sha256: string; pdfBase64: string }[] = []
   try {
     stampedDocs = await generateReportPdf({
@@ -114,8 +116,12 @@ export async function POST(
       submission: updatedSubmission,
       candidat,
     })
+    console.log('[REPORT SIGN] PDF generation result:', {
+      docsCount: stampedDocs.length,
+      paths: stampedDocs.map(d => ({ name: d.name, sha256: d.sha256.slice(0, 12) })),
+    })
   } catch (e) {
-    console.error('[reports/client/sign] generateReportPdf failed', e)
+    console.error('[REPORT SIGN] generateReportPdf FAILED', e)
   }
 
   // 4. UPDATE finale : status=completed (signed_pdf_paths déjà persisté par generateReportPdf)
@@ -125,17 +131,24 @@ export async function POST(
     .eq('id', submission.id)
 
   // 5. Notifications — v2.3.x bug 6 fix : envoie même si PDF KO (lien public reste utilisable)
-  const candidateName = candidat
-    ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() || (candidat.email || '')
-    : (link.candidat_name || 'Le collaborateur')
+  // v2.3.x Bug 7 — Priorité link.candidat_name (source unique) > concat fiche DB > fallback
+  const candidateName = (link.candidat_name && link.candidat_name.trim())
+    || (candidat ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() : '')
+    || 'Le collaborateur'
   const weekDates = getWeekDates(submission.week_start)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
   const downloadUrl = `${appUrl}/report/client/${token}`
+
+  console.log('[REPORT SIGN] Delivery channel:', link.delivery_channel)
+  console.log('[REPORT SIGN] Client email:', link.client_email || 'NONE')
+  console.log('[REPORT SIGN] Client phone:', link.client_phone || 'NONE')
+  console.log('[REPORT SIGN] Candidat phone:', link.candidat_phone || 'NONE')
 
   const notifs: {
     admin_email?: { ok: boolean; error?: string }
     client_email?: { ok: boolean; error?: string }
     client_whatsapp?: { ok: boolean; error?: string }
+    candidat_whatsapp?: { ok: boolean; error?: string }
   } = {}
 
   // PDFs en pièce jointe si dispo (sinon les emails partent quand même sans PJ)
@@ -214,6 +227,38 @@ export async function POST(
     notifs.client_whatsapp = { ok: false, error: 'client_phone manquant sur le lien' }
     console.warn('[reports/client/sign] client_phone manquant — skip notif WhatsApp')
   }
+
+  // 5d. WhatsApp candidat (post-completion, si candidat_phone configuré sur le lien)
+  // Bug 8c v2.3.x — Notif au candidat que son rapport a été signé.
+  // Indépendant du delivery_channel (qui concerne le client).
+  if (link.candidat_phone) {
+    try {
+      const clientLabel = link.client_contact_name?.trim()
+        || link.client_name?.trim()
+        || 'le client'
+      // Lien public download : on utilise l'URL slug candidat
+      // (le client_token expire après usage, mais le slug reste perpétuel)
+      const candidatDownloadUrl = `${appUrl}/report/${link.slug}`
+      notifs.candidat_whatsapp = await sendCompletedWhatsAppToCandidat({
+        phone: link.candidat_phone,
+        candidatName: candidateName,
+        clientLabel,
+        weekLabel: weekDates.label,
+        downloadUrl: candidatDownloadUrl,
+      })
+      if (!notifs.candidat_whatsapp.ok) {
+        console.error('[REPORT SIGN] candidat WhatsApp FAILED:', notifs.candidat_whatsapp.error)
+      } else {
+        console.log('[REPORT SIGN] candidat WhatsApp sent OK to', link.candidat_phone)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur WhatsApp candidat'
+      console.error('[REPORT SIGN] candidat WhatsApp exception', msg)
+      notifs.candidat_whatsapp = { ok: false, error: msg }
+    }
+  }
+
+  console.log('[REPORT SIGN] Notifications summary:', JSON.stringify(notifs, null, 2))
 
   await logReportAudit({
     submissionId: submission.id,

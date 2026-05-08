@@ -209,6 +209,32 @@ export async function sendCompletedEmailToAdmin(args: {
   })
 }
 
+// ─── 3.5 WhatsApp candidat — completed (Q4 v2.3.x) ────────────────────
+
+export async function sendCompletedWhatsAppToCandidat(args: {
+  phone: string
+  candidatName: string
+  /** Nom du contact client (priorité) ou nom entreprise */
+  clientLabel: string
+  weekLabel: string
+  /** URL publique vers le PDF (route public download) */
+  downloadUrl: string
+}): Promise<NotifResult> {
+  const firstName = (args.candidatName || '').trim().split(/\s+/)[0] || ''
+  return sendWa(args.phone, [
+    '✅ Votre rapport est validé !',
+    '',
+    `*${args.candidatName}* — votre rapport d'heures pour la *${args.weekLabel}*`,
+    `a été signé par ${args.clientLabel}.`,
+    '',
+    'Téléchargez la copie signée :',
+    args.downloadUrl,
+    '',
+    firstName ? `Bonne fin de journée ${firstName} 👋` : 'Bonne fin de journée 👋',
+    '— L-Agence SA',
+  ].join('\n'))
+}
+
 // ─── 4. WhatsApp client — completed avec lien download ────────────────
 
 export async function sendCompletedWhatsAppToClient(args: {

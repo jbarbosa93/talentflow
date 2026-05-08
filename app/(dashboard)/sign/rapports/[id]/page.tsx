@@ -62,14 +62,24 @@ export default function ReportLinkDetailPage({
   const handleSendWhatsApp = () => {
     if (!link) return
     // v2.3.x — Utilise candidat_name (source unique) ; fallback : title nettoyé du préfixe
-    // "Rapport [d'heures] -" puis split sur séparateur (—/–/-) pour isoler le nom candidat.
-    // Plus jamais de "Bonjour d'heures".
     const fullName = link.candidat_name
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
     const firstName = fullName.split(/\s+/)[0] || ''
     const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
     const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer')
+    // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible
+    // Sinon wa.me/?text=... (user choisit le contact dans WhatsApp).
+    // E.164 → digits-only pour wa.me (vire le +).
+    const phoneDigits = link.candidat_phone
+      ? link.candidat_phone.replace(/\D/g, '')
+      : ''
+    const url = phoneDigits
+      ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`
+    if (!phoneDigits) {
+      toast.warning('Pas de WhatsApp candidat configuré — choisis le contact dans WhatsApp')
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const handlePauseResume = async () => {

@@ -16,9 +16,31 @@ const jakarta = DM_Sans({
 export const metadata: Metadata = {
   title: 'Rapport hebdomadaire — L-Agence SA',
   description: 'Soumettez votre rapport d\'heures hebdomadaire en toute sécurité',
+  // v2.3.x Bug 5+6 — Favicon + og:image L-Agence (au lieu du défaut Vercel)
   icons: {
     icon: '/icon.svg',
     apple: '/icon-192.png',
+  },
+  openGraph: {
+    title: 'Rapport hebdomadaire — L-Agence SA',
+    description: 'Soumettez votre rapport d\'heures hebdomadaire en toute sécurité',
+    siteName: 'TalentFlow Sign',
+    images: [
+      {
+        url: 'https://www.talent-flow.ch/email-logo.png',
+        width: 800,
+        height: 800,
+        alt: 'L-Agence SA',
+      },
+    ],
+    locale: 'fr_CH',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Rapport hebdomadaire — L-Agence SA',
+    description: 'Soumettez votre rapport d\'heures hebdomadaire en toute sécurité',
+    images: ['https://www.talent-flow.ch/email-logo.png'],
   },
 }
 

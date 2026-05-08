@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.1'
+export const APP_VERSION = '2.3.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.2',
+    date: '2026-05-08',
+    label: 'Rapports — 9 corrections post-tests prod (suppression QR + télécharger + WhatsApp candidat + logs)',
+    features: [
+      'RAPPORTS BUG 1 — Mode présentiel (QR code) SUPPRIMÉ. Plus qu\'un seul flux : candidat envoie au client à distance. State `submitting/confirmMode/submitted` simplifiés en boolean, branche API `mode=\'present\'` retirée (TTL toujours 7j), import QRCodeModal retiré (fichier conservé orphelin pour ne pas casser un éventuel import futur). 1 seul bouton "📤 Envoyer au client" en footer sticky.',
+      'RAPPORTS BUG 4 — Nouvelles routes API + UI :  `GET /api/reports/[slug]/submissions/[id]/download` (stream PDF Storage si signed_pdf_paths non vide, sinon génère à la volée via generateReportPdf — aperçu candidat même avant signature client). `POST /api/reports/[slug]/submissions/[id]/resend` (refresh client_token TTL 7j + renvoie email/WhatsApp client). Boutons Aperçu/Télécharger/Renvoyer intégrés au bandeau dynamique.',
+      'RAPPORTS BUG 2c — Bandeau status submission dynamique : `candidate_signed` → 🟡 jaune "En attente de signature de {client}" + bouton Renvoyer + bouton Aperçu. `completed`/`client_signed` → 🟢 vert "✓ Validé par {client} le {date}" + bouton Télécharger. `cancelled` → 🔴 rouge.',
+      'RAPPORTS BUG 2b — Message post-soumission corrigé : "Votre rapport a été **soumis et envoyé** à votre client pour validation et signature. Vous recevrez **une copie complète** une fois qu\'il aura signé." (avant : "envoyé pour validation" laissait croire que le PDF signé arrivait tout de suite).',
+      'RAPPORTS BUG 3 — Logs `[REPORT SIGN]` renforcés dans /api/reports/client/[token]/sign : "Starting completion for submission", "PDF generation result" (avec sha256 12-chars), "Delivery channel", "Client email/phone", "Candidat phone", FAILED/sent OK par notif, "Notifications summary" final. Permet de diagnostiquer rapidement quelle notif n\'est pas partie.',
+      'RAPPORTS BUG 5+6 — Favicon + og:image L-Agence (au lieu du défaut Vercel). app/report/layout.tsx : metadata.icons.icon=\'/icon.svg\', openGraph.images=\'/email-logo.png\', siteName=\'TalentFlow Sign\', locale: fr_CH, twitter.card=\'summary\'. Plus d\'icône moche dans les previews WhatsApp/lien partagé.',
+      'RAPPORTS BUG 7 — Nom candidat dans emails : utilise `link.candidat_name` ("Joao Barbosa") au lieu de parser le title ("Rapport d\'heures Joao"). Plus jamais "rapport d\'heures joao a soumis..." dans les emails clients. Fix appliqué dans /api/reports/[slug]/submit + /api/reports/client/[token]/sign.',
+      'RAPPORTS BUG 8 — Notifs post-completion robustes : envoi email/WA même si génération PDF échoue (lien public reste utilisable, attachments vide). Logs explicites `Client phone`, `Delivery channel`, warnings si manquant.',
+      'RAPPORTS BUG 8c — Nouveau champ `candidat_phone` (E.164 strict). Migration ALTER + UI new/edit + nouvelle fonction `sendCompletedWhatsAppToCandidat` ("✅ Votre rapport est validé !" + lien public download). Notif candidat post-completion indépendante du delivery_channel client. Pré-remplissage depuis candidat lié si autocomplete sélectionne une fiche DB avec téléphone.',
+      'RAPPORTS BUG 9 — Bouton WhatsApp dashboard (page liste + détail) : si link.candidat_phone présent → wa.me/{digits-only}?text=... (deep link direct vers la conversation candidate). Sinon → wa.me/?text=... (user choisit le contact dans WhatsApp) + toast warning "Pas de WhatsApp candidat configuré". Plus besoin de chercher le contact à chaque fois.',
+    ],
+  },
   {
     version: '2.3.1',
     date: '2026-05-08',

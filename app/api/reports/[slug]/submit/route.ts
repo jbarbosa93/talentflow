@@ -40,7 +40,10 @@ export async function POST(
   const weekStart = body.week_start as string | undefined
   const fieldValues = (body.field_values && typeof body.field_values === 'object') ? body.field_values : {}
   const signatureDataUrl = typeof body.signature_data_url === 'string' ? body.signature_data_url : null
-  const mode: 'remote' | 'present' = body.mode === 'present' ? 'present' : 'remote'
+  // v2.3.x Bug 1 — Mode 'present' (QR code) supprimé. Tous les envois sont 'remote'
+  // (token 7j, notif client par email/WhatsApp). On accepte le param pour compat
+  // mais on ignore — toujours 'remote'.
+  const mode: 'remote' = 'remote'
 
   if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return NextResponse.json({ error: 'week_start invalide (YYYY-MM-DD)' }, { status: 400 })
@@ -66,8 +69,8 @@ export async function POST(
   const supabase = createAdminClient()
   const ip = extractIp(req)
   const nowIso = new Date().toISOString()
-  const ttlMs = mode === 'present' ? CLIENT_TOKEN_TTL_MS.present : CLIENT_TOKEN_TTL_MS.remote
-  const tokenExpires = new Date(Date.now() + ttlMs).toISOString()
+  // v2.3.x Bug 1 — Toujours TTL remote (7j). Mode présentiel supprimé.
+  const tokenExpires = new Date(Date.now() + CLIENT_TOKEN_TTL_MS.remote).toISOString()
 
   // Upsert
   let submissionId: string
@@ -135,14 +138,15 @@ export async function POST(
     metadata: { mode, week: weekStart },
   })
 
-  // Notif client (remote uniquement — present = QR code côté candidat)
+  // Notif client (remote uniquement)
   let notifResult: { email?: { ok: boolean; error?: string }; whatsapp?: { ok: boolean; error?: string } } = {}
-  if (mode === 'remote' && clientToken) {
+  if (clientToken) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
     const signUrl = `${appUrl}/report/client/${clientToken}`
-    const candidateName = link.title.includes(' — ')
-      ? link.title.split(' — ')[0].trim()
-      : (link.title || 'Le collaborateur')
+    // v2.3.x Bug 7 — Utilise link.candidat_name (source unique) au lieu de parser title.
+    // Plus jamais "Rapport d'heures Joao a soumis..." dans les emails.
+    const candidateName = (link.candidat_name && link.candidat_name.trim())
+      || (link.title || 'Le collaborateur')
 
     if (link.delivery_channel === 'email' || link.delivery_channel === 'both') {
       if (link.client_email) {

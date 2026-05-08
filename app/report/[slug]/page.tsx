@@ -12,8 +12,8 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, FileText, ListChecks, Loader2, Lock,
-  QrCode, Save, Send,
+  AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, FileText,
+  ListChecks, Loader2, Lock, RotateCw, Save, Send,
 } from 'lucide-react'
 import WeekSelector from '@/components/report/WeekSelector'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
@@ -39,7 +39,9 @@ const PublicPdfViewer = dynamic(() => import('@/components/sign/PublicPdfViewer'
 })
 const SignaturePad = dynamic(() => import('@/components/sign/SignaturePad'), { ssr: false })
 const SignWizard = dynamic(() => import('@/components/sign/SignWizard'), { ssr: false })
-const QRCodeModal = dynamic(() => import('@/components/report/QRCodeModal'), { ssr: false })
+// v2.3.x Bug 1 — QRCodeModal supprimé (mode présentiel retiré). Le fichier reste
+// dans components/report/ pour ne pas casser un éventuel import futur, mais on ne
+// l'importe plus ici.
 
 interface VerifyResponse {
   valid: boolean
@@ -71,14 +73,16 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null)
   const [signaturePadOpen, setSignaturePadOpen] = useState(false)
 
-  const [submitting, setSubmitting] = useState<'remote' | 'present' | null>(null)
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
-  const [qrCodeExpires, setQrCodeExpires] = useState<Date | null>(null)
+  // v2.3.x Bug 1 — Mode 'present' (QR) supprimé. submitting/confirmMode/submitted = boolean.
+  const [submitting, setSubmitting] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
-  // v2.3.x Bug 2 — Dialog de confirmation après clic bouton (Q1=a)
-  const [confirmMode, setConfirmMode] = useState<'remote' | 'present' | null>(null)
-  // v2.3.x Bug 3a — État "envoyé" post-confirmation pour message correct
-  const [submitted, setSubmitted] = useState<'remote' | 'present' | null>(null)
+  // v2.3.x Bug 2 — Dialog de confirmation après clic bouton "Envoyer au client"
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  // v2.3.x Bug 3a — État "envoyé" pour message correct
+  const [submitted, setSubmitted] = useState(false)
+  // v2.3.x Bug 4 — État "renvoi en cours" + download
+  const [resending, setResending] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
   // Mode Wizard / Document : auto-switch mobile → wizard, desktop → document
   const [isMobile, setIsMobile] = useState(false)
@@ -234,7 +238,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   }
 
   // ─── Click bouton (ouvre le dialog de confirmation Bug 2) ───
-  const handleClickSubmit = (mode: 'remote' | 'present') => {
+  const handleClickSubmit = () => {
     if (!signatureDataUrl) {
       toast.error('Signe le rapport avant de l\'envoyer (clique sur le champ Signature dans le document)')
       setSignaturePadOpen(true)
@@ -244,14 +248,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       toast.error('Remplis tous les champs avant d\'envoyer')
       return
     }
-    setConfirmMode(mode)
+    setConfirmOpen(true)
   }
 
   // ─── Submit (déclenché depuis le dialog après confirmation) ───
-  const handleSubmit = async (mode: 'remote' | 'present') => {
+  const handleSubmit = async () => {
     if (!signatureDataUrl) return  // safety
-    setSubmitting(mode)
-    setConfirmMode(null)
+    setSubmitting(true)
+    setConfirmOpen(false)
     try {
       const r = await fetch(`/api/reports/${slug}/submit`, {
         method: 'POST',
@@ -260,22 +264,15 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           week_start: weekStart,
           field_values: values,
           signature_data_url: signatureDataUrl,
-          mode,
         }),
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Erreur soumission')
       // Cleanup localStorage
       try { localStorage.removeItem(`tf_report_draft_${slug}_${weekStart}`) } catch {}
-      // v2.3.x Bug 3a — Message correct post-envoi
-      setSubmitted(mode)
-      if (mode === 'remote') {
-        toast.success('Rapport envoyé à votre client pour validation')
-      } else {
-        const url = `${window.location.origin}/report/client/${d.client_token}`
-        setQrCodeUrl(url)
-        setQrCodeExpires(new Date(d.client_token_expires_at))
-      }
+      // v2.3.x Bug 3a — Message correct post-envoi (PDF signé envoyé seulement APRÈS signature client)
+      setSubmitted(true)
+      toast.success('Rapport soumis et envoyé à votre client')
       // Refresh submissions
       fetch(`/api/reports/${slug}`)
         .then(r => r.json())
@@ -284,7 +281,50 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     } catch (e: any) {
       toast.error(e.message || 'Erreur')
     } finally {
-      setSubmitting(null)
+      setSubmitting(false)
+    }
+  }
+
+  // ─── v2.3.x Bug 4 — Renvoyer la notif client (route /resend dédiée) ───
+  const handleResendToClient = async () => {
+    if (!submissionForWeek) return
+    if (!confirm('Renvoyer la notification au client ? Le lien de signature reste valide 7 jours.')) return
+    setResending(true)
+    try {
+      const r = await fetch(`/api/reports/${slug}/submissions/${submissionForWeek.id}/resend`, {
+        method: 'POST',
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      toast.success('Notification renvoyée au client')
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur renvoi')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  // ─── v2.3.x Bug 4 — Télécharger le PDF de la submission ───
+  const handleDownload = async (submissionId: string, label: string) => {
+    setDownloading(submissionId)
+    try {
+      const r = await fetch(`/api/reports/${slug}/submissions/${submissionId}/download`)
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur téléchargement')
+      }
+      const blob = await r.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Rapport-${weekStart}.pdf`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(label)
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur téléchargement')
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -378,15 +418,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         onAdopt={handleSignatureAdopted}
       />
 
-      {/* QR code modal */}
-      {qrCodeUrl && qrCodeExpires && (
-        <QRCodeModal
-          open
-          url={qrCodeUrl}
-          expiresAt={qrCodeExpires}
-          onClose={() => { setQrCodeUrl(null); setQrCodeExpires(null) }}
-        />
-      )}
+      {/* v2.3.x Bug 1 — QRCodeModal supprimé */}
 
       {/* ─── Header L-Agence — desktop : topbar riche, mobile : compact ─── */}
       <header style={{
@@ -499,23 +531,76 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         </div>
       )}
 
-      {/* Bandeau verrouillage si déjà soumise */}
-      {isLockedWeek && (
-        <div style={{
-          flexShrink: 0,
-          padding: '10px 16px',
-          background: '#DBEAFE',
-          borderBottom: '1px solid #BFDBFE',
-          color: '#1E40AF',
-          fontSize: 12.5, lineHeight: 1.5,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        }}>
-          <CheckCircle2 size={14} />
-          <span>
-            <strong>Cette semaine a déjà été soumise.</strong> Sélectionne une autre semaine pour saisir un nouveau rapport.
-          </span>
-        </div>
-      )}
+      {/* v2.3.x Bug 2c — Bandeau dynamique selon status submission */}
+      {isLockedWeek && submissionForWeek && (() => {
+        const st = submissionForWeek.status
+        const clientName = data.link.client_name || 'le client'
+        if (st === 'completed' || st === 'client_signed') {
+          // Validé : vert + bouton télécharger
+          return (
+            <div style={bannerStyle('#D1FAE5', '#6EE7B7', '#065F46')}>
+              <CheckCircle2 size={14} />
+              <span style={{ flex: 1, textAlign: 'center' }}>
+                ✓ <strong>Validé par {clientName}</strong>
+                {submissionForWeek.client_signed_at && (
+                  <> le {new Date(submissionForWeek.client_signed_at).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })}</>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleDownload(submissionForWeek.id, 'PDF signé téléchargé')}
+                disabled={downloading === submissionForWeek.id}
+                style={bannerBtnStyle('#065F46')}
+              >
+                {downloading === submissionForWeek.id
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : <Download size={12} />}
+                Télécharger
+              </button>
+            </div>
+          )
+        }
+        if (st === 'candidate_signed') {
+          // En attente client : jaune + bouton renvoyer + bouton télécharger aperçu
+          return (
+            <div style={bannerStyle('#FEF3C7', '#FDE68A', '#A16207')}>
+              <Clock size={14} />
+              <span style={{ flex: 1, textAlign: 'center' }}>
+                ⏳ <strong>En attente de signature de {clientName}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleResendToClient}
+                disabled={resending}
+                style={bannerBtnStyle('#A16207')}
+              >
+                {resending ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
+                Renvoyer
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownload(submissionForWeek.id, 'Aperçu PDF téléchargé')}
+                disabled={downloading === submissionForWeek.id}
+                style={bannerBtnStyle('#A16207')}
+              >
+                {downloading === submissionForWeek.id
+                  ? <Loader2 size={12} className="animate-spin" />
+                  : <Download size={12} />}
+                Aperçu
+              </button>
+            </div>
+          )
+        }
+        // cancelled
+        return (
+          <div style={bannerStyle('#FEE2E2', '#FCA5A5', '#991B1B')}>
+            <Lock size={14} />
+            <span>
+              <strong>Cette semaine a été annulée.</strong> Sélectionne une autre semaine.
+            </span>
+          </div>
+        )
+      })()}
 
       {/* Indicateur "remplis tous les champs" (desktop, état non-final) */}
       {!isLockedWeek && !isMobile && !canFinalize && viewMode === 'document' && (
@@ -554,11 +639,11 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               recipientName={candidateFullName || 'Collaborateur'}
               envelopeTitle={data.link.title}
               completed={isLockedWeek || !!submitted}
-              finalizing={submitting !== null}
+              finalizing={submitting}
               // v2.3.x Bug 2 — Pas de RecapStep finale ; onFinalize ouvre le dialog confirmation
               hideRecap
               finalizeButtonLabel="Confirmer et envoyer"
-              onFinalize={() => handleClickSubmit('remote')}
+              onFinalize={handleClickSubmit}
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={slug /* clé sessionStorage pour persistance step */}
               contextData={{ weekStartDate: weekStart }}
@@ -674,22 +759,14 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               ⚠️ Remplis tous les champs et signe avant d&apos;envoyer
             </div>
           )}
+          {/* v2.3.x Bug 1 — Plus que le bouton "Envoyer au client" (mode QR supprimé) */}
           <button
             type="button"
-            onClick={() => handleClickSubmit('present')}
-            disabled={submitting !== null || !canFinalize}
-            style={isMobile ? secondaryBtnStyle(submitting === 'present' || !canFinalize) : desktopSecondaryBtn(submitting === 'present' || !canFinalize)}
+            onClick={handleClickSubmit}
+            disabled={submitting || !canFinalize}
+            style={isMobile ? primaryBtnStyle(submitting || !canFinalize) : desktopPrimaryBtn(submitting || !canFinalize)}
           >
-            {submitting === 'present' ? <Loader2 size={16} className="animate-spin" /> : <QrCode size={16} />}
-            🤝 Faire signer maintenant
-          </button>
-          <button
-            type="button"
-            onClick={() => handleClickSubmit('remote')}
-            disabled={submitting !== null || !canFinalize}
-            style={isMobile ? primaryBtnStyle(submitting === 'remote' || !canFinalize) : desktopPrimaryBtn(submitting === 'remote' || !canFinalize)}
-          >
-            {submitting === 'remote' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             📤 Envoyer au client
             {isMobile && <ArrowRight size={14} style={{ marginLeft: 'auto' }} />}
           </button>
@@ -697,7 +774,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
       )}
 
       {/* v2.3.x Bug 3a — État post-envoi : message d'attente client */}
-      {submitted === 'remote' && (
+      {submitted && (
         <div style={{
           flexShrink: 0,
           padding: '14px 16px',
@@ -711,32 +788,57 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         }}>
           <CheckCircle2 size={18} />
           <span>
-            <strong>Votre rapport a été envoyé à votre client pour validation.</strong>
-            {' '}Vous serez notifié une fois qu&apos;il aura signé.
+            {/* v2.3.x Bug 2b — Message corrigé : PDF signé envoyé seulement APRÈS signature client */}
+            <strong>Votre rapport a été soumis et envoyé à votre client pour validation et signature.</strong>
+            {' '}Vous recevrez une copie complète une fois qu&apos;il aura signé.
           </span>
         </div>
       )}
 
       {/* v2.3.x Bug 2 — Dialog de confirmation après clic bouton */}
-      {confirmMode && (
+      {confirmOpen && (
         <ConfirmDialog
-          mode={confirmMode}
           weekLabel={weekDates.label}
           clientName={data.link.client_name || ''}
-          onCancel={() => setConfirmMode(null)}
-          onConfirm={() => handleSubmit(confirmMode)}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={handleSubmit}
         />
       )}
     </div>
   )
 }
 
+// ─── Helpers UI bandeaux dynamiques (Bug 2c v2.3.x) ───────────────────
+
+function bannerStyle(bg: string, border: string, color: string): React.CSSProperties {
+  return {
+    flexShrink: 0,
+    padding: '10px 16px',
+    background: bg,
+    borderBottom: `1px solid ${border}`,
+    color,
+    fontSize: 12.5, lineHeight: 1.5,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+    flexWrap: 'wrap',
+  }
+}
+function bannerBtnStyle(color: string): React.CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    padding: '4px 10px',
+    fontSize: 11.5, fontWeight: 700,
+    border: `1px solid ${color}`, borderRadius: 6,
+    background: 'rgba(255,255,255,0.6)', color,
+    cursor: 'pointer', fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  }
+}
+
 // ─── Dialog de confirmation envoi (Bug 2) ─────────────────────────────
 
 function ConfirmDialog({
-  mode, weekLabel, clientName, onCancel, onConfirm,
+  weekLabel, clientName, onCancel, onConfirm,
 }: {
-  mode: 'remote' | 'present'
   weekLabel: string
   clientName: string
   onCancel: () => void
@@ -774,10 +876,7 @@ function ConfirmDialog({
           Confirmer l&apos;envoi&nbsp;?
         </h2>
         <p style={{ fontSize: 13.5, color: '#374151', lineHeight: 1.55, margin: '0 0 16px' }}>
-          {mode === 'remote'
-            ? <>Le rapport pour la <strong>{weekLabel}</strong> sera envoyé{clientName ? <> à <strong>{clientName}</strong></> : null} pour validation et signature.</>
-            : <>Affichage du QR code pour faire signer le client maintenant. Le rapport sera ensuite finalisé sur place.</>
-          }
+          Le rapport pour la <strong>{weekLabel}</strong> sera envoyé{clientName ? <> à <strong>{clientName}</strong></> : null} pour validation et signature.
         </p>
         <div style={{
           padding: '10px 12px',

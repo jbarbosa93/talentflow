@@ -40,6 +40,9 @@ export interface ReportLink {
   client_contact_name: string | null
   client_email: string | null
   client_phone: string | null
+  /** v2.3.x — Numéro WhatsApp du candidat (E.164 strict). Optionnel.
+   *  Utilisé pour notif post-completion + deep link wa.me dashboard. */
+  candidat_phone: string | null
   status: ReportLinkStatus
   delivery_channel: ReportDeliveryChannel
   created_by: string | null
