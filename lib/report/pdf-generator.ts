@@ -99,6 +99,7 @@ export async function generateReportPdf(
       }
       const sourceBuf = new Uint8Array(await blob.arrayBuffer())
       const sha256 = createHash('sha256').update(sourceBuf).digest('hex')
+      console.log('[report/pdf-generator] PDF ready:', doc.name, sourceBuf.length + 'B', '— fields:', (doc.fields || []).length, '— path:', doc.storage_path)
 
       let currentBuf: Uint8Array = sourceBuf
 
@@ -128,6 +129,7 @@ export async function generateReportPdf(
           signedIp: submission.candidate_signed_ip,
           addAuditFooter: false,  // footer ajouté en pass 2 (final)
         })
+        console.log('[report/pdf-generator] Pass 1 (cand) done:', currentBuf.length + 'B')
       }
 
       // ─── Pass 2 : fields recipientOrder=2 (Client) + footer audit ───
@@ -155,6 +157,7 @@ export async function generateReportPdf(
         signedIp: submission.client_signed_ip,
         addAuditFooter: true,
       })
+      console.log('[report/pdf-generator] Pass 2 (client) done:', currentBuf.length + 'B')
 
       // 3. Page certificat
       currentBuf = await appendCertificatePage({
@@ -165,6 +168,7 @@ export async function generateReportPdf(
         documentName: doc.name,
         documentSha256: sha256,
       })
+      console.log('[report/pdf-generator] Certificate done:', currentBuf.length + 'B')
 
       // 4. Upload
       const blobOut = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
@@ -178,8 +182,13 @@ export async function generateReportPdf(
       )
       const pdfBase64 = Buffer.from(currentBuf).toString('base64')
       generated.push({ name: safeName, path, sha256, pdfBase64 })
+      console.log('[report/pdf-generator] Upload done, path:', path)
     } catch (e) {
-      console.error('[report/pdf-generator] stamp failed for', doc.name, e)
+      console.error(
+        '[report/pdf-generator] stamp FAILED',
+        doc.name,
+        e instanceof Error ? { message: e.message, stack: e.stack?.split('\n').slice(0, 5).join(' | ') } : String(e),
+      )
     }
   }
 
