@@ -115,7 +115,9 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.3.0 prod (TalentFlow Sign complet Phase 4a/b/c/d + nouveau module TalentFlow Rapports)** — 08/05/2026
+**2.3.2 prod (TalentFlow Sign Phase 4 complet + module Rapports + 9 bugs post-tests prod)** — 08/05/2026
+
+→ Mode QR/présentiel supprimé (que `mode='remote'`), PDF téléchargeable on-the-fly via `/api/reports/[slug]/submissions/[id]/download`, bandeau dynamique status, route `/resend` séparée, favicon/og:image L-Agence custom dans `app/report/layout.tsx`, `link.candidat_name` source notif (au lieu de parser title), helper `sendCompletedWhatsAppToCandidat()`, deep link `wa.me/{digits}` candidat. Migration : `report_links.candidat_phone` E.164.
 
 ---
 
@@ -421,6 +423,14 @@ JOBROOM_API_URL / USERNAME / PW   Job-Room Suisse (SECO)
 **35. Retry OneDrive non-CVs orphelins stoppé** (v1.9.106) — `onedrive/sync/route.ts` L1579 → `traite:true` sur erreur définitive "candidat introuvable". Erreurs transitoires (timeout, exception, fichier>10MB) conservent `traite:false`. Recovery manuel : ré-import via UploadCV ou SQL `traite=false`.
 
 **36. Bandeau "Actualisé" pending-validation** (v1.9.106) — `pending-validation/route.ts` L161-180 ajoute `onedrive_change_type:'mis_a_jour'` + `onedrive_change_at` au payload. Cohérent cv/parse cvUpdated, onedrive/sync update, candidats/[id] onCvChange.
+
+**56. RAPPORTS — Route `/resend` séparée de `/submit`** (v2.3.2) — Plutôt que d'overload `/api/reports/[slug]/submit/route.ts` avec un mode resend (et risquer corruption types submission), créer une route dédiée `/api/reports/[slug]/submissions/[id]/resend/route.ts` qui ne fait QUE : (a) refresh `client_token_expires_at` (TTL 7j), (b) renvoi email/WhatsApp client selon `delivery_channel`, (c) audit log `client_notified` avec `source='resend'`. Status **409 si pas en `candidate_signed`** (sinon resend de quoi ?). Pas besoin de re-vérifier la signature candidat ni de regénérer fields — juste réveiller le client. Pattern applicable à tout flow async qui a une primitive "réveiller le destinataire suivant".
+
+**55. RAPPORTS — Bouton WhatsApp deep link `wa.me`** (v2.3.2) — Format URL : `https://wa.me/{digits}?text={encodeURIComponent(msg)}`. `digits` = numéro E.164 sans le `+`, sans espaces, sans tirets. Helper : `phone.replace(/\D/g, '')`. Sans numéro → `wa.me/?text=...` ouvre le picker contact WhatsApp. Stocké côté Reports via colonne dédiée `report_links.candidat_phone TEXT CHECK ('^\+\d{10,15}$')` (E.164 strict). Pages `/sign/rapports[/id]` génèrent le bouton coloré `#25D366` avec ce lien. **NE PAS** réutiliser le format `whatsapp://` (mobile only, pas de fallback web).
+
+**54. RAPPORTS — Notification croisée candidat ↔ client à signature** (v2.3.2) — Quand le client signe (`/api/reports/client/[token]/sign`), notifier ENSUITE le candidat qui a soumis avec : (a) email confirmation + PDF en PJ via `sendCompletedEmailToCandidat()`, (b) WhatsApp si `link.candidat_phone` rempli via `sendCompletedWhatsAppToCandidat()` (helper dans `lib/report/send-notifications.ts`). Le candidat n'avait jamais été notifié AVANT — pendant des jours João testait et croyait que tout marchait alors que le candidat ne savait pas que son rapport était validé. Pattern général : tout workflow async multi-acteurs doit notifier le **soumissionneur** quand le **valideur** termine, pas seulement l'admin.
+
+**53. RAPPORTS — Génération PDF on-the-fly pour preview download** (v2.3.2) — Quand le PDF final n'existe pas encore (`status='candidate_signed'`, en attente client), la route `/api/reports/[slug]/submissions/[id]/download/route.ts` génère une preview à la volée via `generateReportPdf()` au lieu de renvoyer 404. Évite de stocker des intermédiaires en Storage (`signed/reports/.../draft.pdf`) qui devraient être nettoyés. Une fois le client signé → le PDF final stampé est en Storage et la route le renvoie directement (signed URL ou stream). Pattern applicable à tout flow où un état "intermédiaire" justifie un téléchargement (visualisation, audit, transmission tierce). Coût : regénération PDF à chaque clic preview → acceptable si <2s.
 
 **52. RAPPORTS — Réutilisation totale composants Sign** (v2.3.0) — Le module Rapports n'a PAS de viewer/wizard/signature custom. Tout est mutualisé avec Sign : `PublicPdfViewer` (PDF zoomable), `PublicFieldsLayer` (overlay fields cliquables read-only via `currentRecipientOrder`), `SignWizard` (mode pas-à-pas pré-construit depuis `wizard_steps` du template), `SignaturePad` (canvas/typed mobile-friendly). Côté lib : `lib/report/pdf-generator.ts` réutilise `lib/sign/pdf-stamp.ts` + `lib/sign/storage.ts` (préfixe `signed/reports/{linkId}/{submissionId}/`). Côté template : `sign_templates.kind='report'` (pas de table séparée). Si modif d'un de ces composants pour Sign, le rapport en bénéficie auto. **NE PAS dupliquer** ces composants dans `components/report/` même si tentation.
 
