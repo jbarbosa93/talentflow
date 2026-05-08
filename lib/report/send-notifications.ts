@@ -220,17 +220,19 @@ export async function sendCompletedWhatsAppToCandidat(args: {
   /** URL publique vers le PDF (route public download) */
   downloadUrl: string
 }): Promise<NotifResult> {
+  // v2.3.4 Bug 6 — Utiliser uniquement le prénom pour la salutation (pas le nom complet)
   const firstName = (args.candidatName || '').trim().split(/\s+/)[0] || ''
   return sendWa(args.phone, [
+    firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋',
+    '',
     '✅ Votre rapport est validé !',
     '',
-    `*${args.candidatName}* — votre rapport d'heures pour la *${args.weekLabel}*`,
+    `Votre rapport d'heures pour la *${args.weekLabel}*`,
     `a été signé par ${args.clientLabel}.`,
     '',
     'Téléchargez la copie signée :',
     args.downloadUrl,
     '',
-    firstName ? `Bonne fin de journée ${firstName} 👋` : 'Bonne fin de journée 👋',
     '— L-Agence SA',
   ].join('\n'))
 }

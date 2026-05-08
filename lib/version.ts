@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.3'
+export const APP_VERSION = '2.3.4'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.4',
+    date: '2026-05-08',
+    label: 'Rapports — Message WhatsApp candidat amélioré (salutation prénom + structure)',
+    features: [
+      'RAPPORTS BUG 6 — Message WhatsApp post-validation candidat : ajout de "Bonjour {prénom} 👋" comme première ligne (au lieu de commencer directement par "✅ Votre rapport est validé !"). Utilise uniquement le prénom (premier mot du nom complet) pour un message plus personnel. Structure réordonnée : salutation → validation → semaine → client → lien téléchargement.',
+    ],
+  },
   {
     version: '2.3.3',
     date: '2026-05-08',
