@@ -282,7 +282,7 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   y -= 14
   drawKv(page, 'Titre', link.title, margin, y, helv, helvBold); y -= 14
   drawKv(page, 'Document', documentName, margin, y, helv, helvBold); y -= 14
-  drawKv(page, 'Semaine', `${submission.week_start} → ${submission.week_end}`, margin, y, helv, helvBold); y -= 14
+  drawKv(page, 'Semaine', `${submission.week_start} au ${submission.week_end}`, margin, y, helv, helvBold); y -= 14
   drawKv(page, 'Lien permanent', link.slug, margin, y, helv, helvBold); y -= 26
 
   // Tableau signataires (2 lignes : candidat + client)
@@ -306,15 +306,15 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   drawSignerRow(
     page, helv, margin, y,
     'Collaborateur', candName, candEmail,
-    submission.candidate_signed_ip || '—',
-    submission.candidate_signed_at ? formatDateTime(new Date(submission.candidate_signed_at)) : '—',
+    submission.candidate_signed_ip || '-',
+    submission.candidate_signed_at ? formatDateTime(new Date(submission.candidate_signed_at)) : '-',
   )
   y -= 14
   drawSignerRow(
     page, helv, margin, y,
     'Client', link.client_name || '', link.client_email || '',
-    submission.client_signed_ip || '—',
-    submission.client_signed_at ? formatDateTime(new Date(submission.client_signed_at)) : '—',
+    submission.client_signed_ip || '-',
+    submission.client_signed_at ? formatDateTime(new Date(submission.client_signed_at)) : '-',
   )
   y -= 26
 
@@ -344,7 +344,7 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
     x: margin + 12, y: fy, size: 8.5, font: helv, color: rgb(0.25, 0.25, 0.30),
   })
   fy -= 14
-  page.drawText(`Émis par L-Agence SA via TalentFlow Sign — ${new Date().getFullYear()}.`, {
+  page.drawText(`Émis par L-Agence SA via TalentFlow Sign - ${new Date().getFullYear()}.`, {
     x: margin + 12, y: fy, size: 8, font: helv, color: rgb(0.50, 0.50, 0.55),
   })
 
@@ -377,7 +377,7 @@ function drawSignerRow(
 
 function truncate(s: string, n: number): string {
   if (!s) return ''
-  return s.length <= n ? s : s.slice(0, n - 1) + '…'
+  return s.length <= n ? s : s.slice(0, n - 1) + '...'
 }
 
 function formatDateTime(d: Date): string {

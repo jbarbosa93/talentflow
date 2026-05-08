@@ -366,8 +366,8 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
     const isCC = rec.role === 'cc'
     const signedDate = tok?.signed_at
       ? formatDateTime(new Date(tok.signed_at))
-      : (isCC ? 'Copie (pas de signature requise)' : '—')
-    const method = isCC ? '—' : (tok?.signature_method || '—')
+      : (isCC ? 'Copie (pas de signature requise)' : '-')
+    const method = isCC ? '-' : (tok?.signature_method || '-')
     const methodLabel = method === 'drawn' ? 'Tracée'
       : method === 'typed' ? 'Saisie'
       : method === 'auto' ? 'Auto'
@@ -375,7 +375,7 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
 
     page.drawText(truncate(rec.name, 22), { x: colNom, y, size: 8.5, font: helv, color: rgb(0.11, 0.10, 0.08) })
     page.drawText(truncate(rec.email, 26), { x: colEmail, y, size: 8.5, font: helv, color: rgb(0.30, 0.30, 0.35) })
-    page.drawText(tok?.signed_ip || '—', { x: colIp, y, size: 8.5, font: helv, color: rgb(0.30, 0.30, 0.35) })
+    page.drawText(tok?.signed_ip || '-', { x: colIp, y, size: 8.5, font: helv, color: rgb(0.30, 0.30, 0.35) })
     page.drawText(truncate(signedDate, 22), { x: colDate, y, size: 8.5, font: helv, color: rgb(0.30, 0.30, 0.35) })
     page.drawText(methodLabel, { x: colMethod, y, size: 8.5, font: helv, color: rgb(0.30, 0.30, 0.35) })
     y -= 14
@@ -438,7 +438,7 @@ async function appendCertificatePage(args: CertificateArgs): Promise<Uint8Array>
   )
   fy -= 14
   page.drawText(
-    `Émis par ${senderCompanyName} via TalentFlow Sign — ${new Date().getFullYear()}.`,
+    `Émis par ${senderCompanyName} via TalentFlow Sign - ${new Date().getFullYear()}.`,
     { x: margin + 12, y: fy, size: 8, font: helvOblique, color: rgb(0.50, 0.50, 0.55) },
   )
 
@@ -473,7 +473,7 @@ function drawKeyValue(
 function truncate(s: string, n: number): string {
   if (!s) return ''
   if (s.length <= n) return s
-  return s.slice(0, n - 1) + '…'
+  return s.slice(0, n - 1) + '...'
 }
 
 function formatDateTime(d: Date): string {

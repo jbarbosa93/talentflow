@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.5'
+export const APP_VERSION = '2.3.6'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.6',
+    date: '2026-05-08',
+    label: 'Rapports — fix critique PDF (WinAnsi)',
+    features: [
+      'RAPPORTS BUG CRITIQUE — PDF jamais généré depuis v2.3.0 : caractère U+2192 (flèche →) hors WinAnsi dans appendCertificatePage causait pdf.save() à throw. Fix : remplacement de tous les caractères hors WinAnsi (→ — ...) dans lib/report/pdf-generator.ts et lib/sign/pdf-generator.ts.',
+    ],
+  },
   {
     version: '2.3.5',
     date: '2026-05-08',
