@@ -64,7 +64,7 @@ export default function ReportLinkDetailPage({
     // v2.3.x — Utilise candidat_name (source unique) ; fallback : title nettoyé du préfixe
     const fullName = link.candidat_name
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
-    const firstName = fullName.split(/\s+/)[0] || ''
+    const firstName = fullName.normalize('NFC').split(/\s+/)[0] || ''
     const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
     const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
     // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible

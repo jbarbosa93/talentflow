@@ -148,20 +148,25 @@ export async function sendClientInviteWhatsApp(args: {
   ].join('\n'))
 }
 
-// ─── 3. Email admin (ADMIN_EMAIL) — completed avec PDF en PJ ──────────
+// ─── 3. Email admin (créateur du lien) — completed avec PDF en PJ ─────
+// v2.3.5 Bug 2+4+5 :
+//   - `to` = email du créateur du lien (plus ADMIN_EMAIL fixe)
+//   - `downloadUrl` = lien direct PDF signé (plus "/historique" → 404 mobile)
 
 export async function sendCompletedEmailToAdmin(args: {
+  /** Destinataire : créateur du lien. Fallback : ADMIN_EMAIL. */
+  to: string
   candidateName: string
   clientName: string
   weekLabel: string
   /** Liste des PDFs en PJ : { filename, content base64 } */
   attachments: { filename: string; content: string }[]
-  reportLinkUrl: string
+  /** URL directe vers le PDF signé (route /api/reports/{slug}/submissions/{id}/download) */
+  downloadUrl: string
 }): Promise<NotifResult> {
   const apiKey = process.env.RESEND_API_KEY
-  const adminEmail = process.env.ADMIN_EMAIL
   if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
-  if (!adminEmail) return { ok: false, error: 'ADMIN_EMAIL manquant' }
+  if (!args.to) return { ok: false, error: 'destinataire admin vide' }
 
   const subject = `✅ Rapport signé — ${args.candidateName} · ${args.weekLabel}`
   const html = `<!DOCTYPE html>
@@ -188,9 +193,9 @@ export async function sendCompletedEmailToAdmin(args: {
         Le PDF signé est joint à cet email.
       </p>
       <div style="text-align:center;margin-top:18px;">
-        <a href="${args.reportLinkUrl}"
+        <a href="${args.downloadUrl}"
            style="display:inline-block;background:#EAB308;color:#1C1A14;padding:12px 22px;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;border:1px solid #1C1A14;">
-          Voir l'historique →
+          Télécharger la copie signée →
         </a>
       </div>
     </div>
@@ -201,10 +206,10 @@ export async function sendCompletedEmailToAdmin(args: {
 </body></html>`
 
   return await sendResend({
-    to: adminEmail,
+    to: args.to,
     subject,
     html,
-    text: `Rapport signé — ${args.candidateName} · ${args.weekLabel}\n\n${args.reportLinkUrl}`,
+    text: `Rapport signé — ${args.candidateName} · ${args.weekLabel}\n\nTélécharger la copie signée :\n${args.downloadUrl}`,
     attachments: args.attachments,
   })
 }
@@ -221,7 +226,8 @@ export async function sendCompletedWhatsAppToCandidat(args: {
   downloadUrl: string
 }): Promise<NotifResult> {
   // v2.3.4 Bug 6 — Utiliser uniquement le prénom pour la salutation (pas le nom complet)
-  const firstName = (args.candidatName || '').trim().split(/\s+/)[0] || ''
+  // v2.3.5 Bug 1 — NFC normalize évite ã → ❓ dans WhatsApp (João, Fernão…)
+  const firstName = (args.candidatName || '').normalize('NFC').trim().split(/\s+/)[0] || ''
   return sendWa(args.phone, [
     firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋',
     '',

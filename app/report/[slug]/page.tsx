@@ -570,7 +570,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           )
         }
         if (st === 'candidate_signed') {
-          // En attente client : jaune + bouton renvoyer + bouton télécharger aperçu
+          // En attente client : jaune + bouton renvoyer + bouton aperçu direct
+          // v2.3.5 Bug 3a — window.open direct (plus fiable que blob fetch)
           return (
             <div style={bannerStyle('#FEF3C7', '#FDE68A', '#A16207')}>
               <Clock size={14} />
@@ -588,13 +589,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               </button>
               <button
                 type="button"
-                onClick={() => handleDownload(submissionForWeek.id, 'Aperçu PDF téléchargé')}
-                disabled={downloading === submissionForWeek.id}
+                onClick={() => window.open(`/api/reports/${slug}/submissions/${submissionForWeek.id}/download`, '_blank', 'noopener,noreferrer')}
                 style={bannerBtnStyle('#A16207')}
               >
-                {downloading === submissionForWeek.id
-                  ? <Loader2 size={12} className="animate-spin" />
-                  : <Download size={12} />}
+                <Download size={12} />
                 Aperçu
               </button>
             </div>
@@ -676,20 +674,21 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                 key={fileUrl}
                 url={fileUrl}
                 scrollToPage={scrollToPage}
-                renderPageOverlay={!isLockedWeek ? (pageNum, sizePx) => (
+                renderPageOverlay={(pageNum, sizePx) => (
+                  // v2.3.5 Bug 3b — overlay toujours actif ; verrouillé = lecture seule
                   <PublicFieldsLayer
                     page={pageNum}
                     sizePx={sizePx}
                     fields={activeDoc.fields || []}
                     values={values}
-                    onValueChange={handleFieldChange}
+                    onValueChange={isLockedWeek ? () => {} : handleFieldChange}
                     signatureDataUrl={signatureDataUrl}
-                    onRequestSignature={() => setSignaturePadOpen(true)}
+                    onRequestSignature={isLockedWeek ? () => {} : () => setSignaturePadOpen(true)}
                     recipientColor={recipientPalette}
                     autoFill={autoFill}
-                    currentRecipientOrder={1}
+                    currentRecipientOrder={isLockedWeek ? -1 : 1}
                   />
-                ) : undefined}
+                )}
               />
             </div>
           ) : (
@@ -712,20 +711,21 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                   key={fileUrl}
                   url={fileUrl}
                   scrollToPage={scrollToPage}
-                  renderPageOverlay={!isLockedWeek ? (pageNum, sizePx) => (
+                  renderPageOverlay={(pageNum, sizePx) => (
+                    // v2.3.5 Bug 3b — overlay toujours actif ; verrouillé = lecture seule
                     <PublicFieldsLayer
                       page={pageNum}
                       sizePx={sizePx}
                       fields={activeDoc.fields || []}
                       values={values}
-                      onValueChange={handleFieldChange}
+                      onValueChange={isLockedWeek ? () => {} : handleFieldChange}
                       signatureDataUrl={signatureDataUrl}
-                      onRequestSignature={() => setSignaturePadOpen(true)}
+                      onRequestSignature={isLockedWeek ? () => {} : () => setSignaturePadOpen(true)}
                       recipientColor={recipientPalette}
                       autoFill={autoFill}
-                      currentRecipientOrder={1}
+                      currentRecipientOrder={isLockedWeek ? -1 : 1}
                     />
-                  ) : undefined}
+                  )}
                 />
               </div>
             </div>

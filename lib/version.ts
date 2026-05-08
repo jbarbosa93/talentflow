@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.4'
+export const APP_VERSION = '2.3.5'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.5',
+    date: '2026-05-08',
+    label: 'Rapports — 5 corrections post-tests v2.3.4',
+    features: [
+      'RAPPORTS BUG 1 — WhatsApp ❓ après prénom : .normalize("NFC") avant extraction du prénom (João, Fernão…) dans send-notifications.ts + 2 pages dashboard wa.me.',
+      'RAPPORTS BUG 2+5 — Email admin → créateur du lien (plus ADMIN_EMAIL fixe). Si créateur_email === client_email : email admin skippé (doublon évité). Fix interviewé depuis report_links.created_by → auth.users.',
+      'RAPPORTS BUG 3a — Bouton Aperçu (bandeau jaune candidate_signed) : window.open direct sur /api/reports/{slug}/submissions/{id}/download (plus de blob fetch qui échouait silencieusement).',
+      'RAPPORTS BUG 3b — PDF preview vide quand semaine verrouillée : overlay PublicFieldsLayer toujours rendu, currentRecipientOrder=-1 quand isLockedWeek (lecture seule, valeurs visibles).',
+      'RAPPORTS BUG 4 — Bouton email admin "Voir l\'historique" → "Télécharger la copie signée" avec lien direct /api/reports/{slug}/submissions/{id}/download (plus de 404 mobile sur page dashboard auth requise).',
+    ],
+  },
   {
     version: '2.3.4',
     date: '2026-05-08',

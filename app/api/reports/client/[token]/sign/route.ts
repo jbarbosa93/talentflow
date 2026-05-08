@@ -143,6 +143,16 @@ export async function POST(
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
   const downloadUrl = `${appUrl}/report/client/${token}`
 
+  // v2.3.5 Bug 5 — Email admin = créateur du lien (pas ADMIN_EMAIL fixe)
+  // Fallback : ADMIN_EMAIL si créateur introuvable
+  let creatorEmail: string = process.env.ADMIN_EMAIL || ''
+  try {
+    if (link.created_by) {
+      const { data: creatorUser } = await supabase.auth.admin.getUserById(link.created_by)
+      if (creatorUser?.user?.email) creatorEmail = creatorUser.user.email
+    }
+  } catch { /* silent — fallback ADMIN_EMAIL */ }
+
   console.log('[REPORT SIGN] Delivery channel:', link.delivery_channel)
   console.log('[REPORT SIGN] Client email:', link.client_email || 'NONE')
   console.log('[REPORT SIGN] Client phone:', link.client_phone || 'NONE')
@@ -163,27 +173,27 @@ export async function POST(
     : []
   console.log('[REPORT SIGN] Attachments count:', attachments.length, '| Sizes:', attachments.map(a => a.content.length))
 
-  // 5a. Email admin (envoyé sauf si admin_email === client_email pour éviter le doublon)
-  // v2.3.3 Bug 5a — João teste souvent avec son propre email comme client_email :
-  // dans ce cas il recevrait 2 emails identiques. Si destinataires identiques,
-  // l'email client (5b) porte le même contenu + PJ donc l'admin n'a pas besoin du sien.
-  const adminEmail = process.env.ADMIN_EMAIL
-  const skipAdminEmail = !!(adminEmail && link.client_email
-    && adminEmail.toLowerCase() === link.client_email.toLowerCase()
+  // 5a. Email créateur du lien (sauf si creator_email === client_email → doublon évité)
+  // v2.3.5 Bug 2+5 — creator_email remplace ADMIN_EMAIL fixe.
+  // v2.3.5 Bug 4 — downloadUrl (PDF signé) remplace le lien historique dashboard → 404 mobile.
+  const pdfDownloadUrl = `${appUrl}/api/reports/${link.slug}/submissions/${submission.id}/download`
+  const skipAdminEmail = !!(creatorEmail && link.client_email
+    && creatorEmail.toLowerCase() === link.client_email.toLowerCase()
     && (link.delivery_channel === 'email' || link.delivery_channel === 'both'))
   if (!skipAdminEmail) {
   try {
     notifs.admin_email = await sendCompletedEmailToAdmin({
+      to: creatorEmail,
       candidateName,
       clientName: link.client_name || link.client_email || '',
       weekLabel: weekDates.label,
       attachments,
-      reportLinkUrl: `${appUrl}/sign/rapports/${link.id}`,
+      downloadUrl: pdfDownloadUrl,
     })
     if (!notifs.admin_email.ok) {
       console.error('[reports/client/sign] admin email FAILED:', notifs.admin_email.error)
     } else {
-      console.log('[reports/client/sign] admin email sent OK')
+      console.log('[reports/client/sign] admin email sent OK to', creatorEmail)
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Erreur admin email'
