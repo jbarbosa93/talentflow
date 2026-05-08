@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.1.19'
+export const APP_VERSION = '2.1.20'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.1.20',
+    date: '2026-05-08',
+    label: 'Sign Pack 1 (rôle suivant voit le rapport rempli) + autocomplete + suggestion contact + fix pipeline modal métiers',
+    features: [
+      'SIGN PACK 1 — Le rôle 2 (client) voit désormais les valeurs remplies par le rôle 1 (candidat) AVANT de signer. `verify-token` agrège les `field_values` des signers précédents → exposés en `previousFieldValues` + `previousSignerNames`. `PublicFieldsLayer` rend tous les fields du PDF (read-only en vert pour les rôles précédents, masqué pour les rôles futurs). `SignWizard` ajoute un bandeau vert "📋 [Nom] a déjà rempli le rapport" avec bouton "Voir le rapport" qui passe en mode document.',
+      'SIGN — Filtrage des wizard steps par `recipientOrder` du destinataire courant. Avant : le candidat voyait "ÉTAPE 1/6" alors qu\'il devrait voir "1/4" (les 2 steps de signature client étaient inclus à tort).',
+      'SIGN — Bouton "Document complet" retiré du header interne du SignWizard (doublon avec "Document" dans header global).',
+      'SIGN — Header mobile coupé : padding + `env(safe-area-inset-top)` pour éviter chevauchement avec barre Outlook/iOS. minHeight passé de 56→64px sur mobile.',
+      'SIGN /sign/new — Autocomplete candidats restauré dans `RoleFixedRecipients` (mode template). Régression : les inputs étaient devenus `<input>` natifs sans recherche DB. Réutilisation du composant `FirstNameAutocomplete` exporté depuis `RecipientCard`.',
+      'SIGN /sign/new — Bandeau "Ajouter comme contact de [Client]" : quand l\'admin tape un email dont le domaine match une entreprise déjà dans la base clients, un bandeau jaune propose d\'ajouter ce destinataire comme contact. Bouton "Ajouter" → POST atomic dans `clients.contacts` (jsonb). Si déjà contact : bandeau vert "✓ Déjà contact". 25 domaines génériques exclus (gmail, hotmail, etc.).',
+      'SIGN — Nouveaux endpoints : `GET /api/clients/match-email?email=XXX` (match par domaine site_web/email principal) + `POST /api/clients/[id]/add-contact` (append idempotent contact JSONB).',
+      'PIPELINE MODAL FICHE CANDIDAT — Dropdown "Métier" était vide ("— Aucun —" seul). Bug : `useMetiers()` retourne `string[]` mais le dropdown itérait avec `m.nom` (undefined sur string). Fix : `m` utilisé directement comme string. Tous les métiers configurés s\'affichent maintenant.',
+    ],
+  },
   {
     version: '2.1.19',
     date: '2026-05-07',

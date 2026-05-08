@@ -23,12 +23,18 @@ import type { SignField, SignFieldType } from '@/lib/sign/types'
 interface Props {
   page: number
   sizePx: { width: number; height: number }
-  fields: SignField[]               // tous les fields du document (du recipient courant)
-  values: Record<string, unknown>    // fieldId → value
+  /** v2.2.3 Pack 1 — TOUS les fields du document (filtrage par rôle géré ici).
+   *  Avant : seulement ceux du recipient courant → le client ne voyait pas les valeurs candidat. */
+  fields: SignField[]
+  values: Record<string, unknown>    // fieldId → value (inclut les valeurs des signers précédents)
   onValueChange: (fieldId: string, value: unknown) => void
   signatureDataUrl: string | null
   onRequestSignature: () => void     // ouvre le SignaturePad
   recipientColor: { stroke: string; fill: string; text: string }  // pour le rendu
+  /** v2.2.3 — Order du destinataire courant (pour distinguer fields éditables vs read-only). */
+  currentRecipientOrder?: number
+  /** v2.2.3 — Map fieldId → nom du signataire qui l'a rempli (tooltip "Rempli par X"). */
+  previousSignerNames?: Record<string, string>
   /**
    * Données auto-fill du destinataire (firstname/lastname/fullname/email).
    * Pré-remplit + readOnly dans le rendu.
@@ -50,8 +56,10 @@ export default function PublicFieldsLayer({
   page, sizePx, fields, values, onValueChange,
   signatureDataUrl, onRequestSignature, recipientColor, autoFill,
   currentFieldId, registerFieldEl,
+  currentRecipientOrder, previousSignerNames,
 }: Props) {
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
+  const curOrder = currentRecipientOrder ?? 1
 
   return (
     <>
@@ -61,6 +69,16 @@ export default function PublicFieldsLayer({
         const w = f.width * sizePx.width
         const h = f.height * sizePx.height
         const isCurrent = currentFieldId === f.id
+        // v2.2.3 Pack 1 — Détermine le statut du field :
+        //   - belongsToCurrent : field du destinataire courant → éditable
+        //   - belongsToPrevious : field d'un destinataire antérieur → read-only avec valeur affichée
+        //   - belongsToFuture : field d'un destinataire postérieur → masqué (pas pertinent ici)
+        const fieldOrder = f.recipientOrder || 1
+        const belongsToCurrent = fieldOrder === curOrder
+        const belongsToPrevious = fieldOrder < curOrder
+        const belongsToFuture = fieldOrder > curOrder
+        if (belongsToFuture) return null  // ne rend pas les fields des futurs signers
+        const filledBy = previousSignerNames?.[f.id]
         const wrapperStyle: React.CSSProperties = {
           position: 'absolute',
           left: x, top: y, width: w, height: h,
@@ -70,6 +88,9 @@ export default function PublicFieldsLayer({
           transition: 'box-shadow 0.2s',
           animation: isCurrent ? 'tf-sign-pulse 1.5s ease-in-out infinite' : undefined,
           zIndex: isCurrent ? 5 : 1,
+          // v2.2.3 — Read-only fields des signers précédents : opacity légèrement réduite
+          opacity: belongsToPrevious ? 0.95 : 1,
+          pointerEvents: belongsToPrevious ? 'none' : 'auto',
         }
         return (
           <div
@@ -77,11 +98,12 @@ export default function PublicFieldsLayer({
             ref={el => { registerFieldEl?.(f.id, el) }}
             style={wrapperStyle}
             data-field-id={f.id}
+            title={belongsToPrevious && filledBy ? `Rempli par ${filledBy}` : undefined}
           >
             <FieldInput
               field={f}
               value={values[f.id]}
-              onChange={v => onValueChange(f.id, v)}
+              onChange={v => belongsToCurrent ? onValueChange(f.id, v) : undefined}
               signatureDataUrl={signatureDataUrl}
               onRequestSignature={onRequestSignature}
               recipientColor={recipientColor}
@@ -89,6 +111,7 @@ export default function PublicFieldsLayer({
               widthPx={w}
               heightPx={h}
               isCurrent={isCurrent}
+              forceReadOnly={belongsToPrevious}
             />
           </div>
         )
@@ -118,11 +141,14 @@ interface FieldInputProps {
   widthPx: number
   heightPx: number
   isCurrent?: boolean
+  /** v2.2.3 Pack 1 — Force le champ en lecture seule (rendu seulement la valeur, sans input).
+   *  Utilisé pour afficher les valeurs remplies par les signers précédents. */
+  forceReadOnly?: boolean
 }
 
 function FieldInput({
   field, value, onChange, signatureDataUrl, onRequestSignature,
-  recipientColor, autoFill, widthPx, heightPx, isCurrent,
+  recipientColor, autoFill, widthPx, heightPx, isCurrent, forceReadOnly,
 }: FieldInputProps) {
   const t = field.type as SignFieldType
   const isRequired = !!field.required
@@ -130,6 +156,42 @@ function FieldInput({
   const isAutoFill = isAutoFillType(t)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
   const [tooltipOpen, setTooltipOpen] = useState(false)
+
+  // v2.2.3 Pack 1 — Si forceReadOnly (= field d'un signer précédent),
+  // on rend juste la valeur en texte gris, sans input ni bouton signature.
+  // C'est ce qui permet au client de VOIR les heures remplies par le candidat.
+  if (forceReadOnly) {
+    const display = (() => {
+      if (t === 'signature' || t === 'initial') {
+        if (typeof value === 'string' && value.startsWith('data:image/')) {
+          return <img src={value} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+        }
+        return <span style={{ fontSize: 10, color: '#15803D', fontStyle: 'italic' }}>✓ Signé</span>
+      }
+      if (t === 'checkbox') {
+        return <span style={{ fontSize: Math.min(widthPx, heightPx) * 0.7 }}>{value === true || value === 'true' ? '✓' : ''}</span>
+      }
+      if (value === undefined || value === null || value === '') return null
+      return <span>{String(value)}</span>
+    })()
+    return (
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+        padding: '2px 4px',
+        background: 'rgba(34,197,94,0.06)',  // léger fond vert = "déjà rempli"
+        border: '1px dashed rgba(34,197,94,0.45)',
+        borderRadius: 3,
+        fontSize: Math.max(9, Math.min(13, heightPx * 0.55)),
+        color: '#1C1A14',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+      }}>
+        {display}
+      </div>
+    )
+  }
 
   // Auto-focus quand le champ devient le champ "courant"
   useEffect(() => {

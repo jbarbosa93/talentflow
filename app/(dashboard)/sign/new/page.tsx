@@ -6,7 +6,7 @@
 // Query params : ?candidatId=xxx&category=yyy → pré-fill 1er destinataire
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -14,7 +14,7 @@ import {
   MessageSquare, ListOrdered, Plus, Sparkles,
 } from 'lucide-react'
 import DocumentUploader from '@/components/sign/DocumentUploader'
-import { type RecipientCandidat } from '@/components/sign/RecipientCard'
+import { type RecipientCandidat, FirstNameAutocomplete } from '@/components/sign/RecipientCard'
 import RecipientsGroup from '@/components/sign/RecipientsGroup'
 import AdvancedOptions, { DEFAULT_OPTIONS, type AdvancedOptionsValue } from '@/components/sign/AdvancedOptions'
 import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
@@ -765,22 +765,32 @@ function RoleFixedRecipients({
                 )}
               </div>
 
-              {/* Inputs : Prénom + Nom + Email */}
+              {/* v2.2.3 — Inputs : Prénom (autocomplete candidats DB) + Nom + Email */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: 8 }}>
-                <input
-                  type="text"
+                <FirstNameAutocomplete
                   value={r.firstName ?? ''}
-                  placeholder="Prénom"
-                  onChange={e => {
-                    const fn = e.target.value
-                    const ln = r.lastName ?? ''
-                    updateRecipient(idx, {
-                      firstName: fn,
-                      name: [fn, ln].filter(Boolean).join(' ').trim(),
-                    })
+                  isLinked={!!r.candidat_id}
+                  onChange={(firstName, candidat) => {
+                    if (candidat) {
+                      const fn = candidat.prenom || firstName
+                      const ln = candidat.nom || ''
+                      updateRecipient(idx, {
+                        firstName: fn,
+                        lastName: ln,
+                        name: [fn, ln].filter(Boolean).join(' ').trim() || fn,
+                        email: candidat.email || r.email,
+                        candidat_id: candidat.id,
+                      })
+                    } else {
+                      const ln = r.lastName ?? ''
+                      updateRecipient(idx, {
+                        firstName,
+                        name: [firstName, ln].filter(Boolean).join(' ').trim(),
+                        candidat_id: null,
+                      })
+                    }
                   }}
-                  className="neo-input"
-                  style={{ height: 38, fontSize: 13 }}
+                  onUnlink={() => updateRecipient(idx, { candidat_id: null })}
                 />
                 <input
                   type="text"
@@ -806,6 +816,14 @@ function RoleFixedRecipients({
                   style={{ height: 38, fontSize: 13 }}
                 />
               </div>
+
+              {/* v2.2.3 — Bandeau "Ajouter comme contact de [Client]" si email match */}
+              <ClientContactSuggestion
+                email={r.email}
+                firstName={r.firstName}
+                lastName={r.lastName}
+                roleName={r.roleName}
+              />
 
               {/* v2.2.2 — Mode d'affichage par destinataire (signers uniquement) */}
               {!isCC && (
@@ -895,6 +913,163 @@ function ViewModePicker({
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ─── ClientContactSuggestion — bandeau "Ajouter ce destinataire comme contact de [Client]" ──
+// v2.2.3 — Quand l'admin tape un email dont le domaine correspond à une entreprise
+// déjà dans la base clients, on propose de lier ce destinataire comme contact
+// de cette entreprise (pour le retrouver facilement plus tard).
+function ClientContactSuggestion({
+  email, firstName, lastName, roleName,
+}: {
+  email: string | undefined
+  firstName: string | undefined
+  lastName: string | undefined
+  roleName: string | undefined
+}) {
+  const [suggestion, setSuggestion] = useState<{
+    clientId: string
+    clientName: string
+    isAlreadyContact: boolean
+  } | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setSuggestion(null)
+    setAdded(false)
+    setDismissed(false)
+    if (!email || !email.includes('@')) return
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/clients/match-email?email=${encodeURIComponent(email)}`)
+        const d = await r.json()
+        if (d.client) {
+          setSuggestion({
+            clientId: d.client.id,
+            clientName: d.client.nom_entreprise,
+            isAlreadyContact: !!d.isAlreadyContact,
+          })
+        }
+      } catch { /* silencieux */ }
+    }, 600)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [email])
+
+  if (!suggestion || dismissed) return null
+  if (suggestion.isAlreadyContact) {
+    return (
+      <div style={{
+        marginTop: 4,
+        padding: '6px 10px',
+        background: 'rgba(34,197,94,0.08)',
+        border: '1px solid rgba(34,197,94,0.35)',
+        borderRadius: 8,
+        fontSize: 11.5,
+        color: '#15803D',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        ✓ Déjà contact de <strong>{suggestion.clientName}</strong>
+      </div>
+    )
+  }
+
+  const onAdd = async () => {
+    if (!email) return
+    setAdding(true)
+    try {
+      const r = await fetch(`/api/clients/${suggestion.clientId}/add-contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          role: roleName || '',
+        }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur')
+      toast.success(`Ajouté comme contact de ${suggestion.clientName}`)
+      setAdded(true)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  if (added) {
+    return (
+      <div style={{
+        marginTop: 4,
+        padding: '6px 10px',
+        background: 'rgba(34,197,94,0.08)',
+        border: '1px solid rgba(34,197,94,0.35)',
+        borderRadius: 8,
+        fontSize: 11.5,
+        color: '#15803D',
+      }}>
+        ✓ Contact ajouté à <strong>{suggestion.clientName}</strong>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      marginTop: 4,
+      padding: '8px 10px',
+      background: 'rgba(234,179,8,0.10)',
+      border: '1px solid rgba(234,179,8,0.45)',
+      borderRadius: 8,
+      fontSize: 12,
+      color: 'var(--foreground)',
+      display: 'flex', alignItems: 'center', gap: 8,
+      flexWrap: 'wrap',
+    }}>
+      <span style={{ fontSize: 14 }}>💡</span>
+      <span style={{ flex: 1, minWidth: 180 }}>
+        Cet email semble appartenir à <strong>{suggestion.clientName}</strong>.
+        L&apos;ajouter comme contact ?
+      </span>
+      <button
+        type="button"
+        onClick={onAdd}
+        disabled={adding}
+        style={{
+          padding: '4px 10px',
+          fontSize: 11.5, fontWeight: 700,
+          background: '#EAB308',
+          color: '#1C1A14',
+          border: 'none',
+          borderRadius: 6,
+          cursor: adding ? 'wait' : 'pointer',
+          fontFamily: 'inherit',
+          opacity: adding ? 0.6 : 1,
+        }}
+      >
+        {adding ? 'Ajout…' : 'Ajouter'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        title="Ignorer"
+        style={{
+          width: 22, height: 22,
+          border: 'none', background: 'transparent',
+          color: 'var(--muted)',
+          cursor: 'pointer', fontSize: 16, lineHeight: 1,
+          padding: 0,
+        }}
+      >
+        ×
+      </button>
     </div>
   )
 }

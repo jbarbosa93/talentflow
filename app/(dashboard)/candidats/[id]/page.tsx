@@ -3572,7 +3572,7 @@ function PipelineActionsModal({ candidat, onClose, onSaved }: {
               ))}
             </div>
           </div>
-          {/* Métier */}
+          {/* Métier — v2.2.3 fix : useMetiers() retourne string[], pas { id, nom }[] */}
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>Métier</label>
             <select value={metier} onChange={e => setMetier(e.target.value)} style={{
@@ -3581,8 +3581,8 @@ function PipelineActionsModal({ candidat, onClose, onSaved }: {
               color: 'var(--foreground)', fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
             }}>
               <option value="">— Aucun —</option>
-              {metiers.map((m: any) => (
-                <option key={m.id || m.nom} value={m.nom}>{m.nom}</option>
+              {metiers.map((m: string) => (
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>

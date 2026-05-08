@@ -15,7 +15,8 @@ import { RECIPIENT_COLORS, type SignRecipient } from '@/lib/sign/types'
 
 export type RecipientCandidat = SignRecipient & { candidat_id?: string | null }
 
-interface CandidateResult {
+// v2.2.3 — Exporté pour usage externe (RoleFixedRecipients)
+export interface CandidateResult {
   id: string
   prenom: string | null
   nom: string | null
@@ -266,7 +267,8 @@ function deriveLastName(fullName: string): string {
 }
 
 // ─── FirstNameAutocomplete — input prénom avec dropdown candidats ─────
-function FirstNameAutocomplete({
+// v2.2.3 — Exporté pour réutilisation dans RoleFixedRecipients (mode template)
+export function FirstNameAutocomplete({
   value, isLinked, onChange, onUnlink,
 }: {
   value: string

@@ -137,6 +137,43 @@ export async function POST(req: NextRequest) {
       : null
     const effectiveCompanyName = ctxCompany || companyName
 
+    // v2.2.3 — Pack 1 : agrège les field_values des SIGNERS PRÉCÉDENTS pour que le
+    // destinataire courant voie le rapport rempli avant de signer. Critique pour
+    // les workflows séquentiels (ex: le client doit valider les heures du candidat).
+    let previousFieldValues: Record<string, unknown> = {}
+    let previousSignerNames: Record<string, string> = {}  // fieldId → "Nom du signataire"
+    try {
+      const { data: priorTokens } = await supabase
+        .from('sign_tokens' as any)
+        .select('id, recipient_email, recipient_name, field_values, signed_at')
+        .eq('envelope_id', envelope.id)
+        .neq('id', result.token.id)  // exclut le token courant
+      const tokensList = (priorTokens || []) as unknown as Array<{
+        id: string
+        recipient_email: string
+        recipient_name: string
+        field_values: Record<string, unknown> | null
+        signed_at: string | null
+      }>
+      for (const t of tokensList) {
+        if (!t.field_values) continue
+        // Trouve le recipient correspondant dans envelope.recipients
+        const matchingRecipient = envRecipients.find(r =>
+          r.email.toLowerCase().trim() === t.recipient_email.toLowerCase().trim()
+        )
+        const otherOrder = matchingRecipient?.order ?? 0
+        // Ne garde que les valeurs des SIGNERS antérieurs (order < currentOrder)
+        // Les ordres parallèles (= current) et postérieurs (> current) sont exclus.
+        if (otherOrder >= currentRecipientOrder) continue
+        for (const [fieldId, value] of Object.entries(t.field_values)) {
+          // Ne pas écraser une valeur déjà présente (ordre déterministe : 1er rempli gagne)
+          if (previousFieldValues[fieldId] !== undefined) continue
+          previousFieldValues[fieldId] = value
+          previousSignerNames[fieldId] = t.recipient_name
+        }
+      }
+    } catch { /* silencieux */ }
+
     return NextResponse.json({
       valid: true,
       envelope: {
@@ -172,6 +209,9 @@ export async function POST(req: NextRequest) {
         signed_at: tokenWithExtras.signed_at || null,
         field_values: tokenWithExtras.field_values || {},
       },
+      // v2.2.3 — Pack 1 : valeurs des signers précédents (read-only côté UI)
+      previousFieldValues,
+      previousSignerNames,
       // v2.2.0 Phase 4a-bis — Liste tous les destinataires (pour la sidebar)
       allRecipients: envRecipients.map(r => ({
         name: r.name,

@@ -95,6 +95,10 @@ interface VerifyResponse {
   } | null
   /** v2.2.2 — Nom de la société expéditrice → utilisé pour fields type=company */
   companyName?: string
+  /** v2.2.3 — Pack 1 : valeurs des signers précédents (lecture seule) */
+  previousFieldValues?: Record<string, unknown>
+  /** v2.2.3 — Map fieldId → nom du signataire qui l'a rempli (pour tooltip) */
+  previousSignerNames?: Record<string, string>
 }
 
 const COMPANY = 'L-Agence SA'
@@ -148,7 +152,10 @@ export default function PublicSignPage({ params }: PageProps) {
   useEffect(() => {
     if (!data?.wizard) return
     const enabled = data.wizard.enabled !== false
-    const hasSteps = (data.wizard.steps || []).length > 0
+    // v2.2.3 — Compte uniquement les steps du destinataire courant
+    const stepsForCurrentRecipient = (data.wizard.steps || [])
+      .filter(s => (s.recipientOrder ?? 1) === (data.recipient?.order ?? 1))
+    const hasSteps = stepsForCurrentRecipient.length > 0
     const wizardAvailable = enabled && hasSteps
     const pref = data.recipient?.preferredViewMode || 'auto'
     if (pref === 'wizard' && wizardAvailable) {
@@ -189,8 +196,14 @@ export default function PublicSignPage({ params }: PageProps) {
             setCompleted(true)
           }
           // Phase 4a-bis — rehydrate les valeurs des champs déjà saisies
-          if (d.recipient?.field_values && typeof d.recipient.field_values === 'object') {
-            setFieldValues(d.recipient.field_values)
+          // v2.2.3 Pack 1 — Merge AUSSI les valeurs des signers précédents (read-only).
+          // Le destinataire courant ne peut pas les modifier mais doit les VOIR.
+          const merged: Record<string, unknown> = {
+            ...(d.previousFieldValues || {}),
+            ...(d.recipient?.field_values || {}),
+          }
+          if (Object.keys(merged).length > 0) {
+            setFieldValues(merged)
           }
         }
         else if (d.reason === 'expired') setState('expired')
@@ -708,14 +721,16 @@ export default function PublicSignPage({ params }: PageProps) {
 
       {/* Main viewer */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
-        {/* Top bar */}
+        {/* Top bar — v2.2.3 : padding-top renforcé sur mobile pour éviter le chevauchement
+            avec le bouton "Outlook" / barre système iOS qui flotte au-dessus. */}
         <header style={{
           flexShrink: 0,
           display: 'flex', alignItems: 'center', gap: 10,
-          padding: '12px 16px',
+          padding: isMobile ? '16px 12px 12px' : '12px 16px',
+          paddingTop: isMobile ? 'max(16px, env(safe-area-inset-top, 16px))' : 12,
           background: '#fff',
           borderBottom: '1px solid #E5E7EB',
-          minHeight: 56,
+          minHeight: isMobile ? 64 : 56,
         }}>
           {isMobile && (
             <button
@@ -749,8 +764,8 @@ export default function PublicSignPage({ params }: PageProps) {
             </h1>
           </div>
 
-          {/* Toggle Mode Wizard ↔ Document — visible uniquement si wizard activé */}
-          {hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps?.length || 0) > 0 && (
+          {/* Toggle Mode Wizard ↔ Document — visible uniquement si wizard activé ET le rôle courant a des steps */}
+          {hasConsented && !completed && data?.wizard?.enabled && (data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder).length > 0 && (
             <button
               type="button"
               onClick={() => setViewMode(m => m === 'wizard' ? 'document' : 'wizard')}
@@ -886,11 +901,17 @@ export default function PublicSignPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* v2.2.0 Phase 4a-bis-2 — Mode WIZARD : remplace le PDF viewer */}
-        {viewMode === 'wizard' && hasConsented && data?.wizard && data.wizard.steps.length > 0 ? (
+        {/* v2.2.0 Phase 4a-bis-2 — Mode WIZARD : remplace le PDF viewer
+            v2.2.3 — Filtre les steps par recipientOrder du destinataire courant.
+            Avant : le candidat voyait aussi les steps du client (ÉTAPE 1/6 alors qu'il devrait voir 1/4). */}
+        {(() => {
+          const wizardStepsForRecipient = (data?.wizard?.steps || [])
+            .filter(s => (s.recipientOrder ?? 1) === recipientOrder)
+          return viewMode === 'wizard' && hasConsented && data?.wizard && wizardStepsForRecipient.length > 0
+        })() ? (
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             <SignWizard
-              steps={data.wizard.steps}
+              steps={(data?.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === recipientOrder)}
               documents={documents}
               fieldValues={fieldValues}
               onValueChange={handleFieldChange}
@@ -905,6 +926,16 @@ export default function PublicSignPage({ params }: PageProps) {
               onSwitchToDocumentMode={() => setViewMode('document')}
               token={token}
               contextData={(envelope as unknown as { context_data?: { weekStartDate?: string | null } | null })?.context_data || null}
+              previousFieldValues={data?.previousFieldValues}
+              previousSignerNames={data?.previousSignerNames}
+              previousSignerLabel={(() => {
+                // Trouve le 1er signer précédent pour libellé "Rapport rempli par X"
+                const prevRecipient = (data?.allRecipients || [])
+                  .filter(r => r.order < recipientOrder && r.status === 'signed')
+                  .sort((a, b) => b.order - a.order)[0]
+                return prevRecipient?.name
+              })()}
+              allDocumentFields={activeDoc?.fields || []}
             />
           </div>
         ) : documents.length === 0 ? (
@@ -933,7 +964,9 @@ export default function PublicSignPage({ params }: PageProps) {
                 <PublicFieldsLayer
                   page={pageNum}
                   sizePx={sizePx}
-                  fields={fieldsForCurrentRecipient}
+                  // v2.2.3 Pack 1 — Passe TOUS les fields du doc (pas juste current).
+                  // PublicFieldsLayer rend les fields d'autres rôles en read-only.
+                  fields={activeDoc?.fields || []}
                   values={fieldValues}
                   onValueChange={handleFieldChange}
                   signatureDataUrl={signatureDataUrl}
@@ -942,6 +975,8 @@ export default function PublicSignPage({ params }: PageProps) {
                   autoFill={autoFill}
                   currentFieldId={currentFieldId}
                   registerFieldEl={registerFieldEl}
+                  currentRecipientOrder={recipientOrder}
+                  previousSignerNames={data?.previousSignerNames}
                 />
               ) : undefined}
             />

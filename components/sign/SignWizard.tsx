@@ -91,14 +91,26 @@ interface Props {
   forceStepIdx?: number
   /** v2.2.1 — Contexte enveloppe (ex: weekStartDate pour rapports heures). */
   contextData?: { weekStartDate?: string | null } | null
+  /** v2.2.3 Pack 1 — Valeurs déjà remplies par les signers précédents (lecture seule). */
+  previousFieldValues?: Record<string, unknown>
+  /** v2.2.3 Pack 1 — Map fieldId → nom du signataire qui l'a rempli (tooltip/récap). */
+  previousSignerNames?: Record<string, string>
+  /** v2.2.3 Pack 1 — Nom du dernier signataire pour titre récap "Rapport rempli par X". */
+  previousSignerLabel?: string
+  /** v2.2.3 Pack 1 — Tous les fields du doc (incluant ceux des autres rôles). Pour récap. */
+  allDocumentFields?: SignField[]
 }
 
 export default function SignWizard({
   steps, documents, fieldValues, onValueChange, signatureDataUrl,
   onRequestSignature, autoFill, recipientName, envelopeTitle,
   completed, finalizing, onFinalize, onSwitchToDocumentMode, token, forceStepIdx,
-  contextData,
+  contextData, previousFieldValues, previousSignerNames, previousSignerLabel,
+  allDocumentFields,
 }: Props) {
+  // v2.2.3 Pack 1 — Détecte s'il y a des valeurs précédentes à montrer en récap
+  const hasPreviousValues = !!previousFieldValues && Object.keys(previousFieldValues).length > 0
+  const showPrevRecap = hasPreviousValues && (allDocumentFields || []).length > 0
   const [openAttachment, setOpenAttachment] = useState<{ url: string; filename: string; label: string } | null>(null)
   // L'index courant : 0..steps.length-1 = step normale ; steps.length = step récap
   const [currentIdx, setCurrentIdx] = useState(forceStepIdx ?? 0)
@@ -204,26 +216,8 @@ export default function SignWizard({
             <ListChecks size={12} />
             Étape {Math.min(currentIdx + 1, totalSteps)} / {totalSteps}
           </div>
-          {onSwitchToDocumentMode && !isRecapStep && (
-            <button
-              type="button"
-              onClick={onSwitchToDocumentMode}
-              style={{
-                background: 'transparent',
-                border: '1px solid #E5E7EB',
-                borderRadius: 999,
-                padding: '4px 10px',
-                fontSize: 11,
-                color: '#6B7280',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-              }}
-            >
-              <FileText size={11} />
-              Document complet
-            </button>
-          )}
+          {/* v2.2.3 — Bouton "Document complet" retiré du wizard pour éviter doublon
+              avec le toggle "Document" présent dans le header global de la page. */}
         </div>
         {/* Progress bar */}
         <div style={{ height: 4, background: '#F3F4F6', borderRadius: 999, overflow: 'hidden' }}>
@@ -238,6 +232,56 @@ export default function SignWizard({
 
       {/* Body — contenu de l'étape */}
       <main style={bodyStyle}>
+        {/* v2.2.3 Pack 1 — Bandeau "Rapport rempli par X" visible sur la 1ère étape.
+            Le destinataire courant peut cliquer "Voir le document" pour consulter
+            les valeurs déjà remplies par les signers précédents (en lecture seule). */}
+        {showPrevRecap && currentIdx === 0 && !isRecapStep && (
+          <div style={{
+            margin: '0 0 16px',
+            padding: '12px 14px',
+            background: 'rgba(34,197,94,0.08)',
+            border: '1px solid rgba(34,197,94,0.35)',
+            borderRadius: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 18 }}>📋</span>
+            <div style={{ flex: 1, minWidth: 200, fontSize: 13, lineHeight: 1.4, color: '#1C1A14' }}>
+              <strong>{previousSignerLabel || 'Le destinataire précédent'}</strong>
+              {' '}a déjà rempli le rapport.
+              <br />
+              <span style={{ fontSize: 12, color: '#374151' }}>
+                Vérifie les valeurs ci-dessous avant de signer ta partie.
+              </span>
+            </div>
+            {onSwitchToDocumentMode && (
+              <button
+                type="button"
+                onClick={onSwitchToDocumentMode}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: '#15803D',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <FileText size={12} />
+                Voir le rapport
+              </button>
+            )}
+          </div>
+        )}
         {isRecapStep ? (
           <RecapStep
             steps={steps}
