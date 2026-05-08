@@ -695,6 +695,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             <div style={{
               flex: 1, overflow: 'hidden', position: 'relative',
               padding: '16px 24px 24px',
+              background: '#F3F4F6',
             }}>
               <div style={{
                 width: '100%', height: '100%',

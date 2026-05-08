@@ -26,11 +26,11 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
   const [candidatNameField, setCandidatNameField] = useState('')
   // v2.3.x Bug 8c
   const [candidatPhoneField, setCandidatPhoneField] = useState('')
+  // v2.3.7 — Email candidat
+  const [candidatEmailField, setCandidatEmailField] = useState('')
   const [clientName, setClientName] = useState('')
   const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
-  const [clientPhone, setClientPhone] = useState('')
-  const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
   const [status, setStatus] = useState<'active' | 'paused' | 'revoked'>('active')
 
   useEffect(() => {
@@ -43,11 +43,10 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
         setTitle(l.title || '')
         setCandidatNameField(l.candidat_name || '')
         setCandidatPhoneField(l.candidat_phone || '')
+        setCandidatEmailField(l.candidat_email || '')
         setClientName(l.client_name || '')
         setClientContactName(l.client_contact_name || '')
         setClientEmail(l.client_email || '')
-        setClientPhone(l.client_phone || '')
-        setChannel(l.delivery_channel)
         setStatus(l.status)
 
         // Charge le nom candidat (priorité fiche DB si candidat_id présent, sinon candidat_name)
@@ -71,12 +70,7 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Titre requis'); return }
     if (!clientName.trim()) { toast.error('Nom de l\'entreprise cliente requis'); return }
-    if ((channel === 'email' || channel === 'both') && !clientEmail.trim()) {
-      toast.error('Email client requis pour ce canal'); return
-    }
-    if ((channel === 'whatsapp' || channel === 'both') && !clientPhone.trim()) {
-      toast.error('Téléphone client requis pour ce canal'); return
-    }
+    if (!clientEmail.trim()) { toast.error('Email client requis'); return }
     setSaving(true)
     try {
       const r = await fetch(`/api/admin/reports/${id}`, {
@@ -86,11 +80,11 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
           title: title.trim(),
           candidat_name: candidatNameField.trim() || null,
           candidat_phone: candidatPhoneField.trim() || null,
+          candidat_email: candidatEmailField.trim() || null,
           client_name: clientName.trim(),
           client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
-          client_phone: clientPhone.trim() || null,
-          delivery_channel: channel,
+          delivery_channel: 'email',
           status,
         }),
       })
@@ -188,13 +182,24 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
               style={{ height: 42 }}
             />
           </Field>
-          {/* v2.3.x Bug 8c — Phone candidat (notif WA + deep link wa.me) */}
-          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour notif post-signature + deep link partage">
+          {/* v2.3.x Bug 8c — Phone candidat (deep link wa.me) */}
+          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour le deep link partage">
             <input
               type="tel"
               value={candidatPhoneField}
               onChange={e => setCandidatPhoneField(e.target.value)}
               placeholder="+41 79 123 45 67"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
+          {/* v2.3.7 — Email candidat (notif post-signature client) */}
+          <Field label="Email candidat (optionnel)" hint="reçoit une copie signée quand le client valide">
+            <input
+              type="email"
+              value={candidatEmailField}
+              onChange={e => setCandidatEmailField(e.target.value)}
+              placeholder="candidat@email.ch"
               className="neo-input"
               style={{ height: 42 }}
             />
@@ -233,52 +238,16 @@ export default function EditReportLinkPage({ params }: { params: Promise<{ id: s
               style={{ height: 42 }}
             />
           </Field>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Email client">
-              <input
-                type="email"
-                value={clientEmail}
-                onChange={e => setClientEmail(e.target.value)}
-                placeholder="contact@client.ch"
-                className="neo-input"
-                style={{ height: 42 }}
-              />
-            </Field>
-            <Field label="WhatsApp client">
-              <input
-                type="tel"
-                value={clientPhone}
-                onChange={e => setClientPhone(e.target.value)}
-                placeholder="+41 79 123 45 67"
-                className="neo-input"
-                style={{ height: 42 }}
-              />
-            </Field>
-          </div>
-        </Section>
-
-        {/* Section canal */}
-        <Section title="Canal de notification client">
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['email', 'whatsapp', 'both'] as const).map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setChannel(c)}
-                style={{
-                  flex: 1, padding: '10px 14px',
-                  fontSize: 12.5, fontWeight: 600,
-                  border: `1px solid ${channel === c ? 'var(--primary, #EAB308)' : 'var(--border)'}`,
-                  background: channel === c ? 'var(--primary-soft)' : 'var(--card)',
-                  color: 'var(--foreground)',
-                  borderRadius: 10,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                {c === 'email' ? '📧 Email' : c === 'whatsapp' ? '💬 WhatsApp' : '📧 + 💬 Les deux'}
-              </button>
-            ))}
-          </div>
+          <Field label="Email client *">
+            <input
+              type="email"
+              value={clientEmail}
+              onChange={e => setClientEmail(e.target.value)}
+              placeholder="contact@client.ch"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
         </Section>
 
         {/* Section statut */}

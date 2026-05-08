@@ -79,7 +79,7 @@ export default function ReportLinkDetailPage({
     if (!phoneDigits) {
       toast.warning('Pas de WhatsApp candidat configuré — choisis le contact dans WhatsApp')
     }
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.location.href = url
   }
 
   const handlePauseResume = async () => {

@@ -21,14 +21,14 @@ export default function NewReportLinkPage() {
   const [candidatNom, setCandidatNom] = useState('')
   // v2.3.x Bug 8c — Phone candidat (E.164, optionnel)
   const [candidatPhone, setCandidatPhone] = useState('')
+  // v2.3.7 — Email candidat (optionnel, notif post-signature client)
+  const [candidatEmail, setCandidatEmail] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [title, setTitle] = useState('')
   const [clientName, setClientName] = useState('')
   // v2.3.x Feature 5 — Nom du contact client (texte libre, optionnel)
   const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
-  const [clientPhone, setClientPhone] = useState('')
-  const [channel, setChannel] = useState<'email' | 'whatsapp' | 'both'>('email')
   const [submitting, setSubmitting] = useState(false)
 
   // Charge les templates de type 'report' uniquement
@@ -73,12 +73,7 @@ export default function NewReportLinkPage() {
     if (!templateId) return 'Choisis un template de rapport'
     if (!title.trim()) return 'Titre requis'
     if (!clientName.trim()) return 'Nom du client requis'
-    if ((channel === 'email' || channel === 'both') && !clientEmail.trim()) {
-      return 'Email du client requis pour ce canal'
-    }
-    if ((channel === 'whatsapp' || channel === 'both') && !clientPhone.trim()) {
-      return 'Numéro WhatsApp du client requis pour ce canal'
-    }
+    if (!clientEmail.trim()) return 'Email du client requis'
     return null
   }
 
@@ -98,13 +93,13 @@ export default function NewReportLinkPage() {
           candidat_id: candidatId,
           candidat_name: candidatNameToSend,
           candidat_phone: candidatPhone.trim() || null,
+          candidat_email: candidatEmail.trim() || null,
           template_id: templateId,
           title: title.trim(),
           client_name: clientName.trim(),
           client_contact_name: clientContactName.trim() || null,
           client_email: clientEmail.trim() || null,
-          client_phone: clientPhone.trim() || null,
-          delivery_channel: channel,
+          delivery_channel: 'email',
         }),
       })
       const d = await r.json()
@@ -159,13 +154,24 @@ export default function NewReportLinkPage() {
               onUnlink={() => { setCandidatId(null) }}
             />
           </Field>
-          {/* v2.3.x Bug 8c — Phone candidat (optionnel) pour notif WA + deep link wa.me */}
-          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour le deep link partage + notif post-signature">
+          {/* v2.3.x Bug 8c — Phone candidat (optionnel) pour deep link wa.me */}
+          <Field label="WhatsApp candidat (optionnel)" hint="utilisé pour le deep link partage">
             <input
               type="tel"
               value={candidatPhone}
               onChange={e => setCandidatPhone(e.target.value)}
               placeholder="+41 79 123 45 67"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
+          {/* v2.3.7 — Email candidat (optionnel) pour notif post-signature client */}
+          <Field label="Email candidat (optionnel)" hint="reçoit une copie signée quand le client valide">
+            <input
+              type="email"
+              value={candidatEmail}
+              onChange={e => setCandidatEmail(e.target.value)}
+              placeholder="candidat@email.ch"
               className="neo-input"
               style={{ height: 42 }}
             />
@@ -296,57 +302,16 @@ export default function NewReportLinkPage() {
               style={{ height: 42 }}
             />
           </Field>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Email client">
-              <input
-                type="email"
-                value={clientEmail}
-                onChange={e => setClientEmail(e.target.value)}
-                placeholder="contact@client.ch"
-                className="neo-input"
-                style={{ height: 42 }}
-              />
-            </Field>
-            <Field label="WhatsApp client (E.164)">
-              <input
-                type="tel"
-                value={clientPhone}
-                onChange={e => setClientPhone(e.target.value)}
-                placeholder="+41 79 123 45 67"
-                className="neo-input"
-                style={{ height: 42 }}
-              />
-            </Field>
-          </div>
-        </Section>
-
-        {/* Section Canal */}
-        <Section title="Canal de notification client">
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8, lineHeight: 1.5 }}>
-            Comment le client est-il notifié quand le candidat soumet son rapport ?
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['email', 'whatsapp', 'both'] as const).map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setChannel(c)}
-                style={{
-                  flex: 1,
-                  padding: '10px 14px',
-                  fontSize: 13, fontWeight: 600,
-                  border: `1px solid ${channel === c ? 'var(--primary, #EAB308)' : 'var(--border)'}`,
-                  borderRadius: 8,
-                  background: channel === c ? 'var(--primary-soft)' : 'var(--card)',
-                  color: channel === c ? 'var(--accent-foreground, #A16207)' : 'var(--foreground)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {c === 'email' ? '📧 Email' : c === 'whatsapp' ? '💬 WhatsApp' : '📧 + 💬 Les deux'}
-              </button>
-            ))}
-          </div>
+          <Field label="Email client *">
+            <input
+              type="email"
+              value={clientEmail}
+              onChange={e => setClientEmail(e.target.value)}
+              placeholder="contact@client.ch"
+              className="neo-input"
+              style={{ height: 42 }}
+            />
+          </Field>
         </Section>
 
         {/* Submit */}

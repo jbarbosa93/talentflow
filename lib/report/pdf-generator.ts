@@ -1,14 +1,17 @@
 // TalentFlow Rapports — Génération du PDF final stampé (Phase 5)
-// v2.2.6
+// v2.3.7
+//
+// Génère 2 fichiers par document :
+//   1. rapport_signe_S{n}_...pdf  : rapport stampé (sans footer audit, avec ligne header discrète)
+//   2. certificat_signature_S{n}_...pdf : certificat standalone (signataires + SHA-256 + ZertES)
 //
 // Pattern aligné sur lib/sign/pdf-generator.ts :
 //   1. Download PDF source du template depuis Storage
 //   2. Hash SHA-256 du PDF source (preuve ZertES)
-//   3. Multi-pass stampPdf : 1 pass avec les fields candidat (recipientOrder=1)
-//      puis 1 pass avec les fields client (recipientOrder=2)
-//   4. Page certificat (signataires + IP + hash)
-//   5. Upload signed/{linkId}/{submissionId}/...
-//   6. UPDATE report_submissions.signed_pdf_paths
+//   3. Multi-pass stampPdf : pass 1 fields candidat, pass 2 fields client (sans footer)
+//   4. Ajout ligne audit discrète en haut de la page 1
+//   5. Certificat standalone (buildCertificatePdf)
+//   6. Upload des 2 fichiers + persist signed_pdf_paths
 
 import { createHash } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -38,7 +41,8 @@ export interface GenerateReportPdfArgs {
 }
 
 /**
- * Génère le PDF final stampé pour une submission completed.
+ * Génère les PDFs finaux stampés pour une submission completed.
+ * Retourne 2 docs par document template : rapport + certificat.
  * Best-effort : retourne tableau vide si template absent ou erreurs.
  */
 export async function generateReportPdf(
@@ -127,12 +131,12 @@ export async function generateReportPdf(
             ? new Date(submission.candidate_signed_at)
             : finalizedAt,
           signedIp: submission.candidate_signed_ip,
-          addAuditFooter: false,  // footer ajouté en pass 2 (final)
+          addAuditFooter: false,
         })
         console.log('[report/pdf-generator] Pass 1 (cand) done:', currentBuf.length + 'B')
       }
 
-      // ─── Pass 2 : fields recipientOrder=2 (Client) + footer audit ───
+      // ─── Pass 2 : fields recipientOrder=2 (Client) — sans footer ───
       const clientFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 2)
       currentBuf = await stampPdf({
         pdfBuffer: currentBuf,
@@ -155,34 +159,52 @@ export async function generateReportPdf(
           ? new Date(submission.client_signed_at)
           : finalizedAt,
         signedIp: submission.client_signed_ip,
-        addAuditFooter: true,
+        addAuditFooter: false,
       })
       console.log('[report/pdf-generator] Pass 2 (client) done:', currentBuf.length + 'B')
 
-      // 3. Page certificat
-      currentBuf = await appendCertificatePage({
-        pdfBuffer: currentBuf,
+      // ─── 2.5 : Ligne audit discrete en haut de la page 1 ───
+      currentBuf = await addAuditHeaderToReport(currentBuf, {
+        linkId: link.id,
+        finalizedAt,
+      })
+      console.log('[report/pdf-generator] Audit header added:', currentBuf.length + 'B')
+
+      // ─── 3a : Upload rapport ───
+      const reportName = buildReportFilename(link, submission)
+      const reportBlob = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
+      const reportPath = await uploadSignDocument(
+        'signed',
+        `reports/${link.id}/${submission.id}`,
+        reportBlob,
+        reportName,
+      )
+      const reportBase64 = Buffer.from(currentBuf).toString('base64')
+      generated.push({ name: reportName, path: reportPath, sha256, pdfBase64: reportBase64 })
+      console.log('[report/pdf-generator] Report uploaded, path:', reportPath)
+
+      // ─── 3b : Certificat standalone ───
+      const certBuf = await buildCertificatePdf({
         link,
         submission,
         candidat,
         documentName: doc.name,
         documentSha256: sha256,
       })
-      console.log('[report/pdf-generator] Certificate done:', currentBuf.length + 'B')
+      console.log('[report/pdf-generator] Certificate done:', certBuf.length + 'B')
 
-      // 4. Upload
-      const blobOut = new Blob([currentBuf as BlobPart], { type: 'application/pdf' })
-      const safeName = buildSignedFilename(link, submission, doc.name)
-      const path = await uploadSignDocument(
+      const certName = buildCertFilename(link, submission)
+      const certBlob = new Blob([certBuf as BlobPart], { type: 'application/pdf' })
+      const certPath = await uploadSignDocument(
         'signed',
-        // ownerId = "reports/{linkId}/{submissionId}" pour clarté du chemin Storage
         `reports/${link.id}/${submission.id}`,
-        blobOut,
-        safeName,
+        certBlob,
+        certName,
       )
-      const pdfBase64 = Buffer.from(currentBuf).toString('base64')
-      generated.push({ name: safeName, path, sha256, pdfBase64 })
-      console.log('[report/pdf-generator] Upload done, path:', path)
+      const certBase64 = Buffer.from(certBuf).toString('base64')
+      generated.push({ name: certName, path: certPath, sha256, pdfBase64: certBase64 })
+      console.log('[report/pdf-generator] Certificate uploaded, path:', certPath)
+
     } catch (e) {
       console.error(
         '[report/pdf-generator] stamp FAILED',
@@ -192,7 +214,7 @@ export async function generateReportPdf(
     }
   }
 
-  // 5. Persist signed_pdf_paths
+  // 4. Persist signed_pdf_paths
   if (generated.length > 0) {
     const persistable = generated.map(d => ({ name: d.name, path: d.path, sha256: d.sha256 }))
     const { error } = await supabase
@@ -205,28 +227,62 @@ export async function generateReportPdf(
   return generated
 }
 
-/**
- * Construit un nom de fichier lisible :
- *   "Rapport S18 — Pedro Ferreira — 04 au 11 mai 2026.pdf"
- */
-function buildSignedFilename(
-  link: ReportLink,
-  submission: ReportSubmission,
-  fallbackName: string,
-): string {
+// ─── Filename helpers ──────────────────────────────────────────────────
+
+function buildReportFilename(link: ReportLink, submission: ReportSubmission): string {
   try {
     const week = getWeekDates(submission.week_start)
-    const slug = (link.title || fallbackName).replace(/[^a-zA-Z0-9 \-_.]/g, '').slice(0, 40)
-    return `Rapport S${week.weekNumber} - ${slug} - ${submission.week_start}_${submission.week_end}.pdf`
+    const cand = (link.candidat_name || link.title || 'rapport')
+      .replace(/[^a-zA-Z0-9 \-_]/g, '').trim().slice(0, 30)
+    return `Rapport_signe_S${week.weekNumber}_${cand}_${submission.week_start}.pdf`
   } catch {
-    return fallbackName.endsWith('.pdf') ? fallbackName : `${fallbackName}.pdf`
+    return 'rapport_signe.pdf'
   }
 }
 
-// ─── Page certificat ───────────────────────────────────────────────────
+function buildCertFilename(link: ReportLink, submission: ReportSubmission): string {
+  try {
+    const week = getWeekDates(submission.week_start)
+    const cand = (link.candidat_name || link.title || 'rapport')
+      .replace(/[^a-zA-Z0-9 \-_]/g, '').trim().slice(0, 30)
+    return `Certificat_signature_S${week.weekNumber}_${cand}_${submission.week_start}.pdf`
+  } catch {
+    return 'certificat_signature.pdf'
+  }
+}
 
-interface CertArgs {
-  pdfBuffer: Uint8Array
+// ─── Ligne audit discrete sur la page 1 du rapport ────────────────────
+
+async function addAuditHeaderToReport(
+  pdfBuffer: Uint8Array,
+  opts: { linkId: string; finalizedAt: Date },
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+  const helv = await pdf.embedFont(StandardFonts.Helvetica)
+  const pages = pdf.getPages()
+  if (pages.length === 0) return pdfBuffer
+
+  const page = pages[0]
+  const { height } = page.getSize()
+  const dateStr = opts.finalizedAt.toLocaleDateString('fr-CH', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+  const refId = opts.linkId.replace(/-/g, '').slice(0, 8)
+  // Tous les caracteres ici sont dans WinAnsi (Latin-1)
+  const text = `TalentFlow Sign · Rapport valide le ${dateStr} · Ref. ${refId}`
+  page.drawText(text, {
+    x: 40,
+    y: height - 8,
+    size: 6.5,
+    font: helv,
+    color: rgb(0.60, 0.60, 0.65),
+  })
+  return await pdf.save()
+}
+
+// ─── Certificat standalone ─────────────────────────────────────────────
+
+interface CertStandaloneArgs {
   link: ReportLink
   submission: ReportSubmission
   candidat?: { prenom?: string | null; nom?: string | null; email?: string | null } | null
@@ -234,9 +290,11 @@ interface CertArgs {
   documentSha256: string
 }
 
-async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
-  const { pdfBuffer, link, submission, candidat, documentName, documentSha256 } = args
-  const pdf = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+async function buildCertificatePdf(args: CertStandaloneArgs): Promise<Uint8Array> {
+  const { link, submission, candidat, documentName, documentSha256 } = args
+
+  // Crée un nouveau PDF standalone (pas d'append sur le rapport)
+  const pdf = await PDFDocument.create()
   const helv = await pdf.embedFont(StandardFonts.Helvetica)
   const helvBold = await pdf.embedFont(StandardFonts.HelveticaBold)
   const courier = await pdf.embedFont(StandardFonts.Courier)
@@ -244,7 +302,7 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   // A4 portrait
   const page = pdf.addPage([595, 842])
   const W = 595
-  const margin = 40
+  const margin = 50
   let y = 842 - margin
 
   // Bandeau jaune brand
@@ -254,8 +312,8 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   })
   y -= 32
 
-  // Logo L-AGENCE
-  const logoText = 'L-AGENCE'
+  // Logo L-AGENCE SA
+  const logoText = 'L-AGENCE SA'
   const logoSize = 22
   page.drawText(logoText, {
     x: (W - helvBold.widthOfTextAtSize(logoText, logoSize)) / 2,
@@ -277,7 +335,7 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   })
   y -= 30
 
-  // Bloc lien
+  // Bloc rapport
   drawLabel(page, 'Rapport', margin, y, helvBold)
   y -= 14
   drawKv(page, 'Titre', link.title, margin, y, helv, helvBold); y -= 14
@@ -285,34 +343,61 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
   drawKv(page, 'Semaine', `${submission.week_start} au ${submission.week_end}`, margin, y, helv, helvBold); y -= 14
   drawKv(page, 'Lien permanent', link.slug, margin, y, helv, helvBold); y -= 26
 
-  // Tableau signataires (2 lignes : candidat + client)
+  // ─── Tableau signataires 6 colonnes ───
+  // Largeur totale contenu : 595 - 2*50 = 495pt
+  // Colonnes : Role(65) Nom(100) Entreprise(100) Email(100) IP(75) Signe le(55)
+  const COL = {
+    role:       margin,           // 50
+    nom:        margin + 65,      // 115
+    entreprise: margin + 165,     // 215
+    email:      margin + 265,     // 315
+    ip:         margin + 365,     // 415
+    date:       margin + 440,     // 490
+  }
+
   drawLabel(page, 'Signataires', margin, y, helvBold)
   y -= 14
+
+  // En-tête tableau
   page.drawRectangle({
     x: margin - 4, y: y - 4, width: W - margin * 2 + 8, height: 18,
     color: rgb(0.96, 0.94, 0.87),
   })
-  page.drawText('Rôle', { x: margin, y, size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) })
-  page.drawText('Nom', { x: margin + 90, y, size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) })
-  page.drawText('Email', { x: margin + 240, y, size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) })
-  page.drawText('IP', { x: margin + 380, y, size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) })
-  page.drawText('Signé le', { x: margin + 460, y, size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) })
+  const headerStyle = { size: 8.5, font: helvBold, color: rgb(0.25, 0.25, 0.25) }
+  page.drawText('Role',        { x: COL.role,       y, ...headerStyle })
+  page.drawText('Nom',         { x: COL.nom,        y, ...headerStyle })
+  page.drawText('Entreprise',  { x: COL.entreprise, y, ...headerStyle })
+  page.drawText('Email',       { x: COL.email,      y, ...headerStyle })
+  page.drawText('IP',          { x: COL.ip,         y, ...headerStyle })
+  page.drawText('Signe le',    { x: COL.date,       y, ...headerStyle })
   y -= 18
 
-  const candName = candidat
-    ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() || (candidat.email || '')
-    : ''
-  const candEmail = candidat?.email || ''
-  drawSignerRow(
-    page, helv, margin, y,
-    'Collaborateur', candName, candEmail,
+  // Ligne candidat (Point 5b — Nom = link.candidat_name en priorite)
+  const candNameForCert = (link.candidat_name && link.candidat_name.trim())
+    || (candidat ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim() : '')
+    || '-'
+  const candEmailForCert = link.candidat_email || candidat?.email || ''
+
+  drawSignerRow6(page, helv, COL, y,
+    'Collaborateur',
+    candNameForCert,
+    '-',
+    candEmailForCert,
     submission.candidate_signed_ip || '-',
     submission.candidate_signed_at ? formatDateTime(new Date(submission.candidate_signed_at)) : '-',
   )
-  y -= 14
-  drawSignerRow(
-    page, helv, margin, y,
-    'Client', link.client_name || '', link.client_email || '',
+  y -= 16
+
+  // Ligne client
+  const clientNomForCert = (link.client_contact_name && link.client_contact_name.trim())
+    || (link.client_name && link.client_name.trim())
+    || ''
+
+  drawSignerRow6(page, helv, COL, y,
+    'Client',
+    clientNomForCert,
+    link.client_name || '',
+    link.client_email || '',
     submission.client_signed_ip || '-',
     submission.client_signed_at ? formatDateTime(new Date(submission.client_signed_at)) : '-',
   )
@@ -334,17 +419,17 @@ async function appendCertificatePage(args: CertArgs): Promise<Uint8Array> {
     color: rgb(0.98, 0.97, 0.94),
   })
   let fy = footerY + 80 - 16
-  page.drawText('Conformité légale', { x: margin + 12, y: fy, size: 9, font: helvBold, color: rgb(0.11, 0.10, 0.08) })
+  page.drawText('Conformite legale', { x: margin + 12, y: fy, size: 9, font: helvBold, color: rgb(0.11, 0.10, 0.08) })
   fy -= 14
-  page.drawText('Signature électronique simple (SES) au sens de la SCSE / ZertES (RS 943.03)', {
+  page.drawText('Signature electronique simple (SES) au sens de la SCSE / ZertES (RS 943.03)', {
     x: margin + 12, y: fy, size: 8.5, font: helv, color: rgb(0.25, 0.25, 0.30),
   })
   fy -= 11
-  page.drawText('et du règlement européen eIDAS (UE 910/2014).', {
+  page.drawText('et du reglement europeen eIDAS (UE 910/2014).', {
     x: margin + 12, y: fy, size: 8.5, font: helv, color: rgb(0.25, 0.25, 0.30),
   })
   fy -= 14
-  page.drawText(`Émis par L-Agence SA via TalentFlow Sign - ${new Date().getFullYear()}.`, {
+  page.drawText(`Emis par L-AGENCE SA via TalentFlow Sign - ${new Date().getFullYear()}.`, {
     x: margin + 12, y: fy, size: 8, font: helv, color: rgb(0.50, 0.50, 0.55),
   })
 
@@ -364,15 +449,19 @@ function drawKv(
   page.drawText(truncate(value, 80), { x: x + 90, y, size: 9.5, font: fontReg, color: rgb(0.11, 0.10, 0.08) })
 }
 
-function drawSignerRow(
-  page: any, font: any, x: number, y: number,
-  role: string, name: string, email: string, ip: string, date: string,
+function drawSignerRow6(
+  page: any, font: any,
+  col: { role: number; nom: number; entreprise: number; email: number; ip: number; date: number },
+  y: number,
+  role: string, nom: string, entreprise: string, email: string, ip: string, date: string,
 ) {
-  page.drawText(role, { x, y, size: 8.5, font, color: rgb(0.11, 0.10, 0.08) })
-  page.drawText(truncate(name, 22), { x: x + 90, y, size: 8.5, font, color: rgb(0.30, 0.30, 0.35) })
-  page.drawText(truncate(email, 24), { x: x + 240, y, size: 8.5, font, color: rgb(0.30, 0.30, 0.35) })
-  page.drawText(ip, { x: x + 380, y, size: 8.5, font, color: rgb(0.30, 0.30, 0.35) })
-  page.drawText(truncate(date, 18), { x: x + 460, y, size: 8.5, font, color: rgb(0.30, 0.30, 0.35) })
+  const style = { size: 8, font, color: rgb(0.20, 0.20, 0.25) }
+  page.drawText(truncate(role, 14),        { x: col.role,       y, ...style })
+  page.drawText(truncate(nom, 20),         { x: col.nom,        y, ...style })
+  page.drawText(truncate(entreprise, 20),  { x: col.entreprise, y, ...style })
+  page.drawText(truncate(email, 20),       { x: col.email,      y, ...style })
+  page.drawText(truncate(ip, 16),          { x: col.ip,         y, ...style })
+  page.drawText(truncate(date, 14),        { x: col.date,       y, ...style })
 }
 
 function truncate(s: string, n: number): string {

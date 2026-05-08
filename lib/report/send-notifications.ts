@@ -123,31 +123,6 @@ function buildClientInviteText(p: {
   ].join('\n')
 }
 
-// ─── 2. WhatsApp client — invitation à signer ──────────────────────────
-
-export async function sendClientInviteWhatsApp(args: {
-  phone: string
-  clientName: string
-  /** v2.3.x — Nom du contact (prioritaire pour la salutation) */
-  clientContactName?: string | null
-  candidateName: string
-  weekLabel: string
-  signUrl: string
-  expiresAt: Date | string
-}): Promise<NotifResult> {
-  const greetingName = pickGreetingName(args)
-  return sendWa(args.phone, [
-    greetingName ? `Bonjour ${greetingName} 👋` : 'Bonjour 👋',
-    '',
-    `*${args.candidateName}* a soumis son rapport d'heures pour la *${args.weekLabel}*.`,
-    '',
-    'Merci de le valider en cliquant ici :',
-    args.signUrl,
-    '',
-    `_Lien valable jusqu'au ${formatDate(args.expiresAt)}_`,
-  ].join('\n'))
-}
-
 // ─── 3. Email admin (créateur du lien) — completed avec PDF en PJ ─────
 // v2.3.5 Bug 2+4+5 :
 //   - `to` = email du créateur du lien (plus ADMIN_EMAIL fixe)
@@ -243,28 +218,65 @@ export async function sendCompletedWhatsAppToCandidat(args: {
   ].join('\n'))
 }
 
-// ─── 4. WhatsApp client — completed avec lien download ────────────────
+// ─── 4. Email candidat — completed avec PDF en PJ ────────────────────
 
-export async function sendCompletedWhatsAppToClient(args: {
-  phone: string
-  clientName: string
-  clientContactName?: string | null
+export async function sendCompletedEmailToCandidat(args: {
+  to: string
   candidateName: string
+  clientName: string
   weekLabel: string
-  /** URL publique vers le PDF (route /api/reports/client/[token]/download ou similaire) */
-  downloadUrl: string
+  attachments: { filename: string; content: string }[]
 }): Promise<NotifResult> {
-  const greetingName = pickGreetingName(args)
-  return sendWa(args.phone, [
-    greetingName ? `Bonjour ${greetingName} 👋` : 'Bonjour 👋',
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY manquant' }
+  if (!args.to) return { ok: false, error: 'destinataire vide' }
+
+  const firstName = (args.candidateName || '').normalize('NFC').trim().split(/\s+/)[0] || ''
+  const subject = `Votre rapport est signé — ${args.weekLabel}`
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#FAFAF7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-family:Georgia,serif;font-size:22px;font-weight:400;letter-spacing:-0.4px;color:#1C1A14;">L-AGENCE</span>
+      <div style="font-size:9px;color:#6B7280;letter-spacing:1px;text-transform:uppercase;margin-top:2px;">Rapport hebdomadaire</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 26px;">
+      <div style="display:inline-block;background:#D1FAE5;color:#059669;padding:5px 11px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:14px;">
+        ✓ Rapport validé
+      </div>
+      <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1C1A14;margin:0 0 12px;">
+        Bonjour ${escapeHtml(firstName) || escapeHtml(args.candidateName)},
+      </h1>
+      <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 16px;">
+        Votre rapport d'heures pour la <strong>${escapeHtml(args.weekLabel)}</strong> a été signé par <strong>${escapeHtml(args.clientName)}</strong>.
+      </p>
+      <p style="font-size:13px;color:#374151;line-height:1.6;margin:0;">
+        Une copie complète signée est jointe à cet email.
+      </p>
+    </div>
+    <p style="text-align:center;font-size:11px;color:#9CA3AF;margin-top:18px;">
+      L-Agence SA · TalentFlow Sign
+    </p>
+  </div>
+</body></html>`
+
+  const text = [
+    `Bonjour ${firstName || args.candidateName},`,
     '',
-    `✅ Le rapport d'heures de *${args.candidateName}* (${args.weekLabel}) est maintenant signé par les deux parties.`,
+    `Votre rapport d'heures pour la ${args.weekLabel} a été signé par ${args.clientName}.`,
+    'Une copie complète signée est jointe à cet email.',
     '',
-    'Téléchargez le PDF signé ici :',
-    args.downloadUrl,
-    '',
-    '_L-Agence SA · TalentFlow Sign_',
-  ].join('\n'))
+    'L-Agence SA · TalentFlow Sign',
+  ].join('\n')
+
+  return await sendResend({
+    to: args.to,
+    subject,
+    html,
+    text,
+    attachments: args.attachments,
+  })
 }
 
 // ─── 5. Email client — completed avec PDF en PJ (Q7 v2.3.x) ──────────

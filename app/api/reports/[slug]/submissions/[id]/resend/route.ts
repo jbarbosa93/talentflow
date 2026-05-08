@@ -17,7 +17,7 @@ import { getReportLinkBySlug } from '@/lib/report/queries'
 import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { getWeekDates } from '@/lib/report/week-helpers'
 import {
-  sendClientInviteEmail, sendClientInviteWhatsApp,
+  sendClientInviteEmail,
 } from '@/lib/report/send-notifications'
 import { CLIENT_TOKEN_TTL_MS } from '@/lib/report/types'
 import type { ReportSubmission } from '@/lib/report/types'
@@ -82,18 +82,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         expiresAt: newExpires,
       })
     }
-    if ((link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') && link.client_phone) {
-      notifs.whatsapp = await sendClientInviteWhatsApp({
-        phone: link.client_phone,
-        clientName: link.client_name || link.client_phone,
-        clientContactName: link.client_contact_name,
-        candidateName,
-        weekLabel: weekDates.label,
-        signUrl,
-        expiresAt: newExpires,
-      })
-    }
-
     await logReportAudit({
       submissionId: submission.id,
       action: 'client_notified',

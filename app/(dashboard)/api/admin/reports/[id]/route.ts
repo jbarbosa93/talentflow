@@ -75,6 +75,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       const norm = body.candidat_phone ? normalizePhoneE164(body.candidat_phone) : null
       update.candidat_phone = norm
     }
+    if (body.candidat_email !== undefined) {
+      // v2.3.7 — Email candidat (optionnel)
+      update.candidat_email = body.candidat_email?.toLowerCase().trim() || null
+    }
     if (typeof body.status === 'string' && (VALID_STATUS as string[]).includes(body.status)) {
       update.status = body.status
     }

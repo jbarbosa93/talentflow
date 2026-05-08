@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.6'
+export const APP_VERSION = '2.3.7'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.7',
+    date: '2026-05-09',
+    label: 'Rapports — 5 corrections UX v2.3.7',
+    features: [
+      'WhatsApp bouton : window.location.href au lieu de window.open (ouvre WA directement sur mobile)',
+      'Viewer candidat : background #F3F4F6 sur le conteneur desktop (cohérent avec vue client)',
+      'Canal simplifié : email uniquement, suppression champ WhatsApp client et options whatsapp/both',
+      'Email candidat : nouveau champ candidat_email sur les liens, notif post-signature client avec PDF en PJ',
+      'PDF : 2 fichiers distincts par rapport (rapport_signe + certificat_signature standalone), ligne audit discrete en haut page 1, tableau signataires 6 colonnes (Role/Nom/Entreprise/Email/IP/Signe le)',
+    ],
+  },
   {
     version: '2.3.6',
     date: '2026-05-08',

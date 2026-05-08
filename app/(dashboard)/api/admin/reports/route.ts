@@ -117,6 +117,11 @@ export async function POST(req: NextRequest) {
       ? normalizePhoneE164(body.candidat_phone)
       : null
 
+    // v2.3.7 — Email candidat (optionnel, notif post-signature client)
+    const candidatEmailNorm = typeof body.candidat_email === 'string' && body.candidat_email.trim()
+      ? body.candidat_email.toLowerCase().trim()
+      : null
+
     const insertPayload = {
       slug,
       candidat_id: body.candidat_id || null,
@@ -131,6 +136,7 @@ export async function POST(req: NextRequest) {
         : null,
       client_email: body.client_email?.toLowerCase().trim() || null,
       client_phone: clientPhone,
+      candidat_email: candidatEmailNorm,
       status: 'active' as const,
       delivery_channel: channel,
       created_by: user?.id || null,
