@@ -26,11 +26,12 @@ export const runtime = 'nodejs'
 // v2.3.17 — 60s pour gros PDFs (le rapport_heures source = 5.7 MB)
 export const maxDuration = 60
 
-// PNG 200x60 transparent avec un trait simple (signature fictive de test).
-// Base64 minimal — cadre visible avec une ondulation discrète au milieu.
-// L'objectif : visualiser où la signature SERAIT placée, pas faire joli.
-const TEST_SIGNATURE_DATAURL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA8CAYAAAANq+kSAAAABmJLR0QA/wD/AP+gvaeTAAABG0lEQVR42u3UMQEAAAjDMCp/0DxoBzx0EBoXAACAv2cYCAAAEAOAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAIABABgAgAEAGACAAQAYAAABNeUFAR3qAyjAAAAAAElFTkSuQmCC'
+// v2.3.18 — null pour signature (pas de stamp image en preview).
+// L'image PNG hardcodée v2.3.16 était invalide → pdf.embedPng bloquait
+// indéfiniment (timeout 60s). Pour preview, voir le CADRE des signature
+// fields (rendu via le PDF source non stampé) suffit pour l'admin qui
+// vérifie le placement des fields texte/date/etc.
+const TEST_SIGNATURE_DATAURL: string | null = null
 
 interface RouteCtx {
   params: Promise<{ id: string }>

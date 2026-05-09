@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.17'
+export const APP_VERSION = '2.3.18'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.18',
+    date: '2026-05-09',
+    label: 'Sign — Fix preview PDF (vraie cause timeout)',
+    features: [
+      'VRAIE CAUSE timeout : la PNG fictive base64 inventée pour signatureDataUrl en preview était INVALIDE → pdf.embedPng() bloquait dans pdf-lib indéfiniment (>60s). Vérifié via logs : "[preview] stamping 21 fields" mais jamais "stamp done".',
+      'Fix : signatureDataUrl=null en preview. Les fields signature/initial gardent leur cadre du PDF source non stampé. L\'admin peut quand même vérifier le placement (la box est visible dans le PDF source via les annotations Konva, non visible mais position OK).',
+    ],
+  },
   {
     version: '2.3.17',
     date: '2026-05-09',
