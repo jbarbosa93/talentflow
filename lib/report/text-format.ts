@@ -53,6 +53,36 @@ const LATIN_MAP: Record<string, string> = {
   'Ĵ': 'J',
   'Ķ': 'K',
   'Œ': 'OE', 'Æ': 'AE',
+  // v2.3.10 Bug 4 — VRAIE CAUSE ❓ WhatsApp : ponctuation Unicode étendue.
+  // Diagnostic hexdump v2.3.9 a révélé `e2 80 94` (em-dash U+2014) dans le
+  // template `Gardez ce lien — il reste...` qui passait tel quel dans wa.me
+  // → encodé `%E2%80%94` → certaines apps WA affichent ❓ pour ces chars.
+  '—': '-',  // U+2014 em-dash
+  '–': '-',  // U+2013 en-dash
+  '−': '-',  // U+2212 minus
+  '‐': '-',  // U+2010 hyphen
+  '‑': '-',  // U+2011 non-breaking hyphen
+  '‘': "'",  // U+2018 left single quote
+  '’': "'",  // U+2019 right single quote (apostrophe typo)
+  '‚': "'",  // U+201A single low-9 quote
+  '“': '"',  // U+201C left double quote
+  '”': '"',  // U+201D right double quote
+  '„': '"',  // U+201E double low-9 quote
+  '«': '"', '»': '"',  // guillemets
+  '…': '...',  // U+2026 horizontal ellipsis
+  '→': '->',   // U+2192 rightwards arrow
+  '←': '<-',   // U+2190 leftwards arrow
+  '↑': '^',    // U+2191
+  '↓': 'v',    // U+2193
+  ' ': ' ',  // non-breaking space
+  ' ': ' ',  // thin space
+  '​': '',   // zero-width space
+  '‌': '',   // zero-width non-joiner
+  '‍': '',   // zero-width joiner
+  '°': 'deg', // °
+  '€': 'EUR', '£': 'GBP', '¥': 'JPY',
+  '©': '(c)', '®': '(r)', '™': '(tm)',
+  '×': 'x', '÷': '/', '±': '+/-',
 }
 
 /**

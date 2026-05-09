@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import type { SignTemplate } from '@/lib/sign/types'
 import { FirstNameAutocomplete, type CandidateResult } from '@/components/sign/RecipientCard'
 import ClientContactAutocomplete from '@/components/report/ClientContactAutocomplete'
+import SaveContactDialog from '@/components/report/SaveContactDialog'
 
 export default function NewReportLinkPage() {
   const router = useRouter()
@@ -32,6 +33,13 @@ export default function NewReportLinkPage() {
   const [clientEmail, setClientEmail] = useState('')
   // v2.3.8 Bug 2 — Client lié en DB (id) pour rappel visuel + cohérence
   const [clientId, setClientId] = useState<string | null>(null)
+  // v2.3.10 Bug 3 — Dialog "Enregistrer ce contact ?" + état saving
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [savingContact, setSavingContact] = useState(false)
+  // v2.3.10 Bug 3 — Mémorise l'email du contact d'origine (au moment du pick)
+  // pour détecter si l'user a saisi/édité un email DIFFÉRENT après → propose
+  // d'enregistrer. Si email identique au pick → contact déjà en DB, skip dialog.
+  const [originalContactEmail, setOriginalContactEmail] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
   // Charge les templates de type 'report' uniquement
@@ -58,6 +66,18 @@ export default function NewReportLinkPage() {
 
   const handleCandidat = (firstName: string, candidat?: CandidateResult) => {
     if (candidat) {
+      // v2.3.10 Bug 2 — Log diagnostic : trace ce que l'autocomplete renvoie pour
+      // comprendre les cas où le `candidat_name` final ne contient que le prénom.
+      // Si `candidat.nom` est vide ici → le bug est en DB (candidat sans nom).
+      // Si `candidat.nom` est rempli mais le state ne reflète pas → bug code.
+      console.log('[handleCandidat]', {
+        receivedFirstName: firstName,
+        candidatId: candidat.id,
+        candidatPrenom: candidat.prenom,
+        candidatNom: candidat.nom,
+        candidatEmail: candidat.email,
+        finalNameWillBe: [candidat.prenom || firstName, candidat.nom || ''].filter(Boolean).join(' ').trim(),
+      })
       setCandidatId(candidat.id)
       setCandidatPrenom(candidat.prenom || firstName)
       setCandidatNom(candidat.nom || '')
@@ -105,15 +125,27 @@ export default function NewReportLinkPage() {
     return null
   }
 
-  const submit = async () => {
-    const err = validate()
-    if (err) { toast.error(err); return }
+  // v2.3.10 Bug 3 — Détecte si l'user devrait être proposé d'enregistrer le contact
+  // dans la DB clients :
+  //   - Un client EST lié (clientId set via autocomplete)
+  //   - L'email contact saisi est DIFFÉRENT de celui d'origine au pick
+  //     (ou aucun email d'origine = ligne "entreprise seule" → tout email saisi est nouveau)
+  //   - Email valide
+  const shouldProposeSaveContact = (): boolean => {
+    if (!clientId) return false  // pas de client lié = pas de cible
+    const newEmail = clientEmail.trim().toLowerCase()
+    if (!newEmail) return false
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) return false
+    const origEmail = originalContactEmail.trim().toLowerCase()
+    return newEmail !== origEmail
+  }
+
+  // v2.3.10 Bug 3 — Crée effectivement le lien rapport (extrait de submit pour
+  // être réutilisé après le dialog "Enregistrer ce contact ?").
+  const createReportLink = async (): Promise<void> => {
     setSubmitting(true)
     try {
-      // v2.3.x — Stocke le nom complet du candidat (source unique pour pré-remplir
-      // les fields auto-fill firstname/lastname/fullname du PDF, même si candidat_id IS NULL).
       const candidatNameToSend = [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim() || null
-
       const r = await fetch('/api/admin/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,9 +168,62 @@ export default function NewReportLinkPage() {
       router.push(`/sign/rapports/${d.link.id}`)
     } catch (e: any) {
       toast.error(e.message || 'Erreur')
-    } finally {
       setSubmitting(false)
     }
+    // Note : on garde submitting=true en cas de succès car le router.push prend la main
+  }
+
+  const submit = async () => {
+    const err = validate()
+    if (err) { toast.error(err); return }
+    // v2.3.10 Bug 3 — Si l'user a saisi un nouveau contact sur un client existant
+    // → propose d'enregistrer en DB avant de créer le lien.
+    if (shouldProposeSaveContact()) {
+      setSaveDialogOpen(true)
+      return
+    }
+    await createReportLink()
+  }
+
+  // v2.3.10 Bug 3 — Handler "Oui, enregistrer" du dialog
+  const saveContactAndContinue = async () => {
+    if (!clientId) { setSaveDialogOpen(false); await createReportLink(); return }
+    setSavingContact(true)
+    try {
+      // Split nom contact en first/last (ex: "Marie Dupont" → first=Marie last=Dupont)
+      const parts = (clientContactName || '').trim().split(/\s+/)
+      const firstName = parts[0] || ''
+      const lastName = parts.slice(1).join(' ') || ''
+      const r = await fetch(`/api/clients/${clientId}/add-contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: clientEmail.trim(),
+        }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur ajout contact')
+      if (d.alreadyExists) {
+        toast.info('Contact déjà présent en DB')
+      } else {
+        toast.success('Contact ajouté à la fiche client')
+      }
+    } catch (e: any) {
+      // Best-effort : on continue même si l'add-contact échoue (l'user a déjà rempli son flow)
+      toast.warning(`Contact non enregistré : ${e.message || 'erreur'}`)
+    } finally {
+      setSavingContact(false)
+      setSaveDialogOpen(false)
+    }
+    await createReportLink()
+  }
+
+  // v2.3.10 Bug 3 — Handler "Non, continuer sans enregistrer"
+  const skipSaveAndContinue = async () => {
+    setSaveDialogOpen(false)
+    await createReportLink()
   }
 
   return (
@@ -355,9 +440,12 @@ export default function NewReportLinkPage() {
                   // (ligne header "Choisir cette entreprise") → on remplit que si présent
                   if (pick.contactName) setClientContactName(pick.contactName)
                   if (pick.contactEmail) setClientEmail(pick.contactEmail)
+                  // v2.3.10 Bug 3 — Mémorise l'email d'origine pour détecter édition
+                  setOriginalContactEmail(pick.contactEmail || '')
                 } else if (!name.trim()) {
                   // v2.3.9 Bug 4 — Champ vidé manuellement → reset complet section client
                   clearClient()
+                  setOriginalContactEmail('')
                 } else {
                   // Saisie manuelle libre → délier seulement le client_id
                   setClientId(null)
@@ -418,6 +506,18 @@ export default function NewReportLinkPage() {
           </button>
         </div>
       </div>
+
+      {/* v2.3.10 Bug 3 — Dialog confirmation enregistrement contact en DB */}
+      <SaveContactDialog
+        open={saveDialogOpen}
+        clientName={clientName.trim()}
+        contactName={clientContactName.trim()}
+        contactEmail={clientEmail.trim()}
+        saving={savingContact || submitting}
+        onSaveAndContinue={saveContactAndContinue}
+        onSkipAndContinue={skipSaveAndContinue}
+        onCancel={() => { if (!savingContact && !submitting) setSaveDialogOpen(false) }}
+      />
     </div>
   )
 }

@@ -126,6 +126,21 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
     const { width: pw, height: ph } = page.getSize()
     const pageNum = pageIdx + 1
     const pageFields = byPage.get(pageNum) || []
+    // v2.3.10 Bug 5 — Log diagnostic : alerte si la page source n'est pas A4 (595×842).
+    // Les coords des fields sont stockées en proportions de la page rendue dans
+    // l'éditeur de template (qui suppose A4). Si la vraie page diffère, le stamp
+    // sera décalé. Tolérance ±5pt pour tenir compte des PDF générés par Word/etc.
+    if (pageFields.length > 0 && (Math.abs(pw - 595) > 5 || Math.abs(ph - 842) > 5)) {
+      console.warn('[pdf-stamp] ⚠️ Page size NON-A4 — stamp peut être décalé', {
+        envelopeId: opts.envelopeId,
+        pageNum,
+        actual: { width: Math.round(pw), height: Math.round(ph) },
+        expected: { width: 595, height: 842, format: 'A4 portrait' },
+        delta: { dw: Math.round(pw - 595), dh: Math.round(ph - 842) },
+        fields_count: pageFields.length,
+        recommendation: pw > ph ? 'PDF en paysage ? Editeur template suppose portrait.' : 'Vérifier le format du PDF source (US Letter 612×792 ?).',
+      })
+    }
     for (const f of pageFields) {
       const xPts = f.x * pw
       const yPtsTL = f.y * ph

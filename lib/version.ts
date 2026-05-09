@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.9'
+export const APP_VERSION = '2.3.10'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.10',
+    date: '2026-05-09',
+    label: 'Rapports — 5 corrections post-tests',
+    features: [
+      'Bug 1 — Lien révoqué : bouton Réactiver (vert) ajouté à côté de Supprimer définitivement',
+      'Bug 2 — Log diagnostic [handleCandidat] (data check : aucun "Joao Barbosa" en DB confirmé via SQL, code OK)',
+      'Bug 3 — Dialog "Enregistrer ce contact ?" avant création lien (POST /api/clients/[id]/add-contact si client lié + email différent du pick)',
+      'Bug 4 — VRAIE CAUSE ❓ WhatsApp : em-dash U+2014 dans template "Gardez ce lien — il reste valable" → encodé %E2%80%94 → ❓ chez certains. LATIN_MAP étendue avec em-dash, en-dash, smart quotes, …, →, ←, etc.',
+      'Bug 5 — Log warning page size si PDF source ≠ A4 (595×842 ±5pt) dans pdf-stamp.ts pour diagnostiquer décalage stamp vs viewer',
+    ],
+  },
   {
     version: '2.3.9',
     date: '2026-05-09',

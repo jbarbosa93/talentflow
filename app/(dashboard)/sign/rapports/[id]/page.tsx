@@ -90,7 +90,11 @@ export default function ReportLinkDetailPage({
 
   const handlePauseResume = async () => {
     if (!link) return
-    const newStatus = link.status === 'paused' ? 'active' : 'paused'
+    // v2.3.10 Bug 1 — Force 'active' quand status est 'revoked' OU 'paused'.
+    // Avant : ternary 'paused'?'active':'paused' renvoyait 'paused' pour revoked → KO.
+    const newStatus: 'active' | 'paused' = link.status === 'paused' ? 'active'
+      : link.status === 'revoked' ? 'active'
+      : 'paused'
     try {
       const r = await fetch(`/api/admin/reports/${id}`, {
         method: 'PATCH',
@@ -255,10 +259,22 @@ export default function ReportLinkDetailPage({
               </button>
             </>
           )}
+          {/* v2.3.10 Bug 1 — Lien révoqué : Réactiver (vert) + Supprimer définitivement */}
           {isRevoked && (
-            <button type="button" onClick={handleDelete} className="neo-btn-ghost" style={{ color: 'var(--destructive)' }}>
-              <Trash2 size={14} /> Supprimer définitivement
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handlePauseResume}
+                className="neo-btn-ghost"
+                style={{ color: '#059669' }}
+                title="Réactiver le lien (status passera à actif)"
+              >
+                <Play size={14} /> Réactiver
+              </button>
+              <button type="button" onClick={handleDelete} className="neo-btn-ghost" style={{ color: 'var(--destructive)' }}>
+                <Trash2 size={14} /> Supprimer définitivement
+              </button>
+            </>
           )}
         </div>
       </div>
