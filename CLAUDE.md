@@ -115,9 +115,34 @@ Une prod en ERROR = user sees "changelog dans l'app" mais ancienne version activ
 ---
 
 ## Version actuelle
-**2.3.2 prod (TalentFlow Sign Phase 4 complet + module Rapports + 9 bugs post-tests prod)** — 08/05/2026
+**v2.3.0 prod (TalentFlow Sign Phase 4 complet + module Rapports + WYSIWYG strict)** — 09/05/2026
 
-→ Mode QR/présentiel supprimé (que `mode='remote'`), PDF téléchargeable on-the-fly via `/api/reports/[slug]/submissions/[id]/download`, bandeau dynamique status, route `/resend` séparée, favicon/og:image L-Agence custom dans `app/report/layout.tsx`, `link.candidat_name` source notif (au lieu de parser title), helper `sendCompletedWhatsAppToCandidat()`, deep link `wa.me/{digits}` candidat. Migration : `report_links.candidat_phone` E.164.
+Phase consolidée v2.3.0 → v2.3.19 (mai 2026). 14 changements clés :
+
+### Sign (Phase 4 complète)
+1. **Signature canvas** mobile-friendly (drawn uniquement, fond transparent), génération PDF stampé final via `stampPdf` multi-pass + **page certificat A4 ZertES** (logo L-Agence, tableau signataires, IP, hash SHA-256, footer RS 943.03 + eIDAS)
+2. **Workflow séquentiel** (`triggerNextSigner` parallel routing + notif sender à chaque signature) + routes download auth + lien public ZIP DEFLATE multi-docs
+3. **WhatsApp** comme canal de livraison (`delivery_channel email/whatsapp/both` + `recipient_phone` E.164)
+4. **Refonte UI DocuSign-style** : `/sign` mini-sidebar 5 sections + filtres avancés + TemplatesTable bulk + `/sign/new` full-screen + importateur DocuSign JSON + **éditeur visuel template Konva** (drag&drop, lasso, multi-drag, undo/redo, copy/paste, zoom)
+5. **Contraintes resize signature/initial** (ratio 3:1 / 1:1 + minW/maxW clampés)
+6. **Bouton "Aperçu PDF"** dans l'éditeur (route `POST /api/sign/templates/[id]/preview` avec données fictives) → WYSIWYG total
+7. **WYSIWYG strict** `drawTextInBox` calé sur Konva `verticalAlign="middle"` (formule `y + (h - size × 0.7) / 2`)
+
+### Rapports (nouveau module)
+8. **Module `/sign/rapports`** intégré dans Sign (pas de sidebar séparée). Liens permanents par candidat (slug `prenom-nom-lagence-XXXX`). Réutilise `sign_templates` avec `kind=report`. Réutilise `PublicPdfViewer` + `PublicFieldsLayer` + `SignWizard` + `SignaturePad` (zéro doublon)
+9. **Page candidat** `/report/[slug]` : sélecteur 8 dernières semaines + auto-fill dates par jour + auto-save localStorage + DB toutes les 30s
+10. **Refonte mode liste DocuSign-style** (sidebar Liens + tableau Candidat/Client/Contact/Statut/Dernière/Actions, menu ⋮ portalisé)
+11. **Page `/sign/rapports/new`** : autocomplete candidat (prénom+nom+email+tél depuis DB) + autocomplete client+contacts (1 ligne par contact + dialog "Enregistrer ce contact ?")
+12. **Pipeline finalisation** : créateur reçoit RAPPORT + CERTIFICAT, client + candidat reçoivent UNIQUEMENT le rapport (cert privé créateur). Notif WhatsApp candidat post-signature
+13. **Modal viewer iframe** + boutons Aperçu / Rapport / Certificat dans tableau historique submissions
+
+### Cross-cutting
+14. **WhatsApp safe** : `toWhatsAppSafe` LATIN_MAP exhaustive (FR/PT/ES/DE/IT + ponctuation Unicode em-dash, smart quotes, etc.) + retrait emoji 👋 (rendu ◆) + `window.open _blank` + deep link `wa.me/{phoneDigits}`
+
+### DB / Stack
+- 7 nouvelles tables : `sign_templates`, `sign_envelopes`, `sign_tokens`, `sign_audit_log`, `report_links`, `report_submissions`, `report_audit_log`
+- Bucket Storage `talentflow-sign` (préfixes `templates/` `envelopes/` `signed/` `signed/reports/{linkId}/`)
+- Nouvelles deps : `konva` + `react-konva`, `@dnd-kit/core+sortable+utilities`, `qrcode` (legacy)
 
 ---
 
