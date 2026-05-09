@@ -23,7 +23,8 @@ import { requireAuth } from '@/lib/auth-guard'
 import type { SignField, SignDocument } from '@/lib/sign/types'
 
 export const runtime = 'nodejs'
-export const maxDuration = 30
+// v2.3.17 — 60s pour gros PDFs (le rapport_heures source = 5.7 MB)
+export const maxDuration = 60
 
 // PNG 200x60 transparent avec un trait simple (signature fictive de test).
 // Base64 minimal — cadre visible avec une ondulation discrète au milieu.
@@ -87,37 +88,36 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       }
     }
 
-    // 3. Stamp avec données de test pour TOUS les recipientOrder (1, 2, 3...)
-    // Détermine les ordres présents
-    const orders = Array.from(new Set(allFields.map(f => f.recipientOrder ?? 1))).sort()
-
-    let currentBuf: Uint8Array = sourceBuf
-    for (const order of orders) {
-      const orderFields = allFields.filter(f => (f.recipientOrder ?? 1) === order)
-      if (orderFields.length === 0) continue
-      const recipLabel = order === 1 ? 'Candidat' : order === 2 ? 'Client' : `Signataire ${order}`
-      currentBuf = await stampPdf({
-        pdfBuffer: currentBuf,
-        fields: orderFields,
-        fieldValues: fakeValues,
-        signatureDataUrl: TEST_SIGNATURE_DATAURL,
-        autoFill: {
-          firstName: order === 1 ? 'Jean' : 'Marie',
-          lastName: order === 1 ? 'Dupont' : 'Martin',
-          fullName: order === 1 ? 'Jean Dupont' : 'Marie Martin',
-          email: order === 1 ? 'jean.dupont@example.ch' : 'marie.martin@client.ch',
-          today: '09.05.2026',
-          companyName: order === 1 ? 'L-Agence SA' : 'Construction Test SA',
-          title: order === 1 ? 'Collaborateur' : 'Directeur RH',
-        },
-        envelopeId: `preview-${id.slice(0, 8)}`,
-        recipientName: `${recipLabel} de test`,
-        recipientEmail: 'preview@test.ch',
-        signedAt: new Date(),
-        signedIp: '127.0.0.1',
-        addAuditFooter: false,  // pas de footer en preview
-      })
-    }
+    // v2.3.17 — UN SEUL stampPdf pour TOUS les fields (perf : éviter de
+    // re-load le PDF en pdf-lib à chaque iteration de recipientOrder).
+    // Sur un PDF source de 5.7 MB, 2 passes faisaient timeout 504 > 30s.
+    // Stamp recipient 1 (autoFill = Jean Dupont). Les fields autoFill
+    // type=fullname/etc des recipients 2+ recevront aussi "Jean Dupont"
+    // mais c'est acceptable pour preview (vise à voir l'alignement).
+    const t0 = Date.now()
+    console.log('[preview] stamping', allFields.length, 'fields on', sourceBuf.length, 'B PDF')
+    const currentBuf: Uint8Array = await stampPdf({
+      pdfBuffer: sourceBuf,
+      fields: allFields,
+      fieldValues: fakeValues,
+      signatureDataUrl: TEST_SIGNATURE_DATAURL,
+      autoFill: {
+        firstName: 'Jean',
+        lastName: 'Dupont',
+        fullName: 'Jean Dupont',
+        email: 'jean.dupont@example.ch',
+        today: '09.05.2026',
+        companyName: 'L-Agence SA',
+        title: 'Collaborateur',
+      },
+      envelopeId: `preview-${id.slice(0, 8)}`,
+      recipientName: 'Aperçu de test',
+      recipientEmail: 'preview@test.ch',
+      signedAt: new Date(),
+      signedIp: '127.0.0.1',
+      addAuditFooter: false,  // pas de footer en preview
+    })
+    console.log('[preview] stamp done in', Date.now() - t0, 'ms')
 
     // 4. Stream le PDF en inline (iframe)
     const buffer = Buffer.from(currentBuf)

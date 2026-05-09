@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.16'
+export const APP_VERSION = '2.3.17'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.17',
+    date: '2026-05-09',
+    label: 'Sign — Fix timeout 504 sur preview PDF',
+    features: [
+      'Route /api/sign/templates/[id]/preview : 2 passes stampPdf → 1 seule passe (perf : sur PDF 5.7 MB, le re-load pdf-lib entre chaque pass timeout >30s).',
+      'maxDuration : 30s → 60s pour gros PDFs.',
+      'autoFill recipient 1 (Jean Dupont) appliqué à TOUS les fields autoFill (preview = vérifier alignement, pas distinguer recipients).',
+      'Logs serveur [preview] avec durée stamp pour diagnostic.',
+    ],
+  },
   {
     version: '2.3.16',
     date: '2026-05-09',
