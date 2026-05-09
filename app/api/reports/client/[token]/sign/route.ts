@@ -184,62 +184,64 @@ export async function POST(
     candidat_whatsapp?: { ok: boolean; error?: string }
   } = {}
 
-  // v2.3.3 Bug 5b — PDFs en pièce jointe si dispo.
-  // Resend attend { filename: string; content: string (base64) }.
-  // Si génération PDF échoue : emails envoyés sans PJ (best-effort, lien dashboard inclus).
-  const attachments = stampedDocs.length > 0
+  // v2.3.9 Bug 11 — Filtrage attachments par destinataire :
+  //   - Créateur : reçoit RAPPORT + CERTIFICAT (les deux PDFs)
+  //   - Client + Candidat : reçoivent UNIQUEMENT le rapport signé
+  // Le certificat est privé au créateur du lien (preuve ZertES interne).
+  // Distinction par filename : 'certificat' (case insensitive) vs reste = rapport.
+  const allAttachments = stampedDocs.length > 0
     ? stampedDocs.map(d => ({ filename: d.name, content: d.pdfBase64 }))
     : []
-  console.log('[REPORT SIGN] Attachments count:', attachments.length, '| Sizes:', attachments.map(a => a.content.length))
+  const reportAttachments = allAttachments.filter(a => !/certificat/i.test(a.filename))
+  const certAttachments = allAttachments.filter(a => /certificat/i.test(a.filename))
+  console.log('[REPORT SIGN] Attachments split:', {
+    total: allAttachments.length,
+    reportOnly: reportAttachments.map(a => a.filename),
+    certOnly: certAttachments.map(a => a.filename),
+  })
 
   // 5a. Email créateur du lien (sauf si creator_email === client_email → doublon évité)
   // v2.3.5 Bug 2+5 — creator_email remplace ADMIN_EMAIL fixe.
   // v2.3.5 Bug 4 — downloadUrl (PDF signé) remplace le lien historique dashboard → 404 mobile.
   const pdfDownloadUrl = `${appUrl}/api/reports/${link.slug}/submissions/${submission.id}/download`
-  const skipAdminEmail = !!(creatorEmail && link.client_email
-    && creatorEmail.toLowerCase() === link.client_email.toLowerCase()
-    && (link.delivery_channel === 'email' || link.delivery_channel === 'both'))
-  // v2.3.8 Bug 9a — Logs explicites pour comprendre si l'email part bien
+  // v2.3.9 Bug 10 — TOUJOURS envoyer la copie au créateur, même si
+  // creatorEmail === clientEmail. Le créateur a besoin de SA copie avec le
+  // certificat (le client n'en reçoit jamais). L'ancien skip (v2.3.5) cachait
+  // le bug "consultant ne reçoit rien" en mode test.
   console.log('[REPORT SIGN] Admin email decision:', {
     creatorEmail: creatorEmail || 'EMPTY',
     clientEmail: link.client_email || 'EMPTY',
     deliveryChannel: link.delivery_channel,
-    skipAdminEmail,
-    skipReason: !creatorEmail
-      ? 'CRITICAL: creatorEmail is empty — neither created_by user nor ADMIN_EMAIL fallback resolved'
-      : skipAdminEmail
-        ? 'creator==client (doublon évité)'
-        : 'will send',
+    willSend: !!creatorEmail,
   })
   if (!creatorEmail) {
     console.error('[REPORT SIGN] CRITICAL — Cannot send consultant copy : creatorEmail empty. Check link.created_by + ADMIN_EMAIL env.')
     notifs.admin_email = { ok: false, error: 'creatorEmail empty (no created_by, no ADMIN_EMAIL)' }
-  } else if (!skipAdminEmail) {
-  try {
-    notifs.admin_email = await sendCompletedEmailToAdmin({
-      to: creatorEmail,
-      candidateName,
-      clientName: link.client_name || link.client_email || '',
-      weekLabel: weekDates.label,
-      attachments,
-      downloadUrl: pdfDownloadUrl,
-    })
-    if (!notifs.admin_email.ok) {
-      console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)
-    } else {
-      console.log('[REPORT SIGN] admin email sent OK to', creatorEmail, '— Resend id:', (notifs.admin_email as any).id)
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Erreur admin email'
-    console.error('[REPORT SIGN] admin email exception', msg)
-    notifs.admin_email = { ok: false, error: msg }
-  }
   } else {
-    console.log('[REPORT SIGN] Skip admin email (= client_email, doublon évité)')
-    notifs.admin_email = { ok: true }
+    try {
+      // v2.3.9 Bug 11b — Le créateur reçoit RAPPORT + CERTIFICAT
+      notifs.admin_email = await sendCompletedEmailToAdmin({
+        to: creatorEmail,
+        candidateName,
+        clientName: link.client_name || link.client_email || '',
+        weekLabel: weekDates.label,
+        attachments: allAttachments,
+        downloadUrl: pdfDownloadUrl,
+      })
+      if (!notifs.admin_email.ok) {
+        console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)
+      } else {
+        console.log('[REPORT SIGN] admin email sent OK to', creatorEmail, '— Resend id:', (notifs.admin_email as any).id, '— attachments:', allAttachments.map(a => a.filename))
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur admin email'
+      console.error('[REPORT SIGN] admin email exception', msg)
+      notifs.admin_email = { ok: false, error: msg }
+    }
   }
 
   // 5b. Email client (selon delivery_channel email/both + client_email présent)
+  // v2.3.9 Bug 11a — Client reçoit UNIQUEMENT le rapport (pas le certificat)
   if ((link.delivery_channel === 'email' || link.delivery_channel === 'both') && link.client_email) {
     try {
       notifs.client_email = await sendCompletedEmailToClient({
@@ -248,7 +250,7 @@ export async function POST(
         clientContactName: link.client_contact_name,
         candidateName,
         weekLabel: weekDates.label,
-        attachments,
+        attachments: reportAttachments,
       })
       if (!notifs.client_email.ok) {
         console.error('[reports/client/sign] client email FAILED:', notifs.client_email.error)
@@ -266,6 +268,7 @@ export async function POST(
   }
 
   // 5c. Email candidat (post-completion, si candidat_email configuré sur le lien)
+  // v2.3.9 Bug 11a — Candidat reçoit UNIQUEMENT le rapport (pas le certificat)
   if (link.candidat_email) {
     try {
       notifs.candidat_email = await sendCompletedEmailToCandidat({
@@ -273,7 +276,7 @@ export async function POST(
         candidateName,
         clientName: link.client_name || link.client_email || '',
         weekLabel: weekDates.label,
-        attachments,
+        attachments: reportAttachments,
       })
       if (!notifs.candidat_email.ok) {
         console.error('[reports/client/sign] candidat email FAILED:', notifs.candidat_email.error)

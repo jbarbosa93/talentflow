@@ -71,12 +71,23 @@ export async function generateReportPdf(
   }
 
   // 2. Construit l'autoFill candidat (recipient 1) et client (recipient 2)
-  const fullNameCandidate = candidat
+  // v2.3.9 Bug 9 — PRIORITÉ link.candidat_name (source unique stockée à la
+  // création du lien) > concat candidat lié en DB > vide. Le lien peut
+  // exister sans candidat_id (saisie manuelle) — sans cette priorité, le
+  // field type='fullname' du template restait vide dans le PDF stampé.
+  const fullNameFromLink = (link.candidat_name || '').trim()
+  const fullNameFromDB = candidat
     ? [candidat.prenom, candidat.nom].filter(Boolean).join(' ').trim()
     : ''
+  const fullNameCandidate = fullNameFromLink || fullNameFromDB
   const candFirstName = candidat?.prenom || (fullNameCandidate.split(/\s+/)[0] || '')
-  const candLastName = candidat?.nom || fullNameCandidate.split(/\s+/).slice(1).join(' ') || ''
-  const candEmail = candidat?.email || ''
+  const candLastName = candidat?.nom || (fullNameCandidate.split(/\s+/).slice(1).join(' ') || '')
+  const candEmail = link.candidat_email || candidat?.email || ''
+  console.log('[report/pdf-generator] candidate name resolved:', {
+    fullNameFromLink: fullNameFromLink || '(empty)',
+    fullNameFromDB: fullNameFromDB || '(empty)',
+    final: fullNameCandidate || '(EMPTY — field will be blank)',
+  })
 
   const clientFullName = link.client_name || ''
   const clientParts = clientFullName.trim().split(/\s+/)
@@ -108,39 +119,33 @@ export async function generateReportPdf(
 
       let currentBuf: Uint8Array = sourceBuf
 
-      // v2.3.8 Bug 7b — Auto-fill DÉFENSIF : si un field type='text' (sans valeur
-      // saisie par le user) a un label qui identifie le nom du collaborateur,
-      // on PROMEUT son type à 'fullname' au moment du stamp pour que stampPdf
-      // (case 'fullname' ligne 192-222) le remplisse depuis autoFill.fullName.
-      // Évite que la zone "Collaborateur(trice)" reste vide quand l'admin a
-      // oublié de configurer le field dans l'éditeur template.
-      const submissionVals = submission.field_values || {}
-      const enrichedFields = (doc.fields || []).map(f => {
-        if (f.type !== 'text') return f
-        // Si l'user a saisi une valeur explicite, ne pas écraser
-        const explicit = submissionVals[f.id]
-        if (typeof explicit === 'string' && explicit.trim()) return f
-        const label = (f.label || '').toLowerCase()
-        const isFullNameField = (
-          label.includes('collaborateur')
-          || label.includes('collaboratrice')
-          || (label.startsWith('nom') && !label.includes('client') && !label.includes('entreprise') && !label.includes('soci'))
-          || label.includes('candidat')
-          || label.includes('employee')
-          || label.includes('employé')
-          || label.includes('travailleur')
-          || label.includes('intérim')
-          || label.includes('interim')
-        )
-        if (isFullNameField) {
-          console.log('[report/pdf-generator] Defensive promote text→fullname:', { id: f.id, label: f.label })
-          return { ...f, type: 'fullname' as const }
+      // v2.3.9 Bug 9 — Diagnostic warnings côté serveur :
+      // (a) Signatures trop petites dans le template (w<150pt OR h<60pt) : impossible
+      //     de corriger via code sans déborder hors de la box. Log warning pour que
+      //     l'admin agrandisse le field dans l'éditeur de template.
+      // (b) Heuristique v2.3.8 "promote text→fullname" SUPPRIMÉE : le diagnostic SQL
+      //     a confirmé que les fields type='fullname' sont bien configurés dans
+      //     les templates rapport. La heuristique était inutile et risquait de
+      //     promouvoir des fields texte légitimes (ex: notes) en fullname.
+      const A4_W = 595, A4_H = 842
+      for (const f of doc.fields || []) {
+        if (f.type !== 'signature') continue
+        const wPts = (f.width || 0) * A4_W
+        const hPts = (f.height || 0) * A4_H
+        if (wPts < 150 || hPts < 60) {
+          console.warn('[report/pdf-generator] ⚠️ Signature TROP PETITE — agrandir dans editeur template', {
+            template_id: link.template_id,
+            field_id: f.id,
+            recipientOrder: f.recipientOrder ?? 1,
+            width_pts: Math.round(wPts),
+            height_pts: Math.round(hPts),
+            recommended: 'width >= 200pt, height >= 80pt',
+          })
         }
-        return f
-      })
+      }
 
       // ─── Pass 1 : fields recipientOrder=1 (Candidat) ───
-      const candFields = enrichedFields.filter(f => (f.recipientOrder ?? 1) === 1)
+      const candFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 1)
       if (candFields.length > 0) {
         currentBuf = await stampPdf({
           pdfBuffer: currentBuf,
@@ -169,7 +174,7 @@ export async function generateReportPdf(
       }
 
       // ─── Pass 2 : fields recipientOrder=2 (Client) — sans footer ───
-      const clientFields = enrichedFields.filter(f => (f.recipientOrder ?? 1) === 2)
+      const clientFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 2)
       currentBuf = await stampPdf({
         pdfBuffer: currentBuf,
         fields: clientFields,

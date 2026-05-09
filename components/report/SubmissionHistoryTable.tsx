@@ -5,10 +5,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Download, ExternalLink, FileText, Loader2 } from 'lucide-react'
+import { Award, Download, Eye, FileText, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { REPORT_STATUS_LABELS, type ReportSubmission } from '@/lib/report/types'
+import PdfPreviewModal from './PdfPreviewModal'
 
 interface Props {
   submissions: ReportSubmission[]
@@ -33,25 +34,46 @@ export default function SubmissionHistoryTable({
 }: Props) {
   // v2.3.8 Bug 9b — État loading par submission pour les boutons Télécharger
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  // v2.3.9 Bug 2a — Modal viewer (kind = 'report' | 'certificate')
+  const [previewState, setPreviewState] = useState<
+    | { url: string; filename: string; title: string }
+    | null
+  >(null)
 
-  // v2.3.8 Bug 9b — Construit l'URL download pour une submission donnée.
-  // Mode mono-rapport : slug fourni. Mode cross-link : slug depuis linksMeta.
-  const downloadUrl = (s: ReportSubmission): string | null => {
+  // v2.3.8 Bug 9b — Construit l'URL download (rapport) pour une submission.
+  // v2.3.9 Bug 11c — Ajoute aussi certificateUrl (route dédiée).
+  const reportUrl = (s: ReportSubmission): string | null => {
     const sl = slug || linksMeta?.[s.id]?.slug || null
     if (!sl) return null
     return `/api/reports/${sl}/submissions/${s.id}/download`
   }
-
-  const handlePreview = (s: ReportSubmission) => {
-    const url = downloadUrl(s)
-    if (!url) { toast.error('URL indisponible'); return }
-    window.open(url, '_blank', 'noopener,noreferrer')
+  const certificateUrl = (s: ReportSubmission): string | null => {
+    const sl = slug || linksMeta?.[s.id]?.slug || null
+    if (!sl) return null
+    return `/api/reports/${sl}/submissions/${s.id}/certificate`
   }
 
-  const handleDownload = async (s: ReportSubmission) => {
-    const url = downloadUrl(s)
+  // v2.3.9 Bug 11c — Détecte si la submission a un certificat (filename contient 'certificat')
+  const hasCertificate = (s: ReportSubmission): boolean =>
+    (s.signed_pdf_paths || []).some(p => /certificat/i.test(p.name || '') || /certificat/i.test(p.path || ''))
+
+  // v2.3.9 Bug 2a — Aperçu = ouvre le modal viewer (au lieu d'ouvrir nouvel onglet)
+  const handlePreview = (s: ReportSubmission, kind: 'report' | 'certificate' = 'report') => {
+    const url = kind === 'certificate' ? certificateUrl(s) : reportUrl(s)
     if (!url) { toast.error('URL indisponible'); return }
-    setDownloadingId(s.id)
+    const week = getWeekDates(s.week_start)
+    const prefix = kind === 'certificate' ? 'Certificat' : 'Rapport'
+    setPreviewState({
+      url,
+      filename: `${prefix}-S${week.weekNumber}-${s.week_start}.pdf`,
+      title: `${prefix} · Semaine ${week.weekNumber} (${week.label})`,
+    })
+  }
+
+  const handleDownload = async (s: ReportSubmission, kind: 'report' | 'certificate' = 'report') => {
+    const url = kind === 'certificate' ? certificateUrl(s) : reportUrl(s)
+    if (!url) { toast.error('URL indisponible'); return }
+    setDownloadingId(s.id + ':' + kind)
     try {
       const r = await fetch(url)
       if (!r.ok) {
@@ -62,7 +84,8 @@ export default function SubmissionHistoryTable({
       // Tente d'extraire le filename du Content-Disposition
       const cd = r.headers.get('Content-Disposition') || ''
       const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd)
-      const filename = m?.[1] ? decodeURIComponent(m[1]) : `rapport-${s.week_start}.pdf`
+      const fallback = kind === 'certificate' ? 'certificat' : 'rapport'
+      const filename = m?.[1] ? decodeURIComponent(m[1]) : `${fallback}-${s.week_start}.pdf`
       const blobUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = blobUrl
@@ -71,7 +94,7 @@ export default function SubmissionHistoryTable({
       a.click()
       document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(blobUrl), 8000)
-      toast.success('PDF téléchargé')
+      toast.success(`${kind === 'certificate' ? 'Certificat' : 'PDF'} téléchargé`)
     } catch (e: any) {
       toast.error(e.message || 'Erreur téléchargement')
     } finally {
@@ -81,21 +104,32 @@ export default function SubmissionHistoryTable({
 
   if (submissions.length === 0) {
     return (
-      <div style={{
-        padding: '24px 16px',
-        textAlign: 'center',
-        color: 'var(--muted)',
-        fontSize: 13,
-        background: 'var(--surface)',
-        border: '1px dashed var(--border)',
-        borderRadius: 12,
-      }}>
-        Aucune soumission pour le moment.
-      </div>
+      <>
+        <div style={{
+          padding: '24px 16px',
+          textAlign: 'center',
+          color: 'var(--muted)',
+          fontSize: 13,
+          background: 'var(--surface)',
+          border: '1px dashed var(--border)',
+          borderRadius: 12,
+        }}>
+          Aucune soumission pour le moment.
+        </div>
+        {previewState && (
+          <PdfPreviewModal
+            url={previewState.url}
+            filename={previewState.filename}
+            title={previewState.title}
+            onClose={() => setPreviewState(null)}
+          />
+        )}
+      </>
     )
   }
 
   return (
+    <>
     <div style={{
       border: '1px solid var(--border)',
       borderRadius: 12,
@@ -165,32 +199,46 @@ export default function SubmissionHistoryTable({
                     : <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>—</span>}
                 </Td>
                 <Td align="right">
-                  {/* v2.3.8 Bug 9b — Aperçu (nouvel onglet) + Télécharger (blob)
-                      pour toute submission complétée (PDF stocké) ou candidate_signed
-                      (preview à la volée). */}
-                  {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && downloadUrl(s) && (
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                  {/* v2.3.9 Bug 2a + 11c — Aperçu (modal iframe) +
+                      Télécharger Rapport + Certificat (route dédiée). */}
+                  {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && reportUrl(s) && (
+                    <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button
                         type="button"
-                        onClick={() => handlePreview(s)}
-                        title="Ouvrir le PDF dans un nouvel onglet"
+                        onClick={() => handlePreview(s, 'report')}
+                        title="Aperçu du rapport dans un modal"
                         style={actionBtnStyle()}
                       >
-                        <ExternalLink size={11} />
+                        <Eye size={11} />
                         Aperçu
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDownload(s)}
-                        disabled={downloadingId === s.id}
-                        title="Télécharger le PDF"
+                        onClick={() => handleDownload(s, 'report')}
+                        disabled={downloadingId === s.id + ':report'}
+                        title="Télécharger le rapport signé"
                         style={actionBtnStyle()}
                       >
-                        {downloadingId === s.id
+                        {downloadingId === s.id + ':report'
                           ? <Loader2 size={11} className="animate-spin" />
                           : <Download size={11} />}
-                        Télécharger
+                        Rapport
                       </button>
+                      {/* Bug 11c — Bouton Certificat uniquement si présent en Storage */}
+                      {hasCertificate(s) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(s, 'certificate')}
+                          disabled={downloadingId === s.id + ':certificate'}
+                          title="Télécharger le certificat de signature"
+                          style={actionBtnStyle('#A16207')}
+                        >
+                          {downloadingId === s.id + ':certificate'
+                            ? <Loader2 size={11} className="animate-spin" />
+                            : <Award size={11} />}
+                          Certificat
+                        </button>
+                      )}
                     </div>
                   )}
                   {/* Fallback : ancien callback onViewPdf si parent l'utilise */}
@@ -211,6 +259,15 @@ export default function SubmissionHistoryTable({
         </tbody>
       </table>
     </div>
+    {previewState && (
+      <PdfPreviewModal
+        url={previewState.url}
+        filename={previewState.filename}
+        title={previewState.title}
+        onClose={() => setPreviewState(null)}
+      />
+    )}
+    </>
   )
 }
 
@@ -244,14 +301,14 @@ function Td({ children, align }: { children: React.ReactNode; align?: 'right' })
   )
 }
 
-function actionBtnStyle(): React.CSSProperties {
+function actionBtnStyle(color?: string): React.CSSProperties {
   return {
     padding: '5px 10px',
     fontSize: 11.5, fontWeight: 600,
     border: '1px solid var(--border)',
     borderRadius: 7,
     background: 'var(--card)',
-    color: 'var(--foreground)',
+    color: color || 'var(--foreground)',
     cursor: 'pointer',
     display: 'inline-flex', alignItems: 'center', gap: 5,
     fontFamily: 'inherit',

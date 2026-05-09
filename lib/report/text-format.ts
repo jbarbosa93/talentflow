@@ -1,19 +1,75 @@
-// TalentFlow Rapports — Helpers format texte (v2.3.8)
+// TalentFlow Rapports — Helpers format texte (v2.3.9)
 //
-// stripAccentsForWa : retire tous les diacritiques (a~, e', c,, n~, ...) pour
-// produire de l'ASCII safe. Utilise pour les messages WhatsApp ou certaines
-// versions de l'app affichent ? a la place des caracteres Unicode etendus
-// dans les URLs wa.me / le contenu encode.
+// toWhatsAppSafe : convertit un texte Unicode en ASCII strict via une map
+// LATIN_MAP exhaustive. Utilisé pour les URLs wa.me et le contenu encodé,
+// car certaines versions WhatsApp affichent ? à la place des caracteres
+// Unicode étendus dans les liens.
 //
-// Regle (validee Joao v2.3.8) : stripper TOUS les accents pour garantir
-// l'affichage uniforme. "Joao" -> "Joao", "Herve" -> "Herve".
+// Approche map vs NFD : la map est déterministe et ne dépend pas du runtime
+// Unicode. Couvre systématiquement les diacritiques latins courants
+// (FR/PT/ES/DE/IT). Caracteres non mappés sont conservés tels quels.
+//
+// Règle (validée João v2.3.9) : appliquer toWhatsAppSafe sur le MESSAGE
+// ENTIER (pas seulement le prénom) avant encodeURIComponent.
 
-export function stripAccentsForWa(s: string): string {
-  if (!s) return ''
-  // U+0300 a U+036F = combining diacritical marks (apres NFD decomposition)
-  // eslint-disable-next-line no-misleading-character-class
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '')
+const LATIN_MAP: Record<string, string> = {
+  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ā': 'a', 'ă': 'a', 'ą': 'a',
+  'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e', 'ē': 'e', 'ĕ': 'e', 'ė': 'e', 'ę': 'e', 'ě': 'e',
+  'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ī': 'i', 'ĭ': 'i', 'į': 'i', 'ı': 'i',
+  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ō': 'o', 'ŏ': 'o', 'ő': 'o',
+  'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ū': 'u', 'ŭ': 'u', 'ů': 'u', 'ű': 'u', 'ų': 'u',
+  'ý': 'y', 'ÿ': 'y', 'ŷ': 'y',
+  'ñ': 'n', 'ń': 'n', 'ň': 'n', 'ņ': 'n',
+  'ç': 'c', 'ć': 'c', 'č': 'c', 'ĉ': 'c', 'ċ': 'c',
+  'ß': 'ss',
+  'š': 's', 'ś': 's', 'ş': 's', 'ŝ': 's',
+  'ž': 'z', 'ź': 'z', 'ż': 'z',
+  'ł': 'l', 'ĺ': 'l', 'ľ': 'l', 'ļ': 'l',
+  'ř': 'r', 'ŕ': 'r', 'ŗ': 'r',
+  'ť': 't', 'ţ': 't',
+  'ď': 'd', 'đ': 'd',
+  'ğ': 'g', 'ĝ': 'g', 'ġ': 'g', 'ģ': 'g',
+  'ħ': 'h', 'ĥ': 'h',
+  'ĵ': 'j',
+  'ķ': 'k',
+  'œ': 'oe', 'æ': 'ae',
+  // Majuscules
+  'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A', 'Å': 'A', 'Ā': 'A', 'Ă': 'A', 'Ą': 'A',
+  'È': 'E', 'É': 'E', 'Ê': 'E', 'Ë': 'E', 'Ē': 'E', 'Ĕ': 'E', 'Ė': 'E', 'Ę': 'E', 'Ě': 'E',
+  'Ì': 'I', 'Í': 'I', 'Î': 'I', 'Ï': 'I', 'Ī': 'I', 'Ĭ': 'I', 'Į': 'I', 'İ': 'I',
+  'Ò': 'O', 'Ó': 'O', 'Ô': 'O', 'Õ': 'O', 'Ö': 'O', 'Ø': 'O', 'Ō': 'O', 'Ŏ': 'O', 'Ő': 'O',
+  'Ù': 'U', 'Ú': 'U', 'Û': 'U', 'Ü': 'U', 'Ū': 'U', 'Ŭ': 'U', 'Ů': 'U', 'Ű': 'U', 'Ų': 'U',
+  'Ý': 'Y', 'Ŷ': 'Y',
+  'Ñ': 'N', 'Ń': 'N', 'Ň': 'N', 'Ņ': 'N',
+  'Ç': 'C', 'Ć': 'C', 'Č': 'C', 'Ĉ': 'C', 'Ċ': 'C',
+  'Š': 'S', 'Ś': 'S', 'Ş': 'S', 'Ŝ': 'S',
+  'Ž': 'Z', 'Ź': 'Z', 'Ż': 'Z',
+  'Ł': 'L', 'Ĺ': 'L', 'Ľ': 'L', 'Ļ': 'L',
+  'Ř': 'R', 'Ŕ': 'R', 'Ŗ': 'R',
+  'Ť': 'T', 'Ţ': 'T',
+  'Ď': 'D', 'Đ': 'D',
+  'Ğ': 'G', 'Ĝ': 'G', 'Ġ': 'G', 'Ģ': 'G',
+  'Ħ': 'H', 'Ĥ': 'H',
+  'Ĵ': 'J',
+  'Ķ': 'K',
+  'Œ': 'OE', 'Æ': 'AE',
 }
+
+/**
+ * Convertit un texte en ASCII safe pour WhatsApp (URLs wa.me + body texte).
+ * Map LATIN_MAP exhaustive. Caracteres emoji/CJK passent tels quels (encodés
+ * par encodeURIComponent côté URL).
+ */
+export function toWhatsAppSafe(s: string): string {
+  if (!s) return ''
+  return s.split('').map(c => LATIN_MAP[c] ?? c).join('')
+}
+
+/**
+ * @deprecated v2.3.9 — Utiliser `toWhatsAppSafe` à la place.
+ * Alias conservé pour rétrocompat avec v2.3.8.
+ */
+export const stripAccentsForWa = toWhatsAppSafe
 
 // Format date "JJ.MM.AAAA" deterministe (independant du locale ICU Vercel
 // qui peut renvoyer des slashes au lieu de points sur fr-CH).

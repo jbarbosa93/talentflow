@@ -12,6 +12,7 @@ import EnvelopeCategoryIcon from '@/components/sign/EnvelopeCategoryIcon'
 import AuditTimeline from '@/components/sign/AuditTimeline'
 import type { SignEnvelope, SignAuditEntry, SignToken } from '@/lib/sign/types'
 import { CATEGORY_LABELS, recipientStatusLabel } from '@/lib/sign/types'
+import { toWhatsAppSafe } from '@/lib/report/text-format'
 
 interface PageProps {
   params: Promise<{ envelopeId: string }>
@@ -234,12 +235,15 @@ export default function EnvelopeDetailPage({ params }: PageProps) {
     // Sauvegarde pour réutilisation
     localStorage.setItem(storageKey, '+' + digits)
 
-    const firstName = recipientName.split(/\s+/)[0] || recipientName
-    const msg =
+    // v2.3.9 Bug 7 — toWhatsAppSafe (LATIN→ASCII) sur prenom + message complet
+    const firstName = toWhatsAppSafe(recipientName.split(/\s+/)[0] || recipientName)
+    const safeTitle = toWhatsAppSafe(envelopeTitle)
+    const rawMsg =
       `Bonjour ${firstName},\n\n` +
-      `Voici votre lien sécurisé pour signer électroniquement votre dossier "${envelopeTitle}" :\n\n` +
+      `Voici votre lien sécurisé pour signer électroniquement votre dossier "${safeTitle}" :\n\n` +
       `${url}\n\n` +
       `Le lien est valable 30 jours. À très vite !\n— L-Agence SA`
+    const msg = toWhatsAppSafe(rawMsg)
 
     const waUrl = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`
     window.open(waUrl, '_blank', 'noopener,noreferrer')

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ClipboardList, Loader2, Plus, FileText } from 'lucide-react'
+import { ChevronLeft, ClipboardList, Loader2, Plus, FileText, Eraser } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SignTemplate } from '@/lib/sign/types'
 import { FirstNameAutocomplete, type CandidateResult } from '@/components/sign/RecipientCard'
@@ -77,6 +77,23 @@ export default function NewReportLinkPage() {
       setCandidatPrenom(firstName)
       setCandidatNom('')
     }
+  }
+
+  // v2.3.9 Bug 4 — Reset complet section CANDIDAT (X ou bouton "Tout effacer")
+  const clearCandidat = () => {
+    setCandidatId(null)
+    setCandidatPrenom('')
+    setCandidatNom('')
+    setCandidatPhone('')
+    setCandidatEmail('')
+  }
+
+  // v2.3.9 Bug 4 — Reset complet section CLIENT
+  const clearClient = () => {
+    setClientId(null)
+    setClientName('')
+    setClientContactName('')
+    setClientEmail('')
   }
 
   const validate = (): string | null => {
@@ -156,13 +173,29 @@ export default function NewReportLinkPage() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 18 }}>
         {/* Section Candidat */}
-        <Section title="Candidat">
+        <Section
+          title="Candidat"
+          action={
+            (candidatId || candidatPrenom || candidatNom || candidatPhone || candidatEmail) ? (
+              <button
+                type="button"
+                onClick={clearCandidat}
+                style={clearAllBtnStyle}
+                title="Vider tous les champs candidat"
+              >
+                <Eraser size={11} />
+                Tout effacer
+              </button>
+            ) : null
+          }
+        >
           <Field label="Candidat (recherche TalentFlow par prénom ou nom)">
             <FirstNameAutocomplete
               value={candidatPrenom}
               isLinked={!!candidatId}
               onChange={handleCandidat}
-              onUnlink={() => { setCandidatId(null) }}
+              // v2.3.9 Bug 4 — X délie ET vide tous les champs candidat
+              onUnlink={clearCandidat}
             />
           </Field>
           {/* v2.3.x Bug 8c — Phone candidat (optionnel) pour deep link wa.me */}
@@ -281,7 +314,22 @@ export default function NewReportLinkPage() {
         </Section>
 
         {/* Section Lien */}
-        <Section title="Lien & client">
+        <Section
+          title="Lien & client"
+          action={
+            (clientId || clientName || clientContactName || clientEmail) ? (
+              <button
+                type="button"
+                onClick={clearClient}
+                style={clearAllBtnStyle}
+                title="Vider tous les champs client"
+              >
+                <Eraser size={11} />
+                Tout effacer
+              </button>
+            ) : null
+          }
+        >
           <Field label="Titre">
             <input
               type="text"
@@ -303,14 +351,20 @@ export default function NewReportLinkPage() {
                 setClientName(name)
                 if (pick) {
                   setClientId(pick.clientId)
+                  // v2.3.9 Bug 5 — pick.contactName/contactEmail peuvent être null
+                  // (ligne header "Choisir cette entreprise") → on remplit que si présent
                   if (pick.contactName) setClientContactName(pick.contactName)
                   if (pick.contactEmail) setClientEmail(pick.contactEmail)
+                } else if (!name.trim()) {
+                  // v2.3.9 Bug 4 — Champ vidé manuellement → reset complet section client
+                  clearClient()
                 } else {
-                  // L'user tape manuellement — délier
+                  // Saisie manuelle libre → délier seulement le client_id
                   setClientId(null)
                 }
               }}
-              onUnlink={() => { setClientId(null) }}
+              // v2.3.9 Bug 4 — X délie ET vide tous les champs client
+              onUnlink={clearClient}
             />
           </Field>
           {clientId && (
@@ -368,7 +422,28 @@ export default function NewReportLinkPage() {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// v2.3.9 Bug 4 — Style bouton "Tout effacer" (header de section)
+const clearAllBtnStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+  padding: '4px 10px',
+  fontSize: 11,
+  fontWeight: 600,
+  border: '1px solid var(--border)',
+  borderRadius: 7,
+  background: 'var(--card)',
+  color: 'var(--muted)',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  whiteSpace: 'nowrap',
+}
+
+function Section({ title, children, action }: {
+  title: string
+  children: React.ReactNode
+  action?: React.ReactNode
+}) {
   return (
     <div style={{
       padding: 18,
@@ -376,12 +451,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       border: '1px solid var(--border)',
       borderRadius: 12,
     }}>
-      <h2 style={{
-        fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
-        color: 'var(--muted)', margin: '0 0 14px',
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 8, margin: '0 0 14px',
       }}>
-        {title}
-      </h2>
+        <h2 style={{
+          fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+          color: 'var(--muted)', margin: 0,
+        }}>
+          {title}
+        </h2>
+        {action}
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {children}
       </div>

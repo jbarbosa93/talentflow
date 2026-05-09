@@ -3,7 +3,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Calendar, Copy, Edit3, MessageCircle, MoreVertical, Pause, Play, Trash2, User,
 } from 'lucide-react'
@@ -92,9 +93,22 @@ function Row({
   onEdit?: (link: ReportLink) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  // v2.3.9 Bug 1 — Menu ⋮ portalisé pour échapper au container parent
+  // (le tableau a overflow:hidden via borderRadius:12 → le dropdown était caché).
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
   const isPaused = link.status === 'paused'
   const isRevoked = link.status === 'revoked'
   const headline = candidateName || link.candidat_name || link.title
+
+  useEffect(() => {
+    if (!menuOpen || !triggerRef.current) { setMenuPos(null); return }
+    const r = triggerRef.current.getBoundingClientRect()
+    setMenuPos({
+      top: r.bottom + 4,
+      right: window.innerWidth - r.right,
+    })
+  }, [menuOpen])
 
   return (
     <div style={{
@@ -202,68 +216,69 @@ function Row({
             </button>
           </>
         )}
-        <div style={{ position: 'relative' }}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen(o => !o)}
-            title="Plus d'actions"
-            style={iconBtn()}
-            aria-label="Actions"
-          >
-            <MoreVertical size={13} />
-          </button>
-          {menuOpen && (
-            <>
-              <div
-                style={{ position: 'fixed', inset: 0, zIndex: 20 }}
-                onClick={() => setMenuOpen(false)}
-              />
-              <div style={{
-                position: 'absolute',
-                top: 'calc(100% + 4px)',
-                right: 0,
-                background: 'var(--card)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-                padding: 4,
-                zIndex: 25,
-                minWidth: 220,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}>
-                {!isRevoked && onEdit && (
-                  <>
-                    <MenuItem icon={<Edit3 size={13} />} onClick={() => { setMenuOpen(false); onEdit(link) }}>
-                      Modifier
-                    </MenuItem>
-                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
-                  </>
-                )}
-                {!isRevoked && (isPaused
-                  ? <MenuItem icon={<Play size={13} />} onClick={() => { setMenuOpen(false); onResume?.(link) }}>Réactiver</MenuItem>
-                  : <MenuItem icon={<Pause size={13} />} onClick={() => { setMenuOpen(false); onPause?.(link) }}>Mettre en pause</MenuItem>)}
-                {!isRevoked && (
-                  <MenuItem icon={<Trash2 size={13} />} danger onClick={() => { setMenuOpen(false); onRevoke?.(link) }}>
-                    Révoquer
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setMenuOpen(o => !o)}
+          title="Plus d'actions"
+          style={iconBtn()}
+          aria-label="Actions"
+        >
+          <MoreVertical size={13} />
+        </button>
+        {menuOpen && menuPos && typeof document !== 'undefined' && createPortal(
+          <>
+            <div
+              style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+              onClick={() => setMenuOpen(false)}
+            />
+            <div style={{
+              position: 'fixed',
+              top: menuPos.top,
+              right: menuPos.right,
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+              padding: 4,
+              zIndex: 9999,
+              minWidth: 220,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              fontFamily: 'var(--font-jakarta), system-ui, sans-serif',
+            }}>
+              {!isRevoked && onEdit && (
+                <>
+                  <MenuItem icon={<Edit3 size={13} />} onClick={() => { setMenuOpen(false); onEdit(link) }}>
+                    Modifier
                   </MenuItem>
-                )}
-                {isRevoked && (
-                  <>
-                    <MenuItem icon={<Play size={13} />} onClick={() => { setMenuOpen(false); onResume?.(link) }}>
-                      Réactiver le lien
-                    </MenuItem>
-                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
-                    <MenuItem icon={<Trash2 size={13} />} danger onClick={() => { setMenuOpen(false); onDelete?.(link) }}>
-                      Supprimer définitivement
-                    </MenuItem>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
+                </>
+              )}
+              {!isRevoked && (isPaused
+                ? <MenuItem icon={<Play size={13} />} onClick={() => { setMenuOpen(false); onResume?.(link) }}>Réactiver</MenuItem>
+                : <MenuItem icon={<Pause size={13} />} onClick={() => { setMenuOpen(false); onPause?.(link) }}>Mettre en pause</MenuItem>)}
+              {!isRevoked && (
+                <MenuItem icon={<Trash2 size={13} />} danger onClick={() => { setMenuOpen(false); onRevoke?.(link) }}>
+                  Révoquer
+                </MenuItem>
+              )}
+              {isRevoked && (
+                <>
+                  <MenuItem icon={<Play size={13} />} onClick={() => { setMenuOpen(false); onResume?.(link) }}>
+                    Réactiver le lien
+                  </MenuItem>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
+                  <MenuItem icon={<Trash2 size={13} />} danger onClick={() => { setMenuOpen(false); onDelete?.(link) }}>
+                    Supprimer définitivement
+                  </MenuItem>
+                </>
+              )}
+            </div>
+          </>,
+          document.body,
+        )}
       </div>
     </div>
   )

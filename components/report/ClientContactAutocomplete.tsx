@@ -96,16 +96,25 @@ export default function ClientContactAutocomplete({
     setOpen(false)
   }
 
-  // Aplatit les clients en N lignes (1 par contact, ou 1 si pas de contact)
-  type Row = { client: ClientResult; contact: ContactRow | null; key: string }
+  // v2.3.9 Bug 5 — Aplatit avec une ligne "header entreprise" en haut de chaque
+  // groupe (entityOnly=true) suivie de N lignes contacts. L'user peut choisir
+  // l'entreprise SEULE (sans contact) → contact_name + email restent à saisir
+  // manuellement après. Si client sans contact en DB → seule la ligne header
+  // apparait.
+  type Row = {
+    client: ClientResult
+    contact: ContactRow | null
+    entityOnly: boolean
+    key: string
+  }
   const rows: Row[] = []
   for (const c of results) {
     const contacts = Array.isArray(c.contacts) ? c.contacts : []
-    if (contacts.length === 0) {
-      rows.push({ client: c, contact: null, key: `${c.id}-none` })
-    } else {
-      contacts.forEach((ct, idx) => rows.push({ client: c, contact: ct, key: `${c.id}-${idx}` }))
-    }
+    // Toujours une ligne header "Choisir cette entreprise"
+    rows.push({ client: c, contact: null, entityOnly: true, key: `${c.id}-entity` })
+    contacts.forEach((ct, idx) =>
+      rows.push({ client: c, contact: ct, entityOnly: false, key: `${c.id}-${idx}` }),
+    )
   }
 
   return (
@@ -178,13 +187,13 @@ export default function ClientContactAutocomplete({
               Aucun client trouvé. Tape un nom complet pour créer un nouveau client.
             </div>
           )}
-          {!searching && rows.map(({ client, contact, key }) => {
+          {!searching && rows.map(({ client, contact, entityOnly, key }) => {
             const contactName = contact
               ? [contact.prenom, contact.nom].filter(Boolean).join(' ').trim()
               : ''
             const detail = contact
               ? [contactName, contact.email, contact.fonction].filter(Boolean).join(' · ')
-              : (client.email || 'Pas de contact')
+              : 'Choisir cette entreprise (sans contact pré-sélectionné)'
             return (
               <button
                 key={key}
@@ -193,13 +202,17 @@ export default function ClientContactAutocomplete({
                 style={{
                   width: '100%', textAlign: 'left',
                   padding: '8px 12px',
-                  background: 'transparent',
+                  background: entityOnly ? 'var(--surface-2)' : 'transparent',
                   border: 'none', borderBottom: '1px solid var(--border)',
                   cursor: 'pointer', fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                onMouseEnter={e => e.currentTarget.style.background = entityOnly
+                  ? 'var(--primary-soft)'
+                  : 'var(--surface-2)'}
+                onMouseLeave={e => e.currentTarget.style.background = entityOnly
+                  ? 'var(--surface-2)'
+                  : 'transparent'}
               >
                 <div style={{
                   width: 28, height: 28, borderRadius: 7,
@@ -211,7 +224,7 @@ export default function ClientContactAutocomplete({
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
-                    fontSize: 13, fontWeight: 600, color: 'var(--foreground)',
+                    fontSize: 13, fontWeight: entityOnly ? 700 : 600, color: 'var(--foreground)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {client.nom_entreprise}
@@ -222,7 +235,10 @@ export default function ClientContactAutocomplete({
                     )}
                   </div>
                   <div style={{
-                    fontSize: 11, color: 'var(--muted)', marginTop: 2,
+                    fontSize: 11,
+                    color: entityOnly ? 'var(--primary, #A16207)' : 'var(--muted)',
+                    fontStyle: entityOnly ? 'italic' : 'normal',
+                    marginTop: 2,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {detail}

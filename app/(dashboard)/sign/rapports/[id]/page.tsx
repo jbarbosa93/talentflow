@@ -13,7 +13,7 @@ import SubmissionHistoryTable from '@/components/report/SubmissionHistoryTable'
 import {
   REPORT_LINK_STATUS_LABELS, type ReportLink, type ReportSubmission,
 } from '@/lib/report/types'
-import { stripAccentsForWa } from '@/lib/report/text-format'
+import { toWhatsAppSafe } from '@/lib/report/text-format'
 
 export default function ReportLinkDetailPage({
   params,
@@ -65,11 +65,12 @@ export default function ReportLinkDetailPage({
     // v2.3.x — Utilise candidat_name (source unique) ; fallback : title nettoyé du préfixe
     const fullName = link.candidat_name
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
-    // v2.3.8 Bug 3a — Strip TOUS les accents (João → Joao) pour garantir affichage
-    // uniforme dans WhatsApp mobile/web (certaines versions affichent ❓).
-    const firstName = stripAccentsForWa(fullName.split(/\s+/)[0] || '')
+    // v2.3.9 Bug 7 — toWhatsAppSafe sur le MESSAGE ENTIER (pas seulement prenom).
+    // Map LATIN_MAP exhaustive evite ❓ partout dans le contenu envoye.
+    const firstName = toWhatsAppSafe(fullName.split(/\s+/)[0] || '')
     const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
-    const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    const msg = toWhatsAppSafe(rawMsg)
     // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible
     // Sinon wa.me/?text=... (user choisit le contact dans WhatsApp).
     // E.164 → digits-only pour wa.me (vire le +).
@@ -237,6 +238,21 @@ export default function ReportLinkDetailPage({
               <button type="button" onClick={handleRevoke} className="neo-btn-ghost" style={{ color: 'var(--destructive)' }}>
                 <Trash2 size={14} /> Révoquer
               </button>
+              {/* v2.3.9 Bug 2b — Bouton Supprimer DÉFINITIF disponible aussi
+                  hors statut révoqué (rouge fond, distingue de Révoquer). */}
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="neo-btn-ghost"
+                style={{
+                  color: '#fff',
+                  background: 'var(--destructive)',
+                  borderColor: 'var(--destructive)',
+                }}
+                title="Supprime définitivement le lien et toutes ses soumissions (irréversible)"
+              >
+                <Trash2 size={14} /> Supprimer
+              </button>
             </>
           )}
           {isRevoked && (
@@ -283,7 +299,7 @@ export default function ReportLinkDetailPage({
         </button>
       </div>
 
-      {/* v2.3.8 Bug 6b — Infos rapport complètes : candidat + client */}
+      {/* v2.3.9 Bug 6 — InfoCard "WhatsApp client" supprimée (canal email-only depuis v2.3.7) */}
       <div style={{
         marginTop: 14,
         display: 'grid',
@@ -296,7 +312,6 @@ export default function ReportLinkDetailPage({
         <InfoCard label="Entreprise client" value={link.client_name || '—'} />
         <InfoCard label="Contact client" value={link.client_contact_name || '—'} />
         <InfoCard label="Email client" value={link.client_email || '—'} />
-        <InfoCard label="WhatsApp client" value={link.client_phone || '—'} />
         <InfoCard label="Canal de notif" value={link.delivery_channel} />
       </div>
 

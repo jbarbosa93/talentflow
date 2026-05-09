@@ -55,11 +55,15 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const week = submission.week_start.replace(/-/g, '')
 
     // 1. PDF final déjà stampé (status='completed') → stream depuis Storage
-    if (submission.signed_pdf_paths && submission.signed_pdf_paths.length > 0) {
-      const path = submission.signed_pdf_paths[0].path
-      const blob = await downloadSignDocument(path)
+    // v2.3.9 Bug 11c — Filtre explicite : exclure les certificats (route dédiée).
+    // Cette route ne renvoie QUE le rapport signé, jamais le certificat.
+    const reportEntry = (submission.signed_pdf_paths || []).find(
+      p => !/certificat/i.test(p.name || '') && !/certificat/i.test(p.path || ''),
+    )
+    if (reportEntry) {
+      const blob = await downloadSignDocument(reportEntry.path)
       const buffer = Buffer.from(await blob.arrayBuffer())
-      const filename = `Rapport-${week}-${submission.signed_pdf_paths[0].name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+      const filename = `Rapport-${week}-${reportEntry.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
       return new NextResponse(buffer as unknown as BodyInit, {
         status: 200,
         headers: {
@@ -110,9 +114,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       }, { status: 404 })
     }
 
-    // Stream le 1er doc généré
-    const buffer = Buffer.from(stamped[0].pdfBase64, 'base64')
-    const filename = `Rapport-${week}-${stamped[0].name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    // v2.3.9 Bug 11c — Stream le RAPPORT (filtre exclure certificat)
+    const reportDoc = stamped.find(d => !/certificat/i.test(d.name)) || stamped[0]
+    const buffer = Buffer.from(reportDoc.pdfBase64, 'base64')
+    const filename = `Rapport-${week}-${reportDoc.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {

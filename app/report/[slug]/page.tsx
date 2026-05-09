@@ -13,7 +13,7 @@ import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
   AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Clock, Download, FileText,
-  ListChecks, Loader2, Lock, RotateCw, Save, Send,
+  Loader2, Lock, RotateCw, Save, Send,
 } from 'lucide-react'
 import WeekSelector from '@/components/report/WeekSelector'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
@@ -494,31 +494,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           </div>
         )}
 
-        {/* Toggle Wizard / Document */}
-        {wizardAvailable && (
-          <button
-            type="button"
-            onClick={() => setViewMode(m => m === 'wizard' ? 'document' : 'wizard')}
-            title={viewMode === 'wizard' ? 'Voir le document complet' : 'Voir le mode wizard guidé'}
-            style={{
-              flexShrink: 0,
-              padding: isMobile ? 0 : '8px 14px',
-              width: isMobile ? 34 : undefined,
-              height: isMobile ? 34 : undefined,
-              fontSize: 12, fontWeight: 600,
-              border: '1px solid #E5E7EB',
-              borderRadius: isMobile ? 8 : 999,
-              background: '#fff', color: '#6B7280',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {viewMode === 'wizard' ? <FileText size={isMobile ? 14 : 12} /> : <ListChecks size={isMobile ? 14 : 12} />}
-            {!isMobile && (viewMode === 'wizard' ? 'Document' : 'Wizard')}
-          </button>
-        )}
+        {/* v2.3.9 Bug 8 — Toggle Wizard/Document supprimé (mode auto :
+            mobile=wizard / desktop=document). Le candidat n'a pas besoin du choix. */}
 
         {/* v2.3.x Bug 3b — Boutons d'envoi déplacés dans un footer sticky bottom toujours visible
             (mobile + desktop, mode wizard + document). Voir bloc footer plus bas. */}

@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.8'
+export const APP_VERSION = '2.3.9'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.9',
+    date: '2026-05-09',
+    label: 'Rapports — 11 corrections post-tests',
+    features: [
+      'Bug 1 — Menu ⋮ liste rapports portalisé (avant : caché derrière la card)',
+      'Bug 2a — Bouton Aperçu = modal viewer iframe (au lieu nouvel onglet) avec boutons Télécharger + Fermer',
+      'Bug 2b — Bouton Supprimer (rouge) sur page détail lien (avant : seulement après révocation)',
+      'Bug 3 — Bouton "Envois" supprimé du header /sign/rapports',
+      'Bug 4 — X et bouton "Tout effacer" vident TOUS les champs candidat ET client',
+      'Bug 5 — Dropdown autocomplete client : ligne header "Choisir cette entreprise" (sans contact pré-sélectionné)',
+      'Bug 6 — InfoCard "WhatsApp client" supprimée (canal email-only depuis v2.3.7)',
+      'Bug 7 — toWhatsAppSafe map LATIN→ASCII complète (FR/PT/ES/DE/IT) appliquée sur message ENTIER + grep wa.me global',
+      'Bug 8 — Toggle Wizard/Document supprimé page candidat (mode auto mobile=wizard / desktop=document)',
+      'Bug 9 — pdf-generator priorité link.candidat_name (avant : ignoré si candidat_id null) + log warning signatures < 150×60pt + cleanup heuristique défensive v2.3.8 inutile',
+      'Bug 10 — Créateur reçoit TOUJOURS sa copie (suppression skipAdminEmail v2.3.5)',
+      'Bug 11 — Filtrage attachments par destinataire : créateur reçoit RAPPORT + CERTIFICAT, client + candidat reçoivent UNIQUEMENT le rapport',
+      'Bug 11c — Nouvelle route GET /api/reports/[slug]/submissions/[id]/certificate + boutons Aperçu/Rapport/Certificat dans tableau historique',
+    ],
+  },
   {
     version: '2.3.8',
     date: '2026-05-09',

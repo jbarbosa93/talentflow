@@ -6,14 +6,14 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Plus, ChevronLeft, ClipboardList, Loader2, Search, FileText, X, FileSignature,
+  Plus, ChevronLeft, ClipboardList, Loader2, Search, FileText, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ReportsSidebar, { type ReportSection } from '@/components/report/ReportsSidebar'
 import ReportLinksTable from '@/components/report/ReportLinksTable'
 import type { ReportLink, ReportSubmission } from '@/lib/report/types'
 import type { SignTemplate } from '@/lib/sign/types'
-import { stripAccentsForWa } from '@/lib/report/text-format'
+import { toWhatsAppSafe } from '@/lib/report/text-format'
 
 const SECTION_TO_STATUS: Record<ReportSection, ReportLink['status'] | null> = {
   all:     null,
@@ -166,10 +166,11 @@ export default function ReportsListPage() {
     const fullName = link.candidat_name
       || candidateNameByLink[link.id]
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
-    // v2.3.8 Bug 3a — Strip accents (Joao safe partout, plus de ❓)
-    const firstName = stripAccentsForWa(fullName.split(/\s+/)[0] || '')
+    // v2.3.9 Bug 7 — toWhatsAppSafe sur le MESSAGE ENTIER + prenom
+    const firstName = toWhatsAppSafe(fullName.split(/\s+/)[0] || '')
     const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
-    const msg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
+    const msg = toWhatsAppSafe(rawMsg)
     const phoneDigits = link.candidat_phone
       ? link.candidat_phone.replace(/\D/g, '')
       : ''
@@ -265,11 +266,8 @@ export default function ReportsListPage() {
             Liens permanents partagés aux candidats pour soumettre leur rapport chaque semaine.
           </p>
         </div>
+        {/* v2.3.9 Bug 3 — Bouton "Envois" supprimé du header rapports */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/sign" className="neo-btn-ghost">
-            <FileSignature size={14} />
-            Envois
-          </Link>
           <Link href="/sign/templates" className="neo-btn-ghost">
             <FileText size={14} />
             Templates
