@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.10'
+export const APP_VERSION = '2.3.11'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.11',
+    date: '2026-05-09',
+    label: 'Rapports — 3 corrections + logs diagnostic PDF',
+    features: [
+      'Bug 1 — FirstNameAutocomplete : prop displayValue affiche le nom complet (read-only) quand candidat lié, au lieu du prénom seul',
+      'Bug 2 — VRAIE CAUSE ◆ WhatsApp : emoji 👋 (U+1F44B) sans glyph chez certaines apps WA = rendu ◆/carré vide. Retiré dans 3 templates : page liste rapports, page détail, sendCompletedWhatsAppToCandidat',
+      'Bug 3 — Logs diagnostic PDF (en attente analyse) : pdf-generator log dimensions de chaque page source (A4 portrait/paysage/US Letter) + pdf-stamp log coords pt par field (norm/pt/pageSize)',
+    ],
+  },
   {
     version: '2.3.10',
     date: '2026-05-09',

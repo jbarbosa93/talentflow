@@ -168,7 +168,8 @@ export default function ReportsListPage() {
       || (link.title || '').replace(/^Rapport\s+(?:d'?heures\s+)?-?\s*/i, '').split(/\s+[—–-]\s+/)[0].trim()
     // v2.3.9 Bug 7 — toWhatsAppSafe sur le MESSAGE ENTIER + prenom
     const firstName = toWhatsAppSafe(fullName.split(/\s+/)[0] || '')
-    const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
+    // v2.3.11 Bug 2 — 👋 retiré (rendu ◆ par certaines apps WA)
+    const greeting = firstName ? `Bonjour ${firstName},` : 'Bonjour,'
     const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${url}\n\nGardez ce lien — vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
     const msg = toWhatsAppSafe(rawMsg)
     const phoneDigits = link.candidat_phone

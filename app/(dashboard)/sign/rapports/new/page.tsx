@@ -278,6 +278,8 @@ export default function NewReportLinkPage() {
             <FirstNameAutocomplete
               value={candidatPrenom}
               isLinked={!!candidatId}
+              // v2.3.11 Bug 1 — Affiche prenom + nom dans l'input quand candidat lié
+              displayValue={candidatId ? [candidatPrenom, candidatNom].filter(Boolean).join(' ').trim() : undefined}
               onChange={handleCandidat}
               // v2.3.9 Bug 4 — X délie ET vide tous les champs candidat
               onUnlink={clearCandidat}

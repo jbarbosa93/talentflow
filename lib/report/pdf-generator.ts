@@ -117,6 +117,27 @@ export async function generateReportPdf(
       const sha256 = createHash('sha256').update(sourceBuf).digest('hex')
       console.log('[report/pdf-generator] PDF ready:', doc.name, sourceBuf.length + 'B', '— fields:', (doc.fields || []).length, '— path:', doc.storage_path)
 
+      // v2.3.11 Bug 3 — Diagnostic page sizes : log dimensions de chaque page
+      // du PDF source pour comprendre les décalages de stamp vs viewer.
+      try {
+        const probePdf = await PDFDocument.load(sourceBuf, { ignoreEncryption: true })
+        const probePages = probePdf.getPages()
+        for (let i = 0; i < probePages.length; i++) {
+          const { width, height } = probePages[i].getSize()
+          const isA4Portrait  = Math.abs(width - 595) < 5 && Math.abs(height - 842) < 5
+          const isA4Landscape = Math.abs(width - 842) < 5 && Math.abs(height - 595) < 5
+          const isUSLetter    = Math.abs(width - 612) < 5 && Math.abs(height - 792) < 5
+          console.log(`[report/pdf-generator] Page ${i + 1}/${probePages.length}: ${Math.round(width)}x${Math.round(height)}pt`, {
+            A4_portrait: isA4Portrait,
+            A4_landscape: isA4Landscape,
+            USLetter: isUSLetter,
+            ratio: (width / height).toFixed(3),
+          })
+        }
+      } catch (probeErr) {
+        console.warn('[report/pdf-generator] Diag page sizes failed', probeErr)
+      }
+
       let currentBuf: Uint8Array = sourceBuf
 
       // v2.3.9 Bug 9 — Diagnostic warnings côté serveur :

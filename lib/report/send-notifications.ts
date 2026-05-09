@@ -12,6 +12,7 @@
 
 import { envoyerMessage } from '@/lib/whatsapp'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
+import { toWhatsAppSafe } from './text-format'
 
 const FROM_DEFAULT = 'TalentFlow Sign <noreply@talent-flow.ch>'
 
@@ -200,22 +201,25 @@ export async function sendCompletedWhatsAppToCandidat(args: {
   /** URL publique vers le PDF (route public download) */
   downloadUrl: string
 }): Promise<NotifResult> {
-  // v2.3.4 Bug 6 — Utiliser uniquement le prénom pour la salutation (pas le nom complet)
-  // v2.3.5 Bug 1 — NFC normalize évite ã → ❓ dans WhatsApp (João, Fernão…)
-  const firstName = (args.candidatName || '').normalize('NFC').trim().split(/\s+/)[0] || ''
-  return sendWa(args.phone, [
-    firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋',
+  // v2.3.11 Bug 2 — Strip accents + retire 👋 (rendu ◆ par certaines apps WA)
+  // + retire em-dash final (rendu ❓). Tout passe par toWhatsAppSafe.
+  const firstName = toWhatsAppSafe((args.candidatName || '').trim().split(/\s+/)[0] || '')
+  const safeClientLabel = toWhatsAppSafe(args.clientLabel || 'le client')
+  const safeWeekLabel = toWhatsAppSafe(args.weekLabel || '')
+  const body = toWhatsAppSafe([
+    firstName ? `Bonjour ${firstName},` : 'Bonjour,',
     '',
-    '✅ Votre rapport est validé !',
+    'Votre rapport est valide !',
     '',
-    `Votre rapport d'heures pour la *${args.weekLabel}*`,
-    `a été signé par ${args.clientLabel}.`,
+    `Votre rapport d'heures pour la *${safeWeekLabel}*`,
+    `a ete signe par ${safeClientLabel}.`,
     '',
-    'Téléchargez la copie signée :',
+    'Telechargez la copie signee :',
     args.downloadUrl,
     '',
-    '— L-Agence SA',
+    '- L-Agence SA',
   ].join('\n'))
+  return sendWa(args.phone, body)
 }
 
 // ─── 4. Email candidat — completed avec PDF en PJ ────────────────────

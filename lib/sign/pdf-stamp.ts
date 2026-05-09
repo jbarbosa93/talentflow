@@ -147,6 +147,16 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
       const wPts = f.width * pw
       const hPts = f.height * ph
       const yPtsBL = ph - yPtsTL - hPts
+      // v2.3.11 Bug 3 — Log diagnostic : coords pt + page size pour chaque field
+      // stampé (utile pour comprendre les décalages stamp vs viewer en prod).
+      console.log('[pdf-stamp] field', {
+        id: f.id.slice(0, 8),
+        type: f.type,
+        page: pageNum,
+        norm: { x: f.x.toFixed(3), y: f.y.toFixed(3), w: f.width.toFixed(3), h: f.height.toFixed(3) },
+        pt: { x: Math.round(xPts), y: Math.round(yPtsBL), w: Math.round(wPts), h: Math.round(hPts) },
+        pageSize: { w: Math.round(pw), h: Math.round(ph) },
+      })
 
       switch (f.type) {
         case 'signature':

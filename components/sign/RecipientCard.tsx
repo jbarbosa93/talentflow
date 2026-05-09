@@ -386,13 +386,19 @@ function deriveLastName(fullName: string): string {
 
 // ─── FirstNameAutocomplete — input prénom avec dropdown candidats ─────
 // v2.2.3 — Exporté pour réutilisation dans RoleFixedRecipients (mode template)
+// v2.3.11 — Prop optionnelle `displayValue` : si fourni ET isLinked, l'input
+// affiche cette chaîne (ex: "Joao Barbosa") en READ-ONLY au lieu du `value`
+// qui ne contient que le prénom. Permet de voir le nom complet du candidat lié
+// sans casser le mode édition (l'user clique X pour reprendre la main).
 export function FirstNameAutocomplete({
-  value, isLinked, onChange, onUnlink,
+  value, isLinked, onChange, onUnlink, displayValue,
 }: {
   value: string
   isLinked: boolean
   onChange: (firstName: string, candidat?: CandidateResult) => void
   onUnlink: () => void
+  /** v2.3.11 — Nom complet à afficher quand candidat lié (read-only) */
+  displayValue?: string
 }) {
   const [results, setResults] = useState<CandidateResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -459,9 +465,14 @@ export function FirstNameAutocomplete({
         </span>
         <input
           type="text"
-          value={value}
+          // v2.3.11 Bug 1 — Affiche le nom complet (displayValue) en read-only
+          // quand le candidat est lié. Sinon affiche le `value` (prénom en cours
+          // de saisie). Mode read-only forcé en lien pour éviter que l'user
+          // édite par-dessus le nom complet (il doit cliquer X pour reprendre).
+          value={isLinked && displayValue ? displayValue : value}
+          readOnly={isLinked && !!displayValue}
           placeholder="Prénom"
-          onChange={e => onChange(e.target.value)}
+          onChange={e => { if (!(isLinked && displayValue)) onChange(e.target.value) }}
           onFocus={() => { if (results.length > 0) setOpen(true) }}
           style={{
             flex: 1,
@@ -474,6 +485,7 @@ export function FirstNameAutocomplete({
             color: 'var(--foreground)',
             fontSize: 13,
             fontFamily: 'inherit',
+            cursor: isLinked && displayValue ? 'default' : 'text',
           }}
         />
         {isLinked && (

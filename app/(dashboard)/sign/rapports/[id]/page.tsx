@@ -68,7 +68,9 @@ export default function ReportLinkDetailPage({
     // v2.3.9 Bug 7 — toWhatsAppSafe sur le MESSAGE ENTIER (pas seulement prenom).
     // Map LATIN_MAP exhaustive evite ❓ partout dans le contenu envoye.
     const firstName = toWhatsAppSafe(fullName.split(/\s+/)[0] || '')
-    const greeting = firstName ? `Bonjour ${firstName} 👋` : 'Bonjour 👋'
+    // v2.3.11 Bug 2 — 👋 (U+1F44B) retiré : certaines apps WA n'ont pas de
+    // glyph pour cet emoji et l'affichent en ◆/carré vide après le prénom.
+    const greeting = firstName ? `Bonjour ${firstName},` : 'Bonjour,'
     const rawMsg = `${greeting}\n\nVoici votre lien permanent pour soumettre votre rapport d'heures chaque semaine :\n\n${publicUrl}\n\nGardez ce lien — il reste valable, vous pouvez l'utiliser à chaque fin de semaine.\n\n— L-Agence SA`
     const msg = toWhatsAppSafe(rawMsg)
     // v2.3.x Bug 9 — Deep link wa.me/{numero}?text=... si candidat_phone disponible
