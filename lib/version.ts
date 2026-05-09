@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.18'
+export const APP_VERSION = '2.3.19'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.19',
+    date: '2026-05-09',
+    label: 'Sign — Preview signatures visibles ([Signature]/[Paraphe])',
+    features: [
+      'Route preview : fields signature/initial promus localement en type=text avec valeur "[Signature]" / "[Paraphe]" (WinAnsi-safe ASCII).',
+      'Permet à l\'admin de voir où sont placées les signatures dans le preview, sans le risque pdf.embedPng() qui bloquait v2.3.16 (timeout).',
+      'WYSIWYG complet : tous les types de fields visibles dans le preview, alignement testable type par type.',
+    ],
+  },
   {
     version: '2.3.18',
     date: '2026-05-09',

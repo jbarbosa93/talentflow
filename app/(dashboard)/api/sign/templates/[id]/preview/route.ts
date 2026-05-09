@@ -56,11 +56,20 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const blob = await downloadSignDocument(document.storage_path)
     const sourceBuf = new Uint8Array(await blob.arrayBuffer())
 
-    // 2. Génère valeurs de test pour CHAQUE field selon son type
-    const allFields: SignField[] = document.fields || []
+    // 2. Génère valeurs de test pour CHAQUE field selon son type.
+    // v2.3.18 — Pour signature/initial : on convertit le field en type='text'
+    // localement (pas en DB) avec valeur "[Signature]" / "[Paraphe]". Permet
+    // de visualiser le placement de ces fields sans risquer le timeout dû à
+    // pdf.embedPng() (cf. v2.3.16 PNG invalide qui bloquait pdf-lib).
+    const rawFields: SignField[] = document.fields || []
+    const allFields: SignField[] = rawFields.map(f => {
+      if (f.type === 'signature') return { ...f, type: 'text' as const }
+      if (f.type === 'initial') return { ...f, type: 'text' as const }
+      return f
+    })
     const fakeValues: Record<string, unknown> = {}
     let checkboxCounter = 0
-    for (const f of allFields) {
+    for (const f of rawFields) {
       switch (f.type) {
         case 'text':
           fakeValues[f.id] = 'Lorem ipsum'
@@ -81,7 +90,13 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
           if (items[0]) fakeValues[f.id] = items[0].value
           break
         }
-        // signature/initial : non stockés dans fakeValues, gérés via signatureDataUrl global
+        case 'signature':
+          // v2.3.18 — Field promu en text pour preview. Valeur ASCII (WinAnsi-safe).
+          fakeValues[f.id] = '[Signature]'
+          break
+        case 'initial':
+          fakeValues[f.id] = '[Paraphe]'
+          break
         // formula : auto-computed par stampPdf depuis fakeValues
         // fullname/firstname/lastname/email/company/title : auto-fillé via autoFill
         default:
