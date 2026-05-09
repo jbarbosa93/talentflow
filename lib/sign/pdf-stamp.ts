@@ -299,6 +299,15 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
+// v2.3.12 Bug 4 — Types de fields qui sont SOUVENT placés à cheval sur une
+// ligne soulignée du formulaire (ex: "COLLABORATEUR(TRICE): _____" / "ENTREPRISE: _____").
+// Pour ces fields, le texte doit reposer SUR la ligne (alignement bas) au lieu
+// d'être centré dans la box (qui se retrouverait au-dessus de la ligne).
+// Les autres types (number/date/text dans tableaux) gardent l'alignement centré.
+const BOTTOM_ALIGNED_TYPES: ReadonlySet<string> = new Set([
+  'fullname', 'firstname', 'lastname', 'email', 'company', 'title',
+])
+
 function drawTextInBox(
   page: any, text: string, x: number, y: number, w: number, h: number, font: PDFFont,
   field?: SignField,
@@ -310,7 +319,12 @@ function drawTextInBox(
     : Math.min(h * 0.65, TEXT_FONT_SIZE_DEFAULT)
   // Réduit si le texte dépasse la largeur (priorité fit > taille demandée)
   while (size > 6 && font.widthOfTextAtSize(text, size) > w - 4) size -= 0.5
-  const textY = y + (h - size) / 2 + 1
+  // v2.3.12 Bug 4 — Alignement vertical : centré par défaut, bas pour les types
+  // souvent placés sur une ligne soulignée (fullname/company/etc).
+  const isBottomAligned = field?.type && BOTTOM_ALIGNED_TYPES.has(field.type)
+  const textY = isBottomAligned
+    ? y + 2  // baseline juste au-dessus du bas de la box (2pt = ~espace pour descenders)
+    : y + (h - size) / 2 + 1  // centré
   // v2.2.4 — Couleur custom si field.fontColor défini
   const colorMap: Record<string, [number, number, number]> = {
     Black: [0, 0, 0], Gray: [0.42, 0.45, 0.5], Blue: [0.12, 0.25, 0.69],
@@ -323,7 +337,10 @@ function drawTextInBox(
   })
 }
 
-function formatDate(s: string, format?: string): string {
+// v2.3.12 Bug 1 — Exporté pour réutilisation côté front (PublicFieldsLayer)
+// afin d'afficher les dates en read-only au format configuré dans le template
+// (au lieu du format ISO 2026-05-04 brut).
+export function formatDate(s: string, format?: string): string {
   if (!s) return ''
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!m) return s

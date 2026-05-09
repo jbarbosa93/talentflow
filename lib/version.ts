@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.11'
+export const APP_VERSION = '2.3.12'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.12',
+    date: '2026-05-09',
+    label: 'Rapports — 4 corrections post-tests A4',
+    features: [
+      'Bug 1 — Format date côté client viewer : applique formatDate (jj.mm court suisse / dd.MM.yyyy / etc.) au lieu d\'afficher 2026-05-04 brut. Cohérent avec le PDF stampé.',
+      'Bug 2 — SignaturePad : onglet "Saisir" supprimé (canvas tracé uniquement). Bouton "Adopter et signer" ajouté en HAUT du modal sur desktop (raccourci, pas besoin de scroller).',
+      'Bug 3 — Signature canvas FOND TRANSPARENT (clearRect au lieu de fillRect blanc). Le PNG stampé ne cache plus les lignes/texte du PDF en dessous.',
+      'Bug 4 — drawTextInBox : alignement BAS pour fields fullname/firstname/lastname/email/company/title (souvent placés à cheval sur une ligne soulignée). Le texte repose sur la ligne au lieu d\'être centré au-dessus.',
+    ],
+  },
   {
     version: '2.3.11',
     date: '2026-05-09',

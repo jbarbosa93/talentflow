@@ -1,43 +1,30 @@
-// TalentFlow Sign — Modal de capture de signature (canvas tracé + typed)
-// v2.2.0 — Phase 4a
+// TalentFlow Sign — Modal de capture de signature (canvas tracé uniquement)
+// v2.3.12 — Phase 4a refondue
 //
-// 2 onglets :
-//  - "Tracer" : canvas HTML5 mouse + touch (mobile = signer au doigt)
-//  - "Saisir" : input texte rendu en police cursive (Caveat, Google Fonts)
+// Bug 2 v2.3.12 — Onglet "Saisir" SUPPRIMÉ. Garde uniquement "Tracer" (canvas).
+//   + Bouton "Adopter" en HAUT du modal sur desktop (en plus du bottom).
+// Bug 3 v2.3.12 — Canvas FOND TRANSPARENT (pas de fillRect blanc).
+//   La signature stamp directement sur le PDF sans cacher le texte/lignes.
 //
-// Output : data URL PNG (transparent → on stamp directement sur le PDF Phase 4b).
-// Mobile-first : full-width canvas, touch-action: none pour éviter le scroll.
+// Output : data URL PNG transparent → drawImage pdf-lib respecte l'alpha.
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, PenLine, Type, Trash2, Check } from 'lucide-react'
-import { Caveat } from 'next/font/google'
-
-// Import font cursive Caveat (Google Fonts)
-const caveat = Caveat({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-})
+import { X, PenLine, Trash2, Check } from 'lucide-react'
 
 interface Props {
   open: boolean
-  defaultName?: string         // Pré-rempli pour l'onglet "Saisir"
+  defaultName?: string         // Conservé pour rétrocompat (non utilisé sans onglet Saisir)
   onClose: () => void
+  // v2.2.0 → v2.3.12 : `method` reste 'drawn' (pas d'autre option).
   onAdopt: (dataUrl: string, method: 'drawn' | 'typed') => void
 }
 
-type Tab = 'draw' | 'type'
-
-export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Props) {
-  const [tab, setTab] = useState<Tab>('draw')
+export default function SignaturePad({ open, onClose, onAdopt }: Props) {
   const [mounted, setMounted] = useState(false)
-  const [typedValue, setTypedValue] = useState(defaultName || '')
   const [hasDrawn, setHasDrawn] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  // v2.2.5 Phase 4d — Optim mobile : canvas pleine largeur + boutons 48px + hint tactile.
-  // Détection : <700px ou pointeur tactile primaire (sans hover).
   const [isMobile, setIsMobile] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -62,16 +49,14 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
 
   useEffect(() => {
     if (open) {
-      setTab('draw')
-      setTypedValue(defaultName || '')
       setHasDrawn(false)
       setSubmitting(false)
     }
-  }, [open, defaultName])
+  }, [open])
 
-  // ─── Setup canvas (DPR retina, fond blanc, ligne lisse) ───
+  // ─── Setup canvas (DPR retina, FOND TRANSPARENT, ligne lisse) ───
   useEffect(() => {
-    if (!open || tab !== 'draw') return
+    if (!open) return
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = window.devicePixelRatio || 1
@@ -80,14 +65,16 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
     canvas.height = Math.floor(rect.height * dpr)
     const ctx = canvas.getContext('2d')!
     ctx.scale(dpr, dpr)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, rect.width, rect.height)
+    // v2.3.12 Bug 3 — PAS de fillRect blanc : canvas reste TRANSPARENT.
+    // L'alpha sera préservé dans le PNG → la signature stampée ne cache pas
+    // les lignes/texte du PDF en dessous.
+    ctx.clearRect(0, 0, rect.width, rect.height)
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.strokeStyle = '#0a0a0a'
     ctx.lineWidth = 2.4
     setHasDrawn(false)
-  }, [open, tab])
+  }, [open])
 
   const getPoint = (e: PointerEvent | React.PointerEvent): { x: number; y: number } => {
     const canvas = canvasRef.current!
@@ -134,54 +121,21 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
     if (!canvas) return
     const ctx = canvas.getContext('2d')!
     const rect = canvas.getBoundingClientRect()
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, rect.width, rect.height)
+    // v2.3.12 Bug 3 — clearRect (transparent) au lieu de fillRect blanc
+    ctx.clearRect(0, 0, rect.width, rect.height)
     setHasDrawn(false)
-  }
-
-  // ─── Render typed signature → canvas → data URL ───
-  const renderTypedToDataUrl = (text: string): string => {
-    const canvas = document.createElement('canvas')
-    const w = 600
-    const h = 180
-    const dpr = window.devicePixelRatio || 1
-    canvas.width = w * dpr
-    canvas.height = h * dpr
-    const ctx = canvas.getContext('2d')!
-    ctx.scale(dpr, dpr)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, w, h)
-    ctx.fillStyle = '#0a0a0a'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    // Font Caveat — fallback générique cursive si Caveat pas chargée
-    ctx.font = `600 64px ${caveat.style.fontFamily}, "Caveat", "Brush Script MT", cursive`
-    ctx.fillText(text || ' ', w / 2, h / 2)
-    return canvas.toDataURL('image/png')
   }
 
   const handleAdopt = () => {
     if (submitting) return
+    if (!hasDrawn) {
+      alert('Tracez votre signature avant de valider.')
+      return
+    }
     setSubmitting(true)
     try {
-      if (tab === 'draw') {
-        if (!hasDrawn) {
-          alert('Tracez votre signature avant de valider.')
-          setSubmitting(false)
-          return
-        }
-        const dataUrl = canvasRef.current!.toDataURL('image/png')
-        onAdopt(dataUrl, 'drawn')
-      } else {
-        const trimmed = typedValue.trim()
-        if (!trimmed) {
-          alert('Saisissez votre nom avant de valider.')
-          setSubmitting(false)
-          return
-        }
-        const dataUrl = renderTypedToDataUrl(trimmed)
-        onAdopt(dataUrl, 'typed')
-      }
+      const dataUrl = canvasRef.current!.toDataURL('image/png')
+      onAdopt(dataUrl, 'drawn')
     } catch (e) {
       console.error('[SignaturePad] adopt error', e)
       setSubmitting(false)
@@ -189,6 +143,33 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
   }
 
   if (!open || !mounted) return null
+
+  // v2.3.12 Bug 2 — Bouton Adopter (réutilisé en haut desktop + en bas)
+  const adoptDisabled = submitting || !hasDrawn
+  const renderAdoptButton = (size: 'top' | 'bottom') => (
+    <button
+      type="button"
+      onClick={handleAdopt}
+      disabled={adoptDisabled}
+      style={{
+        flex: size === 'bottom' && isMobile ? 2 : undefined,
+        padding: isMobile ? '0 18px' : '0 16px',
+        height: isMobile ? 48 : 36,
+        fontSize: isMobile ? 15 : 13,
+        fontWeight: 700,
+        border: '1px solid #1C1A14', borderRadius: 8,
+        background: '#f59e0b', color: '#000',
+        cursor: adoptDisabled ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        opacity: adoptDisabled ? 0.4 : 1,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <Check size={isMobile ? 16 : 14} />
+      Adopter et signer
+    </button>
+  )
 
   return createPortal(
     <div
@@ -222,21 +203,22 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
           flexDirection: 'column',
         }}
       >
-        {/* Header */}
+        {/* Header — v2.3.12 Bug 2 : bouton Adopter en haut sur DESKTOP uniquement */}
         <div style={{
           padding: '16px 20px',
           borderBottom: '1px solid #E5E7EB',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 8,
               background: '#FEF3C7', color: '#A16207',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
             }}>
               <PenLine size={16} />
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#1C1A14' }}>
                 Adopter votre signature
               </div>
@@ -245,13 +227,15 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
               </div>
             </div>
           </div>
+          {/* Desktop : bouton Adopter en HAUT (raccourci) */}
+          {!isMobile && renderAdoptButton('top')}
           <button
             type="button"
             onClick={onClose}
             style={{
               width: 32, height: 32, borderRadius: 8,
               border: '1px solid #E5E7EB', background: '#fff',
-              cursor: 'pointer',
+              cursor: 'pointer', flexShrink: 0,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             }}
             aria-label="Fermer"
@@ -260,165 +244,89 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{
-          display: 'flex', gap: 4, padding: '8px 12px',
-          background: '#FAFAF7', borderBottom: '1px solid #E5E7EB',
-        }}>
-          <TabButton active={tab === 'draw'} onClick={() => setTab('draw')} icon={PenLine}>
-            Tracer
-          </TabButton>
-          <TabButton active={tab === 'type'} onClick={() => setTab('type')} icon={Type}>
-            Saisir
-          </TabButton>
-        </div>
-
-        {/* Body */}
+        {/* Body — Tracer uniquement (onglet Saisir supprimé en v2.3.12) */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
-          {tab === 'draw' ? (
-            <>
-              <p style={{ margin: '0 0 12px 0', fontSize: isMobile ? 14 : 12.5, color: '#6B7280' }}>
-                {isMobile
-                  ? <>✍️ <strong>Signez avec votre doigt</strong> dans la zone ci-dessous :</>
-                  : <>Tracez votre signature avec la souris ou le stylet dans la zone ci-dessous :</>}
-              </p>
-              <div
-                style={{
-                  position: 'relative',
-                  border: '2px dashed #E5E7EB',
-                  borderRadius: 12,
-                  background: '#fff',
-                  // v2.2.5 — canvas plus grand sur mobile (full width, hauteur ↑)
-                  height: isMobile ? 280 : 220,
-                  overflow: 'hidden',
-                }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    touchAction: 'none',
-                    cursor: 'crosshair',
-                  }}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
-                />
-                {!hasDrawn && (
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#D1D5DB',
-                    fontSize: 13,
-                    pointerEvents: 'none',
-                    fontStyle: 'italic',
-                  }}>
-                    Signez ici
-                  </div>
-                )}
-                {/* Ligne de signature en bas */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: 24, left: '8%', right: '8%',
-                  borderTop: '1px solid #E5E7EB',
-                  pointerEvents: 'none',
-                }} />
-                <div style={{
-                  position: 'absolute',
-                  bottom: 6, left: 0, right: 0,
-                  textAlign: 'center',
-                  fontSize: 10, color: '#D1D5DB', letterSpacing: '0.04em',
-                  pointerEvents: 'none',
-                }}>
-                  ✕ Signature
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={clearCanvas}
-                disabled={!hasDrawn}
-                style={{
-                  marginTop: 10,
-                  // v2.2.5 mobile : 48px de hauteur tactile + font 14px
-                  padding: isMobile ? '0 16px' : '6px 12px',
-                  height: isMobile ? 44 : undefined,
-                  fontSize: isMobile ? 14 : 12,
-                  fontWeight: 600,
-                  border: '1px solid #E5E7EB', borderRadius: 8,
-                  background: '#fff', color: hasDrawn ? '#dc2626' : '#9CA3AF',
-                  cursor: hasDrawn ? 'pointer' : 'not-allowed',
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  fontFamily: 'inherit',
-                }}
-              >
-                <Trash2 size={isMobile ? 14 : 12} />
-                Effacer
-              </button>
-            </>
-          ) : (
-            <>
-              <p style={{ margin: '0 0 12px 0', fontSize: 12.5, color: '#6B7280' }}>
-                Saisissez votre nom complet — il sera rendu en signature manuscrite cursive :
-              </p>
-              <input
-                type="text"
-                autoFocus
-                placeholder="Votre nom complet"
-                value={typedValue}
-                onChange={e => setTypedValue(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 14px',
-                  // v2.2.5 — 16px min sur mobile (évite zoom auto iOS)
-                  fontSize: isMobile ? 16 : 14,
-                  height: isMobile ? 48 : undefined,
-                  border: '1px solid #E5E7EB',
-                  borderRadius: 8,
-                  background: '#FAFAF7',
-                  color: '#1C1A14',
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-              />
+          <p style={{ margin: '0 0 12px 0', fontSize: isMobile ? 14 : 12.5, color: '#6B7280' }}>
+            {isMobile
+              ? <>✍️ <strong>Signez avec votre doigt</strong> dans la zone ci-dessous :</>
+              : <>Tracez votre signature avec la souris ou le stylet dans la zone ci-dessous :</>}
+          </p>
+          <div
+            style={{
+              position: 'relative',
+              border: '2px dashed #E5E7EB',
+              borderRadius: 12,
+              background: '#fff',
+              height: isMobile ? 280 : 220,
+              overflow: 'hidden',
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                touchAction: 'none',
+                cursor: 'crosshair',
+              }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+            />
+            {!hasDrawn && (
               <div style={{
-                marginTop: 16,
-                padding: '24px 16px',
-                border: '2px dashed #E5E7EB',
-                borderRadius: 12,
-                background: '#fff',
-                minHeight: 140,
+                position: 'absolute',
+                inset: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                color: '#D1D5DB',
+                fontSize: 13,
+                pointerEvents: 'none',
+                fontStyle: 'italic',
               }}>
-                <div
-                  className={caveat.className}
-                  style={{
-                    fontSize: 56,
-                    fontWeight: 600,
-                    color: '#0a0a0a',
-                    textAlign: 'center',
-                    lineHeight: 1,
-                    wordBreak: 'break-word',
-                    minHeight: 60,
-                  }}
-                >
-                  {typedValue.trim() || (
-                    <span style={{ color: '#D1D5DB', fontStyle: 'italic', fontSize: 24 }}>
-                      Aperçu de la signature
-                    </span>
-                  )}
-                </div>
+                Signez ici
               </div>
-            </>
-          )}
+            )}
+            {/* Ligne de signature en bas */}
+            <div style={{
+              position: 'absolute',
+              bottom: 24, left: '8%', right: '8%',
+              borderTop: '1px solid #E5E7EB',
+              pointerEvents: 'none',
+            }} />
+            <div style={{
+              position: 'absolute',
+              bottom: 6, left: 0, right: 0,
+              textAlign: 'center',
+              fontSize: 10, color: '#D1D5DB', letterSpacing: '0.04em',
+              pointerEvents: 'none',
+            }}>
+              ✕ Signature
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={clearCanvas}
+            disabled={!hasDrawn}
+            style={{
+              marginTop: 10,
+              padding: isMobile ? '0 16px' : '6px 12px',
+              height: isMobile ? 44 : undefined,
+              fontSize: isMobile ? 14 : 12,
+              fontWeight: 600,
+              border: '1px solid #E5E7EB', borderRadius: 8,
+              background: '#fff', color: hasDrawn ? '#dc2626' : '#9CA3AF',
+              cursor: hasDrawn ? 'pointer' : 'not-allowed',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontFamily: 'inherit',
+            }}
+          >
+            <Trash2 size={isMobile ? 14 : 12} />
+            Effacer
+          </button>
 
           {/* Note légale ZertES */}
           <div style={{
@@ -437,7 +345,7 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
           </div>
         </div>
 
-        {/* Footer — v2.2.5 mobile : boutons 48px hauteur (cible tactile iOS HIG) */}
+        {/* Footer — bouton Adopter en bas (mobile + desktop) */}
         <div style={{
           padding: isMobile ? '14px 16px' : '12px 20px',
           paddingBottom: isMobile ? 'max(14px, env(safe-area-inset-bottom, 14px))' : 12,
@@ -464,62 +372,10 @@ export default function SignaturePad({ open, defaultName, onClose, onAdopt }: Pr
           >
             Annuler
           </button>
-          <button
-            type="button"
-            onClick={handleAdopt}
-            disabled={submitting || (tab === 'draw' && !hasDrawn) || (tab === 'type' && !typedValue.trim())}
-            style={{
-              flex: isMobile ? 2 : undefined,
-              padding: isMobile ? '0 18px' : '10px 18px',
-              height: isMobile ? 48 : undefined,
-              fontSize: isMobile ? 15 : 13,
-              fontWeight: 700,
-              border: '1px solid #1C1A14', borderRadius: 8,
-              background: '#f59e0b', color: '#000', cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              opacity: ((tab === 'draw' && !hasDrawn) || (tab === 'type' && !typedValue.trim())) ? 0.4 : 1,
-            }}
-          >
-            <Check size={isMobile ? 16 : 14} />
-            Adopter et signer
-          </button>
+          {renderAdoptButton('bottom')}
         </div>
       </div>
     </div>,
     document.body
-  )
-}
-
-function TabButton({
-  active, onClick, icon: Icon, children,
-}: {
-  active: boolean
-  onClick: () => void
-  icon: typeof PenLine
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        flex: 1,
-        padding: '8px 14px',
-        fontSize: 13, fontWeight: 600,
-        border: 'none',
-        borderRadius: 6,
-        background: active ? '#fff' : 'transparent',
-        color: active ? '#1C1A14' : '#6B7280',
-        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        transition: 'all 0.15s',
-      }}
-    >
-      <Icon size={13} />
-      {children}
-    </button>
   )
 }

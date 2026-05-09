@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { PenLine, Check } from 'lucide-react'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
+import { formatDate } from '@/lib/sign/pdf-stamp'
 
 interface Props {
   page: number
@@ -176,6 +177,12 @@ function FieldInput({
         return <span style={{ fontSize: Math.min(widthPx, heightPx) * 0.7 }}>{value === true || value === 'true' ? '✓' : ''}</span>
       }
       if (value === undefined || value === null || value === '') return null
+      // v2.3.12 Bug 1 — Format date ISO → format configuré dans le template
+      // (jj.mm court suisse = "04.05" / dd.MM.yyyy = "04.05.2026" / etc.)
+      // Réutilise formatDate de pdf-stamp pour cohérence avec le PDF stampé.
+      if (t === 'date' && typeof value === 'string') {
+        return <span>{formatDate(value, field.dateFormat)}</span>
+      }
       return <span>{String(value)}</span>
     })()
     return (
