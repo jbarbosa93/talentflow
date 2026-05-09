@@ -497,6 +497,42 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         {/* v2.3.9 Bug 8 — Toggle Wizard/Document supprimé (mode auto :
             mobile=wizard / desktop=document). Le candidat n'a pas besoin du choix. */}
 
+        {/* v2.3.14 — Indicateur + bouton "Envoyer au client" COMPACT en haut DESKTOP.
+            Remplace le footer sticky bottom (masqué sur desktop). */}
+        {!isMobile && !isLockedWeek && !submitted && (
+          <>
+            {!canFinalize && (
+              <span style={{
+                fontSize: 11.5, color: '#A16207', whiteSpace: 'nowrap',
+                fontWeight: 600,
+              }}>
+                ⚠️ Champs requis manquants
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleClickSubmit}
+              disabled={submitting || !canFinalize}
+              title={!canFinalize ? 'Remplis tous les champs et signe avant d\'envoyer' : 'Envoyer le rapport au client'}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                fontSize: 13, fontWeight: 700,
+                border: '1px solid #1C1A14', borderRadius: 8,
+                background: '#EAB308', color: '#1C1A14',
+                cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: submitting || !canFinalize ? 0.5 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Envoyer au client
+            </button>
+          </>
+        )}
+
         {/* v2.3.x Bug 3b — Boutons d'envoi déplacés dans un footer sticky bottom toujours visible
             (mobile + desktop, mode wizard + document). Voir bloc footer plus bas. */}
       </header>
@@ -722,9 +758,10 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         )}
       </main>
 
-      {/* v2.3.x Bug 3b — Footer sticky bottom TOUJOURS visible (mobile + desktop, wizard + document)
-          Désactivé si !canFinalize (toolip), masqué si verrouillé ou déjà submitted. */}
-      {!isLockedWeek && !submitted && (
+      {/* v2.3.x Bug 3b — Footer sticky bottom (mobile uniquement depuis v2.3.14) :
+          ergonomie tactile (bouton large pouce-friendly). Sur DESKTOP, le bouton
+          compact en haut du header suffit (footer masqué pour gagner de la place). */}
+      {!isLockedWeek && !submitted && isMobile && (
         <div style={{
           flexShrink: 0,
           padding: isMobile ? '10px 14px' : '14px 24px',

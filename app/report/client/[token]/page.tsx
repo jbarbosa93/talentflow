@@ -309,6 +309,43 @@ export default function PublicClientReportPage({
             {!isMobile && (viewMode === 'wizard' ? 'Document' : 'Wizard')}
           </button>
         )}
+
+        {/* v2.3.14 — Indicateur + bouton "Valider et signer" COMPACT en haut DESKTOP.
+            Remplace le footer sticky bottom (masqué sur desktop). Disabled tant
+            que la signature ou un champ requis manque. */}
+        {!isMobile && (
+          <>
+            {!canFinalize && (
+              <span style={{
+                fontSize: 11.5, color: '#A16207', whiteSpace: 'nowrap',
+                fontWeight: 600,
+              }}>
+                ⚠️ Champs requis manquants
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleFinalize}
+              disabled={submitting || !canFinalize}
+              title={!canFinalize ? 'Signe le rapport avant de valider' : 'Valider et signer le rapport'}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                fontSize: 13, fontWeight: 700,
+                border: '1px solid #1C1A14', borderRadius: 8,
+                background: '#EAB308', color: '#1C1A14',
+                cursor: submitting || !canFinalize ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+                opacity: submitting || !canFinalize ? 0.5 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              Valider et signer
+            </button>
+          </>
+        )}
       </header>
 
       {/* Bandeau info */}
@@ -415,8 +452,9 @@ export default function PublicClientReportPage({
         ) : null}
       </main>
 
-      {/* Bouton sticky bottom */}
-      {viewMode === 'document' && (
+      {/* v2.3.14 — Footer sticky bottom MOBILE uniquement (le bouton compact
+          en haut du header suffit sur desktop). */}
+      {viewMode === 'document' && isMobile && (
         <div style={{
           flexShrink: 0,
           padding: '12px 16px',

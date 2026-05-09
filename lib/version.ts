@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.13'
+export const APP_VERSION = '2.3.14'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.14',
+    date: '2026-05-09',
+    label: 'Rapports — Bouton Valider compact en haut (desktop)',
+    features: [
+      'Page candidat /report/[slug] : bouton "Envoyer au client" compact (jaune) ajouté dans le header desktop. Footer sticky bottom masqué sur desktop (mobile garde le bouton large pour ergonomie tactile). Indicateur "⚠️ Champs requis manquants" affiché à côté du bouton si la signature ou un champ requis manque.',
+      'Page client /report/client/[token] : idem, bouton "Valider et signer" compact en haut desktop + indicateur. Footer sticky mobile only.',
+      'Bouton disabled tant que !canFinalize (signature absente OU champs requis vides). Title= explicatif au hover.',
+    ],
+  },
   {
     version: '2.3.13',
     date: '2026-05-09',
