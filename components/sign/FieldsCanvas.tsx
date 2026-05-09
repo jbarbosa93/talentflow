@@ -7,7 +7,7 @@ import { Stage, Layer, Rect, Text, Group, Path } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
-import { RECIPIENT_COLORS } from '@/lib/sign/types'
+import { RECIPIENT_COLORS, SIGNATURE_CONSTRAINTS } from '@/lib/sign/types'
 
 interface Props {
   width: number             // px
@@ -25,9 +25,10 @@ interface Props {
 }
 
 const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
-  // Signature
-  signature:  { w: 0.30, h: 0.06 },
-  initial:    { w: 0.10, h: 0.05 },
+  // Signature — v2.3.13 : tailles ratio 3:1 (signature) / 1:1 (initial)
+  // alignées sur SIGNATURE_CONSTRAINTS dans lib/sign/types.ts.
+  signature:  { w: 0.30, h: 0.10 },
+  initial:    { w: 0.05, h: 0.05 },
   date:       { w: 0.16, h: 0.025 },
   // Coordonnées
   firstname:  { w: 0.18, h: 0.025 },
@@ -307,11 +308,32 @@ export default function FieldsCanvas({
     const fyPx = f.y * height
     const newWPx = Math.max(MIN_FIELD_W_PCT * width, hx - fxPx + HANDLE_SIZE / 2)
     const newHPx = Math.max(MIN_FIELD_H_PCT * height, hy - fyPx + HANDLE_SIZE / 2)
-    onChange(fields.map(ff => ff.id === id ? {
-      ...ff,
-      width: clamp01(newWPx / width),
-      height: clamp01(newHPx / height),
-    } : ff))
+    // Conversion en coords normalisées 0-1
+    let nextW = clamp01(newWPx / width)
+    let nextH = clamp01(newHPx / height)
+    // v2.3.13 — Contraintes signature/initial : ratio fixe + min/max width.
+    // - signature : ratio 3:1 + minW=0.15 maxW=0.60
+    // - initial   : ratio 1:1 + minW=0.04 maxW=0.15
+    // Pour les autres types, pas de contrainte (ratio libre).
+    if (f.type === 'signature' || f.type === 'initial') {
+      const cfg = SIGNATURE_CONSTRAINTS[f.type]
+      // Détecte la direction du resize : largeur change davantage → on contraint h depuis w
+      // (et vice-versa). Compare aux dimensions courantes du field.
+      const dW = Math.abs(nextW - f.width)
+      const dH = Math.abs(nextH - f.height)
+      if (dW >= dH) {
+        // Resize horizontal → contrainte width [minW, maxW] puis h = w / ratio
+        nextW = Math.max(cfg.minW, Math.min(cfg.maxW, nextW))
+        nextH = nextW / cfg.ratio
+      } else {
+        // Resize vertical → contrainte h, puis w = h * ratio
+        const minH = cfg.minW / cfg.ratio
+        const maxH = cfg.maxW / cfg.ratio
+        nextH = Math.max(minH, Math.min(maxH, nextH))
+        nextW = nextH * cfg.ratio
+      }
+    }
+    onChange(fields.map(ff => ff.id === id ? { ...ff, width: nextW, height: nextH } : ff))
   }
 
   // Suppression au clavier (toutes les sélections)

@@ -160,6 +160,18 @@ export const DATE_FORMATS: { value: string; label: string }[] = [
 
 export const CURRENCIES = ['', 'CHF', 'EUR', 'USD', 'GBP'] as const
 
+// v2.3.13 — Contraintes resize style DocuSign pour fields signature/initial.
+// `ratio` = largeur/hauteur (3:1 pour signature, 1:1 carré pour initial).
+// `minW`/`maxW` en coords NORMALISÉES (0-1) relatives à la largeur de page.
+// La hauteur min/max est dérivée auto via `minW/ratio` et `maxW/ratio`.
+//
+// Appliqué dans :
+//  - components/sign/FieldsCanvas.tsx (resize handle + tailles création par défaut)
+export const SIGNATURE_CONSTRAINTS = {
+  signature: { ratio: 3, minW: 0.15, maxW: 0.60 },
+  initial:   { ratio: 1, minW: 0.04, maxW: 0.15 },
+} as const
+
 export const COMMON_MIME_TYPES: { value: string; label: string }[] = [
   { value: 'application/pdf',                                                                  label: 'PDF' },
   { value: 'image/jpeg',                                                                       label: 'JPEG' },

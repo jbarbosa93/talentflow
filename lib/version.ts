@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.12'
+export const APP_VERSION = '2.3.13'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.13',
+    date: '2026-05-09',
+    label: 'Sign — Contraintes resize signature/initial (style DocuSign)',
+    features: [
+      'Constantes SIGNATURE_CONSTRAINTS (lib/sign/types.ts) : signature ratio 3:1 minW 0.15 maxW 0.60 / initial ratio 1:1 minW 0.04 maxW 0.15',
+      'FieldsCanvas defaults création : signature 0.30×0.10 (3:1) / initial 0.05×0.05 (1:1)',
+      'FieldsCanvas onHandleDragMove : pour signature/initial, applique ratio fixe + clamp min/max width. Detecte direction du resize (horizontal/vertical) et contraint l\'autre axe automatiquement. Autres types gardent resize libre.',
+    ],
+  },
   {
     version: '2.3.12',
     date: '2026-05-09',
