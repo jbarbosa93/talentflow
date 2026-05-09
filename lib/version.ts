@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.15'
+export const APP_VERSION = '2.3.16'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.16',
+    date: '2026-05-09',
+    label: 'Sign — Bouton "Aperçu PDF" dans l\'éditeur de template',
+    features: [
+      'Nouvelle route POST /api/sign/templates/[id]/preview : génère un PDF stampé avec données de test (Lorem/42/2026-05-09/Jean Dupont/Marie Martin/etc) pour TOUS les types de fields (text/number/date/checkbox/select/formula/fullname/firstname/lastname/email/company/title/signature/initial). Stream inline pour iframe.',
+      'Bouton "Aperçu PDF" ajouté dans le bandeau actions de TemplateEditor (à côté de Enregistrer). Ouvre PdfPreviewModal avec POST body = doc COURANT (avec fields locaux non sauvegardés). Régénère à chaque clic.',
+      'PdfPreviewModal étendu avec prop optionnelle postBody (POST + body JSON) pour usages dynamiques (preview templates).',
+      'Permet à l\'admin de visualiser le rendu final EXACT avant de partager le template — fini les tests réels en boucle. Utilise la même fonction stampPdf que la prod = WYSIWYG strict.',
+    ],
+  },
   {
     version: '2.3.15',
     date: '2026-05-09',

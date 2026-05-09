@@ -11,8 +11,9 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Save, Loader2,
   PenLine, Type, CheckSquare, Calendar, List as ListIcon, Trash2, Files,
   StickyNote, Plus, Hash, Mail, Building2, Briefcase, User, IdCard,
-  Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon,
+  Sigma, Paperclip, Pencil, Check as CheckIcon, X as XIcon, Eye,
 } from 'lucide-react'
+import PdfPreviewModal from '@/components/report/PdfPreviewModal'
 import { toast } from 'sonner'
 import type { PageRenderInfo } from './PDFViewer'
 import type {
@@ -102,6 +103,8 @@ export default function TemplateEditor({
   const [renamingDocIdx, setRenamingDocIdx] = useState<number | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [dirty, setDirty] = useState(false)
+  // v2.3.16 — Modal preview PDF stampé avec données de test
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const activeDoc = docs[activeDocIdx]
   const fields = useMemo(() => activeDoc?.fields || [], [activeDoc])
@@ -733,6 +736,31 @@ export default function TemplateEditor({
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
             {saving ? 'Enregistrement...' : dirty ? 'Enregistrer' : 'Enregistré'}
           </button>
+          {/* v2.3.16 — Aperçu PDF stampé avec données de test (sans sauvegarder).
+              Permet à l'admin de visualiser le rendu final EXACT avant de partager
+              le template — fini les 300 tests réels. */}
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            disabled={!docs[activeDocIdx]?.storage_path}
+            style={{
+              width: '100%', justifyContent: 'center',
+              padding: '8px 14px',
+              fontSize: 13, fontWeight: 600,
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              background: 'var(--card)',
+              color: 'var(--foreground)',
+              cursor: !docs[activeDocIdx]?.storage_path ? 'not-allowed' : 'pointer',
+              opacity: !docs[activeDocIdx]?.storage_path ? 0.5 : 1,
+              fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+            title="Visualiser le PDF stampé avec des données de test (sans sauvegarder)"
+          >
+            <Eye size={14} />
+            Aperçu PDF
+          </button>
           <div style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
             {fieldsTotalCount(docs)} champ{fieldsTotalCount(docs) > 1 ? 's' : ''} · {docs.length} PDF{docs.length > 1 ? 's' : ''}
           </div>
@@ -1016,6 +1044,19 @@ export default function TemplateEditor({
           </div>
         </div>
       </div>
+
+      {/* v2.3.16 — Modal preview PDF stampé avec données de test.
+          Sérialise le doc COURANT (avec fields locaux non sauvegardés) et POST
+          vers /api/sign/templates/{id}/preview qui stampe avec valeurs fictives. */}
+      {previewOpen && docs[activeDocIdx] && (
+        <PdfPreviewModal
+          url={`/api/sign/templates/${templateId}/preview`}
+          postBody={{ document: docs[activeDocIdx] }}
+          filename={`apercu-${(docs[activeDocIdx].name || 'template').replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`}
+          title={`Aperçu — ${docs[activeDocIdx].name || 'Document'} (données de test)`}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -15,21 +15,35 @@ interface Props {
   filename: string
   /** Titre affiché dans le header du modal */
   title?: string
+  /** v2.3.16 — Si présent, fait fetch en POST avec ce body JSON au lieu de GET.
+   *  Utilisé pour preview templates avec données locales non sauvegardées. */
+  postBody?: unknown
   onClose: () => void
 }
 
-export default function PdfPreviewModal({ url, filename, title, onClose }: Props) {
+export default function PdfPreviewModal({ url, filename, title, postBody, onClose }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Fetch + convertit en blob URL pour iframe (gère auth/redirects côté API)
+  // v2.3.16 — Si postBody fourni, fait POST avec body JSON. Sinon GET.
+  // Sérialise postBody en stable JSON pour useEffect dependency (évite refetch
+  // si la référence change mais le contenu non).
+  const postBodyKey = postBody ? JSON.stringify(postBody) : null
   useEffect(() => {
     let cancelled = false
     let createdUrl: string | null = null
     setLoading(true)
     setError(null)
-    fetch(url)
+    const fetchOpts: RequestInit = postBodyKey
+      ? {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: postBodyKey,
+        }
+      : { method: 'GET' }
+    fetch(url, fetchOpts)
       .then(async r => {
         if (!r.ok) {
           const d = await r.json().catch(() => ({}))
@@ -51,7 +65,7 @@ export default function PdfPreviewModal({ url, filename, title, onClose }: Props
       cancelled = true
       if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
-  }, [url])
+  }, [url, postBodyKey])
 
   // ESC pour fermer
   useEffect(() => {
