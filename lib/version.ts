@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.14'
+export const APP_VERSION = '2.3.15'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.15',
+    date: '2026-05-09',
+    label: 'Sign — WYSIWYG strict éditeur ↔ PDF stampé',
+    features: [
+      'Diagnostic : v2.3.12 BOTTOM_ALIGNED_TYPES cassait le WYSIWYG. L\'éditeur Konva (FieldsCanvas) utilise verticalAlign="middle" → texte centré dans la box. Mais pdf-stamp alignait fullname/company en BAS → décalage visible.',
+      'Fix : revert BOTTOM_ALIGNED_TYPES. drawTextInBox CENTRE le texte pour TOUS les types, calé sur Konva (formule baseline = (h - size × 0.7) / 2).',
+      'Garantie WYSIWYG : ce que l\'admin voit dans l\'éditeur = ce qu\'il obtient dans le PDF stampé. Plus besoin de "deviner" où le texte tombera.',
+    ],
+  },
   {
     version: '2.3.14',
     date: '2026-05-09',

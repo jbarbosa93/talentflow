@@ -299,15 +299,17 @@ export async function stampPdf(opts: StampOptions): Promise<Uint8Array> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
-// v2.3.12 Bug 4 — Types de fields qui sont SOUVENT placés à cheval sur une
-// ligne soulignée du formulaire (ex: "COLLABORATEUR(TRICE): _____" / "ENTREPRISE: _____").
-// Pour ces fields, le texte doit reposer SUR la ligne (alignement bas) au lieu
-// d'être centré dans la box (qui se retrouverait au-dessus de la ligne).
-// Les autres types (number/date/text dans tableaux) gardent l'alignement centré.
-const BOTTOM_ALIGNED_TYPES: ReadonlySet<string> = new Set([
-  'fullname', 'firstname', 'lastname', 'email', 'company', 'title',
-])
-
+// v2.3.15 Bug A (revert v2.3.12) — Texte centré pour TOUS les types pour
+// garantir le WYSIWYG : l'éditeur Konva utilise `verticalAlign="middle"`
+// (FieldsCanvas.tsx ligne 811), le stamp pdf-lib doit donc CENTRER aussi.
+// L'ancien BOTTOM_ALIGNED_TYPES (v2.3.12) cassait cette cohérence pour
+// fullname/company → texte affiché en bas dans le PDF mais centré dans
+// l'éditeur → décalage visible et illogique pour le user.
+//
+// La formule alignée Konva : `(h - size × 0.6) / 2` centre la BASELINE pdf-lib
+// au même point visuel que `verticalAlign="middle"` Konva (qui centre le bloc
+// texte de hauteur ≈ fontSize × 1, baseline à 80% du haut → en BL = 0.2×size
+// au-dessus du centre vertical de la box).
 function drawTextInBox(
   page: any, text: string, x: number, y: number, w: number, h: number, font: PDFFont,
   field?: SignField,
@@ -319,12 +321,11 @@ function drawTextInBox(
     : Math.min(h * 0.65, TEXT_FONT_SIZE_DEFAULT)
   // Réduit si le texte dépasse la largeur (priorité fit > taille demandée)
   while (size > 6 && font.widthOfTextAtSize(text, size) > w - 4) size -= 0.5
-  // v2.3.12 Bug 4 — Alignement vertical : centré par défaut, bas pour les types
-  // souvent placés sur une ligne soulignée (fullname/company/etc).
-  const isBottomAligned = field?.type && BOTTOM_ALIGNED_TYPES.has(field.type)
-  const textY = isBottomAligned
-    ? y + 2  // baseline juste au-dessus du bas de la box (2pt = ~espace pour descenders)
-    : y + (h - size) / 2 + 1  // centré
+  // v2.3.15 — Centrage WYSIWYG calé sur Konva verticalAlign="middle".
+  // Baseline pdf-lib (BL coords) tel que le texte apparaisse au même endroit
+  // visuel que dans l'éditeur Konva. Formule : (h - size × 0.7) / 2
+  // (factor 0.7 = ratio empirique baseline/fontSize pour Helvetica/DM Sans).
+  const textY = y + (h - size * 0.7) / 2
   // v2.2.4 — Couleur custom si field.fontColor défini
   const colorMap: Record<string, [number, number, number]> = {
     Black: [0, 0, 0], Gray: [0.42, 0.45, 0.5], Blue: [0.12, 0.25, 0.69],
