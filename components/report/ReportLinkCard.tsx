@@ -79,6 +79,16 @@ export default function ReportLinkCard({
           }}>
             {link.client_name ? `→ ${link.client_name}` : '— pas de client —'}
           </div>
+          {/* v2.3.8 Bug 6a — Affiche contact client si renseigné */}
+          {link.client_contact_name && (
+            <div style={{
+              fontSize: 11, color: 'var(--muted)', marginTop: 2,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              fontStyle: 'italic',
+            }}>
+              👤 {link.client_contact_name}
+            </div>
+          )}
         </div>
         <StatusPill status={link.status} />
         <div style={{ position: 'relative', flexShrink: 0 }}>

@@ -686,7 +686,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                     onRequestSignature={isLockedWeek ? () => {} : () => setSignaturePadOpen(true)}
                     recipientColor={recipientPalette}
                     autoFill={autoFill}
-                    currentRecipientOrder={isLockedWeek ? -1 : 1}
+                    currentRecipientOrder={isLockedWeek ? 99 : 1}
                   />
                 )}
               />
@@ -724,7 +724,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                       onRequestSignature={isLockedWeek ? () => {} : () => setSignaturePadOpen(true)}
                       recipientColor={recipientPalette}
                       autoFill={autoFill}
-                      currentRecipientOrder={isLockedWeek ? -1 : 1}
+                      currentRecipientOrder={isLockedWeek ? 99 : 1}
                     />
                   )}
                 />

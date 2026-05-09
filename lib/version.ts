@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.3.7'
+export const APP_VERSION = '2.3.8'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '2.3.8',
+    date: '2026-05-09',
+    label: 'Rapports — 11 corrections post-tests + refonte mode liste',
+    features: [
+      'Bug 1+5 — Sélection candidat DB pré-remplit prénom/nom/email/tél + reset complet à la saisie manuelle',
+      'Bug 2 — Autocomplete client + contacts (1 ligne par contact, pré-remplit clientName/contactName/clientEmail)',
+      'Bug 3a — WhatsApp message strip TOUS les accents (João → Joao, plus de ❓ chez les destinataires)',
+      'Bug 3b — Bouton WhatsApp window.open _blank (nouvel onglet, preserve la page courante)',
+      'Bug 4 — Mode locked /report/[slug] : currentRecipientOrder=99 affiche les fields candidat en read-only (avant -1 masquait tout)',
+      'Bug 6 — Card affiche contact client + page détail header complet (8 InfoCards : candidat + client)',
+      'Bug 7a — Signature SIG_PADDING 4→2pt (+12% surface utile dans la box signature)',
+      'Bug 7b — Auto-fill défensif : fields type=text avec label "Collaborateur(trice)" promu à type=fullname au stamp',
+      'Bug 8 — Dates certificat JJ.MM.AAAA déterministe (formatDateChDot, indépendant ICU Vercel)',
+      'Bug 9a — Logs détaillés diagnostic email consultant (link.created_by, ADMIN_EMAIL fallback, Resend response)',
+      'Bug 9b — Boutons Aperçu + Télécharger dans tableau historique submissions',
+      'UX — Refonte /sign/rapports en mode liste DocuSign-style : sidebar Liens (Tous/Actifs/En pause/Révoqués) + tableau colonnes Candidat/Client/Contact/Statut/Dernière/Actions',
+    ],
+  },
   {
     version: '2.3.7',
     date: '2026-05-09',

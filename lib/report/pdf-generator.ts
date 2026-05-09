@@ -21,6 +21,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { SignDocument, SignTemplate } from '@/lib/sign/types'
 import type { ReportLink, ReportSubmission } from './types'
 import { getWeekDates } from './week-helpers'
+import { formatDateChDot } from './text-format'
 
 export interface GeneratedReportDoc {
   name: string
@@ -86,9 +87,9 @@ export async function generateReportPdf(
   const finalizedAt = submission.client_signed_at
     ? new Date(submission.client_signed_at)
     : new Date()
-  const todayStr = finalizedAt.toLocaleDateString('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
+  // v2.3.8 Bug 8 — formatDateChDot déterministe (JJ.MM.AAAA) ; toLocaleDateString
+  // peut renvoyer des slashes selon le build ICU sur Vercel.
+  const todayStr = formatDateChDot(finalizedAt)
 
   const generated: GeneratedReportDoc[] = []
   for (const doc of documents) {
@@ -107,8 +108,39 @@ export async function generateReportPdf(
 
       let currentBuf: Uint8Array = sourceBuf
 
+      // v2.3.8 Bug 7b — Auto-fill DÉFENSIF : si un field type='text' (sans valeur
+      // saisie par le user) a un label qui identifie le nom du collaborateur,
+      // on PROMEUT son type à 'fullname' au moment du stamp pour que stampPdf
+      // (case 'fullname' ligne 192-222) le remplisse depuis autoFill.fullName.
+      // Évite que la zone "Collaborateur(trice)" reste vide quand l'admin a
+      // oublié de configurer le field dans l'éditeur template.
+      const submissionVals = submission.field_values || {}
+      const enrichedFields = (doc.fields || []).map(f => {
+        if (f.type !== 'text') return f
+        // Si l'user a saisi une valeur explicite, ne pas écraser
+        const explicit = submissionVals[f.id]
+        if (typeof explicit === 'string' && explicit.trim()) return f
+        const label = (f.label || '').toLowerCase()
+        const isFullNameField = (
+          label.includes('collaborateur')
+          || label.includes('collaboratrice')
+          || (label.startsWith('nom') && !label.includes('client') && !label.includes('entreprise') && !label.includes('soci'))
+          || label.includes('candidat')
+          || label.includes('employee')
+          || label.includes('employé')
+          || label.includes('travailleur')
+          || label.includes('intérim')
+          || label.includes('interim')
+        )
+        if (isFullNameField) {
+          console.log('[report/pdf-generator] Defensive promote text→fullname:', { id: f.id, label: f.label })
+          return { ...f, type: 'fullname' as const }
+        }
+        return f
+      })
+
       // ─── Pass 1 : fields recipientOrder=1 (Candidat) ───
-      const candFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 1)
+      const candFields = enrichedFields.filter(f => (f.recipientOrder ?? 1) === 1)
       if (candFields.length > 0) {
         currentBuf = await stampPdf({
           pdfBuffer: currentBuf,
@@ -137,7 +169,7 @@ export async function generateReportPdf(
       }
 
       // ─── Pass 2 : fields recipientOrder=2 (Client) — sans footer ───
-      const clientFields = (doc.fields || []).filter(f => (f.recipientOrder ?? 1) === 2)
+      const clientFields = enrichedFields.filter(f => (f.recipientOrder ?? 1) === 2)
       currentBuf = await stampPdf({
         pdfBuffer: currentBuf,
         fields: clientFields,
@@ -264,9 +296,8 @@ async function addAuditHeaderToReport(
 
   const page = pages[0]
   const { height } = page.getSize()
-  const dateStr = opts.finalizedAt.toLocaleDateString('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
+  // v2.3.8 Bug 8 — formatDateChDot deterministe (JJ.MM.AAAA)
+  const dateStr = formatDateChDot(opts.finalizedAt)
   const refId = opts.linkId.replace(/-/g, '').slice(0, 8)
   // Tous les caracteres ici sont dans WinAnsi (Latin-1)
   const text = `TalentFlow Sign · Rapport valide le ${dateStr} · Ref. ${refId}`
@@ -340,7 +371,7 @@ async function buildCertificatePdf(args: CertStandaloneArgs): Promise<Uint8Array
   y -= 14
   drawKv(page, 'Titre', link.title, margin, y, helv, helvBold); y -= 14
   drawKv(page, 'Document', documentName, margin, y, helv, helvBold); y -= 14
-  drawKv(page, 'Semaine', `${submission.week_start} au ${submission.week_end}`, margin, y, helv, helvBold); y -= 14
+  drawKv(page, 'Semaine', `${formatDateChDot(submission.week_start)} au ${formatDateChDot(submission.week_end)}`, margin, y, helv, helvBold); y -= 14
   drawKv(page, 'Lien permanent', link.slug, margin, y, helv, helvBold); y -= 26
 
   // ─── Tableau signataires 6 colonnes ───

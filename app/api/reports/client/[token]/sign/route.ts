@@ -145,13 +145,32 @@ export async function POST(
 
   // v2.3.5 Bug 5 — Email admin = créateur du lien (pas ADMIN_EMAIL fixe)
   // Fallback : ADMIN_EMAIL si créateur introuvable
-  let creatorEmail: string = process.env.ADMIN_EMAIL || ''
+  // v2.3.8 Bug 9a — Logs détaillés pour diagnostiquer pourquoi le consultant ne
+  // reçoit pas l'email après signature client.
+  const adminEnvEmail = process.env.ADMIN_EMAIL || ''
+  let creatorEmail: string = adminEnvEmail
+  let creatorEmailSource: 'created_by_user' | 'admin_env_fallback' | 'none' = adminEnvEmail ? 'admin_env_fallback' : 'none'
+  console.log('[REPORT SIGN] link.created_by:', link.created_by || 'NULL')
+  console.log('[REPORT SIGN] ADMIN_EMAIL env present:', !!adminEnvEmail)
   try {
     if (link.created_by) {
-      const { data: creatorUser } = await supabase.auth.admin.getUserById(link.created_by)
-      if (creatorUser?.user?.email) creatorEmail = creatorUser.user.email
+      const { data: creatorUser, error: creatorErr } = await supabase.auth.admin.getUserById(link.created_by)
+      if (creatorErr) {
+        console.error('[REPORT SIGN] getUserById error:', creatorErr.message)
+      } else if (creatorUser?.user?.email) {
+        creatorEmail = creatorUser.user.email
+        creatorEmailSource = 'created_by_user'
+        console.log('[REPORT SIGN] Creator email resolved from auth.users:', creatorEmail)
+      } else {
+        console.warn('[REPORT SIGN] User found but no email field:', JSON.stringify(creatorUser?.user || {}).slice(0, 200))
+      }
+    } else {
+      console.warn('[REPORT SIGN] link.created_by is NULL — falling back to ADMIN_EMAIL')
     }
-  } catch { /* silent — fallback ADMIN_EMAIL */ }
+  } catch (e) {
+    console.error('[REPORT SIGN] getUserById exception:', e instanceof Error ? e.message : String(e))
+  }
+  console.log('[REPORT SIGN] Final creatorEmail:', creatorEmail || 'EMPTY', '— source:', creatorEmailSource)
 
   console.log('[REPORT SIGN] Delivery channel:', link.delivery_channel)
   console.log('[REPORT SIGN] Client email:', link.client_email || 'NONE')
@@ -180,7 +199,22 @@ export async function POST(
   const skipAdminEmail = !!(creatorEmail && link.client_email
     && creatorEmail.toLowerCase() === link.client_email.toLowerCase()
     && (link.delivery_channel === 'email' || link.delivery_channel === 'both'))
-  if (!skipAdminEmail) {
+  // v2.3.8 Bug 9a — Logs explicites pour comprendre si l'email part bien
+  console.log('[REPORT SIGN] Admin email decision:', {
+    creatorEmail: creatorEmail || 'EMPTY',
+    clientEmail: link.client_email || 'EMPTY',
+    deliveryChannel: link.delivery_channel,
+    skipAdminEmail,
+    skipReason: !creatorEmail
+      ? 'CRITICAL: creatorEmail is empty — neither created_by user nor ADMIN_EMAIL fallback resolved'
+      : skipAdminEmail
+        ? 'creator==client (doublon évité)'
+        : 'will send',
+  })
+  if (!creatorEmail) {
+    console.error('[REPORT SIGN] CRITICAL — Cannot send consultant copy : creatorEmail empty. Check link.created_by + ADMIN_EMAIL env.')
+    notifs.admin_email = { ok: false, error: 'creatorEmail empty (no created_by, no ADMIN_EMAIL)' }
+  } else if (!skipAdminEmail) {
   try {
     notifs.admin_email = await sendCompletedEmailToAdmin({
       to: creatorEmail,
@@ -191,13 +225,13 @@ export async function POST(
       downloadUrl: pdfDownloadUrl,
     })
     if (!notifs.admin_email.ok) {
-      console.error('[reports/client/sign] admin email FAILED:', notifs.admin_email.error)
+      console.error('[REPORT SIGN] admin email FAILED — to:', creatorEmail, '— err:', notifs.admin_email.error)
     } else {
-      console.log('[reports/client/sign] admin email sent OK to', creatorEmail)
+      console.log('[REPORT SIGN] admin email sent OK to', creatorEmail, '— Resend id:', (notifs.admin_email as any).id)
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Erreur admin email'
-    console.error('[reports/client/sign] admin email exception', msg)
+    console.error('[REPORT SIGN] admin email exception', msg)
     notifs.admin_email = { ok: false, error: msg }
   }
   } else {

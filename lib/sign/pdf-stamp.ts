@@ -84,7 +84,9 @@ interface StampOptions {
   addAuditFooter?: boolean
 }
 
-const SIG_PADDING = 4
+// v2.3.8 Bug 7a — réduit de 4 à 2pt pour augmenter la surface utile signature
+// quand le field est petit dans le template (ex: case 80×24pt → +12% surface).
+const SIG_PADDING = 2
 const TEXT_FONT_SIZE_DEFAULT = 10
 const CHECKBOX_X = 'X'
 

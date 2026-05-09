@@ -3,8 +3,10 @@
 // Tableau simple : Semaine / Statut / Candidat signé / Client signé / Actions
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, FileText } from 'lucide-react'
+import { Download, ExternalLink, FileText, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { getWeekDates } from '@/lib/report/week-helpers'
 import { REPORT_STATUS_LABELS, type ReportSubmission } from '@/lib/report/types'
 
@@ -12,6 +14,8 @@ interface Props {
   submissions: ReportSubmission[]
   /** Callback "Voir le PDF" : reçoit le path du 1er PDF signé. */
   onViewPdf?: (submission: ReportSubmission) => void
+  /** v2.3.8 Bug 9b — Slug du rapport pour construire les URLs Aperçu/Télécharger */
+  slug?: string
   /** Affiche aussi le titre de l'enveloppe (mode cross-link, page Submissions récentes). */
   showLinkColumn?: boolean
   /** Map submissionId → { slug, title, candidat_id, client_name } pour mode cross-link */
@@ -25,8 +29,56 @@ interface Props {
 }
 
 export default function SubmissionHistoryTable({
-  submissions, onViewPdf, showLinkColumn, linksMeta,
+  submissions, onViewPdf, slug, showLinkColumn, linksMeta,
 }: Props) {
+  // v2.3.8 Bug 9b — État loading par submission pour les boutons Télécharger
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  // v2.3.8 Bug 9b — Construit l'URL download pour une submission donnée.
+  // Mode mono-rapport : slug fourni. Mode cross-link : slug depuis linksMeta.
+  const downloadUrl = (s: ReportSubmission): string | null => {
+    const sl = slug || linksMeta?.[s.id]?.slug || null
+    if (!sl) return null
+    return `/api/reports/${sl}/submissions/${s.id}/download`
+  }
+
+  const handlePreview = (s: ReportSubmission) => {
+    const url = downloadUrl(s)
+    if (!url) { toast.error('URL indisponible'); return }
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const handleDownload = async (s: ReportSubmission) => {
+    const url = downloadUrl(s)
+    if (!url) { toast.error('URL indisponible'); return }
+    setDownloadingId(s.id)
+    try {
+      const r = await fetch(url)
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error(d.error || 'Erreur téléchargement')
+      }
+      const blob = await r.blob()
+      // Tente d'extraire le filename du Content-Disposition
+      const cd = r.headers.get('Content-Disposition') || ''
+      const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd)
+      const filename = m?.[1] ? decodeURIComponent(m[1]) : `rapport-${s.week_start}.pdf`
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 8000)
+      toast.success('PDF téléchargé')
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur téléchargement')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   if (submissions.length === 0) {
     return (
       <div style={{
@@ -113,21 +165,40 @@ export default function SubmissionHistoryTable({
                     : <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>—</span>}
                 </Td>
                 <Td align="right">
-                  {hasPdf && onViewPdf && (
+                  {/* v2.3.8 Bug 9b — Aperçu (nouvel onglet) + Télécharger (blob)
+                      pour toute submission complétée (PDF stocké) ou candidate_signed
+                      (preview à la volée). */}
+                  {(s.status === 'completed' || s.status === 'client_signed' || s.status === 'candidate_signed') && downloadUrl(s) && (
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePreview(s)}
+                        title="Ouvrir le PDF dans un nouvel onglet"
+                        style={actionBtnStyle()}
+                      >
+                        <ExternalLink size={11} />
+                        Aperçu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(s)}
+                        disabled={downloadingId === s.id}
+                        title="Télécharger le PDF"
+                        style={actionBtnStyle()}
+                      >
+                        {downloadingId === s.id
+                          ? <Loader2 size={11} className="animate-spin" />
+                          : <Download size={11} />}
+                        Télécharger
+                      </button>
+                    </div>
+                  )}
+                  {/* Fallback : ancien callback onViewPdf si parent l'utilise */}
+                  {hasPdf && onViewPdf && !slug && !linksMeta?.[s.id]?.slug && (
                     <button
                       type="button"
                       onClick={() => onViewPdf(s)}
-                      style={{
-                        padding: '5px 10px',
-                        fontSize: 11.5, fontWeight: 600,
-                        border: '1px solid var(--border)',
-                        borderRadius: 7,
-                        background: 'var(--card)',
-                        color: 'var(--foreground)',
-                        cursor: 'pointer',
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        fontFamily: 'inherit',
-                      }}
+                      style={actionBtnStyle()}
                     >
                       <FileText size={11} />
                       PDF
@@ -171,6 +242,21 @@ function Td({ children, align }: { children: React.ReactNode; align?: 'right' })
       {children}
     </td>
   )
+}
+
+function actionBtnStyle(): React.CSSProperties {
+  return {
+    padding: '5px 10px',
+    fontSize: 11.5, fontWeight: 600,
+    border: '1px solid var(--border)',
+    borderRadius: 7,
+    background: 'var(--card)',
+    color: 'var(--foreground)',
+    cursor: 'pointer',
+    display: 'inline-flex', alignItems: 'center', gap: 5,
+    fontFamily: 'inherit',
+    whiteSpace: 'nowrap',
+  }
 }
 
 function StatusBadge({ status }: { status: ReportSubmission['status'] }) {

@@ -9,6 +9,7 @@ import { ChevronLeft, ClipboardList, Loader2, Plus, FileText } from 'lucide-reac
 import { toast } from 'sonner'
 import type { SignTemplate } from '@/lib/sign/types'
 import { FirstNameAutocomplete, type CandidateResult } from '@/components/sign/RecipientCard'
+import ClientContactAutocomplete from '@/components/report/ClientContactAutocomplete'
 
 export default function NewReportLinkPage() {
   const router = useRouter()
@@ -29,6 +30,8 @@ export default function NewReportLinkPage() {
   // v2.3.x Feature 5 — Nom du contact client (texte libre, optionnel)
   const [clientContactName, setClientContactName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
+  // v2.3.8 Bug 2 — Client lié en DB (id) pour rappel visuel + cohérence
+  const [clientId, setClientId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   // Charge les templates de type 'report' uniquement
@@ -62,9 +65,17 @@ export default function NewReportLinkPage() {
       if (candidat.telephone && !candidatPhone) {
         setCandidatPhone(candidat.telephone)
       }
+      // v2.3.8 Bug 1 — Pré-remplit email si candidat lié en a un
+      if (candidat.email && !candidatEmail) {
+        setCandidatEmail(candidat.email)
+      }
     } else {
+      // v2.3.8 Bug 5 — Quand l'user tape manuellement après avoir sélectionné un
+      // candidat, on délie complètement (id + nom) pour que le rapport reflète
+      // la nouvelle saisie et non l'ancien candidat lié.
       setCandidatId(null)
       setCandidatPrenom(firstName)
+      setCandidatNom('')
     }
   }
 
@@ -281,16 +292,40 @@ export default function NewReportLinkPage() {
               style={{ height: 42 }}
             />
           </Field>
-          <Field label="Nom de l'entreprise cliente *">
-            <input
-              type="text"
+          {/* v2.3.8 Bug 2 — Autocomplete client + contacts depuis la DB. Sélectionner
+              une ligne pré-remplit clientName + clientContactName + clientEmail. */}
+          <Field label="Nom de l'entreprise cliente *" hint="recherche dans la base clients TalentFlow">
+            <ClientContactAutocomplete
               value={clientName}
-              onChange={e => setClientName(e.target.value)}
-              placeholder="Construction SA"
-              className="neo-input"
-              style={{ height: 42 }}
+              isLinked={!!clientId}
+              placeholder="Tape le nom de l'entreprise…"
+              onChange={(name, pick) => {
+                setClientName(name)
+                if (pick) {
+                  setClientId(pick.clientId)
+                  if (pick.contactName) setClientContactName(pick.contactName)
+                  if (pick.contactEmail) setClientEmail(pick.contactEmail)
+                } else {
+                  // L'user tape manuellement — délier
+                  setClientId(null)
+                }
+              }}
+              onUnlink={() => { setClientId(null) }}
             />
           </Field>
+          {clientId && (
+            <div style={{
+              padding: '8px 12px',
+              background: 'var(--success-soft, #D1FAE5)',
+              color: 'var(--success, #059669)',
+              borderRadius: 8,
+              fontSize: 12,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              ✓ Client lié : <strong>{clientName}</strong>
+              {clientContactName && <> · {clientContactName}</>}
+            </div>
+          )}
           {/* v2.3.x Feature 5 — Contact pour la salutation des emails/WA client */}
           <Field label="Nom du contact client (optionnel)" hint="utilisé pour la salutation : Bonjour Marie, …">
             <input
