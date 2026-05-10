@@ -5,6 +5,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
@@ -1132,6 +1133,11 @@ function SelectedFieldsPanel({
   // Auto-fill types : prénom/nom/email/société/fonction — jamais orphelins (toujours dans step auto-fill)
   const isAutoFillType = (t: string) => ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t)
 
+  // Modal "Ajouter au wizard" — state local au composant
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [addModalStepIdx, setAddModalStepIdx] = useState<number | 'new'>('new')
+  const [addModalNewTitle, setAddModalNewTitle] = useState('')
+
   // Si 1 seul champ → édition complète
   if (!isMulti) {
     const f = selectedFields[0]
@@ -1139,48 +1145,68 @@ function SelectedFieldsPanel({
     const isText = f.type === 'text'
     const isInGroup = !!f.groupId
     // Field est orphelin du wizard ? (pas auto-fill, pas dans un step)
-    const isOrphan = !isAutoFillType(f.type) && !wizardFieldIds.has(f.id) && (wizardSteps || []).length > 0
-    const addToFirstMatchingStep = () => {
-      if (!setWizardSteps || !wizardSteps) return
-      const order = f.recipientOrder ?? 1
-      const isSignatureField = f.type === 'signature' || f.type === 'initial'
-      const currentSteps = wizardSteps
+    const isOrphan = !isAutoFillType(f.type) && !wizardFieldIds.has(f.id) && (wizardSteps || []).length >= 0
 
-      // Calcul du step cible sur le state ACTUEL (avant setWizardSteps)
-      let idx = -1
-      if (isSignatureField) {
-        for (let i = currentSteps.length - 1; i >= 0; i--) {
-          if ((currentSteps[i].recipientOrder ?? 1) === order && currentSteps[i].isSignatureStep) { idx = i; break }
-        }
-        if (idx < 0) {
-          for (let i = currentSteps.length - 1; i >= 0; i--) {
-            if ((currentSteps[i].recipientOrder ?? 1) === order) { idx = i; break }
-          }
-        }
+    const order = f.recipientOrder ?? 1
+    const isSignatureField = f.type === 'signature' || f.type === 'initial'
+    const stepsForRole = (wizardSteps || []).filter(s => (s.recipientOrder ?? 1) === order)
+    const hasStepsForRole = stepsForRole.length > 0
+
+    const openAddModal = () => {
+      // Pré-sélection intelligente : step signature si dispo, sinon 'new'
+      if (hasStepsForRole) {
+        const sigStep = isSignatureField
+          ? stepsForRole.findIndex(s => s.isSignatureStep)
+          : -1
+        setAddModalStepIdx(sigStep >= 0 ? (wizardSteps || []).indexOf(stepsForRole[sigStep]) : (wizardSteps || []).indexOf(stepsForRole[stepsForRole.length - 1]))
       } else {
-        idx = currentSteps.findIndex(s => (s.recipientOrder ?? 1) === order)
+        setAddModalStepIdx('new')
       }
-
-      if (idx < 0) {
-        toast.error('Aucune étape wizard pour ce rôle — générez d\'abord le wizard en Mode Wizard')
-        return
-      }
-      if (currentSteps[idx].fieldIds.includes(f.id)) {
-        toast.info('Ce champ est déjà dans cette étape')
-        return
-      }
-
-      const stepTitle = currentSteps[idx].title
-      setWizardSteps(prev => {
-        const next = prev.slice()
-        if (next[idx] && !next[idx].fieldIds.includes(f.id)) {
-          next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
-        }
-        return next
-      })
-      toast.success(`Ajouté à l'étape « ${stepTitle} »`)
+      const defaultTitle = isSignatureField ? 'Signature' : 'Nouvelle étape'
+      setAddModalNewTitle(defaultTitle)
+      setAddModalOpen(true)
     }
+
+    const confirmAddToWizard = () => {
+      if (!setWizardSteps) return
+      const allSteps = wizardSteps || []
+
+      if (addModalStepIdx === 'new') {
+        // Créer un nouveau step et y ajouter le champ
+        const newStep: WizardStep = {
+          id: 'wstep_' + Math.random().toString(36).slice(2, 11),
+          title: addModalNewTitle.trim() || (isSignatureField ? 'Signature' : 'Nouvelle étape'),
+          fieldIds: [f.id],
+          docOrder: f.page ? 1 : 1,
+          recipientOrder: order,
+          isSignatureStep: isSignatureField || undefined,
+        }
+        setWizardSteps(prev => [...prev, newStep])
+        toast.success(`Étape « ${newStep.title} » créée — champ ajouté`)
+      } else {
+        const idx = addModalStepIdx as number
+        if (allSteps[idx]?.fieldIds.includes(f.id)) {
+          toast.info('Ce champ est déjà dans cette étape')
+          setAddModalOpen(false)
+          return
+        }
+        const stepTitle = allSteps[idx]?.title ?? ''
+        setWizardSteps(prev => {
+          const next = prev.slice()
+          if (next[idx] && !next[idx].fieldIds.includes(f.id)) {
+            next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
+          }
+          return next
+        })
+        toast.success(`Ajouté à l'étape « ${stepTitle} »`)
+      }
+      setAddModalOpen(false)
+    }
+
+    const roleName = recipients.find(r => r.order === order)?.roleName || `Rôle ${order}`
+
     return (
+      <>
       <div className="neo-card-soft" style={{ padding: 14 }}>
         <SectionTitle>Champ sélectionné</SectionTitle>
         {isOrphan && (
@@ -1200,22 +1226,206 @@ function SelectedFieldsPanel({
           }}>
             <span style={{ fontSize: 14 }}>⚠️</span>
             <span style={{ flex: 1, minWidth: 140 }}>
-              Ce champ n&apos;est <strong>pas affiché dans le wizard candidat</strong>.
+              Ce champ n&apos;est <strong>pas affiché dans le wizard</strong>.
             </span>
             <button
               type="button"
-              onClick={addToFirstMatchingStep}
+              onClick={openAddModal}
               style={{
                 padding: '3px 9px', fontSize: 11, fontWeight: 700,
                 background: '#EAB308', color: '#1C1A14',
                 border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
               }}
-              title="Ajoute ce champ à la 1re étape du wizard correspondant à son rôle"
             >
               + Ajouter au wizard
             </button>
           </div>
         )}
+
+      {/* Modal "Ajouter au wizard" */}
+      {addModalOpen && createPortal(
+        <div
+          onClick={() => setAddModalOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.50)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(460px, 95vw)',
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+              fontFamily: 'inherit',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '16px 20px 14px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
+                  Ajouter au wizard — {roleName}
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                  {(f.tooltip || f.label || f.type).slice(0, 60)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(false)}
+                style={{
+                  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'transparent', border: '1px solid var(--border)', borderRadius: 6,
+                  cursor: 'pointer', color: 'var(--muted)',
+                }}
+              >✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '16px 20px' }}>
+              {!hasStepsForRole ? (
+                <div style={{
+                  padding: '12px 14px', marginBottom: 16,
+                  background: 'rgba(220,38,38,0.07)',
+                  border: '1px solid rgba(220,38,38,0.25)',
+                  borderRadius: 8, fontSize: 12.5, color: 'var(--foreground)', lineHeight: 1.5,
+                }}>
+                  Le rôle <strong>{roleName}</strong> n&apos;a pas encore d&apos;étapes wizard.
+                  Donnez un nom à la première étape à créer :
+                </div>
+              ) : (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>
+                    Choisir une étape existante ou en créer une :
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                    {(wizardSteps || []).map((s, si) => {
+                      if ((s.recipientOrder ?? 1) !== order) return null
+                      const stepNum = (wizardSteps || []).filter((x, xi) => xi <= si && (x.recipientOrder ?? 1) === order).length
+                      return (
+                        <label
+                          key={s.id}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 12px',
+                            background: addModalStepIdx === si ? 'rgba(234,179,8,0.12)' : 'var(--surface-2, #F9FAFB)',
+                            border: `1.5px solid ${addModalStepIdx === si ? '#EAB308' : 'var(--border)'}`,
+                            borderRadius: 8, cursor: 'pointer',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="step-select"
+                            checked={addModalStepIdx === si}
+                            onChange={() => setAddModalStepIdx(si)}
+                            style={{ accentColor: '#EAB308' }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)' }}>
+                              Étape {stepNum} · {s.title}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                              {s.fieldIds.length} champ{s.fieldIds.length > 1 ? 's' : ''}
+                              {s.isSignatureStep ? ' · Signature' : ''}
+                              {s.isAutoFillStep ? ' · Auto-fill' : ''}
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                    {/* Option nouvelle étape */}
+                    <label
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 12px',
+                        background: addModalStepIdx === 'new' ? 'rgba(234,179,8,0.12)' : 'var(--surface-2, #F9FAFB)',
+                        border: `1.5px dashed ${addModalStepIdx === 'new' ? '#EAB308' : 'var(--border)'}`,
+                        borderRadius: 8, cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="step-select"
+                        checked={addModalStepIdx === 'new'}
+                        onChange={() => setAddModalStepIdx('new')}
+                        style={{ accentColor: '#EAB308' }}
+                      />
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#A16207' }}>
+                        + Créer une nouvelle étape
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Champ titre si nouvelle étape */}
+              {addModalStepIdx === 'new' && (
+                <div style={{ marginTop: hasStepsForRole ? 4 : 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+                    Nom de la nouvelle étape
+                  </div>
+                  <input
+                    type="text"
+                    value={addModalNewTitle}
+                    onChange={e => setAddModalNewTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') confirmAddToWizard() }}
+                    autoFocus
+                    placeholder={isSignatureField ? 'Signature' : 'Nouvelle étape'}
+                    style={{
+                      width: '100%', padding: '8px 10px', fontSize: 13,
+                      background: 'var(--input, #F9FAFB)',
+                      border: '1px solid var(--border)', borderRadius: 7,
+                      color: 'var(--foreground)', fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: '12px 20px',
+              borderTop: '1px solid var(--border)',
+              display: 'flex', justifyContent: 'flex-end', gap: 8,
+            }}>
+              <button
+                type="button"
+                onClick={() => setAddModalOpen(false)}
+                style={{
+                  padding: '7px 16px', fontSize: 13, fontWeight: 600,
+                  background: 'transparent', border: '1px solid var(--border)',
+                  borderRadius: 7, cursor: 'pointer', color: 'var(--muted)', fontFamily: 'inherit',
+                }}
+              >Annuler</button>
+              <button
+                type="button"
+                onClick={confirmAddToWizard}
+                disabled={addModalStepIdx === 'new' && !addModalNewTitle.trim()}
+                style={{
+                  padding: '7px 18px', fontSize: 13, fontWeight: 700,
+                  background: '#EAB308', color: '#1C1A14',
+                  border: 'none', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
+                  opacity: (addModalStepIdx === 'new' && !addModalNewTitle.trim()) ? 0.5 : 1,
+                }}
+              >
+                {addModalStepIdx === 'new' ? 'Créer et ajouter' : 'Ajouter'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Field label="Libellé">
             <input
@@ -1521,6 +1731,7 @@ function SelectedFieldsPanel({
           </button>
         </div>
       </div>
+      </>
     )
   }
 
