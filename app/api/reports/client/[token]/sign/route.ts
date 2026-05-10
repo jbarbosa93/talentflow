@@ -19,6 +19,7 @@ import { generateReportPdf } from '@/lib/report/pdf-generator'
 import {
   sendCompletedEmailToAdmin, sendCompletedEmailToClient,
   sendCompletedEmailToCandidat, sendCompletedWhatsAppToCandidat,
+  sendCompletedWhatsAppToClient,
 } from '@/lib/report/send-notifications'
 import { getWeekDates } from '@/lib/report/week-helpers'
 
@@ -180,6 +181,7 @@ export async function POST(
   const notifs: {
     admin_email?: { ok: boolean; error?: string }
     client_email?: { ok: boolean; error?: string }
+    client_whatsapp?: { ok: boolean; error?: string }
     candidat_email?: { ok: boolean; error?: string }
     candidat_whatsapp?: { ok: boolean; error?: string }
   } = {}
@@ -265,6 +267,28 @@ export async function POST(
   } else if (link.delivery_channel === 'email' || link.delivery_channel === 'both') {
     notifs.client_email = { ok: false, error: 'client_email manquant sur le lien' }
     console.warn('[reports/client/sign] client_email manquant — skip notif client email')
+  }
+
+  // 5b-bis. WhatsApp client — completed (Critique 2)
+  if ((link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') && link.client_phone) {
+    try {
+      notifs.client_whatsapp = await sendCompletedWhatsAppToClient({
+        phone: link.client_phone,
+        clientName: link.client_name,
+        clientContactName: link.client_contact_name,
+        candidateName,
+        weekLabel: weekDates.label,
+      })
+      if (!notifs.client_whatsapp.ok) {
+        console.error('[reports/client/sign] client WhatsApp FAILED:', notifs.client_whatsapp.error)
+      } else {
+        console.log('[reports/client/sign] client WhatsApp sent OK to', link.client_phone)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erreur WhatsApp client'
+      console.error('[reports/client/sign] client WhatsApp exception', msg)
+      notifs.client_whatsapp = { ok: false, error: msg }
+    }
   }
 
   // 5c. Email candidat (post-completion, si candidat_email configuré sur le lien)

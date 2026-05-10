@@ -461,7 +461,7 @@ async function buildCertificatePdf(args: CertStandaloneArgs): Promise<Uint8Array
   y -= 26
 
   // Hash SHA-256
-  drawLabel(page, 'Empreinte SHA-256 du document source', margin, y, helvBold)
+  drawLabel(page, 'Empreinte SHA-256 du document source (avant signature electronique)', margin, y, helvBold)
   y -= 14
   page.drawText(documentSha256.slice(0, 32), { x: margin, y, size: 8.5, font: courier, color: rgb(0.20, 0.20, 0.22) })
   y -= 12

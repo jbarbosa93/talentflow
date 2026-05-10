@@ -23,6 +23,7 @@ import { logReportAudit, extractIp } from '@/lib/report/audit'
 import { getWeekDates, parseIsoDate } from '@/lib/report/week-helpers'
 import {
   sendClientInviteEmail,
+  sendClientInviteWhatsApp,
 } from '@/lib/report/send-notifications'
 import { CLIENT_TOKEN_TTL_MS } from '@/lib/report/types'
 
@@ -162,6 +163,22 @@ export async function POST(
         notifResult.email = r
       } else {
         notifResult.email = { ok: false, error: 'Email client manquant' }
+      }
+    }
+    if (link.delivery_channel === 'whatsapp' || link.delivery_channel === 'both') {
+      if (link.client_phone) {
+        const r = await sendClientInviteWhatsApp({
+          phone: link.client_phone,
+          clientName: link.client_name,
+          clientContactName: link.client_contact_name,
+          candidateName,
+          weekLabel: weekDates.label,
+          signUrl,
+          expiresAt: tokenExpires,
+        })
+        notifResult.whatsapp = r
+      } else {
+        notifResult.whatsapp = { ok: false, error: 'Téléphone client manquant' }
       }
     }
     await logReportAudit({

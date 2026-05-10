@@ -12,7 +12,7 @@
 
 import { envoyerMessage } from '@/lib/whatsapp'
 import { normalizePhoneE164 } from '@/lib/sign/phone-format'
-import { toWhatsAppSafe } from './text-format'
+import { toWhatsAppSafe, formatDateChDot } from './text-format'
 
 const FROM_DEFAULT = 'TalentFlow Sign <noreply@talent-flow.ch>'
 
@@ -35,7 +35,7 @@ function pickGreetingName(args: { clientContactName?: string | null; clientName?
   return company.split(/\s+/)[0] || company || ''
 }
 
-// ─── 1. Email client — invitation à signer ──────────────────────────────
+// ─── 1. Email client — invitation à signer ─────────────────────────────
 
 export async function sendClientInviteEmail(args: {
   to: string
@@ -66,7 +66,7 @@ function buildClientInviteHtml(p: {
   signUrl: string
   expiresAt: Date | string
 }): string {
-  const expiresStr = formatDate(p.expiresAt)
+  const expiresStr = formatDateChDot(p.expiresAt)
   const greetingName = pickGreetingName(p)
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -118,10 +118,39 @@ function buildClientInviteText(p: {
     'Merci de le valider :',
     p.signUrl,
     '',
-    `Lien valable jusqu'au ${formatDate(p.expiresAt)}.`,
+    `Lien valable jusqu'au ${formatDateChDot(p.expiresAt)}.`,
     '',
     'L-Agence SA · TalentFlow Sign',
   ].join('\n')
+}
+
+// ─── 2. WhatsApp client — invitation à signer ──────────────────────────
+
+export async function sendClientInviteWhatsApp(args: {
+  phone: string
+  clientContactName?: string | null
+  clientName?: string | null
+  candidateName: string
+  weekLabel: string
+  signUrl: string
+  expiresAt: Date | string
+}): Promise<NotifResult> {
+  const greetingName = toWhatsAppSafe(pickGreetingName(args))
+  const candidateName = toWhatsAppSafe(args.candidateName || '')
+  const weekLabel = toWhatsAppSafe(args.weekLabel || '')
+  const expiresStr = formatDateChDot(args.expiresAt)
+  const body = toWhatsAppSafe([
+    greetingName ? `Bonjour ${greetingName},` : 'Bonjour,',
+    '',
+    `${candidateName} a soumis son rapport d'heures pour la ${weekLabel}.`,
+    '',
+    'Merci de le valider en cliquant ici :',
+    args.signUrl,
+    '',
+    `Lien valable jusqu'au ${expiresStr}.`,
+    '- L-Agence SA',
+  ].join('\n'))
+  return sendWa(args.phone, body)
 }
 
 // ─── 3. Email admin (créateur du lien) — completed avec PDF en PJ ─────
@@ -346,6 +375,28 @@ export async function sendCompletedEmailToClient(args: {
   })
 }
 
+// ─── 5b. WhatsApp client — completed (Critique 2) ─────────────────────
+
+export async function sendCompletedWhatsAppToClient(args: {
+  phone: string
+  clientContactName?: string | null
+  clientName?: string | null
+  candidateName: string
+  weekLabel: string
+}): Promise<NotifResult> {
+  const greetingName = toWhatsAppSafe(pickGreetingName(args))
+  const candidateName = toWhatsAppSafe(args.candidateName || '')
+  const weekLabel = toWhatsAppSafe(args.weekLabel || '')
+  const body = toWhatsAppSafe([
+    greetingName ? `Bonjour ${greetingName},` : 'Bonjour,',
+    '',
+    `Le rapport d'heures de ${candidateName} pour la ${weekLabel} est maintenant signe par les deux parties.`,
+    '',
+    '- L-Agence SA',
+  ].join('\n'))
+  return sendWa(args.phone, body)
+}
+
 // ─── Internals ──────────────────────────────────────────────────────────
 
 async function sendResend(args: {
@@ -400,15 +451,6 @@ async function sendWa(rawPhone: string, body: string): Promise<NotifResult> {
 
 function getFirstName(s: string): string {
   return (s || '').trim().split(/\s+/)[0] || s || ''
-}
-
-function formatDate(d: Date | string): string {
-  try {
-    const date = typeof d === 'string' ? new Date(d) : d
-    return date.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  } catch {
-    return String(d)
-  }
 }
 
 function escapeHtml(s: string): string {
