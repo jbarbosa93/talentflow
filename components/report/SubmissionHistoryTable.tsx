@@ -182,7 +182,22 @@ export default function SubmissionHistoryTable({
                   </div>
                 </Td>
                 <Td>
-                  <StatusBadge status={s.status} />
+                  <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                    <StatusBadge status={s.status} />
+                    {(s as any).metadata?.client_modified && (
+                      <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: 999,
+                        background: '#FEF3C7',
+                        color: '#92400E',
+                        border: '1px solid #FDE68A',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        ✏️ Modifié par le client
+                      </span>
+                    )}
+                  </div>
                 </Td>
                 <Td>
                   {s.candidate_signed_at

@@ -468,6 +468,20 @@ async function buildCertificatePdf(args: CertStandaloneArgs): Promise<Uint8Array
   page.drawText(documentSha256.slice(32), { x: margin, y, size: 8.5, font: courier, color: rgb(0.20, 0.20, 0.22) })
   y -= 30
 
+  // Note : donnees ajustees par le client avant signature (si applicable)
+  if (submission.metadata?.client_modified === true) {
+    page.drawRectangle({
+      x: margin, y: y - 26, width: W - margin * 2, height: 30,
+      color: rgb(1.0, 0.97, 0.88),
+      borderColor: rgb(0.92, 0.71, 0.03),
+      borderWidth: 0.8,
+    })
+    page.drawText('Note : certaines donnees ont ete ajustees par le client avant signature.', {
+      x: margin + 10, y: y - 16, size: 8.5, font: helv, color: rgb(0.57, 0.25, 0.02),
+    })
+    y -= 42
+  }
+
   // Footer ZertES
   const footerY = margin
   page.drawRectangle({

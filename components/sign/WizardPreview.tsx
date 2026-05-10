@@ -74,10 +74,10 @@ export default function WizardPreview({ steps, documents, onClose, syncStepIdx, 
     setResetKey(k => k + 1)
   }
 
-  // Dimensions device frame — v2.2.4 réduit pour ne pas surcharger la colonne droite
+  // Dimensions device frame — iPhone 17 Pro Max (430×760) en mobile, browser en desktop
   const isMobile = device === 'mobile'
-  const frameW = isMobile ? 320 : 900
-  const frameH = isMobile ? 580 : 540
+  const frameW = isMobile ? 430 : 900
+  const frameH = isMobile ? 760 : 540
 
   return (
     <div style={{
@@ -234,34 +234,34 @@ function DeviceFrame({
   children: React.ReactNode
 }) {
   if (device === 'mobile') {
-    // iPhone frame
+    // iPhone 17 Pro Max frame
     return (
       <div style={{
         width: width + 24,
         background: '#1C1A14',
-        borderRadius: 44,
-        padding: '12px 12px',
-        boxShadow: '0 12px 48px rgba(0,0,0,0.18)',
+        borderRadius: 60,
+        padding: '14px 12px',
+        boxShadow: '0 16px 56px rgba(0,0,0,0.22)',
         position: 'relative',
         flexShrink: 0,
       }}>
-        {/* Notch */}
+        {/* Dynamic Island */}
         <div style={{
           position: 'absolute',
-          top: 14,
+          top: 18,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: 110,
-          height: 24,
+          width: 120,
+          height: 36,
           background: '#1C1A14',
-          borderRadius: 16,
+          borderRadius: 20,
           zIndex: 5,
         }} />
         <div style={{
           width,
           height,
           background: '#fff',
-          borderRadius: 32,
+          borderRadius: 48,
           overflow: 'hidden',
           position: 'relative',
         }}>

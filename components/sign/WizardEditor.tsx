@@ -859,7 +859,7 @@ export default function WizardEditor({
             liste des champs/options. */}
         {previewOpen && (
           <div style={{
-            width: 380,
+            width: 480,
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -988,13 +988,30 @@ function StepDetail({
         />
       </div>
       <div>
-        <label style={editLabelStyle}>Description (optionnel)</label>
+        <label style={editLabelStyle}>
+          Note / instruction — <span style={{ fontWeight: 400, color: 'var(--muted)' }}>affichée en bandeau amber avant les champs</span>
+        </label>
         <textarea
           value={step.description || ''}
-          onChange={e => onUpdateStep({ description: e.target.value })}
+          onChange={e => onUpdateStep({ description: e.target.value || undefined })}
           style={{ ...editInputStyle, minHeight: 60, resize: 'vertical', fontFamily: 'inherit' }}
-          placeholder="Texte d'aide affiché sous le titre de l'étape"
+          placeholder='Ex : "Les heures sont en centièmes. Ex : 7h30 = 7.50"'
         />
+        {step.description && (
+          <div style={{
+            marginTop: 6,
+            padding: '8px 12px 8px 14px',
+            background: '#FEF3C7',
+            borderLeft: '3px solid #EAB308',
+            borderRadius: '0 6px 6px 0',
+            fontSize: 11.5,
+            color: '#92400E',
+            fontStyle: 'italic',
+            lineHeight: 1.5,
+          }}>
+            ℹ️ Aperçu : {step.description}
+          </div>
+        )}
       </div>
 
       {/* v2.2.1 — Mode d'affichage des champs (Liste vs Cartes par section) */}

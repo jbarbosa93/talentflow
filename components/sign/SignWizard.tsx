@@ -455,7 +455,7 @@ function StepContent({
     return (
       <div>
         <h2 style={stepTitleStyle}>{prettifySpaces(step.title)}</h2>
-        {step.description && <p style={stepDescStyle}>{step.description}</p>}
+        {step.description && <StepNote text={step.description} />}
         <div style={{
           marginTop: 20,
           padding: 24,
@@ -538,7 +538,7 @@ function StepContent({
   return (
     <div>
       <h2 style={stepTitleStyle}>{prettifySpaces(step.title)}</h2>
-      {step.description && <p style={stepDescStyle}>{step.description}</p>}
+      {step.description && <StepNote text={step.description} />}
       {attachments.length > 0 && (
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {attachments.map(a => (
@@ -1163,6 +1163,28 @@ const stepTitleStyle: React.CSSProperties = {
   letterSpacing: '-0.3px',
 }
 
+function StepNote({ text }: { text: string }) {
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 10,
+      padding: '10px 14px',
+      marginBottom: 14,
+      background: '#FEF3C7',
+      borderLeft: '3px solid #EAB308',
+      borderRadius: '0 8px 8px 0',
+      fontSize: 13,
+      color: '#92400E',
+      fontStyle: 'italic',
+      lineHeight: 1.55,
+    }}>
+      <span style={{ flexShrink: 0, fontSize: 14 }}>ℹ️</span>
+      <span>{text}</span>
+    </div>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const stepDescStyle: React.CSSProperties = {
   fontSize: 13.5,
   color: '#6B7280',

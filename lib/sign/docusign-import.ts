@@ -127,6 +127,8 @@ interface ParsedTabRaw {
   page: number
   recipientOrder: number
   label: string
+  /** Texte d'aide DocuSign (tab.tooltip) — utilisé par commonTooltip() pour titrer les étapes */
+  tooltip?: string
   required: boolean
   source: 'docusign'
   metadata: Record<string, unknown>
@@ -252,6 +254,7 @@ function tabToRaw(
     page,
     recipientOrder: recipOrder,
     label,
+    tooltip: (tab.tooltip || '').trim() || undefined,
     required: bool(tab.required as string),
     source: 'docusign',
     metadata,
@@ -458,6 +461,7 @@ export function normalizeFields(
       height: clamp01(r.h / h),
       recipientOrder: r.recipientOrder,
       label: r.label,
+      tooltip: r.tooltip,
       required: r.required,
       source: r.source,
       // v2.2.0 Phase 2.5 — propage les group fields issus des tabGroups DocuSign

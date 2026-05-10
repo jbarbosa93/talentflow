@@ -18,6 +18,7 @@ export type ReportAuditAction =
   | 'candidate_signed'
   | 'client_notified'
   | 'client_viewed'
+  | 'client_modified'
   | 'client_signed'
   | 'completed'
   | 'cancelled'
@@ -68,6 +69,8 @@ export interface ReportSubmission {
   client_token: string | null
   client_token_expires_at: string | null
   signed_pdf_paths: { name: string; path: string; sha256: string }[]
+  /** v2.3.x — Métadonnées enrichies : client_modified, modified_at, modified_fields... */
+  metadata?: Record<string, unknown>
   created_at: string
   updated_at: string
 }

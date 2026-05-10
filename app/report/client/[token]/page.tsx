@@ -7,11 +7,11 @@
 // ses propres champs (fields recipientOrder=2). Bouton "Valider et signer" en bas.
 'use client'
 
-import { use, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, CheckCircle2, ClipboardList, Clock, FileText, Loader2, Lock, ListChecks,
+  AlertTriangle, CheckCircle2, ClipboardList, Clock, Edit3, FileText, Loader2, Lock, ListChecks, Save, X as XIcon,
 } from 'lucide-react'
 import PublicFieldsLayer, { areAllRequiredFieldsFilled } from '@/components/sign/PublicFieldsLayer'
 import { RECIPIENT_COLORS } from '@/lib/sign/types'
@@ -68,6 +68,9 @@ export default function PublicClientReportPage({
   const [isMobile, setIsMobile] = useState(false)
   const [viewMode, setViewMode] = useState<'wizard' | 'document'>('document')
   const [values, setValues] = useState<Record<string, unknown>>({})
+  const [editMode, setEditMode] = useState(false)
+  const [editValues, setEditValues] = useState<Record<string, unknown>>({})
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900)
@@ -114,7 +117,48 @@ export default function PublicClientReportPage({
   // sont en lecture seule grâce à currentRecipientOrder=2 de PublicFieldsLayer.
   const handleFieldChange = (fieldId: string, value: unknown) => {
     setValues(prev => ({ ...prev, [fieldId]: value }))
+    if (editMode) setEditValues(prev => ({ ...prev, [fieldId]: value }))
   }
+
+  const handleEnterEditMode = () => {
+    setEditValues({})
+    setEditMode(true)
+  }
+
+  const handleCancelEdit = () => {
+    // Revert les valeurs modifiées (recharge depuis data initiale)
+    const merged: Record<string, unknown> = {
+      ...(data?.previousFieldValues || {}),
+      ...(data?.submission?.field_values || {}),
+    }
+    setValues(merged)
+    setEditValues({})
+    setEditMode(false)
+  }
+
+  const handleSaveEdit = useCallback(async () => {
+    if (Object.keys(editValues).length === 0) {
+      setEditMode(false)
+      return
+    }
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/reports/client/${token}/update-fields`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldValues: editValues }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Erreur sauvegarde')
+      setEditMode(false)
+      setEditValues({})
+      toast.success('Données sauvegardées')
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur sauvegarde')
+    } finally {
+      setSaving(false)
+    }
+  }, [token, editValues])
 
   const handleAdoptSignature = (dataUrl: string) => {
     setSignatureDataUrl(dataUrl)
@@ -217,6 +261,20 @@ export default function PublicClientReportPage({
   const clientName = data.link.client_name || 'Client'
   const allFields: SignField[] = activeDoc?.fields || []
   const clientFields = allFields.filter(f => (f.recipientOrder ?? 1) === 2)
+
+  // Types de champs candidat que le client peut modifier en mode édition
+  const CLIENT_EDITABLE_TYPES: SignField['type'][] = ['number', 'text', 'checkbox']
+
+  // En mode édition : les champs number/text/checkbox du candidat (recipientOrder=1)
+  // sont "promus" à recipientOrder=2 pour devenir interactifs via PublicFieldsLayer.
+  const displayFields: SignField[] = editMode
+    ? allFields.map(f => {
+        if ((f.recipientOrder ?? 1) === 1 && CLIENT_EDITABLE_TYPES.includes(f.type)) {
+          return { ...f, recipientOrder: 2 }
+        }
+        return f
+      })
+    : allFields
   const recipientPalette = RECIPIENT_COLORS[1]  // Client = rôle 2 = vert
   const wizardStepsForClient = (data.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === 2)
   const wizardAvailable = (data.wizard?.enabled !== false) && wizardStepsForClient.length > 0
@@ -348,18 +406,82 @@ export default function PublicClientReportPage({
         )}
       </header>
 
-      {/* Bandeau info */}
-      <div style={{
-        flexShrink: 0,
-        padding: '10px 16px',
-        background: '#FEF3C7',
-        borderBottom: '1px solid #FDE68A',
-        fontSize: 12.5, color: '#A16207',
-        textAlign: 'center', lineHeight: 1.5,
-      }}>
-        <strong>{candidateFullName || 'Le collaborateur'}</strong> a soumis son rapport pour la <strong>{data.weekLabel}</strong>.
-        Vérifiez puis signez en bas.
-      </div>
+      {/* Bandeau info / mode édition */}
+      {editMode ? (
+        <div style={{
+          flexShrink: 0,
+          padding: '10px 16px',
+          background: '#FEF3C7',
+          borderBottom: '1px solid #FDE68A',
+          fontSize: 12.5, color: '#92400E',
+          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+        }}>
+          <Edit3 size={14} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>
+            <strong>Vous modifiez les données du rapport.</strong>{' '}
+            Les modifications seront incluses dans le PDF final.
+          </span>
+          <div style={{ display: 'inline-flex', gap: 6, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              style={{
+                padding: '5px 10px', fontSize: 12, fontWeight: 600,
+                border: '1px solid #D97706', borderRadius: 7,
+                background: 'transparent', color: '#92400E',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              <XIcon size={11} /> Annuler
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={saving}
+              style={{
+                padding: '5px 10px', fontSize: 12, fontWeight: 700,
+                border: '1px solid #1C1A14', borderRadius: 7,
+                background: '#EAB308', color: '#1C1A14',
+                cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+              Sauvegarder
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          flexShrink: 0,
+          padding: '10px 16px',
+          background: '#FEF3C7',
+          borderBottom: '1px solid #FDE68A',
+          fontSize: 12.5, color: '#A16207',
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        }}>
+          <span style={{ flex: 1, lineHeight: 1.5 }}>
+            <strong>{candidateFullName || 'Le collaborateur'}</strong> a soumis son rapport pour la <strong>{data.weekLabel}</strong>.
+            Vérifiez puis signez en bas.
+          </span>
+          <button
+            type="button"
+            onClick={handleEnterEditMode}
+            style={{
+              flexShrink: 0,
+              padding: '4px 10px', fontSize: 11.5, fontWeight: 600,
+              border: '1px solid #D97706', borderRadius: 7,
+              background: 'transparent', color: '#92400E',
+              cursor: 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+            }}
+          >
+            <Edit3 size={11} /> Modifier les données
+          </button>
+        </div>
+      )}
 
       {/* Vue principale */}
       <main style={{ flex: 1, overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -399,7 +521,7 @@ export default function PublicClientReportPage({
                   <PublicFieldsLayer
                     page={pageNum}
                     sizePx={sizePx}
-                    fields={activeDoc.fields || []}
+                    fields={displayFields}
                     values={values}
                     onValueChange={handleFieldChange}
                     signatureDataUrl={signatureDataUrl}
@@ -435,7 +557,7 @@ export default function PublicClientReportPage({
                     <PublicFieldsLayer
                       page={pageNum}
                       sizePx={sizePx}
-                      fields={activeDoc.fields || []}
+                      fields={displayFields}
                       values={values}
                       onValueChange={handleFieldChange}
                       signatureDataUrl={signatureDataUrl}
