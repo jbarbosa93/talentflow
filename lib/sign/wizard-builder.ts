@@ -67,8 +67,14 @@ export interface WizardStepAttachment {
 /** Types qui sont auto-fill (pré-remplis depuis le recipient) */
 const AUTO_FILL_TYPES: SignFieldType[] = ['firstname', 'lastname', 'fullname', 'email', 'company', 'title']
 
-/** Types qui appartiennent à l'étape signature finale */
-const SIGNATURE_TYPES: SignFieldType[] = ['signature', 'initial', 'date']
+/** Retourne true si le field appartient à l'étape signature finale.
+ *  'date' est inclus UNIQUEMENT si c'est un datesigned auto-fill (tabType='datesigned'),
+ *  pas pour les dates saisies manuellement par le candidat (ex : jours de la semaine). */
+function isSignatureType(field: SignField): boolean {
+  if (field.type === 'signature' || field.type === 'initial') return true
+  if (field.type === 'date' && field.metadata?.tabType === 'datesigned') return true
+  return false
+}
 
 /** Genre id court (pas besoin d'uuid lib) */
 function genStepId(): string {
@@ -237,7 +243,7 @@ export function buildWizardSteps(
 
   // ─── Étapes 2..N : Clusters par doc/page ──────────────────────────────
   const fillFields = allFields.filter(({ field }) =>
-    !AUTO_FILL_TYPES.includes(field.type) && !SIGNATURE_TYPES.includes(field.type),
+    !AUTO_FILL_TYPES.includes(field.type) && !isSignatureType(field),
   )
   const byDoc = new Map<number, SignField[]>()
   for (const { field, docOrder } of fillFields) {
@@ -276,7 +282,7 @@ export function buildWizardSteps(
   }
 
   // ─── Étape finale : Signature ─────────────────────────────────────────
-  const sigFields = allFields.filter(({ field }) => SIGNATURE_TYPES.includes(field.type))
+  const sigFields = allFields.filter(({ field }) => isSignatureType(field))
   if (sigFields.length > 0) {
     steps.push({
       id: genStepId(),
