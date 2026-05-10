@@ -2,12 +2,23 @@
 // v2.2.0 — Phase 2 (polish DocuSign-like + multi-sélection + fix resize)
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { Stage, Layer, Rect, Text, Group, Path } from 'react-konva'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { SignField, SignFieldType } from '@/lib/sign/types'
 import { RECIPIENT_COLORS, SIGNATURE_CONSTRAINTS } from '@/lib/sign/types'
+import type { WizardStep } from '@/lib/sign/wizard-builder'
+
+// Palette couleurs par numéro d'étape (1-based)
+const STEP_COLORS = [
+  '#f59e0b', // amber  — étape 1
+  '#3b82f6', // bleu   — étape 2
+  '#10b981', // vert   — étape 3
+  '#8b5cf6', // violet — étape 4
+  '#ef4444', // rouge  — étape 5
+  '#06b6d4', // cyan   — étape 6
+]
 
 interface Props {
   width: number             // px
@@ -22,6 +33,10 @@ interface Props {
   genId: () => string
   /** v2.2.4 — Affichage des badges wizardSection au-dessus de chaque field (toggle UI). Défaut true. */
   showSectionBadges?: boolean
+  /** Feature 4 — Étapes wizard pour afficher les badges numéros sur chaque field. */
+  wizardSteps?: WizardStep[]
+  /** Feature 4 — Toggle d'affichage des badges numéros d'étapes. Défaut : true si wizardSteps non vide. */
+  showStepBadges?: boolean
 }
 
 const DEFAULT_FIELD_SIZE_PCT: Record<SignFieldType, { w: number; h: number }> = {
@@ -93,10 +108,38 @@ function clamp01(n: number): number {
 export default function FieldsCanvas({
   width, height, page, fields, onChange, selectedIds, onSelect,
   activeTool, activeRecipientOrder, genId, showSectionBadges = true,
+  wizardSteps, showStepBadges,
 }: Props) {
   const stageRef = useRef<Konva.Stage>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const selectedSet = new Set(selectedIds)
+
+  // Feature 4 — Mapping fieldId → stepIndex (1-based) calculé une seule fois par wizard_steps.
+  // Un field appartient à une étape si son id est dans wizardStep.fieldIds OU si
+  // son wizardSection correspond au titre de l'étape.
+  const fieldStepMap = useMemo<Map<string, number>>(() => {
+    const map = new Map<string, number>()
+    if (!wizardSteps || wizardSteps.length === 0) return map
+    wizardSteps.forEach((step, idx) => {
+      const stepNum = idx + 1
+      for (const fid of (step.fieldIds || [])) {
+        if (!map.has(fid)) map.set(fid, stepNum)
+      }
+    })
+    // Fallback : fields avec wizardSection correspondant au titre d'une étape
+    for (const f of fields) {
+      if (map.has(f.id)) continue
+      if (!f.wizardSection) continue
+      const matchIdx = wizardSteps.findIndex(
+        s => s.title.trim().toLowerCase() === f.wizardSection!.trim().toLowerCase()
+      )
+      if (matchIdx >= 0) map.set(f.id, matchIdx + 1)
+    }
+    return map
+  }, [wizardSteps, fields])
+
+  const stepsExist = (wizardSteps || []).length > 0
+  const showStepNums = showStepBadges !== false && stepsExist
 
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
 
@@ -380,6 +423,7 @@ export default function FieldsCanvas({
           const isSelected = selectedSet.has(f.id)
           const isHovered = hoveredId === f.id
           const c = colorFor(f.recipientOrder)
+          const stepNum = showStepNums ? (fieldStepMap.get(f.id) ?? null) : null
           return (
             <FieldGroup
               key={f.id}
@@ -389,6 +433,7 @@ export default function FieldsCanvas({
               isSelected={isSelected}
               isHovered={isHovered}
               showSectionBadges={showSectionBadges}
+              stepNumber={stepNum}
               onClick={ev => handleFieldClick(f.id, ev)}
               onMouseEnter={() => setHoveredId(f.id)}
               onMouseLeave={() => setHoveredId(prev => prev === f.id ? null : prev)}
@@ -491,6 +536,8 @@ interface FieldGroupProps {
   isSelected: boolean
   isHovered: boolean
   showSectionBadges: boolean
+  /** Feature 4 — Numéro de l'étape wizard (1-based) auquel ce field appartient. Null = pas d'étape. */
+  stepNumber: number | null
   onClick: (ev: KonvaEventObject<MouseEvent>) => void
   onMouseEnter: () => void
   onMouseLeave: () => void
@@ -502,7 +549,7 @@ interface FieldGroupProps {
 }
 
 function FieldGroup({
-  field, x, y, w, h, color, isSelected, isHovered, showSectionBadges,
+  field, x, y, w, h, color, isSelected, isHovered, showSectionBadges, stepNumber,
   onClick, onMouseEnter, onMouseLeave, onDragStart, onDragMove, onDragEnd,
   boundW, boundH,
 }: FieldGroupProps) {
@@ -538,6 +585,45 @@ function FieldGroup({
       </>
     )
   })() : null
+
+  // Feature 4 — Badge numéro d'étape : cercle 16×16 en haut à gauche du field
+  // (coin top-left, moitié en dehors). Distinct du sectionBadge (rectangle au-dessus)
+  // et du groupBadge (top-right).
+  const STEP_BADGE_SIZE = 16
+  const stepBadge = stepNumber !== null ? (() => {
+    const stepColor = STEP_COLORS[(stepNumber - 1) % STEP_COLORS.length]
+    const bx = -STEP_BADGE_SIZE / 2
+    const by = -STEP_BADGE_SIZE / 2
+    return (
+      <>
+        <Rect
+          x={bx}
+          y={by}
+          width={STEP_BADGE_SIZE}
+          height={STEP_BADGE_SIZE}
+          fill={stepColor}
+          cornerRadius={STEP_BADGE_SIZE / 2}
+          listening={false}
+          opacity={isHovered || isSelected ? 1 : 0.9}
+        />
+        <Text
+          x={bx}
+          y={by}
+          width={STEP_BADGE_SIZE}
+          height={STEP_BADGE_SIZE}
+          text={String(stepNumber)}
+          fontSize={8.5}
+          fontStyle="bold"
+          fontFamily='"DM Sans", system-ui, sans-serif'
+          fill="white"
+          align="center"
+          verticalAlign="middle"
+          listening={false}
+        />
+      </>
+    )
+  })() : null
+
   const cornerRadius = 3
   const strokeWidth = isSelected ? 1.7 : isHovered ? 1.3 : 1
   const dash = isSelected ? undefined : [3, 2]
@@ -610,6 +696,7 @@ function FieldGroup({
         )}
         {/* v2.2.4 — Badge wizardSection (cohérence avec autres types) */}
         {sectionBadge}
+        {stepBadge}
         {/* Badge "G" si membre d'un groupe */}
         {groupBadge && (
           <>
@@ -676,6 +763,7 @@ function FieldGroup({
           wrap="none"
         />
         {sectionBadge}
+        {stepBadge}
       </Group>
     )
   }
@@ -725,6 +813,7 @@ function FieldGroup({
           opacity={0.95}
         />
         {sectionBadge}
+        {stepBadge}
       </Group>
     )
   }
@@ -769,6 +858,7 @@ function FieldGroup({
           wrap="none"
         />
         {sectionBadge}
+        {stepBadge}
       </Group>
     )
   }
@@ -852,6 +942,7 @@ function FieldGroup({
         />
       )}
       {sectionBadge}
+      {stepBadge}
     </Group>
   )
 }

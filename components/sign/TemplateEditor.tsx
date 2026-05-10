@@ -155,6 +155,20 @@ export default function TemplateEditor({
     })
   }
 
+  // Feature 4 — Toggle affichage des badges numéros d'étapes.
+  // Activé par défaut si le template a des wizard_steps. Persisté en localStorage.
+  const [showStepBadges, setShowStepBadges] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    return window.localStorage.getItem('sign:showStepBadges') !== '0'
+  })
+  const toggleStepBadges = () => {
+    setShowStepBadges(v => {
+      const next = !v
+      try { window.localStorage.setItem('sign:showStepBadges', next ? '1' : '0') } catch {}
+      return next
+    })
+  }
+
   // v2.2.4 — Undo / Redo (Cmd+Z / Cmd+Shift+Z) sur les modifications Mode Document.
   // Stack snapshots des docs avant chaque modif user. Limité à 50 entrées (mémoire).
   const HISTORY_MAX = 50
@@ -663,6 +677,27 @@ export default function TemplateEditor({
           >
             🏷 Sections
           </button>
+          {/* Feature 4 — Toggle badges numéros d'étapes (visible seulement si wizard_steps définis) */}
+          {wizardSteps.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleStepBadges}
+              title={showStepBadges ? 'Masquer les numéros d\'étapes sur les champs' : 'Afficher le numéro d\'étape sur chaque champ'}
+              style={{
+                padding: '4px 10px',
+                fontSize: 11.5, fontWeight: 700,
+                border: showStepBadges ? '1px solid #1C1A14' : '1px solid var(--border)',
+                background: showStepBadges ? '#EAB308' : 'var(--card)',
+                color: showStepBadges ? '#1C1A14' : 'var(--foreground)',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+              }}
+            >
+              🔢 Étapes
+            </button>
+          )}
         </div>
 
         {/* PDF + overlay */}
@@ -697,6 +732,8 @@ export default function TemplateEditor({
                 activeRecipientOrder={activeRecipientOrder}
                 genId={genId}
                 showSectionBadges={showSectionBadges}
+                wizardSteps={wizardSteps}
+                showStepBadges={showStepBadges}
               />
             </div>
           )}

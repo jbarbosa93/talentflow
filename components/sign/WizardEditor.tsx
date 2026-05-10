@@ -100,6 +100,8 @@ export default function WizardEditor({
   const [enriching, setEnriching] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [rolesPopoverOpen, setRolesPopoverOpen] = useState(false)
+  const [orphanModalOpen, setOrphanModalOpen] = useState(false)
+  const [locatedFieldId, setLocatedFieldId] = useState<string | null>(null)
   // v2.2.1 — Multi-rôles : déduit les rôles RÉELLEMENT présents dans le template
   // Source de vérité : fields.recipientOrder + steps.recipientOrder (pas le schema
   // legacy qui peut avoir order=0 cassé). Fusionne avec roleName du schema si dispo.
@@ -172,6 +174,19 @@ export default function WizardEditor({
       .map((s, originalIdx) => ({ step: s, originalIdx }))
       .filter(({ step }) => (step.recipientOrder ?? 1) === activeRole)
   }, [steps, activeRole])
+
+  // Champs orphelins : présents pour le rôle actif mais dans AUCUN step du wizard.
+  // Calcul ici (niveau WizardEditor) pour alimenter le bouton toolbar + modal.
+  const ORPHAN_AUTO_FILL = new Set(['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'])
+  const allUsedInWizard = useMemo(() => {
+    const s = new Set<string>()
+    for (const step of steps) for (const fid of step.fieldIds) s.add(fid)
+    return s
+  }, [steps])
+  const orphanFields = useMemo(() => {
+    return allRecipientFields.filter(f => !allUsedInWizard.has(f.id) && !ORPHAN_AUTO_FILL.has(f.type))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRecipientFields, allUsedInWizard])
 
   const markDirty = () => setDirty(true)
 
@@ -361,6 +376,19 @@ export default function WizardEditor({
     ))
     markDirty()
   }
+  const deleteFieldsById = useCallback((ids: string[]) => {
+    const idSet = new Set(ids)
+    setDocuments(prev => prev.map(d => ({
+      ...d,
+      fields: (d.fields || []).filter(f => !idSet.has(f.id)),
+    })))
+    setSteps(prev => prev.map(s => ({
+      ...s,
+      fieldIds: s.fieldIds.filter(id => !idSet.has(id)),
+    })))
+    markDirty()
+    toast.success(`${ids.length} champ${ids.length > 1 ? 's supprimés' : ' supprimé'}`)
+  }, [setDocuments, setSteps])
 
   // v2.2.2 — Dupliquer un champ : crée une copie avec nouvel id, conserve toute
   // la config (type, tooltip, required, defaultValue, wizardSection, listItems,
@@ -611,6 +639,26 @@ export default function WizardEditor({
           )}
         </div>
 
+        {orphanFields.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOrphanModalOpen(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px',
+              fontSize: 12, fontWeight: 700,
+              background: 'rgba(234,179,8,0.12)',
+              color: '#A16207',
+              border: '1px solid rgba(234,179,8,0.45)',
+              borderRadius: 999, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+            title={`${orphanFields.length} champ${orphanFields.length > 1 ? 's présents' : ' présent'} dans le PDF mais dans aucune étape du wizard`}
+          >
+            <AlertTriangle size={12} />
+            {orphanFields.length} orphelin{orphanFields.length > 1 ? 's' : ''}
+          </button>
+        )}
         <span style={{ flex: 1 }} />
         <button
           type="button"
@@ -801,21 +849,7 @@ export default function WizardEditor({
               onAddFieldToStep={(fid) => addFieldToStep(selectedStepIdx, fid)}
               onDuplicateField={(fid) => duplicateFieldInStep(selectedStepIdx, fid)}
               onMoveFieldToStep={(fid, targetIdx) => addFieldToStep(targetIdx, fid)}
-              onDeleteFields={(ids) => {
-                // v2.2.4 — Supprime définitivement des fields de documents[].fields[].
-                // Aussi nettoie les références dans wizard_steps (au cas où).
-                const idSet = new Set(ids)
-                setDocuments(prev => prev.map(d => ({
-                  ...d,
-                  fields: (d.fields || []).filter(f => !idSet.has(f.id)),
-                })))
-                setSteps(prev => prev.map(s => ({
-                  ...s,
-                  fieldIds: s.fieldIds.filter(id => !idSet.has(id)),
-                })))
-                markDirty()
-                toast.success(`${ids.length} champ${ids.length > 1 ? 's supprimés' : ' supprimé'}`)
-              }}
+              onDeleteFields={deleteFieldsById}
             />
           )}
         </div>
@@ -845,6 +879,30 @@ export default function WizardEditor({
           </div>
         )}
       </div>
+
+      {orphanModalOpen && (
+        <OrphanFieldsModal
+          orphanFields={orphanFields}
+          steps={steps}
+          locatedFieldId={locatedFieldId}
+          onLocate={(id) => setLocatedFieldId(id === locatedFieldId ? null : id)}
+          onAddToStep={(fieldId, stepIdx) => { addFieldToStep(stepIdx, fieldId); setLocatedFieldId(null) }}
+          onAddAllToStep={(fieldIds, stepIdx) => {
+            setSteps(prev => prev.map((s, i) => i === stepIdx
+              ? { ...s, fieldIds: [...s.fieldIds, ...fieldIds.filter(id => !s.fieldIds.includes(id))] }
+              : s,
+            ))
+            markDirty()
+            toast.success(`${fieldIds.length} champ${fieldIds.length > 1 ? 's ajoutés' : ' ajouté'}`)
+          }}
+          onDelete={(fieldIds) => {
+            const list = orphanFields.filter(f => fieldIds.includes(f.id)).map(f => `• ${f.tooltip || f.label || f.type}`).join('\n')
+            if (!confirm(`Supprimer définitivement ${fieldIds.length === 1 ? 'ce champ' : `ces ${fieldIds.length} champs`} du PDF ?\n\n${list}`)) return
+            deleteFieldsById(fieldIds)
+          }}
+          onClose={() => { setOrphanModalOpen(false); setLocatedFieldId(null) }}
+        />
+      )}
     </div>
   )
 }
@@ -897,144 +955,8 @@ function StepDetail({
   const usedIds = new Set(step.fieldIds)
   const availableFields = allRecipientFields.filter(f => !usedIds.has(f.id))
 
-  // v2.2.4 — Champs orphelins : présents sur le PDF mais dans AUCUN step du wizard.
-  // Exclut les types auto-fill (signature, fullname, email, etc.) qui n'ont pas
-  // besoin d'apparaître dans le wizard candidat (remplis automatiquement).
-  const allUsedInWizard = new Set<string>()
-  for (const s of allSteps) {
-    for (const fid of s.fieldIds) allUsedInWizard.add(fid)
-  }
-  // v2.2.4 fix v2 — Skip aussi signature/initial : elles sont gérées par les
-  // steps `isSignatureStep` (auto-rendu candidat) et n'apparaissent pas dans
-  // `step.fieldIds` explicitement → faux positifs orphelins.
-  // Garde les fields type=company/title (vraies données saisies par candidat).
-  const AUTO_FILL_TYPES = new Set(['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'])
-  const orphanFields = allRecipientFields.filter(f =>
-    !allUsedInWizard.has(f.id) && !AUTO_FILL_TYPES.has(f.type)
-  )
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* v2.2.4 — Bandeau "champs orphelins" : présents sur le PDF mais dans aucun step du wizard.
-          Permet d'ajouter en masse au step actif d'un seul clic. */}
-      {orphanFields.length > 0 && (
-        <div style={{
-          padding: '10px 12px',
-          background: 'rgba(234,179,8,0.10)',
-          border: '1px solid rgba(234,179,8,0.40)',
-          borderRadius: 10,
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
-          flexWrap: 'wrap',
-          fontSize: 12,
-          color: '#A16207',
-          lineHeight: 1.5,
-        }}>
-          <span style={{ fontSize: 16, marginTop: 2 }}>⚠️</span>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div>
-              <strong>{orphanFields.length} champ{orphanFields.length > 1 ? 's' : ''}</strong> du PDF
-              {orphanFields.length > 1 ? ' sont présents' : ' est présent'} mais
-              {orphanFields.length > 1 ? ' n\'apparaissent' : ' n\'apparaît'} dans <strong>aucune étape</strong> du wizard candidat.
-            </div>
-            {/* v2.2.4 — Liste des orphelins (max 5 affichés, "...+N autres" si plus). */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-              {orphanFields.slice(0, 5).map(f => {
-                const lbl = (f.tooltip || '').trim() || (f.label || '').trim() || `(${f.type})`
-                const lblShort = lbl.length > 28 ? lbl.slice(0, 27) + '…' : lbl
-                // v2.2.4 — Diagnostic complet pour debug : pourquoi le field n'est pas visible ?
-                const isHidden = f.metadata?.hidden === true
-                const xPct = Math.round((f.x || 0) * 100)
-                const yPct = Math.round((f.y || 0) * 100)
-                const wPct = Math.round((f.width || 0) * 100)
-                const hPct = Math.round((f.height || 0) * 100)
-                const tooltip = [
-                  `Type: ${f.type}`,
-                  `Page: ${f.page || 1}`,
-                  `Position: x=${xPct}% y=${yPct}% taille ${wPct}×${hPct}%`,
-                  `Rôle (recipientOrder): ${f.recipientOrder ?? '?'}`,
-                  f.wizardSection ? `Section: ${f.wizardSection}` : null,
-                  isHidden ? '⚠️ metadata.hidden=true (caché du rendu)' : null,
-                  `ID: ${f.id}`,
-                ].filter(Boolean).join('\n')
-                return (
-                  <span
-                    key={f.id}
-                    title={tooltip}
-                    style={{
-                      padding: '2px 8px',
-                      background: isHidden ? 'rgba(220,38,38,0.15)' : 'rgba(234,179,8,0.18)',
-                      border: `1px solid ${isHidden ? 'rgba(220,38,38,0.5)' : 'rgba(234,179,8,0.40)'}`,
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: isHidden ? '#7F1D1D' : '#713F12',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <span style={{ fontSize: 9, opacity: 0.7 }}>{f.type}</span>
-                    {lblShort}
-                    {isHidden && <span style={{ fontSize: 9, marginLeft: 2 }}>🚫hidden</span>}
-                  </span>
-                )
-              })}
-              {orphanFields.length > 5 && (
-                <span style={{ fontSize: 11, fontStyle: 'italic', color: '#A16207', alignSelf: 'center' }}>
-                  +{orphanFields.length - 5} autre{orphanFields.length - 5 > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => {
-                // Ajoute tous les orphelins au step courant
-                const newFieldIds = [...step.fieldIds, ...orphanFields.map(f => f.id)]
-                onUpdateStep({ fieldIds: newFieldIds })
-                toast.success(`${orphanFields.length} champ${orphanFields.length > 1 ? 's ajoutés' : ' ajouté'} à cette étape`)
-              }}
-              style={{
-                padding: '5px 12px',
-                fontSize: 11.5, fontWeight: 700,
-                background: '#EAB308', color: '#1C1A14',
-                border: 'none', borderRadius: 6, cursor: 'pointer',
-                fontFamily: 'inherit', flexShrink: 0,
-              }}
-              title="Ajoute tous les champs orphelins à cette étape (tu pourras réordonner ensuite)"
-            >
-              + Ajouter à cette étape
-            </button>
-            {/* v2.2.4 — Bouton supprimer définitivement (du PDF entièrement) */}
-            {onDeleteFields && (
-              <button
-                type="button"
-                onClick={() => {
-                  const list = orphanFields.map(f => `• ${f.tooltip || f.label || f.type}`).join('\n')
-                  if (!confirm(`Supprimer définitivement ces ${orphanFields.length} champ${orphanFields.length > 1 ? 's' : ''} du PDF ?\n\n${list}\n\nCette action est annulable avec Cmd+Z après enregistrement.`)) return
-                  onDeleteFields(orphanFields.map(f => f.id))
-                }}
-                style={{
-                  padding: '5px 12px',
-                  fontSize: 11.5, fontWeight: 700,
-                  background: 'var(--card)',
-                  color: '#DC2626',
-                  border: '1px solid #DC2626',
-                  borderRadius: 6, cursor: 'pointer',
-                  fontFamily: 'inherit', flexShrink: 0,
-                }}
-                title="Supprimer ces champs du PDF (irréversible sauf annulation immédiate)"
-              >
-                🗑 Supprimer
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Step controls */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <button onClick={() => onMoveStep(-1)} disabled={stepIdx === 0} className="neo-btn-ghost neo-btn-sm" title="Monter">
@@ -2235,4 +2157,279 @@ const editInputStyle: React.CSSProperties = {
   outline: 'none',
   boxSizing: 'border-box',
   colorScheme: 'light dark',
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// OrphanFieldsModal — modal champs orphelins
+// ───────────────────────────────────────────────────────────────────────
+interface OrphanFieldsModalProps {
+  orphanFields: SignField[]
+  steps: WizardStep[]
+  locatedFieldId: string | null
+  onLocate: (id: string) => void
+  onAddToStep: (fieldId: string, stepIdx: number) => void
+  onAddAllToStep: (fieldIds: string[], stepIdx: number) => void
+  onDelete: (fieldIds: string[]) => void
+  onClose: () => void
+}
+
+function OrphanFieldsModal({
+  orphanFields, steps, locatedFieldId,
+  onLocate, onAddToStep, onAddAllToStep, onDelete, onClose,
+}: OrphanFieldsModalProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [targetStepIdx, setTargetStepIdx] = useState<number>(0)
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allSelected = orphanFields.length > 0 && selectedIds.size === orphanFields.length
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set())
+    else setSelectedIds(new Set(orphanFields.map(f => f.id)))
+  }
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: 'min(680px, 95vw)',
+          maxHeight: '85vh',
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          fontFamily: 'inherit',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '16px 20px 14px',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
+        }}>
+          <AlertTriangle size={16} color="#A16207" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>
+              Champs orphelins ({orphanFields.length})
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              Présents dans le PDF mais dans aucune étape du wizard — le candidat ne les verra pas
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: '1px solid var(--border)', borderRadius: 6,
+              cursor: 'pointer', color: 'var(--muted)',
+            }}
+          >
+            <XIcon size={14} />
+          </button>
+        </div>
+
+        {/* List */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
+          {/* Select-all row */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '6px 20px', borderBottom: '1px solid var(--border)',
+          }}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              style={{ width: 14, height: 14, accentColor: '#EAB308', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>
+              {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </span>
+          </div>
+
+          {orphanFields.map(f => {
+            const lbl = (f.tooltip || '').trim() || (f.label || '').trim() || `(${f.type})`
+            const isHidden = f.metadata?.hidden === true
+            const isLocated = locatedFieldId === f.id
+            const isChecked = selectedIds.has(f.id)
+            return (
+              <div
+                key={f.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 20px',
+                  background: isLocated ? 'rgba(234,179,8,0.10)' : 'transparent',
+                  borderLeft: isLocated ? '3px solid #EAB308' : '3px solid transparent',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => toggleSelect(f.id)}
+                  style={{ width: 14, height: 14, accentColor: '#EAB308', cursor: 'pointer', flexShrink: 0 }}
+                />
+                {/* Field info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700,
+                      background: isHidden ? 'rgba(220,38,38,0.12)' : 'rgba(234,179,8,0.15)',
+                      color: isHidden ? '#7F1D1D' : '#A16207',
+                      border: `1px solid ${isHidden ? 'rgba(220,38,38,0.35)' : 'rgba(234,179,8,0.35)'}`,
+                      padding: '1px 6px', borderRadius: 999,
+                    }}>
+                      {f.type}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500 }}>
+                      {lbl}
+                    </span>
+                    {isHidden && (
+                      <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600 }}>🚫 caché</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                    Page {f.page || 1} · x={Math.round((f.x || 0) * 100)}% y={Math.round((f.y || 0) * 100)}%
+                    {f.wizardSection && ` · section: ${f.wizardSection}`}
+                  </div>
+                </div>
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => onLocate(f.id)}
+                    style={{
+                      padding: '3px 8px', fontSize: 11, fontWeight: 600,
+                      background: isLocated ? 'rgba(234,179,8,0.20)' : 'var(--surface-2, #F3F4F6)',
+                      border: `1px solid ${isLocated ? 'rgba(234,179,8,0.50)' : 'var(--border)'}`,
+                      color: isLocated ? '#A16207' : 'var(--muted)',
+                      borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                    title="Afficher les infos de position du champ"
+                  >
+                    Localiser
+                  </button>
+                  <select
+                    value={targetStepIdx}
+                    onChange={e => setTargetStepIdx(Number(e.target.value))}
+                    onClick={e => e.stopPropagation()}
+                    style={{
+                      fontSize: 11, padding: '3px 5px',
+                      background: 'var(--card)', color: 'var(--foreground)',
+                      border: '1px solid var(--border)', borderRadius: 5,
+                      fontFamily: 'inherit', cursor: 'pointer', maxWidth: 130,
+                    }}
+                  >
+                    {steps.map((s, si) => (
+                      <option key={s.id} value={si}>Étape {si + 1} · {s.title.slice(0, 18)}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => onAddToStep(f.id, targetStepIdx)}
+                    style={{
+                      padding: '3px 8px', fontSize: 11, fontWeight: 700,
+                      background: '#EAB308', color: '#1C1A14',
+                      border: 'none', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                    title="Ajouter ce champ à l'étape sélectionnée"
+                  >
+                    + Ajouter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete([f.id])}
+                    style={{
+                      padding: '3px 6px', fontSize: 11,
+                      background: 'transparent', color: '#DC2626',
+                      border: '1px solid rgba(220,38,38,0.35)',
+                      borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center',
+                    }}
+                    title="Supprimer définitivement ce champ du PDF"
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer (bulk actions) */}
+        {selectedIds.size > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 20px',
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface-2, #F9FAFB)',
+            flexShrink: 0, flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--foreground)', flex: 1 }}>
+              {selectedIds.size} champ{selectedIds.size > 1 ? 's sélectionnés' : ' sélectionné'}
+            </span>
+            <select
+              value={targetStepIdx}
+              onChange={e => setTargetStepIdx(Number(e.target.value))}
+              style={{
+                fontSize: 12, padding: '5px 8px',
+                background: 'var(--card)', color: 'var(--foreground)',
+                border: '1px solid var(--border)', borderRadius: 6,
+                fontFamily: 'inherit', cursor: 'pointer',
+              }}
+            >
+              {steps.map((s, si) => (
+                <option key={s.id} value={si}>Étape {si + 1} · {s.title.slice(0, 20)}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => onAddAllToStep(Array.from(selectedIds), targetStepIdx)}
+              style={{
+                padding: '5px 14px', fontSize: 12.5, fontWeight: 700,
+                background: '#EAB308', color: '#1C1A14',
+                border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              + Ajouter {selectedIds.size} à l&apos;étape
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(Array.from(selectedIds))}
+              style={{
+                padding: '5px 12px', fontSize: 12.5, fontWeight: 700,
+                background: 'transparent', color: '#DC2626',
+                border: '1px solid rgba(220,38,38,0.40)',
+                borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              <Trash2 size={13} />
+              Supprimer {selectedIds.size}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  )
 }

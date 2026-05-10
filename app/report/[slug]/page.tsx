@@ -175,8 +175,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         })
         .catch(() => setValues(buildAutoFillForWeek()))
     }
-    // Reset signature pour la nouvelle semaine
+    // Reset signature + état soumission pour la nouvelle semaine
     setSignatureDataUrl(null)
+    setSubmitted(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart, state, slug])
 

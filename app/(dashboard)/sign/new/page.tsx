@@ -20,6 +20,7 @@ import RecipientsGroup from '@/components/sign/RecipientsGroup'
 import AdvancedOptions, { DEFAULT_OPTIONS, type AdvancedOptionsValue } from '@/components/sign/AdvancedOptions'
 import type { SignCategory, SignDocument, SignTemplate } from '@/lib/sign/types'
 import { CATEGORY_LABELS, RECIPIENT_COLORS } from '@/lib/sign/types'
+import { looksLikeCompanyField } from '@/lib/sign/field-helpers'
 import { Edit3 } from 'lucide-react'
 
 export default function SignNewPageWrapper() {
@@ -67,9 +68,9 @@ function SignNewPage() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // ── Charge templates ──
+  // ── Charge templates (kind='report' exclus — réservés aux Rapports) ──
   useEffect(() => {
-    fetch('/api/sign/templates').then(r => r.json()).then(d => setTemplates(d.templates || [])).catch(() => {})
+    fetch('/api/sign/templates').then(r => r.json()).then(d => setTemplates((d.templates || []).filter((t: SignTemplate) => t.kind !== 'report'))).catch(() => {})
   }, [])
 
   // ── Pré-fill candidat depuis query param ──
@@ -209,24 +210,19 @@ function SignNewPage() {
 
   const isTemplateLocked = !!selectedTemplate
 
-  // v2.2.4 — Détecte si le template/document contient un field destiné à
-  // recevoir le nom d'une société cliente. Détection permissive :
-  //   - type === 'company' (cas idéal)
-  //   - OU type 'title'/'text' avec tooltip/label matchant entreprise/société/client/raison sociale
-  // Si oui → exige que l'admin renseigne `advanced.companyName` avant l'envoi.
+  // v2.2.4 — Détecte si le template sélectionné contient un field destiné à
+  // recevoir le nom d'une société cliente (type=company ou label/tooltip matchant).
+  // Basé sur selectedTemplate uniquement (pas les docs manuels) : le companyName
+  // n'auto-remplit les champs que quand un template est actif.
   const hasCompanyField = useMemo(() => {
-    const re = /(entreprise|soci[ée]t[ée]|raison\s*sociale|nom\s*du\s*client|cliente)/i
-    for (const d of documents) {
+    if (!selectedTemplate) return false
+    for (const d of selectedTemplate.documents) {
       for (const f of (d.fields || [])) {
-        if (f.type === 'company') return true
-        if ((f.type === 'title' || f.type === 'text')
-            && re.test(`${f.tooltip || ''} ${f.label || ''}`)) {
-          return true
-        }
+        if (looksLikeCompanyField(f)) return true
       }
     }
     return false
-  }, [documents])
+  }, [selectedTemplate])
 
   // ── Recipients actions (RecipientsGroup gère ajout/suppression/réorga via drag&drop) ──
 
