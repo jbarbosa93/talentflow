@@ -2275,101 +2275,151 @@ function OrphanFieldsModal({
               <div
                 key={f.id}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 20px',
-                  background: isLocated ? 'rgba(234,179,8,0.10)' : 'transparent',
                   borderLeft: isLocated ? '3px solid #EAB308' : '3px solid transparent',
+                  background: isLocated ? 'rgba(234,179,8,0.07)' : 'transparent',
                   transition: 'background 0.15s',
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleSelect(f.id)}
-                  style={{ width: 14, height: 14, accentColor: '#EAB308', cursor: 'pointer', flexShrink: 0 }}
-                />
-                {/* Field info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700,
-                      background: isHidden ? 'rgba(220,38,38,0.12)' : 'rgba(234,179,8,0.15)',
-                      color: isHidden ? '#7F1D1D' : '#A16207',
-                      border: `1px solid ${isHidden ? 'rgba(220,38,38,0.35)' : 'rgba(234,179,8,0.35)'}`,
-                      padding: '1px 6px', borderRadius: 999,
-                    }}>
-                      {f.type}
-                    </span>
-                    <span style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500 }}>
-                      {lbl}
-                    </span>
-                    {isHidden && (
-                      <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600 }}>🚫 caché</span>
-                    )}
+                {/* Main row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 20px' }}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleSelect(f.id)}
+                    style={{ width: 14, height: 14, accentColor: '#EAB308', cursor: 'pointer', flexShrink: 0 }}
+                  />
+                  {/* Field info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        background: isHidden ? 'rgba(220,38,38,0.12)' : 'rgba(234,179,8,0.15)',
+                        color: isHidden ? '#7F1D1D' : '#A16207',
+                        border: `1px solid ${isHidden ? 'rgba(220,38,38,0.35)' : 'rgba(234,179,8,0.35)'}`,
+                        padding: '1px 6px', borderRadius: 999,
+                      }}>
+                        {f.type}
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500 }}>
+                        {lbl}
+                      </span>
+                      {isHidden && (
+                        <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600 }}>🚫 caché</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                      Page {f.page || 1} · x={Math.round((f.x || 0) * 100)}% y={Math.round((f.y || 0) * 100)}%
+                      {f.wizardSection && ` · section: ${f.wizardSection}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                    Page {f.page || 1} · x={Math.round((f.x || 0) * 100)}% y={Math.round((f.y || 0) * 100)}%
-                    {f.wizardSection && ` · section: ${f.wizardSection}`}
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 5, flexShrink: 0, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => onLocate(f.id)}
+                      style={{
+                        padding: '3px 8px', fontSize: 11, fontWeight: 600,
+                        background: isLocated ? '#EAB308' : 'var(--surface-2, #F3F4F6)',
+                        border: `1px solid ${isLocated ? '#CA9B00' : 'var(--border)'}`,
+                        color: isLocated ? '#1C1A14' : 'var(--muted)',
+                        borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                      title="Afficher les détails techniques du champ"
+                    >
+                      {isLocated ? '▼ Infos' : '▶ Localiser'}
+                    </button>
+                    <select
+                      value={targetStepIdx}
+                      onChange={e => setTargetStepIdx(Number(e.target.value))}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        fontSize: 11, padding: '3px 24px 3px 6px',
+                        background: 'var(--card)', color: 'var(--foreground)',
+                        border: '1px solid var(--border)', borderRadius: 5,
+                        fontFamily: 'inherit', cursor: 'pointer', maxWidth: 140,
+                      }}
+                    >
+                      {steps.map((s, si) => (
+                        <option key={s.id} value={si}>Étape {si + 1} · {s.title.slice(0, 18)}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => onAddToStep(f.id, targetStepIdx)}
+                      style={{
+                        padding: '3px 8px', fontSize: 11, fontWeight: 700,
+                        background: '#EAB308', color: '#1C1A14',
+                        border: 'none', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                      title="Ajouter ce champ à l'étape sélectionnée"
+                    >
+                      + Ajouter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete([f.id])}
+                      style={{
+                        padding: '3px 6px', fontSize: 11,
+                        background: 'transparent', color: '#DC2626',
+                        border: '1px solid rgba(220,38,38,0.35)',
+                        borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
+                        display: 'flex', alignItems: 'center',
+                      }}
+                      title="Supprimer définitivement ce champ du PDF"
+                    >
+                      <Trash2 size={11} />
+                    </button>
                   </div>
                 </div>
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                  <button
-                    type="button"
-                    onClick={() => onLocate(f.id)}
-                    style={{
-                      padding: '3px 8px', fontSize: 11, fontWeight: 600,
-                      background: isLocated ? 'rgba(234,179,8,0.20)' : 'var(--surface-2, #F3F4F6)',
-                      border: `1px solid ${isLocated ? 'rgba(234,179,8,0.50)' : 'var(--border)'}`,
-                      color: isLocated ? '#A16207' : 'var(--muted)',
-                      borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                    title="Afficher les infos de position du champ"
-                  >
-                    Localiser
-                  </button>
-                  <select
-                    value={targetStepIdx}
-                    onChange={e => setTargetStepIdx(Number(e.target.value))}
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                      fontSize: 11, padding: '3px 5px',
-                      background: 'var(--card)', color: 'var(--foreground)',
-                      border: '1px solid var(--border)', borderRadius: 5,
-                      fontFamily: 'inherit', cursor: 'pointer', maxWidth: 130,
-                    }}
-                  >
-                    {steps.map((s, si) => (
-                      <option key={s.id} value={si}>Étape {si + 1} · {s.title.slice(0, 18)}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => onAddToStep(f.id, targetStepIdx)}
-                    style={{
-                      padding: '3px 8px', fontSize: 11, fontWeight: 700,
-                      background: '#EAB308', color: '#1C1A14',
-                      border: 'none', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                    title="Ajouter ce champ à l'étape sélectionnée"
-                  >
-                    + Ajouter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDelete([f.id])}
-                    style={{
-                      padding: '3px 6px', fontSize: 11,
-                      background: 'transparent', color: '#DC2626',
-                      border: '1px solid rgba(220,38,38,0.35)',
-                      borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit',
-                      display: 'flex', alignItems: 'center',
-                    }}
-                    title="Supprimer définitivement ce champ du PDF"
-                  >
-                    <Trash2 size={11} />
-                  </button>
-                </div>
+                {/* Panneau "Localiser" expansible */}
+                {isLocated && (
+                  <div style={{
+                    margin: '0 20px 10px 44px',
+                    padding: '10px 12px',
+                    background: 'rgba(234,179,8,0.10)',
+                    border: '1px solid rgba(234,179,8,0.35)',
+                    borderRadius: 8,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: 'var(--foreground)',
+                    lineHeight: 1.7,
+                  }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '2px 8px' }}>
+                      <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>ID</span>
+                      <span style={{ wordBreak: 'break-all' }}>{f.id}</span>
+                      <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Page</span>
+                      <span>{f.page || 1}</span>
+                      <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Position</span>
+                      <span>x={Math.round((f.x || 0) * 10000) / 100}% · y={Math.round((f.y || 0) * 10000) / 100}%</span>
+                      <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Taille</span>
+                      <span>w={Math.round((f.width || 0) * 10000) / 100}% · h={Math.round((f.height || 0) * 10000) / 100}%</span>
+                      {f.recipientOrder != null && (
+                        <>
+                          <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Destinataire</span>
+                          <span>ordre {f.recipientOrder}</span>
+                        </>
+                      )}
+                      {f.wizardSection && (
+                        <>
+                          <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Section</span>
+                          <span>{f.wizardSection}</span>
+                        </>
+                      )}
+                      {!!f.metadata?.tabType && (
+                        <>
+                          <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>tabType</span>
+                          <span>{String(f.metadata.tabType)}</span>
+                        </>
+                      )}
+                      {f.label && f.label !== lbl && (
+                        <>
+                          <span style={{ color: 'var(--muted)', fontFamily: 'inherit' }}>Label</span>
+                          <span>{f.label}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
