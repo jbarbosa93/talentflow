@@ -1129,9 +1129,8 @@ function SelectedFieldsPanel({
   for (const s of (wizardSteps || [])) {
     for (const fid of s.fieldIds) wizardFieldIds.add(fid)
   }
-  // v2.2.4 fix v2 — Skip signature/initial aussi (gérées par les steps
-  // `isSignatureStep`, n'apparaissent pas dans fieldIds → faux positifs orphelins).
-  const isAutoFillType = (t: string) => ['firstname', 'lastname', 'fullname', 'email', 'signature', 'initial'].includes(t)
+  // Auto-fill types : prénom/nom/email/société/fonction — jamais orphelins (toujours dans step auto-fill)
+  const isAutoFillType = (t: string) => ['firstname', 'lastname', 'fullname', 'email', 'company', 'title'].includes(t)
 
   // Si 1 seul champ → édition complète
   if (!isMulti) {
@@ -1139,15 +1138,29 @@ function SelectedFieldsPanel({
     if (!f) return null
     const isText = f.type === 'text'
     const isInGroup = !!f.groupId
-    // v2.2.4 — Field est orphelin du wizard ? (pas auto-fill, pas dans un step)
+    // Field est orphelin du wizard ? (pas auto-fill, pas dans un step)
     const isOrphan = !isAutoFillType(f.type) && !wizardFieldIds.has(f.id) && (wizardSteps || []).length > 0
     const addToFirstMatchingStep = () => {
       if (!setWizardSteps) return
       const order = f.recipientOrder ?? 1
+      const isSignatureField = f.type === 'signature' || f.type === 'initial'
       let addedToTitle: string | null = null
       setWizardSteps(prev => {
         const next = prev.slice()
-        const idx = next.findIndex(s => (s.recipientOrder ?? 1) === order)
+        let idx = -1
+        if (isSignatureField) {
+          // Signature/Paraphe → step isSignatureStep du rôle en priorité, sinon dernier step du rôle
+          for (let i = next.length - 1; i >= 0; i--) {
+            if ((next[i].recipientOrder ?? 1) === order && next[i].isSignatureStep) { idx = i; break }
+          }
+          if (idx < 0) {
+            for (let i = next.length - 1; i >= 0; i--) {
+              if ((next[i].recipientOrder ?? 1) === order) { idx = i; break }
+            }
+          }
+        } else {
+          idx = next.findIndex(s => (s.recipientOrder ?? 1) === order)
+        }
         if (idx < 0) return prev
         if (next[idx].fieldIds.includes(f.id)) return prev
         next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
