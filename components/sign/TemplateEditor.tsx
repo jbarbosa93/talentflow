@@ -1141,33 +1141,44 @@ function SelectedFieldsPanel({
     // Field est orphelin du wizard ? (pas auto-fill, pas dans un step)
     const isOrphan = !isAutoFillType(f.type) && !wizardFieldIds.has(f.id) && (wizardSteps || []).length > 0
     const addToFirstMatchingStep = () => {
-      if (!setWizardSteps) return
+      if (!setWizardSteps || !wizardSteps) return
       const order = f.recipientOrder ?? 1
       const isSignatureField = f.type === 'signature' || f.type === 'initial'
-      let addedToTitle: string | null = null
+      const currentSteps = wizardSteps
+
+      // Calcul du step cible sur le state ACTUEL (avant setWizardSteps)
+      let idx = -1
+      if (isSignatureField) {
+        for (let i = currentSteps.length - 1; i >= 0; i--) {
+          if ((currentSteps[i].recipientOrder ?? 1) === order && currentSteps[i].isSignatureStep) { idx = i; break }
+        }
+        if (idx < 0) {
+          for (let i = currentSteps.length - 1; i >= 0; i--) {
+            if ((currentSteps[i].recipientOrder ?? 1) === order) { idx = i; break }
+          }
+        }
+      } else {
+        idx = currentSteps.findIndex(s => (s.recipientOrder ?? 1) === order)
+      }
+
+      if (idx < 0) {
+        toast.error('Aucune étape wizard pour ce rôle — générez d\'abord le wizard en Mode Wizard')
+        return
+      }
+      if (currentSteps[idx].fieldIds.includes(f.id)) {
+        toast.info('Ce champ est déjà dans cette étape')
+        return
+      }
+
+      const stepTitle = currentSteps[idx].title
       setWizardSteps(prev => {
         const next = prev.slice()
-        let idx = -1
-        if (isSignatureField) {
-          // Signature/Paraphe → step isSignatureStep du rôle en priorité, sinon dernier step du rôle
-          for (let i = next.length - 1; i >= 0; i--) {
-            if ((next[i].recipientOrder ?? 1) === order && next[i].isSignatureStep) { idx = i; break }
-          }
-          if (idx < 0) {
-            for (let i = next.length - 1; i >= 0; i--) {
-              if ((next[i].recipientOrder ?? 1) === order) { idx = i; break }
-            }
-          }
-        } else {
-          idx = next.findIndex(s => (s.recipientOrder ?? 1) === order)
+        if (next[idx] && !next[idx].fieldIds.includes(f.id)) {
+          next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
         }
-        if (idx < 0) return prev
-        if (next[idx].fieldIds.includes(f.id)) return prev
-        next[idx] = { ...next[idx], fieldIds: [...next[idx].fieldIds, f.id] }
-        addedToTitle = next[idx].title
         return next
       })
-      if (addedToTitle) toast.success(`Ajouté à l'étape « ${addedToTitle} »`)
+      toast.success(`Ajouté à l'étape « ${stepTitle} »`)
     }
     return (
       <div className="neo-card-soft" style={{ padding: 14 }}>
