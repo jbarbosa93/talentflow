@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.6.1'
+export const APP_VERSION = '2.6.2'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.6.2 — Blocage jours hors mission + jours déjà déclarés ailleurs
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.6.2',
+    date: '2026-05-11',
+    label: 'Semaines + jours bloqués selon dates mission et autres rapports',
+    features: [
+      'LIMITATION WEEKSELECTOR — Les semaines AVANT mission_start_date et APRÈS mission_end_date sont masquées du sélecteur côté candidat. Si la semaine courante tombe hors fenêtre après changement d\'entreprise, auto-reset vers la semaine en cours.',
+      'BLOCAGE JOURS HORS MISSION — Quand le candidat sélectionne une semaine qui chevauche partiellement la mission (ex : mission débute mercredi), les fields lundi-mardi sont grisés avec mention "Hors mission" + cadenas. Les jours après mission_end_date également (vendredi grisé si mission finit jeudi).',
+      'BLOCAGE JOURS DÉJÀ DÉCLARÉS — Si le candidat a déjà soumis un rapport validé pour une AUTRE entreprise sur la même semaine, les jours déjà remplis (heures > 0) sont grisés sur le 2ᵉ rapport avec mention "Chez {entreprise}". Évite la double facturation.',
+      'NOUVEAU HELPER lib/report/day-blocking.ts — buildBlockedDaysForWeek + buildBlockedFieldsMap + getDeclaredDaysFromValues (mapping field → jour via wizardSection).',
+      'NOUVELLE ROUTE GET /api/reports/[slug]/declared-days?week=...&exclude=clientId — Renvoie pour chaque autre entreprise du lien la liste des jours ISO déjà déclarés sur status validé (candidate_signed / client_signed / completed). Côté front : fetch automatique au changement de semaine + entreprise.',
+      'PublicFieldsLayer prop blockedFields Map<fieldId, reason> — Render read-only grisé hachuré avec tooltip explicatif. Exclu de la validation areAllRequiredFieldsFilled (le candidat peut soumettre sans remplir un jour bloqué).',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.6.1 — Entreprises : responsable mission + tel + dates + section "Mes missions"
   // ─────────────────────────────────────────────────────────────────────

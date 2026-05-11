@@ -55,6 +55,9 @@ interface Props {
   currentFieldId?: string | null
   /** v2.2.0 — registre des refs pour permettre au parent de scroller au field. */
   registerFieldEl?: (fieldId: string, el: HTMLDivElement | null) => void
+  /** v2.6.2 — Map fieldId → raison de blocage (hors mission / déjà déclaré ailleurs).
+   *  Le field est rendu grisé/read-only avec tooltip explicatif. */
+  blockedFields?: Map<string, { type: 'out_of_mission' | 'already_declared'; message: string; clientName?: string }>
 }
 
 export default function PublicFieldsLayer({
@@ -62,6 +65,7 @@ export default function PublicFieldsLayer({
   signatureDataUrl, onRequestSignature, recipientColor, autoFill,
   currentFieldId, registerFieldEl,
   currentRecipientOrder, previousSignerNames,
+  blockedFields,
 }: Props) {
   const visible = fields.filter(f => f.page === page && !f.metadata?.hidden)
   const curOrder = currentRecipientOrder ?? 1
@@ -84,6 +88,9 @@ export default function PublicFieldsLayer({
         const belongsToFuture = fieldOrder > curOrder
         if (belongsToFuture) return null  // ne rend pas les fields des futurs signers
         const filledBy = previousSignerNames?.[f.id]
+        // v2.6.2 — Field bloqué (hors mission / déjà déclaré chez autre entreprise)
+        const blockReason = blockedFields?.get(f.id)
+        const isBlocked = !!blockReason && belongsToCurrent
         const wrapperStyle: React.CSSProperties = {
           position: 'absolute',
           left: x, top: y, width: w, height: h,
@@ -94,30 +101,41 @@ export default function PublicFieldsLayer({
           animation: isCurrent ? 'tf-sign-pulse 1.5s ease-in-out infinite' : undefined,
           zIndex: isCurrent ? 5 : 1,
           // v2.2.3 — Read-only fields des signers précédents : opacity légèrement réduite
-          opacity: belongsToPrevious ? 0.95 : 1,
-          pointerEvents: belongsToPrevious ? 'none' : 'auto',
+          // v2.6.2 — Fields bloqués : opacity réduite + curseur not-allowed
+          opacity: belongsToPrevious ? 0.95 : isBlocked ? 0.55 : 1,
+          pointerEvents: belongsToPrevious || isBlocked ? 'none' : 'auto',
         }
+        const titleText = belongsToPrevious && filledBy
+          ? `Rempli par ${filledBy}`
+          : isBlocked
+            ? blockReason!.message
+            : undefined
         return (
           <div
             key={f.id}
             ref={el => { registerFieldEl?.(f.id, el) }}
             style={wrapperStyle}
             data-field-id={f.id}
-            title={belongsToPrevious && filledBy ? `Rempli par ${filledBy}` : undefined}
+            data-blocked={isBlocked || undefined}
+            title={titleText}
           >
-            <FieldInput
-              field={f}
-              value={values[f.id]}
-              onChange={v => belongsToCurrent ? onValueChange(f.id, v) : undefined}
-              signatureDataUrl={signatureDataUrl}
-              onRequestSignature={onRequestSignature}
-              recipientColor={recipientColor}
-              autoFill={autoFill}
-              widthPx={w}
-              heightPx={h}
-              isCurrent={isCurrent}
-              forceReadOnly={belongsToPrevious}
-            />
+            {isBlocked ? (
+              <BlockedFieldDisplay reason={blockReason!} widthPx={w} heightPx={h} />
+            ) : (
+              <FieldInput
+                field={f}
+                value={values[f.id]}
+                onChange={v => belongsToCurrent ? onValueChange(f.id, v) : undefined}
+                signatureDataUrl={signatureDataUrl}
+                onRequestSignature={onRequestSignature}
+                recipientColor={recipientColor}
+                autoFill={autoFill}
+                widthPx={w}
+                heightPx={h}
+                isCurrent={isCurrent}
+                forceReadOnly={belongsToPrevious}
+              />
+            )}
           </div>
         )
       })}
@@ -500,6 +518,49 @@ function FieldInput({
 // ─── FocusTooltipBubble ─────────────────────────────────────────
 // Bulle d'aide ancrée au-dessus du champ, affichée tant que le champ a le focus
 // (ou est cliqué/tapé). Pas d'icône ⓘ visible — invisible jusqu'à interaction.
+// v2.6.2 — Affichage d'un field bloqué (hors mission / déjà déclaré ailleurs)
+// Remplace l'input par un overlay grisé avec hachures discrètes + petit icône cadenas.
+function BlockedFieldDisplay({
+  reason, widthPx, heightPx,
+}: {
+  reason: { type: 'out_of_mission' | 'already_declared'; message: string; clientName?: string }
+  widthPx: number
+  heightPx: number
+}) {
+  // Pattern hachuré pour faire ressortir le blocage (similaire à un "disabled" visuel)
+  const stripes = 'repeating-linear-gradient(45deg, rgba(0,0,0,0.04) 0 6px, rgba(0,0,0,0.08) 6px 12px)'
+  const small = Math.min(widthPx, heightPx) < 26
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      background: stripes,
+      border: '1px dashed #9CA3AF',
+      borderRadius: 3,
+      display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      cursor: 'not-allowed',
+      overflow: 'hidden',
+    }}>
+      {!small && (
+        <span style={{
+          fontSize: Math.max(8, Math.min(10, heightPx * 0.42)),
+          color: '#6B7280',
+          fontWeight: 600,
+          padding: '0 4px',
+          textAlign: 'center',
+          lineHeight: 1.15,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '95%',
+        }}>
+          🔒 {reason.type === 'out_of_mission' ? 'Hors mission' : `Chez ${reason.clientName || 'autre'}`}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function FocusTooltipBubble({ text }: { text: string }) {
   return (
     <div
@@ -584,11 +645,15 @@ export function areAllRequiredFieldsFilled(
   values: Record<string, unknown>,
   signatureDataUrl: string | null,
   autoFill: Props['autoFill'],
+  /** v2.6.2 — Set des fieldIds bloqués (hors mission / déjà déclarés). Exclus de la validation
+   *  car ils ne peuvent pas être remplis volontairement par le candidat. */
+  blockedFieldIds?: Set<string>,
 ): boolean {
   const requiredFields = fields.filter(f =>
     f.required &&
     !f.metadata?.hidden &&
-    f.type !== 'annotation'
+    f.type !== 'annotation' &&
+    !(blockedFieldIds?.has(f.id))
   )
   // Aussi : tous les champs signature/initial doivent avoir une signature globale
   const hasSignatureField = fields.some(f =>

@@ -25,12 +25,25 @@ interface Props {
   submissions?: WeekSubmissionInfo[]
   /** Nombre de semaines à afficher (défaut 8) */
   weekCount?: number
+  /** v2.6.2 — Date début de mission (ISO YYYY-MM-DD). Les semaines AVANT cette date
+   *  sont masquées du sélecteur. NULL = pas de limite basse. */
+  missionStart?: string | null
+  /** v2.6.2 — Date fin de mission (ISO YYYY-MM-DD). Les semaines APRÈS cette date
+   *  sont masquées du sélecteur. NULL = pas de limite haute. */
+  missionEnd?: string | null
 }
 
-export default function WeekSelector({ value, onChange, submissions, weekCount = 8 }: Props) {
+export default function WeekSelector({ value, onChange, submissions, weekCount = 8, missionStart, missionEnd }: Props) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const weeks = listRecentWeeks(weekCount)
+  const allWeeks = listRecentWeeks(weekCount)
+  // v2.6.2 — Filtre les semaines : on garde celles qui chevauchent au moins 1 jour
+  // avec la fenêtre de mission. Si pas de bornes, on garde tout.
+  const weeks = allWeeks.filter(w => {
+    if (missionStart && w.end < missionStart) return false
+    if (missionEnd && w.start > missionEnd) return false
+    return true
+  })
   const submissionByWeek = new Map((submissions || []).map(s => [s.weekStart, s.status]))
   const selected = weeks.find(w => w.start === value) || weeks[0]
   const selectedStatus = submissionByWeek.get(selected?.start || '') || null

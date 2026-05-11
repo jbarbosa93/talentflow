@@ -38,6 +38,7 @@ import {
   getCurrentWeekStart, isoDate, getWeekDates, parseIsoDate,
 } from '@/lib/report/week-helpers'
 import { formatDateChDot } from '@/lib/report/text-format'
+import { buildBlockedDaysForWeek, buildBlockedFieldsMap, type DayBlockReason } from '@/lib/report/day-blocking'
 import {
   getDayOffsetFromSection, dateForDayOfWeek,
 } from '@/lib/sign/field-helpers'
@@ -118,6 +119,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const [activeDocIdx] = useState(0)
   const [scrollToPage, setScrollToPage] = useState<number | undefined>(undefined)
 
+  // v2.6.2 — Jours déjà déclarés sur d'autres rapports validés (autres entreprises)
+  const [declaredByOthers, setDeclaredByOthers] = useState<{ clientName: string; daysIso: string[] }[]>([])
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 900)
     check()
@@ -163,6 +167,44 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     if (wizardEnabled && stepsForCandidat.length > 0 && isMobile) setViewMode('wizard')
     else setViewMode('document')
   }, [state, data, isMobile])
+
+  // v2.6.2 — Auto-correction weekStart si hors fenêtre mission après changement d'entreprise
+  useEffect(() => {
+    const start = selectedClient?.mission_start_date || null
+    const end = selectedClient?.mission_end_date || null
+    if (!start && !end) return
+    const weekEndIso = (() => {
+      const d = new Date(weekStart + 'T00:00:00')
+      d.setDate(d.getDate() + 6)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    })()
+    const beforeMission = !!(start && weekEndIso < start)
+    const afterMission  = !!(end && weekStart > end)
+    if (!beforeMission && !afterMission) return
+    // Tombée hors fenêtre → repositionner sur la semaine courante ou la 1ʳᵉ valide
+    const fallback = isoDate(getCurrentWeekStart())
+    setWeekStart(fallback)
+  }, [selectedClient, weekStart])
+
+  // v2.6.2 — Fetch jours déclarés ailleurs (étape D) à chaque changement semaine+entreprise
+  useEffect(() => {
+    if (state !== 'ok') { setDeclaredByOthers([]); return }
+    if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) { setDeclaredByOthers([]); return }
+    const exclude = selectedClient?.id || ''
+    const url = `/api/reports/${slug}/declared-days?week=${weekStart}${exclude ? `&exclude=${exclude}` : ''}`
+    let cancelled = false
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then((d) => {
+        if (cancelled || !d || !Array.isArray(d.byClient)) return
+        setDeclaredByOthers(d.byClient.map((c: any) => ({
+          clientName: c.client_name || 'Autre entreprise',
+          daysIso: Array.isArray(c.daysIso) ? c.daysIso : [],
+        })))
+      })
+      .catch(() => { if (!cancelled) setDeclaredByOthers([]) })
+    return () => { cancelled = true }
+  }, [slug, state, weekStart, selectedClient])
 
   // ─── Find existing submission for selected week + selected entreprise ─
   // v2.5.0 — Multi-entreprise même semaine : on cherche une soumission SCOPÉE
@@ -769,8 +811,27 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
   const wizardStepsForCandidat = (data.wizard?.steps || []).filter(s => (s.recipientOrder ?? 1) === 1)
   const wizardAvailable = (data.wizard?.enabled !== false) && wizardStepsForCandidat.length > 0
 
+  // v2.6.2 — Map des fields bloqués (hors mission / déjà déclarés ailleurs)
+  const weekDaysIso = [0, 1, 2, 3, 4, 5, 6].map(i => {
+    const d = new Date(weekStart + 'T00:00:00')
+    d.setDate(d.getDate() + i)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
+  const blockedDays = buildBlockedDaysForWeek({
+    weekDaysIso,
+    missionStart: selectedClient?.mission_start_date || null,
+    missionEnd: selectedClient?.mission_end_date || null,
+    declaredByOthers,
+  })
+  const blockedFields = buildBlockedFieldsMap({
+    fields: candidatFields,
+    weekStart,
+    blockedDays,
+  })
+  const blockedFieldIds = new Set(blockedFields.keys())
+
   const canFinalize = !!signatureDataUrl
-    && areAllRequiredFieldsFilled(candidatFields, values, signatureDataUrl, autoFill)
+    && areAllRequiredFieldsFilled(candidatFields, values, signatureDataUrl, autoFill, blockedFieldIds)
 
   const fileUrl = activeDoc
     ? `/api/reports/${slug}/document?path=${encodeURIComponent(activeDoc.storage_path)}`
@@ -842,6 +903,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               value={weekStart}
               onChange={setWeekStart}
               submissions={(data.submissions || []).map(s => ({ weekStart: s.week_start, status: s.status }))}
+              missionStart={selectedClient?.mission_start_date || null}
+              missionEnd={selectedClient?.mission_end_date || null}
             />
           </div>
         )}
@@ -891,6 +954,8 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
             value={weekStart}
             onChange={setWeekStart}
             submissions={(data.submissions || []).map(s => ({ weekStart: s.week_start, status: s.status }))}
+            missionStart={selectedClient?.mission_start_date || null}
+            missionEnd={selectedClient?.mission_end_date || null}
           />
         </div>
       )}
@@ -1053,6 +1118,7 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
                     recipientColor={recipientPalette}
                     autoFill={autoFill}
                     currentRecipientOrder={isLockedWeek ? 99 : 1}
+                    blockedFields={blockedFields}
                   />
                 )}
               />
