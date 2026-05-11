@@ -4,7 +4,7 @@
 // Le CHANGELOG in-app est volontairement condensé par PHASES (1 entrée par thème majeur),
 // pas par patch. Les détails ligne-à-ligne vivent dans CHANGELOG.md (racine du repo).
 
-export const APP_VERSION = '2.4.9'
+export const APP_VERSION = '2.5.0'
 export const APP_ENV: 'beta' | 'production' = 'production'
 export const APP_NAME = 'TalentFlow'
 
@@ -16,6 +16,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  // ─────────────────────────────────────────────────────────────────────
+  // v2.5.0 — Multi-entreprise même semaine + wording post-soumission candidat
+  // ─────────────────────────────────────────────────────────────────────
+  {
+    version: '2.5.0',
+    date: '2026-05-11',
+    label: 'Multi-entreprise réelle : 2 brouillons même semaine si 2 missions distinctes + wording post-soumission "Rapport envoyé" vs "Rapport validé"',
+    features: [
+      'MULTI-ENTREPRISE MÊME SEMAINE — Le candidat peut désormais avoir un rapport ENTREPRISE A (lundi-mardi) ET un rapport ENTREPRISE B (mercredi-vendredi) sur la MÊME semaine. Avant : la route save-draft (POST + GET) ne scopait pas par entreprise → bloquait avec 409 "Semaine déjà rempli" dès qu\'une 2ᵉ entreprise était sélectionnée. Maintenant : save-draft scope sur (link_id, week_start, report_link_client_id). Le UNIQUE constraint DB autorise déjà ce triplet → 2 brouillons distincts coexistent.',
+      'PAGE CANDIDAT — submissionForWeek est calculé désormais sur (week_start + report_link_client_id) au lieu de week_start seul. isLockedWeek est donc local à l\'entreprise sélectionnée. Le useEffect de chargement du draft se redéclenche quand selectedClient change (et pas seulement quand weekStart change) — recharge le bon brouillon par entreprise.',
+      'ROUTE GET save-draft — Accepte un nouveau query param ?client=<report_link_client_id>. Si absent → filtre IS NULL (mode legacy). Si présent → filtre EQ. Le candidat reçoit le brouillon SPÉCIFIQUE à l\'entreprise sélectionnée.',
+      'ROUTE POST save-draft — Accepte report_link_client_id dans le body. Persisté en DB sur la row report_submissions. Le 409 "déjà soumise" devient "déjà soumise pour cette entreprise" — clair côté UX que ça concerne 1 entreprise précise.',
+      'WORDING POST-SOUMISSION CANDIDAT — Le SignWizard affichait "Document signé ! Une copie signée vous a été envoyée par email à votre adresse" après que le candidat ait soumis son rapport — alors qu\'à ce stade, l\'entreprise n\'a pas encore signé. Faux message. Nouvelles props completedTitle + completedSubtitle sur SignWizard, passées depuis /report/[slug] selon le statut :',
+      '  • status=candidate_signed → "Rapport envoyé !" + "Votre rapport a été envoyé à {entreprise} pour validation et signature. Vous serez notifié dès qu\'elle aura signé."',
+      '  • status=completed/client_signed → "Rapport validé !" + "Votre rapport a été validé et signé par l\'entreprise. Une copie vous a été envoyée par email."',
+      'COMPAT — Les props completedTitle/completedSubtitle sont optionnelles. SignWizard utilisé dans Sign classique (/sign/v/[token]) garde le message original "Document signé !" car les props ne sont pas passées.',
+    ],
+  },
   // ─────────────────────────────────────────────────────────────────────
   // v2.4.9 — Renommage "Mappe" → "Général" partout (label UI uniquement)
   // ─────────────────────────────────────────────────────────────────────

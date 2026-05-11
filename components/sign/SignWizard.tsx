@@ -106,6 +106,14 @@ interface Props {
   /** v2.3.x Bug 2 — Label custom du bouton final (par défaut "Terminer la signature").
    *  Ex: "Confirmer et envoyer" pour les rapports. */
   finalizeButtonLabel?: string
+  /** v2.5.0 — Titre custom de l'écran "completed" (par défaut "Document signé !").
+   *  Permet au Rapports candidat d'afficher "Rapport envoyé !" car le doc n'est
+   *  pas encore TOTALEMENT signé (en attente client). */
+  completedTitle?: string
+  /** v2.5.0 — Sous-titre custom de l'écran "completed" (par défaut "Une copie
+   *  signée vous a été envoyée par email…"). Permet au Rapports candidat de
+   *  remplacer par "Une copie a été envoyée à l'entreprise pour validation". */
+  completedSubtitle?: React.ReactNode
 }
 
 export default function SignWizard({
@@ -114,6 +122,7 @@ export default function SignWizard({
   completed, finalizing, onFinalize, onSwitchToDocumentMode, token, forceStepIdx,
   contextData, previousFieldValues, previousSignerNames, previousSignerLabel,
   allDocumentFields, hideRecap, finalizeButtonLabel,
+  completedTitle, completedSubtitle,
 }: Props) {
   // v2.2.3 Pack 1 — Détecte s'il y a des valeurs précédentes à montrer en récap
   const hasPreviousValues = !!previousFieldValues && Object.keys(previousFieldValues).length > 0
@@ -238,11 +247,15 @@ export default function SignWizard({
             fontSize: 26, fontWeight: 400, color: '#1C1A14',
             margin: 0, marginBottom: 12,
           }}>
-            Document signé !
+            {completedTitle || 'Document signé !'}
           </h2>
           <p style={{ fontSize: 14, color: '#6B7280', maxWidth: 380, lineHeight: 1.55, margin: 0 }}>
-            Une copie signée vous a été envoyée par email à <strong>{autoFill.email || 'votre adresse'}</strong>.
-            Vous pouvez fermer cette fenêtre.
+            {completedSubtitle || (
+              <>
+                Une copie signée vous a été envoyée par email à <strong>{autoFill.email || 'votre adresse'}</strong>.
+                Vous pouvez fermer cette fenêtre.
+              </>
+            )}
           </p>
         </div>
       </div>

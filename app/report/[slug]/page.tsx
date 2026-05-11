@@ -162,11 +162,18 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     else setViewMode('document')
   }, [state, data, isMobile])
 
-  // ─── Find existing submission for selected week ─────────────────────
-  const submissionForWeek = useMemo(
-    () => data?.submissions?.find(s => s.week_start === weekStart),
-    [data, weekStart],
-  )
+  // ─── Find existing submission for selected week + selected entreprise ─
+  // v2.5.0 — Multi-entreprise même semaine : on cherche une soumission SCOPÉE
+  // sur (week_start, report_link_client_id). Permet d'avoir 2 rapports sur la
+  // même semaine si le candidat travaille pour 2 entreprises différentes.
+  const submissionForWeek = useMemo(() => {
+    const targetClientId = selectedClient?.id || null
+    return data?.submissions?.find(s => {
+      if (s.week_start !== weekStart) return false
+      const sClientId = (s as any).report_link_client_id || null
+      return sClientId === targetClientId
+    })
+  }, [data, weekStart, selectedClient])
   const isLockedWeek = !!submissionForWeek
     && submissionForWeek.status !== 'draft'
     && submissionForWeek.status !== 'cancelled'
@@ -204,7 +211,9 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
     } catch { /* silent */ }
 
     if (!restoredFromLocal) {
-      fetch(`/api/reports/${slug}/save-draft?week=${weekStart}`)
+      // v2.5.0 — Scope par entreprise (multi-entreprise même semaine possible)
+      const clientParam = selectedClient ? `&client=${selectedClient.id}` : ''
+      fetch(`/api/reports/${slug}/save-draft?week=${weekStart}${clientParam}`)
         .then(r => r.json())
         .then(d => {
           if (d.submission?.field_values) {
@@ -215,11 +224,12 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
         })
         .catch(() => setValues(buildAutoFillForWeek()))
     }
-    // Reset signature + état soumission pour la nouvelle semaine
+    // Reset signature + état soumission pour la nouvelle semaine/entreprise
     setSignatureDataUrl(null)
     setSubmitted(false)
+    // v2.5.0 — Recharge le draft quand l'entreprise change (multi-entreprise même semaine)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, state, slug])
+  }, [weekStart, state, slug, selectedClient?.id])
 
   // ─── Auto-save (localStorage immédiat + DB toutes les 30s) ──────────
   const lastSavedHashRef = useRef<string>('')
@@ -243,13 +253,15 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
           week_start: weekStart,
           week_end: weekDates.end,
           field_values: vals,
+          // v2.5.0 — Scope par entreprise (multi-entreprise même semaine possible)
+          report_link_client_id: selectedClient?.id || null,
         }),
       })
       if (r.ok) setSavedAt(new Date())
     } catch (e) {
       console.warn('[report] save-draft failed', e)
     }
-  }, [slug, weekStart, weekDates.end, isLockedWeek])
+  }, [slug, weekStart, weekDates.end, isLockedWeek, selectedClient])
 
   useEffect(() => {
     if (state !== 'ok' || isLockedWeek) return
@@ -949,6 +961,17 @@ export default function PublicReportPage({ params }: { params: Promise<{ slug: s
               token={slug /* clé sessionStorage pour persistance step */}
               contextData={{ weekStartDate: weekStart }}
               allDocumentFields={activeDoc?.fields || []}
+              // v2.5.0 — Messages adaptés au contexte Rapport (en attente entreprise, pas signé final)
+              completedTitle={
+                submissionForWeek?.status === 'completed' || submissionForWeek?.status === 'client_signed'
+                  ? 'Rapport validé !'
+                  : 'Rapport envoyé !'
+              }
+              completedSubtitle={
+                submissionForWeek?.status === 'completed' || submissionForWeek?.status === 'client_signed'
+                  ? <>Votre rapport a été <strong>validé et signé par l&apos;entreprise</strong>. Une copie vous a été envoyée par email.</>
+                  : <>Votre rapport a été envoyé à <strong>{selectedClient?.client_name || 'l\'entreprise'}</strong> pour validation et signature. Vous serez notifié dès qu&apos;elle aura signé.</>
+              }
             />
           </div>
         ) : activeDoc ? (
